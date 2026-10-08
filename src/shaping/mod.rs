@@ -1,6 +1,7 @@
 mod canvas;
 #[cfg(test)]
 mod canvas_tests;
+pub mod drafting;
 mod note;
 mod response;
 pub mod scratchpad;

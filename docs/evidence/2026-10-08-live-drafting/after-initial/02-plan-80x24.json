@@ -1,0 +1,30 @@
+{
+  "width": 80,
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / scratchpad                                    real model / unsaved  ",
+    "  What brought you here? A problem, hunch, or plan.                             ",
+    "  Scratchpad / Pinstar / 1 note / 1 selected                                    ",
+    "                                  │ Working paper / model             p close   ",
+    "                                  │ From Note 1 / Draft / unconfirmed           ",
+    "     ⇘Note 1┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄⇙  │ Shaped 1 note; skipped 0 blanks.            ",
+    "     ┆I want a graph connecting┆  │ Investigation draft                         ",
+    "     ┆decisions to work.       ┆  │                                             ",
+    "     ┆                         ┆  │ Real model / provisional. Not researched.   ",
+    "     ┆So I can find why we made┆  │ No goal, seed, or approach is confirmed.    ",
+    "     ┆those choices.           ┆  │                                             ",
+    "     ┆                         ┆  │ What we should investigate / proposed       ",
+    "     ┆                         ┆  │                                             ",
+    "     ┆                         ┆  │ Understand which decisions led to each      ",
+    "     ┆                         ┆  │ piece of work and why those decisions       ",
+    "     ┆                         ┆  │ were made, for you.                         ",
+    "     ⇗┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄⇖  │                                             ",
+    "                                  │ Proposed outcome                            ",
+    "                                  │ more below / Tab to read                    ",
+    "                                                                                ",
+    "  Draft / unconfirmed                                                           ",
+    "  n new   e edit   F2 shape   r revise   p close paper   ? help                 ",
+    "                                                                                "
+  ]
+}

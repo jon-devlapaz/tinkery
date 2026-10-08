@@ -19,15 +19,39 @@ def resize(fd, width, height):
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
 
 
-def run(quit_key, workbench=True, width=100, height=30, example=None):
+def run(quit_key, workbench=True, width=100, height=30, example=None, real_draft=False):
     master, slave = os.openpty()
     resize(slave, width, height)
     original = termios.tcgetattr(slave)
     output = bytearray()
     screen = Screen(width, height)
     with tempfile.TemporaryDirectory(prefix="tinkery-smoke-") as directory:
+        arguments = ["--workbench"] if workbench else []
+        if real_draft:
+            skill = Path(directory) / "SKILL.md"
+            skill.write_text("# Seed Me\n### Shape the working draft\nPreserve intention; proposals are not decisions.\n### Size gate\n")
+            host = Path(directory) / "pi"
+            host.write_text('''#!/usr/bin/env python3
+import json, os, sys, time
+assert all(flag in sys.argv for flag in ['--no-session', '--no-tools', '--no-extensions', '--no-context-files', '--no-mcp'])
+assert 'PI_SESSION_FILE' not in os.environ
+request = json.load(sys.stdin)
+assert request['thoughts'][0]['text'] == 'I want a graph, so I can find decision reasons.'
+feedback = request['feedback']
+if feedback == 'wait':
+    time.sleep(10)
+if feedback:
+    assert request['previous_draft'] is not None
+    goal = 'Revised goal: find reasons, not a graph.'
+else:
+    goal = 'Initial goal: find decision reasons.'
+print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'assumptions': [], 'options': []}))
+''')
+            host.chmod(0o755)
+            arguments = ["--shape-pi", "--model", "test/model", "--seed-me", str(skill), "--pi-command", str(host)]
+        initial_files = {path.name: (path.stat().st_size, path.stat().st_mtime_ns) for path in Path(directory).iterdir()}
         process = subprocess.Popen(
-            [str(BINARY), *(["--workbench"] if workbench else [])], stdin=slave, stdout=slave, stderr=slave,
+            [str(BINARY), *arguments], stdin=slave, stdout=slave, stderr=slave,
             cwd=directory, env={**os.environ, "TERM": "xterm-256color"},
         )
 
@@ -66,11 +90,11 @@ def run(quit_key, workbench=True, width=100, height=30, example=None):
             raise AssertionError(f"No visible clickable control: {label}")
 
         try:
-            label = "demo / read only" if workbench else "simulated / unsaved"
+            label = "demo / read only" if workbench else ("real model / unsaved" if real_draft else "simulated / unsaved")
             await_text(label)
             await_text("q quit" if workbench else "? help")
             expected = subprocess.run(
-                [str(BINARY), *(["--workbench"] if workbench else []), "--snapshot"],
+                [str(BINARY), *arguments, "--snapshot"],
                 capture_output=True, check=True,
             ).stdout.decode().rstrip("\n")
             if (width, height) == (100, 30):
@@ -83,6 +107,25 @@ def run(quit_key, workbench=True, width=100, height=30, example=None):
                 send(b"a", "1 question waiting [a]")
                 send(b"?", "Keys")
                 send(b"\r", "Example evidence")
+            elif real_draft:
+                send(b"\r", "Scratchpad / editing")
+                send(b"\x1b[200~I want a graph, so I can find decision reasons.\x1b[201~", "I want a graph")
+                send(b"\x1bOQ", "Working paper / model")
+                await_text("Shaped 1 note; skipped 0 blanks.")
+                await_text("Initial goal: find decision reasons.")
+                send(b"r", "Keep / cut / reshape")
+                await_text("Initial goal: find decision reasons.")
+                send(b"\x1b[200~Cut the graph; keep the intention.\x1b[201~", "Cut the graph")
+                send(b"q", "intention.q")
+                send(b"\x1bOQ", "Revised goal: find reasons, not a graph.")
+                await_text("Working paper / model")
+                assert "confirmed for intake" not in screen.text()
+                send(b"p", "p paper")
+                await_text("I want a graph")
+                if quit_key == b"\x03":
+                    send(b"r", "Keep / cut / reshape")
+                    send(b"\x1b[200~wait\x1b[201~", "wait")
+                    send(b"\x1bOQ", "Shaping draft...")
             elif example is not None:
                 name, thoughts = example
                 await_text("What brought you here? A problem, hunch, or plan.")
@@ -203,7 +246,8 @@ def run(quit_key, workbench=True, width=100, height=30, example=None):
             original[3] &= ~getattr(termios, "PENDIN", 0)
             restored[3] &= ~getattr(termios, "PENDIN", 0)
             assert restored == original, "Terminal attributes not restored"
-            assert not list(Path(directory).iterdir()), "Demo wrote files"
+            final_files = {path.name: (path.stat().st_size, path.stat().st_mtime_ns) for path in Path(directory).iterdir()}
+            assert final_files == initial_files, "Application or draft host wrote files"
         finally:
             if process.poll() is None:
                 process.kill()
@@ -229,6 +273,10 @@ for width, height in [(100, 30), (80, 24)]:
         run(b"q", False, width, height, example)
         print(f"PASS: {example[0]}, {width}x{height}, draft, source correction, right-click delete, undo/redo, no writes")
 
+for width, height, quit_key in [(100, 30, b"q"), (80, 24, b"\x03")]:
+    run(quit_key, False, width, height, real_draft=True)
+    print(f"PASS: model adapter stub, {width}x{height}, shape/correct/revise, original retained, no writes, safe exit")
+
 for arguments in (["--help"], ["--snapshot"], ["--no-color", "--snapshot"]):
     result = subprocess.run([str(BINARY), *arguments], capture_output=True, check=True)
     assert b"\x1b" not in result.stdout, "Noninteractive mode emitted terminal escapes"
@@ -237,4 +285,14 @@ result = subprocess.run([str(BINARY)], capture_output=True)
 assert result.returncode != 0 and b"needs a terminal" in result.stderr
 result = subprocess.run([str(BINARY), "--unknown"], capture_output=True)
 assert result.returncode != 0 and b"unknown argument" in result.stderr
+for arguments, error in [
+    (["--shape-pi"], b"requires an explicit --model"),
+    (["--model", "test/model"], b"require --shape-pi"),
+    (["--shape-pi", "--workbench"], b"not --workbench"),
+    (["--shape-pi", "--model", "test/model"], b"requires --seed-me"),
+    (["--shape-pi", "--model", "bare", "--seed-me", "/nonexistent/SKILL.md"], b"explicit --model provider/model-id"),
+]:
+    result = subprocess.run([str(BINARY), *arguments], capture_output=True)
+    assert result.returncode != 0 and error in result.stderr, (arguments, result.stderr)
+    assert b"\x1b" not in result.stdout, "Invalid configuration entered terminal mode"
 print("PASS: noninteractive modes and explicit CLI errors")

@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -10,7 +10,12 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Padding, Paragraph, Wrap},
 };
 
-use super::{Focus, Shape, canvas::Canvas, overflow, response};
+use super::{
+    Focus, Note, Shape,
+    canvas::Canvas,
+    drafting::{DraftHost, DraftJob, DraftRequest, Thought, WorkingDraft},
+    overflow, response,
+};
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, markdown, render_scrolled};
 
 #[derive(Clone, Copy)]
@@ -24,6 +29,8 @@ enum Action {
     Focus,
     Quit,
     Pause,
+    Revise,
+    Cancel,
 }
 
 struct Control {
@@ -35,12 +42,17 @@ struct HitLayout {
     paper: Option<Rect>,
     cue: Rect,
     controls: Vec<Control>,
+    feedback: Option<Rect>,
 }
 
-struct SourceNote {
-    id: String,
-    title: String,
-    text: String,
+type SourceNote = Thought;
+const FEEDBACK_HEIGHT: u16 = 4;
+
+struct PendingDraft {
+    job: DraftJob,
+    sources: Vec<SourceNote>,
+    skipped: usize,
+    feedback_history: Vec<String>,
 }
 
 pub struct Scratchpad {
@@ -55,6 +67,14 @@ pub struct Scratchpad {
     paper_label: &'static str,
     next_note: usize,
     layout: Option<HitLayout>,
+    host: Option<Arc<dyn DraftHost>>,
+    pending: Option<PendingDraft>,
+    draft: Option<WorkingDraft>,
+    feedback_history: Vec<String>,
+    feedback: Option<Note>,
+    feedback_scroll: u16,
+    skipped: usize,
+    message: Option<String>,
 }
 
 impl Default for Scratchpad {
@@ -76,11 +96,30 @@ impl Default for Scratchpad {
             paper_label: "Working paper",
             next_note: 2,
             layout: None,
+            host: None,
+            pending: None,
+            draft: None,
+            feedback_history: Vec::new(),
+            feedback: None,
+            feedback_scroll: 0,
+            skipped: 0,
+            message: None,
         }
     }
 }
 
 impl Scratchpad {
+    pub fn with_host(host: Arc<dyn DraftHost>) -> Self {
+        Self {
+            host: Some(host),
+            ..Self::default()
+        }
+    }
+
+    pub fn request_running(&self) -> bool {
+        self.pending.is_some()
+    }
+
     pub fn notes(&self) -> &[CanvasNode] {
         &self.canvas.state.data.nodes
     }
@@ -107,6 +146,32 @@ impl Scratchpad {
     pub fn tick(&mut self, elapsed: Duration, area: Rect) {
         self.writer.help = self.help;
         self.writer.tick(elapsed, area);
+        if let Some(result) = self.pending.as_ref().and_then(|pending| pending.job.poll()) {
+            let pending = self.pending.take().unwrap();
+            self.notice = None;
+            match result {
+                Ok(draft) => {
+                    let scroll = self.writer.paper_scroll;
+                    let text = pending
+                        .sources
+                        .iter()
+                        .map(|note| note.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n\n");
+                    self.writer.begin(text, draft.sections(&pending.sources));
+                    self.writer.shown = self.writer.sections.len();
+                    self.writer.paper_scroll = scroll;
+                    self.sources = pending.sources;
+                    self.skipped = pending.skipped;
+                    self.paper_label = "Working paper / model";
+                    self.draft = Some(draft);
+                    self.feedback_history = pending.feedback_history;
+                    self.feedback = None;
+                    self.message = None;
+                }
+                Err(error) => self.message = Some(format!("Draft failed: {error}")),
+            }
+        }
     }
 
     fn one_selected(&mut self) -> bool {
@@ -118,12 +183,30 @@ impl Scratchpad {
     }
 
     fn send(&mut self) {
+        if self.pending.is_some() {
+            self.notice = Some("A request is running; Esc cancels it outside editing.");
+            return;
+        }
+        if let Some(feedback) = &self.feedback {
+            if feedback.text.trim().is_empty() {
+                self.notice = Some("Write what to keep, cut, or reshape first.");
+                return;
+            }
+            let request = DraftRequest {
+                thoughts: self.sources.clone(),
+                previous_draft: self.draft.clone(),
+                feedback: Some(feedback.text.clone()),
+                earlier_feedback: self.feedback_history.clone(),
+            };
+            self.start_request(request, self.skipped);
+            return;
+        }
         let selected = self.canvas.state.selection.all();
         if selected.is_empty() {
             self.notice = Some("Select one or more sticky notes first.");
             return;
         }
-        let sources: Vec<_> = self
+        let mut sources: Vec<_> = self
             .notes()
             .iter()
             .filter(|node| selected.contains(node.id()))
@@ -146,8 +229,26 @@ impl Scratchpad {
             self.notice = Some("Selected notes are unavailable. Select them again.");
             return;
         }
-        if sources.iter().any(|note| note.text.trim().is_empty()) {
-            self.notice = Some("Write a thought on every selected note first.");
+        let skipped = sources
+            .iter()
+            .filter(|note| note.text.trim().is_empty())
+            .count();
+        sources.retain(|note| !note.text.trim().is_empty());
+        if sources.is_empty() {
+            self.notice = Some("No written thoughts selected; previous paper retained.");
+            return;
+        }
+        if self.host.is_some() {
+            self.canvas.finish_edit();
+            self.start_request(
+                DraftRequest {
+                    thoughts: sources,
+                    previous_draft: None,
+                    feedback: None,
+                    earlier_feedback: Vec::new(),
+                },
+                skipped,
+            );
             return;
         }
         let thoughts = sources
@@ -163,9 +264,50 @@ impl Scratchpad {
         self.canvas.finish_edit();
         self.writer.begin(text, draft.sections);
         self.sources = sources;
+        self.skipped = skipped;
         self.paper_label = draft.label;
         self.paper_open = true;
         self.notice = None;
+    }
+
+    fn start_request(&mut self, request: DraftRequest, skipped: usize) {
+        let host = self.host.as_ref().unwrap().clone();
+        let mut feedback_history = request.earlier_feedback.clone();
+        if let Some(feedback) = &request.feedback {
+            feedback_history.push(feedback.clone());
+        }
+        self.pending = Some(PendingDraft {
+            sources: request.thoughts.clone(),
+            skipped,
+            feedback_history,
+            job: DraftJob::start(host, request),
+        });
+        self.paper_open = true;
+        self.notice = None;
+        self.message = None;
+    }
+
+    fn revise(&mut self) {
+        if self.pending.is_some() {
+            self.notice = Some("Wait for the draft before giving feedback.");
+        } else if self.draft.is_some() {
+            self.canvas.finish_edit();
+            self.canvas.state.context_menu = None;
+            self.feedback = Some(Note::new(""));
+            self.feedback_scroll = 0;
+            self.paper_open = true;
+            self.notice = None;
+            self.message = None;
+        } else {
+            self.notice = Some("Shape thoughts with the model before revising a draft.");
+        }
+    }
+
+    fn cancel(&mut self) {
+        self.pending = None;
+        self.feedback = None;
+        self.notice = Some("Cancelled; previous paper retained.");
+        self.message = None;
     }
 
     fn edit(&mut self) {
@@ -248,12 +390,22 @@ impl Scratchpad {
             }
             Action::Quit => self.quit = true,
             Action::Pause => self.writer.paused = !self.writer.paused,
+            Action::Revise => self.revise(),
+            Action::Cancel => self.cancel(),
         }
     }
 
     pub fn paste(&mut self, text: &str, area: Rect) {
-        if !self.help && area.width >= MIN_WIDTH && area.height >= MIN_HEIGHT && self.editing() {
-            self.notice = self.canvas.paste(text).err();
+        if !self.help && area.width >= MIN_WIDTH && area.height >= MIN_HEIGHT {
+            if let Some(feedback) = &mut self.feedback {
+                if self.pending.is_some() {
+                    self.notice = Some("Wait or cancel before editing feedback.");
+                } else {
+                    self.notice = feedback.insert(text).err();
+                }
+            } else if self.editing() {
+                self.notice = self.canvas.paste(text).err();
+            }
         }
     }
 
@@ -267,6 +419,7 @@ impl Scratchpad {
             return;
         }
         if !self.editing()
+            && self.feedback.is_none()
             && self.canvas.state.context_menu.is_none()
             && key.code == KeyCode::Char('q')
         {
@@ -290,6 +443,50 @@ impl Scratchpad {
             self.notice = Some("Unsaved prototype: saving is disabled.");
             return;
         }
+        if self.feedback.is_some() && self.pending.is_some() {
+            if key.code == KeyCode::Esc {
+                self.cancel();
+            } else if key.code == KeyCode::PageUp {
+                self.writer.paper_scroll = self.writer.paper_scroll.saturating_sub(8);
+            } else if key.code == KeyCode::PageDown {
+                self.scroll_paper(true, 8);
+            } else {
+                self.notice = Some("Wait or cancel before editing feedback.");
+            }
+            return;
+        }
+        if let Some(feedback) = &mut self.feedback {
+            self.notice = None;
+            match key.code {
+                KeyCode::Esc => self.cancel(),
+                KeyCode::Char('u') if control => {
+                    feedback.text.clear();
+                    feedback.cursor = 0;
+                }
+                KeyCode::Char(c)
+                    if !key
+                        .modifiers
+                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+                {
+                    self.notice = feedback.insert(&c.to_string()).err()
+                }
+                KeyCode::Enter => self.notice = feedback.insert("\n").err(),
+                KeyCode::Backspace => feedback.backspace(),
+                KeyCode::Delete => feedback.delete(),
+                KeyCode::Left => feedback.left(),
+                KeyCode::Right => feedback.right(),
+                KeyCode::Up => feedback.move_row(false, area.width.saturating_sub(8)),
+                KeyCode::Down => feedback.move_row(true, area.width.saturating_sub(8)),
+                KeyCode::Home => feedback.home(),
+                KeyCode::End => feedback.end(),
+                KeyCode::PageUp => {
+                    self.writer.paper_scroll = self.writer.paper_scroll.saturating_sub(8)
+                }
+                KeyCode::PageDown => self.scroll_paper(true, 8),
+                _ => {}
+            }
+            return;
+        }
         if control && key.code == KeyCode::Char('n') {
             self.new_note();
             return;
@@ -302,6 +499,10 @@ impl Scratchpad {
             }
             return;
         }
+        if key.code == KeyCode::Esc && self.pending.is_some() {
+            self.cancel();
+            return;
+        }
         if self.canvas.state.context_menu.is_some() {
             self.canvas.action_key(key);
             self.describe_new_notes();
@@ -312,6 +513,7 @@ impl Scratchpad {
             return;
         }
         match key.code {
+            KeyCode::Char('r') if self.host.is_some() => self.revise(),
             KeyCode::Char('n') => self.new_note(),
             KeyCode::Char('e') | KeyCode::Enter => self.edit(),
             KeyCode::Char('p') => self.toggle_paper(),
@@ -356,6 +558,28 @@ impl Scratchpad {
             return;
         };
         if layout.area != area || area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
+            return;
+        }
+        if self.feedback.is_some() {
+            if event.kind == MouseEventKind::Down(MouseButton::Left) {
+                if let Some(control) = layout
+                    .controls
+                    .iter()
+                    .find(|control| control.rect.contains((event.column, event.row).into()))
+                {
+                    let action = control.action;
+                    self.action(action);
+                } else if let Some(inner) = layout.feedback
+                    && self.pending.is_none()
+                    && inner.contains((event.column, event.row).into())
+                {
+                    let feedback = self.feedback.as_mut().unwrap();
+                    feedback.cursor = feedback.wrap(inner.width).index_at(
+                        event.row - inner.y + self.feedback_scroll,
+                        event.column - inner.x,
+                    );
+                }
+            }
             return;
         }
         if !self.help
@@ -449,9 +673,14 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     let area = frame.area();
     app.layout = None;
     frame.render_widget(Block::default().style(palette.ink), area);
+    let mode = if app.host.is_some() {
+        "real model / unsaved"
+    } else {
+        "simulated / unsaved"
+    };
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         app.canvas.cancel_gesture();
-        frame.render_widget(Paragraph::new(format!("tinkery / scratchpad / simulated / unsaved\n\nResize to at least {MIN_WIDTH} x {MIN_HEIGHT}.\nCurrent: {} x {}\n\nCtrl-C to quit", area.width, area.height)).style(palette.ink).wrap(Wrap { trim: false }), area);
+        frame.render_widget(Paragraph::new(format!("tinkery / scratchpad / {mode}\n\nResize to at least {MIN_WIDTH} x {MIN_HEIGHT}.\nCurrent: {} x {}\n\nCtrl-C to quit", area.width, area.height)).style(palette.ink).wrap(Wrap { trim: false }), area);
         return;
     }
     let page = area.inner(Margin {
@@ -474,7 +703,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         header[0],
     );
     frame.render_widget(
-        Paragraph::new("simulated / unsaved")
+        Paragraph::new(mode)
             .style(palette.muted)
             .alignment(Alignment::Right),
         header[1],
@@ -519,7 +748,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         frame.render_widget(Clear, overlay);
         frame.render_widget(block, overlay);
         if app.help {
-            frame.render_widget(Paragraph::new("Keys / Pinstar scratchpad\nClick select; double-click edit\nDrag move note / pan empty space\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N new sticky note\ne / Enter edit selected note\ns resize; Esc finishes\nDel / right-click > Delete note\nCtrl-U clear; Ctrl-Z/Y undo / redo\nF2 shape selected thoughts\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nx pause writer; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
+            frame.render_widget(Paragraph::new("Keys / Pinstar scratchpad\nClick select; double-click edit\nDrag move note / pan empty space\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N new sticky note\ne / Enter edit selected note\ns resize; Esc finishes\nDel / right-click > Delete note\nCtrl-U clear; Ctrl-Z/Y undo / redo\nF2 shape; r feedback (model mode)\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nx pause demo; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
         } else {
             let paper_rows = Layout::vertical([
                 Constraint::Length(1),
@@ -554,11 +783,32 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
                 notes => format!("From {} notes / {}", notes.len(), app.source_status()),
             };
             frame.render_widget(Paragraph::new(source).style(palette.muted), paper_rows[1]);
+            if !app.sources.is_empty() {
+                frame.render_widget(
+                    Paragraph::new(format!(
+                        "Shaped {} {}; skipped {} {}.",
+                        app.sources.len(),
+                        if app.sources.len() == 1 {
+                            "note"
+                        } else {
+                            "notes"
+                        },
+                        app.skipped,
+                        if app.skipped == 1 { "blank" } else { "blanks" },
+                    ))
+                    .style(palette.muted),
+                    paper_rows[2],
+                );
+            }
             let paper = app.paper();
+            let mut paper_area = paper_rows[3];
+            if app.feedback.is_some() {
+                paper_area.height = paper_area.height.saturating_sub(FEEDBACK_HEIGHT);
+            }
             render_scrolled(
                 frame,
                 Paragraph::new(markdown(&paper, palette)).wrap(Wrap { trim: false }),
-                paper_rows[3],
+                paper_area,
                 &mut app.writer.paper_scroll,
                 &mut app.writer.max_paper_scroll,
             );
@@ -577,7 +827,46 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     if !app.help {
         app.canvas.draw_menu(frame, palette);
     }
-    let status = if app.writer.drafting() {
+    let mut feedback_area = None;
+    if let Some(feedback) = &app.feedback {
+        let box_area = Rect::new(
+            rows[3].x,
+            rows[3].bottom() - FEEDBACK_HEIGHT,
+            rows[3].width,
+            FEEDBACK_HEIGHT,
+        );
+        let block = Block::default()
+            .title("Keep / cut / reshape")
+            .borders(Borders::ALL)
+            .style(palette.ink)
+            .border_style(palette.jade)
+            .padding(Padding::horizontal(1));
+        let inner = block.inner(box_area);
+        frame.render_widget(Clear, box_area);
+        frame.render_widget(block, box_area);
+        let text_area = inner;
+        let wrapped = feedback.wrap(text_area.width);
+        app.feedback_scroll = app.feedback_scroll.min(wrapped.cursor.0);
+        if wrapped.cursor.0 >= app.feedback_scroll + text_area.height {
+            app.feedback_scroll = wrapped.cursor.0 + 1 - text_area.height;
+        }
+        frame.render_widget(
+            Paragraph::new(wrapped.lines.join("\n"))
+                .style(palette.ink)
+                .scroll((app.feedback_scroll, 0)),
+            text_area,
+        );
+        if app.pending.is_none() {
+            frame.set_cursor_position((
+                text_area.x + wrapped.cursor.1.min(text_area.width - 1),
+                text_area.y + wrapped.cursor.0 - app.feedback_scroll,
+            ));
+        }
+        feedback_area = Some(text_area);
+    }
+    let status = if app.pending.is_some() {
+        "Shaping draft... / Esc cancels outside editing"
+    } else if app.writer.drafting() {
         if app.writer.paused {
             "Paused"
         } else {
@@ -589,7 +878,8 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         "Ready / shape selected thoughts into an investigation goal"
     };
     frame.render_widget(
-        Paragraph::new(app.notice.unwrap_or(status)).style(palette.muted),
+        Paragraph::new(app.notice.or(app.message.as_deref()).unwrap_or(status))
+            .style(palette.muted),
         rows[5],
     );
     if app.writer.drafting() && !app.help && app.notice.is_none() {
@@ -603,7 +893,13 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     } else {
         "p paper"
     };
-    let commands = if app.help {
+    let commands = if app.feedback.is_some() {
+        vec![
+            ("F2 revise", Action::Shape),
+            ("Esc cancel", Action::Cancel),
+            ("Ctrl-C quit", Action::Quit),
+        ]
+    } else if app.help {
         vec![
             ("? close help", Action::Help),
             ("Ctrl-C quit", Action::Quit),
@@ -632,6 +928,10 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
             ("? help", Action::Help),
         ]
     };
+    let mut commands = commands;
+    if app.host.is_some() && !app.help && !app.editing() && app.feedback.is_none() {
+        commands.insert(3, ("r revise", Action::Revise));
+    }
     let text = commands
         .iter()
         .map(|(label, _)| *label)
@@ -651,6 +951,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         paper: app.paper_open.then_some(overlay),
         cue,
         controls,
+        feedback: feedback_area,
     });
 }
 

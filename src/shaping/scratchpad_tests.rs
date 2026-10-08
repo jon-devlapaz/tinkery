@@ -179,7 +179,7 @@ fn missing_or_empty_selections_never_fall_back_to_a_different_note() {
     key(&mut app, KeyCode::F(2));
     assert_eq!(
         app.notice,
-        Some("Write a thought on every selected note first.")
+        Some("No written thoughts selected; previous paper retained.")
     );
     assert!(app.editing());
     key(&mut app, KeyCode::Esc);
@@ -188,10 +188,9 @@ fn missing_or_empty_selections_never_fall_back_to_a_different_note() {
     mouse(&mut app, MouseEventKind::Up(MouseButton::Right), (96, 24));
     assert_eq!(app.canvas.state.selection.all().len(), 2);
     key(&mut app, KeyCode::F(2));
-    assert_eq!(
-        app.notice,
-        Some("Write a thought on every selected note first.")
-    );
+    assert_eq!(app.notice, None);
+    assert_eq!(app.skipped, 1);
+    assert_eq!(app.sources.len(), 1);
     assert_eq!(app.sent_note(), Some(sent.as_str()));
 }
 
@@ -637,6 +636,204 @@ fn arbitrary_thoughts_get_an_honest_template_and_stale_selections_are_rejected()
         Some("Selected notes are unavailable. Select them again.")
     );
     assert_eq!(app.paper(), paper);
+}
+
+#[derive(Default)]
+struct RecordingHost {
+    requests: std::sync::Mutex<Vec<DraftRequest>>,
+    fail: std::sync::atomic::AtomicBool,
+}
+
+impl DraftHost for RecordingHost {
+    fn draft(
+        &self,
+        request: DraftRequest,
+        _: &std::sync::atomic::AtomicBool,
+    ) -> Result<WorkingDraft, String> {
+        let revised = request.feedback.is_some();
+        self.requests.lock().unwrap().push(request);
+        if self.fail.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err("Provider unavailable; previous paper retained.".into());
+        }
+        Ok(WorkingDraft {
+            goal: if revised {
+                "Find reasons without prescribing a graph."
+            } else {
+                "Find reasons near the work."
+            }
+            .into(),
+            outcome: "People can understand why a choice was made.".into(),
+            assumptions: vec![],
+            options: if revised {
+                vec![]
+            } else {
+                vec![super::super::drafting::Approach {
+                    label: "Graph".into(),
+                    benefit: "See connections".into(),
+                    cost: "Maintain links".into(),
+                    undo_cost: "Unknown until an approach is chosen".into(),
+                }]
+            },
+        })
+    }
+}
+
+fn settle_request(app: &mut Scratchpad, size: Rect) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(3);
+    while app.request_running() && std::time::Instant::now() < deadline {
+        app.tick(Duration::ZERO, size);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(!app.request_running(), "Draft did not settle");
+}
+
+#[test]
+fn model_shaping_skips_blanks_preserves_sources_and_all_blank_retains_the_paper() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        let host = Arc::new(RecordingHost::default());
+        let mut app = Scratchpad::with_host(host.clone());
+        let size = Rect::new(0, 0, width, height);
+        let press = |app: &mut Scratchpad, code| {
+            app.handle_key(KeyEvent::new(code, KeyModifiers::NONE), size)
+        };
+        snapshot(width, height, &mut app, false).unwrap();
+        press(&mut app, KeyCode::Enter);
+        app.paste("I want a graph.", size);
+        press(&mut app, KeyCode::Esc);
+        let first = app.notes()[0].id().to_owned();
+        press(&mut app, KeyCode::Char('n'));
+        app.paste(" \n ", size);
+        press(&mut app, KeyCode::Esc);
+        let blank = app.notes()[1].id().to_owned();
+        press(&mut app, KeyCode::Char('n'));
+        app.paste("Do not include this unrelated thought.", size);
+        press(&mut app, KeyCode::Esc);
+        press(&mut app, KeyCode::Char('n'));
+        app.paste("So I can find decision reasons.", size);
+        let live = app.selected_note().unwrap().to_owned();
+        app.canvas.state.selection.add(first.clone());
+        app.canvas.state.selection.add(blank.clone());
+        let positions = geometry(&app);
+        press(&mut app, KeyCode::F(2));
+        assert!(app.request_running());
+        settle_request(&mut app, size);
+        let paper = app.paper();
+        let requests = host.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0]
+                .thoughts
+                .iter()
+                .map(|note| note.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![first.as_str(), live.as_str()]
+        );
+        assert_eq!(
+            requests[0].thoughts[1].text,
+            "So I can find decision reasons."
+        );
+        drop(requests);
+        assert!(!paper.contains("unrelated"));
+        assert!(paper.contains("Graph / candidate only"));
+        assert_eq!(geometry(&app), positions);
+        assert_eq!(app.notes()[0].text(), "I want a graph.");
+        assert_eq!(app.notes()[1].text(), " \n ");
+        assert_eq!(
+            app.notes()[2].text(),
+            "Do not include this unrelated thought."
+        );
+        assert_eq!(app.notes()[3].text(), "So I can find decision reasons.");
+        assert!(
+            snapshot(width, height, &mut app, false)
+                .unwrap()
+                .contains("Shaped 2 notes; skipped 1 blank.")
+        );
+        let sent = app.sent_note().unwrap().to_owned();
+        app.canvas.state.selection.select_only(blank);
+        press(&mut app, KeyCode::F(2));
+        assert!(!app.request_running());
+        assert_eq!(host.requests.lock().unwrap().len(), 1);
+        assert_eq!(app.paper(), paper);
+        assert_eq!(app.sent_note(), Some(sent.as_str()));
+        assert_eq!(app.sources.len(), 2);
+        assert!(
+            snapshot(width, height, &mut app, false)
+                .unwrap()
+                .contains("No written thoughts selected; previous paper retained.")
+        );
+    }
+}
+
+#[test]
+fn feedback_revises_the_paper_not_the_notes_and_failure_never_falls_back_to_a_sample() {
+    let host = Arc::new(RecordingHost::default());
+    let mut app = Scratchpad::with_host(host.clone());
+    screen(&mut app);
+    key(&mut app, KeyCode::Enter);
+    app.paste("I want a graph, so I can find reasons.", area());
+    key(&mut app, KeyCode::F(2));
+    settle_request(&mut app, area());
+    let original = app.notes()[0].text().to_owned();
+    let first = app.paper();
+    key(&mut app, KeyCode::Tab);
+    key(&mut app, KeyCode::Char('r'));
+    app.paste("Cut the graph; keep the intention. ", area());
+    key(&mut app, KeyCode::Char('q'));
+    assert!(!app.quit, "q in feedback quit the app");
+    assert!(screen(&mut app).contains("Keep / cut / reshape"));
+    let feedback_text = app.feedback.as_ref().unwrap().text.clone();
+    key(&mut app, KeyCode::PageDown);
+    assert!(app.writer.paper_scroll > 0);
+    assert_eq!(app.feedback.as_ref().unwrap().text, feedback_text);
+    key(&mut app, KeyCode::PageUp);
+    app.writer.paper_scroll = 2;
+    key(&mut app, KeyCode::F(2));
+    assert_eq!(app.paper(), first);
+    settle_request(&mut app, area());
+    assert!(app.feedback.is_none());
+    assert_eq!(app.focus, Focus::Paper);
+    assert_eq!(app.writer.paper_scroll, 2);
+    assert!(
+        app.paper()
+            .contains("Find reasons without prescribing a graph.")
+    );
+    assert!(app.paper().contains("No approach proposed."));
+    assert_eq!(app.notes()[0].text(), original);
+    {
+        let requests = host.requests.lock().unwrap();
+        assert_eq!(
+            requests[1].feedback.as_deref(),
+            Some("Cut the graph; keep the intention. q")
+        );
+        assert_eq!(
+            requests[1].previous_draft.as_ref().unwrap().goal,
+            "Find reasons near the work."
+        );
+        assert_eq!(requests[1].thoughts[0].text, original);
+    }
+    let revised = app.paper();
+    host.fail.store(true, std::sync::atomic::Ordering::Relaxed);
+    key(&mut app, KeyCode::Char('r'));
+    app.paste("Keep the outcome; reshape the wording.", area());
+    key(&mut app, KeyCode::F(2));
+    settle_request(&mut app, area());
+    assert_eq!(app.paper(), revised);
+    assert!(app.feedback.is_some(), "Failed feedback was lost");
+    assert_eq!(
+        host.requests.lock().unwrap()[2].earlier_feedback,
+        vec!["Cut the graph; keep the intention. q"]
+    );
+    assert_eq!(
+        app.feedback_history,
+        vec!["Cut the graph; keep the intention. q"]
+    );
+    assert_eq!(app.paper_label, "Working paper / model");
+    assert!(screen(&mut app).contains("Draft failed: Provider unavailable"));
+    assert!(!app.paper().contains("Simulated"));
+    assert!(!app.paper().contains("status: confirmed for intake"));
+    assert_eq!(app.notes()[0].text(), original);
+    key(&mut app, KeyCode::Esc);
+    assert_eq!(app.paper(), revised);
 }
 
 #[test]
