@@ -1,0 +1,186 @@
+"""Run after cargo build: python3 tests/terminal_smoke.py (POSIX)."""
+import fcntl
+import os
+from pathlib import Path
+import select
+import signal
+import struct
+import subprocess
+import tempfile
+import termios
+import time
+
+from vt_screen import Screen
+
+BINARY = Path(__file__).resolve().parents[1] / "target/debug/tinkery"
+
+
+def resize(fd, width, height):
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
+
+
+def run(quit_key, workbench=True, width=100, height=30):
+    master, slave = os.openpty()
+    resize(slave, width, height)
+    original = termios.tcgetattr(slave)
+    output = bytearray()
+    screen = Screen(width, height)
+    with tempfile.TemporaryDirectory(prefix="tinkery-smoke-") as directory:
+        process = subprocess.Popen(
+            [str(BINARY), *(["--workbench"] if workbench else [])], stdin=slave, stdout=slave, stderr=slave,
+            cwd=directory, env={**os.environ, "TERM": "xterm-256color"},
+        )
+
+        def await_text(text, row=None, column=None):
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], 0.05)[0]:
+                    data = os.read(master, 65536)
+                    output.extend(data)
+                    screen.feed(data)
+                visible = screen.text() if row is None else screen.text().splitlines()[row]
+                if column is not None:
+                    visible = visible[column:column + len(text)]
+                if text in visible:
+                    return
+                if process.poll() is not None:
+                    break
+            raise AssertionError(f"Missing {text!r}:\n{screen.text()}")
+
+        def send(keys, expected, row=None, column=None):
+            output.clear()
+            os.write(master, keys)
+            await_text(expected, row, column)
+
+        def mouse(button, x, y, expected, row=None):
+            send(f"\x1b[<{button};{x + 1};{y + 1}M".encode(), expected, row)
+            if button < 3:
+                os.write(master, f"\x1b[<{button};{x + 1};{y + 1}m".encode())
+
+        def click_label(label, expected):
+            await_text(label)
+            for y, line in enumerate(screen.text().splitlines()):
+                if label in line:
+                    mouse(0, line.index(label), y, expected)
+                    return
+            raise AssertionError(f"No visible clickable control: {label}")
+
+        try:
+            label = "demo / read only" if workbench else "simulated / unsaved"
+            await_text(label)
+            await_text("q quit" if workbench else "? help")
+            expected = subprocess.run(
+                [str(BINARY), *(["--workbench"] if workbench else []), "--snapshot"],
+                capture_output=True, check=True,
+            ).stdout.decode().rstrip("\n")
+            if (width, height) == (100, 30):
+                assert screen.text() == expected, "Real 100 x 30 screen differs from snapshot"
+            if workbench:
+                send(b"j", "Make the handoff legible")
+                send(b"\t", "Tab work")
+                send(b"\x1b[C", "Example evidence")
+                send(b"a", "Attention")
+                send(b"a", "1 question waiting [a]")
+                send(b"?", "Keys")
+                send(b"\r", "Example evidence")
+            else:
+                assert b"\x1b[?1006h" in output, "Mouse capture was not enabled"
+                assert "Working paper" not in screen.text(), "Inspector should start closed"
+                body_y = (height - 20) // 2 + 5
+                # Exercise real SGR drag, undo, and wheel events before editing.
+                drag_y = body_y + 2
+                send(f"\x1b[<0;11;{drag_y + 1}M\x1b[<32;14;{drag_y + 3}M\x1b[<0;14;{drag_y + 3}m".encode(), "I keep losing", row=body_y + 2)
+                send(b"\x1a", "I keep losing", row=body_y)
+                mouse(64, 10, body_y, "I keep losing", row=body_y - 1)
+                mouse(65, 10, body_y, "I keep losing", row=body_y)
+                mouse(0, 7, body_y, "Scratchpad / Pinstar")
+                mouse(0, 7, body_y, "Scratchpad / editing")
+                os.write(master, b"\x15")
+                send(b"\x1b[200~Keep reasons nearby.\x1b[201~", "Keep reasons nearby.")
+                send(b"q", "nearby.q")
+                click_label("F2 shape", "Drafting...")
+                await_text("Tentative goal")
+                await_text("Draft / unconfirmed", row=height - 3)
+                await_text("From Note 1")
+                mouse(0, width - 15, 10, "Scratchpad / Pinstar")
+                send(b"\x1b[F", "One open question")
+                click_label("? help", "Keys")
+                click_label("? close help", "Working paper")
+                click_label("e edit", "Scratchpad / editing")
+                send(b" New thought.", "Unsent changes")
+                send(b"\x1b", "e edit")
+                click_label("n new", "Scratchpad / editing / 2 notes")
+                send(b"\x1b[200~" + b"One more line.\n" * 30 + b"\x1b[201~", "One more line.")
+                click_label("F2 shape", "Drafting...")
+                await_text("From Note 2")
+                await_text("Draft / unconfirmed", row=height - 3)
+                # Hide the inspector, drag the second note across the full workspace,
+                # and verify real undo/redo restore its screen position.
+                click_label("p close paper", "p paper")
+                second_y = min((height - 20) // 2 + 3, height - 20) + 5
+                end_x = width - 30
+                y = second_y + 2
+                send(f"\x1b[<0;9;{y + 1}M\x1b[<32;{end_x + 1};{y + 1}M\x1b[<0;{end_x + 1};{y + 1}m".encode(), "One more line.", row=second_y, column=end_x - 2)
+                send(b"\x1a", "One more line.", row=second_y, column=6)
+                send(b"\x19", "One more line.", row=second_y, column=end_x - 2)
+                click_label("p paper", "From Note 2")
+                await_text("more below / Tab to read")
+                mouse(65, width - 15, 10, "more above / below / Tab to read")
+                mouse(0, width - 15, 10, "more above / below / j/k scroll")
+                send(b"\x1b[6~", "more above / below / j/k scroll")
+                send(b"\x1b[F", "more above / j/k scroll")
+                await_text("One open question")
+            output.clear()
+            resize(slave, 60, 20)
+            screen = Screen(60, 20)
+            process.send_signal(signal.SIGWINCH)
+            await_text("Resize to at least 80 x 24.")
+            output.clear()
+            resize(slave, width, height)
+            screen = Screen(width, height)
+            process.send_signal(signal.SIGWINCH)
+            await_text(label)
+            os.write(master, quit_key)
+            deadline = time.monotonic() + 5
+            while process.poll() is None and time.monotonic() < deadline:
+                if select.select([master], [], [], 0.05)[0]:
+                    output.extend(os.read(master, 65536))
+            process.wait(timeout=1)
+            assert process.returncode == 0, process.returncode
+            while select.select([master], [], [], 0.05)[0]:
+                output.extend(os.read(master, 65536))
+            assert b"\x1b[?1049l" in output, "Alternate screen not restored"
+            if not workbench:
+                assert b"\x1b[?2004l" in output, "Bracketed paste not restored"
+                assert b"\x1b[?1006l" in output, "Mouse capture not restored"
+            restored = termios.tcgetattr(slave)
+            # macOS can change the transient input-retype flag when flushing input.
+            original[3] &= ~getattr(termios, "PENDIN", 0)
+            restored[3] &= ~getattr(termios, "PENDIN", 0)
+            assert restored == original, "Terminal attributes not restored"
+            assert not list(Path(directory).iterdir()), "Demo wrote files"
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            os.close(master)
+            os.close(slave)
+
+
+for workbench in (True, False):
+    for quit_key in (b"q", b"\x03"):
+        run(quit_key, workbench)
+        print(f"PASS: {'workbench' if workbench else 'scratchpad'}, 100x30, input, help, resize, no writes, restore ({quit_key!r})")
+
+run(b"q", False, 80, 24)
+print("PASS: scratchpad, 80x24, multiple notes, full-width drag, inspector, no writes, restore")
+
+for arguments in (["--help"], ["--snapshot"], ["--no-color", "--snapshot"]):
+    result = subprocess.run([str(BINARY), *arguments], capture_output=True, check=True)
+    assert b"\x1b" not in result.stdout, "Noninteractive mode emitted terminal escapes"
+
+result = subprocess.run([str(BINARY)], capture_output=True)
+assert result.returncode != 0 and b"needs a terminal" in result.stderr
+result = subprocess.run([str(BINARY), "--unknown"], capture_output=True)
+assert result.returncode != 0 and b"unknown argument" in result.stderr
+print("PASS: noninteractive modes and explicit CLI errors")

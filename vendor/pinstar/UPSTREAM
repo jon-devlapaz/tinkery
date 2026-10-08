@@ -1,0 +1,12 @@
+Source: https://github.com/reekta92/pinstar
+Revision: 9cef7ffb70df464cc1bdb1633617e7189961fd85 (the revision used by Clin)
+License: GPL-3.0-only; upstream LICENSE and notices retained.
+
+Modified for Tinkery on 2026-10-08:
+- src/lib.rs: explicit persistence setting for memory-only hosts.
+- src/state.rs: in-memory constructor; save synchronizes memory without filesystem IO when persistence is disabled.
+- src/input.rs: mouse projection respects show_hints, matching the renderer.
+- src/app.rs: standalone Settings initializer retains defaults for hosted settings.
+- src/render.rs: floating editor uses the host text color as well as its background.
+
+The scratchpad host exposes draft text notes, not a decision graph. It reuses upstream text-note creation, editing, selection, dragging, panning, zooming, resizing, deletion, and undo/redo. It does not expose file, external-editor, clipboard, raw-editor, or edge creation actions.
