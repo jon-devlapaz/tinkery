@@ -19,7 +19,7 @@ def resize(fd, width, height):
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
 
 
-def run(quit_key, workbench=True, width=100, height=30):
+def run(quit_key, workbench=True, width=100, height=30, example=None):
     master, slave = os.openpty()
     resize(slave, width, height)
     original = termios.tcgetattr(slave)
@@ -83,9 +83,54 @@ def run(quit_key, workbench=True, width=100, height=30):
                 send(b"a", "1 question waiting [a]")
                 send(b"?", "Keys")
                 send(b"\r", "Example evidence")
+            elif example is not None:
+                name, thoughts = example
+                await_text("What brought you here? A problem, hunch, or plan.")
+                for index, thought in enumerate(thoughts):
+                    send(b"\r" if index == 0 else b"n", "Scratchpad / editing")
+                    send(b"\x1b[200~" + thought.encode() + b"\x1b[201~", thought[:12])
+                    send(b"\x1b", "Scratchpad / Pinstar")
+                if len(thoughts) > 1:
+                    x, y = width - 4, height - 6
+                    send(f"\x1b[<2;4;6M\x1b[<34;{x + 1};{y + 1}M\x1b[<2;{x + 1};{y + 1}m".encode(), "2 selected")
+                click_label("F2 shape", "Drafting...")
+                await_text("Draft / unconfirmed", row=height - 3)
+                await_text("Working paper / sample")
+                await_text("What you want to change")
+                await_text("From Note 1" if len(thoughts) == 1 else "From 2 notes")
+                send(b"\t", "j/k scroll")
+                send(b"\x1b[F", "What should we keep, cut, or reshape?")
+                # Correct a source thought without overwriting the submitted paper.
+                send(b"\x1b", "p paper")
+                body_y = (height - 20) // 2 + 5
+                mouse(0, 3, 5, "0 selected")
+                mouse(0, 7, body_y, "1 selected")
+                click_label("e edit", "Scratchpad / editing")
+                send(b" A correction.", "Unsent changes", row=height - 3)
+                send(b"\x1b", "e edit")
+                click_label("p paper", "Working paper / sample")
+                await_text("Unsent changes", row=height - 3)
+                send(f"\x1b[<2;31;{body_y + 1}M\x1b[<2;31;{body_y + 1}m".encode(), "Delete note")
+                for y, line in enumerate(screen.text().splitlines()):
+                    if "Delete note" in line:
+                        # Click the menu padding over the inspector, not the canvas beneath it.
+                        mouse(0, line.index("Delete note") + len("Delete note") + 1, y,
+                              "Source removed / draft retained", row=height - 3)
+                        break
+                else:
+                    raise AssertionError("No visible Delete note menu item")
+                await_text(f"{len(thoughts) - 1} note")
+                await_text("Working paper / sample")
+                send(b"\x1a", "Unsent changes", row=height - 3)
+                send(b"\x19", "Source removed / draft retained", row=height - 3)
+                assert "confirmed for intake" not in screen.text(), name
             else:
                 assert b"\x1b[?1006h" in output, "Mouse capture was not enabled"
                 assert "Working paper" not in screen.text(), "Inspector should start closed"
+                await_text("What brought you here? A problem, hunch, or plan.")
+                send(b"\r", "Scratchpad / editing")
+                send(b"\x1b[200~I keep losing track of why we made certain choices.\n\nI want those reasons near the work.\x1b[201~", "I keep losing")
+                send(b"\x1b", "Scratchpad / Pinstar")
                 body_y = (height - 20) // 2 + 5
                 # Exercise real SGR drag, undo, and wheel events before editing.
                 drag_y = body_y + 2
@@ -99,11 +144,11 @@ def run(quit_key, workbench=True, width=100, height=30):
                 send(b"\x1b[200~Keep reasons nearby.\x1b[201~", "Keep reasons nearby.")
                 send(b"q", "nearby.q")
                 click_label("F2 shape", "Drafting...")
-                await_text("Tentative goal")
+                await_text("What you want to change")
                 await_text("Draft / unconfirmed", row=height - 3)
                 await_text("From Note 1")
                 mouse(0, width - 15, 10, "Scratchpad / Pinstar")
-                send(b"\x1b[F", "One open question")
+                send(b"\x1b[F", "What should we keep, cut, or reshape?")
                 click_label("? help", "Keys")
                 click_label("? close help", "Working paper")
                 click_label("e edit", "Scratchpad / editing")
@@ -129,7 +174,7 @@ def run(quit_key, workbench=True, width=100, height=30):
                 mouse(0, width - 15, 10, "more above / below / j/k scroll")
                 send(b"\x1b[6~", "more above / below / j/k scroll")
                 send(b"\x1b[F", "more above / j/k scroll")
-                await_text("One open question")
+                await_text("What should we keep, cut, or reshape?")
             output.clear()
             resize(slave, 60, 20)
             screen = Screen(60, 20)
@@ -174,6 +219,15 @@ for workbench in (True, False):
 
 run(b"q", False, 80, 24)
 print("PASS: scratchpad, 80x24, multiple notes, full-width drag, inspector, no writes, restore")
+
+examples = [
+    ("problem-first", ["I keep losing track of why we made certain choices.\n\nI want those reasons near the work."]),
+    ("plan-first", ["I want a graph connecting decisions to work.", "So I can find why we made those choices."]),
+]
+for width, height in [(100, 30), (80, 24)]:
+    for example in examples:
+        run(b"q", False, width, height, example)
+        print(f"PASS: {example[0]}, {width}x{height}, draft, source correction, right-click delete, undo/redo, no writes")
 
 for arguments in (["--help"], ["--snapshot"], ["--no-color", "--snapshot"]):
     result = subprocess.run([str(BINARY), *arguments], capture_output=True, check=True)

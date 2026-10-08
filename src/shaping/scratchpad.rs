@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Padding, Paragraph, Wrap},
 };
 
-use super::{EXAMPLE, Focus, Note, Shape, canvas::Canvas, overflow, response};
+use super::{Focus, Shape, canvas::Canvas, overflow, response};
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, markdown, render_scrolled};
 
 #[derive(Clone, Copy)]
@@ -37,6 +37,12 @@ struct HitLayout {
     controls: Vec<Control>,
 }
 
+struct SourceNote {
+    id: String,
+    title: String,
+    text: String,
+}
+
 pub struct Scratchpad {
     canvas: Canvas,
     writer: Shape,
@@ -45,15 +51,15 @@ pub struct Scratchpad {
     focus: Focus,
     help: bool,
     notice: Option<&'static str>,
-    source_id: Option<String>,
-    source_title: String,
+    sources: Vec<SourceNote>,
+    paper_label: &'static str,
     next_note: usize,
     layout: Option<HitLayout>,
 }
 
 impl Default for Scratchpad {
     fn default() -> Self {
-        let mut canvas = Canvas::new(EXAMPLE);
+        let mut canvas = Canvas::new("");
         canvas.spatial = true;
         if let CanvasNode::Text(note) = &mut canvas.state.data.nodes[0] {
             note.title = Some("Note 1".into());
@@ -66,8 +72,8 @@ impl Default for Scratchpad {
             focus: Focus::Card,
             help: false,
             notice: None,
-            source_id: None,
-            source_title: String::new(),
+            sources: Vec::new(),
+            paper_label: "Working paper",
             next_note: 2,
             layout: None,
         }
@@ -85,7 +91,11 @@ impl Scratchpad {
         self.writer.sent_note()
     }
     pub fn paper(&self) -> String {
-        self.writer.paper()
+        if self.sent_note().is_none() {
+            "# A place to begin\n\nWhat brought you here? A problem, hunch, or plan.\n\nSelect one or more notes and press F2 to shape an investigation goal.\n\nDraft suggestions are not decisions.".to_owned()
+        } else {
+            self.writer.paper()
+        }
     }
     pub fn inspector_open(&self) -> bool {
         self.paper_open
@@ -108,27 +118,52 @@ impl Scratchpad {
     }
 
     fn send(&mut self) {
-        if !self.one_selected() {
+        let selected = self.canvas.state.selection.all();
+        if selected.is_empty() {
+            self.notice = Some("Select one or more sticky notes first.");
             return;
         }
-        let text = self.canvas.selected_text().unwrap();
-        if text.trim().is_empty() {
-            self.notice = Some("Write a thought on the selected note first.");
-            return;
-        }
-        let id = self.canvas.selected_id().unwrap().to_owned();
-        let title = self
+        let sources: Vec<_> = self
             .notes()
             .iter()
-            .find(|node| node.id() == id)
-            .and_then(|node| node.title())
-            .unwrap()
-            .to_owned();
+            .filter(|node| selected.contains(node.id()))
+            .filter_map(|node| {
+                let CanvasNode::Text(note) = node else {
+                    return None;
+                };
+                Some(SourceNote {
+                    id: note.id.clone(),
+                    title: note.title.clone().unwrap_or_else(|| note.id.clone()),
+                    text: if self.selected_note() == Some(note.id.as_str()) {
+                        self.canvas.selected_text().unwrap()
+                    } else {
+                        note.text.clone()
+                    },
+                })
+            })
+            .collect();
+        if sources.len() != selected.len() {
+            self.notice = Some("Selected notes are unavailable. Select them again.");
+            return;
+        }
+        if sources.iter().any(|note| note.text.trim().is_empty()) {
+            self.notice = Some("Write a thought on every selected note first.");
+            return;
+        }
+        let thoughts = sources
+            .iter()
+            .map(|note| (note.title.as_str(), note.text.as_str()))
+            .collect::<Vec<_>>();
+        let draft = response::investigation(&thoughts);
+        let text = sources
+            .iter()
+            .map(|note| note.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n");
         self.canvas.finish_edit();
-        self.writer.note = Note::new(&text);
-        self.writer.send();
-        self.source_id = Some(id);
-        self.source_title = title;
+        self.writer.begin(text, draft.sections);
+        self.sources = sources;
+        self.paper_label = draft.label;
         self.paper_open = true;
         self.notice = None;
     }
@@ -323,6 +358,16 @@ impl Scratchpad {
         if layout.area != area || area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
             return;
         }
+        if !self.help
+            && event.kind == MouseEventKind::Down(MouseButton::Left)
+            && self.canvas.menu_hit(event.column, event.row)
+        {
+            self.canvas.mouse(event);
+            self.focus = Focus::Card;
+            self.notice = None;
+            self.describe_new_notes();
+            return;
+        }
         if event.kind == MouseEventKind::Down(MouseButton::Left)
             && let Some(control) = layout
                 .controls
@@ -366,22 +411,32 @@ impl Scratchpad {
     }
 
     fn source_status(&self) -> &'static str {
-        let Some(id) = &self.source_id else {
-            return "No note sent";
-        };
-        let Some(note) = self.notes().iter().find(|node| node.id() == id) else {
-            return "Source removed / draft retained";
-        };
-        let text = if self.selected_note() == Some(id.as_str()) {
-            self.canvas.text()
-        } else {
-            note.text().to_owned()
-        };
-        if self.sent_note() != Some(text.as_str()) {
-            "Unsent changes"
-        } else {
-            "Draft / unconfirmed"
+        if self.sources.is_empty() {
+            return "No thoughts sent";
         }
+        if self
+            .sources
+            .iter()
+            .any(|source| !self.notes().iter().any(|note| note.id() == source.id))
+        {
+            return "Source removed / draft retained";
+        }
+        for source in &self.sources {
+            let note = self
+                .notes()
+                .iter()
+                .find(|note| note.id() == source.id)
+                .unwrap();
+            let text = if self.selected_note() == Some(source.id.as_str()) {
+                self.canvas.text()
+            } else {
+                note.text().to_owned()
+            };
+            if text != source.text {
+                return "Unsent changes";
+            }
+        }
+        "Draft / unconfirmed"
     }
 }
 
@@ -424,7 +479,12 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
             .alignment(Alignment::Right),
         header[1],
     );
+    frame.render_widget(
+        Paragraph::new("What brought you here? A problem, hunch, or plan.").style(palette.muted),
+        rows[1],
+    );
     let count = app.notes().len();
+    let selected = app.canvas.state.selection.all().len();
     let label = if app.editing() {
         "Scratchpad / editing"
     } else {
@@ -432,7 +492,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     };
     frame.render_widget(
         Paragraph::new(format!(
-            "{label} / {count} {}",
+            "{label} / {count} {} / {selected} selected",
             if count == 1 { "note" } else { "notes" }
         ))
         .style(if app.focus == Focus::Card {
@@ -459,7 +519,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         frame.render_widget(Clear, overlay);
         frame.render_widget(block, overlay);
         if app.help {
-            frame.render_widget(Paragraph::new("Keys / Pinstar scratchpad\nClick select; double-click edit\nDrag move note / pan empty space\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N new sticky note\ne / Enter edit selected note\ns resize; Esc finishes\nDel delete; Ctrl-Z/Y undo / redo\nCtrl-U clear while editing\nF2 shape one selected note\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nx pause writer; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
+            frame.render_widget(Paragraph::new("Keys / Pinstar scratchpad\nClick select; double-click edit\nDrag move note / pan empty space\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N new sticky note\ne / Enter edit selected note\ns resize; Esc finishes\nDel / right-click > Delete note\nCtrl-U clear; Ctrl-Z/Y undo / redo\nF2 shape selected thoughts\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nx pause writer; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
         } else {
             let paper_rows = Layout::vertical([
                 Constraint::Length(1),
@@ -472,13 +532,11 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
             let title = Layout::horizontal([Constraint::Min(1), Constraint::Length(7)])
                 .split(paper_rows[0]);
             frame.render_widget(
-                Paragraph::new(response::source_label(app.sent_note())).style(
-                    if app.focus == Focus::Paper {
-                        palette.jade
-                    } else {
-                        palette.muted
-                    },
-                ),
+                Paragraph::new(app.paper_label).style(if app.focus == Focus::Paper {
+                    palette.jade
+                } else {
+                    palette.muted
+                }),
                 title[0],
             );
             frame.render_widget(
@@ -490,17 +548,13 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
                 rect: title[1],
                 action: Action::Paper,
             });
-            let source = if app.source_id.is_some() {
-                format!("From {} / {}", app.source_title, app.source_status())
-            } else {
-                "Select a note and press F2.".into()
+            let source = match app.sources.as_slice() {
+                [] => "Select notes and press F2.".into(),
+                [note] => format!("From {} / {}", note.title, app.source_status()),
+                notes => format!("From {} notes / {}", notes.len(), app.source_status()),
             };
             frame.render_widget(Paragraph::new(source).style(palette.muted), paper_rows[1]);
-            let paper = if app.sent_note().is_none() {
-                "# A place to begin\n\nShape the selected sticky note with F2.\n\nDraft suggestions are not decisions.".to_owned()
-            } else {
-                app.paper()
-            };
+            let paper = app.paper();
             render_scrolled(
                 frame,
                 Paragraph::new(markdown(&paper, palette)).wrap(Wrap { trim: false }),
@@ -520,6 +574,9 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
             cue = paper_rows[4];
         }
     }
+    if !app.help {
+        app.canvas.draw_menu(frame, palette);
+    }
     let status = if app.writer.drafting() {
         if app.writer.paused {
             "Paused"
@@ -529,7 +586,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     } else if app.sent_note().is_some() {
         app.source_status()
     } else {
-        "Ready / drag notes anywhere; n adds another"
+        "Ready / shape selected thoughts into an investigation goal"
     };
     frame.render_widget(
         Paragraph::new(app.notice.unwrap_or(status)).style(palette.muted),

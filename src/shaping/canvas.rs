@@ -3,6 +3,7 @@ use pinstar::{
     ActionCtx, PinstarAction, PinstarState, ThemeColors, apply_action,
     data::{CanvasData, CanvasNode, TextNode},
     draw_pinstar_view, handle_pinstar_mouse,
+    menu::{MenuItemSpec, PinstarContextMenu, render_context_menu},
 };
 use ratatui::{
     Frame, Terminal,
@@ -260,32 +261,53 @@ impl Canvas {
         self.state.marquee.clear();
     }
 
+    pub fn menu_hit(&self, column: u16, row: u16) -> bool {
+        self.area.contains((column, row).into())
+            && self.state.context_menu.as_ref().is_some_and(|menu| {
+                let area = Rect::new(0, 0, self.area.width, self.area.height);
+                menu.row_at(menu.rect(area), column - self.area.x, row - self.area.y)
+                    .is_some()
+            })
+    }
+
+    pub fn draw_menu(&self, frame: &mut Frame, palette: Palette) {
+        let Some(menu) = &self.state.context_menu else {
+            return;
+        };
+        let menu = PinstarContextMenu {
+            x: menu.x.saturating_add(self.area.x),
+            y: menu.y.saturating_add(self.area.y),
+            selected: menu.selected,
+            menu_type: menu.menu_type,
+            items: menu
+                .items
+                .iter()
+                .map(|item| MenuItemSpec {
+                    label: if item.label == "Delete Node" {
+                        "Delete note"
+                    } else {
+                        item.label
+                    },
+                    shortcut: item.shortcut,
+                    color_hint: item.color_hint,
+                })
+                .collect(),
+        };
+        let mouse = self
+            .state
+            .mouse_pos
+            .map(|(x, y)| (x + self.area.x, y + self.area.y));
+        render_context_menu(frame, self.area, &menu, &theme(palette), mouse);
+    }
+
     pub fn draw(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         if self.area != area {
             self.cancel_gesture();
         }
         self.area = area;
-        let ink = palette.ink.fg.unwrap_or(Color::Reset);
-        let bg = palette.ink.bg.unwrap_or(Color::Reset);
-        let jade = palette.jade.fg.unwrap_or(Color::Reset);
-        let muted = palette.muted.fg.unwrap_or(Color::Reset);
-        let theme = ThemeColors {
-            accent: jade,
-            heading: ink,
-            success: jade,
-            warning: muted,
-            destructive: ink,
-            muted,
-            text: ink,
-            fg: ink,
-            bg,
-            border: muted,
-            tag: jade,
-            folder: muted,
-            highlight_fg: bg,
-            highlight_bg: jade,
-            selection_indicator: Some(jade),
-        };
+        let theme = theme(palette);
+        let bg = theme.bg;
+        let jade = theme.accent;
         if let Some(editor) = &mut self.state.floating_editor {
             editor.set_cursor_style(if jade == Color::Reset {
                 Style::default().add_modifier(ratatui::style::Modifier::REVERSED)
@@ -308,5 +330,29 @@ impl Canvas {
                 frame.buffer_mut()[(area.x + x, area.y + y)] = buffer[(x, y)].clone();
             }
         }
+    }
+}
+
+fn theme(palette: Palette) -> ThemeColors {
+    let ink = palette.ink.fg.unwrap_or(Color::Reset);
+    let bg = palette.ink.bg.unwrap_or(Color::Reset);
+    let jade = palette.jade.fg.unwrap_or(Color::Reset);
+    let muted = palette.muted.fg.unwrap_or(Color::Reset);
+    ThemeColors {
+        accent: jade,
+        heading: ink,
+        success: jade,
+        warning: muted,
+        destructive: ink,
+        muted,
+        text: ink,
+        fg: ink,
+        bg,
+        border: muted,
+        tag: jade,
+        folder: muted,
+        highlight_fg: bg,
+        highlight_bg: jade,
+        selection_indicator: Some(jade),
     }
 }
