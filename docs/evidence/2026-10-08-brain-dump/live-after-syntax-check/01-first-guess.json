@@ -1,0 +1,36 @@
+{
+  "uncertain": false,
+  "framings": [
+    {
+      "text": "I think this is about giving the next person a clear, low-effort record of which checks used a real model or a stub, while letting people reject unhelpful questions permanently.",
+      "supports": [
+        "f1",
+        "f2",
+        "f3",
+        "f4"
+      ]
+    }
+  ],
+  "outcome": "The next person can quickly tell what was actually checked before trying Tinkery, without extra work for every small edit, and unhelpful questions stay out of future checks.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "receipt-content-owner",
+      "text": "Who decides what the record must show: you, the PR author, or the next person reviewing it? The Ledger: link shows every decision and whether it is settled."
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "A short record attached to each PR",
+      "benefit": "The next person can see check results in the place where they review the change.",
+      "cost": "Someone or something must keep the record current.",
+      "undo_cost": "Removing old records may make past checks harder to audit."
+    },
+    {
+      "label": "A shared check history with a brief PR summary",
+      "benefit": "Small edits need less repeated recording, while the PR can still point to prior checks.",
+      "cost": "The next person must open another place to see full details.",
+      "undo_cost": "Moving back to PR-only records may lose the wider history."
+    }
+  ]
+}

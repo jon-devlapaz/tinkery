@@ -865,7 +865,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         frame.render_widget(Clear, overlay);
         frame.render_widget(block, overlay);
         if app.help {
-            frame.render_widget(Paragraph::new("Keys / ? / Esc close help\nClick select; double-click edit\nDrag move note / pan empty space\nShift-click toggle notes; Ctrl-A all\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N new sticky note\ne / Enter edit selected note\ns resize; Esc finishes\nDel / right-click > Delete note\nCtrl-U clear; Ctrl-Z/Y undo / redo\nF2 shape; r feedback (model mode)\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nDrag paper lines; y copy markdown\nEsc clear selection; Ctrl-L repaint\nx pause demo; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
+            frame.render_widget(Paragraph::new("Keys / ? / Esc close help\nClick select; double-click edit\nDrag move note / pan empty space\nShift-click toggle notes; Ctrl-A all\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N create AND type now\ne / Enter edit selected note\ns resize; Esc finishes\nDel / right-click > Delete note\nCtrl-U clear; Ctrl-Z/Y undo / redo\nF2 shape; r feedback (model mode)\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nDrag paper lines; y copy markdown\nEsc clear selection; Ctrl-L repaint\nx pause demo; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
         } else {
             let paper_rows = Layout::vertical([
                 Constraint::Length(1),
@@ -1078,7 +1078,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         ]
     } else {
         vec![
-            ("n new", Action::New),
+            ("n new+type", Action::New),
             ("e edit", Action::Edit),
             ("F2 shape", Action::Shape),
             (paper_label, Action::Paper),

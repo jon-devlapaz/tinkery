@@ -220,12 +220,12 @@ impl PiHost {
              The goal identifies what we need to understand to achieve that improvement, rather than a solution to build. \
              The outcome describes the person's improved experience and preserves explicitly requested results and media where they want to see or use those results. \
              Do not erase a requested result or viewing medium merely because it names an interface or artifact. \
-             Distinguish desired ends from proposed means: a requested place to see results belongs in outcome; how to export, transport, generate, or implement them belongs in candidate approaches. \
+             Distinguish desired ends from proposed means: a requested place to see results belongs in outcome; how to export, transport, generate, or implement them belongs in candidate approaches. A requested toggle or control is still a mechanism, not an end experience; even explicitly requested mechanisms stay candidates. \
              A plan's mechanism is not automatically an outcome. If it is unclear whether a named thing is a desired end or just a proposed means, preserve it in context and ask, rather than silently deciding or deleting it. \
              Proposed implementation mechanisms appear in options, rendered under Possible approaches / not accepted, even when the person arrived with a plan. \
              Preserve that plan as a candidate, not as an expected deliverable. Explicitly name mechanisms the person proposed in option labels; do not erase or silently generalize their plan. \
              Preserve unfamiliar names and terms verbatim in supplied context, including their spelling and case. Use the latest feedback's spelling when revising context, while retaining original quotes. If their role or meaning is unclear, ask about them instead of omitting, expanding, or redefining them. \
-             Offer only concrete approaches with meaningful differences and tradeoffs. One approach is enough when no useful alternative is supported. Never add filler such as use another way to achieve the goal. \
+             Offer only concrete approaches with meaningful differences and tradeoffs. Always propose at least two credible, materially different routes, including an alternative to the person's proposed mechanism; consider reuse, existing settings, and changing the workflow. Do not invent capabilities or filler. Never add filler such as use another way to achieve the goal. \
              Use the person's stated scope: if they say I, use you rather than inventing a team or broader users. \
              Intentions the person stated are input, not assumptions: retain them in the goal or outcome, never recast them as uncertain beliefs. \
              In context, show what the person supplied in original thoughts and feedback, including corrections and named tools. Attribute capabilities to their intention, not to checked evidence. \
@@ -258,6 +258,24 @@ impl PiHost {
 impl DraftHost for PiHost {
     fn draft(&self, request: DraftRequest, cancelled: &AtomicBool) -> Result<WorkingDraft, String> {
         let input = serde_json::to_vec(&request).map_err(|error| error.to_string())?;
+        WorkingDraft::parse(&self.complete(input, self.system_prompt(), cancelled)?)
+    }
+}
+
+impl PiHost {
+    pub(super) fn working_instructions(&self) -> &str {
+        self.instructions
+            .split_once("### Shape the working draft")
+            .expect("Constructor validates the shaping boundary")
+            .1
+    }
+
+    pub(super) fn complete(
+        &self,
+        input: Vec<u8>,
+        prompt: String,
+        cancelled: &AtomicBool,
+    ) -> Result<String, String> {
         if input.len() > LIMIT {
             return Err(
                 "Draft input exceeds 32 KiB; select fewer thoughts or shorten the feedback.".into(),
@@ -285,7 +303,7 @@ impl DraftHost for PiHost {
             .arg("--model")
             .arg(&self.model)
             .arg("--system-prompt")
-            .arg(self.system_prompt())
+            .arg(prompt)
             .env_remove("PI_SESSION_ID")
             .env_remove("PI_SESSION_FILE")
             .stdin(Stdio::piped())
@@ -344,7 +362,7 @@ impl DraftHost for PiHost {
             return Err("Request cancelled.".into());
         }
         let text = std::str::from_utf8(&output).map_err(|_| "Pi returned invalid UTF-8.")?;
-        WorkingDraft::parse(text)
+        Ok(text.to_owned())
     }
 }
 
@@ -366,19 +384,27 @@ fn read_pipe(
     })
 }
 
-pub(super) struct DraftJob {
+pub(super) type DraftJob = Job<WorkingDraft>;
+
+pub(super) struct Job<T> {
     cancelled: Arc<AtomicBool>,
-    result: mpsc::Receiver<Result<WorkingDraft, String>>,
+    result: mpsc::Receiver<Result<T, String>>,
     worker: Option<JoinHandle<()>>,
 }
 
-impl DraftJob {
+impl Job<WorkingDraft> {
     pub fn start(host: Arc<dyn DraftHost>, request: DraftRequest) -> Self {
+        Self::launch(move |cancelled| host.draft(request, cancelled))
+    }
+}
+
+impl<T: Send + 'static> Job<T> {
+    pub fn launch(work: impl FnOnce(&AtomicBool) -> Result<T, String> + Send + 'static) -> Self {
         let cancelled = Arc::new(AtomicBool::new(false));
         let worker_cancel = cancelled.clone();
         let (sender, result) = mpsc::channel();
         let worker = thread::spawn(move || {
-            let _ = sender.send(host.draft(request, &worker_cancel));
+            let _ = sender.send(work(&worker_cancel));
         });
         Self {
             cancelled,
@@ -387,7 +413,7 @@ impl DraftJob {
         }
     }
 
-    pub fn poll(&self) -> Option<Result<WorkingDraft, String>> {
+    pub fn poll(&self) -> Option<Result<T, String>> {
         match self.result.try_recv() {
             Ok(result) => Some(result),
             Err(mpsc::TryRecvError::Empty) => None,
@@ -398,7 +424,7 @@ impl DraftJob {
     }
 }
 
-impl Drop for DraftJob {
+impl<T> Drop for Job<T> {
     fn drop(&mut self) {
         self.cancelled.store(true, Ordering::Relaxed);
         if let Some(worker) = self.worker.take() {

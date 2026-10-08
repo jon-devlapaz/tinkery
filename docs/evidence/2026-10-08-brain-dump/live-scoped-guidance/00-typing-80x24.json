@@ -1,0 +1,30 @@
+{
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / real Pi / unsaved                                     o originals   ",
+    "                                                                                ",
+    "                                                                                ",
+    "   ┌ What's on your mind? ──────────────────────────────────────────────────┐   ",
+    "   │I keep losing track of which Tinkery checks used a real model and which │   ",
+    "   │just used a stub.                                                       │   ",
+    "   │I want a small receipt in the PR thread so the next person can see      │   ",
+    "   │what's actually been checked before they dogfood it.                    │   ",
+    "   │But I don't want to fill another form with every tiny edit.             │   ",
+    "   │I also want to be able to say 'that question wasn't useful' and not get │   ",
+    "   │it again.                                                               │   ",
+    "   │                                                                        │   ",
+    "   │                                                                        │   ",
+    "   │                                                                        │   ",
+    "   │                                                                        │   ",
+    "   │                                                                        │   ",
+    "   │                                                                        │   ",
+    "   └────────────────────────────────────────────────────────────────────────┘   ",
+    "                                                                                ",
+    "                                                                                ",
+    "                                                                                ",
+    "Nothing saved. Submit when ready; no guess before then.                         ",
+    "F2 submit · Tab input/board · Ctrl-N add more · Ctrl-O original · Ctrl-C exit   "
+  ],
+  "width": 80
+}

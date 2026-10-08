@@ -1,0 +1,133 @@
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use tinkery::shaping::{
+    brain_dump::{self, BrainDump},
+    drafting::PiHost,
+};
+const DUMP: &str = "I keep losing track of which Tinkery checks used a real model and which just used a stub.\nI want a small receipt in the PR thread so the next person can see what's actually been checked before they dogfood it.\nBut I don't want to fill another form with every tiny edit.\nI also want to be able to say 'that question wasn't useful' and not get it again.";
+fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
+    let paper = app.paper();
+    std::fs::write(
+        dir.join(format!("{name}-paper.json")),
+        serde_json::to_string_pretty(&serde_json::json!({"paper":paper})).unwrap() + "\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join(format!("{name}.md")),
+        paper
+            .lines()
+            .map(str::trim_end)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim_end()
+            .to_owned()
+            + "\n",
+    )
+    .unwrap();
+    if let Some(g) = &app.guess {
+        std::fs::write(
+            dir.join(format!("{name}-guess.json")),
+            serde_json::to_string_pretty(g).unwrap() + "\n",
+        )
+        .unwrap();
+    }
+    for (w, h) in [(80, 24), (100, 30), (160, 40)] {
+        let s = brain_dump::snapshot(w, h, app, false).unwrap();
+        std::fs::write(
+            dir.join(format!("{name}-{w}x{h}.json")),
+            serde_json::to_string_pretty(
+                &serde_json::json!({"width":w,"height":h,"lines":s.lines().collect::<Vec<_>>()}),
+            )
+            .unwrap()
+                + "\n",
+        )
+        .unwrap();
+    }
+}
+fn settle(app: &mut BrainDump) {
+    let stop = Instant::now() + Duration::from_secs(100);
+    while app.running() && Instant::now() < stop {
+        app.tick();
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(!app.running());
+}
+fn main() {
+    let dir = PathBuf::from(std::env::args().nth(1).expect("New evidence directory"));
+    assert!(!dir.exists(), "Refuse overwrite");
+    std::fs::create_dir_all(&dir).unwrap();
+    let model = std::env::var("TINKERY_LIVE_MODEL").expect("Explicit model");
+    let skill = std::env::var("TINKERY_SEED_ME").expect("Actual skill path");
+    let program = std::env::var_os("TINKERY_LIVE_PI_COMMAND")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| "pi".into());
+    let host = PiHost::new(program, model.clone(), skill.into())
+        .unwrap()
+        .with_thinking("low")
+        .unwrap();
+    let mut app = BrainDump::with_host(Arc::new(host));
+    capture(&mut app, &dir, "00-entry");
+    assert!(app.guess.is_none());
+    let dark = std::env::var_os("TINKERY_LIVE_DARK_MODE").is_some();
+    let dump = if dark {
+        "Add a dark mode toggle to my blog. Reading at night is uncomfortable; the readers on hamster need the same relief."
+    } else {
+        DUMP
+    };
+    app.paste(dump);
+    capture(&mut app, &dir, "00-typing");
+    assert!(app.guess.is_none());
+    app.submit();
+    settle(&mut app);
+    capture(&mut app, &dir, "01-first");
+    assert!(app.guess.is_some(), "{}", app.notice);
+    let layout = app.layout();
+    let first = app.focused_question().map(|q| q.text.clone());
+    println!("FIRST QUESTION: {first:?}");
+    let answer = if dark {
+        "Following the system setting is fine; Hamster is the RSS reader."
+    } else {
+        "The distinction that matters is real-model evidence, stub mechanics, and the operator's own recognition. Put it in the PR thread; reusing links is fine rather than creating a new receipt format."
+    };
+    app.paste(answer);
+    app.submit();
+    settle(&mut app);
+    capture(&mut app, &dir, "02-answer");
+    assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
+    assert_eq!(&app.layout()[..layout.len()], layout.as_slice());
+    println!(
+        "NEXT QUESTION: {:?}",
+        app.focused_question().map(|q| &q.text)
+    );
+    if dark {
+        assert_eq!(app.sources[0].text, dump);
+        println!(
+            "PASS: dark-mode regression captured; judge mechanism/media and alternatives manually"
+        );
+        return;
+    }
+    app.handle_key(crossterm::event::KeyEvent::new(
+        crossterm::event::KeyCode::Char('n'),
+        crossterm::event::KeyModifiers::CONTROL,
+    ));
+    app.paste("Sometimes I just want a quiet scratch space to think before the PR exists; don't turn everything I type into a handover checklist.");
+    app.submit();
+    settle(&mut app);
+    capture(&mut app, &dir, "03-added-dump");
+    assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
+    assert_eq!(&app.layout()[..layout.len()], layout.as_slice());
+    for f in &app.fragments {
+        assert_eq!(&app.sources[f.source - 1].text[f.start..f.end], f.text);
+    }
+    assert_eq!(app.sources[0].text, DUMP);
+    println!(
+        "FINAL QUESTION: {:?}",
+        app.focused_question().map(|q| &q.text)
+    );
+    println!(
+        "PASS: actual {model}; source fidelity, submitted reshapes, and positions; NOT operator recognition"
+    );
+}

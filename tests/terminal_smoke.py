@@ -26,7 +26,7 @@ def run(quit_key, workbench=True, width=100, height=30, example=None, real_draft
     output = bytearray()
     screen = Screen(width, height)
     with tempfile.TemporaryDirectory(prefix="tinkery-smoke-") as directory:
-        arguments = ["--workbench"] if workbench else []
+        arguments = ["--workbench"] if workbench else ["--scratchpad"]
         if real_draft:
             skill = Path(directory) / "SKILL.md"
             skill.write_text("# Seed Me\n### Shape the working draft\nPreserve intention; proposals are not decisions.\n### Size gate\n")
@@ -48,7 +48,7 @@ else:
 print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'context': ['You proposed a graph.'], 'questions': ['Which reasons matter first?'], 'assumptions': [], 'options': []}))
 ''')
             host.chmod(0o755)
-            arguments = ["--shape-pi", "--model", "test/model", "--seed-me", str(skill), "--pi-command", str(host)]
+            arguments = ["--scratchpad", "--shape-pi", "--model", "test/model", "--seed-me", str(skill), "--pi-command", str(host)]
         if full_redraw:
             arguments.append("--full-redraw")
         initial_files = {path.name: (path.stat().st_size, path.stat().st_mtime_ns) for path in Path(directory).iterdir()}
@@ -111,7 +111,10 @@ print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'con
                 send(b"\r", "Example evidence")
             elif real_draft:
                 send(b"\r", "Scratchpad / editing")
-                send(b"\x1b[200~I want a graph, so I can find decision reasons.\x1b[201~", "I want a graph")
+                started = time.monotonic()
+                send(b"I want a graph, so I can find decision reasons.", "reasons.")
+                note_latency = time.monotonic() - started
+                assert note_latency < 1.0, ("plain note typing", note_latency)
                 send(b"\x1bOQ", "Working paper / model")
                 await_text("Shaped 1 note; skipped 0 blanks.")
                 await_text("Initial goal: find decision reasons.")
@@ -131,7 +134,11 @@ print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'con
                 await_text("1 selected")
                 send(b"r", "Keep / cut / reshape")
                 await_text("Initial goal: find decision reasons.")
-                send(b"\x1b[200~Cut the graph; keep the intention.\x1b[201~", "Cut the graph")
+                started = time.monotonic()
+                send(b"Cut the graph; keep the intention.", "intention.")
+                feedback_latency = time.monotonic() - started
+                assert feedback_latency < 1.0, ("plain feedback typing", feedback_latency)
+                print(f"LATENCY: legacy {width}x{height}, note={note_latency:.4f}s, feedback={feedback_latency:.4f}s (plain burst)")
                 send(b"q", "intention.q")
                 send(b"\x1bOQ", "Revised goal: find reasons, not a graph.")
                 await_text("Working paper / model")

@@ -91,7 +91,8 @@ assert "never recast them as uncertain beliefs" in instructions
 assert "plain text without a PROVISIONAL prefix" in instructions
 assert "Preserve unfamiliar names and terms verbatim" in instructions
 assert "actively identify consequential missing definitions, boundaries, and capabilities in questions" in instructions
-assert "One approach is enough" in instructions
+assert "at least two credible, materially different routes" in instructions
+assert "requested toggle or control is still a mechanism" in instructions
 assert '"context"' in instructions and '"questions"' in instructions
 assert "remove any line that merely repeats or rephrases an original thought" in instructions
 assert "state that condition in its label or benefit" in instructions

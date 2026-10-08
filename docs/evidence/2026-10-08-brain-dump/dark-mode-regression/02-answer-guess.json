@@ -1,0 +1,35 @@
+{
+  "uncertain": false,
+  "framings": [
+    {
+      "text": "I think this is about helping people read your blog comfortably at night, including through the Hamster RSS reader, with system-based appearance preference acceptable.",
+      "supports": [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    }
+  ],
+  "outcome": "People can read the blog comfortably at night, both on the blog and through Hamster.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "hamster-nighttime-display",
+      "text": "Should the nighttime comfort appear within Hamster’s reading view as well as on the blog?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "PROVISIONAL: Manual dark appearance choice",
+      "benefit": "Readers can choose a darker presentation when needed.",
+      "cost": "Readers must find and use the choice.",
+      "undo_cost": "PROVISIONAL: removing it may leave some readers without a direct remedy."
+    },
+    {
+      "label": "PROVISIONAL: Follow the system appearance setting",
+      "benefit": "The presentation can match a reader’s existing nighttime preference without another choice.",
+      "cost": "Readers whose system setting does not match their needs may receive no relief.",
+      "undo_cost": "PROVISIONAL: reverting may require restoring prior appearance behavior."
+    }
+  ]
+}

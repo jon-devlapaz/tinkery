@@ -1,0 +1,30 @@
+{
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / real Pi / unsaved                                     o originals   ",
+    "┌ Your fragments / exact excerpts ───┐┌ Agent / provisional ───────────────────┐",
+    "│┌ ┌Your f4──────────┐               ││I think this is about… / guess          │",
+    "││ │I also want to be│               ││I think this is about helping the next  │",
+    "││ │able to say 'that│               ││person judge what was checked before    │",
+    "││ │question wasn't  │               ││trying Tinkery, while keeping small     │",
+    "││ │useful' and not  │               ││edits and private pre-PR thinking       │",
+    "││ │get it again.    │               ││lightweight.                            │",
+    "│└ └─────────────────┘               ││Supports: f1, f2, f3, f4, f5, f6, f7    │",
+    "│                                    ││                                        │",
+    "│┌ ┌Your f6──────────┐               ││I think this is about… / guess          │",
+    "││ │Put it in the PR │               ││I think this is about a PR review       │",
+    "│└ └─────────────────┘               ││experience only: show clear evidence for│",
+    "│                                    ││each check, avoid repeated entry, and   │",
+    "└────────────────────────────────────┘└────────────────────────────────────────┘",
+    "┌ One question / 0 quietly queued ───┐┌ Answer or add more / F2 submit ────────┐",
+    "│Should the desired experience cover ││                                        │",
+    "│both private pre-PR thinking and PR ││                                        │",
+    "│review, or only PR review? The      ││                                        │",
+    "│Later:                              ││                                        │",
+    "└────────────────────────────────────┘└────────────────────────────────────────┘",
+    "Reshaped after submit. Your positions kept; nothing confirmed.                  ",
+    "F2 submit · Tab input/board · Ctrl-N add more · Ctrl-O original · Ctrl-C exit   "
+  ],
+  "width": 80
+}
