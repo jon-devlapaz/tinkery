@@ -663,6 +663,8 @@ impl DraftHost for RecordingHost {
             }
             .into(),
             outcome: "People can understand why a choice was made.".into(),
+            context: vec!["You proposed a graph.".into()],
+            questions: vec!["Which decisions matter first?".into()],
             assumptions: vec![],
             options: if revised {
                 vec![]
@@ -798,6 +800,10 @@ fn feedback_revises_the_paper_not_the_notes_and_failure_never_falls_back_to_a_sa
             .contains("Find reasons without prescribing a graph.")
     );
     assert!(app.paper().contains("No approach proposed."));
+    assert!(
+        app.paper()
+            .contains("Your feedback / unchanged\n\nCut the graph; keep the intention. q")
+    );
     assert_eq!(app.notes()[0].text(), original);
     {
         let requests = host.requests.lock().unwrap();
@@ -878,4 +884,201 @@ fn editing_limits_modal_help_stale_resize_and_outside_releases_remain_safe() {
         (15, 12),
     );
     assert_eq!(app.canvas.state.viewport_x, camera);
+}
+
+#[test]
+fn paper_mono_corner_fallback_never_rewrites_authored_arrows() {
+    let mut app = Scratchpad::default();
+    screen(&mut app);
+    key(&mut app, KeyCode::Enter);
+    app.paste("Keep ⇘⇙⇖⇗ verbatim.", area());
+    key(&mut app, KeyCode::Esc);
+    for monochrome in [false, true] {
+        assert!(
+            snapshot(100, 30, &mut app, monochrome)
+                .unwrap()
+                .contains("Keep ⇘⇙⇖⇗ verbatim.")
+        );
+        assert_eq!(app.notes()[0].text(), "Keep ⇘⇙⇖⇗ verbatim.");
+    }
+}
+
+#[test]
+fn shift_click_is_an_explicit_toggle_and_shaping_preserves_unreleased_marquee_selection() {
+    for model in [false, true] {
+        let host = Arc::new(RecordingHost::default());
+        let mut app = if model {
+            Scratchpad::with_host(host.clone())
+        } else {
+            Scratchpad::default()
+        };
+        screen(&mut app);
+        key(&mut app, KeyCode::Enter);
+        app.paste("A first thought.", area());
+        ctrl(&mut app, 'n');
+        app.paste("A second thought.", area());
+        let second = app.notes()[1].id().to_owned();
+        let first_point = point(&app, 0);
+        let shift_click = |app: &mut Scratchpad, point: (u16, u16)| {
+            for kind in [
+                MouseEventKind::Down(MouseButton::Left),
+                MouseEventKind::Up(MouseButton::Left),
+            ] {
+                app.handle_mouse(
+                    MouseEvent {
+                        kind,
+                        column: point.0,
+                        row: point.1,
+                        modifiers: KeyModifiers::SHIFT,
+                    },
+                    area(),
+                );
+            }
+            screen(app);
+        };
+        shift_click(&mut app, first_point);
+        assert!(!app.editing());
+        assert_eq!(app.canvas.state.selection.all().len(), 2);
+        assert_eq!(app.selected_note(), Some(second.as_str()));
+        assert_eq!(app.notes()[1].text(), "A second thought.");
+        let positions = geometry(&app);
+        shift_click(&mut app, first_point);
+        assert_eq!(app.canvas.state.selection.all().len(), 1);
+        assert_eq!(geometry(&app), positions);
+        // A host may withhold right-button release. F2 must not synthesize a blank-space selection.
+        mouse(&mut app, MouseEventKind::Down(MouseButton::Right), (3, 5));
+        mouse(&mut app, MouseEventKind::Drag(MouseButton::Right), (96, 24));
+        let selected = app.canvas.state.selection.all();
+        let primary = app.selected_note().map(str::to_owned);
+        assert_eq!(selected.len(), 2);
+        key(&mut app, KeyCode::F(2));
+        if model {
+            settle_request(&mut app, area());
+        } else {
+            finish_writer(&mut app);
+        }
+        assert_eq!(app.canvas.state.selection.all(), selected);
+        assert_eq!(app.selected_note(), primary.as_deref());
+        assert_eq!(
+            app.sent_note(),
+            Some("A first thought.\n\nA second thought.")
+        );
+        assert_eq!(geometry(&app), positions);
+        assert!(!app.canvas.captured());
+        key(&mut app, KeyCode::F(2));
+        if model {
+            settle_request(&mut app, area());
+            assert_eq!(host.requests.lock().unwrap().len(), 2);
+        }
+        assert_eq!(app.canvas.state.selection.all(), selected);
+        key(&mut app, KeyCode::Char('p'));
+        app.canvas.state.selection.clear();
+        ctrl(&mut app, 'a');
+        assert_eq!(app.canvas.state.selection.all(), selected);
+    }
+}
+
+#[test]
+fn paper_copy_preserves_markdown_and_drag_selects_unwrapped_logical_lines() {
+    let raw = "# Heading\n\n### Candidate\n\n**Benefit:** A long paragraph about Jev, value, and uncertainty that should wrap across several terminal rows but copy as one intact Markdown line.\n\n*Provisional only.*\n\n## Last\n\nTail.";
+    for (width, height) in [(80, 24), (100, 30), (240, 40)] {
+        let size = Rect::new(0, 0, width, height);
+        let mut app = example_app();
+        snapshot(width, height, &mut app, false).unwrap();
+        app.writer.begin(EXAMPLE.into(), vec![raw.into()]);
+        app.paper_open = true;
+        let before = geometry(&app);
+        let selected = app.canvas.state.selection.all();
+        snapshot(width, height, &mut app, false).unwrap();
+        app.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE), size);
+        assert_eq!(app.take_copy_request().as_deref(), Some(raw));
+        assert!(app.take_copy_request().is_none());
+        let layout = app.layout.as_ref().unwrap();
+        let body = layout.paper_body.unwrap();
+        let row = layout
+            .paper_lines
+            .iter()
+            .position(|line| *line == 4)
+            .unwrap() as u16;
+        for kind in [
+            MouseEventKind::Down(MouseButton::Left),
+            MouseEventKind::Drag(MouseButton::Left),
+            MouseEventKind::Up(MouseButton::Left),
+        ] {
+            app.handle_mouse(
+                MouseEvent {
+                    kind,
+                    column: body.x + 2,
+                    row: body.y + row,
+                    modifiers: KeyModifiers::NONE,
+                },
+                size,
+            );
+            snapshot(width, height, &mut app, false).unwrap();
+        }
+        app.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE), size);
+        assert_eq!(
+            app.take_copy_request().as_deref(),
+            Some(raw.lines().nth(4).unwrap())
+        );
+        assert_eq!(app.canvas.state.selection.all(), selected);
+        assert_eq!(geometry(&app), before);
+        assert_eq!(app.notes()[0].text(), EXAMPLE);
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
+        terminal
+            .draw(|frame| render(frame, &mut app, Palette::new(false)))
+            .unwrap();
+        assert!(terminal.backend().buffer().content.iter().any(|cell| {
+            cell.symbol() == "B"
+                && cell
+                    .modifier
+                    .contains(ratatui::style::Modifier::BOLD | ratatui::style::Modifier::REVERSED)
+        }));
+        app.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE), size);
+        assert!(app.paper_open && app.paper_selection.is_none());
+        app.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE), size);
+        assert_eq!(app.take_copy_request().as_deref(), Some(raw));
+        app.copy_result(false);
+        assert!(app.notice.unwrap().contains("Could not send"));
+        assert_eq!(app.paper(), raw);
+        app.writer.sections = vec!["x".repeat(COPY_LIMIT + 1)];
+        app.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE), size);
+        assert!(app.take_copy_request().is_none());
+        assert!(app.notice.unwrap().contains("128 KiB"));
+    }
+}
+
+#[test]
+fn differential_frames_preserve_every_cell_when_paper_opens_scrolls_and_closes_at_wide_sizes() {
+    for (width, height) in [(80, 24), (100, 30), (160, 40), (240, 40), (320, 40)] {
+        let size = Rect::new(0, 0, width, height);
+        let mut app = example_app();
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
+        for step in 0..18 {
+            if step == 1 {
+                app.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE), size);
+                finish_writer(&mut app);
+            }
+            if step > 1 && step % 3 == 0 {
+                app.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE), size);
+            }
+            app.writer.paper_scroll = if step % 2 == 0 {
+                0
+            } else {
+                app.writer.max_paper_scroll
+            };
+            let intended = terminal
+                .draw(|frame| render(frame, &mut app, Palette::new(false)))
+                .unwrap()
+                .buffer
+                .clone();
+            assert_eq!(
+                terminal.backend().buffer(),
+                &intended,
+                "Differential render lost cells at {width}x{height}, step {step}"
+            );
+        }
+    }
 }

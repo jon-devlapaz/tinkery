@@ -1,4 +1,5 @@
 """Small UTF-8 screen reader for the cursor/style sequences emitted by this demo."""
+import base64
 import codecs
 import re
 
@@ -11,12 +12,24 @@ class Screen:
         self.cells = [[" "] * width for _ in range(height)]
         self.x = self.y = 0
         self.pending = ""
+        self.clipboards = []
         self.decoder = codecs.getincrementaldecoder("utf-8")()
 
     def feed(self, data):
         self.pending += self.decoder.decode(data)
         while self.pending:
             if self.pending[0] == "\x1b":
+                if self.pending.startswith("\x1b]"):
+                    ends = [(self.pending.find(terminator, 2), terminator) for terminator in ("\x07", "\x1b\\")]
+                    ends = [(end, terminator) for end, terminator in ends if end >= 0]
+                    if not ends:
+                        return
+                    end, terminator = min(ends)
+                    payload = self.pending[2:end]
+                    self.pending = self.pending[end + len(terminator):]
+                    assert payload.startswith("52;c;"), f"Unsupported OSC: {payload!r}"
+                    self.clipboards.append(base64.b64decode(payload[5:], validate=True).decode())
+                    continue
                 match = CSI.match(self.pending)
                 if not match:
                     if len(self.pending) == 1 or self.pending.startswith("\x1b["):
@@ -24,6 +37,8 @@ class Screen:
                     raise AssertionError(f"Unsupported terminal escape: {self.pending!r}")
                 arguments, _, command = match.groups()
                 self.pending = self.pending[match.end():]
+                if arguments in (">0", ">1") and command == "s":
+                    continue
                 if arguments.startswith("?") or command == "m":
                     continue
                 values = [int(value or "0") for value in arguments.split(";")]

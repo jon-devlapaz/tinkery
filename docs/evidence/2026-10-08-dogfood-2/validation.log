@@ -1,0 +1,196 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.65s
+     Running unittests src/lib.rs (target/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 36 tests
+test markdown_tests::headings_and_emphasis_are_styled_without_markers_or_text_loss ... ok
+test shaping::drafting::tests::draft_values_cannot_supply_authority_or_terminal_controls ... ok
+test shaping::canvas_tests::upstream_double_click_and_editor_submit_live_text_without_losing_original ... ok
+test shaping::canvas_tests::upstream_drag_pan_and_zoom_leave_paper_and_note_text_unchanged ... ok
+test shaping::canvas_tests::memory_only_save_is_safe_even_with_a_writable_destination ... ok
+test shaping::canvas_tests::help_resize_and_mouse_release_outside_canvas_cancel_captured_gestures ... ok
+test shaping::canvas_tests::inline_editor_sanitizes_and_rejects_overflow_without_corrupting_undo ... ok
+test shaping::canvas_tests::upstream_inline_editor_retains_carbon_text_on_warm_paper ... ok
+test shaping::canvas_tests::resize_and_extreme_projection_cannot_paint_over_the_paper ... ok
+test shaping::scratchpad::tests::arbitrary_thoughts_get_an_honest_template_and_stale_selections_are_rejected ... ok
+test shaping::scratchpad::tests::creation_editing_and_deletion_use_upstream_undo_without_cross_note_corruption ... ok
+test shaping::scratchpad::tests::actual_pinstar_drag_crosses_the_old_pane_boundary_and_undo_redo_restore_it ... ok
+test shaping::canvas_tests::actual_pinstar_node_and_completed_paper_fit_supported_sizes ... ok
+test shaping::scratchpad::tests::multi_note_sources_track_changes_and_removal_without_rewriting_the_draft ... ok
+test shaping::scratchpad::tests::inspector_toggles_preserve_world_geometry_camera_and_visible_note_positions ... ok
+test shaping::scratchpad::tests::editing_limits_modal_help_stale_resize_and_outside_releases_remain_safe ... ok
+test shaping::scratchpad::tests::missing_or_empty_selections_never_fall_back_to_a_different_note ... ok
+test shaping::scratchpad::tests::multiple_notes_edit_independently_and_f2_shapes_exactly_the_selected_live_note ... ok
+test shaping::scratchpad::tests::paper_mono_corner_fallback_never_rewrites_authored_arrows ... ok
+test shaping::scratchpad::tests::model_shaping_skips_blanks_preserves_sources_and_all_blank_retains_the_paper ... ok
+test shaping::scratchpad::tests::right_click_delete_commits_another_notes_live_editor_before_deleting ... ok
+test shaping::scratchpad::tests::no_actions_write_files_even_with_a_real_destination_and_deleted_source_paper_survives ... ok
+test shaping::scratchpad::tests::inspector_is_read_only_and_writer_growth_preserves_focus_scroll_and_hidden_canvas ... ok
+test shaping::scratchpad::tests::full_width_workspace_and_inspector_are_readable_at_supported_sizes ... ok
+test shaping::scratchpad::tests::right_click_menu_creates_notes_but_exposes_no_graph_files_or_external_editor ... ok
+test shaping::scratchpad::tests::feedback_revises_the_paper_not_the_notes_and_failure_never_falls_back_to_a_sample ... ok
+test shaping::scratchpad::tests::right_click_delete_removes_only_the_clicked_note_and_supports_undo_redo ... ok
+test shaping::scratchpad::tests::problem_first_and_plan_first_examples_share_a_goal_without_accepting_a_solution ... ok
+test shaping::scratchpad::tests::right_clicking_a_different_note_commits_the_current_editor_before_reselection ... ok
+test shaping::scratchpad::tests::selected_thoughts_include_live_edits_once_in_note_order_and_exclude_other_notes ... ok
+test shaping::scratchpad::tests::right_click_delete_over_the_inspector_is_visible_clickable_and_retains_the_paper ... ok
+test shaping::scratchpad::tests::paper_copy_preserves_markdown_and_drag_selects_unwrapped_logical_lines ... ok
+test shaping::scratchpad::tests::shift_click_is_an_explicit_toggle_and_shaping_preserves_unreleased_marquee_selection ... ok
+test shaping::scratchpad::tests::differential_frames_preserve_every_cell_when_paper_opens_scrolls_and_closes_at_wide_sizes ... ok
+test shaping::drafting::tests::pi_process_receives_only_bounded_drafting_inputs_and_disabled_resources ... ok
+test shaping::drafting::tests::failures_timeout_overflow_and_cancellation_never_return_a_draft ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+
+     Running unittests src/main.rs (target/debug/deps/tinkery-55ca26fb2e0e7194)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cabinet.rs (target/debug/deps/cabinet-69155ed523129298)
+
+running 9 tests
+test pane_focus_cycles_in_both_directions ... ok
+test release_events_do_not_trigger_navigation ... ok
+test undersized_terminal_preserves_selection_but_allows_quit ... ok
+test help_is_modal_and_quit_still_works ... ok
+test cabinet_at_100_by_30_is_explicit_and_readable ... ok
+test palette_matches_arcade_and_has_monochrome_fallback ... ok
+test scrolling_reaches_end_and_switching_artifact_resets_it ... ok
+test selection_updates_both_artifact_and_attention_and_clamps ... ok
+test resizing_clamps_scroll_and_keeps_every_pane_available ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/drawer.rs (target/debug/deps/drawer-0191badf9d3958fb)
+
+running 4 tests
+test compact_header_footer_and_carbon_document_at_100_by_30 ... ok
+test drawer_can_close_with_toggle_or_tab_and_help_preserves_it ... ok
+test drawer_restores_focus_selection_artifact_and_reading_position ... ok
+test drawer_and_help_are_readable_at_minimum_size_and_recover_from_resize ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/mouse.rs (target/debug/deps/mouse-bca8f866e8e539ac)
+
+running 5 tests
+test card_click_places_cursor_and_paper_click_is_read_only ... ok
+test clicks_handle_wrapped_text_wide_characters_and_blank_lines ... ok
+test blank_space_right_clicks_releases_and_stale_resize_targets_do_nothing ... ok
+test wheel_scrolls_each_surface_without_moving_focus_or_changing_note ... ok
+test footer_controls_send_pause_focus_help_and_quit ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/shaping.rs (target/debug/deps/shaping-1c8c52f826ddb530)
+
+running 9 tests
+test pause_help_and_small_terminal_freeze_the_writer ... ok
+test keyboard_editing_paste_and_q_do_not_trigger_commands ... ok
+test unicode_editing_moves_and_deletes_whole_graphemes ... ok
+test writer_captures_a_copy_never_mutates_card_or_steals_focus ... ok
+test wrapping_keeps_words_and_wide_characters_inside_the_card ... ok
+test note_card_and_paper_are_readable_at_100_by_30 ... ok
+test empty_notes_and_oversize_pastes_have_explicit_errors ... ok
+test long_papers_scroll_without_following_new_sections ... ok
+test help_resize_release_and_ctrl_c_keep_the_prototype_safe ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/shaping_polish.rs (target/debug/deps/shaping_polish-3d1fe92c83b51903)
+
+running 4 tests
+test example_becomes_one_tentative_goal_outcome_and_open_question ... ok
+test other_notes_are_honestly_labeled_templates_not_the_authored_example ... ok
+test overflow_cues_track_top_middle_bottom_and_clear_when_content_fits ... ok
+test card_overflow_and_unsent_changes_remain_visible_without_explanatory_chrome ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests examples/live_drafting_check.rs (target/debug/examples/live_drafting_check-2946fd3b89403622)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/debug/deps/pinstar-780a2f1432ce0719)
+
+running 40 tests
+test camera::tests::clamp_world_nonfinite ... ok
+test camera::tests::zoom_in_out_bounds ... ok
+test menu::tests::color_picker_specs_carry_colors ... ok
+test menu::tests::find_shortcut_case_insensitive ... ok
+test camera::tests::nearest_in_cone_prefers_straightest ... ok
+test menu::tests::canvas_menu_specs_gate_by_format ... ok
+test data::tests::parses_canvas_json_without_orientation ... ok
+test menu::tests::image_node_item_only_when_enabled ... ok
+test overlay::tests::clear_nukes_both ... ok
+test menu::tests::rect_clamps_to_area ... ok
+test grid::tests::degenerate_projection_is_noop ... ok
+test overlay::tests::commit_rect_normalizes_both_directions ... ok
+test grid::tests::hidden_grid_draws_nothing ... ok
+test overlay::tests::is_dragging_screen_manhattan ... ok
+test grid::tests::grid_dots_appear_on_empty_cells_only ... ok
+test overlay::tests::on_down_sets_start_end ... ok
+test overlay::tests::on_drag_updates_end ... ok
+test data::tests::parses_nodes_with_and_without_title ... ok
+test selection::tests::clear_nukes_both ... ok
+test selection::tests::all_unions ... ok
+test selection::tests::clear_set_keeps_primary ... ok
+test selection::tests::select_only_clears_extra ... ok
+test selection::tests::is_selected_primary_and_extra ... ok
+test input::tests::image_node_menu_item_sets_picker_trigger ... ok
+test state::tests::canvas_context_menu_remains_available ... ok
+test textsel::tests::click_without_drag_cancels_selection ... ok
+test state::tests::screen_to_canvas_center_offset_and_clamp ... ok
+test render::tests::marquee_and_menu_render_without_panic ... ok
+test state::tests::edge_overlay_lists_and_selects_connected_edges ... ok
+test formats::plantuml::tests::test_plantuml_basic ... ok
+test formats::mermaid::tests::test_dt_parse_and_serialize ... ok
+test formats::mermaid::tests::test_basic_parse_and_serialize ... ok
+test render::tests::test_draw_pinstar_view_with_editor ... ok
+test formats::dot::tests::test_dot_dt_orientation ... ok
+test formats::dot::tests::test_dot_parse_and_serialize ... ok
+test formats::mermaid::tests::test_dt_markdown_parse_and_serialize ... ok
+test render::tests::test_draw_flowchart_view ... ok
+test state::tests::connection_flow_and_delete_both_ways ... ok
+test state::tests::rename_title_and_id_modes ... ok
+test state::tests::undo_restores_and_prunes_selection ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/main.rs (target/debug/deps/pinstar-668c7b47986149fb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pinstar
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.03s
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 80x24, multiple notes, full-width drag, inspector, no writes, restore
+PASS: problem-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: problem-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+PASS: model adapter stub, 100x30, shape/correct/revise, original retained, no writes, safe exit
+PASS: model adapter stub, 80x24, shape/correct/revise, original retained, no writes, safe exit
+PASS: wide stub journey, 160x40, paper/revision/repaint/clean OSC52, full_redraw=False
+PASS: wide stub journey, 240x40, paper/revision/repaint/clean OSC52, full_redraw=False
+PASS: wide stub journey, 320x40, paper/revision/repaint/clean OSC52, full_redraw=True
+PASS: noninteractive modes and explicit CLI errors
+    Checking tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.15s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s

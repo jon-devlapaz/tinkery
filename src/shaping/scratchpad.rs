@@ -31,6 +31,7 @@ enum Action {
     Pause,
     Revise,
     Cancel,
+    Copy,
 }
 
 struct Control {
@@ -40,6 +41,8 @@ struct Control {
 struct HitLayout {
     area: Rect,
     paper: Option<Rect>,
+    paper_body: Option<Rect>,
+    paper_lines: Vec<usize>,
     cue: Rect,
     controls: Vec<Control>,
     feedback: Option<Rect>,
@@ -47,6 +50,19 @@ struct HitLayout {
 
 type SourceNote = Thought;
 const FEEDBACK_HEIGHT: u16 = 4;
+const COPY_LIMIT: usize = 128 * 1024;
+
+struct PaperSelection {
+    anchor: usize,
+    head: usize,
+    dragging: bool,
+    active: bool,
+}
+impl PaperSelection {
+    fn contains(&self, line: usize) -> bool {
+        self.active && (self.anchor.min(self.head)..=self.anchor.max(self.head)).contains(&line)
+    }
+}
 
 struct PendingDraft {
     job: DraftJob,
@@ -75,6 +91,8 @@ pub struct Scratchpad {
     feedback_scroll: u16,
     skipped: usize,
     message: Option<String>,
+    paper_selection: Option<PaperSelection>,
+    copy_request: Option<String>,
 }
 
 impl Default for Scratchpad {
@@ -104,6 +122,8 @@ impl Default for Scratchpad {
             feedback_scroll: 0,
             skipped: 0,
             message: None,
+            paper_selection: None,
+            copy_request: None,
         }
     }
 }
@@ -136,6 +156,41 @@ impl Scratchpad {
             self.writer.paper()
         }
     }
+    pub fn take_copy_request(&mut self) -> Option<String> {
+        self.copy_request.take()
+    }
+
+    pub fn copy_result(&mut self, sent: bool) {
+        self.notice = Some(if sent {
+            "Clipboard escape sent; host may require permission."
+        } else {
+            "Could not send clipboard escape; paper retained."
+        });
+    }
+
+    fn copy_paper(&mut self) {
+        let paper = self.paper();
+        let text = if let Some(selection) = &self.paper_selection
+            && selection.active
+        {
+            paper
+                .lines()
+                .skip(selection.anchor.min(selection.head))
+                .take(selection.anchor.abs_diff(selection.head) + 1)
+                .collect::<Vec<_>>()
+                .join("\n")
+        } else {
+            paper
+        };
+        if text.is_empty() {
+            self.notice = Some("Select written paper lines before copying.");
+        } else if text.len() > COPY_LIMIT {
+            self.notice = Some("Paper exceeds the 128 KiB clipboard limit; select fewer lines.");
+        } else {
+            self.copy_request = Some(text);
+        }
+    }
+
     pub fn inspector_open(&self) -> bool {
         self.paper_open
     }
@@ -151,6 +206,7 @@ impl Scratchpad {
             self.notice = None;
             match result {
                 Ok(draft) => {
+                    self.paper_selection = None;
                     let scroll = self.writer.paper_scroll;
                     let text = pending
                         .sources
@@ -158,7 +214,17 @@ impl Scratchpad {
                         .map(|note| note.text.as_str())
                         .collect::<Vec<_>>()
                         .join("\n\n");
-                    self.writer.begin(text, draft.sections(&pending.sources));
+                    let mut sections = draft.sections(&pending.sources);
+                    if !pending.feedback_history.is_empty() {
+                        sections.insert(
+                            3,
+                            format!(
+                                "## Your feedback / unchanged\n\n{}",
+                                pending.feedback_history.join("\n\n")
+                            ),
+                        );
+                    }
+                    self.writer.begin(text, sections);
                     self.writer.shown = self.writer.sections.len();
                     self.writer.paper_scroll = scroll;
                     self.sources = pending.sources;
@@ -262,6 +328,7 @@ impl Scratchpad {
             .collect::<Vec<_>>()
             .join("\n\n");
         self.canvas.finish_edit();
+        self.paper_selection = None;
         self.writer.begin(text, draft.sections);
         self.sources = sources;
         self.skipped = skipped;
@@ -362,6 +429,7 @@ impl Scratchpad {
 
     fn toggle_paper(&mut self) {
         self.canvas.cancel_gesture();
+        self.paper_selection = None;
         self.paper_open = !self.paper_open;
         if !self.paper_open {
             self.focus = Focus::Card;
@@ -392,6 +460,7 @@ impl Scratchpad {
             Action::Pause => self.writer.paused = !self.writer.paused,
             Action::Revise => self.revise(),
             Action::Cancel => self.cancel(),
+            Action::Copy => self.copy_paper(),
         }
     }
 
@@ -513,6 +582,8 @@ impl Scratchpad {
             return;
         }
         match key.code {
+            KeyCode::Char('y') if self.paper_open && !control => self.copy_paper(),
+            KeyCode::Esc if self.paper_selection.is_some() => self.paper_selection = None,
             KeyCode::Char('r') if self.host.is_some() => self.revise(),
             KeyCode::Char('n') => self.new_note(),
             KeyCode::Char('e') | KeyCode::Enter => self.edit(),
@@ -558,6 +629,38 @@ impl Scratchpad {
             return;
         };
         if layout.area != area || area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
+            return;
+        }
+        if self
+            .paper_selection
+            .as_ref()
+            .is_some_and(|selection| selection.dragging)
+            && matches!(
+                event.kind,
+                MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
+            )
+        {
+            if let Some(body) = layout.paper_body {
+                let row = event
+                    .row
+                    .saturating_sub(body.y)
+                    .min(body.height.saturating_sub(1));
+                if let Some(line) = layout
+                    .paper_lines
+                    .get(usize::from(row))
+                    .or_else(|| layout.paper_lines.last())
+                {
+                    let selection = self.paper_selection.as_mut().unwrap();
+                    selection.head = *line;
+                    if matches!(event.kind, MouseEventKind::Drag(_)) {
+                        selection.active = true;
+                    }
+                    selection.dragging = !matches!(event.kind, MouseEventKind::Up(_));
+                    if !selection.dragging && !selection.active {
+                        self.paper_selection = None;
+                    }
+                }
+            }
             return;
         }
         if self.feedback.is_some() {
@@ -616,6 +719,18 @@ impl Scratchpad {
                 self.focus = Focus::Paper;
                 if page {
                     self.scroll_paper(true, 8);
+                } else if let Some(body) = layout.paper_body
+                    && body.contains((event.column, event.row).into())
+                {
+                    self.paper_selection = layout
+                        .paper_lines
+                        .get(usize::from(event.row - body.y))
+                        .map(|line| PaperSelection {
+                            anchor: *line,
+                            head: *line,
+                            dragging: true,
+                            active: false,
+                        });
                 }
             } else if matches!(
                 event.kind,
@@ -738,6 +853,8 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     let overlay = inspector(rows[3]);
     let mut controls = Vec::new();
     let mut cue = Rect::default();
+    let mut paper_body = None;
+    let mut paper_lines = Vec::new();
     if app.help || app.paper_open {
         let block = Block::default()
             .style(palette.ink)
@@ -748,7 +865,7 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
         frame.render_widget(Clear, overlay);
         frame.render_widget(block, overlay);
         if app.help {
-            frame.render_widget(Paragraph::new("Keys / Pinstar scratchpad\nClick select; double-click edit\nDrag move note / pan empty space\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N new sticky note\ne / Enter edit selected note\ns resize; Esc finishes\nDel / right-click > Delete note\nCtrl-U clear; Ctrl-Z/Y undo / redo\nF2 shape; r feedback (model mode)\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nx pause demo; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
+            frame.render_widget(Paragraph::new("Keys / ? / Esc close help\nClick select; double-click edit\nDrag move note / pan empty space\nShift-click toggle notes; Ctrl-A all\nMiddle-drag pan; right-drag select\nWheel / +/- zoom; Ctrl-F fit all\nn / Ctrl-N new sticky note\ne / Enter edit selected note\ns resize; Esc finishes\nDel / right-click > Delete note\nCtrl-U clear; Ctrl-Z/Y undo / redo\nF2 shape; r feedback (model mode)\np show / hide paper inspector\nTab focus paper / canvas\nj/k / PgUp/PgDn scroll paper\nDrag paper lines; y copy markdown\nEsc clear selection; Ctrl-L repaint\nx pause demo; q / Ctrl-C quit\n? / Esc close help").style(palette.ink), inner);
         } else {
             let paper_rows = Layout::vertical([
                 Constraint::Length(1),
@@ -758,8 +875,12 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
                 Constraint::Length(1),
             ])
             .split(inner);
-            let title = Layout::horizontal([Constraint::Min(1), Constraint::Length(7)])
-                .split(paper_rows[0]);
+            let title = Layout::horizontal([
+                Constraint::Min(1),
+                Constraint::Length(8),
+                Constraint::Length(7),
+            ])
+            .split(paper_rows[0]);
             frame.render_widget(
                 Paragraph::new(app.paper_label).style(if app.focus == Focus::Paper {
                     palette.jade
@@ -768,13 +889,18 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
                 }),
                 title[0],
             );
+            frame.render_widget(Paragraph::new("y copy").style(palette.muted), title[1]);
+            controls.push(Control {
+                rect: title[1],
+                action: Action::Copy,
+            });
             frame.render_widget(
                 Paragraph::new(if app.editing() { "close" } else { "p close" })
                     .style(palette.muted),
-                title[1],
+                title[2],
             );
             controls.push(Control {
-                rect: title[1],
+                rect: title[2],
                 action: Action::Paper,
             });
             let source = match app.sources.as_slice() {
@@ -805,13 +931,38 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
             if app.feedback.is_some() {
                 paper_area.height = paper_area.height.saturating_sub(FEEDBACK_HEIGHT);
             }
+            let mut styled = markdown(&paper, palette);
+            let mut line_map = Vec::new();
+            for (index, line) in styled.lines.iter_mut().enumerate() {
+                let count = Paragraph::new(line.clone())
+                    .wrap(Wrap { trim: false })
+                    .line_count(paper_area.width)
+                    .max(1);
+                line_map.extend(std::iter::repeat_n(index, count));
+                if app
+                    .paper_selection
+                    .as_ref()
+                    .is_some_and(|selection| selection.contains(index))
+                {
+                    line.style = line.style.add_modifier(ratatui::style::Modifier::REVERSED);
+                    for span in &mut line.spans {
+                        span.style = span.style.add_modifier(ratatui::style::Modifier::REVERSED);
+                    }
+                }
+            }
             render_scrolled(
                 frame,
-                Paragraph::new(markdown(&paper, palette)).wrap(Wrap { trim: false }),
+                Paragraph::new(styled).wrap(Wrap { trim: false }),
                 paper_area,
                 &mut app.writer.paper_scroll,
                 &mut app.writer.max_paper_scroll,
             );
+            paper_body = Some(paper_area);
+            paper_lines = line_map
+                .into_iter()
+                .skip(usize::from(app.writer.paper_scroll))
+                .take(usize::from(paper_area.height))
+                .collect();
             let continuation = overflow(app.writer.paper_scroll, app.writer.max_paper_scroll);
             let hint = if continuation.is_empty() {
                 String::new()
@@ -866,6 +1017,12 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     }
     let status = if app.pending.is_some() {
         "Shaping draft... / Esc cancels outside editing"
+    } else if app
+        .paper_selection
+        .as_ref()
+        .is_some_and(|selection| selection.active)
+    {
+        "Paper lines selected / y copy markdown / Esc clear"
     } else if app.writer.drafting() {
         if app.writer.paused {
             "Paused"
@@ -949,6 +1106,8 @@ pub fn render(frame: &mut Frame, app: &mut Scratchpad, palette: Palette) {
     app.layout = Some(HitLayout {
         area,
         paper: app.paper_open.then_some(overlay),
+        paper_body,
+        paper_lines,
         cue,
         controls,
         feedback: feedback_area,

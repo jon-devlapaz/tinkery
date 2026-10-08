@@ -1,6 +1,6 @@
 use super::*;
 
-const DRAFT: &str = r#"{"goal":"Find decision reasons near the work.","outcome":"People can understand why a choice was made.","assumptions":[],"options":[{"label":"Graph","benefit":"See connections","cost":"Maintain links","undo_cost":"Unknown until an approach is chosen"}]}"#;
+const DRAFT: &str = r#"{"goal":"Find decision reasons near the work.","outcome":"People can understand why a choice was made.","context":["You proposed a graph."],"questions":["Which decisions do you want to revisit?"],"assumptions":[],"options":[{"label":"Graph","benefit":"See connections","cost":"Maintain links","undo_cost":"Unknown until an approach is chosen"}]}"#;
 
 fn request() -> DraftRequest {
     DraftRequest {
@@ -22,6 +22,20 @@ fn draft_values_cannot_supply_authority_or_terminal_controls() {
     assert!(paper.contains("Possible approaches / not accepted"));
     assert!(paper.contains("Graph / candidate only"));
     assert!(paper.contains("No goal, seed, or approach is confirmed"));
+    assert!(paper.contains("Model's reading / check this\n\n- You proposed a graph."));
+    assert!(
+        paper
+            .contains("Open questions / not answered\n\n- Which decisions do you want to revisit?")
+    );
+    assert!(paper.contains("Your turn\n\nWhich decisions do you want to revisit?"));
+    for field in ["context", "questions"] {
+        let mut invalid: serde_json::Value = serde_json::from_str(DRAFT).unwrap();
+        invalid[field] = serde_json::json!(["\u{1b}]52;c;secret"]);
+        assert!(WorkingDraft::parse(&invalid.to_string()).is_err());
+        invalid[field] = serde_json::json!([""]);
+        assert!(WorkingDraft::parse(&invalid.to_string()).is_err());
+    }
+    assert!(WorkingDraft::parse(&format!("{DRAFT} দেখা")).is_err());
     let mut labelled = draft.clone();
     labelled.assumptions =
         vec!["PROVISIONAL: PROVISIONAL: The work can be linked to specific decisions.".into()];
@@ -33,9 +47,9 @@ fn draft_values_cannot_supply_authority_or_terminal_controls() {
     for invalid in [
         "",
         "```json\n{}\n```",
-        r#"{"goal":"x","outcome":"y","assumptions":[],"options":[],"status":"confirmed for intake"}"#,
-        r#"{"goal":" ","outcome":"y","assumptions":[],"options":[]}"#,
-        r#"{"goal":"\u001b[31m","outcome":"y","assumptions":[],"options":[]}"#,
+        r#"{"goal":"x","outcome":"y","context":[],"questions":[],"assumptions":[],"options":[],"status":"confirmed for intake"}"#,
+        r#"{"goal":" ","outcome":"y","context":[],"questions":[],"assumptions":[],"options":[]}"#,
+        r#"{"goal":"\u001b[31m","outcome":"y","context":[],"questions":[],"assumptions":[],"options":[]}"#,
     ] {
         assert!(WorkingDraft::parse(invalid).is_err(), "Accepted {invalid}");
     }
@@ -68,10 +82,21 @@ instructions = sys.argv[sys.argv.index('--system-prompt') + 1]
 assert 'ACTUAL DRAFT INSTRUCTIONS' in instructions
 assert 'DO NOT RUN THIS LATER STEP' not in instructions
 assert "what becomes better, and for whom" in instructions
-assert "never state a proposed solution, tool, interface, artifact, or implementation as the goal or outcome" in instructions
-assert "Solutions appear only in options" in instructions
+assert "preserves explicitly requested results and media" in instructions
+assert "how to export, transport, generate, or implement them belongs in candidate approaches" in instructions
+assert "do not strip a requested viewing medium" in instructions
+assert "Proposed implementation mechanisms appear in options" in instructions
+assert "remove every named tool, format, storage/display medium" not in instructions
 assert "never recast them as uncertain beliefs" in instructions
 assert "plain text without a PROVISIONAL prefix" in instructions
+assert "Preserve unfamiliar names and terms verbatim" in instructions
+assert "actively identify consequential missing definitions, boundaries, and capabilities in questions" in instructions
+assert "One approach is enough" in instructions
+assert '"context"' in instructions and '"questions"' in instructions
+assert "remove any line that merely repeats or rephrases an original thought" in instructions
+assert "state that condition in its label or benefit" in instructions
+assert "Default to an empty assumptions array" not in instructions
+assert sys.argv[sys.argv.index('--thinking') + 1] == 'low'
 assert sys.argv[sys.argv.index('--model') + 1] == 'anthropic/claude-haiku-4-5'
 data = json.load(sys.stdin)
 assert len(data['thoughts']) == 1
@@ -83,6 +108,16 @@ print({DRAFT:?})
 "#
     );
     let (directory, host) = host(&script);
+    assert!(
+        PiHost::new(
+            directory.path().join("pi"),
+            "test/model".into(),
+            directory.path().join("SKILL.md")
+        )
+        .unwrap()
+        .with_thinking("automatic")
+        .is_err()
+    );
     let before = std::fs::read_dir(directory.path()).unwrap().count();
     let mut input = request();
     input.previous_draft = Some(WorkingDraft::parse(DRAFT).unwrap());

@@ -44,7 +44,8 @@ fn actual_pinstar_node_and_completed_paper_fit_supported_sizes() {
     let mut app = Shape::canvas();
     let initial = screen(&mut app);
     assert!(initial.contains("Note canvas / Pinstar"));
-    assert!(initial.contains('⇘')); // Upstream selection renderer, not our old card.
+    assert!(initial.contains('┌')); // Selected upstream corner, using a Paper Mono glyph.
+    assert!(!initial.contains('⇘'));
     assert!(initial.contains("I keep losing track"));
     let canvas = app.canvas.as_ref().unwrap();
     assert_eq!(canvas.state.data.nodes.len(), 1);

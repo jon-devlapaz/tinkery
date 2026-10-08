@@ -148,6 +148,27 @@ impl Canvas {
             );
             return true;
         }
+        if self.spatial && control && key.code == KeyCode::Char('a') {
+            let primary = self.state.selection.primary.clone().or_else(|| {
+                self.state
+                    .data
+                    .nodes
+                    .first()
+                    .map(|node| node.id().to_owned())
+            });
+            let mut selected = self
+                .state
+                .data
+                .nodes
+                .iter()
+                .map(|node| node.id().to_owned())
+                .collect::<std::collections::HashSet<_>>();
+            if let Some(id) = &primary {
+                selected.remove(id);
+            }
+            self.state.selection.replace_set(selected, primary);
+            return true;
+        }
         if control && key.code == KeyCode::Char('f') {
             self.state
                 .fit_to_view(Rect::new(0, 0, self.area.width, self.area.height));
@@ -214,6 +235,46 @@ impl Canvas {
         {
             self.finish_edit();
         }
+        if self.spatial
+            && inside
+            && event.kind == MouseEventKind::Down(MouseButton::Left)
+            && event.modifiers.contains(KeyModifiers::SHIFT)
+            && self.state.context_menu.is_none()
+            && self.state.resizing_node_id.is_none()
+        {
+            self.finish_edit();
+            let (x, y) = self.state.screen_to_canvas(
+                event.column - self.area.x,
+                event.row - self.area.y,
+                Rect::new(0, 0, self.area.width, self.area.height),
+            );
+            if let Some(id) = self.state.node_at(x, y) {
+                let mut selected = self.state.selection.all();
+                let primary = if selected.remove(&id) {
+                    self.state
+                        .selection
+                        .primary
+                        .clone()
+                        .filter(|primary| primary != &id)
+                        .or_else(|| {
+                            self.state
+                                .data
+                                .nodes
+                                .iter()
+                                .find(|node| selected.contains(node.id()))
+                                .map(|node| node.id().to_owned())
+                        })
+                } else {
+                    selected.insert(id.clone());
+                    self.state.selection.primary.clone().or(Some(id))
+                };
+                if let Some(id) = &primary {
+                    selected.remove(id);
+                }
+                self.state.selection.replace_set(selected, primary);
+            }
+            return true;
+        }
         if let MouseEventKind::Down(button) = event.kind {
             self.captured = true;
             self.captured_button = button;
@@ -248,12 +309,15 @@ impl Canvas {
 
     pub fn cancel_gesture(&mut self) {
         if self.captured {
+            let primary = self.state.selection.primary.clone();
+            let selected = self.state.selection.extra.clone();
             self.mouse(MouseEvent {
                 kind: MouseEventKind::Up(self.captured_button),
                 column: self.area.x,
                 row: self.area.y,
                 modifiers: KeyModifiers::NONE,
             });
+            self.state.selection.replace_set(selected, primary);
         }
         self.state.last_click = None;
         self.state.context_menu = None;
@@ -327,7 +391,25 @@ impl Canvas {
         let buffer = terminal.backend().buffer();
         for y in 0..area.height {
             for x in 0..area.width {
-                frame.buffer_mut()[(area.x + x, area.y + y)] = buffer[(x, y)].clone();
+                let mut cell = buffer[(x, y)].clone();
+                if cell.fg == jade && cell.modifier.contains(ratatui::style::Modifier::BOLD) {
+                    match cell.symbol() {
+                        "⇘" => {
+                            cell.set_symbol("┌");
+                        }
+                        "⇙" => {
+                            cell.set_symbol("┐");
+                        }
+                        "⇗" => {
+                            cell.set_symbol("└");
+                        }
+                        "⇖" => {
+                            cell.set_symbol("┘");
+                        }
+                        _ => {}
+                    }
+                }
+                frame.buffer_mut()[(area.x + x, area.y + y)] = cell;
             }
         }
     }

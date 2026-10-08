@@ -19,7 +19,7 @@ def resize(fd, width, height):
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
 
 
-def run(quit_key, workbench=True, width=100, height=30, example=None, real_draft=False):
+def run(quit_key, workbench=True, width=100, height=30, example=None, real_draft=False, full_redraw=False):
     master, slave = os.openpty()
     resize(slave, width, height)
     original = termios.tcgetattr(slave)
@@ -45,10 +45,12 @@ if feedback:
     goal = 'Revised goal: find reasons, not a graph.'
 else:
     goal = 'Initial goal: find decision reasons.'
-print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'assumptions': [], 'options': []}))
+print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'context': ['You proposed a graph.'], 'questions': ['Which reasons matter first?'], 'assumptions': [], 'options': []}))
 ''')
             host.chmod(0o755)
             arguments = ["--shape-pi", "--model", "test/model", "--seed-me", str(skill), "--pi-command", str(host)]
+        if full_redraw:
+            arguments.append("--full-redraw")
         initial_files = {path.name: (path.stat().st_size, path.stat().st_mtime_ns) for path in Path(directory).iterdir()}
         process = subprocess.Popen(
             [str(BINARY), *arguments], stdin=slave, stdout=slave, stderr=slave,
@@ -113,6 +115,20 @@ print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'ass
                 send(b"\x1bOQ", "Working paper / model")
                 await_text("Shaped 1 note; skipped 0 blanks.")
                 await_text("Initial goal: find decision reasons.")
+                await_text("1 selected")
+                assert not screen.clipboards, "Clipboard written without a copy action"
+                send(b"y", "Clipboard escape sent")
+                copied = screen.clipboards[-1]
+                assert copied.startswith("# Investigation draft")
+                assert "## Open questions / not answered" in copied and "Which reasons matter first?" in copied
+                assert "### Note 1\n\nI want a graph, so I can find decision reasons." in copied
+                assert not any(glyph in copied for glyph in "│┄┆┌┐└┘"), "Clipboard contains terminal boxes"
+                assert "Clipboard escape sent" not in copied
+                screen.cells[1][2] = " "  # Simulate a host-lost header cell, not an app edit.
+                assert "tinkery / scratchpad" not in screen.text()
+                send(b"\x0c", "tinkery / scratchpad")
+                await_text("Initial goal: find decision reasons.")
+                await_text("1 selected")
                 send(b"r", "Keep / cut / reshape")
                 await_text("Initial goal: find decision reasons.")
                 send(b"\x1b[200~Cut the graph; keep the intention.\x1b[201~", "Cut the graph")
@@ -134,13 +150,19 @@ print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'ass
                     send(b"\x1b[200~" + thought.encode() + b"\x1b[201~", thought[:12])
                     send(b"\x1b", "Scratchpad / Pinstar")
                 if len(thoughts) > 1:
-                    x, y = width - 4, height - 6
-                    send(f"\x1b[<2;4;6M\x1b[<34;{x + 1};{y + 1}M\x1b[<2;{x + 1};{y + 1}m".encode(), "2 selected")
+                    for y, line in enumerate(screen.text().splitlines()):
+                        if "Note 1" in line:
+                            x = line.index("Note 1") + 1
+                            send(f"\x1b[<4;{x + 1};{y + 1}M\x1b[<4;{x + 1};{y + 1}m".encode(), "2 selected")
+                            break
+                    else:
+                        raise AssertionError("No Note 1 target for Shift-click")
                 click_label("F2 shape", "Drafting...")
                 await_text("Draft / unconfirmed", row=height - 3)
                 await_text("Working paper / sample")
                 await_text("What you want to change")
                 await_text("From Note 1" if len(thoughts) == 1 else "From 2 notes")
+                await_text(f"{len(thoughts)} selected")
                 send(b"\t", "j/k scroll")
                 send(b"\x1b[F", "What should we keep, cut, or reshape?")
                 # Correct a source thought without overwriting the submitted paper.
@@ -241,6 +263,8 @@ print(json.dumps({'goal': goal, 'outcome': 'Find reasons beside the work.', 'ass
             if not workbench:
                 assert b"\x1b[?2004l" in output, "Bracketed paste not restored"
                 assert b"\x1b[?1006l" in output, "Mouse capture not restored"
+                assert b"\x1b[>0s" in output, "Shift override not restored"
+                assert b"\x1b[?2026l" in output, "Synchronized update not ended"
             restored = termios.tcgetattr(slave)
             # macOS can change the transient input-retype flag when flushing input.
             original[3] &= ~getattr(termios, "PENDIN", 0)
@@ -277,6 +301,10 @@ for width, height, quit_key in [(100, 30, b"q"), (80, 24, b"\x03")]:
     run(quit_key, False, width, height, real_draft=True)
     print(f"PASS: model adapter stub, {width}x{height}, shape/correct/revise, original retained, no writes, safe exit")
 
+for width, height, full_redraw in [(160, 40, False), (240, 40, False), (320, 40, True)]:
+    run(b"q", False, width, height, real_draft=True, full_redraw=full_redraw)
+    print(f"PASS: wide stub journey, {width}x{height}, paper/revision/repaint/clean OSC52, full_redraw={full_redraw}")
+
 for arguments in (["--help"], ["--snapshot"], ["--no-color", "--snapshot"]):
     result = subprocess.run([str(BINARY), *arguments], capture_output=True, check=True)
     assert b"\x1b" not in result.stdout, "Noninteractive mode emitted terminal escapes"
@@ -288,6 +316,7 @@ assert result.returncode != 0 and b"unknown argument" in result.stderr
 for arguments, error in [
     (["--shape-pi"], b"requires an explicit --model"),
     (["--model", "test/model"], b"require --shape-pi"),
+    (["--thinking", "low"], b"require --shape-pi"),
     (["--shape-pi", "--workbench"], b"not --workbench"),
     (["--shape-pi", "--model", "test/model"], b"requires --seed-me"),
     (["--shape-pi", "--model", "bare", "--seed-me", "/nonexistent/SKILL.md"], b"explicit --model provider/model-id"),
