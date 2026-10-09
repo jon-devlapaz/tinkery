@@ -46,7 +46,7 @@ def journey(width,height):
    sessions=list(root.iterdir());assert len(sessions)==1
    session=sessions[0];ledger=helper('read',session);status=helper('status',session)
    assert ledger['status']=='active' and ledger['operator']=='human';assert status['snapshot_current']
-   assert status['viewer'].startswith('live http://127.0.0.1:')
+   assert status['viewer'].startswith('live http://127.0.0.1:'),json.dumps(dict(status=status,screen=screen.text(),viewer_record=json.loads((session/'viewer.json').read_text()) if (session/'viewer.json').exists() else None))
    origin=next(n for n in ledger['nodes'] if n['id']==ledger['origin'])
    assert origin['status']=='settled' and origin['kind']=='decision' and origin['authority']=='user'
    assert origin['answer']==ledger['goal']=='A PR ready for human review, with the restaurateur judging the finished result while both the harness and codebase compound.'
