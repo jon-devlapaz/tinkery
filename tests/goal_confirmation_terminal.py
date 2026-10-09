@@ -24,7 +24,9 @@ def journey(width,height):
    deadline=time.monotonic()+timeout
    while time.monotonic()<deadline:
     if select.select([master],[],[],0.02)[0]:screen.feed(os.read(master,65536))
-    if text in screen.text():return
+    if text in screen.text() and not screen.synchronized:
+     assert screen.cells[1][2:9]==list('tinkery') and screen.cells[1][width-3]=='?',screen.text()
+     return
     if process.poll() is not None:break
    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
   def absent(text):
@@ -58,7 +60,7 @@ def journey(width,height):
    assert failed.returncode!=0 and 'seed-contract.md' in failed.stderr
    assert helper('read',session)['status']=='active'
    os.write(master,b'\x07confirm\r\x1bOQ');time.sleep(.1);assert len(list(root.iterdir()))==1
-   os.write(master,b'q');deadline=time.monotonic()+10
+   os.write(master,b'\x03');deadline=time.monotonic()+10
    while process.poll() is None and time.monotonic()<deadline:
     if select.select([master],[],[],.02)[0]:screen.feed(os.read(master,65536))
    assert process.poll()==0,screen.text()

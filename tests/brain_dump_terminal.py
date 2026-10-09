@@ -28,7 +28,9 @@ def journey(width,height):
    while time.monotonic()<deadline:
     if select.select([master],[],[],0.02)[0]:
      chunk=os.read(master,65536);out.extend(chunk);screen.feed(chunk)
-    if text in screen.text():return
+    if text in screen.text() and not screen.synchronized:
+     assert screen.cells[1][2:9]==list('tinkery') and screen.cells[1][width-3]=='?',screen.text()
+     return
     if process.poll() is not None:break
    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
   def absent(text):
@@ -41,9 +43,10 @@ def journey(width,height):
   def notice(data,text):
    os.write(master,data)
    if data==b'\x1b':await_text("Reading couldn't be updated.")
-   os.write(master,b'\x1bOP');await_text('Help')
+   os.write(master,b'\x1bOP');await_text('Right now')
+   send(b'h','How it works')
    os.write(master,b'\x1b[6~'*100);await_text(text)
-   os.write(master,b'\x1b');absent('Last result');await_text('Keep review evidence')
+   os.write(master,b'\x1bOP');absent('Last result');await_text('Keep review evidence')
   def requests():return [json.loads(line) for line in (cwd/'requests.jsonl').read_text().splitlines()] if (cwd/'requests.jsonl').exists() else []
   try:
    await_text("What's on your mind?");assert 'I think this is about' not in screen.text();assert not requests()
@@ -70,7 +73,9 @@ def journey(width,height):
    await_text('responsive.');stream=time.monotonic()-start;assert stream<1.0,(width,stream)
    send(b'\x15FAIL','FAIL');send(b'\x1bOQ',"Reading couldn't be updated.");notice(b'', 'Reshape failed');assert requests()[2]['fragments'][0]['text']=='Typed';assert requests()[2]['fragments'][0]['start']==0 and requests()[2]['fragments'][0]['end']==5;assert 'Keep review evidence' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','Keep review evidence')
    send(b'\x0eWAIT','WAIT');send(b'\x1bOQ','Thinking…');notice(b'\x1b','Cancelled; original');assert 'Keep review evidence' in screen.text()
-   os.write(master,b'\x03');process.wait(timeout=5);assert process.returncode==0
+   send(b'\x03','Leave and lose this? y / n');assert process.poll() is None
+   send(b'n',"Reading couldn't be updated.");absent('Leave and lose this?')
+   send(b'\x03','Leave and lose this? y / n');os.write(master,b'\x03');process.wait(timeout=5);assert process.returncode==0
    while select.select([master],[],[],0.02)[0]:
     chunk=os.read(master,65536)
     if not chunk:break

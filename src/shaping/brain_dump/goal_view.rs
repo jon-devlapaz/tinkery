@@ -67,6 +67,10 @@ impl BrainDump {
         self.original = false;
         self.help = false;
         self.details = false;
+        self.source_scroll = 0;
+        self.source_cursor = 0;
+        self.selection = None;
+        self.drag_anchor = None;
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
         self.goal_review=Some(Review{affirmation:Affirmation{goal:agent_text(&g.framings[self.reading].text),outcome:g.outcome.clone(),options:g.alternatives.clone(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});

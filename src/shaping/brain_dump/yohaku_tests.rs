@@ -166,6 +166,7 @@ fn full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading() {
         old.framings[0].text
     );
     key(&mut a, KeyCode::F(1));
+    key(&mut a, KeyCode::Char('h'));
     for _ in 0..100 {
         key(&mut a, KeyCode::PageDown);
     }
