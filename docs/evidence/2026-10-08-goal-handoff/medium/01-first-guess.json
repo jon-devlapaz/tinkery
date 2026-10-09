@@ -1,0 +1,54 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "A self-compounding meta harness that gives a human-first view across the entire agentic software development lifecycle, culminating in a rigorously verified PR for human review.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "system that compounds itself and serves as a meta harness",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "a PR that is ready to be reviewed by human",
+          "occurrence": 0
+        }
+      ]
+    },
+    {
+      "text": "A Michelin-star restaurant-like coordinating experience where the restaurateur remains the final judge, tasting work from brain dump through PR while preserving codebase health and making the next change easier.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "makes the next change easier",
+          "occurrence": 0
+        }
+      ]
+    }
+  ],
+  "outcome": "A human-first meta-harness experience spans the entire agentic software development lifecycle, from brain dump, prompt, hunch, and intuition to a PR ready for human review, where the restaurateur tastes the final product and sees codebase health preserved and the next change made easier.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "compounding-referent",
+      "text": "Should “compounds itself” mean the meta harness improves itself, the code base becomes easier to change, or both?"
+    }
+  ],
+  "alternatives": []
+}

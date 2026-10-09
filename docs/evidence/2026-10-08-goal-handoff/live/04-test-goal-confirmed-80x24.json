@@ -1,0 +1,30 @@
+{
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / real Pi / goal saved; no seed     Ctrl-D details   Ctrl-O originals ",
+    "┌I have been trying so hard to work…─┐┌ I think this is about… / provisional ──┐",
+    "│I┌ Confirm this goal / Esc cancels ─────────────────────────────────────────┐ │",
+    "│o│Goal confirmed. The seed isn't written yet.                               │ │",
+    "│a│Session:                                                                  │ │",
+    "│h│/private/tmp/tinkery-TEST-goal-confirmation-r9Buxn/e8741a23-bc0f-4b2c-b356│ │",
+    "│w│-5761c482c96e                                                             │ │",
+    "│a│Continue this session with Seed Me in Claude Code, Codex, or Pi.          │ │",
+    "│l│Ledger: http://127.0.0.1:60345/ledger-view.html                           │ │",
+    "│d│                                                                          │ │",
+    "│v│Tinkery's handoff is read-only. q exits; Ctrl-O originals.                │ │",
+    "│a│No seed confirmation, intake readiness, or implementation approval.       │ │",
+    "│c│                                                                          │ │",
+    "│t│                                                                          │ │",
+    "└↓│                                                                          │─┘",
+    "┌ │                                                                          │ ┐",
+    "│N│                                                                          │ │",
+    "│n│                                                                          │ │",
+    "│ │                                                                          │ │",
+    "│S└──────────────────────────────────────────────────────────────────────────┘ │",
+    "└ Ctrl-G review goal ────────────────────────────────┘└────────────────────────┘",
+    "Goal confirmed. The seed isn't written yet.                                     ",
+    "F2 submit · Tab input/board · Ctrl-N add more · Ctrl-C exit                     "
+  ],
+  "width": 80
+}

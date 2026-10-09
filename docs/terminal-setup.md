@@ -80,11 +80,19 @@ OSC 52 requires both the terminal and any multiplexer to allow clipboard writes.
 
 ## Launch
 
+Seed Me's canonical home is [jon-devlapaz/seed-me](https://github.com/jon-devlapaz/seed-me), at `skills/seed-me/`. Clone it locally if missing; do not move/delete the historical tink-skills checkout:
+
+```sh
+git clone https://github.com/jon-devlapaz/seed-me.git "$HOME/dev/active/factory/seed-me"
+```
+
+For tests, add `--seed-session-root "$(mktemp -d /tmp/tinkery-TEST-goal-XXXXXX)"`; only explicitly affirmed goals create sessions. The canonical viewer fix is merged; CI pins `1a2f31a136d53bceff51ae8c2e0e787c1a8a90bb`. For matching dogfood behavior, check out that commit in the local clone. PR#3 is review-only after fresh CI; goal confirmation is not seed confirmation.
+
 ```sh
 cargo run --locked -- --shape-pi \
   --model openai-codex/gpt-5.6-luna \
   --thinking low \
-  --seed-me /path/to/tink-skills/skills/seed-me/SKILL.md
+  --seed-me "$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md"
 ```
 
-Real mode now defaults to **low** reasoning, selectable with `--thinking`; Pi clamps it to model capabilities. Earlier exploratory `off` runs included a malformed response. This change is not proof of reliability and can change provider cost/latency. Each F2 makes one bounded request, with no automatic repair/retry. Default launch remains simulated and unsaved. Nothing implements the bookmarks idea or confirms a seed.
+Real mode now defaults to **low** reasoning, selectable with `--thinking`; Pi clamps it to model capabilities. Earlier exploratory `off` runs included a malformed response. This change is not proof of reliability and can change provider cost/latency. Each submitted F2 makes a bounded shaping request and meaning-audit request; answers may also require the bounded question-continuity check. No automatic repair/retry. Default launch remains simulated and unsaved. In real mode, **Ctrl-G** reviews the complete goal with remaining questions; type `confirm` then Enter after reviewing to create the real goal-only Seed Me session. Questions do not block affirmation. Confirmation is separate from F2 and never confirms a seed. Nothing implements the bookmarks idea.

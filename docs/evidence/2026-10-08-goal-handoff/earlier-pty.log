@@ -1,0 +1,37 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 76, in <module>
+    for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+                                                     ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 44, in journey
+    send(b'\x07','Confirm this goal');send(b'confirm\r',"Goal confirmed. The seed isn't written yet.")
+                                      ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 35, in send
+    def send(data,text):os.write(master,data);await_text(text)
+                                              ~~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 28, in await_text
+    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
+AssertionError: Missing "Goal confirmed. The seed isn't written yet.":
+
+  tinkery / real Pi / unsaved                 Ctrl-D details   Ctrl-O originals
+┌PR ready for human review.…─────────┐┌ I think this is about… / provisional ──┐
+│ ┌ Confirm this goal / Esc cancels ─────────────────────────────────────────┐ │
+│r│Goal you are confirming:                                                  │t│
+│h│A PR ready for human review, with the restaurateur judging the finished   │ │
+│ │result while both the harness and codebase compound.                      │ │
+│ │                                                                          │ │
+│ │Remaining unresolved questions (do not block goal confirmation):          │ │
+│ │• Which UI or consequential design checkpoints remain unresolved?         │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │Running out of questions doesn't mean I understood you.                   │ │
+│ │Goal only; outcome/options remain proposals. No seed or implementation    │ │
+└─│approval.                                                                 │─┘
+┌ │Creates a real Seed Me session outside the repository.                    │ ┐
+│W│Esc cancels without creating a session.                                   │ │
+│u│Confirm this goal: type confirm, then Enter: confirm                      │ │
+│ │Read the complete review (PgDn if needed), then type confirm and press    │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+└ Ctrl-G review goal ────────────────────────────────┘└────────────────────────┘
+Read the complete review (PgDn if needed), then type confirm and press Enter. No
+F2 submit · Tab input/board · Ctrl-N add more · Ctrl-C exit

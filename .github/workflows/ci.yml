@@ -14,6 +14,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Official Seed Me contract fixture (not vendored)
+        uses: actions/checkout@v4
+        with:
+          repository: jon-devlapaz/seed-me
+          ref: 1a2f31a136d53bceff51ae8c2e0e787c1a8a90bb
+          path: .ci-seed-me
+      - name: Seed Me test runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -25,6 +35,8 @@ jobs:
       - name: Build
         run: cargo build --locked
       - name: Terminal journeys (real binary in a pseudo-terminal)
+        env:
+          SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
         shell: bash
         run: |
           for t in tests/*.py; do

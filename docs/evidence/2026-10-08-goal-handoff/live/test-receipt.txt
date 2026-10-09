@@ -1,0 +1,5 @@
+Goal confirmed. The seed isn't written yet.
+Session: /private/tmp/tinkery-TEST-goal-confirmation-r9Buxn/e8741a23-bc0f-4b2c-b356-5761c482c96e
+Continue this session with Seed Me in Claude Code, Codex, or Pi.
+Ledger: http://127.0.0.1:60345/ledger-view.html
+Session remains active. Saved ledger: /private/tmp/tinkery-TEST-goal-confirmation-r9Buxn/e8741a23-bc0f-4b2c-b356-5761c482c96e/ledger-view.html

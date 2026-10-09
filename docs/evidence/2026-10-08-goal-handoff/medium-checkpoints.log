@@ -1,0 +1,9 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.90s
+     Running `target/debug/examples/live_brain_dump_check docs/evidence/2026-10-08-goal-handoff/medium`
+FIRST QUESTION: Some("Should “compounds itself” mean the meta harness improves itself, the code base becomes easier to change, or both?")
+NEXT QUESTION: Some("Should the restaurateur encounter human checkpoints throughout the lifecycle, or primarily at the final PR?")
+
+thread 'main' (58927590) panicked at examples/live_brain_dump_check.rs:166:13:
+Reshape failed: Invalid unsupported or overlong reading Original and previous board retained; F2 retries.
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
