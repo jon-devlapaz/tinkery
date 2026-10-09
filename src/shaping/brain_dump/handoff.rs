@@ -2,7 +2,7 @@ use super::{Approach, Question, Settled, Source};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader, Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{Arc, Mutex, mpsc},
@@ -268,17 +268,24 @@ fn start_viewer(script: &Path, session: &Path) -> Result<(Child, String), String
         let result = BufReader::new(stdout).read_line(&mut line).map(|_| line);
         let _ = tx.send(result);
     });
-    match rx.recv_timeout(Duration::from_secs(5)) {
+    match rx.recv_timeout(Duration::from_secs(20)) {
         Ok(Ok(line))
             if line.trim().starts_with("http://127.0.0.1:")
                 && line.trim().ends_with("/ledger-view.html") =>
         {
             Ok((child, line.trim().to_owned()))
         }
-        _ => {
+        result => {
             let _ = child.kill();
             let _ = child.wait();
-            Err("Official viewer did not announce a loopback URL".into())
+            let mut errors = errors;
+            let mut detail = String::new();
+            let _ = errors.seek(SeekFrom::Start(0));
+            let _ = errors.take(4096).read_to_string(&mut detail);
+            Err(format!(
+                "Official viewer did not announce a loopback URL within 20s: {result:?}; {}",
+                detail.trim()
+            ))
         }
     }
 }

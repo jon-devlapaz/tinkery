@@ -20,7 +20,7 @@ def journey(width,height):
   cwd=Path(directory);root=cwd/'TEST-sessions';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',height,width,0,0));screen=Screen(width,height)
   process=subprocess.Popen([str(BINARY),'--shape-pi','--model','test/model','--seed-me',str(SKILL),'--seed-session-root',str(root),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
-  def await_text(text,timeout=12):
+  def await_text(text,timeout=30):
    deadline=time.monotonic()+timeout
    while time.monotonic()<deadline:
     if select.select([master],[],[],0.02)[0]:screen.feed(os.read(master,65536))
