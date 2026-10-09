@@ -1,0 +1,15 @@
+baseline 0
+remove-advice 101
+semantic-veto-review 101
+force-second-reading 101
+absorb-unanswered-addition 101
+hide-new-source 101
+leak-skipped-addition 101
+default-bar-on 101
+discard-without-guard 101
+omit-header 101
+Traceback (most recent call last):
+  File "/tmp/tinkery-log-only-removals.py", line 34, in <module>
+    s=original[file];assert s.count(old)==1,(name,'finder mismatch',s.count(old));paths[file].write_text(s.replace(old,new))
+                            ^^^^^^^^^^^^^^^
+AssertionError: ('consume-over-cap-input', 'finder mismatch', 2)

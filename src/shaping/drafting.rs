@@ -272,6 +272,10 @@ impl PiHost {
             .1
     }
 
+    pub fn with_default_thinking(mut self) -> Self {
+        self.thinking.clear();
+        self
+    }
     pub(super) fn complete(
         &self,
         input: Vec<u8>,
@@ -280,28 +284,30 @@ impl PiHost {
     ) -> Result<String, String> {
         if input.len() > LIMIT {
             return Err(
-                "Draft input exceeds 32 KiB; select fewer thoughts or shorten the feedback.".into(),
+                "Encoded request exceeds 32 KiB; originals and local words retained. No provider request sent.".into(),
             );
         }
         if cancelled.load(Ordering::Relaxed) {
             return Err("Request cancelled.".into());
         }
-        let mut child = Command::new(&self.program)
-            .args([
-                "--print",
-                "--no-session",
-                "--no-tools",
-                "--no-extensions",
-                "--no-mcp",
-                "--no-skills",
-                "--no-prompt-templates",
-                "--no-themes",
-                "--no-context-files",
-                "--no-approve",
-                "--offline",
-            ])
-            .arg("--thinking")
-            .arg(&self.thinking)
+        let mut command = Command::new(&self.program);
+        command.args([
+            "--print",
+            "--no-session",
+            "--no-tools",
+            "--no-extensions",
+            "--no-mcp",
+            "--no-skills",
+            "--no-prompt-templates",
+            "--no-themes",
+            "--no-context-files",
+            "--no-approve",
+            "--offline",
+        ]);
+        if !self.thinking.is_empty() {
+            command.arg("--thinking").arg(&self.thinking);
+        }
+        let mut child = command
             .arg("--model")
             .arg(&self.model)
             .arg("--system-prompt")

@@ -184,8 +184,9 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
 }
 
 #[test]
-fn meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence() {
-    let a = board();
+fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
+    let mut a = board();
+    let g = a.guess.clone().unwrap();
     let r = BoardRequest {
         sources: a.sources.clone(),
         fragments: vec![],
@@ -195,38 +196,36 @@ fn meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence() {
         settled: vec![],
         layout: vec![],
     };
-    assert!(meaning_check::apply(&r, r#"{"missing":[],"false_choice":false}"#).is_ok());
-    assert!(meaning_check::apply(&r,r#"{"missing":[{"source":1,"quote":"PR ready for human review","occurrence":0}],"false_choice":false}"#).unwrap_err().contains("PR ready for human review"));
-    assert!(meaning_check::apply(&r, r#"{"missing":[],"false_choice":true}"#).is_err());
     assert!(
-        meaning_check::apply(
-            &r,
-            r#"{"missing":[{"source":1,"quote":"invented","occurrence":0}],"false_choice":false}"#
-        )
-        .is_err()
+        meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":false}"#)
+            .unwrap()
+            .is_none()
     );
+    assert!(meaning_check::verdict(&r,&g,r#"{"missing":[{"source":1,"quote":"PR ready for human review","occurrence":0}],"false_choice":false}"#).unwrap().unwrap().contains("PR ready for human review"));
     assert!(
-        meaning_check::apply(
-            &r,
-            r#"{"missing":[],"false_choice":false,"confirmed":true}"#
-        )
-        .is_err()
+        meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":true}"#)
+            .unwrap()
+            .is_some()
     );
-    assert!(meaning_check::apply(&r, r#"{"missing":[],"false_choice":"false"}"#).is_err());
-    assert!(meaning_check::acronyms(&r.sources).contains("PR"));
-    assert!(!meaning_check::retains(
-        "A software result ready for review.",
-        "PR"
-    ));
-    assert!(!meaning_check::retains("Not APR or PRs.", "PR"));
-    assert!(meaning_check::retains("A PR ready for human review.", "PR"));
-    let mut a = board();
+    for invalid in [
+        r#"{"missing":[{"source":1,"quote":"invented","occurrence":0}],"false_choice":false}"#,
+        r#"{"missing":[],"false_choice":false,"confirmed":true}"#,
+        r#"{"missing":[],"false_choice":"false"}"#,
+    ] {
+        assert!(meaning_check::verdict(&r, &g, invalid).is_err());
+    }
+    assert_eq!(
+        serde_json::to_value(&g).unwrap(),
+        serde_json::to_value(&a.guess).unwrap()
+    );
     a.guess.as_mut().unwrap().framings[0].text = "A software result for human review.".into();
     a.review_goal();
-    assert!(a.goal_review.is_none());
-    assert!(a.notice.contains("lost authored term PR"));
+    assert!(
+        a.goal_review.is_some(),
+        "Lexical coverage must not veto the person's review"
+    );
+    assert!(a.handoff_job.is_none() && a.receipt.is_none());
 }
-
 #[test]
 fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates() {
     let mut a = board();

@@ -1,0 +1,37 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 90, in <module>
+    for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+                                                     ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 74, in journey
+    send(b'\x15FAIL','FAIL');send(b'\x1bOQ',"Reading couldn't be updated.");notice(b'', 'Reshape failed');assert requests()[2]['fragments'][0]['text']=='Typed';assert requests()[2]['fragments'][0]['start']==0 and requests()[2]['fragments'][0]['end']==5;assert 'Keep review evidence' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','Keep review evidence')
+                                                                            ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 49, in notice
+    os.write(master,b'\x1bOP');absent('Last result');await_text('Keep review evidence')
+                                                     ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 35, in await_text
+    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
+AssertionError: Missing 'Keep review evidence':
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  Words 3 / 3                                                                   
+  FAIL                                  Reading failed: Invalid board JSON:     
+                                        expected value at line 1 column 1.      
+                                        Original and previous reading           
+                                        retained.                               
+                                                                                
+                                        Originals retained. Retry, inspect      
+                                        Why, or add clarification.              
+                                        Who needs this distinction?             
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                        Your reply · writing                    
+                                                                                
+                                                                                
+                                                                                
+                                        Review goal                             
+                                        Reading couldn't be updated.            
+                                                                                
+                                                                                

@@ -281,7 +281,7 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    let unresolved = app
+    let mut unresolved = app
         .guess
         .as_ref()
         .map(|g| {
@@ -292,6 +292,13 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    if app
+        .scope_pending
+        .as_ref()
+        .is_some_and(|(id, _)| *id == source.id)
+    {
+        unresolved.push(0..source.text.len());
+    }
     if app.board_focus
         && !app.original
         && !app.help

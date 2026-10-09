@@ -158,7 +158,7 @@ fn failures_timeout_overflow_and_cancellation_never_return_a_draft() {
         limited
             .draft(oversized, &AtomicBool::new(false))
             .unwrap_err()
-            .contains("input exceeds")
+            .contains("Encoded request exceeds 32 KiB")
     );
     let (_directory, host) = host("import time; time.sleep(10)");
     let job = DraftJob::start(Arc::new(host), request());

@@ -34,29 +34,22 @@ impl BrainDump {
             self.notice = "No displayed reading to confirm.".into();
             return;
         };
-        let quoted_sources = g.framings[self.reading]
-            .supports
-            .iter()
-            .map(|a| Source {
-                id: a.source,
-                text: a.quote.clone(),
-                in_reply_to: None,
-            })
-            .collect::<Vec<_>>();
-        for term in meaning_check::acronyms(&quoted_sources) {
-            if !meaning_check::retains(&g.framings[self.reading].text, &term) {
-                self.notice = format!(
-                    "Selected reading lost authored term {term}; reshape before confirming."
-                );
-                return;
-            }
-        }
         let mut unresolved = g
             .questions
             .iter()
             .filter(|q| self.available(q))
             .cloned()
             .collect::<Vec<_>>();
+        if let Some((_, q)) = &self.scope_pending
+            && !unresolved.iter().any(|old| same_question(old, q))
+        {
+            unresolved.push(q.clone());
+        }
+        for q in &self.restored_questions {
+            if self.available(q) && !unresolved.iter().any(|old| same_question(old, q)) {
+                unresolved.push(q.clone());
+            }
+        }
         for q in &self.skipped {
             if !self.settled.iter().any(|s| same_question(&s.question, q))
                 && !unresolved.iter().any(|u| same_question(u, q))
@@ -265,6 +258,8 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         rows[1],
     );
     if app.handoff_job.is_none() {
+        app.back_button = Rect::new(rows[1].x, rows[1].bottom() - 1, 4, 1);
+        frame.render_widget(Paragraph::new("Back").style(palette.muted), app.back_button);
         let mut note = Note::new(&prompt);
         note.cursor = prompt.len();
         let wrapped = note.wrap(rows[1].width);

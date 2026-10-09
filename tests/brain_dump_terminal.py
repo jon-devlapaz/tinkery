@@ -13,7 +13,7 @@ if r.get('kind')=='question-continuity':
  print(json.dumps(dict(repeated=[])));sys.exit(0)
 with open('requests.jsonl','a') as f: f.write(json.dumps(r)+'\\n')
 if 'FAIL' in r['sources'][-1]['text']: print('bad JSON');sys.exit(0)
-if 'WAIT' in r['sources'][-1]['text']: time.sleep(10)
+if any('WAIT' in s['text'] for s in r['sources']): time.sleep(10)
 anchors=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']]
 q='context' if 'meaning' in r['answered'] else 'meaning'
 print(json.dumps(dict(uncertain=False,framings=[dict(text='Keep review evidence understandable between handovers.',supports=anchors)],outcome='You can distinguish observed evidence from an unreviewed suggestion in a PR thread.',misfits=[],questions=[dict(id=q,text='What would make a handover trustworthy?' if q=='context' else 'Which evidence gets confused?'),dict(id='boundary',text='Who needs this distinction?')],alternatives=[dict(label=l,benefit='Clearer handovers.',cost='Check the workflow.',undo_cost='Unknown.') for l in ['A small receipt / candidate','Link existing evidence / candidate']])))
@@ -46,7 +46,9 @@ def journey(width,height):
    os.write(master,b'\x1bOP');await_text('Right now')
    send(b'h','How it works')
    os.write(master,b'\x1b[6~'*100);await_text(text)
-   os.write(master,b'\x1bOP');absent('Last result');await_text('Keep review evidence')
+   os.write(master,b'\x1bOP');absent('Last result')
+   if 'Keep review evidence' not in screen.text():os.write(master,b'\x1b[6~')
+   await_text('Keep review evidence')
   def requests():return [json.loads(line) for line in (cwd/'requests.jsonl').read_text().splitlines()] if (cwd/'requests.jsonl').exists() else []
   try:
    await_text("What's on your mind?");assert 'I think this is about' not in screen.text();assert not requests()
@@ -63,16 +65,16 @@ def journey(width,height):
    send(b'\x1bOQ','What would make a handover');await_text('Reading');assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
    send(b'\t','Keep review evidence');send(b'd','Desired experience');send(b'd','Keep review evidence');assert len(requests())==2
    # A deliberate source selection extracts one card; neither action calls the provider.
-   notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
+   send(b'\x1b[5;5~','Typed evidence');notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
    send(b'e','Typed');send(b'\r','Typed evidence');assert len(requests())==2
-   notice(b'y','Clipboard escape sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
+   notice(b'y','Copy sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
    send(b'o','Original 1');send(b'\x04','Desired experience');send(b'\x04','Keep review evidence');send(b'o','Original 1');send(b'\x1b','Keep review evidence');send(b'\t','Keep review evidence')
    # Character-by-character injection, with 1ms pacing (not a paste event).
    slow=' Streamed letters stay responsive.';start=time.monotonic()
    for c in slow:os.write(master,c.encode());time.sleep(0.001)
    await_text('responsive.');stream=time.monotonic()-start;assert stream<1.0,(width,stream)
    send(b'\x15FAIL','FAIL');send(b'\x1bOQ',"Reading couldn't be updated.");notice(b'', 'Reshape failed');assert requests()[2]['fragments'][0]['text']=='Typed';assert requests()[2]['fragments'][0]['start']==0 and requests()[2]['fragments'][0]['end']==5;assert 'Keep review evidence' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','Keep review evidence')
-   send(b'\x0eWAIT','WAIT');send(b'\x1bOQ','Thinking…');notice(b'\x1b','Cancelled; original');assert 'Keep review evidence' in screen.text()
+   send(b'\x0eWAIT','WAIT');send(b'\x1bOQ','Should these added words');send(b'include','include');send(b'\x1bOQ','Thinking…');notice(b'\x1b','Cancelled; original');assert 'Keep review evidence' in screen.text()
    send(b'\x03','Leave and lose this? y / n');assert process.poll() is None
    send(b'n',"Reading couldn't be updated.");absent('Leave and lose this?')
    send(b'\x03','Leave and lose this? y / n');os.write(master,b'\x03');process.wait(timeout=5);assert process.returncode==0

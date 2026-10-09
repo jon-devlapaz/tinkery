@@ -19,9 +19,9 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     }
     for consequence in [
         "! F2 sends your words",
-        "! Ctrl-N switches",
-        "! s skips",
-        "! Ctrl-G reviews",
+        "! Shift-F2 / Ctrl-N switches",
+        "! F8 / board s skips",
+        "! F3 / Ctrl-G reviews",
         "! Ctrl-C exits",
     ] {
         assert!(text.contains(consequence));
@@ -38,7 +38,7 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert_eq!(text.matches("Italic is my guess, not your words. Highlighted words support it. Underlined words are still unclear.").count(),1);
     assert!(text.contains("nothing is saved yet"));
     a.board_focus = true;
-    assert!(yohaku::help_text(&a).starts_with("Right now\nTab write"));
+    assert!(yohaku::help_text(&a).starts_with("Right now\nF6 / Tab write"));
     a.board_focus = false;
     a.add_more = true;
     assert!(yohaku::help_text(&a).starts_with("Right now\nType a new dump"));
@@ -51,8 +51,8 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert!(a.how && a.help);
     let how = yohaku::how_text(&a);
     for s in [
-        "two to five provider calls",
-        "helper failures never automatically retry",
+        "at most two provider calls per send",
+        "no automatic retry",
         "outcome/options remain proposals",
         "session stays active",
     ] {
@@ -157,9 +157,9 @@ fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
 }
 #[cfg(unix)]
 #[test]
-fn worry_is_concrete_content_and_repair_never_promotes_positive_drift() {
+fn concern_loss_is_logged_not_silently_repaired_or_declared_faithful() {
     use std::os::unix::fs::PermissionsExt;
-    for repair in [true, false] {
+    for faithful in [true, false] {
         let dir = tempfile::tempdir().unwrap();
         let skill = dir.path().join("SKILL.md");
         std::fs::write(
@@ -176,51 +176,46 @@ p=sys.argv[sys.argv.index('--system-prompt')+1]
 worry='i am worried that this thing has been overengineered'
 if r.get('kind')=='meaning-preservation':
  assert 'Concerns and negative judgments are concrete content too' in p
- assert 'return its exact source quote in missing' in p
- lost='worried' not in r['reading'][0]['text']
- print(json.dumps(dict(missing=[dict(source=1,quote=worry,occurrence=0)] if lost else [],false_choice=False)));sys.exit(0)
-assert r['sources'][0]['text']==worry
-assert 'Preserve concerns, worries and negative judgments' in p
-assert 'An investigation may follow the concern; it cannot replace it' in p
+ assert r['board']['framings']==r['reading'] and r['mode']=='log-only'
+ print(json.dumps(dict(missing=[] if {faithful} else [dict(source=1,quote=worry,occurrence=0)],false_choice=False)));sys.exit(0)
+assert worry==r['sources'][0]['text']
+assert 'Worries stay worries, not diagnoses, praise or positive aspirations' in p
 log=root/'shapes'
 n=int(log.read_text()) if log.exists() else 0
+assert n==0
 log.write_text(str(n+1))
-if n:
- assert 'One corrective attempt' in p and worry in p
-fixed=n and {repair}
-text="You're worried this thing has been overengineered; understand whether its complexity earns its keep." if fixed else 'Learn this system better, durable and robust.'
-outcome='Understand whether the possible overengineering is justified, without losing your worry.' if fixed else 'A durable and robust system.'
-print(json.dumps(dict(uncertain=False,framings=[dict(text=text,supports=[dict(source=1,quote=worry,occurrence=0)])],outcome=outcome,misfits=[],questions=[],alternatives=[])))
-"#,repair=if repair{"True"}else{"False"})).unwrap();
+text='You worry this thing has been overengineered.' if {faithful} else 'Learn this system better, durable and robust.'
+print(json.dumps(dict(uncertain=False,framings=[dict(text=text,supports=[dict(source=1,quote=worry,occurrence=0)])],outcome=text,misfits=[],questions=[],alternatives=[])))
+"#,faithful=if faithful{"True"}else{"False"})).unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
         let host = Arc::new(PiHost::new(program, "test/model".into(), skill).unwrap());
         let mut a = BrainDump::with_host(host.clone());
         a.paste("i am worried that this thing has been overengineered");
         a.submit();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        while a.running() && std::time::Instant::now() < deadline {
+        while (a.running() || a.audit_job.is_some()) && std::time::Instant::now() < deadline {
             a.tick();
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
-        assert!(!a.running());
+        assert!(!a.running() && a.audit_job.is_none());
+        assert!(a.guess.is_some());
         assert_eq!(
             std::fs::read_to_string(dir.path().join("shapes")).unwrap(),
-            "2"
+            "1"
         );
-        if repair {
-            let g = a.guess.as_ref().unwrap();
-            assert!(g.framings[0].text.contains("worried"));
-            assert!(g.outcome.contains("overengineering"));
-        } else {
-            assert!(a.guess.is_none());
-            assert!(a.notice.contains("Single meaning repair also failed"));
-        }
         assert_eq!(
             a.sources[0].text,
             "i am worried that this thing has been overengineered"
         );
-        assert!(a.receipt.is_none());
-        assert!(host.diagnostics().join("\n").contains("Attempt 1 rejected"));
+        let d: checks::Decision = serde_json::from_str(host.diagnostics().last().unwrap()).unwrap();
+        assert_eq!(d.mode, "log-only");
+        assert_eq!(d.decision, if faithful { "pass" } else { "flag" });
+        assert!(
+            !snapshot(100, 30, &mut a, false)
+                .unwrap()
+                .contains("Possible whole-board loss")
+        );
+        assert!(a.receipt.is_none() && a.handoff_job.is_none());
     }
 }
 #[test]

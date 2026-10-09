@@ -214,7 +214,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     );
 }
 #[test]
-fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
+fn boundary_rejects_unsafe_unsupported_excess_readings_and_skipped_guesses() {
     let host = Arc::new(Recording::default());
     let mut a = BrainDump::with_host(host.clone());
     snapshot(100, 30, &mut a, false).unwrap();
@@ -236,12 +236,19 @@ fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
     assert!(bad.validate(&r).is_err());
     let mut bad = g.clone();
     bad.uncertain = true;
-    assert!(bad.validate(&r).is_err());
+    assert!(
+        bad.validate(&r).is_ok(),
+        "Uncertainty is advisory, not a reason to force an invented second reading"
+    );
     bad.framings.push(Framing {
         text: "Another possible meaning".into(),
         supports: anchors(&r),
     });
     assert!(bad.validate(&r).is_ok());
+    bad.framings.push(bad.framings[0].clone());
+    assert!(bad.validate(&r).is_err());
+    bad.framings.clear();
+    assert!(bad.validate(&r).is_err());
     let mut bad = g.clone();
     bad.outcome = "\x1b]52;c;payload".into();
     assert!(bad.validate(&r).is_err());
@@ -553,7 +560,7 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
     let r = host.requests.lock().unwrap()[0].clone();
     let response = serde_json::to_string(&guess(&r)).unwrap();
     let program = dir.path().join("pi");
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'not proposed toggle/tool/transport EVEN WHEN EXPLICITLY REQUESTED' in p\nassert 'at least TWO credible' in p\nassert 'no appended status/ledger' in p\nassert 'Resolve a fork between core readings before glossary' in p\nassert 'NOT automatically the focus' in p\nassert 'NEVER reword' in p and 'VISION' in p\nassert 'The app verifies every anchor' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms' in p and 'NOT forced into the reading/outcome' in p\nassert 'two to four genuinely different unresolved routes' in p\nassert 'no explanatory/status/ledger prose' in p\nassert 'Resolve core forks before glossary' in p\nassert 'never invent their properties or automatically make glossary questions the focus' in p\nassert 'Never reword originals' in p and 'vision and concrete route' in p\nassert 'source IDs must exist' in p and 'whole graphemes' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
     let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
@@ -950,55 +957,57 @@ fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
     assert_eq!(a.settled.len(), 1);
 }
 
-#[cfg(unix)]
 #[test]
-fn paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check() {
-    use std::os::unix::fs::PermissionsExt;
-    let host = Arc::new(Recording::default());
-    let mut a = BrainDump::with_host(host.clone());
-    a.paste("A compounding harness and healthy codebase.");
-    a.submit();
-    settle(&mut a);
-    let first = "Should 'compounds itself' primarily mean the harness improves through use, the codebase becomes easier to change, or both?";
-    a.guess.as_mut().unwrap().questions = vec![Question {
-        id: "compounding-meaning".into(),
-        text: first.into(),
-    }];
-    a.paste("both");
-    a.submit();
-    settle(&mut a);
-    let r = host.requests.lock().unwrap()[1].clone();
+fn paraphrase_advice_is_logged_without_withholding_or_authorizing() {
+    let r = BoardRequest {
+        sources: vec![Source {
+            id: 1,
+            text: "both".into(),
+            in_reply_to: None,
+        }],
+        fragments: vec![],
+        previous: None,
+        skipped: vec![],
+        answered: vec![],
+        settled: vec![Settled {
+            question: Question {
+                id: "answered".into(),
+                text: "Harness, codebase, or both?".into(),
+            },
+            source: 1,
+        }],
+        layout: vec![],
+    };
     let mut g = guess(&r);
-    g.questions=vec![
-        Question{id:"renamed-topic".into(),text:"Should compounding primarily mean the harness improves itself, the codebase becomes easier to change, or both?".into()},
-        Question{id:"intervention-boundary".into(),text:"What must bring you in before final judgment?".into()}
+    g.questions = vec![
+        Question {
+            id: "renamed-topic".into(),
+            text: "Harness, codebase, or both?".into(),
+        },
+        Question {
+            id: "boundary".into(),
+            text: "When should you taste the result?".into(),
+        },
     ];
-    let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(
-        &skill,
-        "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
-    )
-    .unwrap();
-    let program = dir.path().join("pi");
-    let response = serde_json::to_string(&g).unwrap();
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport json,sys\nr=json.load(sys.stdin)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\nif r.get('kind')=='question-continuity':\n assert r['settled'][0]['answer']=='both'\n assert r['settled'][0]['question']['text']=={first:?}\n assert 'SAME missing information' in p\n print(json.dumps(dict(repeated=['renamed-topic'])))\nelse:\n assert 'final human judge' in p and 'BOTH readings' in p\n assert r['settled'][0]['source']==2\n print({response:?})\n")).unwrap();
-    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
-    let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
-    assert_eq!(actual.questions.len(), 1);
-    assert_eq!(actual.questions[0].id, "intervention-boundary");
+    let before = serde_json::to_value(&g).unwrap();
+    assert!(
+        meaning_check::verdict(
+            &r,
+            &g,
+            r#"{"missing":[],"false_choice":false,"repeated":["renamed-topic"]}"#
+        )
+        .unwrap()
+        .unwrap()
+        .contains("renamed-topic")
+    );
     for invalid in [
         "not JSON",
-        "{\"repeated\":[\"invented\"]}",
-        "{\"repeated\":[\"intervention-boundary\",\"intervention-boundary\"]}",
-        "{\"repeated\":[],\"confirmed\":true}",
+        r#"{"missing":[],"false_choice":false,"repeated":["invented"]}"#,
+        r#"{"missing":[],"false_choice":false,"repeated":["boundary","boundary"]}"#,
+        r#"{"missing":[],"false_choice":false,"confirmed":true}"#,
     ] {
-        let mut unchanged = actual.clone();
-        assert!(question_continuity::apply(&mut unchanged, invalid).is_err());
-        assert_eq!(
-            serde_json::to_value(&unchanged).unwrap(),
-            serde_json::to_value(&actual).unwrap()
-        );
+        assert!(meaning_check::verdict(&r, &g, invalid).is_err());
     }
+    assert_eq!(before, serde_json::to_value(&g).unwrap());
+    assert_eq!(g.questions.len(), 2);
 }

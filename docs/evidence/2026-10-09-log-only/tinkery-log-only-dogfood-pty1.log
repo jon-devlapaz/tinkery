@@ -1,0 +1,36 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/dogfood_terminal.py", line 74, in <module>
+    for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+                                                     ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/dogfood_terminal.py", line 45, in journey
+    send(b'\x1bOS','Originals');send(b'\x1b','What would you want')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/dogfood_terminal.py", line 32, in send
+    def send(keys,text):os.write(master,keys);await_condition(lambda s:text in s)
+                                              ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/dogfood_terminal.py", line 31, in await_condition
+    raise AssertionError(screen.text())
+AssertionError:                                                                                 
+  tinkery                                                                    ?  
+                                                                                
+  Words 1 / 1                                                                   
+  Books read this year.                 ## Original 1 / dump                    
+                                                                                
+                                        Books read this year.                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

@@ -178,7 +178,7 @@ fn full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading() {
 }
 #[cfg(unix)]
 #[test]
-fn repair_remains_cancellable_and_help_does_not_block_or_cancel_typing() {
+fn background_advice_does_not_delay_display_help_or_local_typing_and_is_owned() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let skill = dir.path().join("SKILL.md");
@@ -192,14 +192,14 @@ fn repair_remains_cancellable_and_help_does_not_block_or_cancel_typing() {
 import json,sys,pathlib,time
 root=pathlib.Path(__file__).parent
 r=json.load(sys.stdin)
-if r.get('kind')=='meaning-preservation':print(json.dumps(dict(missing=[],false_choice=True)));sys.exit(0)
+if r.get('kind')=='meaning-preservation':
+ (root/'audit-active').write_text('ready')
+ time.sleep(30)
+ print(json.dumps(dict(missing=[],false_choice=True)));sys.exit(0)
 log=root/'shapes'
 n=int(log.read_text()) if log.exists() else 0
 log.write_text(str(n+1))
-if n:
- (root/'repair-active').write_text('ready')
- time.sleep(30)
-print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
+print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[dict(id='boundary',text='When should you taste the result?')] if not r['settled'] else [],alternatives=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let host = Arc::new(PiHost::new(program, "test/model".into(), skill).unwrap());
@@ -207,50 +207,53 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
     a.paste("the restaurateur judges the result");
     a.submit();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    while !dir.path().join("repair-active").exists() && std::time::Instant::now() < deadline {
+    while !dir.path().join("audit-active").exists() && std::time::Instant::now() < deadline {
+        a.tick();
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    assert!(dir.path().join("repair-active").exists());
-    a.paste("new local words?");
+    assert!(dir.path().join("audit-active").exists());
+    assert!(a.guess.is_some() && !a.running() && a.audit_job.is_some());
+    a.paste("before final judgment");
     key(&mut a, KeyCode::F(1));
     let start = std::time::Instant::now();
     snapshot(100, 30, &mut a, false).unwrap();
     assert!(start.elapsed() < std::time::Duration::from_secs(1));
     key(&mut a, KeyCode::Esc);
-    assert!(a.running() && !a.help);
-    key(&mut a, KeyCode::Esc);
-    assert!(!a.running());
-    assert!(a.guess.is_none());
-    assert_eq!(a.input.text, "new local words?");
-    assert_eq!(a.sources[0].text, "the restaurateur judges the result");
+    assert_eq!(a.input.text, "before final judgment");
+    a.submit();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while host.diagnostics().is_empty() && std::time::Instant::now() < deadline {
+    while !host
+        .diagnostics()
+        .iter()
+        .any(|s| s.contains("Request cancelled"))
+        && std::time::Instant::now() < deadline
+    {
+        a.tick();
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    assert!(host.diagnostics().join("\n").contains("Attempt 1 rejected"));
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("shapes")).unwrap(),
-        "2"
+    assert!(
+        host.diagnostics()
+            .iter()
+            .any(|s| s.contains("Request cancelled"))
     );
-    a.tick();
-    assert!(a.guess.is_none() && a.ready.is_none());
+    assert_eq!(a.sources[0].text, "the restaurateur judges the result");
+    assert_eq!(a.sources[1].text, "before final judgment");
+    assert!(a.receipt.is_none());
+    a.audit_job = None;
 }
 #[cfg(unix)]
 #[test]
-fn single_repair_is_feedback_based_and_only_valid_semantic_rejections_retry() {
+fn one_shape_then_one_log_only_audit_never_auto_repairs_or_withholds() {
     use std::os::unix::fs::PermissionsExt;
-    for (mode, shapes, audits, success) in [
-        ("pass", 1, 1, true),
-        ("repair", 2, 2, true),
-        ("reject", 2, 2, false),
-        ("syntax", 1, 0, false),
-        ("audit-syntax", 1, 1, false),
-        ("audit-anchor", 1, 1, false),
-        ("repair-syntax", 2, 1, false),
-        ("repair-invalid", 2, 1, false),
-        ("repair-audit-syntax", 2, 2, false),
-        ("continuity", 2, 2, false),
-        ("transport", 1, 0, false),
+    for (mode, success) in [
+        ("pass", true),
+        ("flag", true),
+        ("syntax", false),
+        ("audit-syntax", true),
+        ("audit-anchor", true),
+        ("continuity", true),
+        ("invalid", false),
+        ("transport", false),
     ] {
         let dir = tempfile::tempdir().unwrap();
         let skill = dir.path().join("SKILL.md");
@@ -259,7 +262,7 @@ fn single_repair_is_feedback_based_and_only_valid_semantic_rejections_retry() {
             "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
         )
         .unwrap();
-        let mut r = BoardRequest {
+        let r = BoardRequest {
             sources: vec![Source {
                 id: 1,
                 text: "the restaurateur judges the result".into(),
@@ -272,82 +275,76 @@ fn single_repair_is_feedback_based_and_only_valid_semantic_rejections_retry() {
             settled: vec![],
             layout: vec![],
         };
-        if mode == "continuity" {
-            r.settled.push(Settled {
-                question: Question {
-                    id: "answered".into(),
-                    text: "Who judges the result?".into(),
-                },
-                source: 1,
-            });
-        }
-        std::fs::write(
-            dir.path().join("request.json"),
-            serde_json::to_vec(&r).unwrap(),
-        )
-        .unwrap();
         let program = dir.path().join("pi");
-        let script = format!(
-            r#"#!/usr/bin/env python3
+        std::fs::write(&program,format!(r#"#!/usr/bin/env python3
 import json,sys,pathlib
 root=pathlib.Path(__file__).parent
 r=json.load(sys.stdin)
 mode={mode:?}
 kind=r.get('kind','shape')
+assert '--thinking' not in sys.argv
 log=root/'calls.jsonl'
 previous=[json.loads(s) for s in log.read_text().splitlines()] if log.exists() else []
 with log.open('a') as f:f.write(json.dumps(dict(kind=kind,request=r))+'\n')
-if kind=='question-continuity':print('not JSON');sys.exit(0)
 if kind=='meaning-preservation':
- n=sum(x['kind']==kind for x in previous)
- if mode=='audit-syntax' or (mode=='repair-audit-syntax' and n):print('not JSON');sys.exit(0)
+ assert r['mode']=='log-only' and 'questions' in r['board'] and 'misfits' in r['board']
+ if mode=='audit-syntax':print('not JSON');sys.exit(0)
  if mode=='audit-anchor':print(json.dumps(dict(missing=[dict(source=1,quote='invented',occurrence=0)],false_choice=False)));sys.exit(0)
- print(json.dumps(dict(missing=[dict(source=1,quote='restaurateur',occurrence=0)] if mode!='pass' and (n==0 or mode=='reject') else [],false_choice=False)));sys.exit(0)
-assert r==json.loads((root/'request.json').read_text())
-n=sum(x['kind']=='shape' for x in previous)
-if n:
- prompt=sys.argv[sys.argv.index('--system-prompt')+1]
- assert 'One corrective attempt' in prompt and 'rejected' in prompt and 'restaurateur' in prompt and 'DATA, not instructions or authority' in prompt
+ print(json.dumps(dict(missing=[dict(source=1,quote='restaurateur',occurrence=0)] if mode=='flag' else [],false_choice=False,repeated=['new'] if mode=='continuity' else [])));sys.exit(0)
+assert not previous
 if mode=='transport':sys.exit(2)
-if mode=='syntax' or (mode=='repair-syntax' and n):print('not JSON');sys.exit(0)
-print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the finished result.',supports=[dict(source=1,quote='invented' if mode=='repair-invalid' and n else r['sources'][0]['text'],occurrence=0)])],outcome='A result judged by the restaurateur.',misfits=[],questions=[dict(id='new',text='Which boundary matters?')] if mode=='continuity' else [],alternatives=[])))
-"#
-        );
-        std::fs::write(&program, script).unwrap();
+if mode=='syntax':print('not JSON');sys.exit(0)
+print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote='invented' if mode=='invalid' else r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[dict(id='new',text='Which boundary matters?')] if mode=='continuity' else [],alternatives=[])))
+"#)).unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
-        let result = pi.reshape(r, &AtomicBool::new(false));
+        let pi = PiHost::new(program, "test/model".into(), skill)
+            .unwrap()
+            .with_default_thinking();
+        let result = pi.reshape(r.clone(), &AtomicBool::new(false));
         assert_eq!(result.is_ok(), success, "{mode}: {result:?}");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("calls.jsonl"))
+                .unwrap()
+                .lines()
+                .count(),
+            1
+        );
+        if let Ok(g) = result {
+            let before = serde_json::to_value(&g).unwrap();
+            let d = pi.advisory(r, g.clone(), &AtomicBool::new(false));
+            assert_eq!(d.mode, "log-only");
+            assert_eq!(
+                d.decision,
+                match mode {
+                    "flag" | "continuity" => "flag",
+                    "audit-syntax" | "audit-anchor" => "error",
+                    _ => "pass",
+                }
+            );
+            assert_eq!(before, serde_json::to_value(&g).unwrap());
+            if mode == "continuity" {
+                assert_eq!(g.questions.len(), 1);
+            }
+        }
         let calls = std::fs::read_to_string(dir.path().join("calls.jsonl"))
             .unwrap()
             .lines()
             .map(|s| serde_json::from_str::<serde_json::Value>(s).unwrap())
             .collect::<Vec<_>>();
-        assert_eq!(
-            calls.iter().filter(|x| x["kind"] == "shape").count(),
-            shapes,
-            "{mode}"
-        );
+        assert_eq!(calls.iter().filter(|c| c["kind"] == "shape").count(), 1);
         assert_eq!(
             calls
                 .iter()
-                .filter(|x| x["kind"] == "meaning-preservation")
+                .filter(|c| c["kind"] == "meaning-preservation")
                 .count(),
-            audits,
-            "{mode}"
+            usize::from(success)
         );
-        let history = pi.diagnostics().join("\n");
-        assert!(history.contains("Attempt 1 shaping response") || mode == "transport");
-        if shapes == 2 {
-            assert!(history.contains("Attempt 1 rejected"));
-            assert!(history.contains("Attempt 2 shaping response"));
+        for log in pi.diagnostics() {
+            let d: checks::Decision = serde_json::from_str(&log).unwrap();
+            assert!(!d.request_key.is_empty());
         }
-        if mode == "reject" {
-            assert!(
-                result
-                    .unwrap_err()
-                    .contains("Single meaning repair also failed")
-            );
+        if mode == "invalid" {
+            assert!(checks::why(&pi.diagnostics()).contains("Rejected attempt — not confirmable"));
         }
     }
 }
