@@ -1,0 +1,57 @@
+[
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "system that compounds itself and serves as a meta harness",
+      "source": 1
+    },
+    "end": 97,
+    "reading": 1,
+    "role": "support",
+    "start": 40
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+      "source": 1
+    },
+    "end": 214,
+    "reading": 1,
+    "role": "support",
+    "start": 105
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+      "source": 1
+    },
+    "end": 513,
+    "reading": 1,
+    "role": "support",
+    "start": 395
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier.",
+      "source": 1
+    },
+    "end": 723,
+    "reading": 1,
+    "role": "support",
+    "start": 604
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "both",
+      "source": 2
+    },
+    "end": 4,
+    "reading": 1,
+    "role": "support",
+    "start": 0
+  }
+]

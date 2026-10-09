@@ -1,0 +1,30 @@
+{
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / real Pi / unsaved                 Ctrl-D details   Ctrl-O originals ",
+    "┌I have been trying so hard to work…─┐┌ I think this is about… / provisional ──┐",
+    "│I┌ Confirm this goal / Esc cancels ─────────────────────────────────────────┐ │",
+    "│o│Goal you are confirming:                                                  │ │",
+    "│a│You want a human-first board and meta harness that compounds both itself  │ │",
+    "│h│and the codebase: coordinating the entire agentic software development    │ │",
+    "│w│lifecycle with rigor, durability, cohesion, and verification, so you can  │ │",
+    "│a│taste the final product as restaurateur and see a PR ready for human      │ │",
+    "│l│review that makes the next change easier.                                 │ │",
+    "│d│                                                                          │l│",
+    "│v│Remaining unresolved questions (do not block goal confirmation):          │ │",
+    "│a│• Besides tasting the final product, where should you intervene or approve│ │",
+    "│c│Running out of questions doesn't mean I understood you.                   │ │",
+    "│t│Goal only; outcome/options remain proposals. No seed or implementation    │ │",
+    "└↓│approval.                                                                 │─┘",
+    "┌ │Creates a real Seed Me session outside the repository.                    │ ┐",
+    "│B│PgUp/PgDn reviews the complete goal and questions.                        │ │",
+    "│i│Confirm this goal: type confirm, then Enter:                              │ │",
+    "│h│Nothing saved. Review the goal and remaining questions before affirming.  │ │",
+    "│S└──────────────────────────────────────────────────────────────────────────┘ │",
+    "└ Ctrl-G review goal ────────────────────────────────┘└────────────────────────┘",
+    "Nothing saved. Review the goal and remaining questions before affirming.        ",
+    "F2 submit · Tab input/board · Ctrl-N add more · Ctrl-C exit                     "
+  ],
+  "width": 80
+}

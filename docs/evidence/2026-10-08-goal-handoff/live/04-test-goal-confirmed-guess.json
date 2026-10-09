@@ -1,0 +1,47 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "A human-first experience that compounds both the harness and the codebases it serves: you bring an intuition and act as the final judge of a rigorous, durable, verified result that considers the whole forest and makes the next change easier.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "system that compounds itself and serves as a meta harness",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "not just the trees, but the forest.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "that is my true goal.",
+          "occurrence": 0
+        }
+      ]
+    }
+  ],
+  "outcome": "You can start with a brain dump, prompt, hunch, or intuition and later taste a coherent, rigorous, durable, verified result ready for human review—one that respects the whole codebase and makes its next change easier.",
+  "misfits": [],
+  "questions": [],
+  "alternatives": [
+    {
+      "label": "Incremental human-checkpoint workflow",
+      "benefit": "Could preserve your judgment throughout the path while compounding learning from each completed change.",
+      "cost": "May require more deliberate checkpoint design before the experience feels seamless.",
+      "undo_cost": "unknown"
+    },
+    {
+      "label": "Broad autonomous lifecycle orchestration",
+      "benefit": "Could coordinate more of the continuum from intuition to review-ready result with less manual transition work.",
+      "cost": "Could make consequential design taste harder to inspect or redirect.",
+      "undo_cost": "unknown"
+    }
+  ]
+}

@@ -69,7 +69,7 @@ fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
     }
 }
 fn settle(app: &mut BrainDump) {
-    let stop = Instant::now() + Duration::from_secs(200);
+    let stop = Instant::now() + Duration::from_secs(300);
     while app.running() && Instant::now() < stop {
         app.tick();
         std::thread::sleep(Duration::from_millis(20));
@@ -85,11 +85,18 @@ fn main() {
     let program = std::env::var_os("TINKERY_LIVE_PI_COMMAND")
         .map(PathBuf::from)
         .unwrap_or_else(|| "pi".into());
-    let host = PiHost::new(program, model.clone(), skill.into())
+    let host = PiHost::new(program, model.clone(), PathBuf::from(&skill))
         .unwrap()
-        .with_thinking("low")
+        .with_thinking(&std::env::var("TINKERY_LIVE_THINKING").unwrap_or_else(|_| "low".into()))
         .unwrap();
     let mut app = BrainDump::with_host(Arc::new(host));
+    if let Some(root) = std::env::var_os("TINKERY_LIVE_GOAL_TEST_ROOT") {
+        assert!(
+            PathBuf::from(&root).is_absolute(),
+            "Explicit isolated test root required"
+        );
+        app = app.with_seed_me(PathBuf::from(&skill), Some(root.into()));
+    }
     capture(&mut app, &dir, "00-entry");
     assert!(app.guess.is_none());
     let dark = std::env::var_os("TINKERY_LIVE_DARK_MODE").is_some();
@@ -144,6 +151,47 @@ fn main() {
     );
     assert_eq!(app.sources[0].text, dump);
     assert_eq!(app.sources[1].text, answer);
+    if std::env::var_os("TINKERY_LIVE_GOAL_TEST_ROOT").is_some() {
+        if let Some(path) = std::env::var_os("TINKERY_LIVE_GOAL_CONTEXT_FILE") {
+            let context =
+                std::fs::read_to_string(path).expect("Explicit relayed/test context file");
+            app.handle_key(crossterm::event::KeyEvent::new(
+                crossterm::event::KeyCode::Char('n'),
+                crossterm::event::KeyModifiers::CONTROL,
+            ));
+            app.paste(&context);
+            app.submit();
+            settle(&mut app);
+            capture(&mut app, &dir, "03-relayed-context");
+            assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
+        }
+        app.review_goal();
+        capture(&mut app, &dir, "03-goal-review");
+        for _ in 0..50 {
+            app.handle_key(crossterm::event::KeyEvent::new(
+                crossterm::event::KeyCode::PageDown,
+                crossterm::event::KeyModifiers::NONE,
+            ));
+        }
+        app.paste("confirm");
+        app.handle_key(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Enter,
+            crossterm::event::KeyModifiers::NONE,
+        ));
+        settle(&mut app);
+        capture(&mut app, &dir, "04-test-goal-confirmed");
+        let receipt = app.receipt.as_ref().expect(&app.notice);
+        std::fs::write(
+            dir.join("test-session-path.txt"),
+            receipt.session.display().to_string(),
+        )
+        .unwrap();
+        assert!(!receipt.session.join("seed-contract.md").exists());
+        let text = app.finish_handoff().unwrap();
+        std::fs::write(dir.join("test-receipt.txt"), &text).unwrap();
+        println!("AUTOMATED TEST CONFIRMATION, NOT OPERATOR AFFIRMATION:\n{text}");
+        return;
+    }
     if let Some(path) = std::env::var_os("TINKERY_LIVE_SECOND_ANSWER_FILE") {
         let path = PathBuf::from(path);
         println!(

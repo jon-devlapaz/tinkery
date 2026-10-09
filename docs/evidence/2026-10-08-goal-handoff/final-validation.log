@@ -1,0 +1,586 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.48s
+     Running unittests src/lib.rs (target/debug/deps/pinstar-b60bb9ade8cb9ee8)
+
+running 41 tests
+test camera::tests::clamp_world_nonfinite ... ok
+test camera::tests::zoom_in_out_bounds ... ok
+test camera::tests::nearest_in_cone_prefers_straightest ... ok
+test menu::tests::color_picker_specs_carry_colors ... ok
+test data::tests::parses_canvas_json_without_orientation ... ok
+test menu::tests::canvas_menu_specs_gate_by_format ... ok
+test grid::tests::hidden_grid_draws_nothing ... ok
+test grid::tests::degenerate_projection_is_noop ... ok
+test menu::tests::find_shortcut_case_insensitive ... ok
+test menu::tests::image_node_item_only_when_enabled ... ok
+test overlay::tests::clear_nukes_both ... ok
+test overlay::tests::commit_rect_normalizes_both_directions ... ok
+test overlay::tests::is_dragging_screen_manhattan ... ok
+test overlay::tests::on_down_sets_start_end ... ok
+test overlay::tests::on_drag_updates_end ... ok
+test menu::tests::rect_clamps_to_area ... ok
+test grid::tests::grid_dots_appear_on_empty_cells_only ... ok
+test data::tests::parses_nodes_with_and_without_title ... ok
+test selection::tests::all_unions ... ok
+test selection::tests::is_selected_primary_and_extra ... ok
+test selection::tests::clear_nukes_both ... ok
+test selection::tests::clear_set_keeps_primary ... ok
+test selection::tests::select_only_clears_extra ... ok
+test input::tests::image_node_menu_item_sets_picker_trigger ... ok
+test image::tests::test_eviction ... ok
+test state::tests::canvas_context_menu_remains_available ... ok
+test textsel::tests::click_without_drag_cancels_selection ... ok
+test state::tests::screen_to_canvas_center_offset_and_clamp ... ok
+test state::tests::edge_overlay_lists_and_selects_connected_edges ... ok
+test formats::mermaid::tests::test_dt_parse_and_serialize ... ok
+test formats::dot::tests::test_dot_dt_orientation ... ok
+test formats::plantuml::tests::test_plantuml_basic ... ok
+test formats::mermaid::tests::test_basic_parse_and_serialize ... ok
+test formats::dot::tests::test_dot_parse_and_serialize ... ok
+test formats::mermaid::tests::test_dt_markdown_parse_and_serialize ... ok
+test render::tests::marquee_and_menu_render_without_panic ... ok
+test render::tests::test_draw_pinstar_view_with_editor ... ok
+test render::tests::test_draw_flowchart_view ... ok
+test state::tests::connection_flow_and_delete_both_ways ... ok
+test state::tests::rename_title_and_id_modes ... ok
+test state::tests::undo_restores_and_prunes_selection ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/main.rs (target/debug/deps/pinstar-2b2f32b2e6e0a164)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tinkery-804b628ceebf5b8f)
+
+running 64 tests
+test markdown_tests::headings_and_emphasis_are_styled_without_markers_or_text_loss ... ok
+test shaping::brain_dump::tests::annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes ... ok
+test shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text ... ok
+test shaping::brain_dump::goal_tests::answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options ... ok
+test shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence ... ok
+test shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible ... ok
+test shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback ... ok
+test shaping::brain_dump::goal_tests::literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates ... ok
+test shaping::brain_dump::tests::boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses ... ok
+test shaping::brain_dump::tests::misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected ... ok
+test shaping::brain_dump::goal_tests::empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source ... ok
+test shaping::brain_dump::tests::actual_drag_keeps_exact_words_and_layout_on_the_next_submit ... ok
+test shaping::brain_dump::tests::failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap ... ok
+test shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect ... ok
+test shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus ... ok
+test shaping::brain_dump::tests::originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_neutral ... ok
+test shaping::brain_dump::tests::details_are_accessible_without_stealing_literal_answer_text_or_focus ... ok
+test shaping::brain_dump::tests::simulated_is_explicit_and_never_an_automatic_real_failure_fallback ... ok
+test shaping::brain_dump::tests::unchanged_reading_records_the_answer_without_claiming_a_wording_change ... ok
+test shaping::brain_dump::tests::typing_during_request_is_never_replaced_by_the_result ... ok
+test shaping::brain_dump::tests::clipping_is_visible_and_original_is_one_action_away ... ok
+test shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden ... ok
+test shaping::canvas_tests::help_resize_and_mouse_release_outside_canvas_cancel_captured_gestures ... ok
+test shaping::canvas_tests::inline_editor_sanitizes_and_rejects_overflow_without_corrupting_undo ... ok
+test shaping::drafting::tests::draft_values_cannot_supply_authority_or_terminal_controls ... ok
+test shaping::canvas_tests::memory_only_save_is_safe_even_with_a_writable_destination ... ok
+test shaping::canvas_tests::resize_and_extreme_projection_cannot_paint_over_the_paper ... ok
+test shaping::canvas_tests::upstream_double_click_and_editor_submit_live_text_without_losing_original ... ok
+test shaping::canvas_tests::upstream_drag_pan_and_zoom_leave_paper_and_note_text_unchanged ... ok
+test shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... ok
+test shaping::canvas_tests::upstream_inline_editor_retains_carbon_text_on_warm_paper ... ok
+test shaping::scratchpad::tests::arbitrary_thoughts_get_an_honest_template_and_stale_selections_are_rejected ... ok
+test shaping::canvas_tests::actual_pinstar_node_and_completed_paper_fit_supported_sizes ... ok
+test shaping::scratchpad::tests::actual_pinstar_drag_crosses_the_old_pane_boundary_and_undo_redo_restore_it ... ok
+test shaping::scratchpad::tests::creation_editing_and_deletion_use_upstream_undo_without_cross_note_corruption ... ok
+test shaping::brain_dump::tests::annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards ... ok
+test shaping::scratchpad::tests::editing_limits_modal_help_stale_resize_and_outside_releases_remain_safe ... ok
+test shaping::scratchpad::tests::inspector_toggles_preserve_world_geometry_camera_and_visible_note_positions ... ok
+test shaping::scratchpad::tests::missing_or_empty_selections_never_fall_back_to_a_different_note ... ok
+test shaping::scratchpad::tests::feedback_revises_the_paper_not_the_notes_and_failure_never_falls_back_to_a_sample ... ok
+test shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... ok
+test shaping::scratchpad::tests::full_width_workspace_and_inspector_are_readable_at_supported_sizes ... ok
+test shaping::scratchpad::tests::inspector_is_read_only_and_writer_growth_preserves_focus_scroll_and_hidden_canvas ... ok
+test shaping::scratchpad::tests::model_shaping_skips_blanks_preserves_sources_and_all_blank_retains_the_paper ... ok
+test shaping::scratchpad::tests::multi_note_sources_track_changes_and_removal_without_rewriting_the_draft ... ok
+test shaping::scratchpad::tests::multiple_notes_edit_independently_and_f2_shapes_exactly_the_selected_live_note ... ok
+test shaping::scratchpad::tests::paper_mono_corner_fallback_never_rewrites_authored_arrows ... ok
+test shaping::brain_dump::tests::selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words ... ok
+test shaping::scratchpad::tests::right_click_delete_commits_another_notes_live_editor_before_deleting ... ok
+test shaping::scratchpad::tests::no_actions_write_files_even_with_a_real_destination_and_deleted_source_paper_survives ... ok
+test shaping::brain_dump::tests::silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_layout ... ok
+test shaping::scratchpad::tests::right_click_delete_removes_only_the_clicked_note_and_supports_undo_redo ... ok
+test shaping::scratchpad::tests::right_click_menu_creates_notes_but_exposes_no_graph_files_or_external_editor ... ok
+test shaping::scratchpad::tests::right_clicking_a_different_note_commits_the_current_editor_before_reselection ... ok
+test shaping::scratchpad::tests::problem_first_and_plan_first_examples_share_a_goal_without_accepting_a_solution ... ok
+test shaping::scratchpad::tests::selected_thoughts_include_live_edits_once_in_note_order_and_exclude_other_notes ... ok
+test shaping::scratchpad::tests::right_click_delete_over_the_inspector_is_visible_clickable_and_retains_the_paper ... ok
+test shaping::scratchpad::tests::paper_copy_preserves_markdown_and_drag_selects_unwrapped_logical_lines ... ok
+test shaping::scratchpad::tests::shift_click_is_an_explicit_toggle_and_shaping_preserves_unreleased_marquee_selection ... ok
+test shaping::scratchpad::tests::differential_frames_preserve_every_cell_when_paper_opens_scrolls_and_closes_at_wide_sizes ... ok
+test shaping::drafting::tests::pi_process_receives_only_bounded_drafting_inputs_and_disabled_resources ... ok
+test shaping::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources ... ok
+test shaping::brain_dump::tests::paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check ... ok
+test shaping::drafting::tests::failures_timeout_overflow_and_cancellation_never_return_a_draft ... ok
+
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+
+     Running unittests src/main.rs (target/debug/deps/tinkery-aa387c70f00a81a0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cabinet.rs (target/debug/deps/cabinet-05b5f339bc6121c2)
+
+running 9 tests
+test release_events_do_not_trigger_navigation ... ok
+test pane_focus_cycles_in_both_directions ... ok
+test undersized_terminal_preserves_selection_but_allows_quit ... ok
+test help_is_modal_and_quit_still_works ... ok
+test cabinet_at_100_by_30_is_explicit_and_readable ... ok
+test palette_matches_arcade_and_has_monochrome_fallback ... ok
+test selection_updates_both_artifact_and_attention_and_clamps ... ok
+test scrolling_reaches_end_and_switching_artifact_resets_it ... ok
+test resizing_clamps_scroll_and_keeps_every_pane_available ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/drawer.rs (target/debug/deps/drawer-6524d45033e4feab)
+
+running 4 tests
+test drawer_can_close_with_toggle_or_tab_and_help_preserves_it ... ok
+test compact_header_footer_and_carbon_document_at_100_by_30 ... ok
+test drawer_restores_focus_selection_artifact_and_reading_position ... ok
+test drawer_and_help_are_readable_at_minimum_size_and_recover_from_resize ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/mouse.rs (target/debug/deps/mouse-8d01d70ca5d5c015)
+
+running 5 tests
+test clicks_handle_wrapped_text_wide_characters_and_blank_lines ... ok
+test card_click_places_cursor_and_paper_click_is_read_only ... ok
+test blank_space_right_clicks_releases_and_stale_resize_targets_do_nothing ... ok
+test wheel_scrolls_each_surface_without_moving_focus_or_changing_note ... ok
+test footer_controls_send_pause_focus_help_and_quit ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/shaping.rs (target/debug/deps/shaping-ff2c5d743666d0a3)
+
+running 9 tests
+test pause_help_and_small_terminal_freeze_the_writer ... ok
+test keyboard_editing_paste_and_q_do_not_trigger_commands ... ok
+test writer_captures_a_copy_never_mutates_card_or_steals_focus ... ok
+test unicode_editing_moves_and_deletes_whole_graphemes ... ok
+test wrapping_keeps_words_and_wide_characters_inside_the_card ... ok
+test note_card_and_paper_are_readable_at_100_by_30 ... ok
+test empty_notes_and_oversize_pastes_have_explicit_errors ... ok
+test long_papers_scroll_without_following_new_sections ... ok
+test help_resize_release_and_ctrl_c_keep_the_prototype_safe ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/shaping_polish.rs (target/debug/deps/shaping_polish-b06d8d3bfd076540)
+
+running 4 tests
+test other_notes_are_honestly_labeled_templates_not_the_authored_example ... ok
+test example_becomes_one_tentative_goal_outcome_and_open_question ... ok
+test overflow_cues_track_top_middle_bottom_and_clear_when_content_fits ... ok
+test card_overflow_and_unsent_changes_remain_visible_without_explanatory_chrome ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+   Doc-tests pinstar
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tinkery
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.65s
+     Running unittests src/lib.rs (target/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 64 tests
+test markdown_tests::headings_and_emphasis_are_styled_without_markers_or_text_loss ... ok
+test shaping::brain_dump::tests::annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes ... ok
+test shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text ... ok
+test shaping::brain_dump::goal_tests::answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options ... ok
+test shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence ... ok
+test shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback ... ok
+test shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible ... ok
+test shaping::brain_dump::goal_tests::literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates ... ok
+test shaping::brain_dump::tests::boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses ... ok
+test shaping::brain_dump::tests::misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected ... ok
+test shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect ... ok
+test shaping::brain_dump::goal_tests::empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source ... ok
+test shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus ... ok
+test shaping::brain_dump::tests::actual_drag_keeps_exact_words_and_layout_on_the_next_submit ... ok
+test shaping::brain_dump::tests::originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_neutral ... ok
+test shaping::brain_dump::tests::details_are_accessible_without_stealing_literal_answer_text_or_focus ... ok
+test shaping::brain_dump::tests::failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap ... ok
+test shaping::brain_dump::tests::simulated_is_explicit_and_never_an_automatic_real_failure_fallback ... ok
+test shaping::brain_dump::tests::clipping_is_visible_and_original_is_one_action_away ... ok
+test shaping::brain_dump::tests::unchanged_reading_records_the_answer_without_claiming_a_wording_change ... ok
+test shaping::brain_dump::tests::typing_during_request_is_never_replaced_by_the_result ... ok
+test shaping::canvas_tests::inline_editor_sanitizes_and_rejects_overflow_without_corrupting_undo ... ok
+test shaping::canvas_tests::memory_only_save_is_safe_even_with_a_writable_destination ... ok
+test shaping::drafting::tests::draft_values_cannot_supply_authority_or_terminal_controls ... ok
+test shaping::canvas_tests::help_resize_and_mouse_release_outside_canvas_cancel_captured_gestures ... ok
+test shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden ... ok
+test shaping::canvas_tests::resize_and_extreme_projection_cannot_paint_over_the_paper ... ok
+test shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... ok
+test shaping::canvas_tests::upstream_double_click_and_editor_submit_live_text_without_losing_original ... ok
+test shaping::canvas_tests::upstream_drag_pan_and_zoom_leave_paper_and_note_text_unchanged ... ok
+test shaping::canvas_tests::upstream_inline_editor_retains_carbon_text_on_warm_paper ... ok
+test shaping::scratchpad::tests::arbitrary_thoughts_get_an_honest_template_and_stale_selections_are_rejected ... ok
+test shaping::canvas_tests::actual_pinstar_node_and_completed_paper_fit_supported_sizes ... ok
+test shaping::scratchpad::tests::actual_pinstar_drag_crosses_the_old_pane_boundary_and_undo_redo_restore_it ... ok
+test shaping::scratchpad::tests::creation_editing_and_deletion_use_upstream_undo_without_cross_note_corruption ... ok
+test shaping::brain_dump::tests::annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards ... ok
+test shaping::scratchpad::tests::editing_limits_modal_help_stale_resize_and_outside_releases_remain_safe ... ok
+test shaping::scratchpad::tests::inspector_toggles_preserve_world_geometry_camera_and_visible_note_positions ... ok
+test shaping::scratchpad::tests::missing_or_empty_selections_never_fall_back_to_a_different_note ... ok
+test shaping::scratchpad::tests::full_width_workspace_and_inspector_are_readable_at_supported_sizes ... ok
+test shaping::scratchpad::tests::feedback_revises_the_paper_not_the_notes_and_failure_never_falls_back_to_a_sample ... ok
+test shaping::scratchpad::tests::inspector_is_read_only_and_writer_growth_preserves_focus_scroll_and_hidden_canvas ... ok
+test shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... ok
+test shaping::scratchpad::tests::multi_note_sources_track_changes_and_removal_without_rewriting_the_draft ... ok
+test shaping::scratchpad::tests::multiple_notes_edit_independently_and_f2_shapes_exactly_the_selected_live_note ... ok
+test shaping::scratchpad::tests::model_shaping_skips_blanks_preserves_sources_and_all_blank_retains_the_paper ... ok
+test shaping::scratchpad::tests::paper_mono_corner_fallback_never_rewrites_authored_arrows ... ok
+test shaping::brain_dump::tests::selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words ... ok
+test shaping::scratchpad::tests::no_actions_write_files_even_with_a_real_destination_and_deleted_source_paper_survives ... ok
+test shaping::scratchpad::tests::right_click_delete_commits_another_notes_live_editor_before_deleting ... ok
+test shaping::scratchpad::tests::right_click_menu_creates_notes_but_exposes_no_graph_files_or_external_editor ... ok
+test shaping::brain_dump::tests::silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_layout ... ok
+test shaping::scratchpad::tests::right_click_delete_removes_only_the_clicked_note_and_supports_undo_redo ... ok
+test shaping::scratchpad::tests::problem_first_and_plan_first_examples_share_a_goal_without_accepting_a_solution ... ok
+test shaping::scratchpad::tests::right_clicking_a_different_note_commits_the_current_editor_before_reselection ... ok
+test shaping::scratchpad::tests::selected_thoughts_include_live_edits_once_in_note_order_and_exclude_other_notes ... ok
+test shaping::scratchpad::tests::paper_copy_preserves_markdown_and_drag_selects_unwrapped_logical_lines ... ok
+test shaping::scratchpad::tests::right_click_delete_over_the_inspector_is_visible_clickable_and_retains_the_paper ... ok
+test shaping::scratchpad::tests::shift_click_is_an_explicit_toggle_and_shaping_preserves_unreleased_marquee_selection ... ok
+test shaping::scratchpad::tests::differential_frames_preserve_every_cell_when_paper_opens_scrolls_and_closes_at_wide_sizes ... ok
+test shaping::drafting::tests::pi_process_receives_only_bounded_drafting_inputs_and_disabled_resources ... ok
+test shaping::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources ... ok
+test shaping::brain_dump::tests::paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check ... ok
+test shaping::drafting::tests::failures_timeout_overflow_and_cancellation_never_return_a_draft ... ok
+
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s
+
+     Running unittests src/main.rs (target/debug/deps/tinkery-54a3df79580aa150)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cabinet.rs (target/debug/deps/cabinet-0a835e65668af3bf)
+
+running 9 tests
+test pane_focus_cycles_in_both_directions ... ok
+test release_events_do_not_trigger_navigation ... ok
+test undersized_terminal_preserves_selection_but_allows_quit ... ok
+test cabinet_at_100_by_30_is_explicit_and_readable ... ok
+test palette_matches_arcade_and_has_monochrome_fallback ... ok
+test help_is_modal_and_quit_still_works ... ok
+test selection_updates_both_artifact_and_attention_and_clamps ... ok
+test scrolling_reaches_end_and_switching_artifact_resets_it ... ok
+test resizing_clamps_scroll_and_keeps_every_pane_available ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/drawer.rs (target/debug/deps/drawer-c366b7ec541f0bee)
+
+running 4 tests
+test compact_header_footer_and_carbon_document_at_100_by_30 ... ok
+test drawer_can_close_with_toggle_or_tab_and_help_preserves_it ... ok
+test drawer_restores_focus_selection_artifact_and_reading_position ... ok
+test drawer_and_help_are_readable_at_minimum_size_and_recover_from_resize ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/mouse.rs (target/debug/deps/mouse-f7d8f02bd5e10b9c)
+
+running 5 tests
+test clicks_handle_wrapped_text_wide_characters_and_blank_lines ... ok
+test card_click_places_cursor_and_paper_click_is_read_only ... ok
+test blank_space_right_clicks_releases_and_stale_resize_targets_do_nothing ... ok
+test footer_controls_send_pause_focus_help_and_quit ... ok
+test wheel_scrolls_each_surface_without_moving_focus_or_changing_note ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/shaping.rs (target/debug/deps/shaping-0f0926b388854d97)
+
+running 9 tests
+test keyboard_editing_paste_and_q_do_not_trigger_commands ... ok
+test unicode_editing_moves_and_deletes_whole_graphemes ... ok
+test wrapping_keeps_words_and_wide_characters_inside_the_card ... ok
+test pause_help_and_small_terminal_freeze_the_writer ... ok
+test writer_captures_a_copy_never_mutates_card_or_steals_focus ... ok
+test note_card_and_paper_are_readable_at_100_by_30 ... ok
+test empty_notes_and_oversize_pastes_have_explicit_errors ... ok
+test long_papers_scroll_without_following_new_sections ... ok
+test help_resize_release_and_ctrl_c_keep_the_prototype_safe ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/shaping_polish.rs (target/debug/deps/shaping_polish-240939c67c295ba3)
+
+running 4 tests
+test other_notes_are_honestly_labeled_templates_not_the_authored_example ... ok
+test example_becomes_one_tentative_goal_outcome_and_open_question ... ok
+test overflow_cues_track_top_middle_bottom_and_clear_when_content_fits ... ok
+test card_overflow_and_unsent_changes_remain_visible_without_explanatory_chrome ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests examples/live_brain_dump_check.rs (target/debug/examples/live_brain_dump_check-703900087344b8b1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/live_drafting_check.rs (target/debug/examples/live_drafting_check-322fa47855731b6e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Checking tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.20s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+== tests/brain_dump_terminal.py
+{"width": 80, "height": 24, "burst_seconds": 0.0021, "answer_burst_seconds": 0.0015, "paced_1ms_seconds": 0.053, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 100, "height": 30, "burst_seconds": 0.0021, "answer_burst_seconds": 0.002, "paced_1ms_seconds": 0.0529, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 160, "height": 40, "burst_seconds": 0.0041, "answer_burst_seconds": 0.0032, "paced_1ms_seconds": 0.0533, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 320, "height": 40, "burst_seconds": 0.007, "answer_burst_seconds": 0.0056, "paced_1ms_seconds": 0.054, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+== tests/goal_confirmation_terminal.py
+{"width": 80, "height": 24, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 100, "height": 30, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 160, "height": 40, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 320, "height": 40, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+== tests/terminal_smoke.py
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 80x24, multiple notes, full-width drag, inspector, no writes, restore
+PASS: problem-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: problem-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+LATENCY: legacy 100x30, note=0.0020s, feedback=0.0036s (plain burst)
+PASS: model adapter stub, 100x30, shape/correct/revise, original retained, no writes, safe exit
+LATENCY: legacy 80x24, note=0.0019s, feedback=0.0025s (plain burst)
+PASS: model adapter stub, 80x24, shape/correct/revise, original retained, no writes, safe exit
+LATENCY: legacy 160x40, note=0.0029s, feedback=0.0051s (plain burst)
+PASS: wide stub journey, 160x40, paper/revision/repaint/clean OSC52, full_redraw=False
+LATENCY: legacy 240x40, note=0.0044s, feedback=0.0055s (plain burst)
+PASS: wide stub journey, 240x40, paper/revision/repaint/clean OSC52, full_redraw=False
+LATENCY: legacy 320x40, note=0.0087s, feedback=0.0067s (plain burst)
+PASS: wide stub journey, 320x40, paper/revision/repaint/clean OSC52, full_redraw=True
+PASS: noninteractive modes and explicit CLI errors
+
+running 7 tests
+test shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text ... ok
+test shaping::brain_dump::goal_tests::answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options ... ok
+test shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence ... ok
+test shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible ... ok
+test shaping::brain_dump::goal_tests::literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates ... ok
+test shaping::brain_dump::goal_tests::empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source ... ok
+test shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 57 filtered out; finished in 0.04s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+
+running 1 test
+test shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation stdout ----
+
+thread 'shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation' (58963525) panicked at src/shaping/brain_dump/goal_tests.rs:38:9:
+Opening review/Enter/F2 affirmed implicitly
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.01s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.40s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`
+
+PROVEN: implicit-enter
+
+running 1 test
+test shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation stdout ----
+
+thread 'shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation' (58963879) panicked at src/shaping/brain_dump/goal_tests.rs:34:9:
+assertion failed: text.contains(&q)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.01s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`
+
+PROVEN: omit-open-questions
+
+running 1 test
+test shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible stdout ----
+
+thread 'shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible' (58964226) panicked at src/shaping/brain_dump/goal_tests.rs:166:5:
+assertion failed: a.handoff_job.is_none()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.01s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.51s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`
+
+PROVEN: allow-unseen-questions
+
+running 1 test
+test shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text stdout ----
+
+thread 'shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text' (58964579) panicked at src/shaping/brain_dump/goal_tests.rs:57:5:
+assertion failed: a.goal_review.is_none()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`
+
+PROVEN: allow-ambiguous-local-text
+
+running 1 test
+test shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence stdout ----
+
+thread 'shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence' (58964940) panicked at src/shaping/brain_dump/goal_tests.rs:183:142:
+called `Result::unwrap_err()` on an `Ok` value: ()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+warning: field `false_choice` is never read
+ --> src/shaping/brain_dump/meaning_check.rs:6:5
+  |
+4 | struct Verdict {
+  |        ------- field in this struct
+5 |     missing: Vec<Anchor>,
+6 |     false_choice: bool,
+  |     ^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`
+
+PROVEN: permit-false-fork
+
+running 1 test
+test shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence stdout ----
+
+thread 'shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence' (58965286) panicked at src/shaping/brain_dump/goal_tests.rs:210:5:
+assertion failed: a.goal_review.is_none()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.51s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`
+
+PROVEN: omit-literal-acronym-gate
+
+running 1 test
+test shaping::brain_dump::goal_tests::answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options stdout ----
+
+thread 'shaping::brain_dump::goal_tests::answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options' (58965633) panicked at src/shaping/brain_dump/goal_tests.rs:127:5:
+assertion failed: g.validate(&r).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 63 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.45s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/goal-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`
+
+PROVEN: keep-two-after-answer
+PASS: seven baseline-verified independent removals, isolated source: /var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-goal-removals-30n6dwc0

@@ -1,0 +1,44 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "You want a human-first board and meta harness that compounds both itself and the codebase: coordinating the entire agentic software development lifecycle with rigor, durability, cohesion, and verification, so you can taste the final product as restaurateur and see a PR ready for human review that makes the next change easier.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "system that compounds itself and serves as a meta harness",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier.",
+          "occurrence": 0
+        },
+        {
+          "source": 2,
+          "quote": "both",
+          "occurrence": 0
+        }
+      ]
+    }
+  ],
+  "outcome": "You experience the brain dump, prompt, hunch, or intuition becoming a cohesive result across the agentic software development lifecycle, ending in a PR ready for human review that considers codebase health and makes the next change easier; you remain the restaurateur who tastes the final delicious product.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "human-checkpoints",
+      "text": "Besides tasting the final product, where should you intervene or approve work before the PR is ready for human review?"
+    }
+  ],
+  "alternatives": []
+}

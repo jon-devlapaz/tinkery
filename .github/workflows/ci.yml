@@ -14,6 +14,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Official Seed Me contract fixture (not vendored)
+        uses: actions/checkout@v4
+        with:
+          repository: jon-devlapaz/tink-skills
+          ref: 86066b175b53e13b4180ce4cc9929a626b57a2f6
+          path: .ci-seed-me
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -25,6 +31,8 @@ jobs:
       - name: Build
         run: cargo build --locked
       - name: Terminal journeys (real binary in a pseudo-terminal)
+        env:
+          SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
         shell: bash
         run: |
           for t in tests/*.py; do

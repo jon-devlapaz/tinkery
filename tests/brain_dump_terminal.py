@@ -7,6 +7,8 @@ HOST='''#!/usr/bin/env python3
 import json,sys,time
 assert all(f in sys.argv for f in ['--no-session','--no-tools','--no-context-files','--no-extensions','--no-mcp'])
 r=json.load(sys.stdin)
+if r.get('kind')=='meaning-preservation':
+ print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)
 if r.get('kind')=='question-continuity':
  print(json.dumps(dict(repeated=[])));sys.exit(0)
 with open('requests.jsonl','a') as f: f.write(json.dumps(r)+'\\n')

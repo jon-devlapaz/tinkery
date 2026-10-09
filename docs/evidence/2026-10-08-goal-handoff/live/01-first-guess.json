@@ -1,0 +1,62 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "A self-compounding, human-first experience where you act as the final judge, receiving a delicious, durable result that makes the next change easier while considering the whole codebase.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "system that compounds itself and serves as a meta harness",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "not just the trees, but the forest.",
+          "occurrence": 0
+        }
+      ]
+    },
+    {
+      "text": "A coordinated path from an initial hunch or prompt to a PR ready for human review, with rigor, verification, and codebase health carried through the work.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "a human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human",
+          "occurrence": 0
+        }
+      ]
+    }
+  ],
+  "outcome": "You can bring an intuition and later encounter a coherent, verified, durable result at the human review point—one that respects the whole codebase, tastes right to you as final judge, and makes its next change easier.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "compounding-referent",
+      "text": "Should “compounds itself” primarily mean the harness improves its own way of working, the codebase becomes easier to change, or both?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "Self-improving harness first",
+      "benefit": "Could make future work increasingly coherent and effective across projects.",
+      "cost": "The codebase’s immediate health and changeability may receive less emphasis.",
+      "undo_cost": "unknown"
+    },
+    {
+      "label": "Codebase health first",
+      "benefit": "Could more directly produce review-ready changes that improve future maintainability.",
+      "cost": "The harness’s own compounding may remain less developed.",
+      "undo_cost": "unknown"
+    }
+  ]
+}
