@@ -1,0 +1,15 @@
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 80x24, multiple notes, full-width drag, inspector, no writes, restore
+PASS: problem-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: problem-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+PASS: model adapter stub, 100x30, shape/correct/revise, original retained, no writes, safe exit
+PASS: model adapter stub, 80x24, shape/correct/revise, original retained, no writes, safe exit
+PASS: wide stub journey, 160x40, paper/revision/repaint/clean OSC52, full_redraw=False
+PASS: wide stub journey, 240x40, paper/revision/repaint/clean OSC52, full_redraw=False
+PASS: wide stub journey, 320x40, paper/revision/repaint/clean OSC52, full_redraw=True
+PASS: noninteractive modes and explicit CLI errors

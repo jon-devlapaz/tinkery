@@ -1,6 +1,7 @@
 mod canvas;
 #[cfg(test)]
 mod canvas_tests;
+pub mod drafting;
 mod note;
 mod response;
 pub mod scratchpad;
@@ -146,8 +147,12 @@ impl Shape {
         if let Some(canvas) = &mut self.canvas {
             canvas.finish_edit();
         }
-        self.sent = Some(self.note.text.clone());
-        self.sections = response::sections(&self.note.text);
+        self.begin(self.note.text.clone(), response::sections(&self.note.text));
+    }
+
+    fn begin(&mut self, sent: String, sections: Vec<String>) {
+        self.sent = Some(sent);
+        self.sections = sections;
         self.shown = 1;
         self.elapsed = Duration::ZERO;
         self.paused = false;

@@ -1,43 +1,94 @@
 use std::io::{self, IsTerminal};
-use std::time::Instant;
+use std::{path::PathBuf, sync::Arc, time::Instant};
 
 use crossterm::{
+    clipboard::CopyToClipboard,
     event::{
         self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-        Event,
+        Event, KeyCode, KeyModifiers,
     },
     execute,
+    style::Print,
+    terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate},
 };
 use tinkery::{
     App, Palette,
-    shaping::scratchpad::{self, Scratchpad},
+    shaping::{
+        drafting::PiHost,
+        scratchpad::{self, Scratchpad},
+    },
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut no_color = std::env::var_os("NO_COLOR").is_some();
     let mut snapshot = false;
     let mut workbench = false;
-    for arg in std::env::args().skip(1) {
+    let mut full_redraw = false;
+    let mut shape_pi = false;
+    let mut model = None;
+    let mut thinking = None;
+    let mut seed_me = None;
+    let mut pi_command = None;
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--no-color" => no_color = true,
             "--snapshot" => snapshot = true,
             "--workbench" => workbench = true,
+            "--full-redraw" => full_redraw = true,
+            "--shape-pi" => shape_pi = true,
+            "--model" => model = Some(args.next().ok_or("--model needs provider/model-id")?),
+            "--thinking" => thinking = Some(args.next().ok_or("--thinking needs a level")?),
+            "--seed-me" => {
+                seed_me = Some(PathBuf::from(
+                    args.next().ok_or("--seed-me needs a SKILL.md path")?,
+                ))
+            }
+            "--pi-command" => {
+                pi_command = Some(PathBuf::from(
+                    args.next().ok_or("--pi-command needs an executable path")?,
+                ))
+            }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery / seed shaping prototype\n\nUsage: tinkery [--workbench] [--no-color] [--snapshot]\n\nDefault: full-width Pinstar sticky-note scratchpad with an on-demand paper inspector.\nNo connected agents, files, sessions, or approvals. All edits are unsaved.\n\nn / Ctrl-N adds a note. e / Enter edits. F2 shapes one selected note.\np toggles the paper inspector. Tab switches focus. ? helps.\nClick to select; double-click to edit. Drag notes or empty canvas.\nWheel zooms the canvas and scrolls the paper. Ctrl-F fits all; s resizes.\nDel deletes a note; Ctrl-Z / Ctrl-Y undo / redo.\nq quits outside editing; Ctrl-C quits anytime.\n\n--workbench  Open the earlier read-only demo\n--no-color   Use terminal colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view without terminal mode"
+                    "Tinkery / seed shaping prototype\n\nUsage: tinkery [--workbench] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH [--pi-command PATH]\n\nDefault: simulated, full-width sticky-note scratchpad. All edits are unsaved.\nReal drafting is opt-in: selected written notes and feedback go to the chosen model.\nOnly Seed Me's working-draft step runs. No seed confirmation or factory execution.\nPi runs without tools, extensions, project context, or saved sessions.\n\nn / Ctrl-N adds a note. e / Enter edits. F2 shapes selected written notes.\nBlank notes are skipped; an all-blank selection retains the paper.\nr opens model feedback: keep, cut, or reshape; F2 revises; Esc cancels.\nPgUp / PgDn reads the paper while you write feedback.\np toggles the paper inspector. Tab switches focus. ? helps.\nClick to select; Shift-click toggles notes; Ctrl-A selects all outside editing.\nDouble-click edits. Drag notes or empty canvas.\nDrag paper lines to select; y copies clean markdown; Esc clears selection.\nCtrl-L repaints a damaged terminal view. Clipboard support depends on the host.\nWheel zooms the canvas and scrolls the paper. Ctrl-F fits all; s resizes.\nDel deletes a note; Ctrl-Z / Ctrl-Y undo / redo.\nq quits outside editing; Ctrl-C quits anytime.\n\n--shape-pi   Enable real drafting through Pi; requests can incur provider charges\n--model      Explicit provider/model-id; no automatic model selection\n--thinking   Pi reasoning level (default: low); off|minimal|low|medium|high|xhigh|max\n--seed-me    Path to the actual Seed Me SKILL.md\n--pi-command Pi executable (default: pi)\n--workbench  Open the earlier read-only demo\n--full-redraw Repaint every scratchpad frame (host rendering workaround; more output)\n--no-color   Use terminal colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view without terminal mode or model requests"
                 );
                 return Ok(());
             }
             _ => return Err(format!("unknown argument: {arg}; use --help").into()),
         }
     }
+    if full_redraw && workbench {
+        return Err("--full-redraw is for the scratchpad, not --workbench".into());
+    }
+    if shape_pi && workbench {
+        return Err("--shape-pi is for the scratchpad, not --workbench".into());
+    }
+    if !shape_pi
+        && (model.is_some() || thinking.is_some() || seed_me.is_some() || pi_command.is_some())
+    {
+        return Err("--model, --thinking, --seed-me and --pi-command require --shape-pi".into());
+    }
+    let mut app = if shape_pi {
+        Scratchpad::with_host(Arc::new(
+            PiHost::new(
+                pi_command.unwrap_or_else(|| "pi".into()),
+                model.ok_or("--shape-pi requires an explicit --model provider/model-id")?,
+                seed_me
+                    .ok_or("--shape-pi requires --seed-me PATH to actual Seed Me instructions")?,
+            )?
+            .with_thinking(thinking.as_deref().unwrap_or("low"))?,
+        ))
+    } else {
+        Scratchpad::default()
+    };
     if snapshot {
         println!(
             "{}",
             if workbench {
                 tinkery::snapshot(100, 30, &mut App::default(), no_color)?
             } else {
-                scratchpad::snapshot(100, 30, &mut Scratchpad::default(), no_color)?
+                scratchpad::snapshot(100, 30, &mut app, no_color)?
             }
         );
         return Ok(());
@@ -49,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = if workbench {
         run_workbench(&mut terminal, no_color)
     } else {
-        run_shape(&mut terminal, no_color)
+        run_shape(&mut terminal, no_color, app, full_redraw)
     };
     ratatui::restore();
     result?;
@@ -73,27 +124,68 @@ struct InputGuard;
 
 impl Drop for InputGuard {
     fn drop(&mut self) {
-        let _ = execute!(io::stdout(), DisableMouseCapture, DisableBracketedPaste);
+        let _ = execute!(
+            io::stdout(),
+            EndSynchronizedUpdate,
+            Print("\x1b[>0s"),
+            DisableMouseCapture,
+            DisableBracketedPaste
+        );
     }
 }
 
-fn run_shape(terminal: &mut ratatui::DefaultTerminal, no_color: bool) -> io::Result<()> {
+fn run_shape(
+    terminal: &mut ratatui::DefaultTerminal,
+    no_color: bool,
+    mut app: Scratchpad,
+    full_redraw: bool,
+) -> io::Result<()> {
     let _input_guard = InputGuard;
-    execute!(io::stdout(), EnableBracketedPaste, EnableMouseCapture)?;
-    let mut app = Scratchpad::default();
+    execute!(
+        io::stdout(),
+        EnableBracketedPaste,
+        EnableMouseCapture,
+        Print("\x1b[>1s")
+    )?;
+    let mut repaint = full_redraw;
     let mut last = Instant::now();
     while !app.quit {
         let now = Instant::now();
         app.tick(now.duration_since(last), terminal.size()?.into());
         last = now;
-        terminal.draw(|frame| scratchpad::render(frame, &mut app, Palette::new(no_color)))?;
+        execute!(io::stdout(), BeginSynchronizedUpdate)?;
+        let drawn = (|| {
+            terminal.draw(|frame| {
+                scratchpad::render(frame, &mut app, Palette::new(no_color));
+                if repaint || full_redraw {
+                    for cell in &mut frame.buffer_mut().content {
+                        cell.set_diff_option(ratatui::buffer::CellDiffOption::AlwaysUpdate);
+                    }
+                }
+            })?;
+            io::Result::Ok(())
+        })();
+        execute!(io::stdout(), EndSynchronizedUpdate)?;
+        drawn?;
+        repaint = false;
         if event::poll(std::time::Duration::from_millis(100))? {
             let area = terminal.size()?.into();
             match event::read()? {
+                Event::Key(key)
+                    if key.code == KeyCode::Char('l')
+                        && key.modifiers.contains(KeyModifiers::CONTROL) =>
+                {
+                    repaint = true
+                }
                 Event::Key(key) => app.handle_key(key, area),
                 Event::Paste(text) => app.paste(&text, area),
                 Event::Mouse(event) => app.handle_mouse(event, area),
                 _ => {}
+            }
+            if let Some(markdown) = app.take_copy_request() {
+                app.copy_result(
+                    execute!(io::stdout(), CopyToClipboard::to_clipboard_from(markdown)).is_ok(),
+                );
             }
         }
     }

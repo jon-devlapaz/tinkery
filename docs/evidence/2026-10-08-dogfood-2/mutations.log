@@ -1,0 +1,17 @@
+PASS: deliberate removal of skip blanks was rejected
+PASS: deliberate removal of no saved Pi session was rejected
+PASS: deliberate removal of unaccepted approaches was rejected
+PASS: deliberate removal of single provisional label was rejected
+PASS: deliberate removal of outcome instruction delivery was rejected
+PASS: deliberate removal of gesture selection retention was rejected
+PASS: deliberate removal of shift-click toggling was rejected
+PASS: deliberate removal of unwrapped markdown copying was rejected
+PASS: deliberate removal of open-question instruction delivery was rejected
+PASS: deliberate removal of intention instruction delivery was rejected
+PASS: deliberate removal of supplied-premise final check was rejected
+PASS: deliberate removal of conditional candidate check was rejected
+PASS: deliberate removal of literal feedback preservation was rejected
+PASS: deliberate removal of bold inline rendering was rejected
+PASS: deliberate removal of italic inline rendering was rejected
+PASS: deliberate removal of authored-arrow preservation was rejected
+Artifacts: /var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-draft-mutations-aor_9t4j

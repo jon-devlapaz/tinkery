@@ -203,14 +203,49 @@ fn markdown<'a>(source: &'a str, palette: Palette) -> Text<'a> {
         source
             .lines()
             .map(|line| {
-                if let Some(title) = line.strip_prefix("# ").or_else(|| line.strip_prefix("## ")) {
-                    Line::styled(title, palette.ink.bold())
+                let hashes = line.bytes().take_while(|byte| *byte == b'#').count();
+                if (1..=6).contains(&hashes) && line.get(hashes..hashes + 1) == Some(" ") {
+                    Line::styled(&line[hashes + 1..], palette.ink.bold())
                 } else {
-                    Line::styled(line, palette.ink)
+                    Line::from(markdown_spans(line, palette))
                 }
             })
             .collect::<Vec<_>>(),
     )
+}
+
+fn markdown_spans(mut source: &str, palette: Palette) -> Vec<Span<'_>> {
+    let mut spans = Vec::new();
+    while let Some(start) = source.find(['*', '`']) {
+        if start > 0 {
+            spans.push(Span::styled(&source[..start], palette.ink));
+        }
+        source = &source[start..];
+        let marker = if source.starts_with("**") {
+            "**"
+        } else if source.starts_with('`') {
+            "`"
+        } else {
+            "*"
+        };
+        let content = &source[marker.len()..];
+        if let Some(end) = content.find(marker).filter(|end| *end > 0) {
+            let style = match marker {
+                "**" => palette.ink.bold(),
+                "*" => palette.ink.italic(),
+                _ => palette.ink,
+            };
+            spans.push(Span::styled(&content[..end], style));
+            source = &content[end + marker.len()..];
+        } else {
+            spans.push(Span::styled(marker, palette.ink));
+            source = content;
+        }
+    }
+    if !source.is_empty() {
+        spans.push(Span::styled(source, palette.ink));
+    }
+    spans
 }
 
 fn render_scrolled(
@@ -438,4 +473,31 @@ pub fn snapshot(
         })
         .collect::<Vec<_>>()
         .join("\n"))
+}
+
+#[cfg(test)]
+mod markdown_tests {
+    use super::*;
+    #[test]
+    fn headings_and_emphasis_are_styled_without_markers_or_text_loss() {
+        let source = "### Candidate\n**Benefit:** Preserve Jev.\n*Provisional only.*\nAn unmatched * stays visible.";
+        let text = markdown(source, Palette::new(false));
+        assert_eq!(text.lines[0].to_string(), "Candidate");
+        assert!(text.lines[0].style.add_modifier.contains(Modifier::BOLD));
+        assert_eq!(text.lines[1].to_string(), "Benefit: Preserve Jev.");
+        assert!(
+            text.lines[1].spans[0]
+                .style
+                .add_modifier
+                .contains(Modifier::BOLD)
+        );
+        assert_eq!(text.lines[2].to_string(), "Provisional only.");
+        assert!(
+            text.lines[2].spans[0]
+                .style
+                .add_modifier
+                .contains(Modifier::ITALIC)
+        );
+        assert_eq!(text.lines[3].to_string(), "An unmatched * stays visible.");
+    }
 }
