@@ -790,3 +790,219 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
     );
     assert!(a.fragments.is_empty());
 }
+
+#[test]
+fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let host = Arc::new(Recording::default());
+        let mut a = BrainDump::with_host(host.clone());
+        a.paste("An intact system goal.");
+        a.submit();
+        settle(&mut a);
+        let question = a.focused_question().unwrap().text.clone();
+        a.paste("both");
+        a.submit();
+        settle(&mut a);
+        let r = host.requests.lock().unwrap()[1].clone();
+        assert_eq!(r.settled.len(), 1);
+        assert_eq!(r.settled[0].question.text, question);
+        assert_eq!(r.sources[r.settled[0].source - 1].text, "both");
+        assert_eq!(r.sources[1].in_reply_to.as_deref(), Some("reader"));
+        let frame = snapshot(w, h, &mut a, false).unwrap();
+        assert!(
+            frame.contains("Reading updated from your answer: both"),
+            "No glanceable answer update"
+        );
+        assert!(frame.contains("Settled: both"));
+        assert!(frame.contains("Who controls RSS appearance?"));
+        assert!(!frame.contains("What is Hamster?"));
+        assert!(a.details_text().contains(&question));
+        assert!(a.paper().contains("Answer / original 2: both"));
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+        terminal
+            .draw(|f| render(f, &mut a, Palette::new(false)))
+            .unwrap();
+        assert!(
+            terminal.backend().buffer()[(a.agent_area.x, a.agent_area.y)]
+                .modifier
+                .contains(ratatui::style::Modifier::BOLD)
+        );
+        assert!(
+            !terminal.backend().buffer()[(a.agent_area.x, a.agent_area.y + 2)]
+                .modifier
+                .contains(ratatui::style::Modifier::BOLD),
+            "Update cue has no visual contrast against reading"
+        );
+        a.paste("new local typing");
+        a.tick();
+        assert!(a.update.as_ref().unwrap().contains("both"));
+        assert_eq!(a.input.text, "new local typing");
+        a.input = Note::new("Only final judgment.");
+        a.submit();
+        settle(&mut a);
+        assert_eq!(a.settled.len(), 2);
+        assert_eq!(a.settled[1].question.id, "rss-control");
+        assert!(a.focused_question().is_none());
+        assert!(
+            snapshot(w, h, &mut a, false)
+                .unwrap()
+                .contains("Reading updated from your answer")
+        );
+        assert_eq!(a.sources[2].in_reply_to.as_deref(), Some("rss-control"));
+    }
+}
+
+#[test]
+fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("Goal.");
+    a.submit();
+    settle(&mut a);
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[1].clone();
+    let mut g = guess(&r);
+    g.questions.insert(
+        0,
+        Question {
+            id: "a-new-id".into(),
+            text: "WHAT IS HAMSTER ?".into(),
+        },
+    );
+    a.apply_result(r.clone(), Ok(g));
+    assert_eq!(a.focused_question().unwrap().id, "rss-control");
+    let mut g = guess(&r);
+    g.questions = vec![Question {
+        id: "reader".into(),
+        text: "What is Hamster?".into(),
+    }];
+    a.apply_result(r, Ok(g));
+    assert!(a.focused_question().is_none());
+    assert!(
+        snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("No unanswered question")
+    );
+    assert_eq!(a.settled.len(), 1);
+    assert_eq!(a.sources[1].text, "both");
+}
+
+#[test]
+fn reply_label_is_stable_and_empty_chrome_is_hidden() {
+    let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+    a.paste("Short goal.");
+    a.submit();
+    settle(&mut a);
+    a.guess.as_mut().unwrap().questions.truncate(1);
+    let view = snapshot(100, 30, &mut a, false).unwrap();
+    for clutter in [
+        "1/1",
+        "Ctrl-Pg/wheel",
+        "wheel scroll",
+        "0 quietly queued",
+        "Later:",
+        "highlight:support underline:unresolved",
+        "Answer or add more",
+    ] {
+        assert!(!view.contains(clutter), "{clutter} in sparse view");
+    }
+    assert!(view.contains("Your reply / F2 submit"));
+    assert!(view.contains("Highlighted words support"));
+    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    assert!(a.notice.contains("not an answer"));
+    assert!(
+        snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("Your reply / F2 submit")
+    );
+    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    assert!(a.sources[1].in_reply_to.is_some());
+    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    a.paste("Separate new dump.");
+    a.submit();
+    settle(&mut a);
+    assert!(a.sources[2].in_reply_to.is_none());
+    assert_eq!(a.settled.len(), 1);
+    a.guess = None;
+    assert!(
+        !snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("Highlighted words")
+    );
+}
+
+#[test]
+fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
+    let mut a = BrainDump::default();
+    a.paste("Goal.");
+    a.submit();
+    settle(&mut a);
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    assert_eq!(
+        a.update.as_deref(),
+        Some("Answer recorded; reading unchanged: both")
+    );
+    assert!(a.focused_question().is_none());
+    assert_eq!(a.settled.len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check() {
+    use std::os::unix::fs::PermissionsExt;
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("A compounding harness and healthy codebase.");
+    a.submit();
+    settle(&mut a);
+    let first = "Should 'compounds itself' primarily mean the harness improves through use, the codebase becomes easier to change, or both?";
+    a.guess.as_mut().unwrap().questions = vec![Question {
+        id: "compounding-meaning".into(),
+        text: first.into(),
+    }];
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[1].clone();
+    let mut g = guess(&r);
+    g.questions=vec![
+        Question{id:"renamed-topic".into(),text:"Should compounding primarily mean the harness improves itself, the codebase becomes easier to change, or both?".into()},
+        Question{id:"intervention-boundary".into(),text:"What must bring you in before final judgment?".into()}
+    ];
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(
+        &skill,
+        "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
+    )
+    .unwrap();
+    let program = dir.path().join("pi");
+    let response = serde_json::to_string(&g).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport json,sys\nr=json.load(sys.stdin)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nif r.get('kind')=='question-continuity':\n assert r['settled'][0]['answer']=='both'\n assert r['settled'][0]['question']['text']=={first:?}\n assert 'SAME missing information' in p\n print(json.dumps(dict(repeated=['renamed-topic'])))\nelse:\n assert 'final human judge' in p and 'BOTH readings' in p\n assert r['settled'][0]['source']==2\n print({response:?})\n")).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
+    assert_eq!(actual.questions.len(), 1);
+    assert_eq!(actual.questions[0].id, "intervention-boundary");
+    for invalid in [
+        "not JSON",
+        "{\"repeated\":[\"invented\"]}",
+        "{\"repeated\":[\"intervention-boundary\",\"intervention-boundary\"]}",
+        "{\"repeated\":[],\"confirmed\":true}",
+    ] {
+        let mut unchanged = actual.clone();
+        assert!(question_continuity::apply(&mut unchanged, invalid).is_err());
+        assert_eq!(
+            serde_json::to_value(&unchanged).unwrap(),
+            serde_json::to_value(&actual).unwrap()
+        );
+    }
+}

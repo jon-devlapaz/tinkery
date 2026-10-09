@@ -1,0 +1,8 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.91s
+     Running `target/debug/examples/live_brain_dump_check docs/evidence/2026-10-08-answer-loop/live`
+FIRST QUESTION: Some("Should “compounds itself” primarily mean the harness improves through use, the codebases become easier to change, or both?")
+NEXT QUESTION: Some("At what points do you want to intervene before judging the finished result?")
+Waiting for explicitly test-authored second-answer fixture: docs/evidence/2026-10-08-answer-loop/test-second-answer.txt
+AFTER SECOND ANSWER: Some("What must you be able to see or trust before a change feels ready for human review?")
+PASS: exact dump + operator first answer + test-authored second answer; human recognition still pending.

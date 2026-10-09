@@ -10,6 +10,7 @@ use tinkery::shaping::{
 const DUMP: &str = "I keep losing track of which Tinkery checks used a real model and which just used a stub.\nI want a small receipt in the PR thread so the next person can see what's actually been checked before they dogfood it.\nBut I don't want to fill another form with every tiny edit.\nI also want to be able to say 'that question wasn't useful' and not get it again.";
 fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
     let paper = app.paper();
+    std::fs::write(dir.join(format!("{name}-state.json")),serde_json::to_string_pretty(&serde_json::json!({"sources":app.sources,"settled":app.settled,"update":app.update,"notice":app.notice})).unwrap()+"\n").unwrap();
     std::fs::write(
         dir.join(format!("{name}-paper.json")),
         serde_json::to_string_pretty(&serde_json::json!({"paper":paper})).unwrap() + "\n",
@@ -68,7 +69,7 @@ fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
     }
 }
 fn settle(app: &mut BrainDump) {
-    let stop = Instant::now() + Duration::from_secs(100);
+    let stop = Instant::now() + Duration::from_secs(200);
     while app.running() && Instant::now() < stop {
         app.tick();
         std::thread::sleep(Duration::from_millis(20));
@@ -143,6 +144,48 @@ fn main() {
     );
     assert_eq!(app.sources[0].text, dump);
     assert_eq!(app.sources[1].text, answer);
+    if let Some(path) = std::env::var_os("TINKERY_LIVE_SECOND_ANSWER_FILE") {
+        let path = PathBuf::from(path);
+        println!(
+            "Waiting for explicitly test-authored second-answer fixture: {}",
+            path.display()
+        );
+        let deadline = Instant::now() + Duration::from_secs(300);
+        while !path.exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let second =
+            std::fs::read_to_string(&path).expect("Second-answer fixture within bounded window");
+        let second_question = app
+            .focused_question()
+            .expect("A second question must exist for this journey")
+            .id
+            .clone();
+        app.paste(&second);
+        app.submit();
+        settle(&mut app);
+        capture(&mut app, &dir, "03-second-answer");
+        assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
+        assert_eq!(app.sources[2].text, second);
+        assert_eq!(
+            app.sources[2].in_reply_to.as_deref(),
+            Some(second_question.as_str())
+        );
+        assert!(
+            app.focused_question()
+                .is_none_or(|q| q.id != second_question)
+        );
+        println!(
+            "AFTER SECOND ANSWER: {:?}",
+            app.focused_question().map(|q| &q.text)
+        );
+        assert_eq!(app.sources[0].text, dump);
+        assert_eq!(app.sources[1].text, answer);
+        println!(
+            "PASS: exact dump + operator first answer + test-authored second answer; human recognition still pending."
+        );
+        return;
+    }
     if supplied.is_some() {
         println!("Captured exact supplied dump/answer; semantic judgment still required.");
         return;

@@ -1,0 +1,1 @@
+Only if a decision changes the original intent or would be expensive to undo. Otherwise I judge the finished result; I do not want to direct the cooking or supervise each step.

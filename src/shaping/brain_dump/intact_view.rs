@@ -254,11 +254,11 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
     } else {
         String::new()
     };
-    let block = block.title_bottom(format!(
-        "{}/{} {cue} · Ctrl-Pg/wheel",
-        app.source_view + 1,
-        app.sources.len()
-    ));
+    let block = if max > 0 {
+        block.title_bottom(format!("{cue} · wheel scroll"))
+    } else {
+        block
+    };
     frame.render_widget(block, area);
     frame.render_widget(
         Paragraph::new(wrapped.lines.join("\n"))
@@ -319,6 +319,7 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
         }
         let mut style = palette.ink;
         if supports.iter().any(|r| r.contains(&index)) {
+            app.annotations_visible.0 = true;
             style = if palette.ink.fg.is_none() {
                 style.add_modifier(Modifier::BOLD)
             } else {
@@ -328,6 +329,7 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
             };
         }
         if unresolved.iter().any(|r| r.contains(&index)) {
+            app.annotations_visible.1 = true;
             style = style.add_modifier(Modifier::UNDERLINED);
         }
         if app

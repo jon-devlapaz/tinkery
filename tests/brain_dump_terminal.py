@@ -7,6 +7,8 @@ HOST='''#!/usr/bin/env python3
 import json,sys,time
 assert all(f in sys.argv for f in ['--no-session','--no-tools','--no-context-files','--no-extensions','--no-mcp'])
 r=json.load(sys.stdin)
+if r.get('kind')=='question-continuity':
+ print(json.dumps(dict(repeated=[])));sys.exit(0)
 with open('requests.jsonl','a') as f: f.write(json.dumps(r)+'\\n')
 if 'FAIL' in r['sources'][-1]['text']: print('bad JSON');sys.exit(0)
 if 'WAIT' in r['sources'][-1]['text']: time.sleep(10)
@@ -41,7 +43,7 @@ def journey(width,height):
    # Input and F2 submit; the result must not replace text entered during the request.
    answer='A real model capture is different from a stub or a human review.'
    start=time.monotonic();send(answer.encode(),'review.');answer_burst=time.monotonic()-start;assert answer_burst<1.0
-   send(b'\x1bOQ','What would make a handover');assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
+   send(b'\x1bOQ','What would make a handover');await_text('Reading');await_text('Settled: A real model');assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
    send(b'\t','Board: select text');send(b'd','Desired experience');send(b'd','Keep review evidence');assert len(requests())==2
    # A deliberate source selection extracts one card; neither action calls the provider.
    send(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2

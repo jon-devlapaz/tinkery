@@ -1,0 +1,62 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "PROVISIONAL: You want to become the final human judge of a durable, cohesive development experience that carries intuition through to a trustworthy, review-ready change while preserving the health and future ease of the codebase.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier.",
+          "occurrence": 0
+        }
+      ]
+    },
+    {
+      "text": "PROVISIONAL: You want a human-first coordinating harness spanning the agentic software-development lifecycle, with rigor, verification, and durability that compound across both the harness and the codebases it helps change.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "a system that compounds itself and serves as a meta harness.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "a human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "that has the rigor and durability and cohesive and verification that all 'just work's and thinks about the future of any code base it works on.",
+          "occurrence": 0
+        }
+      ]
+    }
+  ],
+  "outcome": "PROVISIONAL: You experience a coherent, trustworthy path from an initial hunch to a human-reviewable change, with the resulting codebase healthier and easier to change, while you judge the finished result rather than continuously producing or supervising it.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "compounding-referent",
+      "text": "Should “compounds itself” primarily mean the harness improves through use, the codebases become easier to change, or both?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "Human-first lifecycle board",
+      "benefit": "Could make the full journey visible, coordinated, and verifiable while keeping you as final judge.",
+      "cost": "May require substantial modeling and disciplined upkeep across many lifecycle stages.",
+      "undo_cost": "unknown"
+    },
+    {
+      "label": "Compounding review-and-change workflow",
+      "benefit": "Could focus effort on producing healthier, increasingly easier-to-change code through repeatable feedback loops.",
+      "cost": "May cover less of the broader coordination experience and may not make the harness itself compound.",
+      "undo_cost": "unknown"
+    }
+  ]
+}
