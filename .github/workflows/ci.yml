@@ -20,6 +20,10 @@ jobs:
           repository: jon-devlapaz/tink-skills
           ref: 86066b175b53e13b4180ce4cc9929a626b57a2f6
           path: .ci-seed-me
+      - name: Seed Me test runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
