@@ -229,37 +229,40 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
     let Some(source) = app.sources.get(app.source_view) else {
         return;
     };
-    let wrapped = Note::new(&source.text).wrap(area.width.saturating_sub(2));
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .style(palette.ink)
-        .title(short_title(&source.text, area.width.saturating_sub(2)));
-    let inner = block.inner(area);
+    let wrapped = Note::new(&source.text).wrap(area.width);
+    let clipped = wrapped.lines.len() > usize::from(area.height);
+    let inner = Rect::new(
+        area.x,
+        area.y,
+        area.width,
+        area.height.saturating_sub(u16::from(clipped)),
+    );
+    if clipped {
+        frame.render_widget(
+            Paragraph::new(
+                if app.source_scroll
+                    >= wrapped
+                        .lines
+                        .len()
+                        .saturating_sub(usize::from(inner.height)) as u16
+                {
+                    "↑ more"
+                } else if app.source_scroll > 0 {
+                    "↕ more"
+                } else {
+                    "↓ more"
+                },
+            )
+            .style(palette.muted),
+            Rect::new(area.x, area.bottom() - 1, area.width, 1),
+        );
+    }
     app.source_area = inner;
     let max = wrapped
         .lines
         .len()
         .saturating_sub(usize::from(inner.height)) as u16;
     app.source_scroll = app.source_scroll.min(max);
-    let cue = if app.source_scroll > 0 || app.source_scroll < max {
-        format!(
-            "{}{}",
-            if app.source_scroll > 0 { "↑ " } else { "" },
-            if app.source_scroll < max {
-                "↓ more"
-            } else {
-                ""
-            }
-        )
-    } else {
-        String::new()
-    };
-    let block = if max > 0 {
-        block.title_bottom(format!("{cue} · wheel scroll"))
-    } else {
-        block
-    };
-    frame.render_widget(block, area);
     frame.render_widget(
         Paragraph::new(wrapped.lines.join("\n"))
             .style(palette.ink)
@@ -278,7 +281,7 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    let unresolved = app
+    let mut unresolved = app
         .guess
         .as_ref()
         .map(|g| {
@@ -289,6 +292,13 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    if app
+        .scope_pending
+        .as_ref()
+        .is_some_and(|(id, _)| *id == source.id)
+    {
+        unresolved.push(0..source.text.len());
+    }
     if app.board_focus
         && !app.original
         && !app.help

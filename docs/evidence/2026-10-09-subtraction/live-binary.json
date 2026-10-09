@@ -1,0 +1,5 @@
+{
+  "sha256": "1356ccda3a9c58335042ee476dc1160b30b4d9f2d62d615204e097ff12b5094d",
+  "base_head": "d1a71a83a80b5fa5f5f42ef89f89a21e844e68c9",
+  "scope": "Working-tree evaluation binary. Follow-up changes escape diagnostic field names, improve normalization/pass wording, and move verified construction ahead of board application; shaping prompt unchanged. Final boundary replay/checks use final code without more provider calls."
+}

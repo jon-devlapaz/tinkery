@@ -1,0 +1,13 @@
+books: board available 8392 ms, total 14978 ms
+structure-spans-history · blocking · pass · 8373 ms · request 2d3e80575e9a5203
+Valid schema, exact spans and application-owned history. Not a meaning judgment.
+one: reading 1, outcome
+meaning-and-continuity · log-only · pass · 6578 ms · request 2d3e80575e9a5203
+No whole-board loss identified by the model; not proof of understanding.
+one: reading 1, outcome
+onboarding-emails: board available 21150 ms, total 21168 ms
+structure-spans-history · blocking · reject · 21131 ms · request dceea5f7cbb7f7df
+Pi returned invalid brain-dump JSON; original and previous reading retained.
+trap: board available 16788 ms, total 16812 ms
+structure-spans-history · blocking · reject · 16772 ms · request 93936a094ab08d14
+Invalid board: expected one/two readings and credible alternative candidates.

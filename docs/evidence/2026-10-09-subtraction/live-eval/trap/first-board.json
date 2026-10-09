@@ -1,0 +1,95 @@
+{
+  "alternatives": [
+    {
+      "benefit": "Could provide tailored explanations and dialogue.",
+      "cost": "May feel like an unwanted chatbot and increase costs.",
+      "label": "AI tutor chat beside each question",
+      "undo_cost": null
+    },
+    {
+      "benefit": "Targets the stated experience without necessarily adding a new interface.",
+      "cost": "The specific explanation and tone changes are not yet defined.",
+      "label": "Improve explanations and/or tone in the existing flow",
+      "undo_cost": null
+    },
+    {
+      "benefit": "Could address broader product limitations if they are contributing.",
+      "cost": "Likely broad scope; currently only suggested tentatively.",
+      "label": "Rebuild the quiz engine",
+      "undo_cost": null
+    }
+  ],
+  "framings": [
+    {
+      "supports": {
+        "Cited": [
+          {
+            "occurrence": 0,
+            "quote": "the real thing is people feel dumb and leave.",
+            "source": 1
+          },
+          {
+            "occurrence": 0,
+            "quote": "what I actually want is learners leaving a wrong answer feeling smarter not dumber.",
+            "source": 1
+          }
+        ]
+      },
+      "text": "Proposed goal: help learners understand why a response was wrong, so they stay engaged instead of feeling unintelligent and leaving."
+    },
+    {
+      "supports": {
+        "Cited": [
+          {
+            "occurrence": 0,
+            "quote": "maybe the fix is the explanation, maybe it's the tone.",
+            "source": 1
+          },
+          {
+            "occurrence": 0,
+            "quote": "I think we should add an AI tutor chat panel next to every question.",
+            "source": 1
+          }
+        ]
+      },
+      "text": "The solution may involve explanations, tone, or both; an AI chat panel is one candidate mechanism, not yet the goal."
+    },
+    {
+      "supports": {
+        "Cited": [
+          {
+            "occurrence": 0,
+            "quote": "it has to work on phones because thats where most people use it.",
+            "source": 1
+          },
+          {
+            "occurrence": 0,
+            "quote": "we already decided no gamification, that stays.",
+            "source": 1
+          }
+        ]
+      },
+      "text": "Working constraints: support phones; do not add gamification."
+    }
+  ],
+  "misfits": [],
+  "outcome": "Proposed outcome: after submitting a wrong answer, learners leave with greater understanding and confidence rather than feeling worse.",
+  "questions": [
+    {
+      "id": "model-098f05a94ff15cf5",
+      "text": "Should the investigation focus on making wrong-answer feedback more helpful and humane, with explanation and tone both in scope, before choosing an AI chat panel?"
+    },
+    {
+      "id": "model-15eae14fec63bfb7",
+      "text": "Should Kirra's report about drop-off around question 4 be treated as an unverified lead to check?"
+    },
+    {
+      "id": "model-c40dfc928173c356",
+      "text": "What should I keep, cut, or reshape in this draft?"
+    }
+  ],
+  "unresolved_notes": [
+    "The request for a marketing tagline does not fit the underlying product-investigation goal.",
+    "The reported question-4 drop-off has not been checked."
+  ]
+}

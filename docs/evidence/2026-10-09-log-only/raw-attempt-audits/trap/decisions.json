@@ -1,0 +1,41 @@
+{
+  "accepted_or_confirmed": false,
+  "actor": "assistant-driven TEST; raw rejected attempt only, not operator recognition",
+  "advisory": {
+    "candidate": null,
+    "check": "raw-attempt-meaning-and-continuity",
+    "coverage": [
+      {
+        "locations": [
+          "reading 1"
+        ],
+        "term": "4"
+      },
+      {
+        "locations": [
+          "reading 1"
+        ],
+        "term": "AI"
+      },
+      {
+        "locations": [],
+        "term": "one"
+      }
+    ],
+    "decision": "flag",
+    "elapsed_ms": 8886,
+    "mode": "log-only",
+    "raw": "{\"missing\":[{\"source\":1,\"quote\":\"right now we just show a red X and move on and people bounce.\",\"occurrence\":0},{\"source\":1,\"quote\":\"maybe we should rebuild the whole quiz engine while we're at it?\",\"occurrence\":0}],\"false_choice\":false,\"repeated\":[]}\n",
+    "reason": "Raw attempt only; not accepted or confirmable. Possible whole-board loss: right now we just show a red X and move on and people bounce. (source 1)\nPossible whole-board loss: maybe we should rebuild the whole quiz engine while we're at it? (source 1)",
+    "request_key": "93936a094ab08d14",
+    "version": 2
+  },
+  "elapsed_ms": 8886,
+  "model": "openai-codex/gpt-5.6-luna",
+  "schema_replay_v2": {
+    "decision": "pass",
+    "reason": null
+  },
+  "shaping_not_rerun": true,
+  "thinking": "Pi native default; --thinking omitted"
+}

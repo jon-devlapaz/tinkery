@@ -13,6 +13,7 @@ class Screen:
         self.x = self.y = 0
         self.pending = ""
         self.clipboards = []
+        self.synchronized = False
         self.decoder = codecs.getincrementaldecoder("utf-8")()
 
     def feed(self, data):
@@ -38,6 +39,9 @@ class Screen:
                 arguments, _, command = match.groups()
                 self.pending = self.pending[match.end():]
                 if arguments in (">0", ">1") and command == "s":
+                    continue
+                if arguments == "?2026" and command in ("h", "l"):
+                    self.synchronized = command == "h"
                     continue
                 if arguments.startswith("?") or command == "m":
                     continue

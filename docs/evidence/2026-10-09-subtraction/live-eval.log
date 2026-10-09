@@ -1,0 +1,53 @@
+books: shaping result 7955 ms, total 16569 ms
+structure-spans-history · blocking · pass · 7930 ms · request 2d3e80575e9a5203
+Valid schema, exact spans and application-owned history. Not a meaning judgment.
+Boundary: Absent/unreadable optional optional desired experience
+Boundary: Absent/unreadable optional candidate 0 undo_cost
+Boundary: Absent/unreadable optional candidate 1 undo_cost
+Boundary: Absent unresolved: empty collection
+Boundary: Absent unresolved notes: empty collection
+one: reading 2
+meaning-and-continuity · log-only · pass · 8610 ms · request 2d3e80575e9a5203
+No whole-board loss identified by the model; not proof of understanding.
+one: reading 2
+onboarding-emails: shaping result 15235 ms, total 23587 ms
+structure-spans-history · blocking · pass · 15210 ms · request dceea5f7cbb7f7df
+Valid schema, exact spans and application-owned history. Not a meaning judgment.
+Boundary: Absent/unreadable optional optional desired experience
+Boundary: Absent/unreadable optional candidate 0 undo_cost
+Boundary: Absent/unreadable optional candidate 1 undo_cost
+Boundary: Absent/unreadable optional candidate 2 undo_cost
+Boundary: Absent unresolved notes: empty collection
+Boundary: Retained unresolved 0 as an uncited note; no source highlight
+five: candidate: Keep five emails but make their timing or content more targeted
+meaning-and-continuity · log-only · pass · 8345 ms · request dceea5f7cbb7f7df
+No whole-board loss identified by the model; not proof of understanding.
+five: candidate: Keep five emails but make their timing or content more targeted
+trap: shaping result 15919 ms, total 23037 ms
+structure-spans-history · blocking · pass · 15897 ms · request 93936a094ab08d14
+Valid schema, exact spans and application-owned history. Not a meaning judgment.
+Boundary: Ignored extra question 0 field stable_id; retained in raw evidence; never authority
+Boundary: Absent/unreadable optional question 0 ID
+Boundary: Allocated question ID model-098f05a94ff15cf5
+Boundary: Ignored extra question 1 field stable_id; retained in raw evidence; never authority
+Boundary: Absent/unreadable optional question 1 ID
+Boundary: Allocated question ID model-15eae14fec63bfb7
+Boundary: Ignored extra question 2 field stable_id; retained in raw evidence; never authority
+Boundary: Absent/unreadable optional question 2 ID
+Boundary: Allocated question ID model-c40dfc928173c356
+Boundary: Absent/unreadable optional candidate 0 undo_cost
+Boundary: Absent/unreadable optional candidate 1 undo_cost
+Boundary: Absent/unreadable optional candidate 2 undo_cost
+Boundary: Absent unresolved notes: empty collection
+Boundary: Retained unresolved 0 as an uncited note; no source highlight
+Boundary: Retained unresolved 1 as an uncited note; no source highlight
+Boundary: 3 readings retained; up to 2 presented, remainder available in details
+Boundary: 3 questions retained; up to 1 presented, remainder available in details
+4: question: model-15eae14fec63bfb7
+AI: reading 2, candidate: AI tutor chat beside each question, question: model-098f05a94ff15cf5
+one: reading 2
+meaning-and-continuity · log-only · pass · 7110 ms · request 93936a094ab08d14
+No whole-board loss identified by the model; not proof of understanding.
+4: question: model-15eae14fec63bfb7
+AI: reading 2, candidate: AI tutor chat beside each question, question: model-098f05a94ff15cf5
+one: reading 2

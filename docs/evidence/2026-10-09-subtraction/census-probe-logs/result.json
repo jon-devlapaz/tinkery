@@ -1,0 +1,9 @@
+{
+  "baseline": true,
+  "proven": [
+    "extra-fields-as-parse",
+    "model-veto-as-proven-fact",
+    "duplicate-state-inflation"
+  ],
+  "scope": "isolated offline census regressions, no providers/helpers"
+}

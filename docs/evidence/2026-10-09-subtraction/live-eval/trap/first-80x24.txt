@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  Words 1 / 1                                                                   
+  ok so socratink needs a way for       Proposed goal: help learners            
+  learners to see why they got          understand why a response was wrong,    
+  something wrong, not just that        so they stay engaged instead of         
+  they did. right now we just show a    feeling unintelligent and leaving.      
+  red X and move on and people                                                  
+  bounce. I think we should add an      The solution may involve explanations,  
+  AI tutor chat panel next to every     tone, or both; an AI chat panel is one  
+  question. but honestly I'm worried    Should the investigation focus on       
+  that turns into one more chatbot      making wrong-answer feedback more       
+  nobody asked for and it gets          helpful and humane, with explanation    
+  expensive fast. the real thing is     and tone both in scope, before          
+  people feel dumb and leave. maybe     choosing an AI chat panel?              
+  the fix is the explanation, maybe     Your reply · writing                    
+  it's the tone. we already decided                                             
+  no gamification, that stays. kirra                                            
+  said the drop-off happens around                                              
+  question 4 but I havent checked.                                              
+  ↓ more                                                                        
+                                                                                
+                                                                                

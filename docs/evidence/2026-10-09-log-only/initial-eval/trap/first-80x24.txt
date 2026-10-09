@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  Words 1 / 1                                                                   
+  ok so socratink needs a way for       Reading failed: Invalid board:          
+  learners to see why they got          expected one/two readings and credible  
+  something wrong, not just that        alternative candidates.                 
+  they did. right now we just show a                                            
+  red X and move on and people          Originals retained. Retry, inspect      
+  bounce. I think we should add an      Why, or add clarification.              
+  AI tutor chat panel next to every                                             
+  question. but honestly I'm worried                                            
+  that turns into one more chatbot                                              
+  nobody asked for and it gets                                                  
+  expensive fast. the real thing is                                             
+  people feel dumb and leave. maybe                                             
+  the fix is the explanation, maybe     Your reply · writing                    
+  it's the tone. we already decided                                             
+  no gamification, that stays. kirra                                            
+  said the drop-off happens around                                              
+  question 4 but I havent checked.                                              
+  ↓ more                                                                        
+                                                                                
+                                                                                

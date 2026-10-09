@@ -1,0 +1,10 @@
+{
+  "scope": "Offline final-code replay, no provider/helper calls; not additional live attempts",
+  "test": "final_boundary_replays_all_three_live_boards_without_a_provider_or_helper",
+  "boards_equal": [
+    "books",
+    "onboarding-emails",
+    "trap"
+  ],
+  "status": "pass"
+}

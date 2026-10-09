@@ -1,0 +1,72 @@
+    Checking tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error[E0277]: `&NonEmpty<Reading>` is not an iterator
+   --> src/shaping/brain_dump.rs:441:22
+    |
+441 |             for f in &g.framings {
+    |                      ^^^^^^^^^^^ `&NonEmpty<Reading>` is not an iterator
+    |
+    = help: the trait `Iterator` is not implemented for `&NonEmpty<Reading>`
+    = note: required for `&NonEmpty<Reading>` to implement `IntoIterator`
+
+error[E0308]: mismatched types
+    --> src/shaping/brain_dump.rs:454:28
+     |
+ 454 |                 agent_text(&g.outcome),
+     |                 ---------- ^^^^^^^^^^ expected `&str`, found `&Option<String>`
+     |                 |
+     |                 arguments to this function are incorrect
+     |
+     = note: expected reference `&str`
+                found reference `&std::option::Option<std::string::String>`
+note: function defined here
+    --> src/shaping/brain_dump.rs:1393:4
+     |
+1393 | fn agent_text(text: &str) -> String {
+     |    ^^^^^^^^^^ ----------
+
+error[E0308]: mismatched types
+    --> src/shaping/brain_dump.rs:539:193
+     |
+ 539 | ...approaches / not accepted\n{}", agent_text(&g.outcome), self.misfit_text(), g.alternatives.iter().map(|a| format!("{}\nBenefit:...
+     |                                    ---------- ^^^^^^^^^^ expected `&str`, found `&Option<String>`
+     |                                    |
+     |                                    arguments to this function are incorrect
+     |
+     = note: expected reference `&str`
+                found reference `&std::option::Option<std::string::String>`
+note: function defined here
+    --> src/shaping/brain_dump.rs:1393:4
+     |
+1393 | fn agent_text(text: &str) -> String {
+     |    ^^^^^^^^^^ ----------
+
+error[E0369]: binary operation `!=` cannot be applied to type `NonEmpty<Reading>`
+   --> src/shaping/brain_dump.rs:859:48
+    |
+859 |                     let changed = old.framings != g.framings;
+    |                                   ------------ ^^ ---------- Vec<brain_dump::Framing>
+    |                                   |
+    |                                   NonEmpty<Reading>
+    |
+note: an implementation of `PartialEq<Vec<brain_dump::Framing>>` might be missing for `NonEmpty<Reading>`
+   --> src/shaping/brain_dump/board.rs:5:1
+    |
+  5 | pub struct NonEmpty<T>(Vec<T>);
+    | ^^^^^^^^^^^^^^^^^^^^^^ must implement `PartialEq<Vec<brain_dump::Framing>>`
+
+error[E0308]: mismatched types
+  --> src/shaping/brain_dump/goal_view.rs:69:118
+   |
+69 | ...amings[self.reading].text),outcome:g.outcome.clone(),options:g.alternatives.clone(),sources:self.sources.clone(),answered:self.se...
+   |                                       ^^^^^^^^^^^^^^^^^ expected `String`, found `Option<String>`
+   |
+   = note: expected struct `std::string::String`
+                found enum `std::option::Option<std::string::String>`
+help: consider using `Option::expect` to unwrap the `std::option::Option<std::string::String>` value, panicking if the value is an `Option::None`
+   |
+69 |         self.goal_review=Some(Review{affirmation:Affirmation{goal:agent_text(&g.framings[self.reading].text),outcome:g.outcome.clone().expect("REASON"),options:g.alternatives.clone(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});
+   |                                                                                                                                       +++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308, E0369.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `tinkery` (lib) due to 5 previous errors

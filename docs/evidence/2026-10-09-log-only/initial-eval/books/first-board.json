@@ -1,0 +1,24 @@
+{
+  "alternatives": [],
+  "framings": [
+    {
+      "supports": [
+        {
+          "occurrence": 0,
+          "quote": "I want a way to keep track of the books I've read this year. I usually forget what I read by december. it would be nice to see them all in one place with a short note on what I thought of each one. nothing fancy.",
+          "source": 1
+        }
+      ],
+      "text": "A simple, non-fancy place to remember every book read this year and capture a short note about what you thought of each one, so they are not forgotten by December."
+    }
+  ],
+  "misfits": [],
+  "outcome": "By December, see all the books read this year together in one place, each with a short note about what you thought of it.",
+  "questions": [
+    {
+      "id": "scope-and-notes",
+      "text": "Should it track only books read this year, with a short note for each?"
+    }
+  ],
+  "uncertain": false
+}

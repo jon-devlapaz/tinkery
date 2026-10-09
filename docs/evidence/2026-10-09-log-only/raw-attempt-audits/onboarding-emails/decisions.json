@@ -1,0 +1,33 @@
+{
+  "accepted_or_confirmed": false,
+  "actor": "assistant-driven TEST; raw rejected attempt only, not operator recognition",
+  "advisory": {
+    "candidate": null,
+    "check": "raw-attempt-meaning-and-continuity",
+    "coverage": [
+      {
+        "locations": [
+          "reading 1",
+          "candidate: Keep five, change timing or content",
+          "question: first-week-email-strategy"
+        ],
+        "term": "five"
+      }
+    ],
+    "decision": "flag",
+    "elapsed_ms": 11705,
+    "mode": "log-only",
+    "raw": "{\"missing\":[],\"false_choice\":true,\"repeated\":[]}\n",
+    "reason": "Raw attempt only; not accepted or confirmable. Possible false choice between compatible aims.",
+    "request_key": "dceea5f7cbb7f7df",
+    "version": 2
+  },
+  "elapsed_ms": 11705,
+  "model": "openai-codex/gpt-5.6-luna",
+  "schema_replay_v2": {
+    "decision": "reject",
+    "reason": "unknown field `precondition`, expected one of `label`, `benefit`, `cost`, `undo_cost` at line 1 column 1211"
+  },
+  "shaping_not_rerun": true,
+  "thinking": "Pi native default; --thinking omitted"
+}

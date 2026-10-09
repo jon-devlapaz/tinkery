@@ -1,0 +1,90 @@
+Diff in /Users/jondev/dev/active/tinkery/src/shaping/brain_dump/dogfood_tests.rs:359:
+     assert_eq!(a.local_checks.last().unwrap().decision, "reject");
+ }
+ #[test]
+[31m-fn rejected_schema_attempt_is_readable_lossless_and_never_promoted(){
+(B[m[31m-    let mut a=board();let g=a.guess.as_ref().unwrap();let mut raw=serde_json::to_value(g).unwrap();
+(B[m[31m-    raw["alternatives"][0]["precondition"]=serde_json::json!("An unverified capability is needed.");
+(B[m[31m-    let text=serde_json::to_string(&raw).unwrap();assert!(serde_json::from_str::<Guess>(&text).is_err());
+(B[m[31m-    let mut d=checks::Decision::new("structure-spans-history","blocking","reject","Unknown field precondition; unsupported schema.".into(),std::time::Instant::now());d.raw=Some(text.clone());
+(B[m[31m-    let logs=vec![serde_json::to_string(&d).unwrap()];let why=checks::why(&logs);
+(B[m[31m-    assert!(why.contains("Rejected attempt — not confirmable"));assert!(why.contains(&g.framings[0].text));assert!(why.contains("precondition: An unverified capability is needed."));
+(B[m[31m-    a.guess=None;a.last_failure=Some(d.reason.clone());a.applied=0;
+(B[m[31m-    a.review_goal();assert!(a.goal_review.is_none());assert_eq!(d.raw.as_ref().unwrap(),&text);assert!(a.handoff_job.is_none());
+(B[m[32m+fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
+(B[m[32m+    let mut a = board();
+(B[m[32m+    let g = a.guess.as_ref().unwrap();
+(B[m[32m+    let mut raw = serde_json::to_value(g).unwrap();
+(B[m[32m+    raw["alternatives"][0]["precondition"] =
+(B[m[32m+        serde_json::json!("An unverified capability is needed.");
+(B[m[32m+    let text = serde_json::to_string(&raw).unwrap();
+(B[m[32m+    assert!(serde_json::from_str::<Guess>(&text).is_err());
+(B[m[32m+    let mut d = checks::Decision::new(
+(B[m[32m+        "structure-spans-history",
+(B[m[32m+        "blocking",
+(B[m[32m+        "reject",
+(B[m[32m+        "Unknown field precondition; unsupported schema.".into(),
+(B[m[32m+        std::time::Instant::now(),
+(B[m[32m+    );
+(B[m[32m+    d.raw = Some(text.clone());
+(B[m[32m+    let logs = vec![serde_json::to_string(&d).unwrap()];
+(B[m[32m+    let why = checks::why(&logs);
+(B[m[32m+    assert!(why.contains("Rejected attempt — not confirmable"));
+(B[m[32m+    assert!(why.contains(&g.framings[0].text));
+(B[m[32m+    assert!(why.contains("precondition: An unverified capability is needed."));
+(B[m[32m+    a.guess = None;
+(B[m[32m+    a.last_failure = Some(d.reason.clone());
+(B[m[32m+    a.applied = 0;
+(B[m[32m+    a.review_goal();
+(B[m[32m+    assert!(a.goal_review.is_none());
+(B[m[32m+    assert_eq!(d.raw.as_ref().unwrap(), &text);
+(B[m[32m+    assert!(a.handoff_job.is_none());
+(B[m }
+ #[test]
+ fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_discard() {
+Diff in /Users/jondev/dev/active/tinkery/src/shaping/brain_dump/yohaku.rs:260:
+         "Type anything · F2 send"
+     } else if app.ready.is_some() {
+         "Keep your draft · F2 when ready"
+[31m-    } else if app.scope_pending.as_ref().is_some_and(|(_,q)|app.available(q)) {
+(B[m[32m+    } else if app
+(B[m[32m+        .scope_pending
+(B[m[32m+        .as_ref()
+(B[m[32m+        .is_some_and(|(_, q)| app.available(q))
+(B[m[32m+    {
+(B[m         "Added words stay unresolved · answer their scope question · F2 send"
+     } else if app.last_failure.is_some() {
+         "Reading failed · F2 tries again · F5 why · Shift-F2 add clarification"
+Diff in /Users/jondev/dev/active/tinkery/src/shaping/brain_dump/yohaku.rs:267:
+     } else if app.add_more {
+         "Type a new dump · F2 send"
+[31m-    } else if app.focused_question().is_none(){
+(B[m[32m+    } else if app.focused_question().is_none() {
+(B[m         "No question active · F5 why · F3 review a reading"
+     } else if app.board_focus {
+         "F6 / Tab write · F5 why · F3 review goal"
+Diff in /Users/jondev/dev/active/tinkery/src/shaping/brain_dump.rs:893:
+     }
+     fn apply_result(&mut self, mut request: BoardRequest, result: Result<Guess, String>) {
+         request.skipped = self.skipped.clone();
+[31m-        request.settled = self.settled.iter().filter(|s|request.sources.iter().any(|source|source.id==s.source)).cloned().collect();
+(B[m[32m+        request.settled = self
+(B[m[32m+            .settled
+(B[m[32m+            .iter()
+(B[m[32m+            .filter(|s| request.sources.iter().any(|source| source.id == s.source))
+(B[m[32m+            .cloned()
+(B[m[32m+            .collect();
+(B[m         request.answered = self
+             .sources
+             .iter()
+Diff in /Users/jondev/dev/active/tinkery/src/shaping/brain_dump.rs:942:
+                         .into()
+                     }
+                 });
+[31m-                if self.host.has_advisory() && request.sources.iter().map(|s|s.id).max()==Some(self.sources.len()) {
+(B[m[32m+                if self.host.has_advisory()
+(B[m[32m+                    && request.sources.iter().map(|s| s.id).max() == Some(self.sources.len())
+(B[m[32m+                {
+(B[m                     let host = self.host.clone();
+                     let r = request.clone();
+                     let candidate = g.clone();

@@ -24,7 +24,9 @@ def journey(width,height):
    deadline=time.monotonic()+timeout
    while time.monotonic()<deadline:
     if select.select([master],[],[],0.02)[0]:screen.feed(os.read(master,65536))
-    if text in screen.text():return
+    if text in screen.text() and not screen.synchronized:
+     assert screen.cells[1][2:9]==list('tinkery') and screen.cells[1][width-3]=='?',screen.text()
+     return
     if process.poll() is not None:break
    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
   def absent(text):
@@ -39,10 +41,12 @@ def journey(width,height):
    dump='  PR ready for human review. restaurateur, not cook. Café 👩‍💻; harness and codebase both compound.  '
    os.write(master,b'\x1b[200~'+dump.encode()+b'\x1b[201~');await_text('compound.')
    send(b'\x1bOQ','Which UI');assert not root.exists()
-   send(b'\x07','Confirm this goal');await_text("doesn't mean I understood you.");await_text('checkpoints remain unresolved?');assert not root.exists()
+   send(b'\x07','type confirm');assert 'Creates a Seed Me session' in screen.text();assert not root.exists()
    os.write(master,b'\r\x1bOQ');time.sleep(.1);assert not root.exists(),'Opening/Enter/F2 implied consent'
-   os.write(master,b'\x1b');absent('Confirm this goal');assert not root.exists()
-   send(b'\x07','Confirm this goal');send(b'confirm\r',"Goal confirmed. The seed isn't written yet.")
+   os.write(master,b'\x1b');absent('type confirm');assert not root.exists()
+   send(b'\x07','type confirm')
+   os.write(master,b'\x1b[6~'*5);await_text('remain unresolved?')
+   send(b'confirm\r','Goal confirmed — seed not written yet');await_text('Continue with Seed Me in any harness')
    sessions=list(root.iterdir());assert len(sessions)==1
    session=sessions[0];ledger=helper('read',session);status=helper('status',session)
    assert ledger['status']=='active' and ledger['operator']=='human';assert status['snapshot_current']
@@ -50,13 +54,13 @@ def journey(width,height):
    origin=next(n for n in ledger['nodes'] if n['id']==ledger['origin'])
    assert origin['status']=='settled' and origin['kind']=='decision' and origin['authority']=='user'
    assert origin['answer']==ledger['goal']=='A PR ready for human review, with the restaurateur judging the finished result while both the harness and codebase compound.'
-   assert any(e.get('observed')==dump for e in origin['evidence']);assert 'unresolved' in origin['evidence'][-1]['observed']
+   assert any(e.get('observed')==dump and e.get('checked')=='Tinkery original 1' for e in origin['evidence']);assert 'unresolved' in origin['evidence'][-1]['observed']
    assert not (session/'seed-contract.md').exists()
    failed=subprocess.run(['python3',str(HELPER),'end',str(session),'--status','completed','--reason','TEST must refuse incomplete seed'],capture_output=True,text=True)
    assert failed.returncode!=0 and 'seed-contract.md' in failed.stderr
    assert helper('read',session)['status']=='active'
    os.write(master,b'\x07confirm\r\x1bOQ');time.sleep(.1);assert len(list(root.iterdir()))==1
-   os.write(master,b'q');deadline=time.monotonic()+10
+   os.write(master,b'\x03');deadline=time.monotonic()+10
    while process.poll() is None and time.monotonic()<deadline:
     if select.select([master],[],[],.02)[0]:screen.feed(os.read(master,65536))
    assert process.poll()==0,screen.text()

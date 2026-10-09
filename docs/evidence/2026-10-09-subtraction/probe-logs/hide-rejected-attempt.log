@@ -1,0 +1,22 @@
+
+running 1 test
+test shaping::brain_dump::dogfood_tests::rejected_schema_attempt_is_readable_lossless_and_never_promoted ... FAILED
+
+failures:
+
+---- shaping::brain_dump::dogfood_tests::rejected_schema_attempt_is_readable_lossless_and_never_promoted stdout ----
+
+thread 'shaping::brain_dump::dogfood_tests::rejected_schema_attempt_is_readable_lossless_and_never_promoted' (60754242) panicked at src/shaping/brain_dump/dogfood_tests.rs:417:5:
+assertion failed: why.contains("Rejected attempt — not confirmable")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::dogfood_tests::rejected_schema_attempt_is_readable_lossless_and_never_promoted
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.01s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-removals-ar98kksx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.74s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/subtraction-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`

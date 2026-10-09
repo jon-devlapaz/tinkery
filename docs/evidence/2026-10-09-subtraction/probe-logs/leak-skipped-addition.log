@@ -1,0 +1,24 @@
+
+running 1 test
+test shaping::brain_dump::dogfood_tests::skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them ... FAILED
+
+failures:
+
+---- shaping::brain_dump::dogfood_tests::skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them stdout ----
+
+thread 'shaping::brain_dump::dogfood_tests::skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them' (60751505) panicked at src/shaping/brain_dump/dogfood_tests.rs:135:5:
+assertion `left == right` failed
+  left: [1, 2, 3]
+ right: [1, 3]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::dogfood_tests::skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.03s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-removals-ar98kksx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.74s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/subtraction-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`

@@ -24,12 +24,13 @@ use std::{
     time::{Duration, Instant},
 };
 #[derive(Default)]
-struct Recording {
+pub(super) struct Recording {
     requests: Mutex<Vec<BoardRequest>>,
     fail: AtomicBool,
 }
 fn guess(r: &BoardRequest) -> Guess {
     Guess {
+        unresolved_notes: vec![],
         uncertain: false,
         framings: vec![Framing {
             text: format!(
@@ -83,10 +84,28 @@ impl BoardHost for Recording {
         }
     }
 }
+pub(super) fn amend_board(a: &mut BrainDump, edit: impl FnOnce(&mut Guess)) {
+    let mut g = a.guess.as_ref().unwrap().wire();
+    edit(&mut g);
+    let r = BoardRequest {
+        sources: a.sources.clone(),
+        fragments: a.fragments.clone(),
+        previous: None,
+        skipped: a.skipped.clone(),
+        answered: a
+            .sources
+            .iter()
+            .filter_map(|s| s.in_reply_to.clone())
+            .collect(),
+        settled: a.settled.clone(),
+        layout: vec![],
+    };
+    a.guess = Some(board::Board::verify(g, &r).unwrap());
+}
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
 }
-fn settle(a: &mut BrainDump) {
+pub(super) fn settle(a: &mut BrainDump) {
     let deadline = Instant::now() + Duration::from_secs(3);
     while a.running() && Instant::now() < deadline {
         a.tick();
@@ -115,7 +134,9 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
                 .unwrap()
                 .contains("Model reading 1 originals")
         );
-        a.guess.as_mut().unwrap().questions[0].text = "Should scratch thinking remain entirely separate unless someone explicitly chooses to carry it into the PR?".into();
+        amend_board(&mut a, |g| {
+            g.questions[0].text = "Should scratch thinking remain entirely separate unless someone explicitly chooses to carry it into the PR?".into()
+        });
         assert!(
             snapshot(w, h, &mut a, false).unwrap().contains("PR?"),
             "Focused live question clipped at supported size"
@@ -191,7 +212,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     assert!(a.notice.contains("injected failure"));
     assert_eq!(a.sources.len(), 2);
     assert_eq!(
-        a.guess.as_ref().unwrap().outcome,
+        a.guess.as_ref().unwrap().outcome.as_deref().unwrap(),
         "Read comfortably in the blog and RSS reader."
     );
     assert!(a.originals().contains("A second dump."));
@@ -214,7 +235,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     );
 }
 #[test]
-fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
+fn boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings() {
     let host = Arc::new(Recording::default());
     let mut a = BrainDump::with_host(host.clone());
     snapshot(100, 30, &mut a, false).unwrap();
@@ -228,46 +249,63 @@ fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
     assert!(bad.validate(&r).is_err());
     let mut bad = g.clone();
     bad.framings[0].supports.pop();
-    assert!(bad.validate(&r).is_err());
+    assert!(bad.validate(&r).is_ok());
     let mut bad = g.clone();
     bad.questions[0]
         .text
-        .push_str(" The Ledger: link shows decisions.");
-    assert!(bad.validate(&r).is_err());
+        .push_str(" This is an unresolved note, without a question mark.");
+    assert!(bad.validate(&r).is_ok());
     let mut bad = g.clone();
     bad.uncertain = true;
-    assert!(bad.validate(&r).is_err());
+    assert!(
+        bad.validate(&r).is_ok(),
+        "Uncertainty is advisory, not a reason to force an invented second reading"
+    );
     bad.framings.push(Framing {
         text: "Another possible meaning".into(),
         supports: anchors(&r),
     });
     assert!(bad.validate(&r).is_ok());
+    bad.framings.push(bad.framings[0].clone());
+    assert!(bad.validate(&r).is_ok());
+    bad.framings.clear();
+    assert!(bad.validate(&r).is_err());
     let mut bad = g.clone();
     bad.outcome = "\x1b]52;c;payload".into();
     assert!(bad.validate(&r).is_err());
     let mut bad = g.clone();
     bad.alternatives.pop();
-    assert!(bad.validate(&r).is_err());
+    assert!(bad.validate(&r).is_ok());
     let mut skipped = r.clone();
     skipped.skipped.push(g.questions[0].clone());
     assert!(g.validate(&skipped).is_err());
     let json = serde_json::to_string(&g).unwrap();
-    assert!(
-        serde_json::from_str::<Guess>(&json.replace(
+    let narrative = board::parse(
+        &json.replace(
             "\"misfits\":[]",
-            "\"misfits\":[\"an inferred relationship\"]"
-        ))
-        .is_err(),
-        "Unanchored narrative misfit accepted"
-    );
+            "\"misfits\":[\"an inferred relationship\"]",
+        ),
+        &r,
+        &mut vec![],
+    )
+    .unwrap();
+    assert_eq!(narrative.unresolved_notes, ["an inferred relationship"]);
+    assert!(narrative.misfits.is_empty());
     assert!(serde_json::from_str::<Guess>(&(json.clone() + " extra")).is_err());
-    assert!(
-        serde_json::from_str::<Guess>(&json.replace(
+    let ignored = board::parse(
+        &json.replace(
             "\"uncertain\":false",
-            "\"uncertain\":false,\"confirmed\":true"
-        ))
-        .is_err()
+            "\"uncertain\":false,\"confirmed\":true",
+        ),
+        &r,
+        &mut vec![],
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(ignored).unwrap(),
+        serde_json::to_value(g).unwrap()
     );
+    assert!(a.receipt.is_none());
 }
 #[test]
 fn typing_during_request_is_never_replaced_by_the_result() {
@@ -362,7 +400,7 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         settle(&mut a);
         let layout = a.layout();
         let fragments = a.fragments.clone();
-        let g = a.guess.as_mut().unwrap();
+        let mut g = a.guess.as_ref().unwrap().wire();
         g.uncertain = true;
         g.framings = vec![
             Framing {
@@ -375,6 +413,7 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             },
         ];
         g.misfits = vec![anchor("A dashboard worries me.")];
+        amend_board(&mut a, |current| *current = g);
         let ordinary = snapshot(w, h, &mut a, false).unwrap();
         for noise in [
             "PROVISIONAL:",
@@ -386,7 +425,8 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         ] {
             assert!(!ordinary.contains(noise), "{noise} in sparse view");
         }
-        assert!(ordinary.contains("1 doesn’t fit yet"));
+        assert!(!ordinary.contains("doesn’t fit yet"));
+        assert!(a.details_text().contains("Doesn’t fit yet"));
         assert!(a.canvas.state.data.nodes.iter().all(|n| match n {
             CanvasNode::Text(n) => n.title.is_none(),
             _ => false,
@@ -453,7 +493,7 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
         assert!(!a.original && !a.help);
         assert_eq!(a.board_focus, mode == 1);
         let frame = snapshot(100, 30, &mut a, false).unwrap();
-        assert!(frame.contains("Details / provisional"));
+        assert!(!frame.contains("provisional"));
         assert!(frame.contains("Desired experience"));
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         assert!(!a.details);
@@ -473,16 +513,19 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     a.handle_mouse(
         MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
-            column: area.width - 25,
+            column: area.width - 3,
             row: 1,
             modifiers: KeyModifiers::NONE,
         },
         area,
     );
-    assert!(a.details && !a.original);
+    assert!(a.help && !a.original);
     assert_eq!(a.input.text, input);
+    key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Char('d'));
+    assert!(a.details);
+    key(&mut a, KeyCode::Esc);
     assert!(!a.details);
 }
 #[test]
@@ -498,7 +541,7 @@ fn clipping_is_visible_and_original_is_one_action_away() {
     assert!(view.contains("more"), "No source scrolling cue");
     assert!(
         view.lines()
-            .nth(usize::from(a.source_area.y) - 1)
+            .nth(usize::from(a.source_area.y))
             .unwrap()
             .contains("Management"),
         "Source title was replaced with a clipping hint"
@@ -511,7 +554,7 @@ fn clipping_is_visible_and_original_is_one_action_away() {
     assert!(original.contains("surveillance."));
 }
 #[test]
-fn misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected() {
+fn unresolved_roles_can_overlap_and_long_readings_do_not_veto_a_board() {
     let host = Arc::new(Recording::default());
     let mut a = BrainDump::with_host(host.clone());
     a.paste("Meaning. A tangent.");
@@ -523,10 +566,10 @@ fn misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected() {
     g.misfits = vec![anchor("A tangent.")];
     assert!(g.validate(&r).is_ok());
     g.framings[0].supports.push(anchor("A tangent."));
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
     g.framings[0].supports.pop();
     g.framings[0].text = vec!["word"; 46].join(" ");
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
     assert_eq!(
         agent_text("PROVISIONAL: uncertain meaning\nPROVISIONAL: conditional cost"),
         "uncertain meaning\nconditional cost"
@@ -549,7 +592,7 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
     let r = host.requests.lock().unwrap()[0].clone();
     let response = serde_json::to_string(&guess(&r)).unwrap();
     let program = dir.path().join("pi");
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'not proposed toggle/tool/transport EVEN WHEN EXPLICITLY REQUESTED' in p\nassert 'at least TWO credible' in p\nassert 'no appended status/ledger' in p\nassert 'Resolve a fork between core readings before glossary' in p\nassert 'NOT automatically the focus' in p\nassert 'NEVER reword' in p and 'VISION' in p\nassert 'The app verifies every anchor' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms remain candidates' in p\nassert 'Do not manufacture alternatives or false choices' in p\nassert 'No research, tools, execution, approvals, ledger' in p\nassert 'Never alter originals or invent properties of unknown names' in p\nassert 'most consequential unresolved question' in p\nassert 'existing source ID' in p and 'whole Unicode graphemes' in p\nassert 'two to four' not in p and 'EXACT keys' not in p and 'at most 45' not in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
     let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
@@ -626,13 +669,10 @@ fn annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards() {
             };
             let supported = support.range(&a.sources).unwrap();
             let unresolved = anchor("End.").range(&a.sources).unwrap();
-            a.guess.as_mut().unwrap().framings[0].supports = vec![support];
-            a.guess.as_mut().unwrap().misfits = vec![anchor("End.")];
-            a.guess
-                .as_ref()
-                .unwrap()
-                .validate(&host.requests.lock().unwrap()[0])
-                .unwrap();
+            amend_board(&mut a, |g| {
+                g.framings[0].supports = vec![support];
+                g.misfits = vec![anchor("End.")];
+            });
             let mut terminal =
                 ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
             terminal
@@ -711,7 +751,7 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
         view.lines().nth(y).unwrap().contains("Café"),
         "Card title was replaced with metadata"
     );
-    assert!(view.contains("Enter: source"));
+    assert!(!view.contains("Enter: source"));
     assert!(!view.contains("… Ctrl-O"));
     a.canvas.state.selection.select_only("f1".into());
     key(&mut a, KeyCode::Enter);
@@ -766,28 +806,18 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
         g.validate(&host.requests.lock().unwrap()[0]).is_ok(),
         "Forced whole-source coverage"
     );
-    a.guess = Some(g);
-    assert_eq!(
-        snapshot(80, 24, &mut a, false)
-            .unwrap()
-            .matches("Ctrl-O originals")
-            .count(),
-        1
-    );
-    let area = a.area;
-    a.handle_mouse(
-        MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::Left),
-            column: area.width - 16,
-            row: 1,
-            modifiers: KeyModifiers::NONE,
-        },
-        area,
-    );
+    amend_board(&mut a, |current| *current = g);
     assert!(
-        a.original && !a.details,
-        "Originals click activated overlapping details control"
+        !snapshot(80, 24, &mut a, false)
+            .unwrap()
+            .contains("Ctrl-O originals")
     );
+    a.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
+    assert!(a.help && !a.details);
+    snapshot(80, 24, &mut a, false).unwrap();
+    key(&mut a, KeyCode::Esc);
+    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    assert!(a.original && !a.details);
     assert!(a.fragments.is_empty());
 }
 
@@ -813,7 +843,8 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
             frame.contains("Reading updated from your answer: both"),
             "No glanceable answer update"
         );
-        assert!(frame.contains("Settled: both"));
+        assert!(!frame.contains("Settled: both"));
+        assert!(a.details_text().contains("both"));
         assert!(frame.contains("Who controls RSS appearance?"));
         assert!(!frame.contains("What is Hamster?"));
         assert!(a.details_text().contains(&question));
@@ -896,7 +927,7 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     a.paste("Short goal.");
     a.submit();
     settle(&mut a);
-    a.guess.as_mut().unwrap().questions.truncate(1);
+    amend_board(&mut a, |g| g.questions.truncate(1));
     let view = snapshot(100, 30, &mut a, false).unwrap();
     for clutter in [
         "1/1",
@@ -909,14 +940,15 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     ] {
         assert!(!view.contains(clutter), "{clutter} in sparse view");
     }
-    assert!(view.contains("Your reply / F2 submit"));
-    assert!(view.contains("Highlighted words support"));
+    assert!(view.contains("Your reply"));
+    assert!(!view.contains("F2"));
+    assert!(!view.contains("Highlighted words support"));
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     assert!(a.notice.contains("not an answer"));
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("Your reply / F2 submit")
+            .contains("Add more")
     );
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     a.paste("both");
@@ -954,55 +986,57 @@ fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
     assert_eq!(a.settled.len(), 1);
 }
 
-#[cfg(unix)]
 #[test]
-fn paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check() {
-    use std::os::unix::fs::PermissionsExt;
-    let host = Arc::new(Recording::default());
-    let mut a = BrainDump::with_host(host.clone());
-    a.paste("A compounding harness and healthy codebase.");
-    a.submit();
-    settle(&mut a);
-    let first = "Should 'compounds itself' primarily mean the harness improves through use, the codebase becomes easier to change, or both?";
-    a.guess.as_mut().unwrap().questions = vec![Question {
-        id: "compounding-meaning".into(),
-        text: first.into(),
-    }];
-    a.paste("both");
-    a.submit();
-    settle(&mut a);
-    let r = host.requests.lock().unwrap()[1].clone();
+fn paraphrase_advice_is_logged_without_withholding_or_authorizing() {
+    let r = BoardRequest {
+        sources: vec![Source {
+            id: 1,
+            text: "both".into(),
+            in_reply_to: None,
+        }],
+        fragments: vec![],
+        previous: None,
+        skipped: vec![],
+        answered: vec![],
+        settled: vec![Settled {
+            question: Question {
+                id: "answered".into(),
+                text: "Harness, codebase, or both?".into(),
+            },
+            source: 1,
+        }],
+        layout: vec![],
+    };
     let mut g = guess(&r);
-    g.questions=vec![
-        Question{id:"renamed-topic".into(),text:"Should compounding primarily mean the harness improves itself, the codebase becomes easier to change, or both?".into()},
-        Question{id:"intervention-boundary".into(),text:"What must bring you in before final judgment?".into()}
+    g.questions = vec![
+        Question {
+            id: "renamed-topic".into(),
+            text: "Harness, codebase, or both?".into(),
+        },
+        Question {
+            id: "boundary".into(),
+            text: "When should you taste the result?".into(),
+        },
     ];
-    let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(
-        &skill,
-        "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
-    )
-    .unwrap();
-    let program = dir.path().join("pi");
-    let response = serde_json::to_string(&g).unwrap();
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport json,sys\nr=json.load(sys.stdin)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\nif r.get('kind')=='question-continuity':\n assert r['settled'][0]['answer']=='both'\n assert r['settled'][0]['question']['text']=={first:?}\n assert 'SAME missing information' in p\n print(json.dumps(dict(repeated=['renamed-topic'])))\nelse:\n assert 'final human judge' in p and 'BOTH readings' in p\n assert r['settled'][0]['source']==2\n print({response:?})\n")).unwrap();
-    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
-    let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
-    assert_eq!(actual.questions.len(), 1);
-    assert_eq!(actual.questions[0].id, "intervention-boundary");
+    let before = serde_json::to_value(&g).unwrap();
+    assert!(
+        meaning_check::verdict(
+            &r,
+            &g,
+            r#"{"missing":[],"false_choice":false,"repeated":["renamed-topic"]}"#
+        )
+        .unwrap()
+        .unwrap()
+        .contains("renamed-topic")
+    );
     for invalid in [
         "not JSON",
-        "{\"repeated\":[\"invented\"]}",
-        "{\"repeated\":[\"intervention-boundary\",\"intervention-boundary\"]}",
-        "{\"repeated\":[],\"confirmed\":true}",
+        r#"{"missing":[],"false_choice":false,"repeated":["invented"]}"#,
+        r#"{"missing":[],"false_choice":false,"repeated":["boundary","boundary"]}"#,
+        r#"{"missing":[],"false_choice":false,"confirmed":true}"#,
     ] {
-        let mut unchanged = actual.clone();
-        assert!(question_continuity::apply(&mut unchanged, invalid).is_err());
-        assert_eq!(
-            serde_json::to_value(&unchanged).unwrap(),
-            serde_json::to_value(&actual).unwrap()
-        );
+        assert!(meaning_check::verdict(&r, &g, invalid).is_err());
     }
+    assert_eq!(before, serde_json::to_value(&g).unwrap());
+    assert_eq!(g.questions.len(), 2);
 }

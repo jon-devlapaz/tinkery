@@ -1,5 +1,20 @@
+use super::tests::amend_board;
 use super::*;
-fn board() -> BrainDump {
+pub(super) fn right_text(screen: &str, width: u16) -> String {
+    screen
+        .lines()
+        .map(|line| {
+            line.chars()
+                .skip(usize::from(width * 48 / 100 + 2))
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+pub(super) fn board() -> BrainDump {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
     a.sources.push(Source{id:1,text:"PR ready for human review; restaurateur, not cook; both harness and codebases compound.".into(),in_reply_to:None});
@@ -13,9 +28,11 @@ fn board() -> BrainDump {
         settled: vec![],
         layout: vec![],
     };
-    let mut guess = Simulated.reshape(r, &AtomicBool::new(false)).unwrap();
+    let mut guess = Simulated
+        .reshape(r.clone(), &AtomicBool::new(false))
+        .unwrap();
     guess.framings[0].text="A PR ready for human review with you as restaurateur judging the result; harness and codebase both compound.".into();
-    a.guess = Some(guess);
+    a.guess = Some(board::Board::verify(guess, &r).unwrap());
     a
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
@@ -28,10 +45,12 @@ fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affi
         let q = a.focused_question().unwrap().text.clone();
         a.review_goal();
         let text = snapshot(w, h, &mut a, false).unwrap();
-        assert!(text.contains("Confirm this goal"));
+        assert!(text.contains("type confirm"));
         assert!(text.contains("Running out of questions"));
-        assert!(text.contains("doesn't mean I understood you."));
-        assert!(text.contains(&q));
+        assert!(right_text(&text, w).contains("doesn't mean I understood you."));
+        key(&mut a, KeyCode::PageDown);
+        let scrolled = snapshot(w, h, &mut a, false).unwrap();
+        assert!(right_text(&scrolled, w).contains(&q));
         assert!(a.handoff_job.is_none());
         key(&mut a, KeyCode::Enter);
         key(&mut a, KeyCode::F(2));
@@ -78,9 +97,9 @@ fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
 #[test]
 fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source() {
     let mut a = board();
-    a.guess.as_mut().unwrap().questions.clear();
+    amend_board(&mut a, |g| g.questions.clear());
     let text = snapshot(100, 30, &mut a, false).unwrap();
-    assert!(text.contains("Ctrl-G review goal"));
+    assert!(text.contains("Review goal"));
     assert!(a.receipt.is_none());
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
@@ -101,7 +120,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     assert!(a.goal_config.as_ref().unwrap().recovery_path().is_none());
 }
 #[test]
-fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options() {
+fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_options() {
     let a = board();
     let mut r = BoardRequest {
         sources: a.sources.clone(),
@@ -112,7 +131,7 @@ fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_optio
         settled: vec![],
         layout: vec![],
     };
-    let mut g = a.guess.unwrap();
+    let mut g = a.guess.unwrap().wire();
     g.alternatives.clear();
     assert!(g.validate(&r).is_ok());
     r.settled.push(Settled {
@@ -124,7 +143,7 @@ fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_optio
     });
     g.uncertain = true;
     g.framings.push(g.framings[0].clone());
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
     g.framings.pop();
     assert!(g.validate(&r).is_ok());
     g.framings[0].text = std::iter::repeat_n("combined", 65)
@@ -132,13 +151,13 @@ fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_optio
         .join(" ");
     assert!(g.validate(&r).is_ok());
     g.framings[0].text.push_str(" excess");
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
     r.settled.clear();
     g.uncertain = false;
     g.framings[0].text = std::iter::repeat_n("initial", 46)
         .collect::<Vec<_>>()
         .join(" ");
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
 }
 #[test]
 fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible() {
@@ -148,7 +167,9 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
         text: "Which boundaries remain despite skipping this question?".into(),
     };
     a.skipped.push(skipped.clone());
-    a.guess.as_mut().unwrap().questions.extend((0..5).map(|i|Question{id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}));
+    amend_board(&mut a, |g| {
+        g.questions.extend((0..5).map(|i|Question{id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}))
+    });
     a.review_goal();
     snapshot(80, 24, &mut a, false).unwrap();
     assert!(a.goal_review.as_ref().unwrap().max > 0);
@@ -168,8 +189,9 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
 }
 
 #[test]
-fn meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence() {
-    let a = board();
+fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
+    let mut a = board();
+    let g = a.guess.as_ref().unwrap().wire();
     let r = BoardRequest {
         sources: a.sources.clone(),
         fragments: vec![],
@@ -179,38 +201,38 @@ fn meaning_audit_rejects_literal_noun_loss_false_choices_and_bad_evidence() {
         settled: vec![],
         layout: vec![],
     };
-    assert!(meaning_check::apply(&r, r#"{"missing":[],"false_choice":false}"#).is_ok());
-    assert!(meaning_check::apply(&r,r#"{"missing":[{"source":1,"quote":"PR ready for human review","occurrence":0}],"false_choice":false}"#).unwrap_err().contains("PR ready for human review"));
-    assert!(meaning_check::apply(&r, r#"{"missing":[],"false_choice":true}"#).is_err());
     assert!(
-        meaning_check::apply(
-            &r,
-            r#"{"missing":[{"source":1,"quote":"invented","occurrence":0}],"false_choice":false}"#
-        )
-        .is_err()
+        meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":false}"#)
+            .unwrap()
+            .is_none()
     );
+    assert!(meaning_check::verdict(&r,&g,r#"{"missing":[{"source":1,"quote":"PR ready for human review","occurrence":0}],"false_choice":false}"#).unwrap().unwrap().contains("PR ready for human review"));
     assert!(
-        meaning_check::apply(
-            &r,
-            r#"{"missing":[],"false_choice":false,"confirmed":true}"#
-        )
-        .is_err()
+        meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":true}"#)
+            .unwrap()
+            .is_some()
     );
-    assert!(meaning_check::apply(&r, r#"{"missing":[],"false_choice":"false"}"#).is_err());
-    assert!(meaning_check::acronyms(&r.sources).contains("PR"));
-    assert!(!meaning_check::retains(
-        "A software result ready for review.",
-        "PR"
-    ));
-    assert!(!meaning_check::retains("Not APR or PRs.", "PR"));
-    assert!(meaning_check::retains("A PR ready for human review.", "PR"));
-    let mut a = board();
-    a.guess.as_mut().unwrap().framings[0].text = "A software result for human review.".into();
+    for invalid in [
+        r#"{"missing":[{"source":1,"quote":"invented","occurrence":0}],"false_choice":false}"#,
+        r#"{"missing":[],"false_choice":false,"confirmed":true}"#,
+        r#"{"missing":[],"false_choice":"false"}"#,
+    ] {
+        assert!(meaning_check::verdict(&r, &g, invalid).is_err());
+    }
+    assert_eq!(
+        serde_json::to_value(&g).unwrap(),
+        serde_json::to_value(a.guess.as_ref().unwrap().wire()).unwrap()
+    );
+    amend_board(&mut a, |g| {
+        g.framings[0].text = "A software result for human review.".into()
+    });
     a.review_goal();
-    assert!(a.goal_review.is_none());
-    assert!(a.notice.contains("lost authored term PR"));
+    assert!(
+        a.goal_review.is_some(),
+        "Lexical coverage must not veto the person's review"
+    );
+    assert!(a.handoff_job.is_none() && a.receipt.is_none());
 }
-
 #[test]
 fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates() {
     let mut a = board();
@@ -228,7 +250,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
         source: 2,
     });
     a.applied = 3;
-    let g = a.guess.as_mut().unwrap();
+    let mut g = a.guess.as_ref().unwrap().wire();
     g.framings[0].text="A human-first meta harness and board carries the agentic software development lifecycle to a PR ready for human review. Both harness and codebase compound, preserving codebase health and easier future changes; you are the restaurateur judging the final result with earlier UI and consequential design taste checks.".into();
     g.framings[0].supports.push(Anchor {
         source: 3,
@@ -237,6 +259,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     });
     g.outcome = "PR ready for human review with UI/design taste checks.".into();
     g.alternatives.clear();
+    amend_board(&mut a, |current| *current = g);
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
     let frozen = &a.goal_review.as_ref().unwrap().affirmation;

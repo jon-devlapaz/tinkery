@@ -1,0 +1,31 @@
+{
+  "baseline": true,
+  "proven": [
+    "extra-field-veto",
+    "word-limit-veto",
+    "count-coupling-veto",
+    "forced-citations",
+    "narrative-note-veto",
+    "source-id-guard",
+    "exact-quote-guard",
+    "grapheme-guard",
+    "scope-id-guard",
+    "answered-history-guard",
+    "last-board-retention",
+    "invent-narrative-citation",
+    "remove-advice",
+    "semantic-review-veto",
+    "absorb-unanswered-addition",
+    "hide-new-source",
+    "leak-skipped-addition",
+    "lose-undone-question",
+    "default-bar-on",
+    "discard-without-guard",
+    "omit-header",
+    "consume-over-cap-input",
+    "remove-back",
+    "hide-rejected-attempt",
+    "automatic-shaping-retry"
+  ],
+  "scope": "Fresh isolated copy, one independent code reversion per case, stub providers; not native-model or operator recognition"
+}

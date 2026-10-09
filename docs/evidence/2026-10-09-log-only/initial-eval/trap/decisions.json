@@ -1,0 +1,74 @@
+{
+  "actor": "assistant-driven TEST eval; not operator recognition",
+  "decisions": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Could directly help learners understand why their answer was wrong.",
+            "cost": "May not address feeling dumb or leaving if tone is the main problem.",
+            "label": "Explanation-first",
+            "undo_cost": "Likely low; explanation content could be revised without changing the whole quiz flow. Assumes learners primarily need clearer reasons."
+          },
+          {
+            "benefit": "Could reduce the feeling of being dumb and make learners more willing to continue.",
+            "cost": "May feel supportive without making the underlying mistake clearer.",
+            "label": "Tone-first",
+            "undo_cost": "Likely low; wording could be changed without a major rebuild. Assumes emotional response is the main cause of leaving."
+          },
+          {
+            "benefit": "Could address both understanding and the feeling of leaving smarter.",
+            "cost": "More design and content work, with possible added cost or overengineering.",
+            "label": "Explanation and tone together",
+            "undo_cost": "Moderate; separating or reducing the combined treatment may require revising question feedback. Assumes both concerns materially contribute."
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "what I actually want is learners leaving a wrong answer feeling smarter not dumber.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "it has to work on phones because thats where most people use it.",
+                "source": 1
+              }
+            ],
+            "text": "Socratink should help learners understand a wrong answer and leave feeling smarter rather than dumber, while working on phones and keeping no gamification. The AI tutor is only a possible route; cost, chatbot fatigue, explanation versus tone, and the unverified question-4 drop-off remain open."
+          }
+        ],
+        "misfits": [],
+        "outcome": "Learners who get something wrong understand why and leave feeling smarter rather than dumber; the experience works on phones and does not use gamification.",
+        "questions": [
+          {
+            "id": "wrong-answer-help",
+            "text": "When learners get something wrong, should the first fix prioritize explaining why, changing the tone, or both?"
+          }
+        ],
+        "uncertain": true
+      },
+      "check": "structure-spans-history",
+      "coverage": [],
+      "decision": "reject",
+      "elapsed_ms": 16772,
+      "mode": "blocking",
+      "raw": "{\"uncertain\":true,\"framings\":[{\"text\":\"Socratink should help learners understand a wrong answer and leave feeling smarter rather than dumber, while working on phones and keeping no gamification. The AI tutor is only a possible route; cost, chatbot fatigue, explanation versus tone, and the unverified question-4 drop-off remain open.\",\"supports\":[{\"source\":1,\"quote\":\"what I actually want is learners leaving a wrong answer feeling smarter not dumber.\",\"occurrence\":0},{\"source\":1,\"quote\":\"it has to work on phones because thats where most people use it.\",\"occurrence\":0}]}],\"outcome\":\"Learners who get something wrong understand why and leave feeling smarter rather than dumber; the experience works on phones and does not use gamification.\",\"misfits\":[],\"questions\":[{\"id\":\"wrong-answer-help\",\"text\":\"When learners get something wrong, should the first fix prioritize explaining why, changing the tone, or both?\"}],\"alternatives\":[{\"label\":\"Explanation-first\",\"benefit\":\"Could directly help learners understand why their answer was wrong.\",\"cost\":\"May not address feeling dumb or leaving if tone is the main problem.\",\"undo_cost\":\"Likely low; explanation content could be revised without changing the whole quiz flow. Assumes learners primarily need clearer reasons.\"},{\"label\":\"Tone-first\",\"benefit\":\"Could reduce the feeling of being dumb and make learners more willing to continue.\",\"cost\":\"May feel supportive without making the underlying mistake clearer.\",\"undo_cost\":\"Likely low; wording could be changed without a major rebuild. Assumes emotional response is the main cause of leaving.\"},{\"label\":\"Explanation and tone together\",\"benefit\":\"Could address both understanding and the feeling of leaving smarter.\",\"cost\":\"More design and content work, with possible added cost or overengineering.\",\"undo_cost\":\"Moderate; separating or reducing the combined treatment may require revising question feedback. Assumes both concerns materially contribute.\"}]}\n",
+      "reason": "Invalid board: expected one/two readings and credible alternative candidates.",
+      "request_key": "93936a094ab08d14",
+      "version": 1
+    }
+  ],
+  "first_validated_board_ms": 16788,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "mode": "log-only; advisory flags not enabled",
+  "model": "openai-codex/gpt-5.6-luna",
+  "notice": "Reshape failed: Invalid board: expected one/two readings and credible alternative candidates. Original and previous board retained; F2 retries.",
+  "seed_written": false,
+  "status": "structurally rejected",
+  "thinking": "Pi native default; --thinking omitted",
+  "total_ms": 16812
+}
