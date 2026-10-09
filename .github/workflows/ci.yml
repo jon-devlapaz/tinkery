@@ -34,13 +34,6 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build
         run: cargo build --locked
-      - name: Resolve the ephemeral macOS runner name locally
-        if: runner.os == 'macOS'
-        run: |
-          echo "127.0.0.1 $(hostname)" | sudo tee -a /etc/hosts
-          echo "::1 $(hostname)" | sudo tee -a /etc/hosts
-          sudo dscacheutil -flushcache
-          sudo killall -HUP mDNSResponder
       - name: Official viewer startup diagnostic (isolated TEST process)
         if: runner.os == 'macOS'
         env:

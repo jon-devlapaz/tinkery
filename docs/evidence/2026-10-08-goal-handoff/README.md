@@ -68,6 +68,16 @@ Low-reasoning reliability and broad model-audit false positives remain limitatio
 
 CI checks out the public official Seed Me repository at the pinned revision as a **test dependency**, not vendored app code. Real helper/PTY checks run on Ubuntu and macOS; no provider calls or operator session locations in CI.
 
+## Publication and unresolved CI blocker
+
+PR [#3](https://github.com/jon-devlapaz/tinkery/pull/3) is **draft and unmerged**. Local checks and Ubuntu CI pass. **macOS CI is failing; this slice is not ready for review/completion.**
+
+Official viewer startup blocks inside Python `socket.getfqdn` → `http.server.HTTPServer.server_bind`, before `viewer.json`/URL announcement. `examples/seed_viewer_probe.py` executes the unchanged official viewer with a bounded faulthandler diagnostic in a private temporary TEST session. `ci-macos-blocking-stack.json` records that stack. This is not a failed ledger publication: the helper accepts the active goal and current saved-view fallback, but the test requires a **live** viewer and remains unchanged.
+
+A 20-second bounded startup plus captured failure detail replaced the initial5-second bound. Tests wait30seconds for handoff and still require real loopback HTTP/viewer status and owned shutdown. Python3.13 qualification, temporary runner-host aliases and resolver refresh **did not resolve** the blockage. All failed CI runs/output are retained in `ci-*.json`; host/resolver modifications were removed rather than presenting an ineffective workaround as a fix. Python3.13 remains a deterministic fixture runtime, not a claimed fix. No helper code was changed/copied and no live-viewer assertion was weakened.
+
+CI runs: `37887287949`, `37887690680`, `37888153874`, `37888473006`, `37888677996`, `37888987237`, `37889321600`. CI-only deterministic resolution of the literal loopback name, or a separately authorized upstream Seed Me correction, needs an operator decision. Do not merge or promote the PR while this is unresolved.
+
 ## Next slice — not built here
 
 Take one session through a **draft seed** and the **intent derived by tink-sdlc's intent template**, with stage 1 importing via `--seed-contract`. Compare side by side:
