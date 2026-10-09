@@ -30,6 +30,11 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build
         run: cargo build --locked
+      - name: Official viewer startup diagnostic (isolated TEST process)
+        if: runner.os == 'macOS'
+        env:
+          SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
+        run: python3 examples/seed_viewer_probe.py
       - name: Terminal journeys (real binary in a pseudo-terminal)
         env:
           SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
