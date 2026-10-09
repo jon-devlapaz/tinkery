@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jon-devlapaz/tink-skills
-          ref: 86066b175b53e13b4180ce4cc9929a626b57a2f6
+          ref: 4a2d9a8b5f1fbde2ec0c599277f752086bab04ec
           path: .ci-seed-me
       - name: Seed Me test runtime
         uses: actions/setup-python@v5
@@ -34,11 +34,6 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build
         run: cargo build --locked
-      - name: Official viewer startup diagnostic (isolated TEST process)
-        if: runner.os == 'macOS'
-        env:
-          SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
-        run: python3 examples/seed_viewer_probe.py
       - name: Terminal journeys (real binary in a pseudo-terminal)
         env:
           SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md

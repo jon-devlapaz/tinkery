@@ -70,13 +70,19 @@ CI checks out the public official Seed Me repository at the pinned revision as a
 
 ## Publication and unresolved CI blocker
 
-PR [#3](https://github.com/jon-devlapaz/tinkery/pull/3) is **draft and unmerged**. Local checks and Ubuntu CI pass. **macOS CI is failing; this slice is not ready for review/completion.**
+PR [#3](https://github.com/jon-devlapaz/tinkery/pull/3) remains **draft and unmerged pending updated CI**. The earlier macOS failure was traced to the official viewer; the operator subsequently authorized an upstream correction in a separate PR.
 
 Official viewer startup blocks inside Python `socket.getfqdn` → `http.server.HTTPServer.server_bind`, before `viewer.json`/URL announcement. `examples/seed_viewer_probe.py` executes the unchanged official viewer with a bounded faulthandler diagnostic in a private temporary TEST session. `ci-macos-blocking-stack.json` records that stack. This is not a failed ledger publication: the helper accepts the active goal and current saved-view fallback, but the test requires a **live** viewer and remains unchanged.
 
 A 20-second bounded startup plus captured failure detail replaced the initial5-second bound. Tests wait30seconds for handoff and still require real loopback HTTP/viewer status and owned shutdown. Python3.13 qualification, temporary runner-host aliases and resolver refresh **did not resolve** the blockage. All failed CI runs/output are retained in `ci-*.json`; host/resolver modifications were removed rather than presenting an ineffective workaround as a fix. Python3.13 remains a deterministic fixture runtime, not a claimed fix. No helper code was changed/copied and no live-viewer assertion was weakened.
 
-CI runs: `37887287949`, `37887690680`, `37888153874`, `37888473006`, `37888677996`, `37888987237`, `37889321600`. CI-only deterministic resolution of the literal loopback name, or a separately authorized upstream Seed Me correction, needs an operator decision. Do not merge or promote the PR while this is unresolved.
+Failed CI runs retained: `37887287949`, `37887690680`, `37888153874`, `37888473006`, `37888677996`, `37888987237`, `37889321600`.
+
+Authorized upstream fix: [tink-skills PR#137](https://github.com/jon-devlapaz/tink-skills/pull/137), immutable **unmerged** commit `4a2d9a8b5f1fbde2ec0c599277f752086bab04ec`. Tinkery CI now pins that commit, not a floating branch. `LoopbackHTTPServer` calls the standard TCP bind directly and derives HTTP name/port from the literal loopback address. No DNS shim, helper copy, runtime monkeypatch, weakened assertion or canonical file hand-writing. Host filtering, HTTP-only routes, actual ephemeral ports and lifecycle semantics remain unchanged. The temporary diagnostic remains reproducible as an example; its CI-only diagnostic step was removed after identifying the cause, not a test.
+
+`upstream-dns-unfixed.json`: the new real-server regression fails on the unchanged helper with `AssertionError: reverse DNS forbidden`. Fixed startup forbids both reverse-DNS entry points, proves actual HTTP ledger retrieval and403 attacker Host. `upstream-first-validation.json` preserves two local-skill-lock failures after the code change; updating the source tree digest resolved them. `upstream-final-validation.json`: **322 tests including required headless browser tests pass**, plus Python compilation and whitespace. Upstream CI adds dedicated Ubuntu/macOS startup/HTTP/lifecycle coverage alongside full unit/browser jobs. The existing factory run and canonical main checkout were left untouched; correction made in an isolated worktree.
+
+`tinkery-upstream-validation.json`: formatting,64 app tests/all targets,40 upstream tests,strict Clippy,build,all terminal suites pass using the actual fixed helper, including four-size real viewer/status/owned-shutdown checks. Earlier charged model evidence remains explicitly tied to its original helper revision; no new model run was necessary for this transport-only change. Both PRs remain unmerged. PR#3 must stay draft until its updated Ubuntu/macOS CI is green.
 
 ## Next slice — not built here
 
