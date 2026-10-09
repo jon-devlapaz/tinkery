@@ -35,19 +35,22 @@ def journey(width,height):
    start=time.monotonic();send(text.encode(),'call.');burst=time.monotonic()-start;assert burst<1.0,(width,burst)
    assert not requests();send(b'\x1bOQ','Which evidence gets confused?');assert len(requests())==1
    assert requests()[0]['sources'][0]['text']==text
-   await_text('Your fragments');await_text('I think this is about');await_text('Later: Who needs')
+   await_text('Your words');await_text('I think this is about');await_text('Later: Who needs')
+   send(b'\x04','Desired experience');assert len(requests())==1
+   send(b'\x04','Keep review evidence');assert len(requests())==1
    # Input and F2 submit; the result must not replace text entered during the request.
    answer='A real model capture is different from a stub or a human review.'
    start=time.monotonic();send(answer.encode(),'review.');answer_burst=time.monotonic()-start;assert answer_burst<1.0
    send(b'\x1bOQ','What would make a handover');assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
-   send(b'\t','Board: drag');send(b'y','Clipboard escape sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
-   send(b'o','Original 1');send(b'\x1b','I think this is about');send(b'\t','F2 submit')
+   send(b'\t','Board: drag');send(b'd','Desired experience');send(b'd','Keep review evidence');assert len(requests())==2
+   send(b'y','Clipboard escape sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
+   send(b'o','Original 1');send(b'\x04','Desired experience');send(b'\x04','Keep review evidence');send(b'o','Original 1');send(b'\x1b','Keep review evidence');send(b'\t','Tab input/board')
    # Character-by-character injection, with 1ms pacing (not a paste event).
    slow=' Streamed letters stay responsive.';start=time.monotonic()
    for c in slow:os.write(master,c.encode());time.sleep(0.001)
    await_text('responsive.');stream=time.monotonic()-start;assert stream<1.0,(width,stream)
-   send(b'\x15FAIL','FAIL');send(b'\x1bOQ','Reshape failed');assert 'I think this is about' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','I think this is about')
-   send(b'\x0eWAIT','WAIT');send(b'\x1bOQ','Thinking after submit');send(b'\x1b','Cancelled; original');assert 'I think this is about' in screen.text()
+   send(b'\x15FAIL','FAIL');send(b'\x1bOQ','Reshape failed');assert 'Keep review evidence' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','Keep review evidence')
+   send(b'\x0eWAIT','WAIT');send(b'\x1bOQ','Thinking after submit');send(b'\x1b','Cancelled; original');assert 'Keep review evidence' in screen.text()
    os.write(master,b'\x03');process.wait(timeout=5);assert process.returncode==0
    while select.select([master],[],[],0.02)[0]:
     chunk=os.read(master,65536)

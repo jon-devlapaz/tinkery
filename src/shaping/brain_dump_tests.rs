@@ -319,6 +319,178 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     settle(&mut a);
     assert_eq!(&a.layout()[..moved.len()], moved.as_slice());
 }
+#[test]
+fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+        snapshot(w, h, &mut a, false).unwrap();
+        a.paste("My week has no clear priority. Meetings are too long. A dashboard worries me.");
+        a.submit();
+        settle(&mut a);
+        let layout = a.layout();
+        let fragments = a.fragments.clone();
+        let g = a.guess.as_mut().unwrap();
+        g.uncertain = true;
+        g.framings = vec![
+            Framing {
+                text: "PROVISIONAL: Clarify what matters this week.".into(),
+                supports: vec!["f1".into()],
+            },
+            Framing {
+                text: "PROVISIONAL: Reduce time in meetings.".into(),
+                supports: vec!["f2".into()],
+            },
+        ];
+        g.misfits = vec!["f3".into()];
+        let ordinary = snapshot(w, h, &mut a, false).unwrap();
+        for noise in [
+            "PROVISIONAL:",
+            "Supports:",
+            "Desired experience",
+            "Candidates /",
+            "Your f1",
+            "Your f2",
+        ] {
+            assert!(!ordinary.contains(noise), "{noise} in sparse view");
+        }
+        assert!(ordinary.contains("1 doesn’t fit yet"));
+        assert!(a.canvas.state.data.nodes.iter().all(|n| match n {
+            CanvasNode::Text(n) => n.title.is_none(),
+            _ => false,
+        }));
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+        terminal
+            .draw(|f| render(f, &mut a, Palette::new(false)))
+            .unwrap();
+        let first = terminal.backend().buffer().clone();
+        key(&mut a, KeyCode::Tab);
+        key(&mut a, KeyCode::Char(']'));
+        terminal
+            .draw(|f| render(f, &mut a, Palette::new(false)))
+            .unwrap();
+        let second = terminal.backend().buffer();
+        let area = a.canvas.area;
+        assert!(
+            (area.y..area.bottom())
+                .any(|y| (area.x..area.right()).any(|x| first[(x, y)] != second[(x, y)])),
+            "Support highlights didn't switch"
+        );
+        assert_eq!(a.layout(), layout);
+        assert!(!a.running(), "Highlighting sent a model request");
+        assert_eq!(a.sources.len(), 1, "Highlighting was recorded as an answer");
+        for (n, f) in a.canvas.state.data.nodes.iter().zip(&fragments) {
+            assert_eq!(n.text(), f.text);
+        }
+        key(&mut a, KeyCode::Char('d'));
+        let detail = snapshot(w, h, &mut a, false).unwrap();
+        assert!(detail.contains("Desired experience"));
+        assert!(!detail.contains("PROVISIONAL:"));
+        assert!(a.details_text().contains("A dashboard worries me."));
+        key(&mut a, KeyCode::Char('d'));
+        assert!(
+            !snapshot(w, h, &mut a, true)
+                .unwrap()
+                .contains("Desired experience")
+        );
+    }
+}
+#[test]
+fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
+    let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+    assert!(a.notice.contains("No details before"));
+    assert!(!a.running());
+    a.paste("A question worth understanding.");
+    a.submit();
+    settle(&mut a);
+    a.paste("draft");
+    let input = a.input.text.clone();
+    key(&mut a, KeyCode::Char('d'));
+    assert_eq!(a.input.text, input + "d");
+    assert!(!a.details);
+    let input = a.input.text.clone();
+    for mode in 0..4 {
+        a.board_focus = mode == 1;
+        a.original = mode == 2;
+        a.help = mode == 3;
+        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(a.details);
+        assert!(!a.original && !a.help);
+        assert_eq!(a.board_focus, mode == 1);
+        let frame = snapshot(100, 30, &mut a, false).unwrap();
+        assert!(frame.contains("Details / provisional"));
+        assert!(frame.contains("Desired experience"));
+        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(!a.details);
+        assert_eq!(a.input.text, input);
+        assert!(!a.running());
+    }
+    a.details = true;
+    a.original = true;
+    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+    assert!(
+        a.details && !a.original,
+        "Hidden details incorrectly toggled off"
+    );
+    a.details = false;
+    a.original = true;
+    let area = a.area;
+    a.handle_mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: area.width - 25,
+            row: 1,
+            modifiers: KeyModifiers::NONE,
+        },
+        area,
+    );
+    assert!(a.details && !a.original);
+    assert_eq!(a.input.text, input);
+    key(&mut a, KeyCode::Tab);
+    key(&mut a, KeyCode::Char('d'));
+    assert!(!a.details);
+}
+#[test]
+fn clipping_is_visible_and_original_is_one_action_away() {
+    let mut a = BrainDump::default();
+    snapshot(80, 24, &mut a, false).unwrap();
+    let source = "Management wants a dashboard that shows everything people do all week, which feels like surveillance.";
+    a.paste(source);
+    a.submit();
+    settle(&mut a);
+    let view = snapshot(80, 24, &mut a, false).unwrap();
+    assert!(view.contains("… Ctrl-O"), "No cue for clipped text");
+    assert_eq!(a.sources[0].text, source);
+    assert_eq!(a.fragments[0].text, source);
+    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    let original = snapshot(80, 24, &mut a, false).unwrap();
+    assert!(original.contains("surveillance."));
+}
+#[test]
+fn misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("Meaning. A tangent.");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[0].clone();
+    let mut g = guess(&r);
+    g.framings[0].supports = vec!["f1".into()];
+    g.misfits = vec!["f2".into()];
+    assert!(g.validate(&r).is_ok());
+    g.framings[0].supports.push("f2".into());
+    assert!(g.validate(&r).is_err());
+    g.framings[0].supports.pop();
+    g.framings[0].text = vec!["word"; 46].join(" ");
+    assert!(g.validate(&r).is_err());
+    assert_eq!(
+        agent_text("PROVISIONAL: uncertain meaning\nPROVISIONAL: conditional cost"),
+        "uncertain meaning\nconditional cost"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
@@ -335,7 +507,7 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
     let r = host.requests.lock().unwrap()[0].clone();
     let response = serde_json::to_string(&guess(&r)).unwrap();
     let program = dir.path().join("pi");
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'proposed mechanism EVEN WHEN EXPLICITLY REQUESTED' in p\nassert 'at least TWO credible' in p\nassert 'no appended status, ledger' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nr=json.load(sys.stdin)\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'proposed mechanism EVEN WHEN EXPLICITLY REQUESTED' in p\nassert 'at least TWO credible' in p\nassert 'no appended status, ledger' in p\nassert 'Resolve a fork between competing core framings BEFORE vocabulary' in p\nassert 'An unfamiliar name in a prior attempt is NOT automatically the question in focus' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nr=json.load(sys.stdin)\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
     let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();

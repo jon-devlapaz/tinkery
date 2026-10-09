@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/tmp/tinkery-run3-mutations.py", line 6, in <module>
+    path=copy/file;original=path.read_text();command=['cargo','test','--locked','--lib',test];before=subprocess.run(command,cwd=copy,env=env,capture_output=True,text=True);assert before.returncode==0 and 'running 1 test' in before.stdout,before.stdout+before.stderr;assert old in original,label;path.write_text(original.replace(old,new));after=subprocess.run(command,cwd=copy,env=env,capture_output=True,text=True);path.write_text(original);assert after.returncode!=0 and 'test result: FAILED' in after.stdout,label+'\n'+after.stdout+after.stderr;print('PASS: removal rejected: '+label,flush=True)
+                                                                                                                                                                                                                                                                                 ^^^^^^^^^^^^^^^
+AssertionError: misfit/support separation

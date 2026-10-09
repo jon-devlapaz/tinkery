@@ -72,12 +72,15 @@ fn main() {
     capture(&mut app, &dir, "00-entry");
     assert!(app.guess.is_none());
     let dark = std::env::var_os("TINKERY_LIVE_DARK_MODE").is_some();
-    let dump = if dark {
-        "Add a dark mode toggle to my blog. Reading at night is uncomfortable; the readers on hamster need the same relief."
+    let supplied = std::env::var_os("TINKERY_LIVE_DUMP_FILE");
+    let dump = if let Some(path) = &supplied {
+        std::fs::read_to_string(path).expect("Exact dump file")
+    } else if dark {
+        "Add a dark mode toggle to my blog. Reading at night is uncomfortable; the readers on hamster need the same relief.".to_owned()
     } else {
-        DUMP
+        DUMP.to_owned()
     };
-    app.paste(dump);
+    app.paste(&dump);
     capture(&mut app, &dir, "00-typing");
     assert!(app.guess.is_none());
     app.submit();
@@ -87,12 +90,14 @@ fn main() {
     let layout = app.layout();
     let first = app.focused_question().map(|q| q.text.clone());
     println!("FIRST QUESTION: {first:?}");
-    let answer = if dark {
-        "Following the system setting is fine; Hamster is the RSS reader."
+    let answer = if let Some(path) = std::env::var_os("TINKERY_LIVE_ANSWER_FILE") {
+        std::fs::read_to_string(path).expect("Exact answer file")
+    } else if dark {
+        "Following the system setting is fine; Hamster is the RSS reader.".to_owned()
     } else {
-        "The distinction that matters is real-model evidence, stub mechanics, and the operator's own recognition. Put it in the PR thread; reusing links is fine rather than creating a new receipt format."
+        "The distinction that matters is real-model evidence, stub mechanics, and the operator's own recognition. Put it in the PR thread; reusing links is fine rather than creating a new receipt format.".to_owned()
     };
-    app.paste(answer);
+    app.paste(&answer);
     app.submit();
     settle(&mut app);
     capture(&mut app, &dir, "02-answer");
@@ -102,6 +107,12 @@ fn main() {
         "NEXT QUESTION: {:?}",
         app.focused_question().map(|q| &q.text)
     );
+    assert_eq!(app.sources[0].text, dump);
+    assert_eq!(app.sources[1].text, answer);
+    if supplied.is_some() {
+        println!("Captured exact supplied dump/answer; semantic judgment still required.");
+        return;
+    }
     if dark {
         assert_eq!(app.sources[0].text, dump);
         println!(

@@ -1,0 +1,30 @@
+{
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / real Pi / unsaved                    Ctrl-D details   o originals   ",
+    "┌ Your words ────────────────────────┐┌ I think this is about… / provisional ──┐",
+    "│                                    ││→ The team needs a focused way to stay  │",
+    "│┌ ╔═════════════════╗               ││aligned when priorities change, without │",
+    "││ ║the real problem ║               ││long meetings that people tune out.     │",
+    "││ ║might be that    ║               ││                                        │",
+    "││ ║priorities change║               ││The team needs a sustainable check-in   │",
+    "││ ║every day.       ║               ││experience that preserves human         │",
+    "││ ║                 ║               ││connection while avoiding unwanted      │",
+    "│└ ╚═════════════════╝               ││monitoring.                             │",
+    "│                                    ││                                        │",
+    "│┌ ┌… Ctrl-O─────────┐               ││3 doesn’t fit yet · d details           │",
+    "││ │also I kind of   │               ││[ / ] highlight another reading         │",
+    "│└ └─────────────────┘               ││                                        │",
+    "└────────────────────────────────────┘└────────────────────────────────────────┘",
+    "┌ One question / 0 quietly queued ───────────────────┐┌ Answer or add more / F2┐",
+    "│Does this reading fit? Nothing is confirmed.        ││                        │",
+    "│                                                    ││                        │",
+    "│                                                    ││                        │",
+    "│Later:                                              ││                        │",
+    "└────────────────────────────────────────────────────┘└────────────────────────┘",
+    "Reshape failed: Board omitted fragments: every fragment must support a framing o",
+    "F2 submit · Tab input/board · Ctrl-N add more · Ctrl-O original · Ctrl-C exit   "
+  ],
+  "width": 80
+}

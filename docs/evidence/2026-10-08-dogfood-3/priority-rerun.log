@@ -1,0 +1,7 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+     Running `target/debug/examples/live_brain_dump_check docs/evidence/2026-10-08-dogfood-3/priority-rerun`
+FIRST QUESTION: Some("Which matters more to solve first: alignment when priorities change, or the experience and trust around team check-ins?")
+
+thread 'main' (58439842) panicked at examples/live_brain_dump_check.rs:104:5:
+Reshape failed: Board omitted fragments: every fragment must support a framing or remain a misfit. Original and previous board retained; F2 retries.
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

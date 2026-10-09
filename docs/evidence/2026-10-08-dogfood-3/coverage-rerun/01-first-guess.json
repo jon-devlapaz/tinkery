@@ -1,0 +1,46 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "The team needs coordination that feels worthwhile and keeps people aligned without exhausting meetings.",
+      "supports": [
+        "f1",
+        "f2",
+        "f3",
+        "f6",
+        "f7"
+      ]
+    },
+    {
+      "text": "The deeper issue may be constantly changing priorities, with visibility efforts risking surveillance rather than useful alignment.",
+      "supports": [
+        "f4",
+        "f8"
+      ]
+    }
+  ],
+  "outcome": "The team feels aligned on current priorities and progress, with coordination that is focused, trusted, and worth participating in.",
+  "misfits": [
+    "f5"
+  ],
+  "questions": [
+    {
+      "id": "core-concern",
+      "text": "Which is the deeper concern: ineffective coordination meetings, or priorities changing so often that alignment breaks down?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "Conditional candidate: shift most updates to asynchronous participation",
+      "benefit": "Could reduce meeting time and preserve updates for people who need them.",
+      "cost": "People may stop reading, weakening shared awareness.",
+      "undo_cost": "Provisional; reverting may be straightforward but could renew meeting fatigue."
+    },
+    {
+      "label": "Conditional candidate: keep a smaller recurring live rhythm and redesign the rest of coordination around priority changes",
+      "benefit": "Could preserve face-to-face connection while focusing live time on decisions and changes.",
+      "cost": "Requires discipline about what belongs live and may not solve underlying priority instability.",
+      "undo_cost": "Provisional; the changed rhythm may be easy to reverse, but habits may persist."
+    }
+  ]
+}

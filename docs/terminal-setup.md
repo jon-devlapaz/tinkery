@@ -63,8 +63,8 @@ For a useful report, record the desktop/terminal version, `stty size`, whether P
 
 - Start with **What's on your mind?** Type freely; **Enter** inserts a newline, **F2** submits. No provider request or interpretation before submit.
 - After submission, exact fragments and a provisional centre reading appear. Answer the focused question or **Ctrl-N** to add another dump; F2 reshapes. A reply arriving during new typing waits for the next submit.
-- **Ctrl-O** opens intact originals; **Esc** closes. **Tab** switches input/board focus. On the board: **s** skips the focused question; **y** explicitly copies board Markdown; **q** exits. **Ctrl-C** exits from input.
-- Drag fragment cards to arrange them; later responses retain existing positions. **Ctrl-F** on the board explicitly fits the view. **PageUp/PageDown** scroll the agent reading.
+- **Ctrl-O** opens intact originals; **Esc** closes. **Tab** switches input/board focus. **Ctrl-D** or the visible header control opens details from any focus (including originals/help); plain `d` remains text in the input. On the board: **d** toggles details, **s** skips the focused question, **y** explicitly copies board Markdown, and **q** exits. **Ctrl-C** exits from input.
+- Drag fragment cards to arrange them; later responses retain existing positions. Double borders highlight the current reading's supporting words; **[ / ]** on the board switches the highlighted reading without answering or confirming. Misfit cards are marked **doesn't fit yet**; **… Ctrl-O** flags clipped text. Card titles/ID lists are absent from the default view. **Ctrl-F** on the board explicitly fits the view. **PageUp/PageDown** scroll the agent reading.
 - **Esc** cancels an active request; failure/cancellation retains originals and the previous reading. F2 is an explicit retry. Nothing is saved, confirmed, or handed off.
 - No answer choices in this slice. Clusters, relationships, settled strip, centre editing, and confirmation are not implemented.
 
