@@ -163,6 +163,7 @@ pub struct PiHost {
     thinking: String,
     instructions: String,
     timeout: Duration,
+    pub(super) brain_history: std::sync::Mutex<Vec<String>>,
 }
 
 impl PiHost {
@@ -193,6 +194,7 @@ impl PiHost {
             thinking: "low".into(),
             instructions: instructions.into(),
             timeout: Duration::from_secs(90),
+            brain_history: std::sync::Mutex::new(Vec::new()),
         })
     }
 

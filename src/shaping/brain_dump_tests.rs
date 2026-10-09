@@ -386,7 +386,8 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         ] {
             assert!(!ordinary.contains(noise), "{noise} in sparse view");
         }
-        assert!(ordinary.contains("1 doesn’t fit yet"));
+        assert!(!ordinary.contains("doesn’t fit yet"));
+        assert!(a.details_text().contains("Doesn’t fit yet"));
         assert!(a.canvas.state.data.nodes.iter().all(|n| match n {
             CanvasNode::Text(n) => n.title.is_none(),
             _ => false,
@@ -453,7 +454,7 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
         assert!(!a.original && !a.help);
         assert_eq!(a.board_focus, mode == 1);
         let frame = snapshot(100, 30, &mut a, false).unwrap();
-        assert!(frame.contains("Details / provisional"));
+        assert!(!frame.contains("provisional"));
         assert!(frame.contains("Desired experience"));
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         assert!(!a.details);
@@ -473,16 +474,19 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     a.handle_mouse(
         MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
-            column: area.width - 25,
+            column: area.width - 3,
             row: 1,
             modifiers: KeyModifiers::NONE,
         },
         area,
     );
-    assert!(a.details && !a.original);
+    assert!(a.help && !a.original);
     assert_eq!(a.input.text, input);
+    key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Char('d'));
+    assert!(a.details);
+    key(&mut a, KeyCode::Esc);
     assert!(!a.details);
 }
 #[test]
@@ -498,7 +502,7 @@ fn clipping_is_visible_and_original_is_one_action_away() {
     assert!(view.contains("more"), "No source scrolling cue");
     assert!(
         view.lines()
-            .nth(usize::from(a.source_area.y) - 1)
+            .nth(usize::from(a.source_area.y))
             .unwrap()
             .contains("Management"),
         "Source title was replaced with a clipping hint"
@@ -711,7 +715,7 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
         view.lines().nth(y).unwrap().contains("Café"),
         "Card title was replaced with metadata"
     );
-    assert!(view.contains("Enter: source"));
+    assert!(!view.contains("Enter: source"));
     assert!(!view.contains("… Ctrl-O"));
     a.canvas.state.selection.select_only("f1".into());
     key(&mut a, KeyCode::Enter);
@@ -767,27 +771,17 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
         "Forced whole-source coverage"
     );
     a.guess = Some(g);
-    assert_eq!(
-        snapshot(80, 24, &mut a, false)
-            .unwrap()
-            .matches("Ctrl-O originals")
-            .count(),
-        1
-    );
-    let area = a.area;
-    a.handle_mouse(
-        MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::Left),
-            column: area.width - 16,
-            row: 1,
-            modifiers: KeyModifiers::NONE,
-        },
-        area,
-    );
     assert!(
-        a.original && !a.details,
-        "Originals click activated overlapping details control"
+        !snapshot(80, 24, &mut a, false)
+            .unwrap()
+            .contains("Ctrl-O originals")
     );
+    a.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
+    assert!(a.help && !a.details);
+    snapshot(80, 24, &mut a, false).unwrap();
+    key(&mut a, KeyCode::Esc);
+    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    assert!(a.original && !a.details);
     assert!(a.fragments.is_empty());
 }
 
@@ -813,7 +807,8 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
             frame.contains("Reading updated from your answer: both"),
             "No glanceable answer update"
         );
-        assert!(frame.contains("Settled: both"));
+        assert!(!frame.contains("Settled: both"));
+        assert!(a.details_text().contains("both"));
         assert!(frame.contains("Who controls RSS appearance?"));
         assert!(!frame.contains("What is Hamster?"));
         assert!(a.details_text().contains(&question));
@@ -909,14 +904,15 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     ] {
         assert!(!view.contains(clutter), "{clutter} in sparse view");
     }
-    assert!(view.contains("Your reply / F2 submit"));
-    assert!(view.contains("Highlighted words support"));
+    assert!(view.contains("Your reply"));
+    assert!(!view.contains("F2"));
+    assert!(!view.contains("Highlighted words support"));
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     assert!(a.notice.contains("not an answer"));
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("Your reply / F2 submit")
+            .contains("Add more")
     );
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     a.paste("both");

@@ -66,6 +66,7 @@ impl BrainDump {
         }
         self.original = false;
         self.help = false;
+        self.details = false;
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
         self.goal_review=Some(Review{affirmation:Affirmation{goal:agent_text(&g.framings[self.reading].text),outcome:g.outcome.clone(),options:g.alternatives.clone(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});
@@ -91,6 +92,7 @@ impl BrainDump {
                 Ok(receipt) => {
                     self.notice = "Goal confirmed. The seed isn't written yet.".into();
                     self.goal_review = None;
+                    self.paper_scroll = 0;
                     self.receipt = Some(receipt);
                 }
                 Err(error) => {
@@ -139,6 +141,12 @@ impl BrainDump {
         if self.receipt.is_some() {
             match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => self.quit = true,
+                KeyCode::PageDown | KeyCode::Down => {
+                    self.paper_scroll = self.paper_scroll.saturating_add(5)
+                }
+                KeyCode::PageUp | KeyCode::Up => {
+                    self.paper_scroll = self.paper_scroll.saturating_sub(5)
+                }
                 KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     self.original = true;
                     self.original_scroll = 0;
@@ -181,46 +189,52 @@ impl BrainDump {
     }
 }
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
-    if app.original || app.help {
-        return;
-    }
-    if app.goal_review.is_none() && app.receipt.is_none() {
-        return;
-    }
-    let area = frame.area();
-    let rect = Rect::new(2, 3, area.width - 4, area.height - 6);
-    frame.render_widget(Clear, rect);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(if app.receipt.is_some() {
-            " Goal confirmed / q exits "
-        } else {
-            " Confirm this goal / Esc cancels "
-        })
-        .style(palette.ink);
-    let inner = block.inner(rect);
-    frame.render_widget(block, rect);
+    let inner = app.agent_area;
     if let Some(receipt) = &app.receipt {
-        frame.render_widget(Paragraph::new(format!("{}\n\nTinkery's handoff is read-only. q exits; Ctrl-O originals.\nNo seed confirmation, intake readiness, or implementation approval.",receipt.text())).wrap(Wrap{trim:false}).style(palette.ink),inner);
+        let path_lines = Paragraph::new(receipt.session.display().to_string())
+            .wrap(Wrap { trim: false })
+            .line_count(inner.width);
+        let rows = Layout::vertical([
+            Constraint::Length(2),
+            Constraint::Length(path_lines.min(usize::from(inner.height.saturating_sub(4))) as u16),
+            Constraint::Length(2),
+        ])
+        .flex(ratatui::layout::Flex::Start)
+        .split(inner);
+        frame.render_widget(
+            Paragraph::new("Goal confirmed — seed not written yet").style(palette.ink),
+            rows[0],
+        );
+        let p = Paragraph::new(receipt.session.display().to_string())
+            .wrap(Wrap { trim: false })
+            .style(palette.ink);
+        let max = p
+            .line_count(rows[1].width)
+            .saturating_sub(rows[1].height as usize) as u16;
+        app.paper_scroll = app.paper_scroll.min(max);
+        frame.render_widget(p.scroll((app.paper_scroll, 0)), rows[1]);
+        frame.render_widget(
+            Paragraph::new("Continue with Seed Me in any harness").style(palette.muted),
+            Rect::new(rows[2].x, rows[2].y + 1, rows[2].width, 1),
+        );
         return;
     }
-    let review = app.goal_review.as_mut().unwrap();
-    let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(7)]).split(inner);
-    let questions = if review.affirmation.unresolved.is_empty() {
-        "None recorded. This is not proof of understanding.".into()
-    } else {
-        review
-            .affirmation
-            .unresolved
-            .iter()
-            .map(|q| format!("• {}", q.text))
-            .collect::<Vec<_>>()
-            .join("\n")
+    let Some(review) = app.goal_review.as_mut() else {
+        return;
     };
-    let body = format!(
-        "Goal you are confirming:\n{}\n\nRemaining unresolved questions (do not block goal confirmation):\n{}",
-        review.affirmation.goal, questions
-    );
+    let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(8)]).split(inner);
+    let questions = review
+        .affirmation
+        .unresolved
+        .iter()
+        .map(|q| format!("• {}", q.text))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body = if questions.is_empty() {
+        review.affirmation.goal.clone()
+    } else {
+        format!("{}\n\nStill open\n{}", review.affirmation.goal, questions)
+    };
     let p = Paragraph::new(body)
         .wrap(Wrap { trim: false })
         .style(palette.ink);
@@ -229,5 +243,32 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         .saturating_sub(rows[0].height as usize) as u16;
     review.scroll = review.scroll.min(review.max);
     frame.render_widget(p.scroll((review.scroll, 0)), rows[0]);
-    frame.render_widget(Paragraph::new(format!("Running out of questions doesn't mean I understood you.\nGoal only; outcome/options remain proposals. No seed or implementation approval.\nCreates a real Seed Me session outside the repository.\n{}\nConfirm this goal: type confirm, then Enter: {}\n{}",if review.max>0{"PgUp/PgDn reviews the complete goal and questions."}else{"Esc cancels without creating a session."},review.input,app.notice)).wrap(Wrap{trim:false}).style(palette.jade),rows[1]);
+    let saving = if app.handoff_job.is_some() {
+        "\nSaving…"
+    } else if app.notice.starts_with("Handoff not complete") {
+        "\nHandoff not complete."
+    } else {
+        ""
+    };
+    let prompt = format!(
+        "Running out of questions doesn't mean I understood you.\n\nCreates a Seed Me session; this goal can't be edited after.\n\ntype confirm   {}{}",
+        review.input, saving
+    );
+    frame.render_widget(
+        Paragraph::new(prompt.clone())
+            .wrap(Wrap { trim: false })
+            .style(palette.jade),
+        rows[1],
+    );
+    if app.handoff_job.is_none() {
+        let mut note = Note::new(&prompt);
+        note.cursor = prompt.len();
+        let wrapped = note.wrap(rows[1].width);
+        if wrapped.cursor.0 < rows[1].height {
+            frame.set_cursor_position((
+                rows[1].x + wrapped.cursor.1.min(rows[1].width - 1),
+                rows[1].y + wrapped.cursor.0,
+            ));
+        }
+    }
 }

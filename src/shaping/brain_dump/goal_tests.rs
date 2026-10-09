@@ -1,5 +1,19 @@
 use super::*;
-fn board() -> BrainDump {
+pub(super) fn right_text(screen: &str, width: u16) -> String {
+    screen
+        .lines()
+        .map(|line| {
+            line.chars()
+                .skip(usize::from(width * 48 / 100 + 2))
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+pub(super) fn board() -> BrainDump {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
     a.sources.push(Source{id:1,text:"PR ready for human review; restaurateur, not cook; both harness and codebases compound.".into(),in_reply_to:None});
@@ -28,10 +42,12 @@ fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affi
         let q = a.focused_question().unwrap().text.clone();
         a.review_goal();
         let text = snapshot(w, h, &mut a, false).unwrap();
-        assert!(text.contains("Confirm this goal"));
+        assert!(text.contains("type confirm"));
         assert!(text.contains("Running out of questions"));
-        assert!(text.contains("doesn't mean I understood you."));
-        assert!(text.contains(&q));
+        assert!(right_text(&text, w).contains("doesn't mean I understood you."));
+        key(&mut a, KeyCode::PageDown);
+        let scrolled = snapshot(w, h, &mut a, false).unwrap();
+        assert!(right_text(&scrolled, w).contains(&q));
         assert!(a.handoff_job.is_none());
         key(&mut a, KeyCode::Enter);
         key(&mut a, KeyCode::F(2));
@@ -80,7 +96,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     let mut a = board();
     a.guess.as_mut().unwrap().questions.clear();
     let text = snapshot(100, 30, &mut a, false).unwrap();
-    assert!(text.contains("Ctrl-G review goal"));
+    assert!(text.contains("Review goal"));
     assert!(a.receipt.is_none());
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
