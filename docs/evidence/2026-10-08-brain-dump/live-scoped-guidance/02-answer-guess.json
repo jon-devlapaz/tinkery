@@ -1,0 +1,33 @@
+{
+  "uncertain": false,
+  "framings": [
+    {
+      "text": "I think this is about giving the next person a low-friction, PR-thread view of what Tinkery checks established: real-model evidence, stub mechanics, and the operator's own recognition, while preventing unuseful questions from recurring.",
+      "supports": [
+        "f1",
+        "f2",
+        "f3",
+        "f4",
+        "f5",
+        "f6"
+      ]
+    }
+  ],
+  "outcome": "Before dogfooding, the next person can quickly understand in the PR thread what was actually checked, distinguish real-model evidence from stub mechanics and the operator's own recognition, and avoid questions already judged unuseful.",
+  "misfits": [],
+  "questions": [],
+  "alternatives": [
+    {
+      "label": "Conditional candidate: add a compact receipt to the PR thread after relevant checks",
+      "benefit": "Makes evidence and check status visible with little manual entry, if the needed details are available.",
+      "cost": "A compact receipt may omit context or become stale when checks are partial or changed.",
+      "undo_cost": "Provisional: correcting or removing posted receipts may require follow-up clarification."
+    },
+    {
+      "label": "Conditional candidate: reuse links to existing check evidence and update a lightweight PR-thread summary",
+      "benefit": "Avoids creating another receipt format while keeping relevant evidence discoverable and reducing repetitive entry.",
+      "cost": "Information may be fragmented, and the summary may depend on people keeping links current.",
+      "undo_cost": "Provisional: returning to the current scattered-link workflow may leave context distributed across prior updates."
+    }
+  ]
+}

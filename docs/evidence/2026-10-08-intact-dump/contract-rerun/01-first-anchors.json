@@ -1,0 +1,24 @@
+[
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier.",
+      "source": 1
+    },
+    "end": 723,
+    "reading": 1,
+    "role": "support",
+    "start": 514
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "a system that compounds itself and serves as a meta harness. its a human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+      "source": 1
+    },
+    "end": 214,
+    "reading": 2,
+    "role": "support",
+    "start": 38
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "I think this is about helping people read your blog more comfortably at night, including readers on hamster.",
+      "supports": [
+        "f1",
+        "f2"
+      ]
+    },
+    {
+      "text": "I think this is about offering a darker visual presentation of your blog for nighttime reading, with the intended reach to readers on hamster still unclear.",
+      "supports": [
+        "f1",
+        "f2"
+      ]
+    }
+  ],
+  "outcome": "Readers can read the blog comfortably at night, including the intended readers on hamster.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "hamster-meaning-capability",
+      "text": "What is “hamster,” and where should readers experience this nighttime comfort?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "Manual dark appearance choice",
+      "benefit": "Readers who need relief can choose a darker presentation when reading at night. PROVISIONAL assumption: readers can access and retain this choice.",
+      "cost": "Readers must discover and use the choice.",
+      "undo_cost": "PROVISIONAL: removing it may leave some readers without a direct remedy."
+    },
+    {
+      "label": "Automatic nighttime appearance",
+      "benefit": "The blog could adapt to a reader’s system or time-of-day preference without requiring a manual choice. PROVISIONAL assumption: the existing environment exposes a reliable preference.",
+      "cost": "Automatic changes may surprise readers or fail to match their actual needs.",
+      "undo_cost": "PROVISIONAL: reverting may require restoring the prior appearance behavior and preferences."
+    }
+  ]
+}

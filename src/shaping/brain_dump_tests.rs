@@ -1,0 +1,1008 @@
+use super::*;
+fn anchor(quote: &str) -> Anchor {
+    Anchor {
+        source: 1,
+        quote: quote.into(),
+        occurrence: 0,
+    }
+}
+fn anchors(r: &BoardRequest) -> Vec<Anchor> {
+    r.sources
+        .iter()
+        .map(|s| Anchor {
+            source: s.id,
+            quote: s.text.clone(),
+            occurrence: 0,
+        })
+        .collect()
+}
+use std::{
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
+};
+#[derive(Default)]
+struct Recording {
+    requests: Mutex<Vec<BoardRequest>>,
+    fail: AtomicBool,
+}
+fn guess(r: &BoardRequest) -> Guess {
+    Guess {
+        uncertain: false,
+        framings: vec![Framing {
+            text: format!(
+                "Model reading {} originals: make reading comfortable.",
+                r.sources.len()
+            ),
+            supports: anchors(r),
+        }],
+        outcome: "Read comfortably in the blog and RSS reader.".into(),
+        misfits: vec![],
+        questions: if r.answered.contains(&"reader".into())
+            || r.skipped.iter().any(|q| q.id == "reader")
+        {
+            vec![Question {
+                id: "rss-control".into(),
+                text: "Who controls RSS appearance?".into(),
+            }]
+        } else {
+            vec![
+                Question {
+                    id: "reader".into(),
+                    text: "What is Hamster?".into(),
+                },
+                Question {
+                    id: "audience".into(),
+                    text: "Who needs comfortable reading?".into(),
+                },
+            ]
+        },
+        alternatives: [
+            "A manual control / candidate",
+            "Follow the system setting / candidate",
+        ]
+        .into_iter()
+        .map(|label| Approach {
+            label: label.into(),
+            benefit: "Comfortable reading.".into(),
+            cost: "Check the host.".into(),
+            undo_cost: "Unverified.".into(),
+        })
+        .collect(),
+    }
+}
+impl BoardHost for Recording {
+    fn reshape(&self, r: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+        self.requests.lock().unwrap().push(r.clone());
+        if self.fail.load(Ordering::Relaxed) {
+            Err("injected failure".into())
+        } else {
+            Ok(guess(&r))
+        }
+    }
+}
+fn key(a: &mut BrainDump, code: KeyCode) {
+    a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+}
+fn settle(a: &mut BrainDump) {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while a.running() && Instant::now() < deadline {
+        a.tick();
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(!a.running());
+}
+#[test]
+fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_layout() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let host = Arc::new(Recording::default());
+        let mut a = BrainDump::with_host(host.clone());
+        let first = snapshot(w, h, &mut a, false).unwrap();
+        assert!(first.contains("What's on your mind?"));
+        assert!(!first.contains("I think this is about"));
+        assert!(a.fragments.is_empty());
+        let dump = "  I want a toggle.\nHamster is unfamiliar. Café 👩‍💻 matters!  ";
+        a.paste(dump);
+        a.tick();
+        assert!(host.requests.lock().unwrap().is_empty());
+        key(&mut a, KeyCode::F(2));
+        settle(&mut a);
+        assert_eq!(a.sources[0].text, dump);
+        assert!(
+            snapshot(w, h, &mut a, false)
+                .unwrap()
+                .contains("Model reading 1 originals")
+        );
+        a.guess.as_mut().unwrap().questions[0].text = "Should scratch thinking remain entirely separate unless someone explicitly chooses to carry it into the PR?".into();
+        assert!(
+            snapshot(w, h, &mut a, false).unwrap().contains("PR?"),
+            "Focused live question clipped at supported size"
+        );
+        assert!(
+            a.fragments.is_empty(),
+            "Sentence punctuation automatically created cards"
+        );
+        a.extract_range(1, 0, dump.find('\n').unwrap()).unwrap();
+        for f in &a.fragments {
+            assert_eq!(&dump[f.start..f.end], f.text);
+        }
+        assert!(a.paper().contains("Hamster"));
+        assert!(
+            a.paper()
+                .contains("One question in focus\n\nShould scratch thinking")
+        );
+        if let CanvasNode::Text(n) = &mut a.canvas.state.data.nodes[0] {
+            n.x = 1234.;
+            n.y = -456.;
+        }
+        let old = a.layout();
+        a.paste("Hamster is my RSS reader; following the system setting is fine.");
+        key(&mut a, KeyCode::F(2));
+        settle(&mut a);
+        assert_eq!(&a.layout()[..old.len()], old.as_slice());
+        assert_eq!(a.focused_question().unwrap().id, "rss-control");
+        let updated = snapshot(w, h, &mut a, false).unwrap();
+        assert!(
+            updated.contains("Model reading 2 originals"),
+            "Answer did not visibly update centre"
+        );
+        assert!(!updated.contains("Model reading 1 originals"));
+        assert_eq!(a.sources[1].in_reply_to.as_deref(), Some("reader"));
+        assert_eq!(a.sources[0].text, dump);
+        assert!(a.paper().contains("Hamster is my RSS reader"));
+        assert_eq!(host.requests.lock().unwrap().len(), 2);
+        assert_eq!(host.requests.lock().unwrap()[1].layout[..old.len()], old);
+        key(&mut a, KeyCode::Tab);
+        key(&mut a, KeyCode::Char('y'));
+        assert_eq!(a.take_copy_request(), Some(a.paper()));
+        key(&mut a, KeyCode::Char('o'));
+        assert!(
+            snapshot(w, h, &mut a, false)
+                .unwrap()
+                .contains("Original 1")
+        );
+        key(&mut a, KeyCode::Esc);
+        assert!(!a.original);
+    }
+}
+#[test]
+fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.submit();
+    assert!(host.requests.lock().unwrap().is_empty());
+    key(&mut a, KeyCode::Char('n'));
+    key(&mut a, KeyCode::Char('e'));
+    assert_eq!(a.input.text, "ne");
+    a.submit();
+    settle(&mut a);
+    let before = a.paper();
+    key(&mut a, KeyCode::Tab);
+    key(&mut a, KeyCode::Char('s'));
+    assert_eq!(a.focused_question().unwrap().id, "audience");
+    key(&mut a, KeyCode::Tab);
+    host.fail.store(true, Ordering::Relaxed);
+    a.paste("A second dump.");
+    a.submit();
+    settle(&mut a);
+    assert!(a.notice.contains("injected failure"));
+    assert_eq!(a.sources.len(), 2);
+    assert_eq!(
+        a.guess.as_ref().unwrap().outcome,
+        "Read comfortably in the blog and RSS reader."
+    );
+    assert!(a.originals().contains("A second dump."));
+    assert!(a.paper().contains("Nothing confirmed"));
+    assert_ne!(a.paper(), before);
+    host.fail.store(false, Ordering::Relaxed);
+    a.submit();
+    settle(&mut a);
+    assert_eq!(a.sources.len(), 2);
+    assert_eq!(a.focused_question().unwrap().id, "rss-control");
+    assert!(
+        host.requests
+            .lock()
+            .unwrap()
+            .last()
+            .unwrap()
+            .skipped
+            .iter()
+            .any(|q| q.id == "reader")
+    );
+}
+#[test]
+fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.paste("Exact words. More words.");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[0].clone();
+    let g = guess(&r);
+    let mut bad = g.clone();
+    bad.framings[0].supports = vec![anchor("invented")];
+    assert!(bad.validate(&r).is_err());
+    let mut bad = g.clone();
+    bad.framings[0].supports.pop();
+    assert!(bad.validate(&r).is_err());
+    let mut bad = g.clone();
+    bad.questions[0]
+        .text
+        .push_str(" The Ledger: link shows decisions.");
+    assert!(bad.validate(&r).is_err());
+    let mut bad = g.clone();
+    bad.uncertain = true;
+    assert!(bad.validate(&r).is_err());
+    bad.framings.push(Framing {
+        text: "Another possible meaning".into(),
+        supports: anchors(&r),
+    });
+    assert!(bad.validate(&r).is_ok());
+    let mut bad = g.clone();
+    bad.outcome = "\x1b]52;c;payload".into();
+    assert!(bad.validate(&r).is_err());
+    let mut bad = g.clone();
+    bad.alternatives.pop();
+    assert!(bad.validate(&r).is_err());
+    let mut skipped = r.clone();
+    skipped.skipped.push(g.questions[0].clone());
+    assert!(g.validate(&skipped).is_err());
+    let json = serde_json::to_string(&g).unwrap();
+    assert!(
+        serde_json::from_str::<Guess>(&json.replace(
+            "\"misfits\":[]",
+            "\"misfits\":[\"an inferred relationship\"]"
+        ))
+        .is_err(),
+        "Unanchored narrative misfit accepted"
+    );
+    assert!(serde_json::from_str::<Guess>(&(json.clone() + " extra")).is_err());
+    assert!(
+        serde_json::from_str::<Guess>(&json.replace(
+            "\"uncertain\":false",
+            "\"uncertain\":false,\"confirmed\":true"
+        ))
+        .is_err()
+    );
+}
+#[test]
+fn typing_during_request_is_never_replaced_by_the_result() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host);
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.paste("First dump.");
+    a.submit();
+    a.paste("Local text while thinking.");
+    settle(&mut a);
+    assert_eq!(a.input.text, "Local text while thinking.");
+    assert_eq!(a.sources.len(), 1);
+    assert!(
+        a.guess.is_none(),
+        "Agent interrupted new typing with a framing"
+    );
+    assert!(a.ready.is_some());
+    a.submit();
+    settle(&mut a);
+    assert!(a.guess.is_some());
+    assert_eq!(a.sources.len(), 2);
+}
+#[test]
+fn simulated_is_explicit_and_never_an_automatic_real_failure_fallback() {
+    let mut a = BrainDump::default();
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.paste("My own thought.");
+    a.submit();
+    settle(&mut a);
+    assert!(a.guess.unwrap().framings[0].text.contains("Simulated"));
+}
+
+#[test]
+fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host);
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.paste("Read comfortably. Hamster is unfamiliar.");
+    a.submit();
+    settle(&mut a);
+    a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
+    key(&mut a, KeyCode::Tab);
+    key(&mut a, KeyCode::Char('e'));
+    snapshot(100, 30, &mut a, false).unwrap();
+    let area = a.area;
+    let rect = a.canvas.area;
+    let n = &a.canvas.state.data.nodes[0];
+    let (nx, ny) = n.pos();
+    let x = ((nx - a.canvas.state.viewport_x) * a.canvas.state.zoom + f64::from(rect.width) / 2.0)
+        as u16
+        + rect.x
+        + 4;
+    let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom + f64::from(rect.height) / 2.0)
+        as u16
+        + rect.y
+        + 2;
+    let before = a.layout();
+    for (kind, dx, dy) in [
+        (MouseEventKind::Down(MouseButton::Left), 0, 0),
+        (MouseEventKind::Drag(MouseButton::Left), 4, 2),
+        (MouseEventKind::Up(MouseButton::Left), 4, 2),
+    ] {
+        a.handle_mouse(
+            MouseEvent {
+                kind,
+                column: x + dx,
+                row: y + dy,
+                modifiers: KeyModifiers::NONE,
+            },
+            area,
+        );
+    }
+    assert_ne!(a.layout(), before, "Real mouse drag did not move a card");
+    let moved = a.layout();
+    assert!(a.canvas.state.floating_editor.is_none());
+    for (n, f) in a.canvas.state.data.nodes.iter().zip(&a.fragments) {
+        assert_eq!(n.text(), f.text);
+    }
+    key(&mut a, KeyCode::Tab);
+    a.paste("It is an RSS reader.");
+    a.submit();
+    settle(&mut a);
+    assert_eq!(&a.layout()[..moved.len()], moved.as_slice());
+}
+#[test]
+fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+        snapshot(w, h, &mut a, false).unwrap();
+        a.paste("My week has no clear priority. Meetings are too long. A dashboard worries me.");
+        a.submit();
+        settle(&mut a);
+        let layout = a.layout();
+        let fragments = a.fragments.clone();
+        let g = a.guess.as_mut().unwrap();
+        g.uncertain = true;
+        g.framings = vec![
+            Framing {
+                text: "PROVISIONAL: Clarify what matters this week.".into(),
+                supports: vec![anchor("My week has no clear priority.")],
+            },
+            Framing {
+                text: "PROVISIONAL: Reduce time in meetings.".into(),
+                supports: vec![anchor("Meetings are too long.")],
+            },
+        ];
+        g.misfits = vec![anchor("A dashboard worries me.")];
+        let ordinary = snapshot(w, h, &mut a, false).unwrap();
+        for noise in [
+            "PROVISIONAL:",
+            "Supports:",
+            "Desired experience",
+            "Candidates /",
+            "Your f1",
+            "Your f2",
+        ] {
+            assert!(!ordinary.contains(noise), "{noise} in sparse view");
+        }
+        assert!(ordinary.contains("1 doesn’t fit yet"));
+        assert!(a.canvas.state.data.nodes.iter().all(|n| match n {
+            CanvasNode::Text(n) => n.title.is_none(),
+            _ => false,
+        }));
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+        terminal
+            .draw(|f| render(f, &mut a, Palette::new(false)))
+            .unwrap();
+        let first = terminal.backend().buffer().clone();
+        key(&mut a, KeyCode::Tab);
+        key(&mut a, KeyCode::Char(']'));
+        terminal
+            .draw(|f| render(f, &mut a, Palette::new(false)))
+            .unwrap();
+        let second = terminal.backend().buffer();
+        let area = a.canvas.area;
+        assert!(
+            (area.y..area.bottom())
+                .any(|y| (area.x..area.right()).any(|x| first[(x, y)] != second[(x, y)])),
+            "Support highlights didn't switch"
+        );
+        assert_eq!(a.layout(), layout);
+        assert!(!a.running(), "Highlighting sent a model request");
+        assert_eq!(a.sources.len(), 1, "Highlighting was recorded as an answer");
+        for (n, f) in a.canvas.state.data.nodes.iter().zip(&fragments) {
+            assert_eq!(n.text(), f.text);
+        }
+        key(&mut a, KeyCode::Char('d'));
+        let detail = snapshot(w, h, &mut a, false).unwrap();
+        assert!(detail.contains("Desired experience"));
+        assert!(!detail.contains("PROVISIONAL:"));
+        assert!(a.details_text().contains("A dashboard worries me."));
+        key(&mut a, KeyCode::Char('d'));
+        assert!(
+            !snapshot(w, h, &mut a, true)
+                .unwrap()
+                .contains("Desired experience")
+        );
+    }
+}
+#[test]
+fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
+    let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+    assert!(a.notice.contains("No details before"));
+    assert!(!a.running());
+    a.paste("A question worth understanding.");
+    a.submit();
+    settle(&mut a);
+    a.paste("draft");
+    let input = a.input.text.clone();
+    key(&mut a, KeyCode::Char('d'));
+    assert_eq!(a.input.text, input + "d");
+    assert!(!a.details);
+    let input = a.input.text.clone();
+    for mode in 0..4 {
+        a.board_focus = mode == 1;
+        a.original = mode == 2;
+        a.help = mode == 3;
+        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(a.details);
+        assert!(!a.original && !a.help);
+        assert_eq!(a.board_focus, mode == 1);
+        let frame = snapshot(100, 30, &mut a, false).unwrap();
+        assert!(frame.contains("Details / provisional"));
+        assert!(frame.contains("Desired experience"));
+        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        assert!(!a.details);
+        assert_eq!(a.input.text, input);
+        assert!(!a.running());
+    }
+    a.details = true;
+    a.original = true;
+    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+    assert!(
+        a.details && !a.original,
+        "Hidden details incorrectly toggled off"
+    );
+    a.details = false;
+    a.original = true;
+    let area = a.area;
+    a.handle_mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: area.width - 25,
+            row: 1,
+            modifiers: KeyModifiers::NONE,
+        },
+        area,
+    );
+    assert!(a.details && !a.original);
+    assert_eq!(a.input.text, input);
+    key(&mut a, KeyCode::Tab);
+    key(&mut a, KeyCode::Char('d'));
+    assert!(!a.details);
+}
+#[test]
+fn clipping_is_visible_and_original_is_one_action_away() {
+    let mut a = BrainDump::default();
+    snapshot(80, 24, &mut a, false).unwrap();
+    let source = "Management wants a dashboard that shows everything people do all week, which feels like surveillance.";
+    let source = source.repeat(12);
+    a.paste(&source);
+    a.submit();
+    settle(&mut a);
+    let view = snapshot(80, 24, &mut a, false).unwrap();
+    assert!(view.contains("more"), "No source scrolling cue");
+    assert!(
+        view.lines()
+            .nth(usize::from(a.source_area.y) - 1)
+            .unwrap()
+            .contains("Management"),
+        "Source title was replaced with a clipping hint"
+    );
+    assert!(!view.contains("… Ctrl-O"));
+    assert_eq!(a.sources[0].text, source);
+    assert!(a.fragments.is_empty());
+    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    let original = snapshot(80, 24, &mut a, false).unwrap();
+    assert!(original.contains("surveillance."));
+}
+#[test]
+fn misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("Meaning. A tangent.");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[0].clone();
+    let mut g = guess(&r);
+    g.framings[0].supports = vec![anchor("Meaning.")];
+    g.misfits = vec![anchor("A tangent.")];
+    assert!(g.validate(&r).is_ok());
+    g.framings[0].supports.push(anchor("A tangent."));
+    assert!(g.validate(&r).is_err());
+    g.framings[0].supports.pop();
+    g.framings[0].text = vec!["word"; 46].join(" ");
+    assert!(g.validate(&r).is_err());
+    assert_eq!(
+        agent_text("PROVISIONAL: uncertain meaning\nPROVISIONAL: conditional cost"),
+        "uncertain meaning\nconditional cost"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(&skill,"# Seed Me\nFAKE_LEDGER_REPLY_RULE\n### Shape the working draft\nACTUAL_SHAPING_GUIDANCE\n### Size gate\nDO_NOT_RUN_LATER_GATE").unwrap();
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.paste("My exact words.");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[0].clone();
+    let response = serde_json::to_string(&guess(&r)).unwrap();
+    let program = dir.path().join("pi");
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'not proposed toggle/tool/transport EVEN WHEN EXPLICITLY REQUESTED' in p\nassert 'at least TWO credible' in p\nassert 'no appended status/ledger' in p\nassert 'Resolve a fork between core readings before glossary' in p\nassert 'NOT automatically the focus' in p\nassert 'NEVER reword' in p and 'VISION' in p\nassert 'The app verifies every anchor' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nr=json.load(sys.stdin)\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
+    assert_eq!(
+        actual.outcome,
+        guess(&host.requests.lock().unwrap()[0]).outcome
+    );
+}
+
+#[test]
+fn annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes() {
+    let sources = vec![Source {
+        id: 1,
+        text: "Café 👩‍💻 same. Café 👩‍💻 same.".into(),
+        in_reply_to: None,
+    }];
+    let second = Anchor {
+        source: 1,
+        quote: "Café 👩‍💻".into(),
+        occurrence: 1,
+    };
+    let range = second.range(&sources).unwrap();
+    assert_eq!(&sources[0].text[range.clone()], second.quote);
+    assert_eq!(range.start, sources[0].text.rfind("Café").unwrap());
+    for bad in [
+        Anchor {
+            source: 2,
+            ..second.clone()
+        },
+        Anchor {
+            quote: "café 👩‍💻".into(),
+            ..second.clone()
+        },
+        Anchor {
+            quote: "Cafe\u{301} 👩‍💻".into(),
+            ..second.clone()
+        },
+        Anchor {
+            occurrence: 2,
+            ..second.clone()
+        },
+        Anchor {
+            quote: "👩".into(),
+            occurrence: 0,
+            ..second.clone()
+        },
+        Anchor {
+            quote: "".into(),
+            ..second.clone()
+        },
+    ] {
+        assert!(
+            bad.range(&sources).is_err(),
+            "{bad:?} was silently normalized/repaired"
+        );
+    }
+}
+
+#[test]
+fn annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards() {
+    use ratatui::style::{Color, Modifier};
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        for mono in [false, true] {
+            let host = Arc::new(Recording::default());
+            let mut a = BrainDump::with_host(host.clone());
+            let original = "Café 👩‍💻 same. Café 👩‍💻 same.\nEnd.";
+            a.paste(original);
+            a.submit();
+            settle(&mut a);
+            let support = Anchor {
+                source: 1,
+                quote: "Café 👩‍💻".into(),
+                occurrence: 1,
+            };
+            let supported = support.range(&a.sources).unwrap();
+            let unresolved = anchor("End.").range(&a.sources).unwrap();
+            a.guess.as_mut().unwrap().framings[0].supports = vec![support];
+            a.guess.as_mut().unwrap().misfits = vec![anchor("End.")];
+            a.guess
+                .as_ref()
+                .unwrap()
+                .validate(&host.requests.lock().unwrap()[0])
+                .unwrap();
+            let mut terminal =
+                ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+            terminal
+                .draw(|f| render(f, &mut a, Palette::new(mono)))
+                .unwrap();
+            let area = a.source_area;
+            let wrapped = Note::new(original).wrap(area.width);
+            for (i, g) in original
+                .grapheme_indices(true)
+                .filter(|(_, g)| !g.chars().all(char::is_whitespace))
+            {
+                let (_, row, col) = wrapped
+                    .positions
+                    .iter()
+                    .find(|(index, _, _)| *index == i)
+                    .unwrap();
+                let cell =
+                    &terminal.backend().buffer()[(area.x + *col as u16, area.y + *row as u16)];
+                assert_eq!(cell.symbol(), g);
+                assert_eq!(
+                    cell.modifier.contains(Modifier::BOLD),
+                    supported.contains(&i),
+                    "wrong supporting cell at {i}"
+                );
+                assert_eq!(
+                    cell.modifier.contains(Modifier::UNDERLINED),
+                    unresolved.contains(&i),
+                    "wrong unresolved cell at {i}"
+                );
+                if !mono {
+                    assert_eq!(
+                        cell.fg,
+                        Color::Rgb(16, 15, 15),
+                        "Agent recoloured authored words"
+                    );
+                }
+            }
+            assert_eq!(a.sources[0].text, original);
+            assert!(a.fragments.is_empty());
+        }
+    }
+}
+
+#[test]
+fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    let text = "Café 👩‍💻 is the whole thought. That is my true goal.";
+    a.paste(text);
+    a.submit();
+    settle(&mut a);
+    snapshot(100, 30, &mut a, false).unwrap();
+    assert!(a.fragments.is_empty());
+    key(&mut a, KeyCode::Tab);
+    for _ in "Café 👩‍💻".graphemes(true) {
+        a.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    }
+    a.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+    assert_eq!(a.fragments.len(), 1);
+    let f = &a.fragments[0];
+    assert_eq!(f.source, 1);
+    assert_eq!(f.start, 0);
+    assert_eq!(f.end, "Café 👩‍💻".len());
+    assert_eq!(f.text, "Café 👩‍💻");
+    assert_eq!(host.requests.lock().unwrap().len(), 1);
+    assert!(!a.running());
+    assert_eq!(a.sources[0].text, text);
+    key(&mut a, KeyCode::Char('e'));
+    let view = snapshot(100, 30, &mut a, false).unwrap();
+    let (_, ny) = a.canvas.state.data.nodes[0].pos();
+    let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom
+        + f64::from(a.canvas.area.y)
+        + f64::from(a.canvas.area.height) / 2.0)
+        .round() as usize;
+    assert!(
+        view.lines().nth(y).unwrap().contains("Café"),
+        "Card title was replaced with metadata"
+    );
+    assert!(view.contains("Enter: source"));
+    assert!(!view.contains("… Ctrl-O"));
+    a.canvas.state.selection.select_only("f1".into());
+    key(&mut a, KeyCode::Enter);
+    assert!(!a.show_extractions);
+    assert_eq!(a.selection, Some((0, "Café 👩‍💻".len())));
+    assert!(a.extract_range(1, 0, 4).is_err(), "UTF-8 cut accepted");
+    let emoji = text.find('👩').unwrap();
+    assert!(
+        a.extract_range(1, emoji, emoji + "👩".len()).is_err(),
+        "Grapheme cut accepted"
+    );
+    assert!(a.extract_range(99, 0, 4).is_err());
+    assert!(a.extract_range(1, 0, "Café 👩‍💻".len()).is_err());
+    assert_eq!(a.fragments.len(), 1);
+}
+
+#[test]
+fn bad_span_keeps_the_previous_reading_and_originals_without_fallback() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("An intact goal. That is my true goal.");
+    a.submit();
+    settle(&mut a);
+    let request = host.requests.lock().unwrap()[0].clone();
+    let paper = a.paper();
+    let mut bad = guess(&request);
+    bad.framings[0].supports = vec![anchor("A paraphrased goal.")];
+    a.apply_result(request, Ok(bad));
+    assert!(a.notice.contains("exact source substring"));
+    assert_eq!(a.paper(), paper);
+    assert!(a.fragments.is_empty());
+    assert_eq!(a.sources[0].text, "An intact goal. That is my true goal.");
+}
+
+#[test]
+fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_neutral() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    assert!(
+        !snapshot(80, 24, &mut a, false)
+            .unwrap()
+            .contains("originals")
+    );
+    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    assert!(!a.original);
+    a.paste("Meaning. Unmarked words are not misfits.");
+    a.submit();
+    settle(&mut a);
+    let mut g = guess(&host.requests.lock().unwrap()[0]);
+    g.framings[0].supports = vec![anchor("Meaning.")];
+    assert!(
+        g.validate(&host.requests.lock().unwrap()[0]).is_ok(),
+        "Forced whole-source coverage"
+    );
+    a.guess = Some(g);
+    assert_eq!(
+        snapshot(80, 24, &mut a, false)
+            .unwrap()
+            .matches("Ctrl-O originals")
+            .count(),
+        1
+    );
+    let area = a.area;
+    a.handle_mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: area.width - 16,
+            row: 1,
+            modifiers: KeyModifiers::NONE,
+        },
+        area,
+    );
+    assert!(
+        a.original && !a.details,
+        "Originals click activated overlapping details control"
+    );
+    assert!(a.fragments.is_empty());
+}
+
+#[test]
+fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let host = Arc::new(Recording::default());
+        let mut a = BrainDump::with_host(host.clone());
+        a.paste("An intact system goal.");
+        a.submit();
+        settle(&mut a);
+        let question = a.focused_question().unwrap().text.clone();
+        a.paste("both");
+        a.submit();
+        settle(&mut a);
+        let r = host.requests.lock().unwrap()[1].clone();
+        assert_eq!(r.settled.len(), 1);
+        assert_eq!(r.settled[0].question.text, question);
+        assert_eq!(r.sources[r.settled[0].source - 1].text, "both");
+        assert_eq!(r.sources[1].in_reply_to.as_deref(), Some("reader"));
+        let frame = snapshot(w, h, &mut a, false).unwrap();
+        assert!(
+            frame.contains("Reading updated from your answer: both"),
+            "No glanceable answer update"
+        );
+        assert!(frame.contains("Settled: both"));
+        assert!(frame.contains("Who controls RSS appearance?"));
+        assert!(!frame.contains("What is Hamster?"));
+        assert!(a.details_text().contains(&question));
+        assert!(a.paper().contains("Answer / original 2: both"));
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+        terminal
+            .draw(|f| render(f, &mut a, Palette::new(false)))
+            .unwrap();
+        assert!(
+            terminal.backend().buffer()[(a.agent_area.x, a.agent_area.y)]
+                .modifier
+                .contains(ratatui::style::Modifier::BOLD)
+        );
+        assert!(
+            !terminal.backend().buffer()[(a.agent_area.x, a.agent_area.y + 2)]
+                .modifier
+                .contains(ratatui::style::Modifier::BOLD),
+            "Update cue has no visual contrast against reading"
+        );
+        a.paste("new local typing");
+        a.tick();
+        assert!(a.update.as_ref().unwrap().contains("both"));
+        assert_eq!(a.input.text, "new local typing");
+        a.input = Note::new("Only final judgment.");
+        a.submit();
+        settle(&mut a);
+        assert_eq!(a.settled.len(), 2);
+        assert_eq!(a.settled[1].question.id, "rss-control");
+        assert!(a.focused_question().is_none());
+        assert!(
+            snapshot(w, h, &mut a, false)
+                .unwrap()
+                .contains("Reading updated from your answer")
+        );
+        assert_eq!(a.sources[2].in_reply_to.as_deref(), Some("rss-control"));
+    }
+}
+
+#[test]
+fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("Goal.");
+    a.submit();
+    settle(&mut a);
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[1].clone();
+    let mut g = guess(&r);
+    g.questions.insert(
+        0,
+        Question {
+            id: "a-new-id".into(),
+            text: "WHAT IS HAMSTER ?".into(),
+        },
+    );
+    a.apply_result(r.clone(), Ok(g));
+    assert_eq!(a.focused_question().unwrap().id, "rss-control");
+    let mut g = guess(&r);
+    g.questions = vec![Question {
+        id: "reader".into(),
+        text: "What is Hamster?".into(),
+    }];
+    a.apply_result(r, Ok(g));
+    assert!(a.focused_question().is_none());
+    assert!(
+        snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("No unanswered question")
+    );
+    assert_eq!(a.settled.len(), 1);
+    assert_eq!(a.sources[1].text, "both");
+}
+
+#[test]
+fn reply_label_is_stable_and_empty_chrome_is_hidden() {
+    let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+    a.paste("Short goal.");
+    a.submit();
+    settle(&mut a);
+    a.guess.as_mut().unwrap().questions.truncate(1);
+    let view = snapshot(100, 30, &mut a, false).unwrap();
+    for clutter in [
+        "1/1",
+        "Ctrl-Pg/wheel",
+        "wheel scroll",
+        "0 quietly queued",
+        "Later:",
+        "highlight:support underline:unresolved",
+        "Answer or add more",
+    ] {
+        assert!(!view.contains(clutter), "{clutter} in sparse view");
+    }
+    assert!(view.contains("Your reply / F2 submit"));
+    assert!(view.contains("Highlighted words support"));
+    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    assert!(a.notice.contains("not an answer"));
+    assert!(
+        snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("Your reply / F2 submit")
+    );
+    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    assert!(a.sources[1].in_reply_to.is_some());
+    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    a.paste("Separate new dump.");
+    a.submit();
+    settle(&mut a);
+    assert!(a.sources[2].in_reply_to.is_none());
+    assert_eq!(a.settled.len(), 1);
+    a.guess = None;
+    assert!(
+        !snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("Highlighted words")
+    );
+}
+
+#[test]
+fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
+    let mut a = BrainDump::default();
+    a.paste("Goal.");
+    a.submit();
+    settle(&mut a);
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    assert_eq!(
+        a.update.as_deref(),
+        Some("Answer recorded; reading unchanged: both")
+    );
+    assert!(a.focused_question().is_none());
+    assert_eq!(a.settled.len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check() {
+    use std::os::unix::fs::PermissionsExt;
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("A compounding harness and healthy codebase.");
+    a.submit();
+    settle(&mut a);
+    let first = "Should 'compounds itself' primarily mean the harness improves through use, the codebase becomes easier to change, or both?";
+    a.guess.as_mut().unwrap().questions = vec![Question {
+        id: "compounding-meaning".into(),
+        text: first.into(),
+    }];
+    a.paste("both");
+    a.submit();
+    settle(&mut a);
+    let r = host.requests.lock().unwrap()[1].clone();
+    let mut g = guess(&r);
+    g.questions=vec![
+        Question{id:"renamed-topic".into(),text:"Should compounding primarily mean the harness improves itself, the codebase becomes easier to change, or both?".into()},
+        Question{id:"intervention-boundary".into(),text:"What must bring you in before final judgment?".into()}
+    ];
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(
+        &skill,
+        "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
+    )
+    .unwrap();
+    let program = dir.path().join("pi");
+    let response = serde_json::to_string(&g).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport json,sys\nr=json.load(sys.stdin)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nif r.get('kind')=='question-continuity':\n assert r['settled'][0]['answer']=='both'\n assert r['settled'][0]['question']['text']=={first:?}\n assert 'SAME missing information' in p\n print(json.dumps(dict(repeated=['renamed-topic'])))\nelse:\n assert 'final human judge' in p and 'BOTH readings' in p\n assert r['settled'][0]['source']==2\n print({response:?})\n")).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
+    assert_eq!(actual.questions.len(), 1);
+    assert_eq!(actual.questions[0].id, "intervention-boundary");
+    for invalid in [
+        "not JSON",
+        "{\"repeated\":[\"invented\"]}",
+        "{\"repeated\":[\"intervention-boundary\",\"intervention-boundary\"]}",
+        "{\"repeated\":[],\"confirmed\":true}",
+    ] {
+        let mut unchanged = actual.clone();
+        assert!(question_continuity::apply(&mut unchanged, invalid).is_err());
+        assert_eq!(
+            serde_json::to_value(&unchanged).unwrap(),
+            serde_json::to_value(&actual).unwrap()
+        );
+    }
+}

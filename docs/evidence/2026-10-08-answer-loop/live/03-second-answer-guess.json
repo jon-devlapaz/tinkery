@@ -1,0 +1,67 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "You want to judge a finished, delicious result that carries an intuition through to a trustworthy, human-reviewable change while improving the codebase’s future health.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier.",
+          "occurrence": 0
+        }
+      ]
+    },
+    {
+      "text": "You want a human-first coordinating experience spanning the agentic development lifecycle, where the harness and the codebases it works on compound through rigor, durability, cohesion, and verification, with you intervening only on consequential intent or costly-to-undo decisions.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "a system that compounds itself and serves as a meta harness.",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "a human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+          "occurrence": 0
+        },
+        {
+          "source": 1,
+          "quote": "that has the rigor and durability and cohesive and verification that all 'just work's and thinks about the future of any code base it works on.",
+          "occurrence": 0
+        },
+        {
+          "source": 3,
+          "quote": "Only if a decision changes the original intent or would be expensive to undo.",
+          "occurrence": 0
+        }
+      ]
+    }
+  ],
+  "outcome": "You see and judge a coherent, trustworthy finished change from initial intuition through human review, with confidence that the codebase is healthier and easier to change afterward.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "trustworthy-review-readiness",
+      "text": "What must you be able to see or trust before a change feels ready for human review?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "Lifecycle-wide coordination workspace",
+      "benefit": "Makes intent, evidence, decisions, and change quality visible across the whole journey.",
+      "cost": "Broad scope may create more coordination overhead and slower shaping.",
+      "undo_cost": "unknown"
+    },
+    {
+      "label": "Evidence-centered change pipeline",
+      "benefit": "Concentrates on producing review-ready changes with explicit verification and codebase-health evidence.",
+      "cost": "May provide less visibility into the broader lifecycle and compounding experience.",
+      "undo_cost": "unknown"
+    }
+  ]
+}

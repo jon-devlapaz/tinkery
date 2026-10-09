@@ -1,0 +1,37 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 66, in <module>
+    for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+                                                     ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 36, in journey
+    assert not requests();send(b'\x1bOQ','Which evidence gets confused?');assert len(requests())==1
+                          ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 30, in send
+    def send(data,text):os.write(master,data);await_text(text)
+                                              ~~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 29, in await_text
+    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
+AssertionError: Missing 'Which evidence gets confused?':
+
+  tinkery / real Pi / unsaved                 Ctrl-D details   Ctrl-O originals
+┌Typed evidence should appear promptl┐┌ I think this is about… / provisional ──┐
+│Typed evidence should appear        ││Waiting for interpretation. No guess    │
+│promptly without waiting for a      ││yet.                                    │
+│provider call.                      ││Your words and original are kept.       │
+│                                    ││                                        │
+│                                    ││                                        │
+│                                    ││                                        │
+│                                    ││                                        │
+│                                    ││                                        │
+│                                    ││                                        │
+│                                    ││                                        │
+│                                    ││                                        │
+│                                    ││                                        │
+└1/1  · Ctrl-Pg/wheel────────────────┘└highlight:support underline:unresolved──┘
+┌ One question / 0 quietly queued ───────────────────┐┌ Answer or add more / F2┐
+│No interpretation yet. Submit/retry when ready.     ││                        │
+│                                                    ││                        │
+│                                                    ││                        │
+│Later:                                              ││                        │
+└────────────────────────────────────────────────────┘└────────────────────────┘
+Reshape failed: Invalid unsupported or overlong reading Original and previous bo
+F2 submit · Tab input/board · Ctrl-N add more · Ctrl-C exit

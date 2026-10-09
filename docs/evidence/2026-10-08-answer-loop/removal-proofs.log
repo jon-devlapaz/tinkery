@@ -1,0 +1,235 @@
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.67s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 21 tests
+test shaping::brain_dump::tests::annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes ... ok
+test shaping::brain_dump::tests::misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected ... ok
+test shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback ... ok
+test shaping::brain_dump::tests::originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_neutral ... ok
+test shaping::brain_dump::tests::boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses ... ok
+test shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect ... ok
+test shaping::brain_dump::tests::actual_drag_keeps_exact_words_and_layout_on_the_next_submit ... ok
+test shaping::brain_dump::tests::simulated_is_explicit_and_never_an_automatic_real_failure_fallback ... ok
+test shaping::brain_dump::tests::failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap ... ok
+test shaping::brain_dump::tests::unchanged_reading_records_the_answer_without_claiming_a_wording_change ... ok
+test shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus ... ok
+test shaping::brain_dump::tests::clipping_is_visible_and_original_is_one_action_away ... ok
+test shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden ... ok
+test shaping::brain_dump::tests::typing_during_request_is_never_replaced_by_the_result ... ok
+test shaping::brain_dump::tests::details_are_accessible_without_stealing_literal_answer_text_or_focus ... ok
+test shaping::brain_dump::tests::annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards ... ok
+test shaping::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources ... ok
+test shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... ok
+test shaping::brain_dump::tests::selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words ... ok
+test shaping::brain_dump::tests::silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_layout ... ok
+test shaping::brain_dump::tests::paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.16s
+
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+warning: unused variable: `question`
+   --> src/shaping/brain_dump.rs:476:25
+    |
+476 |             if let Some(question) = self.focused_question().filter(|_| !self.add_more).cloned() {
+    |                         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_question`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning (run `cargo fix --lib -p tinkery --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question stdout ----
+
+thread 'shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question' (58712271) panicked at src/shaping/brain_dump_tests.rs:807:9:
+assertion `left == right` failed
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
+
+PROVEN: lose-question-snapshot
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+warning: unused variable: `words`
+   --> src/shaping/brain_dump.rs:105:9
+    |
+105 |     let words = |s: &str| {
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_words`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning (run `cargo fix --lib -p tinkery --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.83s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus stdout ----
+
+thread 'shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus' (58712653) panicked at src/shaping/brain_dump_tests.rs:876:5:
+assertion `left == right` failed
+  left: "a-new-id"
+ right: "rss-control"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
+
+PROVEN: permit-renamed-exact-question
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.80s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check stdout ----
+
+thread 'shaping::brain_dump::tests::paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check' (58713315) panicked at src/shaping/brain_dump_tests.rs:993:5:
+assertion `left == right` failed
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::paraphrased_answered_questions_are_withheld_by_bounded_pi_continuity_check
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `--lib`
+
+PROVEN: ignore-semantic-verdict
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.79s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question stdout ----
+
+thread 'shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question' (58714213) panicked at src/shaping/brain_dump_tests.rs:812:9:
+No glanceable answer update
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
+
+PROVEN: hide-answer-update
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+warning: variable does not need to be mutable
+    --> src/shaping/brain_dump.rs:1017:13
+     |
+1017 |         let mut content = ratatui::text::Text::from(content);
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning (run `cargo fix --lib -p tinkery --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.84s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question stdout ----
+
+thread 'shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question' (58714564) panicked at src/shaping/brain_dump_tests.rs:826:9:
+assertion failed: terminal.backend().buffer()[(a.agent_area.x,
+                a.agent_area.y)].modifier.contains(ratatui::style::Modifier::BOLD)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`
+
+PROVEN: remove-glance-emphasis
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.69s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden stdout ----
+
+thread 'shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden' (58714928) panicked at src/shaping/brain_dump_tests.rs:910:9:
+0 quietly queued in sparse view
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
+
+PROVEN: show-empty-queue
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.63s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/intact-removals/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden stdout ----
+
+thread 'shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden' (58715275) panicked at src/shaping/brain_dump_tests.rs:910:9:
+wheel scroll in sparse view
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 56 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`
+
+PROVEN: show-scroll-when-source-fits
+PASS: baseline and seven independent removal probes; isolated copy: /var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-answer-removals-s9evw9rn

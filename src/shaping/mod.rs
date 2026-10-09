@@ -1,3 +1,4 @@
+pub mod brain_dump;
 mod canvas;
 #[cfg(test)]
 mod canvas_tests;

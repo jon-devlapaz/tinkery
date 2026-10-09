@@ -1,0 +1,30 @@
+{
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / real Pi / unsaved                                     o originals   ",
+    "┌ Your fragments / exact excerpts ───┐┌ Agent / provisional ───────────────────┐",
+    "│┌                                   ││I think this is about… / guess          │",
+    "││                                   ││I think this is about helping people    │",
+    "││                                   ││read your blog comfortably at night,    │",
+    "││                                   ││including through the Hamster RSS       │",
+    "││                                   ││reader, with system-based appearance    │",
+    "││                                   ││preference acceptable.                  │",
+    "│└                                   ││Supports: f1, f2, f3                    │",
+    "│                                    ││                                        │",
+    "│                                    ││Desired experience / proposed           │",
+    "│                                    ││People can read the blog comfortably at │",
+    "│                                    ││night, both on the blog and through     │",
+    "│                                    ││Hamster.                                │",
+    "└────────────────────────────────────┘└────────────────────────────────────────┘",
+    "┌ One question / 0 quietly queued ───┐┌ Answer or add more / F2 submit ────────┐",
+    "│Should the nighttime comfort appear ││                                        │",
+    "│within Hamster’s reading view as    ││                                        │",
+    "│well as on the blog?                ││                                        │",
+    "│Later:                              ││                                        │",
+    "└────────────────────────────────────┘└────────────────────────────────────────┘",
+    "Reshaped after submit. Your positions kept; nothing confirmed.                  ",
+    "F2 submit · Tab input/board · Ctrl-N add more · Ctrl-O original · Ctrl-C exit   "
+  ],
+  "width": 80
+}

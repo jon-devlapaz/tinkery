@@ -1,0 +1,47 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "A human-first experience where you can guide work from intuition to a trustworthy, review-ready result while preserving codebase health and making future changes easier.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier.",
+          "occurrence": 0
+        }
+      ]
+    },
+    {
+      "text": "A durable coordination harness for the full agentic software-development lifecycle, designed to compound its own effectiveness while helping one person judge the final product.",
+      "supports": [
+        {
+          "source": 1,
+          "quote": "a system that compounds itself and serves as a meta harness. its a human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+          "occurrence": 0
+        }
+      ]
+    }
+  ],
+  "outcome": "You experience a coherent, rigorous, durable flow from an initial hunch to a delicious, trustworthy result ready for human review, with confidence that the codebase remains healthy and future work becomes easier.",
+  "misfits": [],
+  "questions": [
+    {
+      "id": "core-emphasis",
+      "text": "Should the primary success measure be your end-to-end reviewing experience, the system’s self-compounding capability, or both equally?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "Human-guided workflow with explicit checkpoints",
+      "benefit": "Keeps judgment, context, and final taste with the human while improving rigor and continuity.",
+      "cost": "Requires sustained human attention and clearly designed handoffs.",
+      "undo_cost": "unknown"
+    },
+    {
+      "label": "Self-improving coordination harness",
+      "benefit": "Could compound process quality and coordinate more of the lifecycle over time.",
+      "cost": "Risks complexity, opacity, and drift from the human’s intended outcome.",
+      "undo_cost": "unknown"
+    }
+  ]
+}

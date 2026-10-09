@@ -14,6 +14,7 @@ use crossterm::{
 use tinkery::{
     App, Palette,
     shaping::{
+        brain_dump::{self, BrainDump},
         drafting::PiHost,
         scratchpad::{self, Scratchpad},
     },
@@ -23,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut no_color = std::env::var_os("NO_COLOR").is_some();
     let mut snapshot = false;
     let mut workbench = false;
+    let mut stickies = false;
     let mut full_redraw = false;
     let mut shape_pi = false;
     let mut model = None;
@@ -35,6 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "--no-color" => no_color = true,
             "--snapshot" => snapshot = true,
             "--workbench" => workbench = true,
+            "--scratchpad" => stickies = true,
             "--full-redraw" => full_redraw = true,
             "--shape-pi" => shape_pi = true,
             "--model" => model = Some(args.next().ok_or("--model needs provider/model-id")?),
@@ -51,15 +54,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery / seed shaping prototype\n\nUsage: tinkery [--workbench] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH [--pi-command PATH]\n\nDefault: simulated, full-width sticky-note scratchpad. All edits are unsaved.\nReal drafting is opt-in: selected written notes and feedback go to the chosen model.\nOnly Seed Me's working-draft step runs. No seed confirmation or factory execution.\nPi runs without tools, extensions, project context, or saved sessions.\n\nn / Ctrl-N adds a note. e / Enter edits. F2 shapes selected written notes.\nBlank notes are skipped; an all-blank selection retains the paper.\nr opens model feedback: keep, cut, or reshape; F2 revises; Esc cancels.\nPgUp / PgDn reads the paper while you write feedback.\np toggles the paper inspector. Tab switches focus. ? helps.\nClick to select; Shift-click toggles notes; Ctrl-A selects all outside editing.\nDouble-click edits. Drag notes or empty canvas.\nDrag paper lines to select; y copies clean markdown; Esc clears selection.\nCtrl-L repaints a damaged terminal view. Clipboard support depends on the host.\nWheel zooms the canvas and scrolls the paper. Ctrl-F fits all; s resizes.\nDel deletes a note; Ctrl-Z / Ctrl-Y undo / redo.\nq quits outside editing; Ctrl-C quits anytime.\n\n--shape-pi   Enable real drafting through Pi; requests can incur provider charges\n--model      Explicit provider/model-id; no automatic model selection\n--thinking   Pi reasoning level (default: low); off|minimal|low|medium|high|xhigh|max\n--seed-me    Path to the actual Seed Me SKILL.md\n--pi-command Pi executable (default: pi)\n--workbench  Open the earlier read-only demo\n--full-redraw Repaint every scratchpad frame (host rendering workaround; more output)\n--no-color   Use terminal colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view without terminal mode or model requests"
+                    "Tinkery / seed shaping prototype\n\nUsage: tinkery [--workbench] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH [--pi-command PATH]\n\nDefault: one blank brain-dump box; no guess until F2 submit. Simulated unless explicitly enabled. All edits are unsaved.\nReal mode sends submitted dumps and answers to the chosen model; legacy mode sends selected notes and feedback.\nBorrowed Seed Me working-draft guidance only. No canonical phase, seed confirmation or factory execution.\nPi runs without tools, extensions, project context, or saved sessions.\n\nBrain dump: type directly; Enter adds a line, F2 submits. Tab enables board controls. Ctrl-O original, Ctrl-N add more, s skip / y copy on the board. No confirmation in this first slice.\n\nLegacy --scratchpad: n / Ctrl-N creates AND edits; no following e is needed. e / Enter edits an existing note. F2 shapes selected written notes.\nBlank notes are skipped; an all-blank selection retains the paper.\nr opens model feedback: keep, cut, or reshape; F2 revises; Esc cancels.\nPgUp / PgDn reads the paper while you write feedback.\np toggles the paper inspector. Tab switches focus. ? helps.\nClick to select; Shift-click toggles notes; Ctrl-A selects all outside editing.\nDouble-click edits. Drag notes or empty canvas.\nDrag paper lines to select; y copies clean markdown; Esc clears selection.\nCtrl-L repaints a damaged terminal view. Clipboard support depends on the host.\nWheel zooms the canvas and scrolls the paper. Ctrl-F fits all; s resizes.\nDel deletes a note; Ctrl-Z / Ctrl-Y undo / redo.\nq quits outside editing; Ctrl-C quits anytime.\n\n--shape-pi   Enable real drafting through Pi; requests can incur provider charges\n--model      Explicit provider/model-id; no automatic model selection\n--thinking   Pi reasoning level (default: low); off|minimal|low|medium|high|xhigh|max\n--seed-me    Path to the actual Seed Me SKILL.md\n--pi-command Pi executable (default: pi)\n--scratchpad Retain the earlier sticky-first prototype\n--workbench  Open the earlier read-only demo\n--full-redraw Repaint every intake frame (host rendering workaround; more output)\n--no-color   Use terminal colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view without terminal mode or model requests"
                 );
                 return Ok(());
             }
             _ => return Err(format!("unknown argument: {arg}; use --help").into()),
         }
     }
+    if stickies && workbench {
+        return Err("--scratchpad and --workbench are separate entry points".into());
+    }
     if full_redraw && workbench {
-        return Err("--full-redraw is for the scratchpad, not --workbench".into());
+        return Err("--full-redraw is for intake, not --workbench".into());
     }
     if shape_pi && workbench {
         return Err("--shape-pi is for the scratchpad, not --workbench".into());
@@ -70,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("--model, --thinking, --seed-me and --pi-command require --shape-pi".into());
     }
     let mut app = if shape_pi {
-        Scratchpad::with_host(Arc::new(
+        let host = Arc::new(
             PiHost::new(
                 pi_command.unwrap_or_else(|| "pi".into()),
                 model.ok_or("--shape-pi requires an explicit --model provider/model-id")?,
@@ -78,9 +84,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .ok_or("--shape-pi requires --seed-me PATH to actual Seed Me instructions")?,
             )?
             .with_thinking(thinking.as_deref().unwrap_or("low"))?,
-        ))
+        );
+        if stickies {
+            Intake::Sticky(Box::new(Scratchpad::with_host(host)))
+        } else {
+            Intake::Brain(Box::new(BrainDump::with_host(host)))
+        }
+    } else if stickies {
+        Intake::Sticky(Box::default())
     } else {
-        Scratchpad::default()
+        Intake::Brain(Box::default())
     };
     if snapshot {
         println!(
@@ -88,7 +101,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if workbench {
                 tinkery::snapshot(100, 30, &mut App::default(), no_color)?
             } else {
-                scratchpad::snapshot(100, 30, &mut app, no_color)?
+                match &mut app {
+                    Intake::Brain(app) => brain_dump::snapshot(100, 30, app, no_color)?,
+                    Intake::Sticky(app) => scratchpad::snapshot(100, 30, app, no_color)?,
+                }
             }
         );
         return Ok(());
@@ -120,6 +136,61 @@ fn run_workbench(terminal: &mut ratatui::DefaultTerminal, no_color: bool) -> io:
     Ok(())
 }
 
+enum Intake {
+    Brain(Box<BrainDump>),
+    Sticky(Box<Scratchpad>),
+}
+impl Intake {
+    fn quit(&self) -> bool {
+        match self {
+            Self::Brain(a) => a.quit,
+            Self::Sticky(a) => a.quit,
+        }
+    }
+    fn tick(&mut self, elapsed: std::time::Duration, area: ratatui::layout::Rect) {
+        match self {
+            Self::Brain(a) => a.tick(),
+            Self::Sticky(a) => a.tick(elapsed, area),
+        }
+    }
+    fn render(&mut self, f: &mut ratatui::Frame, p: Palette) {
+        match self {
+            Self::Brain(a) => brain_dump::render(f, a, p),
+            Self::Sticky(a) => scratchpad::render(f, a, p),
+        }
+    }
+    fn handle_key(&mut self, k: crossterm::event::KeyEvent, area: ratatui::layout::Rect) {
+        match self {
+            Self::Brain(a) => a.handle_key(k),
+            Self::Sticky(a) => a.handle_key(k, area),
+        }
+    }
+    fn paste(&mut self, text: &str, area: ratatui::layout::Rect) {
+        match self {
+            Self::Brain(a) => a.paste(text),
+            Self::Sticky(a) => a.paste(text, area),
+        }
+    }
+    fn handle_mouse(&mut self, e: crossterm::event::MouseEvent, area: ratatui::layout::Rect) {
+        match self {
+            Self::Brain(a) => a.handle_mouse(e, area),
+            Self::Sticky(a) => a.handle_mouse(e, area),
+        }
+    }
+    fn take_copy_request(&mut self) -> Option<String> {
+        match self {
+            Self::Brain(a) => a.take_copy_request(),
+            Self::Sticky(a) => a.take_copy_request(),
+        }
+    }
+    fn copy_result(&mut self, sent: bool) {
+        match self {
+            Self::Brain(a) => a.copy_result(sent),
+            Self::Sticky(a) => a.copy_result(sent),
+        }
+    }
+}
+
 struct InputGuard;
 
 impl Drop for InputGuard {
@@ -137,7 +208,7 @@ impl Drop for InputGuard {
 fn run_shape(
     terminal: &mut ratatui::DefaultTerminal,
     no_color: bool,
-    mut app: Scratchpad,
+    mut app: Intake,
     full_redraw: bool,
 ) -> io::Result<()> {
     let _input_guard = InputGuard;
@@ -149,14 +220,14 @@ fn run_shape(
     )?;
     let mut repaint = full_redraw;
     let mut last = Instant::now();
-    while !app.quit {
+    while !app.quit() {
         let now = Instant::now();
         app.tick(now.duration_since(last), terminal.size()?.into());
         last = now;
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
         let drawn = (|| {
             terminal.draw(|frame| {
-                scratchpad::render(frame, &mut app, Palette::new(no_color));
+                app.render(frame, Palette::new(no_color));
                 if repaint || full_redraw {
                     for cell in &mut frame.buffer_mut().content {
                         cell.set_diff_option(ratatui::buffer::CellDiffOption::AlwaysUpdate);
@@ -170,17 +241,22 @@ fn run_shape(
         repaint = false;
         if event::poll(std::time::Duration::from_millis(100))? {
             let area = terminal.size()?.into();
-            match event::read()? {
-                Event::Key(key)
-                    if key.code == KeyCode::Char('l')
-                        && key.modifiers.contains(KeyModifiers::CONTROL) =>
-                {
-                    repaint = true
+            for _ in 0..64 {
+                match event::read()? {
+                    Event::Key(key)
+                        if key.code == KeyCode::Char('l')
+                            && key.modifiers.contains(KeyModifiers::CONTROL) =>
+                    {
+                        repaint = true
+                    }
+                    Event::Key(key) => app.handle_key(key, area),
+                    Event::Paste(text) => app.paste(&text, area),
+                    Event::Mouse(event) => app.handle_mouse(event, area),
+                    _ => {}
                 }
-                Event::Key(key) => app.handle_key(key, area),
-                Event::Paste(text) => app.paste(&text, area),
-                Event::Mouse(event) => app.handle_mouse(event, area),
-                _ => {}
+                if app.quit() || !event::poll(std::time::Duration::ZERO)? {
+                    break;
+                }
             }
             if let Some(markdown) = app.take_copy_request() {
                 app.copy_result(

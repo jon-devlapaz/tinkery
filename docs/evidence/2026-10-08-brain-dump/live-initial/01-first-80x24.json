@@ -1,0 +1,30 @@
+{
+  "height": 24,
+  "lines": [
+    "                                                                                ",
+    "  tinkery / real Pi / unsaved                                     o originals   ",
+    "┌ Your fragments / exact excerpts ───┐┌ Agent / provisional ───────────────────┐",
+    "│┌ ┌Your f4──────────┐               ││Waiting for interpretation. No guess    │",
+    "││ │I also want to be│               ││yet.                                    │",
+    "││ │able to say 'that│               ││Your words and original are kept.       │",
+    "││ │question wasn't  │               ││                                        │",
+    "││ │useful' and not  │               ││                                        │",
+    "││ │get it again.    │               ││                                        │",
+    "│└ └─────────────────┘               ││                                        │",
+    "│                                    ││                                        │",
+    "│                                    ││                                        │",
+    "│                                    ││                                        │",
+    "│                                    ││                                        │",
+    "│                                    ││                                        │",
+    "└────────────────────────────────────┘└────────────────────────────────────────┘",
+    "┌ One question / 0 quietly queued ───┐┌ Answer or add more / F2 submit ────────┐",
+    "│No interpretation yet. Submit/retry ││                                        │",
+    "│when ready.                         ││                                        │",
+    "│                                    ││                                        │",
+    "│Later:                              ││                                        │",
+    "└────────────────────────────────────┘└────────────────────────────────────────┘",
+    "Reshape failed: Pi returned invalid brain-dump JSON; board retained. Original an",
+    "F2 submit · Tab input/board · Ctrl-N add more · Ctrl-O original · Ctrl-C exit   "
+  ],
+  "width": 80
+}

@@ -1,4 +1,4 @@
-# Terminal setup for dogfood run 2
+# Terminal setup
 
 Tinkery inherits **every font face from its terminal**. It cannot install or select Paper Mono itself. No terminal/host settings or installed fonts were changed for this patch.
 
@@ -36,6 +36,8 @@ References: [font configuration](https://ghostty.org/docs/config/reference), [Sh
 
 ### Herdr
 
+The note-selection/menu gestures below apply to the explicit `--scratchpad` legacy prototype, not the default brain-dump intake.
+
 Set the font in the **outer terminal**, not in Tinkery or a pane. Herdr can also mediate mouse/clipboard traffic. Shift-click does not depend on the right-click forwarding setting. If the host consumes Shift-click for native text selection, use explicit **Ctrl-A** to select all notes outside editing; F2 never implicitly includes unselected notes.
 
 Tinkery requests Shift mouse forwarding while running and restores the terminal's default override behavior on exit. Hosts may ignore that request. Existing right-click forwarding is only needed for the optional note menu/right-drag gestures; no Herdr configuration was changed.
@@ -49,7 +51,7 @@ printf '\033[1mDraft / Note 1 / edit — bold\033[0m\n\033[3mProvisional / itali
 stty size
 ```
 
-Check that bold stays aligned, italic remains readable without clipping, boxes join, and none of the ASCII letters disappear. Tinkery's headings and field labels use bold; provisional text uses italics. Unavailable characters in your own notes may still require the terminal's normal fallback font.
+Check that bold stays aligned, italic remains readable without clipping, boxes join, and none of the ASCII letters disappear. The legacy working paper's headings and field labels use bold; its provisional text uses italics. The default brain-dump panel distinguishes the agent's reading with jade. Unavailable characters in your own notes may still require the terminal's normal fallback font.
 
 The inspected Regular/Bold font files contain the UI's box/dashed glyphs at the same advance width as ASCII. They lack Pinstar's double diagonal corner arrows, so Tinkery projects those selection markers onto supported box corners. This proves glyph coverage/metrics, **not visual correctness in the operator's host**.
 
@@ -57,7 +59,16 @@ Missing ASCII in the desktop panel has not been reproduced in differential buffe
 
 For a useful report, record the desktop/terminal version, `stty size`, whether Paper Mono is actually selected, and a screenshot before/after Ctrl-L. Compare the same case in an external terminal if possible. Do not include credentials or private bookmarks.
 
-## Select and copy the paper
+## Default brain-dump intake
+
+- Start with **What's on your mind?** Type freely; **Enter** inserts a newline, **F2** submits. No provider request or interpretation before submit.
+- After submission, exact fragments and a provisional centre reading appear. Answer the focused question or **Ctrl-N** to add another dump; F2 reshapes. A reply arriving during new typing waits for the next submit.
+- **Ctrl-O** opens intact originals; **Esc** closes. **Tab** switches input/board focus. **Ctrl-D** or the visible header control opens details from any focus (including originals/help); plain `d` remains text in the input. On the board: **d** toggles details, **s** skips the focused question, **y** explicitly copies board Markdown, and **q** exits. **Ctrl-C** exits from input.
+- Drag fragment cards to arrange them; later responses retain existing positions. Double borders highlight the current reading's supporting words; **[ / ]** on the board switches the highlighted reading without answering or confirming. Misfit cards are marked **doesn't fit yet**; **… Ctrl-O** flags clipped text. Card titles/ID lists are absent from the default view. **Ctrl-F** on the board explicitly fits the view. **PageUp/PageDown** scroll the agent reading.
+- **Esc** cancels an active request; failure/cancellation retains originals and the previous reading. F2 is an explicit retry. Nothing is saved, confirmed, or handed off.
+- No answer choices in this slice. Clusters, relationships, settled strip, centre editing, and confirmation are not implemented.
+
+## Legacy paper selection (`--scratchpad`)
 
 - **Shift-click** toggles notes; **Ctrl-A** selects all notes outside editing. Double-click edits a note. Selection survives F2.
 - Drag **inside the paper body** to select complete logical Markdown lines/paragraphs, including their wrapped display rows. This is line selection, not character-level selection. **Esc** clears it without closing the paper.

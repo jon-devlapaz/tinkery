@@ -1,0 +1,57 @@
+[
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product.",
+      "source": 1
+    },
+    "end": 513,
+    "reading": 1,
+    "role": "support",
+    "start": 395
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier.",
+      "source": 1
+    },
+    "end": 723,
+    "reading": 1,
+    "role": "support",
+    "start": 514
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "a system that compounds itself and serves as a meta harness.",
+      "source": 1
+    },
+    "end": 98,
+    "reading": 2,
+    "role": "support",
+    "start": 38
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "a human first board for coordinainting work from the entire continuum of agentic software development lifecycle",
+      "source": 1
+    },
+    "end": 214,
+    "reading": 2,
+    "role": "support",
+    "start": 103
+  },
+  {
+    "anchor": {
+      "occurrence": 0,
+      "quote": "that has the rigor and durability and cohesive and verification that all 'just work's and thinks about the future of any code base it works on.",
+      "source": 1
+    },
+    "end": 358,
+    "reading": 2,
+    "role": "support",
+    "start": 215
+  }
+]

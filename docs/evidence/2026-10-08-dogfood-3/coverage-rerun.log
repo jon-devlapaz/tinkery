@@ -1,0 +1,6 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.39s
+     Running `target/debug/examples/live_brain_dump_check docs/evidence/2026-10-08-dogfood-3/coverage-rerun`
+FIRST QUESTION: Some("Which is the deeper concern: ineffective coordination meetings, or priorities changing so often that alignment breaks down?")
+NEXT QUESTION: Some("What visibility would help people understand current priorities without feeling like surveillance?")
+Captured exact supplied dump/answer; semantic judgment still required.

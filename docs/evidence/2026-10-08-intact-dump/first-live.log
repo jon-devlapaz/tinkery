@@ -1,0 +1,7 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.40s
+     Running `target/debug/examples/live_brain_dump_check docs/evidence/2026-10-08-intact-dump/live`
+
+thread 'main' (58583166) panicked at examples/live_brain_dump_check.rs:89:5:
+Reshape failed: Pi returned invalid brain-dump JSON; board retained. Original and previous board retained; F2 retries.
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

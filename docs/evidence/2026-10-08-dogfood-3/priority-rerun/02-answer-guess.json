@@ -1,0 +1,47 @@
+{
+  "uncertain": true,
+  "framings": [
+    {
+      "text": "The team needs a focused way to stay aligned when priorities change, without long meetings that people tune out.",
+      "supports": [
+        "f1",
+        "f4"
+      ]
+    },
+    {
+      "text": "The team needs a sustainable check-in experience that preserves human connection while avoiding unwanted monitoring.",
+      "supports": [
+        "f1",
+        "f3",
+        "f6",
+        "f8"
+      ]
+    }
+  ],
+  "outcome": "The team understands current priorities and each person’s context, with useful participation, manageable time, and appropriate visibility.",
+  "misfits": [
+    "f2",
+    "f5",
+    "f7"
+  ],
+  "questions": [
+    {
+      "id": "core-concern",
+      "text": "Which matters more to solve first: alignment when priorities change, or the experience and trust around team check-ins?"
+    }
+  ],
+  "alternatives": [
+    {
+      "label": "Conditional candidate: combine brief live connection with lightweight written updates",
+      "benefit": "Could preserve seeing faces while reducing meeting time and supporting ongoing alignment.",
+      "cost": "People may still ignore written updates or experience coordination as fragmented.",
+      "undo_cost": "Provisional; reverting the rhythm may require resetting expectations."
+    },
+    {
+      "label": "Conditional candidate: redesign the team’s priority-alignment practice without adding a new reporting mechanism",
+      "benefit": "Could address changing priorities directly and avoid repeating the failed adoption pattern of standupy.",
+      "cost": "May not resolve the desire for face-to-face connection or reduce every meeting burden.",
+      "undo_cost": "Likely low, if existing practices can be restored."
+    }
+  ]
+}
