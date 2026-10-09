@@ -57,7 +57,7 @@ From the repository, choose a fresh empty evidence directory and the actual inst
 
 ```bash
 TINKERY_LIVE_MODEL=openai-codex/gpt-5.6-luna \
-TINKERY_SEED_ME=/path/to/tink-skills/skills/seed-me/SKILL.md \
+TINKERY_SEED_ME="$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md" \
 TINKERY_LIVE_SKIP_FEEDBACK=1 \
 cargo run --locked --example live_drafting_check -- /path/to/new-empty-evidence-directory
 ```
@@ -69,7 +69,7 @@ Launch the interactive experiment:
 ```bash
 cargo run --locked -- --shape-pi \
   --model openai-codex/gpt-5.6-luna \
-  --seed-me /path/to/tink-skills/skills/seed-me/SKILL.md
+  --seed-me "$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md"
 ```
 
 F2 shapes selected written stickies; `r` opens feedback; F2 revises; PgUp/PgDn reads the paper while writing feedback. Default launch remains simulated and unsaved.

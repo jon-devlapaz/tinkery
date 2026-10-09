@@ -93,7 +93,7 @@ Requires existing authorized Pi authentication, the selected model, and the actu
 
 ```sh
 TINKERY_LIVE_MODEL=openai-codex/gpt-5.6-luna \
-TINKERY_SEED_ME=/path/to/tink-skills/skills/seed-me/SKILL.md \
+TINKERY_SEED_ME="$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md" \
 TINKERY_LIVE_DOGFOOD=1 TINKERY_LIVE_SKIP_FEEDBACK=1 \
 TINKERY_LIVE_THINKING=low \
 cargo run --locked --example live_drafting_check -- /new/evidence/directory

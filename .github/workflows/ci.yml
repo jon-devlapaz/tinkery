@@ -17,8 +17,8 @@ jobs:
       - name: Official Seed Me contract fixture (not vendored)
         uses: actions/checkout@v4
         with:
-          repository: jon-devlapaz/tink-skills
-          ref: 4a2d9a8b5f1fbde2ec0c599277f752086bab04ec
+          repository: jon-devlapaz/seed-me
+          ref: 19c3cc45be4ed8d52dd40ef454d89cbea5dd4a61
           path: .ci-seed-me
       - name: Seed Me test runtime
         uses: actions/setup-python@v5

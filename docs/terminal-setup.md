@@ -80,11 +80,19 @@ OSC 52 requires both the terminal and any multiplexer to allow clipboard writes.
 
 ## Launch
 
+Seed Me's canonical home is [jon-devlapaz/seed-me](https://github.com/jon-devlapaz/seed-me), at `skills/seed-me/`. Clone it locally if missing; do not move/delete the historical tink-skills checkout:
+
+```sh
+git clone https://github.com/jon-devlapaz/seed-me.git "$HOME/dev/active/factory/seed-me"
+```
+
+For tests, add `--seed-session-root "$(mktemp -d /tmp/tinkery-TEST-goal-XXXXXX)"`; only explicitly affirmed goals create sessions. PR#3 remains draft until the canonical fix merges and its helper pin is updated to that merged commit.
+
 ```sh
 cargo run --locked -- --shape-pi \
   --model openai-codex/gpt-5.6-luna \
   --thinking low \
-  --seed-me /path/to/tink-skills/skills/seed-me/SKILL.md
+  --seed-me "$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md"
 ```
 
 Real mode now defaults to **low** reasoning, selectable with `--thinking`; Pi clamps it to model capabilities. Earlier exploratory `off` runs included a malformed response. This change is not proof of reliability and can change provider cost/latency. Each F2 makes one bounded request, with no automatic repair/retry. Default launch remains simulated and unsaved. Nothing implements the bookmarks idea or confirms a seed.

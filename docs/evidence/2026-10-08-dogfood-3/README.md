@@ -43,7 +43,7 @@ The initial PTY failure was a stale oracle: “I think this is about” became a
 
 ```sh
 TINKERY_LIVE_MODEL=openai-codex/gpt-5.6-luna \
-TINKERY_SEED_ME=/path/to/tink-skills/skills/seed-me/SKILL.md \
+TINKERY_SEED_ME="$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md" \
 TINKERY_LIVE_DUMP_FILE=docs/evidence/2026-10-08-dogfood-3/original-dump.txt \
 TINKERY_LIVE_ANSWER_FILE=docs/evidence/2026-10-08-dogfood-3/original-answer.txt \
 cargo run --locked --example live_brain_dump_check -- /tmp/new-standup-evidence

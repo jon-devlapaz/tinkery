@@ -38,7 +38,7 @@ cargo build --locked
 python3 -B tests/brain_dump_terminal.py
 python3 -B tests/terminal_smoke.py
 TINKERY_LIVE_MODEL=openai-codex/gpt-5.6-luna \
-TINKERY_SEED_ME=/path/to/tink-skills/skills/seed-me/SKILL.md \
+TINKERY_SEED_ME="$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md" \
 cargo run --locked --example live_brain_dump_check -- /tmp/new-brain-evidence
 # Add TINKERY_LIVE_DARK_MODE=1 for the two-request dark-mode regression.
 ```
