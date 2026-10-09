@@ -1,0 +1,5 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.26s
+     Running `target/debug/examples/live_brain_dump_check docs/evidence/2026-10-08-intact-dump/contract-rerun`
+FIRST QUESTION: Some("Should the primary success measure be your end-to-end reviewing experience, the system’s self-compounding capability, or both equally?")
+PASS: exact supplied intact dump only; no answer submitted. Semantic judgment still required.

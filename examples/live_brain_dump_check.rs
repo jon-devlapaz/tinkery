@@ -33,8 +33,28 @@ fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
             serde_json::to_string_pretty(g).unwrap() + "\n",
         )
         .unwrap();
+        let mut anchors = vec![];
+        for (reading, framing) in g.framings.iter().enumerate() {
+            for anchor in &framing.supports {
+                let range = anchor
+                    .range(&app.sources)
+                    .expect("Accepted anchor must match original");
+                anchors.push(serde_json::json!({"role":"support","reading":reading+1,"anchor":anchor,"start":range.start,"end":range.end}));
+            }
+        }
+        for anchor in &g.misfits {
+            let range = anchor
+                .range(&app.sources)
+                .expect("Accepted anchor must match original");
+            anchors.push(serde_json::json!({"role":"unresolved","anchor":anchor,"start":range.start,"end":range.end}));
+        }
+        std::fs::write(
+            dir.join(format!("{name}-anchors.json")),
+            serde_json::to_string_pretty(&anchors).unwrap() + "\n",
+        )
+        .unwrap();
     }
-    for (w, h) in [(80, 24), (100, 30), (160, 40)] {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let s = brain_dump::snapshot(w, h, app, false).unwrap();
         std::fs::write(
             dir.join(format!("{name}-{w}x{h}.json")),
@@ -90,6 +110,20 @@ fn main() {
     let layout = app.layout();
     let first = app.focused_question().map(|q| q.text.clone());
     println!("FIRST QUESTION: {first:?}");
+    if std::env::var_os("TINKERY_LIVE_FIRST_ONLY").is_some() {
+        assert_eq!(app.sources.len(), 1);
+        assert_eq!(app.sources[0].text, dump);
+        assert!(app.fragments.is_empty(), "Automatic extraction occurred");
+        app.handle_key(crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('o'),
+            crossterm::event::KeyModifiers::CONTROL,
+        ));
+        capture(&mut app, &dir, "02-originals");
+        println!(
+            "PASS: exact supplied intact dump only; no answer submitted. Semantic judgment still required."
+        );
+        return;
+    }
     let answer = if let Some(path) = std::env::var_os("TINKERY_LIVE_ANSWER_FILE") {
         std::fs::read_to_string(path).expect("Exact answer file")
     } else if dark {

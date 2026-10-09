@@ -177,7 +177,7 @@ impl Note {
 pub struct Wrapped {
     pub lines: Vec<String>,
     pub cursor: (u16, u16),
-    positions: Vec<(usize, usize, usize)>,
+    pub(super) positions: Vec<(usize, usize, usize)>,
 }
 
 impl Wrapped {

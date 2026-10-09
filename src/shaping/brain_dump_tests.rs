@@ -1,4 +1,21 @@
 use super::*;
+fn anchor(quote: &str) -> Anchor {
+    Anchor {
+        source: 1,
+        quote: quote.into(),
+        occurrence: 0,
+    }
+}
+fn anchors(r: &BoardRequest) -> Vec<Anchor> {
+    r.sources
+        .iter()
+        .map(|s| Anchor {
+            source: s.id,
+            quote: s.text.clone(),
+            occurrence: 0,
+        })
+        .collect()
+}
 use std::{
     sync::{
         Mutex,
@@ -19,7 +36,7 @@ fn guess(r: &BoardRequest) -> Guess {
                 "Model reading {} originals: make reading comfortable.",
                 r.sources.len()
             ),
-            supports: r.fragments.iter().map(|f| f.id.clone()).collect(),
+            supports: anchors(r),
         }],
         outcome: "Read comfortably in the blog and RSS reader.".into(),
         misfits: vec![],
@@ -78,7 +95,7 @@ fn settle(a: &mut BrainDump) {
     assert!(!a.running());
 }
 #[test]
-fn silent_entry_exact_fragments_and_sources_survive_answer_and_dragged_layout() {
+fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_layout() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let host = Arc::new(Recording::default());
         let mut a = BrainDump::with_host(host.clone());
@@ -103,7 +120,11 @@ fn silent_entry_exact_fragments_and_sources_survive_answer_and_dragged_layout() 
             snapshot(w, h, &mut a, false).unwrap().contains("PR?"),
             "Focused live question clipped at supported size"
         );
-        assert_eq!(a.fragments.len(), 3);
+        assert!(
+            a.fragments.is_empty(),
+            "Sentence punctuation automatically created cards"
+        );
+        a.extract_range(1, 0, dump.find('\n').unwrap()).unwrap();
         for f in &a.fragments {
             assert_eq!(&dump[f.start..f.end], f.text);
         }
@@ -203,7 +224,7 @@ fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
     let r = host.requests.lock().unwrap()[0].clone();
     let g = guess(&r);
     let mut bad = g.clone();
-    bad.framings[0].supports = vec!["invented".into()];
+    bad.framings[0].supports = vec![anchor("invented")];
     assert!(bad.validate(&r).is_err());
     let mut bad = g.clone();
     bad.framings[0].supports.pop();
@@ -218,7 +239,7 @@ fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
     assert!(bad.validate(&r).is_err());
     bad.framings.push(Framing {
         text: "Another possible meaning".into(),
-        supports: r.fragments.iter().map(|f| f.id.clone()).collect(),
+        supports: anchors(&r),
     });
     assert!(bad.validate(&r).is_ok());
     let mut bad = g.clone();
@@ -231,6 +252,14 @@ fn boundary_rejects_unsafe_unsupported_uncertain_and_skipped_guesses() {
     skipped.skipped.push(g.questions[0].clone());
     assert!(g.validate(&skipped).is_err());
     let json = serde_json::to_string(&g).unwrap();
+    assert!(
+        serde_json::from_str::<Guess>(&json.replace(
+            "\"misfits\":[]",
+            "\"misfits\":[\"an inferred relationship\"]"
+        ))
+        .is_err(),
+        "Unanchored narrative misfit accepted"
+    );
     assert!(serde_json::from_str::<Guess>(&(json.clone() + " extra")).is_err());
     assert!(
         serde_json::from_str::<Guess>(&json.replace(
@@ -279,6 +308,9 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     a.paste("Read comfortably. Hamster is unfamiliar.");
     a.submit();
     settle(&mut a);
+    a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
+    key(&mut a, KeyCode::Tab);
+    key(&mut a, KeyCode::Char('e'));
     snapshot(100, 30, &mut a, false).unwrap();
     let area = a.area;
     let rect = a.canvas.area;
@@ -314,6 +346,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     for (n, f) in a.canvas.state.data.nodes.iter().zip(&a.fragments) {
         assert_eq!(n.text(), f.text);
     }
+    key(&mut a, KeyCode::Tab);
     a.paste("It is an RSS reader.");
     a.submit();
     settle(&mut a);
@@ -334,14 +367,14 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         g.framings = vec![
             Framing {
                 text: "PROVISIONAL: Clarify what matters this week.".into(),
-                supports: vec!["f1".into()],
+                supports: vec![anchor("My week has no clear priority.")],
             },
             Framing {
                 text: "PROVISIONAL: Reduce time in meetings.".into(),
-                supports: vec!["f2".into()],
+                supports: vec![anchor("Meetings are too long.")],
             },
         ];
-        g.misfits = vec!["f3".into()];
+        g.misfits = vec![anchor("A dashboard worries me.")];
         let ordinary = snapshot(w, h, &mut a, false).unwrap();
         for noise in [
             "PROVISIONAL:",
@@ -457,13 +490,22 @@ fn clipping_is_visible_and_original_is_one_action_away() {
     let mut a = BrainDump::default();
     snapshot(80, 24, &mut a, false).unwrap();
     let source = "Management wants a dashboard that shows everything people do all week, which feels like surveillance.";
-    a.paste(source);
+    let source = source.repeat(12);
+    a.paste(&source);
     a.submit();
     settle(&mut a);
     let view = snapshot(80, 24, &mut a, false).unwrap();
-    assert!(view.contains("… Ctrl-O"), "No cue for clipped text");
+    assert!(view.contains("more"), "No source scrolling cue");
+    assert!(
+        view.lines()
+            .nth(usize::from(a.source_area.y) - 1)
+            .unwrap()
+            .contains("Management"),
+        "Source title was replaced with a clipping hint"
+    );
+    assert!(!view.contains("… Ctrl-O"));
     assert_eq!(a.sources[0].text, source);
-    assert_eq!(a.fragments[0].text, source);
+    assert!(a.fragments.is_empty());
     a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
     let original = snapshot(80, 24, &mut a, false).unwrap();
     assert!(original.contains("surveillance."));
@@ -477,10 +519,10 @@ fn misfits_are_not_forced_into_the_centre_and_long_readings_are_rejected() {
     settle(&mut a);
     let r = host.requests.lock().unwrap()[0].clone();
     let mut g = guess(&r);
-    g.framings[0].supports = vec!["f1".into()];
-    g.misfits = vec!["f2".into()];
+    g.framings[0].supports = vec![anchor("Meaning.")];
+    g.misfits = vec![anchor("A tangent.")];
     assert!(g.validate(&r).is_ok());
-    g.framings[0].supports.push("f2".into());
+    g.framings[0].supports.push(anchor("A tangent."));
     assert!(g.validate(&r).is_err());
     g.framings[0].supports.pop();
     g.framings[0].text = vec!["word"; 46].join(" ");
@@ -507,7 +549,7 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
     let r = host.requests.lock().unwrap()[0].clone();
     let response = serde_json::to_string(&guess(&r)).unwrap();
     let program = dir.path().join("pi");
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'proposed mechanism EVEN WHEN EXPLICITLY REQUESTED' in p\nassert 'at least TWO credible' in p\nassert 'no appended status, ledger' in p\nassert 'Resolve a fork between competing core framings BEFORE vocabulary' in p\nassert 'An unfamiliar name in a prior attempt is NOT automatically the question in focus' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nr=json.load(sys.stdin)\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'not proposed toggle/tool/transport EVEN WHEN EXPLICITLY REQUESTED' in p\nassert 'at least TWO credible' in p\nassert 'no appended status/ledger' in p\nassert 'Resolve a fork between core readings before glossary' in p\nassert 'NOT automatically the focus' in p\nassert 'NEVER reword' in p and 'VISION' in p\nassert 'The app verifies every anchor' in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nr=json.load(sys.stdin)\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
     let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
@@ -515,4 +557,236 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
         actual.outcome,
         guess(&host.requests.lock().unwrap()[0]).outcome
     );
+}
+
+#[test]
+fn annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes() {
+    let sources = vec![Source {
+        id: 1,
+        text: "Café 👩‍💻 same. Café 👩‍💻 same.".into(),
+        in_reply_to: None,
+    }];
+    let second = Anchor {
+        source: 1,
+        quote: "Café 👩‍💻".into(),
+        occurrence: 1,
+    };
+    let range = second.range(&sources).unwrap();
+    assert_eq!(&sources[0].text[range.clone()], second.quote);
+    assert_eq!(range.start, sources[0].text.rfind("Café").unwrap());
+    for bad in [
+        Anchor {
+            source: 2,
+            ..second.clone()
+        },
+        Anchor {
+            quote: "café 👩‍💻".into(),
+            ..second.clone()
+        },
+        Anchor {
+            quote: "Cafe\u{301} 👩‍💻".into(),
+            ..second.clone()
+        },
+        Anchor {
+            occurrence: 2,
+            ..second.clone()
+        },
+        Anchor {
+            quote: "👩".into(),
+            occurrence: 0,
+            ..second.clone()
+        },
+        Anchor {
+            quote: "".into(),
+            ..second.clone()
+        },
+    ] {
+        assert!(
+            bad.range(&sources).is_err(),
+            "{bad:?} was silently normalized/repaired"
+        );
+    }
+}
+
+#[test]
+fn annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards() {
+    use ratatui::style::{Color, Modifier};
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        for mono in [false, true] {
+            let host = Arc::new(Recording::default());
+            let mut a = BrainDump::with_host(host.clone());
+            let original = "Café 👩‍💻 same. Café 👩‍💻 same.\nEnd.";
+            a.paste(original);
+            a.submit();
+            settle(&mut a);
+            let support = Anchor {
+                source: 1,
+                quote: "Café 👩‍💻".into(),
+                occurrence: 1,
+            };
+            let supported = support.range(&a.sources).unwrap();
+            let unresolved = anchor("End.").range(&a.sources).unwrap();
+            a.guess.as_mut().unwrap().framings[0].supports = vec![support];
+            a.guess.as_mut().unwrap().misfits = vec![anchor("End.")];
+            a.guess
+                .as_ref()
+                .unwrap()
+                .validate(&host.requests.lock().unwrap()[0])
+                .unwrap();
+            let mut terminal =
+                ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+            terminal
+                .draw(|f| render(f, &mut a, Palette::new(mono)))
+                .unwrap();
+            let area = a.source_area;
+            let wrapped = Note::new(original).wrap(area.width);
+            for (i, g) in original
+                .grapheme_indices(true)
+                .filter(|(_, g)| !g.chars().all(char::is_whitespace))
+            {
+                let (_, row, col) = wrapped
+                    .positions
+                    .iter()
+                    .find(|(index, _, _)| *index == i)
+                    .unwrap();
+                let cell =
+                    &terminal.backend().buffer()[(area.x + *col as u16, area.y + *row as u16)];
+                assert_eq!(cell.symbol(), g);
+                assert_eq!(
+                    cell.modifier.contains(Modifier::BOLD),
+                    supported.contains(&i),
+                    "wrong supporting cell at {i}"
+                );
+                assert_eq!(
+                    cell.modifier.contains(Modifier::UNDERLINED),
+                    unresolved.contains(&i),
+                    "wrong unresolved cell at {i}"
+                );
+                if !mono {
+                    assert_eq!(
+                        cell.fg,
+                        Color::Rgb(16, 15, 15),
+                        "Agent recoloured authored words"
+                    );
+                }
+            }
+            assert_eq!(a.sources[0].text, original);
+            assert!(a.fragments.is_empty());
+        }
+    }
+}
+
+#[test]
+fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    let text = "Café 👩‍💻 is the whole thought. That is my true goal.";
+    a.paste(text);
+    a.submit();
+    settle(&mut a);
+    snapshot(100, 30, &mut a, false).unwrap();
+    assert!(a.fragments.is_empty());
+    key(&mut a, KeyCode::Tab);
+    for _ in "Café 👩‍💻".graphemes(true) {
+        a.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    }
+    a.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+    assert_eq!(a.fragments.len(), 1);
+    let f = &a.fragments[0];
+    assert_eq!(f.source, 1);
+    assert_eq!(f.start, 0);
+    assert_eq!(f.end, "Café 👩‍💻".len());
+    assert_eq!(f.text, "Café 👩‍💻");
+    assert_eq!(host.requests.lock().unwrap().len(), 1);
+    assert!(!a.running());
+    assert_eq!(a.sources[0].text, text);
+    key(&mut a, KeyCode::Char('e'));
+    let view = snapshot(100, 30, &mut a, false).unwrap();
+    let (_, ny) = a.canvas.state.data.nodes[0].pos();
+    let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom
+        + f64::from(a.canvas.area.y)
+        + f64::from(a.canvas.area.height) / 2.0)
+        .round() as usize;
+    assert!(
+        view.lines().nth(y).unwrap().contains("Café"),
+        "Card title was replaced with metadata"
+    );
+    assert!(view.contains("Enter: source"));
+    assert!(!view.contains("… Ctrl-O"));
+    a.canvas.state.selection.select_only("f1".into());
+    key(&mut a, KeyCode::Enter);
+    assert!(!a.show_extractions);
+    assert_eq!(a.selection, Some((0, "Café 👩‍💻".len())));
+    assert!(a.extract_range(1, 0, 4).is_err(), "UTF-8 cut accepted");
+    let emoji = text.find('👩').unwrap();
+    assert!(
+        a.extract_range(1, emoji, emoji + "👩".len()).is_err(),
+        "Grapheme cut accepted"
+    );
+    assert!(a.extract_range(99, 0, 4).is_err());
+    assert!(a.extract_range(1, 0, "Café 👩‍💻".len()).is_err());
+    assert_eq!(a.fragments.len(), 1);
+}
+
+#[test]
+fn bad_span_keeps_the_previous_reading_and_originals_without_fallback() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("An intact goal. That is my true goal.");
+    a.submit();
+    settle(&mut a);
+    let request = host.requests.lock().unwrap()[0].clone();
+    let paper = a.paper();
+    let mut bad = guess(&request);
+    bad.framings[0].supports = vec![anchor("A paraphrased goal.")];
+    a.apply_result(request, Ok(bad));
+    assert!(a.notice.contains("exact source substring"));
+    assert_eq!(a.paper(), paper);
+    assert!(a.fragments.is_empty());
+    assert_eq!(a.sources[0].text, "An intact goal. That is my true goal.");
+}
+
+#[test]
+fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_neutral() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    assert!(
+        !snapshot(80, 24, &mut a, false)
+            .unwrap()
+            .contains("originals")
+    );
+    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    assert!(!a.original);
+    a.paste("Meaning. Unmarked words are not misfits.");
+    a.submit();
+    settle(&mut a);
+    let mut g = guess(&host.requests.lock().unwrap()[0]);
+    g.framings[0].supports = vec![anchor("Meaning.")];
+    assert!(
+        g.validate(&host.requests.lock().unwrap()[0]).is_ok(),
+        "Forced whole-source coverage"
+    );
+    a.guess = Some(g);
+    assert_eq!(
+        snapshot(80, 24, &mut a, false)
+            .unwrap()
+            .matches("Ctrl-O originals")
+            .count(),
+        1
+    );
+    let area = a.area;
+    a.handle_mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: area.width - 16,
+            row: 1,
+            modifiers: KeyModifiers::NONE,
+        },
+        area,
+    );
+    assert!(
+        a.original && !a.details,
+        "Originals click activated overlapping details control"
+    );
+    assert!(a.fragments.is_empty());
 }

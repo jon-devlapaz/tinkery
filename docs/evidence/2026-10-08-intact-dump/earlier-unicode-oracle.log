@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests src/lib.rs (target/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect stdout ----
+
+thread 'shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect' (58557258) panicked at src/shaping/brain_dump_tests.rs:701:5:
+UTF-8 cut accepted
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

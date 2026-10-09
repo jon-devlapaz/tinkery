@@ -10,9 +10,9 @@ r=json.load(sys.stdin)
 with open('requests.jsonl','a') as f: f.write(json.dumps(r)+'\\n')
 if 'FAIL' in r['sources'][-1]['text']: print('bad JSON');sys.exit(0)
 if 'WAIT' in r['sources'][-1]['text']: time.sleep(10)
-ids=[f['id'] for f in r['fragments']]
+anchors=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']]
 q='context' if 'meaning' in r['answered'] else 'meaning'
-print(json.dumps(dict(uncertain=False,framings=[dict(text='Keep review evidence understandable between handovers.',supports=ids)],outcome='You can distinguish observed evidence from an unreviewed suggestion in a PR thread.',misfits=[],questions=[dict(id=q,text='What would make a handover trustworthy?' if q=='context' else 'Which evidence gets confused?'),dict(id='boundary',text='Who needs this distinction?')],alternatives=[dict(label=l,benefit='Clearer handovers.',cost='Check the workflow.',undo_cost='Unknown.') for l in ['A small receipt / candidate','Link existing evidence / candidate']])))
+print(json.dumps(dict(uncertain=False,framings=[dict(text='Keep review evidence understandable between handovers.',supports=anchors)],outcome='You can distinguish observed evidence from an unreviewed suggestion in a PR thread.',misfits=[],questions=[dict(id=q,text='What would make a handover trustworthy?' if q=='context' else 'Which evidence gets confused?'),dict(id='boundary',text='Who needs this distinction?')],alternatives=[dict(label=l,benefit='Clearer handovers.',cost='Check the workflow.',undo_cost='Unknown.') for l in ['A small receipt / candidate','Link existing evidence / candidate']])))
 '''
 def journey(width,height):
  with tempfile.TemporaryDirectory(prefix='tinkery-brain-pty-') as directory:
@@ -35,21 +35,24 @@ def journey(width,height):
    start=time.monotonic();send(text.encode(),'call.');burst=time.monotonic()-start;assert burst<1.0,(width,burst)
    assert not requests();send(b'\x1bOQ','Which evidence gets confused?');assert len(requests())==1
    assert requests()[0]['sources'][0]['text']==text
-   await_text('Your words');await_text('I think this is about');await_text('Later: Who needs')
+   assert not requests()[0]['fragments'];await_text('Typed evidence');await_text('Ctrl-O originals');await_text('I think this is about');await_text('Later: Who needs')
    send(b'\x04','Desired experience');assert len(requests())==1
    send(b'\x04','Keep review evidence');assert len(requests())==1
    # Input and F2 submit; the result must not replace text entered during the request.
    answer='A real model capture is different from a stub or a human review.'
    start=time.monotonic();send(answer.encode(),'review.');answer_burst=time.monotonic()-start;assert answer_burst<1.0
    send(b'\x1bOQ','What would make a handover');assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
-   send(b'\t','Board: drag');send(b'd','Desired experience');send(b'd','Keep review evidence');assert len(requests())==2
+   send(b'\t','Board: select text');send(b'd','Desired experience');send(b'd','Keep review evidence');assert len(requests())==2
+   # A deliberate source selection extracts one card; neither action calls the provider.
+   send(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
+   send(b'e','Extracted thoughts');send(b'\r','Typed evidence');assert len(requests())==2
    send(b'y','Clipboard escape sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
    send(b'o','Original 1');send(b'\x04','Desired experience');send(b'\x04','Keep review evidence');send(b'o','Original 1');send(b'\x1b','Keep review evidence');send(b'\t','Tab input/board')
    # Character-by-character injection, with 1ms pacing (not a paste event).
    slow=' Streamed letters stay responsive.';start=time.monotonic()
    for c in slow:os.write(master,c.encode());time.sleep(0.001)
    await_text('responsive.');stream=time.monotonic()-start;assert stream<1.0,(width,stream)
-   send(b'\x15FAIL','FAIL');send(b'\x1bOQ','Reshape failed');assert 'Keep review evidence' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','Keep review evidence')
+   send(b'\x15FAIL','FAIL');send(b'\x1bOQ','Reshape failed');assert requests()[2]['fragments'][0]['text']=='Typed';assert requests()[2]['fragments'][0]['start']==0 and requests()[2]['fragments'][0]['end']==5;assert 'Keep review evidence' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','Keep review evidence')
    send(b'\x0eWAIT','WAIT');send(b'\x1bOQ','Thinking after submit');send(b'\x1b','Cancelled; original');assert 'Keep review evidence' in screen.text()
    os.write(master,b'\x03');process.wait(timeout=5);assert process.returncode==0
    while select.select([master],[],[],0.02)[0]:
