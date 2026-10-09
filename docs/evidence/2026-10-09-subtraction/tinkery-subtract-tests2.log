@@ -1,0 +1,24 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error[E0369]: binary operation `==` cannot be applied to type `brain_dump::Guess`
+   --> src/shaping/brain_dump_tests.rs:273:5
+    |
+273 |     assert_eq!(ignored,g);
+    |     ^^^^^^^^^^^^^^^^^^^^^
+    |     |
+    |     brain_dump::Guess
+    |     brain_dump::Guess
+    |
+note: an implementation of `PartialEq` might be missing for `brain_dump::Guess`
+   --> src/shaping/brain_dump.rs:81:1
+    |
+ 81 | pub struct Guess {
+    | ^^^^^^^^^^^^^^^^ must implement `PartialEq`
+help: consider annotating `brain_dump::Guess` with `#[derive(PartialEq)]`
+   --> src/shaping/brain_dump.rs:81:1
+    |
+ 81 + #[derive(PartialEq)]
+ 82 | pub struct Guess {
+    |
+
+For more information about this error, try `rustc --explain E0369`.
+error: could not compile `tinkery` (lib test) due to 1 previous error

@@ -1,0 +1,24 @@
+
+running 1 test
+test shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback ... FAILED
+
+failures:
+
+---- shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback stdout ----
+
+thread 'shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback' (60749346) panicked at src/shaping/brain_dump_tests.rs:784:5:
+assertion `left == right` failed
+  left: "# Tinkery / provisional board\n\nNothing confirmed. Unsaved.\n\n## Your deliberate extractions / exact excerpts\n\n## Original 1 / dump\n\nAn intact goal. That is my true goal."
+ right: "# Tinkery / provisional board\n\nNothing confirmed. Unsaved.\n\n## I think this is about… / guess\n\nModel reading 1 originals: make reading comfortable.\n\nSupporting words:\n\n> An intact goal. That is my true goal. (original 1)\n\n## Desired experience / proposed\n\nRead comfortably in the blog and RSS reader.\n\n## Doesn't fit yet\n\nNone identified by the agent; this does not mean everything fits.\n\n## One question in focus\n\nWhat is Hamster?\n\nQueued: Who needs comfortable reading?\n\n## Possible approaches / not accepted\n\n### A manual control / candidate\nBenefit: Comfortable reading.\nCost: Check the host.\nUndo cost: Unverified. / candidate\n\n### Follow the system setting / candidate\nBenefit: Comfortable reading.\nCost: Check the host.\nUndo cost: Unverified. / candidate\n\n## Your deliberate extractions / exact excerpts\n\n## Original 1 / dump\n\nAn intact goal. That is my true goal."
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.01s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-removals-ar98kksx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/subtraction-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`

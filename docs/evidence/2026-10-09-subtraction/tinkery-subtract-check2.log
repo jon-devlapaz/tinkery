@@ -1,0 +1,466 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error[E0063]: missing field `unresolved_notes` in initializer of `brain_dump::Guess`
+  --> src/shaping/brain_dump/dogfood_tests.rs:11:12
+   |
+11 |         Ok(Guess {
+   |            ^^^^^ missing `unresolved_notes`
+
+error[E0369]: binary operation `==` cannot be applied to type `NonEmpty<Reading>`
+  --> src/shaping/brain_dump/dogfood_tests.rs:77:5
+   |
+77 |     assert_eq!(a.guess.as_ref().unwrap().framings, old.framings);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |     |
+   |     NonEmpty<Reading>
+   |     NonEmpty<Reading>
+   |
+note: an implementation of `PartialEq` might be missing for `NonEmpty<Reading>`
+  --> src/shaping/brain_dump/board.rs:5:1
+   |
+ 5 | pub struct NonEmpty<T>(Vec<T>);
+   | ^^^^^^^^^^^^^^^^^^^^^^ must implement `PartialEq`
+help: consider annotating `NonEmpty<Reading>` with `#[derive(PartialEq)]`
+  --> src/shaping/brain_dump/board.rs:5:1
+   |
+ 5 + #[derive(PartialEq)]
+ 6 | pub struct NonEmpty<T>(Vec<T>);
+   |
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/dogfood_tests.rs:239:19
+    |
+239 |         previous: a.guess.clone(),
+    |                   ^^^^^^^^^^^^^^^ expected `Option<Guess>`, found `Option<Board>`
+    |
+    = note: expected enum `std::option::Option<brain_dump::Guess>`
+               found enum `std::option::Option<Board>`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/dogfood_tests.rs:247:26
+    |
+247 |     a.apply_result(r, Ok(response));
+    |                       -- ^^^^^^^^ expected `Guess`, found `Board`
+    |                       |
+    |                       arguments to this enum variant are incorrect
+    |
+help: the type constructed contains `Board` due to the type of the argument passed
+   --> src/shaping/brain_dump/dogfood_tests.rs:247:23
+    |
+247 |     a.apply_result(r, Ok(response));
+    |                       ^^^--------^
+    |                          |
+    |                          this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /rustc/88d9e12ae178fab0fb5cc050a94da85685d449ea/library/core/src/result.rs:561:4
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/dogfood_tests.rs:321:17
+    |
+321 |     g.outcome = g.framings[0].text.clone();
+    |     ---------   ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<String>`, found `String`
+    |     |
+    |     expected due to the type of this binding
+    |
+    = note: expected enum `std::option::Option<std::string::String>`
+             found struct `std::string::String`
+help: try wrapping the expression in `Some`
+    |
+321 |     g.outcome = Some(g.framings[0].text.clone());
+    |                 +++++                          +
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/dogfood_tests.rs:322:35
+    |
+322 |       g.framings[0].supports = vec![Anchor {
+    |  ___________________________________^
+323 | |         source: 1,
+324 | |         quote: "Learners feel dumb.".into(),
+325 | |         occurrence: 0,
+326 | |     }];
+    | |_____^ expected `VerifiedAnchor`, found `Anchor`
+
+error[E0599]: no method named `validate` found for mutable reference `&mut Board` in the current scope
+   --> src/shaping/brain_dump/dogfood_tests.rs:350:7
+    |
+350 |     g.validate(&r).unwrap();
+    |       ^^^^^^^^ method not found in `&mut Board`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/dogfood_tests.rs:351:41
+    |
+351 |     let coverage = checks::coverage(&r, g);
+    |                    ----------------     ^ expected `&Guess`, found `&mut Board`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note:      expected reference `&brain_dump::Guess`
+            found mutable reference `&mut Board`
+note: function defined here
+   --> src/shaping/brain_dump/checks.rs:78:15
+    |
+ 78 | pub(super) fn coverage(request: &BoardRequest, g: &Guess) -> Vec<Coverage> {
+    |               ^^^^^^^^                         ---------
+
+error[E0308]: mismatched types
+  --> src/shaping/brain_dump/goal_tests.rs:32:20
+   |
+32 |     a.guess = Some(guess);
+   |               ---- ^^^^^ expected `Board`, found `Guess`
+   |               |
+   |               arguments to this enum variant are incorrect
+   |
+help: the type constructed contains `brain_dump::Guess` due to the type of the argument passed
+  --> src/shaping/brain_dump/goal_tests.rs:32:15
+   |
+32 |     a.guess = Some(guess);
+   |               ^^^^^-----^
+   |                    |
+   |                    this argument influences the type of `Some`
+note: tuple variant defined here
+  --> /rustc/88d9e12ae178fab0fb5cc050a94da85685d449ea/library/core/src/option.rs:606:4
+
+error[E0599]: no method named `validate` found for struct `Board` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:133:15
+    |
+133 |     assert!(g.validate(&r).is_ok());
+    |               ^^^^^^^^ method not found in `Board`
+    |
+   ::: src/shaping/brain_dump/board.rs:44:1
+    |
+ 44 | pub struct Board(BoardData);
+    | ---------------- method `validate` not found for this struct
+
+error[E0609]: no field `uncertain` on type `Board`
+   --> src/shaping/brain_dump/goal_tests.rs:141:7
+    |
+141 |     g.uncertain = true;
+    |       ^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `framings`, `outcome`, `questions`, `alternatives`, `misfits`, `unresolved_notes`
+
+error[E0599]: no method named `push` found for struct `NonEmpty<Reading>` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:142:16
+    |
+142 |     g.framings.push(g.framings[0].clone());
+    |                ^^^^ method not found in `NonEmpty<Reading>`
+    |
+   ::: src/shaping/brain_dump/board.rs:5:1
+    |
+  5 | pub struct NonEmpty<T>(Vec<T>);
+    | ---------------------- method `push` not found for this struct
+
+error[E0599]: no method named `validate` found for struct `Board` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:143:15
+    |
+143 |     assert!(g.validate(&r).is_err());
+    |               ^^^^^^^^ method not found in `Board`
+    |
+   ::: src/shaping/brain_dump/board.rs:44:1
+    |
+ 44 | pub struct Board(BoardData);
+    | ---------------- method `validate` not found for this struct
+
+error[E0599]: no method named `pop` found for struct `NonEmpty<Reading>` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:144:16
+    |
+144 |     g.framings.pop();
+    |                ^^^ method not found in `NonEmpty<Reading>`
+    |
+   ::: src/shaping/brain_dump/board.rs:5:1
+    |
+  5 | pub struct NonEmpty<T>(Vec<T>);
+    | ---------------------- method `pop` not found for this struct
+
+error[E0599]: no method named `validate` found for struct `Board` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:145:15
+    |
+145 |     assert!(g.validate(&r).is_ok());
+    |               ^^^^^^^^ method not found in `Board`
+    |
+   ::: src/shaping/brain_dump/board.rs:44:1
+    |
+ 44 | pub struct Board(BoardData);
+    | ---------------- method `validate` not found for this struct
+
+error[E0599]: no method named `validate` found for struct `Board` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:149:15
+    |
+149 |     assert!(g.validate(&r).is_ok());
+    |               ^^^^^^^^ method not found in `Board`
+    |
+   ::: src/shaping/brain_dump/board.rs:44:1
+    |
+ 44 | pub struct Board(BoardData);
+    | ---------------- method `validate` not found for this struct
+
+error[E0599]: no method named `validate` found for struct `Board` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:151:15
+    |
+151 |     assert!(g.validate(&r).is_err());
+    |               ^^^^^^^^ method not found in `Board`
+    |
+   ::: src/shaping/brain_dump/board.rs:44:1
+    |
+ 44 | pub struct Board(BoardData);
+    | ---------------- method `validate` not found for this struct
+
+error[E0609]: no field `uncertain` on type `Board`
+   --> src/shaping/brain_dump/goal_tests.rs:153:7
+    |
+153 |     g.uncertain = false;
+    |       ^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `framings`, `outcome`, `questions`, `alternatives`, `misfits`, `unresolved_notes`
+
+error[E0599]: no method named `validate` found for struct `Board` in the current scope
+   --> src/shaping/brain_dump/goal_tests.rs:157:15
+    |
+157 |     assert!(g.validate(&r).is_err());
+    |               ^^^^^^^^ method not found in `Board`
+    |
+   ::: src/shaping/brain_dump/board.rs:44:1
+    |
+ 44 | pub struct Board(BoardData);
+    | ---------------- method `validate` not found for this struct
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/goal_tests.rs:200:36
+    |
+200 |         meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":false}"#)
+    |         ----------------------     ^^ expected `&Guess`, found `&Board`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected reference `&brain_dump::Guess`
+               found reference `&Board`
+note: function defined here
+   --> src/shaping/brain_dump/meaning_check.rs:71:15
+    |
+ 71 | pub(super) fn verdict(
+    |               ^^^^^^^
+ 72 |     request: &BoardRequest,
+ 73 |     guess: &Guess,
+    |     -------------
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/goal_tests.rs:204:39
+    |
+204 |     assert!(meaning_check::verdict(&r,&g,r#"{"missing":[{"source":1,"quote":"PR ready for human review","occurrence":0}],"false_cho...
+    |             ----------------------    ^^ expected `&Guess`, found `&Board`
+    |             |
+    |             arguments to this function are incorrect
+    |
+    = note: expected reference `&brain_dump::Guess`
+               found reference `&Board`
+note: function defined here
+   --> src/shaping/brain_dump/meaning_check.rs:71:15
+    |
+ 71 | pub(super) fn verdict(
+    |               ^^^^^^^
+ 72 |     request: &BoardRequest,
+ 73 |     guess: &Guess,
+    |     -------------
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/goal_tests.rs:206:36
+    |
+206 |         meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":true}"#)
+    |         ----------------------     ^^ expected `&Guess`, found `&Board`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected reference `&brain_dump::Guess`
+               found reference `&Board`
+note: function defined here
+   --> src/shaping/brain_dump/meaning_check.rs:71:15
+    |
+ 71 | pub(super) fn verdict(
+    |               ^^^^^^^
+ 72 |     request: &BoardRequest,
+ 73 |     guess: &Guess,
+    |     -------------
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/goal_tests.rs:215:44
+    |
+215 |         assert!(meaning_check::verdict(&r, &g, invalid).is_err());
+    |                 ----------------------     ^^ expected `&Guess`, found `&Board`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected reference `&brain_dump::Guess`
+               found reference `&Board`
+note: function defined here
+   --> src/shaping/brain_dump/meaning_check.rs:71:15
+    |
+ 71 | pub(super) fn verdict(
+    |               ^^^^^^^
+ 72 |     request: &BoardRequest,
+ 73 |     guess: &Guess,
+    |     -------------
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/goal_tests.rs:248:33
+    |
+248 |       g.framings[0].supports.push(Anchor {
+    |  ____________________________----_^
+    | |                            |
+    | |                            arguments to this method are incorrect
+249 | |         source: 3,
+250 | |         quote: a.sources[2].text.clone(),
+251 | |         occurrence: 0,
+252 | |     });
+    | |_____^ expected `VerifiedAnchor`, found `Anchor`
+    |
+note: method defined here
+   --> /rustc/88d9e12ae178fab0fb5cc050a94da85685d449ea/library/alloc/src/vec/mod.rs:1001:11
+
+error[E0277]: the trait bound `std::option::Option<std::string::String>: From<&str>` is not satisfied
+   --> src/shaping/brain_dump/goal_tests.rs:253:74
+    |
+253 |     g.outcome = "PR ready for human review with UI/design taste checks.".into();
+    |                                                                          ^^^^ the trait `From<&str>` is not implemented for `std::option::Option<std::string::String>`
+    |
+    = help: the following other types implement trait `From<T>`:
+              `std::option::Option<&T>` implements `From<&std::option::Option<T>>`
+              `std::option::Option<&mut T>` implements `From<&mut std::option::Option<T>>`
+              `std::option::Option<T>` implements `From<T>`
+              `std::option::Option<deranged::RangedI128<MIN, MAX>>` implements `From<deranged::OptionRangedI128<MIN, MAX>>`
+              `std::option::Option<deranged::RangedI16<MIN, MAX>>` implements `From<deranged::OptionRangedI16<MIN, MAX>>`
+              `std::option::Option<deranged::RangedI32<MIN, MAX>>` implements `From<deranged::OptionRangedI32<MIN, MAX>>`
+              `std::option::Option<deranged::RangedI64<MIN, MAX>>` implements `From<deranged::OptionRangedI64<MIN, MAX>>`
+              `std::option::Option<deranged::RangedI8<MIN, MAX>>` implements `From<deranged::OptionRangedI8<MIN, MAX>>`
+            and 8 others
+    = note: required for `&str` to implement `Into<std::option::Option<std::string::String>>`
+
+error[E0063]: missing field `unresolved_notes` in initializer of `brain_dump::Guess`
+  --> src/shaping/brain_dump_tests.rs:32:5
+   |
+32 |     Guess {
+   |     ^^^^^ missing `unresolved_notes`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:195:9
+    |
+195 |         "Read comfortably in the blog and RSS reader."
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<String>`, found `&str`
+    |
+    = note:   expected enum `std::option::Option<std::string::String>`
+            found reference `&str`
+
+error[E0609]: no field `uncertain` on type `&mut Board`
+   --> src/shaping/brain_dump_tests.rs:373:11
+    |
+373 |         g.uncertain = true;
+    |           ^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `framings`, `outcome`, `questions`, `alternatives`, `misfits`, `unresolved_notes`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:374:22
+    |
+374 |           g.framings = vec![
+    |  _________----------___^
+    | |         |
+    | |         expected due to the type of this binding
+375 | |             Framing {
+376 | |                 text: "PROVISIONAL: Clarify what matters this week.".into(),
+377 | |                 supports: vec![anchor("My week has no clear priority.")],
+...   |
+382 | |             },
+383 | |         ];
+    | |_________^ expected `NonEmpty<Reading>`, found `Vec<Framing>`
+    |
+    = note: expected struct `NonEmpty<Reading>`
+               found struct `Vec<brain_dump::Framing>`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:384:26
+    |
+384 |         g.misfits = vec![anchor("A dashboard worries me.")];
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `VerifiedAnchor`, found `Anchor`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:640:67
+    |
+640 |             a.guess.as_mut().unwrap().framings[0].supports = vec![support];
+    |                                                                   ^^^^^^^ expected `VerifiedAnchor`, found `Anchor`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:641:54
+    |
+641 |             a.guess.as_mut().unwrap().misfits = vec![anchor("End.")];
+    |                                                      ^^^^^^^^^^^^^^ expected `VerifiedAnchor`, found `Anchor`
+
+error[E0599]: no method named `validate` found for reference `&Board` in the current scope
+   --> src/shaping/brain_dump_tests.rs:645:18
+    |
+642 | /             a.guess
+643 | |                 .as_ref()
+644 | |                 .unwrap()
+645 | |                 .validate(&host.requests.lock().unwrap()[0])
+    | |                 -^^^^^^^^ method not found in `&Board`
+    | |_________________|
+    |
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:780:20
+    |
+780 |     a.guess = Some(g);
+    |               ---- ^ expected `Board`, found `Guess`
+    |               |
+    |               arguments to this enum variant are incorrect
+    |
+help: the type constructed contains `brain_dump::Guess` due to the type of the argument passed
+   --> src/shaping/brain_dump_tests.rs:780:15
+    |
+780 |     a.guess = Some(g);
+    |               ^^^^^-^
+    |                    |
+    |                    this argument influences the type of `Some`
+note: tuple variant defined here
+   --> /rustc/88d9e12ae178fab0fb5cc050a94da85685d449ea/library/core/src/option.rs:606:4
+
+error[E0596]: cannot borrow data in dereference of `Board` as mutable
+  --> src/shaping/brain_dump/goal_tests.rs:97:5
+   |
+97 |     a.guess.as_mut().unwrap().questions.clear();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
+   |
+   = help: trait `DerefMut` is required to modify through a dereference, but it is not implemented for `Board`
+
+error[E0596]: cannot borrow data in dereference of `Board` as mutable
+   --> src/shaping/brain_dump/goal_tests.rs:167:5
+    |
+167 |     a.guess.as_mut().unwrap().questions.extend((0..5).map(|i|Question{id:format!("long-{i}"),text:"Which consequential design bound...
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
+    |
+    = help: trait `DerefMut` is required to modify through a dereference, but it is not implemented for `Board`
+
+error[E0596]: cannot borrow data in dereference of `NonEmpty<Reading>` as mutable
+   --> src/shaping/brain_dump/help_exit_tests.rs:230:9
+    |
+230 |         a.guess.as_mut().unwrap().framings[0].supports.clear();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
+    |
+    = help: trait `DerefMut` is required to modify through a dereference, but it is not implemented for `NonEmpty<Reading>`
+
+error[E0596]: cannot borrow data in dereference of `Board` as mutable
+   --> src/shaping/brain_dump_tests.rs:118:9
+    |
+118 | ...   a.guess.as_mut().unwrap().questions[0].text = "Should scratch thinking remain entirely separate unless someone explicitly cho...
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
+    |
+    = help: trait `DerefMut` is required to modify through a dereference, but it is not implemented for `Board`
+
+error[E0596]: cannot borrow data in dereference of `Board` as mutable
+   --> src/shaping/brain_dump_tests.rs:901:5
+    |
+901 |     a.guess.as_mut().unwrap().questions.truncate(1);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
+    |
+    = help: trait `DerefMut` is required to modify through a dereference, but it is not implemented for `Board`
+
+Some errors have detailed explanations: E0063, E0277, E0308, E0369, E0596, E0599, E0609.
+For more information about an error, try `rustc --explain E0063`.
+error: could not compile `tinkery` (lib test) due to 39 previous errors

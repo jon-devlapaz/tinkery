@@ -1,0 +1,77 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error[E0609]: no field `uncertain` on type `&mut Board`
+   --> src/shaping/brain_dump_tests.rs:379:11
+    |
+379 |         g.uncertain = true;
+    |           ^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `framings`, `outcome`, `questions`, `alternatives`, `misfits`, `unresolved_notes`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:380:22
+    |
+380 |           g.framings = vec![
+    |  _________----------___^
+    | |         |
+    | |         expected due to the type of this binding
+381 | |             Framing {
+382 | |                 text: "PROVISIONAL: Clarify what matters this week.".into(),
+383 | |                 supports: vec![anchor("My week has no clear priority.")],
+...   |
+388 | |             },
+389 | |         ];
+    | |_________^ expected `NonEmpty<Reading>`, found `Vec<Framing>`
+    |
+    = note: expected struct `NonEmpty<Reading>`
+               found struct `Vec<brain_dump::Framing>`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:390:26
+    |
+390 |         g.misfits = vec![anchor("A dashboard worries me.")];
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `VerifiedAnchor`, found `Anchor`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:646:67
+    |
+646 |             a.guess.as_mut().unwrap().framings[0].supports = vec![support];
+    |                                                                   ^^^^^^^ expected `VerifiedAnchor`, found `Anchor`
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:647:54
+    |
+647 |             a.guess.as_mut().unwrap().misfits = vec![anchor("End.")];
+    |                                                      ^^^^^^^^^^^^^^ expected `VerifiedAnchor`, found `Anchor`
+
+error[E0599]: no method named `validate` found for reference `&Board` in the current scope
+   --> src/shaping/brain_dump_tests.rs:651:18
+    |
+648 | /             a.guess
+649 | |                 .as_ref()
+650 | |                 .unwrap()
+651 | |                 .validate(&host.requests.lock().unwrap()[0])
+    | |                 -^^^^^^^^ method not found in `&Board`
+    | |_________________|
+    |
+
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump_tests.rs:786:20
+    |
+786 |     a.guess = Some(g);
+    |               ---- ^ expected `Board`, found `Guess`
+    |               |
+    |               arguments to this enum variant are incorrect
+    |
+help: the type constructed contains `brain_dump::Guess` due to the type of the argument passed
+   --> src/shaping/brain_dump_tests.rs:786:15
+    |
+786 |     a.guess = Some(g);
+    |               ^^^^^-^
+    |                    |
+    |                    this argument influences the type of `Some`
+note: tuple variant defined here
+   --> /rustc/88d9e12ae178fab0fb5cc050a94da85685d449ea/library/core/src/option.rs:606:4
+
+Some errors have detailed explanations: E0308, E0599, E0609.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `tinkery` (lib test) due to 7 previous errors

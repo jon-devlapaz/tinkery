@@ -1,0 +1,23 @@
+F..F.
+======================================================================
+FAIL: test_duplicate_notices_and_replays_do_not_inflate_live_events (__main__.CensusTests.test_duplicate_notices_and_replays_do_not_inflate_live_events)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-census-probes-dv82vd6i/tests/test_rejection_census.py", line 47, in test_duplicate_notices_and_replays_do_not_inflate_live_events
+    self.assertEqual(len(result["events"]), 1)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 1
+
+======================================================================
+FAIL: test_real_corpus_refinement_does_not_treat_readable_json_as_parse_failure (__main__.CensusTests.test_real_corpus_refinement_does_not_treat_readable_json_as_parse_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-census-probes-dv82vd6i/tests/test_rejection_census.py", line 66, in test_real_corpus_refinement_does_not_treat_readable_json_as_parse_failure
+    self.assertEqual(len(latest), 2)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+AssertionError: 4 != 2
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.061s
+
+FAILED (failures=2)

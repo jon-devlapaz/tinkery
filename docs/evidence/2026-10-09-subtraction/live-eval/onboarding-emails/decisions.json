@@ -1,0 +1,118 @@
+{
+  "actor": "assistant-driven TEST eval; not operator recognition",
+  "decisions": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Could reduce perceived spamminess and unsubscribes.",
+            "cost": "Could remove useful onboarding touchpoints.",
+            "label": "Reduce the number of emails in the first week",
+            "undo_cost": ""
+          },
+          {
+            "benefit": "Preserves the program marketing values while potentially reducing annoyance.",
+            "cost": "May not solve the problem if frequency itself is the issue.",
+            "label": "Keep five emails but make their timing or content more targeted",
+            "undo_cost": ""
+          },
+          {
+            "benefit": "Could show which balance reduces unsubscribes without relying on assumptions.",
+            "cost": "Requires time and enough users for a meaningful comparison.",
+            "label": "Test different onboarding cadences with new users",
+            "undo_cost": ""
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "I don't want to kill them entirely, I just don't want new users to feel spammed.",
+                "source": 1
+              }
+            ],
+            "text": "Proposed goal: reduce the feeling that new users are being spammed while keeping onboarding emails in some form."
+          },
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "the unsubscribe rate keeps going up.",
+                "source": 1
+              }
+            ],
+            "text": "Proposed outcome: unsubscribe rates stop rising without abandoning the onboarding email program."
+          }
+        ],
+        "misfits": [],
+        "outcome": "",
+        "questions": [
+          {
+            "id": "success-criterion",
+            "text": "When you say you don't want new users to feel spammed, is that the main success criterion, with unsubscribe rate as the signal—or should reducing unsubscribes be the primary goal?"
+          }
+        ],
+        "uncertain": false,
+        "unresolved_notes": [
+          "It is unclear whether the main problem is the number of emails, their content, their timing, or some combination."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "candidate: Keep five emails but make their timing or content more targeted"
+          ],
+          "term": "five"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 15210,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent/unreadable optional optional desired experience",
+        "Absent/unreadable optional candidate 0 undo_cost",
+        "Absent/unreadable optional candidate 1 undo_cost",
+        "Absent/unreadable optional candidate 2 undo_cost",
+        "Absent unresolved notes: empty collection",
+        "Retained unresolved 0 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"framings\": [\n    {\n      \"text\": \"Proposed goal: reduce the feeling that new users are being spammed while keeping onboarding emails in some form.\",\n      \"supports\": [\n        {\n          \"source\": 1,\n          \"quote\": \"I don't want to kill them entirely, I just don't want new users to feel spammed.\",\n          \"occurrence\": 0\n        }\n      ]\n    },\n    {\n      \"text\": \"Proposed outcome: unsubscribe rates stop rising without abandoning the onboarding email program.\",\n      \"supports\": [\n        {\n          \"source\": 1,\n          \"quote\": \"the unsubscribe rate keeps going up.\",\n          \"occurrence\": 0\n        }\n      ]\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"label\": \"Reduce the number of emails in the first week\",\n      \"benefit\": \"Could reduce perceived spamminess and unsubscribes.\",\n      \"cost\": \"Could remove useful onboarding touchpoints.\"\n    },\n    {\n      \"label\": \"Keep five emails but make their timing or content more targeted\",\n      \"benefit\": \"Preserves the program marketing values while potentially reducing annoyance.\",\n      \"cost\": \"May not solve the problem if frequency itself is the issue.\"\n    },\n    {\n      \"label\": \"Test different onboarding cadences with new users\",\n      \"benefit\": \"Could show which balance reduces unsubscribes without relying on assumptions.\",\n      \"cost\": \"Requires time and enough users for a meaningful comparison.\"\n    }\n  ],\n  \"questions\": [\n    {\n      \"text\": \"When you say you don't want new users to feel spammed, is that the main success criterion, with unsubscribe rate as the signal—or should reducing unsubscribes be the primary goal?\",\n      \"id\": \"success-criterion\"\n    }\n  ],\n  \"misfits\": [\n    \"It is unclear whether the main problem is the number of emails, their content, their timing, or some combination.\"\n  ]\n}\n",
+      "reason": "Valid schema, exact spans and application-owned history. Not a meaning judgment.",
+      "request_key": "dceea5f7cbb7f7df",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "candidate: Keep five emails but make their timing or content more targeted"
+          ],
+          "term": "five"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 8345,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "No whole-board loss identified by the model; not proof of understanding.",
+      "request_key": "dceea5f7cbb7f7df",
+      "version": 3
+    }
+  ],
+  "first_validated_board_ms": 15235,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "mode": "log-only; advisory flags not enabled",
+  "model": "openai-codex/gpt-5.6-luna",
+  "notice": "Reshaped after submit. Your positions kept; nothing confirmed.",
+  "seed_written": false,
+  "shaping_result_ms": 15235,
+  "status": "displayed",
+  "thinking": "Pi native default; --thinking omitted",
+  "total_ms": 23587
+}

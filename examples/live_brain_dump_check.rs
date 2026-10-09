@@ -36,7 +36,7 @@ fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
         .unwrap();
         let mut anchors = vec![];
         for (reading, framing) in g.framings.iter().enumerate() {
-            for anchor in &framing.supports {
+            for anchor in framing.supports.iter() {
                 let range = anchor
                     .range(&app.sources)
                     .expect("Accepted anchor must match original");

@@ -1,0 +1,14 @@
+..F..
+======================================================================
+FAIL: test_legacy_semantic_veto_is_not_proof_of_a_fact_violation (__main__.CensusTests.test_legacy_semantic_veto_is_not_proof_of_a_fact_violation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-census-probes-dv82vd6i/tests/test_rejection_census.py", line 35, in test_legacy_semantic_veto_is_not_proof_of_a_fact_violation
+    self.assertIn("not a proven fact", qualification)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'not a proven fact' not found in 'proven deterministic fact violation'
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.061s
+
+FAILED (failures=1)

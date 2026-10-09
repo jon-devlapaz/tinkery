@@ -1,4 +1,5 @@
 use super::goal_tests::{board, right_text};
+use super::tests::amend_board;
 use super::*;
 use std::sync::Mutex;
 #[derive(Default)]
@@ -9,6 +10,7 @@ impl BoardHost for Counting {
     fn reshape(&self, r: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
         self.requests.lock().unwrap().push(r.clone());
         Ok(Guess {
+            unresolved_notes: vec![],
             uncertain: false,
             framings: vec![Framing {
                 text: "Keep track of the books you've read.".into(),
@@ -236,13 +238,13 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
     let r = BoardRequest {
         sources: a.sources.clone(),
         fragments: vec![],
-        previous: a.guess.clone(),
+        previous: a.guess.as_ref().map(|g| g.wire()),
         skipped: vec![],
         answered: vec![],
         settled: vec![],
         layout: vec![],
     };
-    let mut response = a.guess.clone().unwrap();
+    let mut response = a.guess.as_ref().unwrap().wire();
     response.questions.clear();
     a.apply_result(r, Ok(response));
     assert!(a.guess.as_ref().unwrap().questions.is_empty());
@@ -315,7 +317,7 @@ fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation(
 #[test]
 fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overlap() {
     let mut a = board();
-    let g = a.guess.as_mut().unwrap();
+    let mut g = a.guess.as_ref().unwrap().wire();
     a.sources[0].text = "Learners feel dumb. Proposed AI tutor chat. Unverified question 4.".into();
     g.framings[0].text = "Learners leave a wrong answer feeling smarter.".into();
     g.outcome = g.framings[0].text.clone();
@@ -348,11 +350,12 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
         layout: vec![],
     };
     g.validate(&r).unwrap();
-    let coverage = checks::coverage(&r, g);
+    let coverage = checks::coverage(&r, &g);
     assert_eq!(
         coverage.iter().find(|c| c.term == "AI").unwrap().locations,
         vec!["candidate: AI tutor chat (candidate)"]
     );
+    amend_board(&mut a, |current| *current = g);
     a.review_goal();
     assert!(a.goal_review.is_some());
     assert!(a.handoff_job.is_none());

@@ -1,0 +1,47 @@
+== tests/brain_dump_terminal.py
+{"width": 80, "height": 24, "burst_seconds": 0.0019, "answer_burst_seconds": 0.0011, "paced_1ms_seconds": 0.0441, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 100, "height": 30, "burst_seconds": 0.0013, "answer_burst_seconds": 0.001, "paced_1ms_seconds": 0.0442, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 160, "height": 40, "burst_seconds": 0.0023, "answer_burst_seconds": 0.0015, "paced_1ms_seconds": 0.0447, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 320, "height": 40, "burst_seconds": 0.0042, "answer_burst_seconds": 0.0025, "paced_1ms_seconds": 0.0456, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+== tests/dogfood_terminal.py
+{"width": 80, "height": 24, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+{"width": 100, "height": 30, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+{"width": 160, "height": 40, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+{"width": 320, "height": 40, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+== tests/goal_confirmation_terminal.py
+{"width": 80, "height": 24, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 100, "height": 30, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 160, "height": 40, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 320, "height": 40, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+== tests/help_exit_terminal.py
+{"width": 80, "height": 24, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+{"width": 100, "height": 30, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+{"width": 160, "height": 40, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+{"width": 320, "height": 40, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+== tests/terminal_smoke.py
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 80x24, multiple notes, full-width drag, inspector, no writes, restore
+PASS: problem-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: problem-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+LATENCY: legacy 100x30, note=0.0020s, feedback=0.0037s (plain burst)
+PASS: model adapter stub, 100x30, shape/correct/revise, original retained, no writes, safe exit
+LATENCY: legacy 80x24, note=0.0018s, feedback=0.0028s (plain burst)
+PASS: model adapter stub, 80x24, shape/correct/revise, original retained, no writes, safe exit
+LATENCY: legacy 160x40, note=0.0029s, feedback=0.0040s (plain burst)
+PASS: wide stub journey, 160x40, paper/revision/repaint/clean OSC52, full_redraw=False
+LATENCY: legacy 240x40, note=0.0042s, feedback=0.0049s (plain burst)
+PASS: wide stub journey, 240x40, paper/revision/repaint/clean OSC52, full_redraw=False
+LATENCY: legacy 320x40, note=0.0093s, feedback=0.0098s (plain burst)
+PASS: wide stub journey, 320x40, paper/revision/repaint/clean OSC52, full_redraw=True
+PASS: noninteractive modes and explicit CLI errors
+== tests/test_rejection_census.py
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.104s
+
+OK

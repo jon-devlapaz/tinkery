@@ -1,3 +1,4 @@
+use super::tests::amend_board;
 use super::*;
 pub(super) fn right_text(screen: &str, width: u16) -> String {
     screen
@@ -27,9 +28,11 @@ pub(super) fn board() -> BrainDump {
         settled: vec![],
         layout: vec![],
     };
-    let mut guess = Simulated.reshape(r, &AtomicBool::new(false)).unwrap();
+    let mut guess = Simulated
+        .reshape(r.clone(), &AtomicBool::new(false))
+        .unwrap();
     guess.framings[0].text="A PR ready for human review with you as restaurateur judging the result; harness and codebase both compound.".into();
-    a.guess = Some(guess);
+    a.guess = Some(board::Board::verify(guess, &r).unwrap());
     a
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
@@ -94,7 +97,7 @@ fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
 #[test]
 fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source() {
     let mut a = board();
-    a.guess.as_mut().unwrap().questions.clear();
+    amend_board(&mut a, |g| g.questions.clear());
     let text = snapshot(100, 30, &mut a, false).unwrap();
     assert!(text.contains("Review goal"));
     assert!(a.receipt.is_none());
@@ -117,7 +120,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     assert!(a.goal_config.as_ref().unwrap().recovery_path().is_none());
 }
 #[test]
-fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_options() {
+fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_options() {
     let a = board();
     let mut r = BoardRequest {
         sources: a.sources.clone(),
@@ -128,7 +131,7 @@ fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_optio
         settled: vec![],
         layout: vec![],
     };
-    let mut g = a.guess.unwrap();
+    let mut g = a.guess.unwrap().wire();
     g.alternatives.clear();
     assert!(g.validate(&r).is_ok());
     r.settled.push(Settled {
@@ -140,7 +143,7 @@ fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_optio
     });
     g.uncertain = true;
     g.framings.push(g.framings[0].clone());
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
     g.framings.pop();
     assert!(g.validate(&r).is_ok());
     g.framings[0].text = std::iter::repeat_n("combined", 65)
@@ -148,13 +151,13 @@ fn answered_scope_requires_one_combined_reading_and_allows_no_manufactured_optio
         .join(" ");
     assert!(g.validate(&r).is_ok());
     g.framings[0].text.push_str(" excess");
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
     r.settled.clear();
     g.uncertain = false;
     g.framings[0].text = std::iter::repeat_n("initial", 46)
         .collect::<Vec<_>>()
         .join(" ");
-    assert!(g.validate(&r).is_err());
+    assert!(g.validate(&r).is_ok());
 }
 #[test]
 fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible() {
@@ -164,7 +167,9 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
         text: "Which boundaries remain despite skipping this question?".into(),
     };
     a.skipped.push(skipped.clone());
-    a.guess.as_mut().unwrap().questions.extend((0..5).map(|i|Question{id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}));
+    amend_board(&mut a, |g| {
+        g.questions.extend((0..5).map(|i|Question{id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}))
+    });
     a.review_goal();
     snapshot(80, 24, &mut a, false).unwrap();
     assert!(a.goal_review.as_ref().unwrap().max > 0);
@@ -186,7 +191,7 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
 #[test]
 fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
     let mut a = board();
-    let g = a.guess.clone().unwrap();
+    let g = a.guess.as_ref().unwrap().wire();
     let r = BoardRequest {
         sources: a.sources.clone(),
         fragments: vec![],
@@ -216,9 +221,11 @@ fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
     }
     assert_eq!(
         serde_json::to_value(&g).unwrap(),
-        serde_json::to_value(&a.guess).unwrap()
+        serde_json::to_value(a.guess.as_ref().unwrap().wire()).unwrap()
     );
-    a.guess.as_mut().unwrap().framings[0].text = "A software result for human review.".into();
+    amend_board(&mut a, |g| {
+        g.framings[0].text = "A software result for human review.".into()
+    });
     a.review_goal();
     assert!(
         a.goal_review.is_some(),
@@ -243,7 +250,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
         source: 2,
     });
     a.applied = 3;
-    let g = a.guess.as_mut().unwrap();
+    let mut g = a.guess.as_ref().unwrap().wire();
     g.framings[0].text="A human-first meta harness and board carries the agentic software development lifecycle to a PR ready for human review. Both harness and codebase compound, preserving codebase health and easier future changes; you are the restaurateur judging the final result with earlier UI and consequential design taste checks.".into();
     g.framings[0].supports.push(Anchor {
         source: 3,
@@ -252,6 +259,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     });
     g.outcome = "PR ready for human review with UI/design taste checks.".into();
     g.alternatives.clear();
+    amend_board(&mut a, |current| *current = g);
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
     let frozen = &a.goal_review.as_ref().unwrap().affirmation;

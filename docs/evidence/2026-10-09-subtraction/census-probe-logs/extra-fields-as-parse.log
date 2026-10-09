@@ -1,0 +1,17 @@
+....F
+======================================================================
+FAIL: test_rules_distinguish_schema_from_syntax_and_facts (__main__.CensusTests.test_rules_distinguish_schema_from_syntax_and_facts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-census-probes-dv82vd6i/tests/test_rejection_census.py", line 29, in test_rules_distinguish_schema_from_syntax_and_facts
+    self.assertEqual(census.classify(reason)[0], expected)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'P' != 'S'
+- P
++ S
+
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.060s
+
+FAILED (failures=1)

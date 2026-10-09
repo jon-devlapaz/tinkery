@@ -9,6 +9,8 @@ pub struct Coverage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Decision {
     pub version: u8,
+    #[serde(default)]
+    pub normalizations: Vec<String>,
     pub request_key: String,
     pub check: String,
     pub mode: String,
@@ -28,7 +30,8 @@ impl Decision {
         started: Instant,
     ) -> Self {
         Self {
-            version: 2,
+            version: 3,
+            normalizations: vec![],
             request_key: String::new(),
             check: check.into(),
             mode: mode.into(),
@@ -48,7 +51,12 @@ impl Decision {
             self.decision,
             self.elapsed_ms,
             self.request_key,
-            self.reason,
+            self.reason.clone()
+                + &self
+                    .normalizations
+                    .iter()
+                    .map(|s| format!("\nBoundary: {s}"))
+                    .collect::<String>(),
             self.coverage
                 .iter()
                 .map(|c| format!(

@@ -23,6 +23,7 @@ pub struct Affirmation {
     pub sources: Vec<Source>,
     pub answered: Vec<Settled>,
     pub unresolved: Vec<Question>,
+    pub unresolved_notes: Vec<String>,
     pub source: String,
 }
 pub struct Receipt {
@@ -184,7 +185,7 @@ impl Config {
                 return Err("Cannot timestamp goal affirmation".into());
             }
             let stamp = String::from_utf8(stamp.stdout).map_err(|e| e.to_string())?;
-            let evidence = a.sources.iter().map(|s| json!({"checked": source_label(s),"at":stamp.trim(),"observed":s.text})).chain(std::iter::once(json!({"checked":"Tinkery answer/question context; questions remain provisional, not settled Seed Me decisions","at":stamp.trim(),"observed":serde_json::to_string(&json!({"answered":a.answered,"unresolved":a.unresolved})).unwrap()}))).collect::<Vec<_>>();
+            let evidence = a.sources.iter().map(|s| json!({"checked": source_label(s),"at":stamp.trim(),"observed":s.text})).chain(std::iter::once(json!({"checked":"Tinkery answer/question context; questions remain provisional, not settled Seed Me decisions","at":stamp.trim(),"observed":serde_json::to_string(&json!({"answered":a.answered,"unresolved":a.unresolved,"unresolved_notes":a.unresolved_notes})).unwrap()}))).collect::<Vec<_>>();
             let payload = json!({"expected_version":current["version"],"reason":format!("Explicit Tinkery goal affirmation at unix {at}: {}",a.source),"state":{"status":"active","draft":{"goal":a.goal,"outcome":a.outcome,"options":a.options.iter().map(|o|format!("{} — benefit: {}; cost: {}; undo cost: {}",o.label,o.benefit,o.cost,o.undo_cost)).collect::<Vec<_>>()},"goal":a.goal,"origin":"goal","current_question":null,"nodes":[{"id":"goal","kind":"decision","status":"settled","prerequisites":[],"evidence":evidence,"owner":"User","gate":"Explicit affirmation of the complete displayed goal; not seed or implementation approval","answer":a.goal,"authority":"user","authority_source":a.source}]}});
             let mut input = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
             serde_json::to_writer(input.as_file_mut(), &payload).map_err(|e| e.to_string())?;

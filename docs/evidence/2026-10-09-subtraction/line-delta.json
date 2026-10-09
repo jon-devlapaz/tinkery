@@ -1,0 +1,31 @@
+{
+  "baseline": "d1a71a83a80b5fa5f5f42ef89f89a21e844e68c9",
+  "line_delta_method": "git diff --cached --numstat against base HEAD; new files included; runtime/tests/examples/census separated; evidence excluded",
+  "lines": {
+    "runtime_rust": {
+      "added": 580,
+      "removed": 110
+    },
+    "rust_tests": {
+      "added": 296,
+      "removed": 55
+    },
+    "examples": {
+      "added": 5,
+      "removed": 6
+    },
+    "offline_census_and_test": {
+      "added": 238,
+      "removed": 0
+    }
+  },
+  "prompt": {
+    "source_lines_removed": 7,
+    "source_lines_added": 5,
+    "logical_lines_removed": 7,
+    "logical_lines_added": 5,
+    "bytes_before": 4466,
+    "bytes_after": 1848,
+    "note": "Decoded Tinkery-authored format-template text only; interpolation placeholder and unchanged official shaping guidance excluded; doubled format braces decoded"
+  }
+}

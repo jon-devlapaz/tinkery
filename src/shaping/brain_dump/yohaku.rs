@@ -97,7 +97,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             .guess
             .as_ref()
             .map(|g| {
-                g.framings
+                g.presented(app.reading)
                     .iter()
                     .map(|f| agent_text(&f.text))
                     .collect::<Vec<_>>()
@@ -109,7 +109,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         )
     } else if let Some(g) = &app.guess {
         let reading = g
-            .framings
+            .presented(app.reading)
             .iter()
             .map(|f| agent_text(&f.text))
             .collect::<Vec<_>>()
@@ -129,7 +129,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let mut text = ratatui::text::Text::from(content);
     if failure.is_some() {
         let retained_lines = app.guess.as_ref().map_or(0, |g| {
-            g.framings
+            g.presented(app.reading)
                 .iter()
                 .map(|f| agent_text(&f.text))
                 .collect::<Vec<_>>()

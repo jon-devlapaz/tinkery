@@ -1,0 +1,22 @@
+
+running 1 test
+test shaping::brain_dump::goal_tests::meaning_findings_are_log_only_and_bad_evidence_never_gains_authority ... FAILED
+
+failures:
+
+---- shaping::brain_dump::goal_tests::meaning_findings_are_log_only_and_bad_evidence_never_gains_authority stdout ----
+
+thread 'shaping::brain_dump::goal_tests::meaning_findings_are_log_only_and_bad_evidence_never_gains_authority' (60750426) panicked at src/shaping/brain_dump/goal_tests.rs:230:5:
+Lexical coverage must not veto the person's review
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::goal_tests::meaning_findings_are_log_only_and_bad_evidence_never_gains_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.01s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-subtraction-removals-ar98kksx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.69s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/subtraction-removals/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`

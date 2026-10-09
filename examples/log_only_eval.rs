@@ -37,9 +37,8 @@ fn audit_attempt(args: &[String]) {
         settled: vec![],
         layout: vec![],
     };
-    let replay = serde_json::from_str::<Guess>(raw)
-        .map_err(|e| e.to_string())
-        .and_then(|g| g.validate(&request));
+    let mut normalizations = vec![];
+    let replay = Guess::decode(raw, &request, &mut normalizations).map(|_| ());
     let program =
         std::env::var_os("TINKERY_EVAL_PI").expect("Explicit six-call enforcing wrapper required");
     let host = PiHost::new(
@@ -53,7 +52,7 @@ fn audit_attempt(args: &[String]) {
     let decision = host
         .advisory_attempt(request, raw, &AtomicBool::new(false))
         .unwrap();
-    let data = serde_json::json!({"actor":"assistant-driven TEST; raw rejected attempt only, not operator recognition","model":"openai-codex/gpt-5.6-luna","thinking":"Pi native default; --thinking omitted","shaping_not_rerun":true,"accepted_or_confirmed":false,"schema_replay_v2":{"decision":if replay.is_ok(){"pass"}else{"reject"},"reason":replay.err()},"advisory":decision,"elapsed_ms":start.elapsed().as_millis()});
+    let data = serde_json::json!({"actor":"assistant-driven TEST; raw rejected attempt only, not operator recognition","model":"openai-codex/gpt-5.6-luna","thinking":"Pi native default; --thinking omitted","shaping_not_rerun":true,"accepted_or_confirmed":false,"boundary_replay_v3":{"decision":if replay.is_ok(){"pass"}else{"reject"},"reason":replay.err(),"normalizations":normalizations},"advisory":decision,"elapsed_ms":start.elapsed().as_millis()});
     std::fs::write(output.join("original.txt"), source).unwrap();
     std::fs::write(output.join("raw-shaping.txt"), raw).unwrap();
     std::fs::write(
@@ -62,7 +61,7 @@ fn audit_attempt(args: &[String]) {
     )
     .unwrap();
     println!("{}", decision.text());
-    println!("{}", data["schema_replay_v2"]);
+    println!("{}", data["boundary_replay_v3"]);
 }
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();

@@ -1,0 +1,196 @@
+{
+  "events": [
+    {
+      "artifact": "2026-10-08-dogfood-3/priority-rerun.log:6",
+      "reason": "Board omitted fragments: every fragment must support a framing or remain a misfit",
+      "kind": "live-log",
+      "aliases": [],
+      "class": "S",
+      "rule": "exhaustive-fragment-annotation",
+      "qualification": "forced support-or-misfit allocation"
+    },
+    {
+      "artifact": "2026-10-08-goal-handoff/combined-checkpoints.log:8",
+      "reason": "Meaning check rejected lost concrete terms or a false choice: health of the code base. Originals and previous reading retained; no automatic retry",
+      "kind": "live-log",
+      "aliases": [
+        "2026-10-08-goal-handoff/combined/03-relayed-context-state.json:$.notice"
+      ],
+      "class": "F",
+      "rule": "legacy-meaning-fidelity-veto",
+      "qualification": "model allegation; not a proven fact violation"
+    },
+    {
+      "artifact": "2026-10-08-goal-handoff/compact-scope.log:6",
+      "reason": "Meaning check rejected lost concrete terms or a false choice: serves as a meta harness. Originals and previous reading retained; no automatic retry",
+      "kind": "live-log",
+      "aliases": [
+        "2026-10-08-goal-handoff/compact/01-first-state.json:$.notice"
+      ],
+      "class": "F",
+      "rule": "legacy-meaning-fidelity-veto",
+      "qualification": "model allegation; not a proven fact violation"
+    },
+    {
+      "artifact": "2026-10-08-goal-handoff/contract-rerun.log:6",
+      "reason": "Meaning check rejected lost concrete terms or a false choice: . Originals and previous reading retained; no automatic retry",
+      "kind": "live-log",
+      "aliases": [
+        "2026-10-08-goal-handoff/contract-rerun/01-first-state.json:$.notice"
+      ],
+      "class": "F",
+      "rule": "legacy-meaning-fidelity-veto",
+      "qualification": "model allegation; not a proven fact violation"
+    },
+    {
+      "artifact": "2026-10-08-goal-handoff/early-meaning-audit.log:6",
+      "reason": "Meaning check rejected lost concrete terms or a false choice: all 'just work's; thinks about the future of any code base it works on; it should operate like a michellin star resteraunt. Originals and previous reading retained; no automatic retry",
+      "kind": "live-log",
+      "aliases": [
+        "2026-10-08-goal-handoff/accepted/01-first-state.json:$.notice"
+      ],
+      "class": "F",
+      "rule": "legacy-meaning-fidelity-veto",
+      "qualification": "model allegation; not a proven fact violation"
+    },
+    {
+      "artifact": "2026-10-08-goal-handoff/medium-checkpoints.log:8",
+      "reason": "Invalid unsupported or overlong reading",
+      "kind": "live-log",
+      "aliases": [
+        "2026-10-08-goal-handoff/medium/03-relayed-context-state.json:$.notice"
+      ],
+      "class": "S",
+      "rule": "reading-word-limit",
+      "qualification": "47-word combined reading exceeded the historical 45-word gate",
+      "raw_evidence": "2026-10-08-goal-handoff/raw-medium/05-stdout.json"
+    },
+    {
+      "artifact": "2026-10-08-goal-handoff/narrowed-audit.log:6",
+      "reason": "Meaning check rejected lost concrete terms or a false choice: I have been trying so hard to work on a system that compounds itself and serves as a meta harness.. Originals and previous reading retained; no automatic retry",
+      "kind": "live-log",
+      "aliases": [
+        "2026-10-08-goal-handoff/verified/01-first-state.json:$.notice"
+      ],
+      "class": "F",
+      "rule": "legacy-meaning-fidelity-veto",
+      "qualification": "model allegation; not a proven fact violation"
+    },
+    {
+      "artifact": "2026-10-08-goal-handoff/scoped-audit.log:7",
+      "reason": "Meaning check rejected lost concrete terms or a false choice: its a human first board for coordinainting work from the entire continuum of agentic software development lifecycle. Originals and previous reading retained; no automatic retry",
+      "kind": "live-log",
+      "aliases": [
+        "2026-10-08-goal-handoff/scoped/02-answer-state.json:$.notice"
+      ],
+      "class": "F",
+      "rule": "legacy-meaning-fidelity-veto",
+      "qualification": "model allegation; not a proven fact violation"
+    },
+    {
+      "artifact": "2026-10-08-intact-dump/first-live.log:6",
+      "reason": "Pi returned invalid brain-dump JSON; board retained",
+      "kind": "live-log",
+      "aliases": [],
+      "class": "S",
+      "rule": "misfit-item-type",
+      "qualification": "misfits are narrative strings, not anchor objects",
+      "raw_evidence": "2026-10-08-intact-dump/raw-provider/00-stdout.json"
+    },
+    {
+      "artifact": "2026-10-09-log-only/initial-eval/onboarding-emails/decisions.json:$.decisions[0]",
+      "reason": "Pi returned invalid brain-dump JSON; original and previous reading retained.",
+      "kind": "check-decision",
+      "aliases": [
+        "2026-10-09-log-only/initial-eval/onboarding-emails/decisions.json:$.notice"
+      ],
+      "class": "S",
+      "rule": "exact-object-keys",
+      "qualification": "raw is valid JSON; extra candidate precondition fields; offline replay is the SAME attempt, not another live failure"
+    },
+    {
+      "artifact": "2026-10-09-log-only/initial-eval/trap/decisions.json:$.decisions[0]",
+      "reason": "Invalid board: expected one/two readings and credible alternative candidates.",
+      "kind": "check-decision",
+      "aliases": [
+        "2026-10-09-log-only/initial-eval/trap/decisions.json:$.notice"
+      ],
+      "class": "S",
+      "rule": "uncertainty-reading-count-coupling",
+      "qualification": "one uncertain reading, three candidates; unchanged raw passes v2 offline"
+    }
+  ],
+  "excluded": [
+    {
+      "artifact": "2026-10-08-intact-dump/earlier-pty-contract.json:$.output",
+      "reason": "Invalid unsupported or overlong reading Original and previous bo",
+      "scope": "embedded test/PTY transcript; not independent live event"
+    },
+    {
+      "artifact": "2026-10-08-intact-dump/earlier-pty-contract.log:36",
+      "reason": "Invalid unsupported or overlong reading Original and previous bo",
+      "scope": "synthetic/test failure, not live rejection"
+    }
+  ],
+  "offline_replays": [
+    {
+      "artifact": "2026-10-09-log-only/raw-attempt-audits/onboarding-emails/decisions.json:$.schema_replay_v2",
+      "reason": "unknown field `precondition`, expected one of `label`, `benefit`, `cost`, `undo_cost` at line 1 column 1211",
+      "kind": "check-decision",
+      "aliases": []
+    }
+  ],
+  "advisory_non_rejections": [
+    {
+      "artifact": "2026-10-09-log-only/raw-attempt-audits/onboarding-emails/decisions.json:$.advisory",
+      "reason": "Raw attempt only; not accepted or confirmable. Possible false choice between compatible aims.",
+      "kind": "check-decision",
+      "aliases": []
+    },
+    {
+      "artifact": "2026-10-09-log-only/raw-attempt-audits/trap/decisions.json:$.advisory",
+      "reason": "Raw attempt only; not accepted or confirmable. Possible whole-board loss: right now we just show a red X and move on and people bounce. (source 1)\nPossible whole-board loss: maybe we should rebuild the whole quiz engine while we're at it? (source 1)",
+      "kind": "check-decision",
+      "aliases": []
+    }
+  ],
+  "scanned_files": 689,
+  "counts": {
+    "F": 6,
+    "P": 0,
+    "S": 5
+  },
+  "counts_per_rule": [
+    {
+      "class": "F",
+      "rule": "legacy-meaning-fidelity-veto",
+      "count": 6
+    },
+    {
+      "class": "S",
+      "rule": "exact-object-keys",
+      "count": 1
+    },
+    {
+      "class": "S",
+      "rule": "exhaustive-fragment-annotation",
+      "count": 1
+    },
+    {
+      "class": "S",
+      "rule": "misfit-item-type",
+      "count": 1
+    },
+    {
+      "class": "S",
+      "rule": "reading-word-limit",
+      "count": 1
+    },
+    {
+      "class": "S",
+      "rule": "uncertainty-reading-count-coupling",
+      "count": 1
+    }
+  ],
+  "scope": "Persisted live board rejections only; snapshots deduplicated, synthetic/validation logs and offline replays separated. F is a check's target, NOT proof that a fact was violated. Six legacy semantic vetoes are unverified model allegations, not strict deterministic F failures. Narrative reports and screenshots are not independent attempts."
+}

@@ -1,4 +1,5 @@
 use super::goal_tests::board;
+use super::tests::amend_board;
 use super::*;
 fn key(a: &mut BrainDump, k: KeyCode) {
     a.handle_key(KeyEvent::new(k, KeyModifiers::NONE));
@@ -179,7 +180,7 @@ if r.get('kind')=='meaning-preservation':
  assert r['board']['framings']==r['reading'] and r['mode']=='log-only'
  print(json.dumps(dict(missing=[] if {faithful} else [dict(source=1,quote=worry,occurrence=0)],false_choice=False)));sys.exit(0)
 assert worry==r['sources'][0]['text']
-assert 'Worries stay worries, not diagnoses, praise or positive aspirations' in p
+assert 'Worries stay worries, not diagnoses, praise or aspirations' in p
 log=root/'shapes'
 n=int(log.read_text()) if log.exists() else 0
 assert n==0
@@ -227,7 +228,7 @@ fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();
         a.sources[0].text = text.clone();
-        a.guess.as_mut().unwrap().framings[0].supports.clear();
+        amend_board(&mut a, |g| g.framings[0].supports.clear());
         a.source_scroll = 7;
         snapshot(w, h, &mut a, false).unwrap();
         a.review_goal();

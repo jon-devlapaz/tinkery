@@ -1,0 +1,9 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.06s
+     Running unittests src/lib.rs (target/debug/deps/tinkery-23622fe9a6aabf91)
+
+running 1 test
+test shaping::brain_dump::board_tests::final_boundary_replays_all_three_live_boards_without_a_provider_or_helper ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 94 filtered out; finished in 0.01s
+

@@ -66,7 +66,7 @@ impl BrainDump {
         self.drag_anchor = None;
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
-        self.goal_review=Some(Review{affirmation:Affirmation{goal:agent_text(&g.framings[self.reading].text),outcome:g.outcome.clone(),options:g.alternatives.clone(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});
+        self.goal_review=Some(Review{affirmation:Affirmation{goal:agent_text(&g.framings[self.reading].text),outcome:g.outcome.clone().unwrap_or_default(),options:g.alternatives.iter().map(board::Candidate::wire).collect(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,unresolved_notes:g.unresolved_notes.iter().cloned().chain(g.misfits.iter().map(|s|format!("{} (original {})",s.quote,s.source))).collect(),source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});
     }
     pub(super) fn goal_tick(&mut self) {
         let result = self
@@ -227,11 +227,17 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         .map(|q| format!("• {}", q.text))
         .collect::<Vec<_>>()
         .join("\n");
-    let body = if questions.is_empty() {
+    let mut body = if questions.is_empty() {
         review.affirmation.goal.clone()
     } else {
         format!("{}\n\nStill open\n{}", review.affirmation.goal, questions)
     };
+    if !review.affirmation.unresolved_notes.is_empty() {
+        body.push_str(&format!(
+            "\n\nDoesn’t fit yet\n{}",
+            review.affirmation.unresolved_notes.join("\n\n")
+        ));
+    }
     let p = Paragraph::new(body)
         .wrap(Wrap { trim: false })
         .style(palette.ink);
