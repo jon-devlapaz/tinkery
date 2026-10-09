@@ -7,6 +7,7 @@ use ratatui::{
     widgets::{Block, Paragraph, Wrap},
 };
 
+pub mod home;
 pub mod shaping;
 
 pub const MIN_WIDTH: u16 = 80;
