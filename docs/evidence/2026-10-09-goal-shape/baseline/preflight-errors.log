@@ -1,0 +1,7 @@
+Preserved pre-provider preflight failures; zero provider calls at this point.
+OSError: [Errno 22] Invalid argument: '/Users/jondev/.local/bin/tinkery'
+Cause: launcher is a regular file, not the historical symlink; fixed read-only provenance collection to hash it and check is_symlink before readlink.
+error[E0616]: field `skipped` of struct `BrainDump` is private
+Cause: external baseline harness accessed a private field; removed that access and retained the explicit skip action plus focused question before/after. No application API changed.
+AttributeError: 'list' object has no attribute 'get'
+Cause: postprocessing glob matched call-trace argv arrays as well as case snapshots; constrained inspection to six case directories. Live evaluation unaffected.

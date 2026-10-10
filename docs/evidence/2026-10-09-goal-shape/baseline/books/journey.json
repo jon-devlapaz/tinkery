@@ -1,0 +1,157 @@
+{
+  "baseline_head": "8818e63cc4811fc0935409580589ddbdc0612b7f",
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "model": "openai-codex/gpt-5.6-luna",
+  "rounds": [
+    {
+      "action": {
+        "input": "I want a way to keep track of the books I've read this year. I usually forget what I read by december. it would be nice to see them all in one place with a short note on what I thought of each one. nothing fancy.",
+        "kind": "explicit F2"
+      },
+      "actor": "assistant-driven baseline; fixed relayed answers, not operator recognition or affirmation",
+      "board": {
+        "alternatives": [],
+        "framings": [
+          {
+            "supports": {
+              "Cited": [
+                {
+                  "occurrence": 0,
+                  "quote": "I want a way to keep track of the books I've read this year.",
+                  "source": 1
+                },
+                {
+                  "occurrence": 0,
+                  "quote": "it would be nice to see them all in one place with a short note on what I thought of each one.",
+                  "source": 1
+                }
+              ]
+            },
+            "text": "Remember which books you read during the year and what you thought of them, in one simple place."
+          }
+        ],
+        "misfits": [],
+        "outcome": "A year-based list of read books, each with a short personal note, kept deliberately simple.",
+        "questions": [
+          {
+            "id": "scope",
+            "text": "Should this cover only books read in the current year, or become an ongoing record across years?"
+          }
+        ],
+        "unresolved_notes": [
+          "The preferred way to capture books is unspecified."
+        ]
+      },
+      "board_available_ms": 7776,
+      "decisions_cumulative": [
+        {
+          "candidate": {
+            "alternatives": [],
+            "framings": [
+              {
+                "supports": [
+                  {
+                    "occurrence": 0,
+                    "quote": "I want a way to keep track of the books I've read this year.",
+                    "source": 1
+                  },
+                  {
+                    "occurrence": 0,
+                    "quote": "it would be nice to see them all in one place with a short note on what I thought of each one.",
+                    "source": 1
+                  }
+                ],
+                "text": "Remember which books you read during the year and what you thought of them, in one simple place."
+              }
+            ],
+            "misfits": [],
+            "outcome": "A year-based list of read books, each with a short personal note, kept deliberately simple.",
+            "questions": [
+              {
+                "id": "scope",
+                "text": "Should this cover only books read in the current year, or become an ongoing record across years?"
+              }
+            ],
+            "uncertain": false,
+            "unresolved_notes": [
+              "The preferred way to capture books is unspecified."
+            ]
+          },
+          "check": "structure-spans-history",
+          "coverage": [
+            {
+              "locations": [
+                "reading 1"
+              ],
+              "term": "one"
+            }
+          ],
+          "decision": "pass",
+          "elapsed_ms": 7761,
+          "mode": "blocking",
+          "normalizations": [
+            "Absent candidates: empty collection",
+            "Absent unresolved notes: empty collection",
+            "Retained unresolved 0 as an uncited note; no source highlight"
+          ],
+          "raw": "{\n  \"framings\": [\n    {\n      \"text\": \"Remember which books you read during the year and what you thought of them, in one simple place.\",\n      \"supports\": [\n        {\n          \"source\": 1,\n          \"quote\": \"I want a way to keep track of the books I've read this year.\",\n          \"occurrence\": 0\n        },\n        {\n          \"source\": 1,\n          \"quote\": \"it would be nice to see them all in one place with a short note on what I thought of each one.\",\n          \"occurrence\": 0\n        }\n      ]\n    }\n  ],\n  \"outcome\": \"A year-based list of read books, each with a short personal note, kept deliberately simple.\",\n  \"questions\": [\n    {\n      \"id\": \"scope\",\n      \"text\": \"Should this cover only books read in the current year, or become an ongoing record across years?\"\n    }\n  ],\n  \"misfits\": [\n    \"The preferred way to capture books is unspecified.\"\n  ]\n}\n",
+          "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+          "request_key": "2d3e80575e9a5203",
+          "version": 3
+        },
+        {
+          "candidate": null,
+          "check": "meaning-and-continuity",
+          "coverage": [
+            {
+              "locations": [
+                "reading 1"
+              ],
+              "term": "one"
+            }
+          ],
+          "decision": "pass",
+          "elapsed_ms": 6576,
+          "mode": "log-only",
+          "normalizations": [],
+          "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+          "reason": "No whole-board loss identified by the model; not proof of understanding.",
+          "request_key": "2d3e80575e9a5203",
+          "version": 3
+        }
+      ],
+      "focused_question": {
+        "id": "scope",
+        "text": "Should this cover only books read in the current year, or become an ongoing record across years?"
+      },
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "notice": "Reshaped after submit. Your positions kept; nothing confirmed.",
+      "questions_from_board": [
+        {
+          "id": "scope",
+          "text": "Should this cover only books read in the current year, or become an ongoing record across years?"
+        }
+      ],
+      "reading_text": "Remember which books you read during the year and what you thought of them, in one simple place.",
+      "seed_written": false,
+      "settled": [],
+      "shape_submitted": true,
+      "skip_action": false,
+      "snapshot": "00-first",
+      "sources": [
+        {
+          "id": 1,
+          "in_reply_to": null,
+          "text": "I want a way to keep track of the books I've read this year. I usually forget what I read by december. it would be nice to see them all in one place with a short note on what I thought of each one. nothing fancy."
+        }
+      ],
+      "step_total_ms": 14357
+    }
+  ],
+  "rounds_until_no_question": "first board only",
+  "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots/books",
+  "session_root_empty": true,
+  "thinking": "low; --thinking low verified by wrapper"
+}

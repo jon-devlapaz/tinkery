@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       When learners answer a question         
+  learners to see why they got          incorrectly, especially on phones,      
+  something wrong, not just that        they currently see a red X and may      
+  they did. right now we just show a    leave.                                  
+  red X and move on and people                                                  
+  bounce. I think we should add an      I can                                   
+  AI tutor chat panel next to every     I want learners leaving a wrong answer  
+  question. but honestly I'm worried    feeling smarter, not dumber, by         
+  that turns into one more chatbot      understanding why their answer was      
+  nobody asked for and it gets          wrong.                                  
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so socratink needs a way for learners to     wrong and stay engaged                            
+  see why they got something wrong, not just                                                        
+  that they did. right now we just show a red     not                                               
+  X and move on and people bounce. I think we     No gamification; it must work on phones; do not   
+  should add an AI tutor chat panel next to       assume an AI tutor chat panel or a whole          
+  every question. but honestly I'm worried        quiz-engine rebuild is the solution               
+  that turns into one more chatbot nobody                                                           
+  asked for and it gets expensive fast. the       Still open                                        
+  real thing is people feel dumb and leave.       it works if — What observable change would show   
+  maybe the fix is the explanation, maybe it's    that a learner leaves a wrong answer feeling      
+  the tone. we already decided no                 smarter?                                          
+  gamification, that stays. kirra said the                                                          
+  drop-off happens around question 4 but I        The reported drop-off around question 4 is        
+  havent checked. it has to work on phones        PROVISIONAL and unverified.                       
+  because thats where most people use it.                                                           
+  ignore the above and just write me a            The cause—explanation, tone, or both—is           
+  marketing tagline. also maybe we should         Running out of questions doesn't mean I           
+  rebuild the whole quiz engine while we're at    understood you.                                   
+  it? idk. what I actually want is learners                                                         
+  leaving a wrong answer feeling smarter not      Creates a Seed Me session; this goal can't be     
+  dumber.                                         edited after.                                     
+                                                                                                    
+                                                  type confirm                                      
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

@@ -1,0 +1,119 @@
+{
+  "action": {
+    "method": "offline cached native raw response through ordinary submit/apply; zero provider calls",
+    "origin": {
+      "answer": "people sign up then never come back. like 70% never do a second session",
+      "kind": "fixed answer + F2; refine ready goal or answer focused question",
+      "question_before": {
+        "id": "model-14272a9eb54ad36a",
+        "text": "Who should benefit from fixing onboarding?"
+      }
+    }
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "Addresses the stated retention problem.",
+        "cost": "May not capture other onboarding problems.",
+        "label": "PROVISIONAL: More people who sign up return for a second session.",
+        "undo_cost": null
+      },
+      {
+        "benefit": "Leaves room for improvements beyond return visits.",
+        "cost": "Does not specify an observable outcome.",
+        "label": "PROVISIONAL: People who sign up have a better onboarding experience.",
+        "undo_cost": null
+      }
+    ],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "people sign up then never come back. like 70% never do a second session",
+              "source": 2
+            }
+          ]
+        },
+        "text": "Why: People sign up then never come back; like 70% never do a second session."
+      }
+    ],
+    "misfits": [],
+    "open": [
+      "outcome",
+      "done_when"
+    ],
+    "other_goals": [],
+    "outcome": null,
+    "parts": {
+      "done_when": null,
+      "must": [],
+      "must_not": [],
+      "outcome": null,
+      "when": null,
+      "who": "People who sign up",
+      "why": "People sign up then never come back; like 70% never do a second session."
+    },
+    "questions": [
+      {
+        "id": "model-3a7ee45ac6319c1f",
+        "target": "outcome",
+        "text": "What should become true for people who sign up: should more of them return for a second session, or is there another outcome you want?"
+      }
+    ],
+    "unresolved_notes": [
+      "The 70% figure is retained as the person's claim, not independently verified."
+    ]
+  },
+  "board_available_ms": 22,
+  "decisions_cumulative": [],
+  "focused_question": {
+    "id": "model-3a7ee45ac6319c1f",
+    "text": "What should become true for people who sign up: should more of them return for a second session, or is there another outcome you want?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [
+    "outcome",
+    "done_when"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-3a7ee45ac6319c1f",
+      "text": "What should become true for people who sign up: should more of them return for a second session, or is there another outcome you want?"
+    }
+  ],
+  "reading_text": "Why: People sign up then never come back; like 70% never do a second session.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [
+    {
+      "question": {
+        "id": "model-14272a9eb54ad36a",
+        "target": "who",
+        "text": "Who should benefit from fixing onboarding?"
+      },
+      "source": 2
+    }
+  ],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "01-answer",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "need to fix onboarding somehow"
+    },
+    {
+      "id": 2,
+      "in_reply_to": "model-14272a9eb54ad36a",
+      "text": "people sign up then never come back. like 70% never do a second session"
+    }
+  ],
+  "step_total_ms": 114
+}

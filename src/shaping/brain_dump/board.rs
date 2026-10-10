@@ -86,7 +86,11 @@ impl Candidate {
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardData {
-    pub framings: NonEmpty<Reading>,
+    pub parts: GoalParts,
+    pub other_goals: Vec<String>,
+    pub deferred: Vec<String>,
+    pub open: Vec<Part>,
+    pub framings: Vec<Reading>,
     pub outcome: Option<String>,
     pub questions: VecDeque<Question>,
     pub alternatives: Vec<Candidate>,
@@ -110,36 +114,111 @@ impl Deref for Board {
     }
 }
 impl Board {
-    pub fn verify(g: Guess, request: &BoardRequest) -> Result<Self, String> {
+    pub fn verify(mut g: Guess, request: &BoardRequest) -> Result<Self, String> {
         g.validate(request)?;
+        for value in [
+            &mut g.parts.who,
+            &mut g.parts.outcome,
+            &mut g.parts.when,
+            &mut g.parts.why,
+            &mut g.parts.done_when,
+        ] {
+            *value = value.take().map(|s| agent_text(&s));
+        }
+        for values in [
+            &mut g.parts.must,
+            &mut g.parts.must_not,
+            &mut g.other_goals,
+            &mut g.deferred,
+            &mut g.unresolved_notes,
+        ] {
+            for value in values {
+                *value = agent_text(value);
+            }
+        }
+        g.parts.distinct_check();
+        if let Some(missing) = g.parts.missing().next() {
+            g.questions
+                .retain(|q| q.target.is_none_or(|p| p == missing));
+            for q in &mut g.questions {
+                q.target = Some(missing);
+            }
+            if g.questions.is_empty() {
+                let who = g.parts.get(Part::Who).unwrap_or("the person this is for");
+                let text = match missing {
+                    Part::Who => "Who is this for?".into(),
+                    Part::Outcome => format!("What should change for {who}?"),
+                    Part::Why => format!("What is going wrong for {who}?"),
+                    _ => format!(
+                        "What would show that {}?",
+                        g.parts.goal_line().unwrap_or_else(|| "this worked".into())
+                    ),
+                };
+                g.questions.push(Question {
+                    target: Some(missing),
+                    id: format!(
+                        "missing-{}-{}",
+                        missing.name(),
+                        request.sources.iter().map(|s| s.id).max().unwrap_or(0)
+                    ),
+                    text,
+                });
+            }
+        }
+        for part in g.questions.iter().filter_map(|q| q.target) {
+            if !g.open.contains(&part) {
+                g.open.push(part);
+            }
+        }
+        g.validate(request)?;
+        g.questions.retain(|q| {
+            q.target.is_none_or(|p| {
+                !request.skipped.iter().any(|s| s.target == Some(p))
+                    && (request.ask_counts.get(&p).copied().unwrap_or(0) < 2
+                        || request
+                            .previous
+                            .as_ref()
+                            .is_some_and(|old| old.questions.iter().any(|s| same_question(s, q))))
+            })
+        });
+        g.questions.truncate(1);
+        let composed = g.parts.compose();
+        let outcome = g.parts.done_when.clone().filter(|s| !s.trim().is_empty());
+        let supports = g
+            .framings
+            .into_iter()
+            .flat_map(|f| f.supports)
+            .collect::<Vec<_>>();
         let verify = |anchor: Anchor| -> Result<VerifiedAnchor, String> {
             let range = anchor.range(&request.sources)?;
             Ok(VerifiedAnchor { anchor, range })
         };
         Ok(Self(BoardData {
-            framings: NonEmpty(
-                g.framings
-                    .into_iter()
-                    .map(|f| {
-                        Ok(Reading {
-                            text: f.text,
-                            supports: {
-                                let spans = f.supports.into_iter().map(verify).collect::<Result<
-                                    Vec<_>,
-                                    String,
-                                >>(
-                                )?;
-                                if spans.is_empty() {
-                                    Grounding::Uncited
-                                } else {
-                                    Grounding::Cited(NonEmpty(spans))
-                                }
-                            },
-                        })
+            parts: g.parts,
+            other_goals: g.other_goals,
+            deferred: g.deferred,
+            open: g.open,
+            framings: composed
+                .into_iter()
+                .map(|text| {
+                    Ok(Reading {
+                        text,
+                        supports: {
+                            let spans = supports.clone().into_iter().map(verify).collect::<Result<
+                                Vec<_>,
+                                String,
+                            >>(
+                            )?;
+                            if spans.is_empty() {
+                                Grounding::Uncited
+                            } else {
+                                Grounding::Cited(NonEmpty(spans))
+                            }
+                        },
                     })
-                    .collect::<Result<_, String>>()?,
-            ),
-            outcome: (!g.outcome.is_empty()).then_some(g.outcome),
+                })
+                .collect::<Result<_, String>>()?,
+            outcome,
             questions: g.questions.into(),
             alternatives: g
                 .alternatives
@@ -163,10 +242,14 @@ impl Board {
         }))
     }
     pub fn presented(&self, _selected: usize) -> &[Reading] {
-        &self.framings[..1]
+        &self.framings
     }
     pub fn wire(&self) -> Guess {
         Guess {
+            parts: self.parts.clone(),
+            other_goals: self.other_goals.clone(),
+            deferred: self.deferred.clone(),
+            open: self.open.clone(),
             uncertain: false,
             framings: self
                 .framings
@@ -199,12 +282,28 @@ pub(super) fn parse(
     } else {
         text
     };
-    let value: serde_json::Value =
-        serde_json::from_str(text).map_err(|e| format!("Unreadable board response: {e}"))?;
+    let value: serde_json::Value = serde_json::from_str(text)
+        .or_else(|original| {
+            let normalized = without_trailing_commas(text);
+            if normalized == text {
+                return Err(original);
+            }
+            let value = serde_json::from_str(&normalized)?;
+            changes.push(
+                "Removed trailing JSON collection comma outside strings; raw retained".into(),
+            );
+            Ok(value)
+        })
+        .map_err(|e| format!("Unreadable board response: {e}"))?;
     let obj = value.as_object().ok_or("No readable board object")?;
     extras(
         obj,
         &[
+            "parts",
+            "other_goals",
+            "deferred",
+            "open",
+            "supports",
             "uncertain",
             "framings",
             "outcome",
@@ -218,6 +317,60 @@ pub(super) fn parse(
     );
     if obj.contains_key("uncertain") {
         changes.push("Legacy uncertainty flag ignored as a count/authority signal; all readings remain provisional".into());
+    }
+    let mut parts = GoalParts::default();
+    let object = obj.get("parts").and_then(serde_json::Value::as_object);
+    if let Some(object) = object {
+        extras(
+            object,
+            &[
+                "who",
+                "outcome",
+                "when",
+                "why",
+                "done_when",
+                "must",
+                "must_not",
+            ],
+            "goal parts",
+            changes,
+        );
+    }
+    parts.who = display(object.and_then(|o| o.get("who")), "who", changes);
+    parts.outcome = display(object.and_then(|o| o.get("outcome")), "outcome", changes);
+    parts.when = display(object.and_then(|o| o.get("when")), "when", changes);
+    parts.why = display(object.and_then(|o| o.get("why")), "why", changes);
+    parts.done_when = display(
+        object.and_then(|o| o.get("done_when")),
+        "done_when",
+        changes,
+    );
+    parts.must = items(object.and_then(|o| o.get("must")), "must", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "must", changes))
+        .collect();
+    parts.must_not = items(object.and_then(|o| o.get("must_not")), "must not", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "must not", changes))
+        .collect();
+    parts.distinct_check();
+    let other_goals = items(obj.get("other_goals"), "other goals", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "other goal", changes))
+        .collect();
+    let deferred = items(obj.get("deferred"), "deferred", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "deferred", changes))
+        .collect();
+    let mut open = vec![];
+    for value in items(obj.get("open"), "open parts", changes) {
+        if let Ok(part) = serde_json::from_value::<Part>(value.clone()) {
+            if !open.contains(&part) {
+                open.push(part);
+            }
+        } else {
+            changes.push(format!("Ignored unknown open part {value}"));
+        }
     }
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
@@ -233,20 +386,24 @@ pub(super) fn parse(
         } else {
             (display(Some(v), &format!("reading {i}"), changes), vec![])
         };
-        if let Some(text) = text {
-            if supports.is_empty() {
-                changes.push(format!("Reading {i} is uncited; no source highlight"));
-            }
-            framings.push(Framing { text, supports });
-        } else {
-            changes.push(format!("Dropped reading {i}: no readable text"));
+        if supports.is_empty() {
+            changes.push(format!("Reading {i} is uncited; no source highlight"));
         }
+        framings.push(Framing {
+            text: text.unwrap_or_default(),
+            supports,
+        });
     }
-    if framings.is_empty() {
-        return Err("No readable interpretation in the response".into());
+    if obj.contains_key("framings") {
+        changes.push("Ignored freeform reading text; goal comes only from parts".into());
     }
-    let outcome =
-        display(obj.get("outcome"), "optional desired experience", changes).unwrap_or_default();
+    let mut supports = anchors(obj.get("supports"), "goal supports", changes)?;
+    supports.extend(framings.into_iter().flat_map(|f| f.supports));
+    let framings = vec![Framing {
+        text: parts.compose().unwrap_or_default(),
+        supports,
+    }];
+    let outcome = parts.done_when.clone().unwrap_or_default();
     let mut questions = vec![];
     for (i, v) in items(obj.get("questions"), "questions", changes)
         .iter()
@@ -254,7 +411,12 @@ pub(super) fn parse(
     {
         let o = v.as_object();
         if let Some(o) = o {
-            extras(o, &["id", "text"], &format!("question {i}"), changes);
+            extras(
+                o,
+                &["id", "text", "target"],
+                &format!("question {i}"),
+                changes,
+            );
         }
         let Some(text) = display(
             o.and_then(|o| o.get("text")).or(Some(v)),
@@ -276,9 +438,31 @@ pub(super) fn parse(
             changes.push(format!("Allocated question ID {id}"));
             id
         });
-        let q = Question { id, text };
-        if q.id.starts_with("scope-addition-") {
-            return Err("Model attempted an application-owned scope question ID".into());
+        let target = o
+            .and_then(|o| o.get("target"))
+            .and_then(|v| serde_json::from_value::<Part>(v.clone()).ok());
+        let target = target
+            .or_else(|| open.first().copied())
+            .or_else(|| parts.missing().next());
+        if o.and_then(|o| o.get("target")).is_none() {
+            changes.push(format!(
+                "Question {id} target assigned from first open/missing part"
+            ));
+        }
+        if let Some(part) = target {
+            if parts.missing().next().is_none() && !open.contains(&part) {
+                changes.push(format!("Ignored question {id}: no missing/open target"));
+                continue;
+            }
+        } else {
+            changes.push(format!(
+                "Ignored untargeted question {id}: no open/missing part"
+            ));
+            continue;
+        }
+        let q = Question { target, id, text };
+        if q.id.starts_with("scope-addition-") || q.id.starts_with("goal-refinement-") {
+            return Err("Model attempted an application-owned question ID".into());
         }
         if questions.iter().any(|old| same_question(old, &q))
             || request.answered.contains(&q.id)
@@ -292,9 +476,25 @@ pub(super) fn parse(
                 "Excluded duplicate/answered/skipped question {}",
                 q.id
             ));
+        } else if q.target.is_some_and(|p| {
+            request.skipped.iter().any(|s| s.target == Some(p))
+                || (request.ask_counts.get(&p).copied().unwrap_or(0) >= 2
+                    && !request
+                        .previous
+                        .as_ref()
+                        .is_some_and(|old| old.questions.iter().any(|s| same_question(s, &q))))
+        }) {
+            changes.push(format!(
+                "Part question {} left open for seed: skipped or asked twice",
+                q.id
+            ));
         } else {
             questions.push(q);
         }
+    }
+    if questions.len() > 1 {
+        changes.push("Extra questions dropped; one targeted question".into());
+        questions.truncate(1);
     }
     let mut alternatives = vec![];
     for (i, v) in items(obj.get("alternatives"), "candidates", changes)
@@ -334,6 +534,35 @@ pub(super) fn parse(
     }
     let mut misfits = vec![];
     let mut unresolved_notes = vec![];
+    for value in items(obj.get("supports"), "uncited supports", changes)
+        .into_iter()
+        .chain(
+            items(obj.get("open"), "open prose", changes)
+                .into_iter()
+                .filter(|v| v.as_str().is_some_and(|s| s.split_whitespace().count() > 1)),
+        )
+    {
+        if !value.as_object().is_some_and(|o| {
+            ["source", "quote", "occurrence"]
+                .iter()
+                .any(|key| o.contains_key(*key))
+        }) {
+            let text = value
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| value.to_string());
+            if let Some(text) = display(
+                Some(&serde_json::Value::String(text)),
+                "uncited note",
+                changes,
+            ) {
+                unresolved_notes.push(text);
+                changes.push(
+                    "Retained narrative support/open prose as uncited note; no highlight".into(),
+                );
+            }
+        }
+    }
     for (i, v) in items(obj.get("misfits"), "unresolved", changes)
         .into_iter()
         .chain(items(
@@ -368,7 +597,11 @@ pub(super) fn parse(
             ));
         }
     }
-    let mut guess = Guess {
+    let guess = Guess {
+        parts,
+        other_goals,
+        deferred,
+        open,
         uncertain: false,
         framings,
         outcome,
@@ -377,14 +610,6 @@ pub(super) fn parse(
         questions,
         alternatives,
     };
-    // One reading only: if the model is torn, the question decides. Extras are logged, never shown.
-    if guess.framings.len() > 1 {
-        changes.push(format!(
-            "{} readings received; the first is presented, the rest are dropped",
-            guess.framings.len()
-        ));
-        guess.framings.truncate(1);
-    }
     guess.validate(request)?;
     if guess.questions.len() > 1 {
         changes.push(format!(
@@ -393,6 +618,36 @@ pub(super) fn parse(
         ));
     }
     Ok(guess)
+}
+fn without_trailing_commas(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut out = Vec::with_capacity(bytes.len());
+    for (i, &byte) in bytes.iter().enumerate() {
+        if !quoted
+            && byte == b','
+            && bytes[i + 1..]
+                .iter()
+                .find(|b| !b.is_ascii_whitespace())
+                .is_some_and(|b| matches!(b, b'}' | b']'))
+        {
+            continue;
+        }
+        out.push(byte);
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                quoted = false;
+            }
+        } else if byte == b'"' {
+            quoted = true;
+        }
+    }
+    String::from_utf8(out).expect("Removing ASCII commas preserves UTF-8")
 }
 fn extras(
     obj: &serde_json::Map<String, serde_json::Value>,
@@ -456,6 +711,13 @@ fn anchors(
     items(value, where_, changes)
         .iter()
         .enumerate()
+        .filter(|(_, v)| {
+            v.as_object().is_some_and(|o| {
+                ["source", "quote", "occurrence"]
+                    .iter()
+                    .any(|key| o.contains_key(*key))
+            })
+        })
         .map(|(i, v)| anchor(v, &format!("{where_} {i}"), changes))
         .collect()
 }

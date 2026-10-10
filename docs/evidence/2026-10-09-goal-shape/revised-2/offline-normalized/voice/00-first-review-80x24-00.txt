@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  i keep thinking about voice.          You are confirming                      
+  talking is faster than typing for     I start capturing thought dumps at      
+  me when im tired. but maybe the       night, including by voice when talking  
+  real problem is i dont start dumps    is faster than typing.                  
+  at all at night because opening a     Why: Opening a terminal feels like      
+  terminal feels like work. or maybe    work, and typing is harder when I am    
+  its both                              tired.                                  
+                                                                                
+                                        Still open                              
+                                        Done when — What would you observe to   
+                                        know this is working?                   
+                                                                                
+                                        {"benefits":["Addresses the feeling     
+                                        that opening a terminal is              
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

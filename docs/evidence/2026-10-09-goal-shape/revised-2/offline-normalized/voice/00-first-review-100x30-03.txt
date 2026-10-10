@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  i keep thinking about voice. talking is                                                           
+  faster than typing for me when im tired. but    {"benefits":["Talking is faster than typing when  
+  maybe the real problem is i dont start dumps    tired"],"costs":["May not address the reluctance  
+  at all at night because opening a terminal      to start"],"option":"Use voice for night-time     
+  feels like work. or maybe its both              dumps"}                                           
+                                                                                                    
+                                                  {"benefits":["Addresses both possible parts of    
+                                                  the problem"],"costs":["The priority between the  
+                                                  two remains unclear"],"option":"Combine easier    
+                                                  starting with voice capture"}                     
+                                                                                                    
+                                                  Whether the main issue is starting dumps, using   
+                                                  voice, or both                                    
+                                                                                                    
+                                                  What observable check would show that this is     
+                                                  working                                           
+                                                                                                    
+                                                  The main goal is easier night-time thought        
+                                                  capture; voice and terminal friction are          
+                                                  possible contributing issues, not confirmed       
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

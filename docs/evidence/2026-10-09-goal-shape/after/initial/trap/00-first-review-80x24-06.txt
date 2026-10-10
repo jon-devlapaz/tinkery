@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       not                                     
+  learners to see why they got          It has to work on phones. No            
+  something wrong, not just that        gamification. I should not assume an    
+  they did. right now we just show a    AI chat panel or a rebuilt quiz engine  
+  red X and move on and people          is the solution.                        
+  bounce. I think we should add an                                              
+  AI tutor chat panel next to every     Still open                              
+  question. but honestly I'm worried    it works if — What would show you that  
+  that turns into one more chatbot      a learner feels smarter after a wrong   
+  nobody asked for and it gets          answer?                                 
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

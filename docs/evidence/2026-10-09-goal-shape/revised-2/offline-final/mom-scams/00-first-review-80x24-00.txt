@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  my mom keeps getting scam texts       You are confirming                      
+  and almost clicked one yesterday.     My mom tells if a text is fake before   
+  i want something that helps her       she taps anything.                      
+  tell if a text is fake before she     Why: my mom keeps getting scam texts    
+  taps anything. she wont install       and almost clicked one yesterday.       
+  apps and she hates when i lecture     Must: She won't install apps.           
+  her. maybe a shortcut where she       Must: It has to be dead simple, like    
+  forwards the text to me? not sure     one step.                               
+  what iphone version she has. it       Must not: She must not be lectured.     
+  has to be dead simple, like one                                               
+  step                                  Still open                              
+                                        Done when — What observable result      
+                                        would show that this is working?        
+                                                                                
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

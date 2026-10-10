@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  i keep thinking about voice.          know this is working?                   
+  talking is faster than typing for                                             
+  me when im tired. but maybe the       {"benefits":["Addresses the feeling     
+  real problem is i dont start dumps    that opening a terminal is              
+  at all at night because opening a     work"],"costs":["May not address        
+  terminal feels like work. or maybe    typing difficulty"],"option":"Reduce    
+  its both                              the effort of starting a dump"}         
+                                                                                
+                                        {"benefits":["Talking is faster than    
+                                        typing when tired"],"costs":["May not   
+                                        address the reluctance to               
+                                        start"],"option":"Use voice for         
+                                        night-time dumps"}                      
+                                                                                
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

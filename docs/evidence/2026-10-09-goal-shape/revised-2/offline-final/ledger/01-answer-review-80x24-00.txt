@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    You are confirming                      
+  in the morning. its a wall of         I know in about 5 seconds whether       
+  numbers and i dont know what to do    yesterday went well when I open         
+  with it. i want to open tinkery       Tinkery in the morning.                 
+  and in like 5 seconds know if         Why: The ledger report is a wall of     
+  yesterday went well or not. maybe     numbers, so I do not know what to do    
+  one number? useful changes per        with it; the 6am job sometimes fails    
+  hour is the one that matters. cost    silently and I find out days later.     
+  too maybe. i dont want a              Done when: A failed job overrides the   
+  dashboard. also the 6am job           result; otherwise the morning view      
+  sometimes fails silently and i        indicates whether yesterday went well,  
+  only find out days later              with cost highlighted only if it is     
+                                        way off.                                
+                                        Must: Useful changes per hour is        
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

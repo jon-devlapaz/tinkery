@@ -150,21 +150,33 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     if let (Some(g), None) = (&app.guess, failure) {
         // One voice, one reading: "I think you mean…".
         let mut lines = vec![];
-        if let Some(u) = &app.update {
-            lines.push(ratatui::text::Line::styled(
-                u.clone(),
-                palette.jade.add_modifier(Modifier::BOLD),
-            ));
-            lines.push(ratatui::text::Line::raw(""));
-        }
         lines.push(ratatui::text::Line::styled(
             "I think you mean…",
             palette.muted,
         ));
-        for line in agent_text(&g.framings[0].text).lines() {
+        for line in g
+            .framings
+            .first()
+            .map(|f| f.text.as_str())
+            .unwrap_or("")
+            .lines()
+        {
             lines.push(ratatui::text::Line::styled(
                 line.to_owned(),
-                palette.ink.add_modifier(Modifier::ITALIC),
+                app.reading_line_style(line, palette)
+                    .add_modifier(Modifier::ITALIC),
+            ));
+        }
+        if !g.other_goals.is_empty() {
+            lines.push(ratatui::text::Line::styled(
+                format!("also in your dump: {}", g.other_goals.join("; ")),
+                palette.muted,
+            ));
+        }
+        if !g.deferred.is_empty() {
+            lines.push(ratatui::text::Line::styled(
+                format!("for the seed: {}", g.deferred.join("; ")),
+                palette.muted,
             ));
         }
         text = ratatui::text::Text::from(lines);
@@ -185,7 +197,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
     }
     let p = Paragraph::new(text)
-        .style(palette.muted.add_modifier(Modifier::ITALIC))
+        .style(palette.ink.add_modifier(Modifier::ITALIC))
         .wrap(Wrap { trim: false });
     let max = p
         .line_count(rows[0].width)
@@ -197,8 +209,12 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
             ratatui::text::Line::styled(q.text.clone(), palette.jade),
         ]),
-        None if app.guess.is_some() && !app.running() => ratatui::text::Text::styled(
+        None if app.goal_ready() => ratatui::text::Text::styled(
             "Nothing I'm unsure about. Review when you're ready.",
+            palette.muted,
+        ),
+        None if app.guess.is_some() && !app.running() => ratatui::text::Text::styled(
+            "Some parts remain open for the seed. Review when you're ready.",
             palette.muted,
         ),
         None => ratatui::text::Text::default(),
@@ -207,6 +223,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let input = Block::default()
         .title(if app.add_more {
             "add more"
+        } else if app.focused_question().is_none() && app.guess.is_some() {
+            "anything to add or change?"
         } else {
             "your answer"
         })

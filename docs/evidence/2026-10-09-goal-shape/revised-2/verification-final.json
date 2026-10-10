@@ -1,0 +1,42 @@
+{
+  "new_calls": 24,
+  "shape": 15,
+  "audits": 9,
+  "cumulative": 83,
+  "first_59_lines_sha256_unchanged": true,
+  "protected_paths_unchanged": {
+    "/Users/jondev/.local/bin/tinkery": "f8bb16e4c43fbdc1211c86c98a88abc7f610684f584cc143805b047cc89f983e",
+    "/Users/jondev/.local/share/tinkery/bin/tinkery": "a3525b4d0bf0774359c00c5567afd0ccab5dde853515839d078cde698d21ef89",
+    "/Users/jondev/.local/share/seed-me/sessions/27b55e8f-4a80-419a-99b5-7a26d6db1faa/ledger.json": "d649545d15c9eb7c41c50b27ac8d3814ab872f4e581d3d031427136126ecd197",
+    "/Users/jondev/.local/share/seed-me/sessions/2557e864-8142-4481-906d-c6a8d0af2362/ledger.json": "50631c191d535dd1aaf8671c2da67a91bde8e430013d994d9e39b28d443a07d4"
+  },
+  "test_roots": {
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-075e421f-2c99-4150-a664-0af57a3ebca7": true,
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-last-5bd61043-9d70-4dde-9717-dbbae4565796": true,
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-ledger-followup-a3197fb0-f4dc-4b83-8b6a-c528c26e7546": true,
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-final-checks-8d6f20f7-3922-447b-9df2-92be5e4bbbdb": true,
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-offline-bbcaf51c-3d2f-4a14-816f-5e3965da6f18": true,
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-offline-final-f45bae77-531a-40dc-9649-2d1468afd026": true,
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-offline-final-abb7b305-5dc3-462b-a668-6c2e5679cac8": true
+  },
+  "budget_denied_before_native_exec": true,
+  "no_live_confirmation_or_helpers": true,
+  "final_runtime_hashes": {
+    "src/shaping/brain_dump.rs": "8e8cbf74483acbdf2479922986f810072f427d38a51d0e44efedd37196d4ba27",
+    "src/shaping/brain_dump/handoff.rs": "72be15bc752e8657a38857e47b2729395515cb5fd03291e66fe891b2103af250",
+    "src/shaping/brain_dump/goal_view.rs": "4f3136d04c7f0a25910234d61d874e55bcf432a4f67515eb65ddcebe514fff69",
+    "src/shaping/brain_dump/checks.rs": "00104e41c04f8383d3be0e6f84c11c04245b986def1e602541d649053c1b9a24",
+    "src/shaping/brain_dump/meaning_check.rs": "ccf51b80f20bee2a5e1d63d619d5d4fbc50732664cc5eea6acdf9a3c7f121e03",
+    "src/shaping/brain_dump/board.rs": "a17c5bfd547334be62463fcdc8a6021964bca27676b6b437673416db65437bbc",
+    "src/shaping/brain_dump/goal.rs": "2eb6d7124d650d59524de7f380a44e04e1f21d238d78a6de8bc28ad0ea60426a",
+    "src/shaping/brain_dump/yohaku.rs": "84041e27816b3a3b06ff4282c6b920d1d6e02ba51c3c9d720069f61481a98c87",
+    "src/shaping/brain_dump/intact_view.rs": "8dc00aa0988eae5ecfc629be4e5c8b2d6b7907a3281a94a0f21dfca886463520",
+    "src/shaping/brain_dump/question_continuity.rs": "5eb5b9a3de943993e1b263b98b22477c9065624e88c46f38cce8062d3f4b7d96"
+  },
+  "post_eval_changes": [
+    "goal_view.rs formatting only",
+    "board.rs pre-priority fact/history validation preserved; valid native DTOs unchanged",
+    "yohaku.rs readiness-message guard and no-question composer label corrected; regression and final offline rendering"
+  ],
+  "raw_replayed": 15
+}

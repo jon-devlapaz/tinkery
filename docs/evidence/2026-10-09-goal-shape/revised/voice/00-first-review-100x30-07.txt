@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  i keep thinking about voice. talking is         when I’m tired.                                   
+  faster than typing for me when im tired. but    Why: talking is faster than typing for me when    
+  maybe the real problem is i dont start dumps    I’m tired; opening a terminal feels like work; i  
+  at all at night because opening a terminal      don’t start dumps at all at night.                
+  feels like work. or maybe its both                                                                
+                                                  Still open                                        
+                                                  Outcome — Which change matters more: starting     
+                                                  night dumps without the terminal feeling like     
+                                                  work, or capturing them by talking instead of     
+                                                  typing?                                           
+                                                                                                    
+                                                  Done when — still open                            
+                                                                                                    
+                                                  PROVISIONAL assumption: the goal concerns         
+                                                  starting or capturing dumps at night, rather      
+                                                  than voice in general.                            
+                                                  Running out of questions doesn't mean I           
+                                                  understood you.                                   
+                                                                                                    
+                                                  Creates a Seed Me session; this goal can't be     
+                                                  edited after.                                     
+                                                                                                    
+                                                  type confirm                                      
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

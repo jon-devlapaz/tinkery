@@ -1,0 +1,88 @@
+{
+  "action": {
+    "method": "offline cached native raw response through ordinary submit/apply; zero provider calls",
+    "origin": {
+      "input": "I have been trying so hard to work on a system that compounds itself and serves as a meta harness. its a human first board for coordinainting work from the entire continuum of agentic software development lifecycle that has the rigor and durability and cohesive and verification that all 'just work's and thinks about the future of any code base it works on. not just the trees, but the forest. it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product. it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier. that is my true goal.\n",
+      "kind": "explicit F2"
+    }
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": "Uncited",
+        "text": "I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.\nWhy: I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request.\nMust: The work serves as a meta harness.\nMust: The work is human first.\nMust: The work considers the forest, not just the trees."
+      }
+    ],
+    "misfits": [],
+    "open": [
+      "done_when"
+    ],
+    "other_goals": [
+      "Build a system that compounds itself.",
+      "Coordinate the entire agentic software development lifecycle.",
+      "Make the parts of the workflow just work together."
+    ],
+    "outcome": null,
+    "parts": {
+      "done_when": null,
+      "must": [
+        "The work serves as a meta harness.",
+        "The work is human first.",
+        "The work considers the forest, not just the trees."
+      ],
+      "must_not": [],
+      "outcome": "I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.",
+      "when": null,
+      "who": "I",
+      "why": "I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request."
+    },
+    "questions": [
+      {
+        "id": "model-8998d6d36794c546",
+        "target": "done_when",
+        "text": "What observable check would tell you this is working?"
+      }
+    ],
+    "unresolved_notes": [
+      "A workflow spanning the brain dump, prompt, hunch, or intuition through a pull request ready for human review.",
+      "What observable check shows that the outcome is achieved?",
+      "The desired outcome is represented as a review-ready code change rather than the system itself."
+    ]
+  },
+  "board_available_ms": 25,
+  "decisions_cumulative": [],
+  "focused_question": {
+    "id": "model-8998d6d36794c546",
+    "text": "What observable check would tell you this is working?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [
+    "done_when"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-8998d6d36794c546",
+      "text": "What observable check would tell you this is working?"
+    }
+  ],
+  "reading_text": "I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.\nWhy: I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request.\nMust: The work serves as a meta harness.\nMust: The work is human first.\nMust: The work considers the forest, not just the trees.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "I have been trying so hard to work on a system that compounds itself and serves as a meta harness. its a human first board for coordinainting work from the entire continuum of agentic software development lifecycle that has the rigor and durability and cohesive and verification that all 'just work's and thinks about the future of any code base it works on. not just the trees, but the forest. it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product. it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier. that is my true goal.\n"
+    }
+  ],
+  "step_total_ms": 179
+}

@@ -1,0 +1,69 @@
+{
+  "base_head": "8818e63cc4811fc0935409580589ddbdc0612b7f",
+  "branch": "think-goal-shape",
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "model": "openai-codex/gpt-5.6-luna",
+  "open_parts": [],
+  "ready_to_review": false,
+  "rounds": [
+    {
+      "action": {
+        "input": "i keep thinking about voice. talking is faster than typing for me when im tired. but maybe the real problem is i dont start dumps at all at night because opening a terminal feels like work. or maybe its both",
+        "kind": "explicit F2"
+      },
+      "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+      "board": null,
+      "board_available_ms": null,
+      "decisions_cumulative": [
+        {
+          "candidate": null,
+          "check": "structure-spans-history",
+          "coverage": [],
+          "decision": "reject",
+          "elapsed_ms": 7986,
+          "mode": "blocking",
+          "normalizations": [
+            "Absent/unreadable optional done_when",
+            "Ignored unknown open part \"Whether the main issue is starting dumps, using voice, or both\"",
+            "Ignored unknown open part \"What observable check would show that this is working\"",
+            "Absent framings: empty collection",
+            "Ignored extra goal supports 0 field \"benefits\"; retained in raw evidence; never authority",
+            "Ignored extra goal supports 0 field \"costs\"; retained in raw evidence; never authority",
+            "Ignored extra goal supports 0 field \"option\"; retained in raw evidence; never authority"
+          ],
+          "raw": "{\n  \"parts\": {\n    \"who\": \"I\",\n    \"outcome\": \"I start capturing thought dumps at night, including by voice when talking is faster than typing\",\n    \"when\": \"at night\",\n    \"why\": \"Opening a terminal feels like work, and typing is harder when I am tired\",\n    \"done_when\": \"\",\n    \"must\": [],\n    \"must_not\": []\n  },\n  \"other_goals\": [],\n  \"deferred\": [],\n  \"open\": [\n    \"Whether the main issue is starting dumps, using voice, or both\",\n    \"What observable check would show that this is working\"\n  ],\n  \"questions\": [\n    {\n      \"target\": \"done_when\",\n      \"text\": \"What would you observe to know this is working?\"\n    }\n  ],\n  \"supports\": [\n    {\n      \"option\": \"Reduce the effort of starting a dump\",\n      \"benefits\": [\n        \"Addresses the feeling that opening a terminal is work\"\n      ],\n      \"costs\": [\n        \"May not address typing difficulty\"\n      ]\n    },\n    {\n      \"option\": \"Use voice for night-time dumps\",\n      \"benefits\": [\n        \"Talking is faster than typing when tired\"\n      ],\n      \"costs\": [\n        \"May not address the reluctance to start\"\n      ]\n    },\n    {\n      \"option\": \"Combine easier starting with voice capture\",\n      \"benefits\": [\n        \"Addresses both possible parts of the problem\"\n      ],\n      \"costs\": [\n        \"The priority between the two remains unclear\"\n      ]\n    }\n  ],\n  \"alternatives\": [],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL: The main goal is easier night-time thought capture; voice and terminal friction are possible contributing issues, not confirmed goals.\"\n  ]\n}\n",
+          "reason": "Invalid source reference at goal supports 0",
+          "request_key": "cf9d71d69c407d3a",
+          "version": 3
+        }
+      ],
+      "focused_question": null,
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "notice": "Submit or clear local text and wait for reshaping before reviewing a goal.",
+      "open_parts": [],
+      "questions_from_board": [],
+      "reading_text": "",
+      "ready_to_review": false,
+      "seed_written": false,
+      "settled": [],
+      "shape_submitted": true,
+      "skip_action": false,
+      "snapshot": "00-first",
+      "sources": [
+        {
+          "id": 1,
+          "in_reply_to": null,
+          "text": "i keep thinking about voice. talking is faster than typing for me when im tired. but maybe the real problem is i dont start dumps at all at night because opening a terminal feels like work. or maybe its both"
+        }
+      ],
+      "step_total_ms": 8149
+    }
+  ],
+  "rounds_until_no_question": "first board only",
+  "runtime": "evaluated-source-hashes.json",
+  "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-r2-075e421f-2c99-4150-a664-0af57a3ebca7/voice",
+  "session_root_empty": true,
+  "thinking": "low; --thinking low verified by wrapper"
+}

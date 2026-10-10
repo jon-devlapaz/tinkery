@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    me; its a wall of numbers and i dont    
+  in the morning. its a wall of         know what to do with it; the 6am job    
+  numbers and i dont know what to do    sometimes fails silently and i only     
+  with it. i want to open tinkery       find out days later.                    
+  and in like 5 seconds know if         Done when: yesterday went well or not   
+  yesterday went well or not. maybe     is clear in like 5 seconds; better      
+  one number? useful changes per        than my usual week.                     
+  hour is the one that matters. cost    Keep: useful changes per hour; cost     
+  too maybe. i dont want a              only if its way off.                    
+  dashboard. also the 6am job           Avoid: a dashboard; silent failures;    
+  sometimes fails silently and i        Running out of questions doesn't mean   
+  only find out days later              I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

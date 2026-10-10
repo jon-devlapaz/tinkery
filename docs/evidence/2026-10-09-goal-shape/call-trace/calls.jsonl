@@ -1,0 +1,83 @@
+{"index": 0, "phase": "baseline", "kind": "shape", "started_ns": 1791601589273612000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 1, "phase": "baseline", "kind": "meaning-preservation", "started_ns": 1791601596937284000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 2, "phase": "baseline", "kind": "shape", "started_ns": 1791601603625408000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 3, "phase": "baseline", "kind": "meaning-preservation", "started_ns": 1791601611269305000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 4, "phase": "baseline", "kind": "shape", "started_ns": 1791601617641531000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 5, "phase": "baseline", "kind": "meaning-preservation", "started_ns": 1791601626671042000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 6, "phase": "baseline", "kind": "shape", "started_ns": 1791601634008705000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 7, "phase": "baseline", "kind": "meaning-preservation", "started_ns": 1791601648671059000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 8, "phase": "baseline", "kind": "shape", "started_ns": 1791601655178280000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 9, "phase": "baseline", "kind": "meaning-preservation", "started_ns": 1791601671229299000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 10, "phase": "baseline", "kind": "shape", "started_ns": 1791601681057783000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 11, "phase": "baseline", "kind": "meaning-preservation", "started_ns": 1791601688207913000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 12, "phase": "baseline", "kind": "shape", "started_ns": 1791601695248883000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 13, "phase": "baseline", "kind": "meaning-preservation", "started_ns": 1791601706332319000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST baseline"}
+{"index": 14, "phase": "after", "kind": "shape", "started_ns": 1791604131430327000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 15, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604139209830000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 16, "phase": "after", "kind": "shape", "started_ns": 1791604146143799000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 17, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604154123534000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 18, "phase": "after", "kind": "shape", "started_ns": 1791604161706624000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 19, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604170408255000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 20, "phase": "after", "kind": "shape", "started_ns": 1791604179582622000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 21, "phase": "after", "kind": "shape", "started_ns": 1791604197539938000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 22, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604205583732000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 23, "phase": "after", "kind": "shape", "started_ns": 1791604211570028000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 24, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604219185582000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 25, "phase": "after", "kind": "shape", "started_ns": 1791604587071920000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 26, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604601215070000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 27, "phase": "after", "kind": "shape", "started_ns": 1791604608023276000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 28, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604623619964000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 29, "phase": "after", "kind": "shape", "started_ns": 1791604631956919000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 30, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604641333968000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 31, "phase": "after", "kind": "shape", "started_ns": 1791604649717251000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 32, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604658468433000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 33, "phase": "after", "kind": "shape", "started_ns": 1791604666035222000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 34, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604673687627000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 35, "phase": "after", "kind": "shape", "started_ns": 1791604679968770000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 36, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604687155245000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 37, "phase": "after", "kind": "shape", "started_ns": 1791604693253809000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 38, "phase": "after", "kind": "meaning-preservation", "started_ns": 1791604702350560000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST after eval"}
+{"index": 39, "phase": "revised", "kind": "shape", "started_ns": 1791606754614733000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 40, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606768039161000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 41, "phase": "revised", "kind": "shape", "started_ns": 1791606774582786000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 42, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606783143744000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 43, "phase": "revised", "kind": "shape", "started_ns": 1791606791032597000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 44, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606801411094000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 45, "phase": "revised", "kind": "shape", "started_ns": 1791606810653246000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 46, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606819793162000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 47, "phase": "revised", "kind": "shape", "started_ns": 1791606827394803000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 48, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606841094132000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 49, "phase": "revised", "kind": "shape", "started_ns": 1791606848742667000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 50, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606863430158000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 51, "phase": "revised", "kind": "shape", "started_ns": 1791606872767604000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 52, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606880185480000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 53, "phase": "revised", "kind": "shape", "started_ns": 1791606888254525000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 54, "phase": "revised", "kind": "meaning-preservation", "started_ns": 1791606904764220000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 55, "phase": "revised-ledger-followup", "kind": "shape", "started_ns": 1791607257456879000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 56, "phase": "revised-ledger-followup", "kind": "meaning-preservation", "started_ns": 1791607265227294000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 57, "phase": "revised-ledger-followup", "kind": "shape", "started_ns": 1791607273042204000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 58, "phase": "revised-ledger-followup", "kind": "meaning-preservation", "started_ns": 1791607293575436000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 59, "phase": "revised-2", "kind": "shape", "started_ns": 1791609961174673000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 60, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791609969347241000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 61, "phase": "revised-2", "kind": "shape", "started_ns": 1791609977325882000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 62, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791609991072630000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 63, "phase": "revised-2", "kind": "shape", "started_ns": 1791609997281589000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 64, "phase": "revised-2", "kind": "shape", "started_ns": 1791610016458593000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 65, "phase": "revised-2", "kind": "shape", "started_ns": 1791610033112151000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 66, "phase": "revised-2", "kind": "shape", "started_ns": 1791610041272786000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 67, "phase": "revised-2", "kind": "shape", "started_ns": 1791610051043561000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 68, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791610058987492000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 69, "phase": "revised-2", "kind": "shape", "started_ns": 1791610065439666000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 70, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791610073877622000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 71, "phase": "revised-2", "kind": "shape", "started_ns": 1791610079808294000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 72, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791610088572863000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 73, "phase": "revised-2", "kind": "shape", "started_ns": 1791610097773815000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 74, "phase": "revised-2", "kind": "shape", "started_ns": 1791610105559274000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 75, "phase": "revised-2", "kind": "shape", "started_ns": 1791610385214094000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 76, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791610396006513000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 77, "phase": "revised-2", "kind": "shape", "started_ns": 1791610404519700000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 78, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791610411933478000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 79, "phase": "revised-2", "kind": "shape", "started_ns": 1791610418758001000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 80, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791610427329571000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 81, "phase": "revised-2", "kind": "shape", "started_ns": 1791610887898843000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}
+{"index": 82, "phase": "revised-2", "kind": "meaning-preservation", "started_ns": 1791610908781202000, "model": "openai-codex/gpt-5.6-luna", "thinking": "low", "actor": "assistant-driven TEST revised eval"}

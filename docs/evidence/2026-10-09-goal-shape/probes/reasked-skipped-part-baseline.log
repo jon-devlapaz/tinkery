@@ -1,0 +1,97 @@
+
+running 1 test
+test shaping::brain_dump::c16_tests::skipped_target_blocks_a_renamed_and_reworded_model_question ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 120 filtered out; finished in 0.00s
+
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling quote v1.0.47
+   Compiling libc v0.2.190
+   Compiling cfg-if v1.0.5
+   Compiling unicode-segmentation v1.13.3
+   Compiling bitflags v2.13.2
+   Compiling equivalent v1.0.2
+   Compiling foldhash v0.2.0
+   Compiling allocator-api2 v0.2.21
+   Compiling rustversion v1.0.23
+   Compiling thiserror v2.0.21
+   Compiling ident_case v1.0.1
+   Compiling strsim v0.11.1
+   Compiling itoa v1.0.18
+   Compiling either v1.19.0
+   Compiling heck v0.5.0
+   Compiling signal-hook v0.3.18
+   Compiling rustix v1.1.5
+   Compiling unicode-width v0.2.2
+   Compiling parking_lot_core v0.9.12
+   Compiling static_assertions v1.1.0
+   Compiling itertools v0.14.0
+   Compiling hashbrown v0.17.1
+   Compiling hashbrown v0.16.1
+   Compiling ryu v1.0.23
+   Compiling convert_case v0.10.0
+   Compiling scopeguard v1.2.0
+   Compiling indoc v2.0.7
+   Compiling critical-section v1.2.0
+   Compiling smallvec v1.16.2
+   Compiling log v0.4.34
+   Compiling lock_api v0.4.14
+   Compiling powerfmt v0.2.1
+   Compiling time-core v0.1.9
+   Compiling deranged v0.5.8
+   Compiling num-conv v0.2.2
+   Compiling litrs v1.0.0
+   Compiling line-clipping v0.3.8
+   Compiling memchr v2.8.3
+   Compiling getrandom v0.4.3
+   Compiling base64 v0.22.1
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling lru v0.18.5
+   Compiling anyhow v1.0.104
+   Compiling regex-syntax v0.8.11
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling once_cell v1.21.4
+   Compiling castaway v0.2.4
+   Compiling fastrand v2.5.0
+   Compiling document-features v0.2.12
+   Compiling aho-corasick v1.1.5
+   Compiling compact_str v0.9.1
+   Compiling syn v3.0.6
+   Compiling syn v2.0.119
+   Compiling errno v0.3.14
+   Compiling num_threads v0.1.7
+   Compiling mio v1.2.4
+   Compiling signal-hook-registry v1.4.8
+   Compiling time v0.3.55
+   Compiling uuid v1.27.0
+   Compiling unicode-truncate v2.0.1
+   Compiling parking_lot v0.12.5
+   Compiling signal-hook-mio v0.2.5
+   Compiling regex-automata v0.4.18
+   Compiling tempfile v3.27.0
+   Compiling strum_macros v0.28.0
+   Compiling derive_more-impl v2.1.1
+   Compiling derive_more v2.1.1
+   Compiling crossterm v0.29.0
+   Compiling darling_core v0.24.1
+   Compiling strum v0.28.0
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling regex v1.13.1
+   Compiling kasuari v0.4.12
+   Compiling darling_macro v0.24.1
+   Compiling ratatui-core v0.1.2
+   Compiling darling v0.24.1
+   Compiling instability v0.3.14
+   Compiling ratatui-widgets v0.3.2
+   Compiling ratatui-crossterm v0.1.2
+   Compiling ratatui-macros v0.7.2
+   Compiling ratatui-textarea v0.9.3
+   Compiling ratatui v0.30.2
+   Compiling pinstar v1.0.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-probes-3iecr951/repo/vendor/pinstar)
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-probes-3iecr951/repo)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.82s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-probes-3iecr951/target/debug/deps/tinkery-23622fe9a6aabf91)

@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  I have been trying so hard to work on a system that compounds itself and    code changes.                                                                     
+  serves as a meta harness. its a human first board for coordinainting                                                                                          
+  work from the entire continuum of agentic software development lifecycle    when                                                                              
+  that has the rigor and durability and cohesive and verification that all    For a human leading work across the entire agentic software development           
+  'just work's and thinks about the future of any code base it works on.      lifecycle                                                                         
+  not just the trees, but the forest. it should operate like a michellin                                                                                        
+  star resteraunt and I am the resterauntaur that tastes the final            I can                                                                             
+  delicious product. it goes from this part (the brain dump-the prompt-the    coordinate work from the brain dump through a human-review-ready PR while         
+  hunch-the intuition) all the way to a PR that is ready to be reviewed by    improving the health of the code base                                             
+  human that considers the health of the code base and makes the next                                                                                           
+  change easier. that is my true goal.                                        so                                                                                
+                                                                              so each change makes the next change easier and the system compounds its value    
+                                                                                                                                                                
+                                                                              it works if                                                                       
+                                                                              the work has rigor, durability, cohesion, and verification that all "just work"   
+                                                                              while considering both the trees and the forest                                   
+                                                                                                                                                                
+                                                                              not                                                                               
+                                                                              remain human-first, with the human tasting the final product, and must not        
+                                                                              optimize only for individual code changes                                         
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              not — What must this system never take out of the human's hands or get wrong?     
+                                                                                                                                                                
+                                                                              PROVISIONAL assumption: the intended outcome is to define or build the system,    
+                                                                              rather than only describe its operating philosophy.                               
+                                                                              Running out of questions doesn't mean I understood you.                           
+                                                                                                                                                                
+                                                                              Creates a Seed Me session; this goal can't be edited after.                       
+                                                                                                                                                                
+                                                                              type confirm                                                                      
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

@@ -1,0 +1,240 @@
+[
+  {
+    "probe": "o1-forced-can",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::outcome_is_a_behaviour_without_forced_can",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "o3-repeated-check",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::repeated_check_is_missing_and_required_question_precedes_vague_outcome",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "o6-timing-duplication",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::timing_and_capacity_are_not_duplicated_and_constraints_each_get_a_line",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "o6-subject-duplication",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::repeated_subjects_and_uncited_supports_are_not_fabricated_citations",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "s6-muting-without-change",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::unchanged_answer_never_mutes_the_whole_block",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "s6-no-color-ink",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::changed_lines_ink_unchanged_muted_until_any_keystroke_paste_or_send",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "q1-required-priority",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::repeated_check_is_missing_and_required_question_precedes_vague_outcome",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "s3-open-not-ready",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::open_notes_cannot_contradict_ready_and_self_labels_never_render",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "o4-one-constraint-per-line",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::timing_and_capacity_are_not_duplicated_and_constraints_each_get_a_line",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "o9-deferred-retained",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::quiet_asides_survive_paper_review_and_are_not_constraints",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "s3-no-false-ready-message",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::open_notes_cannot_contradict_ready_and_self_labels_never_render",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "s2-no-question-composer",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::open_notes_cannot_contradict_ready_and_self_labels_never_render",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "history-before-priority",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::revision2_tests::fact_and_owned_history_guards_run_before_question_priority_filtering",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "eval-phrase-in-prompt",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  }
+]

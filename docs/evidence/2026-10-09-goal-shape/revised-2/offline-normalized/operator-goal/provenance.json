@@ -1,0 +1,7 @@
+{
+  "current_code_normalization": true,
+  "no_helper_or_confirmation": true,
+  "no_private_state_mutations": true,
+  "original_first_capture": "docs/evidence/2026-10-09-goal-shape/revised-2/operator-goal/00-first.json",
+  "provider_calls": 0
+}

@@ -1,0 +1,26 @@
+{
+  "base": "8818e63cc4811fc0935409580589ddbdc0612b7f",
+  "branch": "think-goal-shape",
+  "committed_at_eval": false,
+  "source_hashes": {
+    "Cargo.toml": "4b031c84256be888c8620a5d601b6129cbb212d3ed8c776885e17b9fc71af5b0",
+    "Cargo.lock": "65f55ba7469b0db3d4bc9b2fc2f28a1100db3d40c9c941415df55b8eef670cf1",
+    "src/shaping/brain_dump.rs": "46c88fb686fd6dc9045c1dc75692f4e946d2153f2bb81afa8a3843a84d5fdecc",
+    "src/shaping/brain_dump/help_exit_tests.rs": "9efee264397f3818ba612ec4d162086215243faf5ce58abba35c85b58edbaed0",
+    "src/shaping/brain_dump/handoff.rs": "183d9d55bd6ce56398e934114e031145a67a08d8835ea432d9984ce99d50b85a",
+    "src/shaping/brain_dump/goal_view.rs": "ed3686f68b7e67b39e2c6369cadd8cceb0f7019824408d8686b5410c3de0dd88",
+    "src/shaping/brain_dump/checks.rs": "00104e41c04f8383d3be0e6f84c11c04245b986def1e602541d649053c1b9a24",
+    "src/shaping/brain_dump/dogfood_tests.rs": "ee8447a2cdae565df806cccc444f94bccc85256d67f7868862adc4029938c5cc",
+    "src/shaping/brain_dump/goal_tests.rs": "14b6b17770fe2787e52ce9e5723986fa207f71ee38aed0ac2088b3538951eb73",
+    "src/shaping/brain_dump/meaning_check.rs": "c5294730f19c3cb82b2bf82a4196f46c6fe4a12951a8534e23b290b86044ff02",
+    "src/shaping/brain_dump/c16_tests.rs": "ca7f2c7b1c78d96489474865387ef6fa433b191f95167da07f93fb4daf88e8e3",
+    "src/shaping/brain_dump/board.rs": "9e279a42fa39df1d983b81e48be272c87acc7ba3d131862516788e7d5cc49398",
+    "src/shaping/brain_dump/goal.rs": "ebe60709372c8819b13bfff57f82fc90847915af2a32411c4387bc9a559f7ebf",
+    "src/shaping/brain_dump/board_tests.rs": "2864c632ac3f425eb3b41bce1820f04f9076efda779fe53039ca98a582712701",
+    "src/shaping/brain_dump/yohaku_tests.rs": "9220cff75f3008dff0a2d7c8d649087cc631284ecc60a14c1dcd8cb2ab732c16",
+    "src/shaping/brain_dump/yohaku.rs": "6fe2278c2bb25befe00e548b5c901d8156342a970b83aadfd25407542f58d3a2",
+    "src/shaping/brain_dump/intact_view.rs": "8dc00aa0988eae5ecfc629be4e5c8b2d6b7907a3281a94a0f21dfca886463520",
+    "src/shaping/brain_dump/question_continuity.rs": "5eb5b9a3de943993e1b263b98b22477c9065624e88c46f38cce8062d3f4b7d96"
+  },
+  "driver_binary_sha256": "5e91356dcdb14ca0505896956b137ffe5d73259f968591e3b71262dad30961ee"
+}

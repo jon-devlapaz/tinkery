@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+  added later                                                                                       
+  better than my usual week. no targets           You are confirming                                
+                                                  I know in about 5 seconds whether yesterday went  
+                                                  well when I open Tinkery in the morning.          
+                                                  Why: The ledger report is a wall of numbers, so   
+                                                  I do not know what to do with it; the 6am job     
+                                                  sometimes fails silently and I find out days      
+                                                  later.                                            
+                                                  Done when: A failed job overrides the result;     
+                                                  otherwise the morning view indicates whether      
+                                                  yesterday went well, with cost highlighted only   
+                                                  if it is way off.                                 
+                                                  Must: Useful changes per hour is included.        
+                                                  Must: A failed job overrides everything.          
+                                                  Must: Cost matters only if it is way off.         
+                                                  Must not: The result must not be a dashboard.     
+                                                  Must not: The result must not be a wall of        
+                                                  numbers.                                          
+                                                                                                    
+                                                  also in your dump: Detect when the 6am job fails  
+                                                                                                    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

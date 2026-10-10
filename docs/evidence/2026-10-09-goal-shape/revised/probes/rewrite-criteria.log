@@ -1,0 +1,24 @@
+
+running 1 test
+test shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints ... FAILED
+
+failures:
+
+---- shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints stdout ----
+
+thread 'shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints' (62097003) panicked at src/shaping/brain_dump/c16_tests.rs:47:5:
+assertion `left == right` failed
+  left: "I can tell whether yesterday went well, each morning.\nWhy: the report is hard to act on.\nDone when: useful changes per hour are better than my usual week.\nAvoid: no targets; no dashboard; cost only when it's unusually high."
+ right: "I can tell whether yesterday went well, each morning.\nWhy: the report is hard to act on.\nDone when: useful changes per hour are better than my usual week.\nAvoid: no targets; no dashboard; cost only when it's way off."
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/repo)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/target/debug/deps/tinkery-57634f1bcdbf9627)
+error: test failed, to rerun pass `--lib`

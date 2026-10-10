@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    What observable check shows that I      
+  in the morning. its a wall of         know whether yesterday went well        
+  numbers and i dont know what to do                                            
+  with it. i want to open tinkery       A full dashboard appears inconsistent   
+  and in like 5 seconds know if         with your stated preference             
+  yesterday went well or not. maybe                                             
+  one number? useful changes per        The main goal is quickly judging        
+  hour is the one that matters. cost    yesterday's performance, while          
+  too maybe. i dont want a              silent-job detection is a separate      
+  dashboard. also the 6am job           related goal.                           
+  sometimes fails silently and i                                                
+  only find out days later              'yesterday went well' can be evaluated  
+                                        using useful changes per hour, with     
+                                        cost possibly included.                 
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

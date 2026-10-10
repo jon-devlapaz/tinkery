@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I have been trying so hard to work on a                                                           
+  system that compounds itself and serves as a    also in your dump: Build a system that compounds  
+  meta harness. its a human first board for       itself.; Coordinate the entire agentic software   
+  coordinainting work from the entire             development lifecycle.; Make the parts of the     
+  continuum of agentic software development       workflow just work together.                      
+  lifecycle that has the rigor and durability                                                       
+  and cohesive and verification that all 'just    Still open                                        
+  work's and thinks about the future of any       Done when — What observable check would tell you  
+  code base it works on. not just the trees,      this is working?                                  
+  but the forest. it should operate like a                                                          
+  michellin star resteraunt and I am the          A workflow spanning the brain dump, prompt,       
+  resterauntaur that tastes the final             hunch, or intuition through a pull request ready  
+  delicious product. it goes from this part       for human review.                                 
+  (the brain dump-the prompt-the hunch-the                                                          
+  intuition) all the way to a PR that is ready    What observable check shows that the outcome is   
+  to be reviewed by human that considers the      achieved?                                         
+  health of the code base and makes the next                                                        
+  change easier. that is my true goal.            The desired outcome is represented as a           
+                                                  review-ready code change rather than the system   
+                                                  itself.                                           
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

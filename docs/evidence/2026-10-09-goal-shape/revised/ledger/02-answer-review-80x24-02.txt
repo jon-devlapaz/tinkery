@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    is clear in like 5 seconds; a failed    
+  in the morning. its a wall of         job overrides everything.               
+  numbers and i dont know what to do    Keep: useful changes per hour; cost     
+  with it. i want to open tinkery       only if its way off.                    
+  and in like 5 seconds know if         Avoid: a dashboard; silent failures.    
+  yesterday went well or not. maybe                                             
+  one number? useful changes per        Still open                              
+  hour is the one that matters. cost    Outcome — Should this remain the goal,  
+  too maybe. i dont want a              or should it be reshaped around a       
+  dashboard. also the 6am job           different morning signal?               
+  sometimes fails silently and i        Running out of questions doesn't mean   
+  only find out days later              I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

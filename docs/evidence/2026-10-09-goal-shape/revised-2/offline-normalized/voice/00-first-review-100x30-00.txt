@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  i keep thinking about voice. talking is         You are confirming                                
+  faster than typing for me when im tired. but    I start capturing thought dumps at night,         
+  maybe the real problem is i dont start dumps    including by voice when talking is faster than    
+  at all at night because opening a terminal      typing.                                           
+  feels like work. or maybe its both              Why: Opening a terminal feels like work, and      
+                                                  typing is harder when I am tired.                 
+                                                                                                    
+                                                  Still open                                        
+                                                  Done when — What would you observe to know this   
+                                                  is working?                                       
+                                                                                                    
+                                                  {"benefits":["Addresses the feeling that opening  
+                                                  a terminal is work"],"costs":["May not address    
+                                                  typing difficulty"],"option":"Reduce the effort   
+                                                  of starting a dump"}                              
+                                                                                                    
+                                                  {"benefits":["Talking is faster than typing when  
+                                                  tired"],"costs":["May not address the reluctance  
+                                                  to start"],"option":"Use voice for night-time     
+                                                  dumps"}                                           
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

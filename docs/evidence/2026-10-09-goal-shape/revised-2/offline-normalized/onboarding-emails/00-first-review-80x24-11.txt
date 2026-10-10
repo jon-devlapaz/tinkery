@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I'm worried our onboarding emails     Why: The unsubscribe rate keeps going   
+  are annoying people. we send five     up, while marketing values the emails.  
+  in the first week and the             Must: onboarding emails are not         
+  unsubscribe rate keeps going up.      eliminated entirely.                    
+  marketing loves them though. I        Must not: new users feel spammed.       
+  don't want to kill them entirely,                                             
+  I just don't want new users to        Still open                              
+  feel spammed.                         Done when — What observable sign would  
+                                        show that new users no longer feel      
+                                        spammed?                                
+                                                                                
+                                        Reducing perceived spam while           
+                                        retaining some onboarding emails is     
+                                        the main goal.                          
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

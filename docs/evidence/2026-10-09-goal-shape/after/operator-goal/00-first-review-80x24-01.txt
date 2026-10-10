@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I have been trying so hard to work    human-review-ready PR while improving   
+  on a system that compounds itself     the health of the code base, so each    
+  and serves as a meta harness. its     change makes the next change easier     
+  a human first board for               and the system compounds its value. It  
+  coordinainting work from the          works if the work has rigor,            
+  entire continuum of agentic           durability, cohesion, and verification  
+  software development lifecycle        that all "just work" while considering  
+  that has the rigor and durability     both the trees and the forest; remain   
+  and cohesive and verification that    human-first, with the human tasting     
+  all 'just work's and thinks about     the final product, and must not         
+  the future of any code base it        Running out of questions doesn't mean   
+  works on. not just the trees, but     I understood you.                       
+  the forest. it should operate like                                            
+  a michellin star resteraunt and I     Creates a Seed Me session; this goal    
+  am the resterauntaur that tastes      can't be edited after.                  
+  the final delicious product. it                                               
+  goes from this part (the brain        type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

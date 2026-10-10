@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  i keep thinking about voice.          address the reluctance to               
+  talking is faster than typing for     start"],"option":"Use voice for         
+  me when im tired. but maybe the       night-time dumps"}                      
+  real problem is i dont start dumps                                            
+  at all at night because opening a     {"benefits":["Addresses both possible   
+  terminal feels like work. or maybe    parts of the problem"],"costs":["The    
+  its both                              priority between the two remains        
+                                        unclear"],"option":"Combine easier      
+                                        starting with voice capture"}           
+                                                                                
+                                        Whether the main issue is starting      
+                                        dumps, using voice, or both             
+                                                                                
+                                        What observable check would show that   
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       improve explanations or tone; Decide    
+  learners to see why they got          whether to add an AI tutor chat panel;  
+  something wrong, not just that        Rebuild the whole quiz engine; Write a  
+  they did. right now we just show a    marketing tagline                       
+  red X and move on and people                                                  
+  bounce. I think we should add an      Still open                              
+  AI tutor chat panel next to every     Done when — What observable sign would  
+  question. but honestly I'm worried    show that learners leave a wrong        
+  that turns into one more chatbot      answer feeling smarter rather than      
+  nobody asked for and it gets          dumber?                                 
+  expensive fast. the real thing is                                             
+  people feel dumb and leave. maybe     An explanation may help.                
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     The tone may help.                      
+  no gamification, that stays. kirra    type confirm to save. You can't edit    
+  said the drop-off happens around      it after.                               
+  question 4 but I havent checked.                                              
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so the ci on tinkery takes like    pass locally and fail on GitHub; this   
+  2 minutes on mac and i dont really    happened twice this week.               
+  care about that but what bugs me      Must: The clippy version on CI matches  
+  is that the clippy version on ci      the clippy version on my laptop.        
+  is different from my laptop so                                                
+  things pass locally and fail on       also in your dump: rename the measure   
+  github. happened twice this week.     tab to something nicer, possibly        
+  also unrelated but i want to          ledger; automatically build a release   
+  rename the measure tab to             when a PR merges                        
+  something nicer, ledger maybe? and                                            
+  honestly i think the release build    Still open                              
+  should happen automatically when a    Done when — What observable check       
+  pr merges so i stop copying           should show that the clippy mismatch    
+  binaries around by hand. rm then      problem is resolved?                    
+  cp every time is annoying and i       type confirm to save. You can't edit    
+  forgot once and ran an old build      it after.                               
+  for an hour                                                                   
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

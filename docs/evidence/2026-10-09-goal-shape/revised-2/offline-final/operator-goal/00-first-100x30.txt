@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I have been trying so hard to work on a         I think you mean…                                 
+  system that compounds itself and serves as a    I receive a delicious change ready for human      
+  meta harness. its a human first board for       review that considers the health of the code      
+  coordinainting work from the entire             base and makes the next change easier.            
+  continuum of agentic software development       Why: I want work across the entire continuum of   
+  lifecycle that has the rigor and durability     agentic software development to have rigor,       
+  and cohesive and verification that all 'just    durability, cohesion, and verification, from      
+  work's and thinks about the future of any       brain dump, prompt, hunch, or intuition through   
+  code base it works on. not just the trees,      a review-ready pull request.                      
+  but the forest. it should operate like a        Must: The work serves as a meta harness.          
+  michellin star resteraunt and I am the          Must: The work is human first.                    
+  resterauntaur that tastes the final             Must: The work considers the forest, not just     
+  delicious product. it goes from this part       One thing I'm not sure about                      
+  (the brain dump-the prompt-the hunch-the        What observable check would tell you this is      
+  intuition) all the way to a PR that is ready    working?                                          
+  to be reviewed by human that considers the                                                        
+  health of the code base and makes the next                                                        
+  change easier. that is my true goal.                                                              
+                                                  your answer                                       
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  2 send   3 review   8 skip   10 menu                                                              

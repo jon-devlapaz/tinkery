@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  ok so the ci on tinkery takes like 2 minutes on mac and i dont really       You are confirming                                                                
+  care about that but what bugs me is that the clippy version on ci is        I get consistent clippy results locally and on GitHub.                            
+  different from my laptop so things pass locally and fail on github.         Why: The clippy version on CI differs from the laptop, so checks pass locally     
+  happened twice this week. also unrelated but i want to rename the           and fail on GitHub; this happened twice this week.                                
+  measure tab to something nicer, ledger maybe? and honestly i think the                                                                                        
+  release build should happen automatically when a pr merges so i stop        also in your dump: Rename the measure tab; Automate release builds after a PR     
+  copying binaries around by hand. rm then cp every time is annoying and i    merges                                                                            
+  forgot once and ran an old build for an hour                                                                                                                  
+                                                                              Still open                                                                        
+                                                                              Done when — What observable check would show that local and GitHub clippy         
+                                                                              results are consistent?                                                           
+                                                                                                                                                                
+                                                                              The tab rename and automatic release build look like separate goals rather than   
+                                                                              parts of the clippy-consistency goal.                                             
+                                                                                                                                                                
+                                                                              Clippy consistency is the main goal because it is the stated source of repeated   
+                                                                              failures.                                                                         
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              type confirm to save. You can't edit it after.                                    
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

@@ -1,0 +1,104 @@
+{
+  "action": {
+    "method": "offline cached native raw response through ordinary submit/apply; zero provider calls",
+    "origin": {
+      "answer": "yes the second session. id know it worked if more than half come back within a week",
+      "kind": "fixed answer + F2; refine ready goal or answer focused question",
+      "question_before": {
+        "id": "model-3a7ee45ac6319c1f",
+        "text": "What should become true for people who sign up: should more of them return for a second session, or is there another outcome you want?"
+      }
+    }
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "people sign up then never come back. like 70% never do a second session",
+              "source": 2
+            },
+            {
+              "occurrence": 0,
+              "quote": "id know it worked if more than half come back within a week",
+              "source": 3
+            }
+          ]
+        },
+        "text": "People who sign up return for a second session within a week.\nWhy: People sign up then never come back; like 70% never do a second session.\nDone when: More than half come back within a week."
+      }
+    ],
+    "misfits": [],
+    "open": [],
+    "other_goals": [],
+    "outcome": "More than half come back within a week.",
+    "parts": {
+      "done_when": "More than half come back within a week.",
+      "must": [],
+      "must_not": [],
+      "outcome": "return for a second session within a week",
+      "when": null,
+      "who": "People who sign up",
+      "why": "People sign up then never come back; like 70% never do a second session."
+    },
+    "questions": [],
+    "unresolved_notes": [
+      "The 70% figure is retained as the person's claim, not independently verified."
+    ]
+  },
+  "board_available_ms": 23,
+  "decisions_cumulative": [],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [],
+  "questions_from_board": [],
+  "reading_text": "People who sign up return for a second session within a week.\nWhy: People sign up then never come back; like 70% never do a second session.\nDone when: More than half come back within a week.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [
+    {
+      "question": {
+        "id": "model-14272a9eb54ad36a",
+        "target": "who",
+        "text": "Who should benefit from fixing onboarding?"
+      },
+      "source": 2
+    },
+    {
+      "question": {
+        "id": "model-3a7ee45ac6319c1f",
+        "target": "outcome",
+        "text": "What should become true for people who sign up: should more of them return for a second session, or is there another outcome you want?"
+      },
+      "source": 3
+    }
+  ],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "02-answer",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "need to fix onboarding somehow"
+    },
+    {
+      "id": 2,
+      "in_reply_to": "model-14272a9eb54ad36a",
+      "text": "people sign up then never come back. like 70% never do a second session"
+    },
+    {
+      "id": 3,
+      "in_reply_to": "model-3a7ee45ac6319c1f",
+      "text": "yes the second session. id know it worked if more than half come back within a week"
+    }
+  ],
+  "step_total_ms": 109
+}

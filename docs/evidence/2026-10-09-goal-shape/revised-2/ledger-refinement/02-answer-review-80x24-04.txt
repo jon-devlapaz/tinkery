@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    wall of numbers.                        
+  in the morning. its a wall of                                                 
+  numbers and i dont know what to do    also in your dump: Detect when the 6am  
+  with it. i want to open tinkery       job fails                               
+  and in like 5 seconds know if                                                 
+  yesterday went well or not. maybe     Still open                              
+  one number? useful changes per        What counts as cost being way off is    
+  hour is the one that matters. cost    unspecified.                            
+  too maybe. i dont want a                                                      
+  dashboard. also the 6am job           The main goal is quickly judging        
+  sometimes fails silently and i        yesterday's performance; silent-job     
+  only find out days later              detection is a separate related goal.   
+                                                                                
+                                        A failed job is intended to be          
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

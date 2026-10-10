@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  i keep thinking about voice.          the biggest source of friction, or      
+  talking is faster than typing for     design a way to start nighttime dumps   
+  me when im tired. but maybe the       despite both frictions?                 
+  real problem is i dont start dumps                                            
+  at all at night because opening a     it works if — still open                
+  terminal feels like work. or maybe                                            
+  its both                              not — still open                        
+                                                                                
+                                        PROVISIONAL assumption: the desired     
+                                        change is making nighttime dumps        
+                                        Running out of questions doesn't mean   
+                                        I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

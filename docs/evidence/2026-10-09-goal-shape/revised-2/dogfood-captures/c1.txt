@@ -1,0 +1,46 @@
+
+  tinkery                                                                                                                                             ?
+
+
+  ok so the ci on tinkery takes like 2 minutes on mac and i dont really    I think you mean…
+  care about that but what bugs me is that the clippy version on ci is     I can align the clippy version on CI with the laptop version, on every CI
+  different from my laptop so things pass locally and fail on github.      run.
+  happened twice this week. also unrelated but i want to rename the        Why: things pass locally and fail on github; happened twice this week.
+  measure tab to something nicer, ledger maybe? and honestly i think       Done when: things pass locally and fail on github no longer happens.
+  the release build should happen automatically when a pr merges so i      Keep: the CI time of like 2 minutes on mac.
+  stop copying binaries around by hand. rm then cp every time is           Avoid: copying binaries around by hand; running an old build.
+  annoying and i forgot once and ran an old build for an hour
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                           One thing I'm not sure about
+                                                                           Should the goal focus on matching the clippy version, or should it also
+                                                                           include renaming the measure tab and automatically building releases when a
+                                                                           PR merges?
+
+
+                                                                           your answer
+
+
+
+
+
+
+  2 send   3 review   8 skip   10 menu
+

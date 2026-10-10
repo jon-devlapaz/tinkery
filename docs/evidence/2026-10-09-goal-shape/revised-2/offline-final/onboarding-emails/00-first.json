@@ -1,0 +1,82 @@
+{
+  "action": {
+    "method": "offline cached native raw response through ordinary submit/apply; zero provider calls",
+    "origin": {
+      "input": "I'm worried our onboarding emails are annoying people. we send five in the first week and the unsubscribe rate keeps going up. marketing loves them though. I don't want to kill them entirely, I just don't want new users to feel spammed.",
+      "kind": "explicit F2"
+    }
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": "Uncited",
+        "text": "New users do not feel spammed by onboarding emails, during the first week.\nWhy: The unsubscribe rate keeps going up, while marketing values the emails.\nMust: onboarding emails are not eliminated entirely.\nMust not: new users feel spammed."
+      }
+    ],
+    "misfits": [],
+    "open": [
+      "done_when"
+    ],
+    "other_goals": [],
+    "outcome": null,
+    "parts": {
+      "done_when": null,
+      "must": [
+        "onboarding emails are not eliminated entirely"
+      ],
+      "must_not": [
+        "new users feel spammed"
+      ],
+      "outcome": "new users do not feel spammed by onboarding emails",
+      "when": "during the first week",
+      "who": "new users",
+      "why": "The unsubscribe rate keeps going up, while marketing values the emails."
+    },
+    "questions": [
+      {
+        "id": "model-43498cf4c758f837",
+        "target": "done_when",
+        "text": "What observable sign would show that new users no longer feel spammed?"
+      }
+    ],
+    "unresolved_notes": [
+      "Reducing perceived spam while retaining some onboarding emails is the main goal."
+    ]
+  },
+  "board_available_ms": 25,
+  "decisions_cumulative": [],
+  "focused_question": {
+    "id": "model-43498cf4c758f837",
+    "text": "What observable sign would show that new users no longer feel spammed?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [
+    "done_when"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-43498cf4c758f837",
+      "text": "What observable sign would show that new users no longer feel spammed?"
+    }
+  ],
+  "reading_text": "New users do not feel spammed by onboarding emails, during the first week.\nWhy: The unsubscribe rate keeps going up, while marketing values the emails.\nMust: onboarding emails are not eliminated entirely.\nMust not: new users feel spammed.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "I'm worried our onboarding emails are annoying people. we send five in the first week and the unsubscribe rate keeps going up. marketing loves them though. I don't want to kill them entirely, I just don't want new users to feel spammed."
+    }
+  ],
+  "step_total_ms": 123
+}

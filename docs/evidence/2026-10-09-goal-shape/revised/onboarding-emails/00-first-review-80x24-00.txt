@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I'm worried our onboarding emails     You are confirming                      
+  are annoying people. we send five     New users can receive onboarding        
+  in the first week and the             emails without feeling spammed, during  
+  unsubscribe rate keeps going up.      the first week.                         
+  marketing loves them though. I        Why: five emails arrive in the first    
+  don't want to kill them entirely,     week and the unsubscribe rate keeps     
+  I just don't want new users to        going up.                               
+  feel spammed.                         Done when: new users do not feel        
+                                        spammed.                                
+                                        Keep: marketing value; onboarding       
+                                        Running out of questions doesn't mean   
+                                        I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

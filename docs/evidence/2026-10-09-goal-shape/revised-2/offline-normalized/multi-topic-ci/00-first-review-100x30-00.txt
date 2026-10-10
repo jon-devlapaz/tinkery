@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so the ci on tinkery takes like 2 minutes    You are confirming                                
+  on mac and i dont really care about that but    I get the same clippy results locally and on      
+  what bugs me is that the clippy version on      GitHub CI, during CI checks.                      
+  ci is different from my laptop so things        Why: The clippy version differs between CI and    
+  pass locally and fail on github. happened       my laptop, so things pass locally and fail on     
+  twice this week. also unrelated but i want      GitHub; this happened twice this week.            
+  to rename the measure tab to something          Must: The clippy version on CI matches the        
+  nicer, ledger maybe? and honestly i think       clippy version on my laptop.                      
+  the release build should happen                                                                   
+  automatically when a pr merges so i stop        also in your dump: rename the measure tab to      
+  copying binaries around by hand. rm then cp     something nicer, possibly ledger; automatically   
+  every time is annoying and i forgot once and    build a release when a PR merges                  
+  ran an old build for an hour                                                                      
+                                                  Still open                                        
+                                                  Done when — What observable check should show     
+                                                  that the clippy mismatch problem is resolved?     
+                                                                                                    
+                                                  Pinning or otherwise synchronizing the clippy     
+                                                  version is a possible approach.                   
+                                                                                                    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

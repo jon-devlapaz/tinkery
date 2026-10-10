@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so the ci on tinkery takes like 2 minutes    You are confirming                                
+  on mac and i dont really care about that but    I get consistent clippy results locally and on    
+  what bugs me is that the clippy version on      GitHub.                                           
+  ci is different from my laptop so things        Why: The clippy version on CI differs from the    
+  pass locally and fail on github. happened       laptop, so checks pass locally and fail on        
+  twice this week. also unrelated but i want      GitHub; this happened twice this week.            
+  to rename the measure tab to something                                                            
+  nicer, ledger maybe? and honestly i think       also in your dump: Rename the measure tab;        
+  the release build should happen                 Automate release builds after a PR merges         
+  automatically when a pr merges so i stop                                                          
+  copying binaries around by hand. rm then cp     Still open                                        
+  every time is annoying and i forgot once and    Done when — What observable check would show      
+  ran an old build for an hour                    that local and GitHub clippy results are          
+                                                  consistent?                                       
+                                                                                                    
+                                                  The tab rename and automatic release build look   
+                                                  like separate goals rather than parts of the      
+                                                  clippy-consistency goal.                          
+                                                                                                    
+                                                  Clippy consistency is the main goal because it    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+  your dump                                                                                                                                                     
+  the ledger report is useless to me in the morning. its a wall of numbers    You are confirming                                                                
+  and i dont know what to do with it. i want to open tinkery and in like 5    I know in about 5 seconds whether yesterday went well when I open Tinkery in the  
+  seconds know if yesterday went well or not. maybe one number? useful        morning.                                                                          
+  changes per hour is the one that matters. cost too maybe. i dont want a     Why: The ledger report is a wall of numbers, so I do not know what to do with     
+  dashboard. also the 6am job sometimes fails silently and i only find out    it; the 6am job sometimes fails silently and I find out days later.               
+  days later                                                                  Done when: I can tell that yesterday was better than my usual week, without       
+                                                                              using targets.                                                                    
+                                                                              Must: Useful changes per hour is included.                                        
+                                                                              Must: A failed job overrides everything.                                          
+                                                                              Must: Cost matters only if it is way off.                                         
+                                                                              Must not: The result must not be a dashboard.                                     
+                                                                              Must not: The result must not be a wall of numbers.                               
+                                                                                                                                                                
+                                                                              also in your dump: Detect when the 6am job fails                                  
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              What counts as cost being way off is unspecified.                                 
+                                                                                                                                                                
+                                                                              The main goal is quickly judging yesterday's performance; silent-job detection    
+                                                                              is a separate related goal.                                                       
+                                                                                                                                                                
+                                                                              A failed job is intended to be surfaced as the dominant status.                   
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              type confirm to save. You can't edit it after.                                    
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

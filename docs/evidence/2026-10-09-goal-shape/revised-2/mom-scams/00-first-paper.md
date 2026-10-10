@@ -1,0 +1,9 @@
+# Tinkery / provisional board
+
+Nothing confirmed. Unsaved.
+
+## Your deliberate extractions / exact excerpts
+
+## Original 1 / dump
+
+my mom keeps getting scam texts and almost clicked one yesterday. i want something that helps her tell if a text is fake before she taps anything. she wont install apps and she hates when i lecture her. maybe a shortcut where she forwards the text to me? not sure what iphone version she has. it has to be dead simple, like one step

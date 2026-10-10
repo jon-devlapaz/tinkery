@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    Avoid: a dashboard; silent failures.    
+  in the morning. its a wall of                                                 
+  numbers and i dont know what to do    Still open                              
+  with it. i want to open tinkery       Keep — Does cost need to be part of     
+  and in like 5 seconds know if         the morning signal, or is useful        
+  yesterday went well or not. maybe     changes per hour the one that matters?  
+  one number? useful changes per                                                
+  hour is the one that matters. cost    PROVISIONAL assumption: the morning     
+  too maybe. i dont want a              signal should also make a failed 6am    
+  dashboard. also the 6am job           job visible.                            
+  sometimes fails silently and i        Running out of questions doesn't mean   
+  only find out days later              I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

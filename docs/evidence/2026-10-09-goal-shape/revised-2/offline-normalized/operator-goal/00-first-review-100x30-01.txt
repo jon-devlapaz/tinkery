@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I have been trying so hard to work on a         agentic software development to have rigor,       
+  system that compounds itself and serves as a    durability, cohesion, and verification, from      
+  meta harness. its a human first board for       brain dump, prompt, hunch, or intuition through   
+  coordinainting work from the entire             a review-ready pull request.                      
+  continuum of agentic software development       Must: The work serves as a meta harness.          
+  lifecycle that has the rigor and durability     Must: The work is human first.                    
+  and cohesive and verification that all 'just    Must: The work considers the forest, not just     
+  work's and thinks about the future of any       the trees.                                        
+  code base it works on. not just the trees,                                                        
+  but the forest. it should operate like a        also in your dump: Build a system that compounds  
+  michellin star resteraunt and I am the          itself.; Coordinate the entire agentic software   
+  resterauntaur that tastes the final             development lifecycle.; Make the parts of the     
+  delicious product. it goes from this part       workflow just work together.                      
+  (the brain dump-the prompt-the hunch-the                                                          
+  intuition) all the way to a PR that is ready    Still open                                        
+  to be reviewed by human that considers the      Done when — What observable check would tell you  
+  health of the code base and makes the next      this is working?                                  
+  change easier. that is my true goal.                                                              
+                                                  A workflow spanning the brain dump, prompt,       
+                                                  hunch, or intuition through a pull request ready  
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

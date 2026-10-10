@@ -1,0 +1,5 @@
+Working directory: /Users/jondev/dev/active/tinkery
+TINKERY_C16_PI=/tmp/tinkery-c16-budget.py TINKERY_C16_TRACE=/Users/jondev/dev/active/tinkery/docs/evidence/2026-10-09-goal-shape/baseline/call-trace /tmp/tinkery-c16-baseline /Users/jondev/dev/active/tinkery/docs/evidence/2026-10-09-goal-shape/baseline /Users/jondev/dev/active/tinkery/docs/evidence/2026-10-09-goal-shape/baseline/inputs /Users/jondev/dev/active/factory/seed-me/skills/seed-me/SKILL.md --seed-session-root /var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots
+Background bt-133: exit 0
+Continuation: /tmp/tinkery-c16-ledger-continuation docs/evidence/2026-10-09-goal-shape/baseline/ledger /Users/jondev/dev/active/factory/seed-me/skills/seed-me/SKILL.md --seed-session-root /var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-ledger-continuation-root
+Continuation: exit 0; zero provider calls

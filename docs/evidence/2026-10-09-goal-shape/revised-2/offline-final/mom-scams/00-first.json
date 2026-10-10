@@ -1,0 +1,103 @@
+{
+  "action": {
+    "method": "offline cached native raw response through ordinary submit/apply; zero provider calls",
+    "origin": {
+      "input": "my mom keeps getting scam texts and almost clicked one yesterday. i want something that helps her tell if a text is fake before she taps anything. she wont install apps and she hates when i lecture her. maybe a shortcut where she forwards the text to me? not sure what iphone version she has. it has to be dead simple, like one step",
+      "kind": "explicit F2"
+    }
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "my mom keeps getting scam texts and almost clicked one yesterday.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "she wont install apps and she hates when i lecture her.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "maybe a shortcut where she forwards the text to me?",
+              "source": 1
+            }
+          ]
+        },
+        "text": "My mom tells if a text is fake before she taps anything.\nWhy: my mom keeps getting scam texts and almost clicked one yesterday.\nMust: She won't install apps.\nMust: It has to be dead simple, like one step.\nMust not: She must not be lectured."
+      }
+    ],
+    "misfits": [],
+    "open": [
+      "done_when"
+    ],
+    "other_goals": [],
+    "outcome": null,
+    "parts": {
+      "done_when": null,
+      "must": [
+        "She won't install apps",
+        "It has to be dead simple, like one step"
+      ],
+      "must_not": [
+        "She must not be lectured"
+      ],
+      "outcome": "my mom tells if a text is fake before she taps anything",
+      "when": null,
+      "who": "my mom",
+      "why": "my mom keeps getting scam texts and almost clicked one yesterday"
+    },
+    "questions": [
+      {
+        "id": "model-2b77000e137deedb",
+        "target": "done_when",
+        "text": "What observable result would show that this is working?"
+      }
+    ],
+    "unresolved_notes": [
+      "which iPhone version she has",
+      "The main goal is helping her identify suspicious texts before tapping, rather than building a particular shortcut.",
+      "Avoiding lectures means the approach should not rely on corrective or admonishing messages."
+    ]
+  },
+  "board_available_ms": 24,
+  "decisions_cumulative": [],
+  "focused_question": {
+    "id": "model-2b77000e137deedb",
+    "text": "What observable result would show that this is working?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [
+    "done_when"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-2b77000e137deedb",
+      "text": "What observable result would show that this is working?"
+    }
+  ],
+  "reading_text": "My mom tells if a text is fake before she taps anything.\nWhy: my mom keeps getting scam texts and almost clicked one yesterday.\nMust: She won't install apps.\nMust: It has to be dead simple, like one step.\nMust not: She must not be lectured.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "my mom keeps getting scam texts and almost clicked one yesterday. i want something that helps her tell if a text is fake before she taps anything. she wont install apps and she hates when i lecture her. maybe a shortcut where she forwards the text to me? not sure what iphone version she has. it has to be dead simple, like one step"
+    }
+  ],
+  "step_total_ms": 136
+}

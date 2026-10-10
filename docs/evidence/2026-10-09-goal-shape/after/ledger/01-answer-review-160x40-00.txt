@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+  your dump                                                                                                                                                     
+  the ledger report is useless to me in the morning. its a wall of numbers    You are confirming                                                                
+  and i dont know what to do with it. i want to open tinkery and in like 5    In the morning, when I open Tinkery after yesterday's ledger activity, I can      
+  seconds know if yesterday went well or not. maybe one number? useful        know whether yesterday went well, with a failed 6am job overriding everything,    
+  changes per hour is the one that matters. cost too maybe. i dont want a     so I know what to do with the ledger instead of facing a wall of numbers. It      
+  dashboard. also the 6am job sometimes fails silently and i only find out    works if I can know in like 5 seconds using useful changes per hour, with cost    
+  days later                                                                  only if its way off; No dashboard; a failed job must not be hidden or discovered  
+                                                                              days later.                                                                       
+                                                                                                                                                                
+                                                                              when                                                                              
+                                                                              In the morning, when I open Tinkery after yesterday's ledger activity             
+                                                                                                                                                                
+                                                                              I can                                                                             
+                                                                              know whether yesterday went well, with a failed 6am job overriding everything     
+                                                                                                                                                                
+                                                                              so                                                                                
+                                                                              so I know what to do with the ledger instead of facing a wall of numbers          
+                                                                                                                                                                
+                                                                              it works if                                                                       
+                                                                              I can know in like 5 seconds using useful changes per hour, with cost only if     
+                                                                              its way off                                                                       
+                                                                                                                                                                
+                                                                              not                                                                               
+                                                                              No dashboard; a failed job must not be hidden or discovered days later            
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              PROVISIONAL assumption: “useful changes per hour” is a candidate signal whose     
+                                                                              Running out of questions doesn't mean I understood you.                           
+                                                                                                                                                                
+                                                                              Creates a Seed Me session; this goal can't be edited after.                       
+                                                                                                                                                                
+                                                                              type confirm                                                                      
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

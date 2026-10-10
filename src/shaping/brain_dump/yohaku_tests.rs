@@ -45,10 +45,8 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         l2.pop();
         assert_eq!(l1, l2);
         let review_text = right_text(&review, w);
-        assert!(review_text.contains("Running out of questions doesn't mean I understood you."));
-        assert!(
-            review_text.contains("Creates a Seed Me session; this goal can't be edited after.")
-        );
+        assert!(!review_text.contains("Running out of questions"));
+        assert!(review_text.contains("type confirm to save. You can't edit it after."));
         assert!(review_text.contains("type confirm"));
         key(&mut a, KeyCode::F(1));
         let help = snapshot(w, h, &mut a, false).unwrap();
@@ -273,6 +271,7 @@ fn one_shape_then_one_log_only_audit_never_auto_repairs_or_withholds() {
         )
         .unwrap();
         let r = BoardRequest {
+            ask_counts: Default::default(),
             sources: vec![Source {
                 id: 1,
                 text: "the restaurateur judges the result".into(),

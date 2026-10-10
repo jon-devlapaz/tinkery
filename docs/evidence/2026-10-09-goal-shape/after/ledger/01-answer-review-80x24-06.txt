@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me                                            
+  in the morning. its a wall of         not                                     
+  numbers and i dont know what to do    No dashboard; a failed job must not be  
+  with it. i want to open tinkery       hidden or discovered days later         
+  and in like 5 seconds know if                                                 
+  yesterday went well or not. maybe     Still open                              
+  one number? useful changes per        PROVISIONAL assumption: “useful         
+  hour is the one that matters. cost    changes per hour” is a candidate        
+  too maybe. i dont want a              signal whose measure is not yet         
+  dashboard. also the 6am job           defined.                                
+  sometimes fails silently and i        Running out of questions doesn't mean   
+  only find out days later              I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so the ci on tinkery takes like    Still open                              
+  2 minutes on mac and i dont really    Done when — What observable check       
+  care about that but what bugs me      should show that the clippy mismatch    
+  is that the clippy version on ci      problem is resolved?                    
+  is different from my laptop so                                                
+  things pass locally and fail on       Pinning or otherwise synchronizing the  
+  github. happened twice this week.     clippy version is a possible approach.  
+  also unrelated but i want to                                                  
+  rename the measure tab to             The measure-tab rename and automatic    
+  something nicer, ledger maybe? and    release build appear to be separate     
+  honestly i think the release build    goals from the clippy-version problem.  
+  should happen automatically when a                                            
+  pr merges so i stop copying           The desired release-build trigger and   
+  binaries around by hand. rm then      artifact handling are not defined.      
+  cp every time is annoying and i       type confirm to save. You can't edit    
+  forgot once and ran an old build      it after.                               
+  for an hour                                                                   
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

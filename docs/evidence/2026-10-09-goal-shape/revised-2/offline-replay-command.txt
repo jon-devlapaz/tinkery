@@ -1,0 +1,2 @@
+rustc +1.99.0 --edition=2024 docs/evidence/2026-10-09-goal-shape/revised-2/offline-replay.rs -L dependency=target/debug/deps --extern tinkery=/Users/jondev/dev/active/tinkery/target/debug/libtinkery.rlib --extern serde_json=/Users/jondev/dev/active/tinkery/target/debug/deps/libserde_json-b95cb1045e4a234d.rlib -o /tmp/tinkery-c16-r2-replay
+/tmp/tinkery-c16-r2-replay docs/evidence/2026-10-09-goal-shape

@@ -3,3 +3,6 @@ docs/evidence/2026-10-09-log-only/initial-eval/*/first-*.txt whitespace=-blank-a
 docs/evidence/2026-10-09-log-only/*.log whitespace=-blank-at-eol,-blank-at-eof
 docs/evidence/2026-10-09-subtraction/live-eval/*/first-*.txt whitespace=-blank-at-eol,-blank-at-eof
 docs/evidence/2026-10-09-subtraction/**/*.log whitespace=-blank-at-eol,-blank-at-eof
+docs/evidence/2026-10-09-goal-shape/**/*.txt whitespace=-blank-at-eol,-blank-at-eof
+docs/evidence/2026-10-09-goal-shape/**/*.log whitespace=-blank-at-eol,-blank-at-eof
+docs/evidence/2026-10-09-goal-shape/revised-2/validation/*.diff whitespace=-blank-at-eol,-blank-at-eof

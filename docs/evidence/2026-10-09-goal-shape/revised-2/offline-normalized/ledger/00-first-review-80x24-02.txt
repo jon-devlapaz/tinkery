@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    included.                               
+  in the morning. its a wall of         Must: The result is not a dashboard.    
+  numbers and i dont know what to do    Must not: The result must not be a      
+  with it. i want to open tinkery       wall of numbers.                        
+  and in like 5 seconds know if                                                 
+  yesterday went well or not. maybe     also in your dump: Detect when the 6am  
+  one number? useful changes per        job fails                               
+  hour is the one that matters. cost                                            
+  too maybe. i dont want a              Still open                              
+  dashboard. also the 6am job           Done when — What should you be able to  
+  sometimes fails silently and i        observe or decide that shows this is    
+  only find out days later              working?                                
+                                                                                
+                                        A single number may be useful           
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,240 @@
+[
+  {
+    "probe": "who-forced-to-i",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "duplicate-can",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::supplied_can_is_not_duplicated_in_the_goal_line",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "capital-after-semicolon",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "eval-phrase-in-prompt",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "omit-avoid",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "rewrite-criteria",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "empty-queue-ready",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::readiness_requires_four_parts_optional_constraints_only_block_when_open",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "third-ask",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::at_most_two_asks_then_the_part_stays_open_for_seed",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "stale-counts",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::delayed_results_use_current_counts_and_skipped_targets",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "reasked-skipped-part",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "scope-instead-of-refinement",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "independent-goal",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "wrong-outcome-mapping",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "comma-inside-data",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "+1.99.0",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::trailing_commas_normalize_only_outside_strings_and_span_guards_remain",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  }
+]

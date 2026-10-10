@@ -1,0 +1,25 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error: mismatched closing delimiter: `}`
+   --> src/shaping/brain_dump/goal_tests.rs:228:31
+    |
+227 |     amend_board(&mut a, |g| {
+    |                             - closing delimiter possibly meant for this
+228 |         g.parts.outcome = Some("A software result for human review.".into()
+    |                               ^ unclosed delimiter
+229 |     }));
+    |     ^ mismatched closing delimiter
+
+error: unexpected closing delimiter: `}`
+   --> src/shaping/brain_dump/goal_tests.rs:236:1
+    |
+193 | fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
+    |                                                                           - the nearest open delimiter
+...
+229 |     }));
+    |       - missing open `(` for this delimiter
+...
+236 | }
+    | ^ unexpected closing delimiter
+
+error: could not compile `tinkery` (lib test) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...

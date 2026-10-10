@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so the ci on tinkery takes like    locally and fail on GitHub; this        
+  2 minutes on mac and i dont really    happened twice this week.               
+  care about that but what bugs me                                              
+  is that the clippy version on ci      also in your dump: Rename the measure   
+  is different from my laptop so        tab; Automate release builds after a    
+  things pass locally and fail on       PR merges                               
+  github. happened twice this week.                                             
+  also unrelated but i want to          Still open                              
+  rename the measure tab to             Done when — What observable check       
+  something nicer, ledger maybe? and    would show that local and GitHub        
+  honestly i think the release build    clippy results are consistent?          
+  should happen automatically when a                                            
+  pr merges so i stop copying           The tab rename and automatic release    
+  binaries around by hand. rm then      build look like separate goals rather   
+  cp every time is annoying and i       type confirm to save. You can't edit    
+  forgot once and ran an old build      it after.                               
+  for an hour                                                                   
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

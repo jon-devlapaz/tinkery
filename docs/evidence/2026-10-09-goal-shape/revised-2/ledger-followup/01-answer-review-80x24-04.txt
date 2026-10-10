@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    dashboard.                              
+  in the morning. its a wall of         Must not: The result must not be a      
+  numbers and i dont know what to do    wall of numbers.                        
+  with it. i want to open tinkery                                               
+  and in like 5 seconds know if         also in your dump: Detect when the 6am  
+  yesterday went well or not. maybe     job fails                               
+  one number? useful changes per                                                
+  hour is the one that matters. cost    Still open                              
+  too maybe. i dont want a              What counts as cost being way off is    
+  dashboard. also the 6am job           unspecified                             
+  sometimes fails silently and i                                                
+  only find out days later              The main goal is quickly judging        
+                                        yesterday's performance; silent-job     
+                                        detection is a separate related goal.   
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

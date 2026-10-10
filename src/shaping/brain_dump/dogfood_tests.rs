@@ -10,6 +10,14 @@ impl BoardHost for Counting {
     fn reshape(&self, r: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
         self.requests.lock().unwrap().push(r.clone());
         Ok(Guess {
+            parts: GoalParts {
+                who: Some("I".into()),
+                outcome: Some("keep track of the books you've read".into()),
+                ..Default::default()
+            },
+            open: vec![],
+            other_goals: vec![],
+            deferred: vec![],
             unresolved_notes: vec![],
             uncertain: false,
             framings: vec![Framing {
@@ -32,6 +40,7 @@ impl BoardHost for Counting {
             },
             questions: if r.settled.is_empty() {
                 vec![Question {
+                    target: None,
                     id: "books-note".into(),
                     text: "What would you like to remember about each book?".into(),
                 }]
@@ -228,6 +237,7 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
     a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
     assert_eq!(a.focused_question().unwrap().id, original.id);
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: vec![],
         previous: a.guess.as_ref().map(|g| g.wire()),
@@ -281,7 +291,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         a.key_bar = true;
         key(&mut a, KeyCode::F(3));
         let review = snapshot(w, h, &mut a, false).unwrap();
-        assert!(right_text(&review, w).contains("Creates a Seed Me session"));
+        assert!(right_text(&review, w).contains("type confirm to save."));
         let bar = review.lines().last().unwrap();
         assert!(
             bar.contains("type confirm") && bar.contains("esc back"),
@@ -326,7 +336,7 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
     let mut a = board();
     let mut g = a.guess.as_ref().unwrap().wire();
     a.sources[0].text = "Learners feel dumb. Proposed AI tutor chat. Unverified question 4.".into();
-    g.framings[0].text = "Learners leave a wrong answer feeling smarter.".into();
+    g.parts.outcome = Some("Learners leave a wrong answer feeling smarter.".into());
     g.outcome = g.framings[0].text.clone();
     g.framings[0].supports = vec![Anchor {
         source: 1,
@@ -348,6 +358,7 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
         },
     ];
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: vec![],
         previous: None,

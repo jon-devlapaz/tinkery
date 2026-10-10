@@ -20,6 +20,7 @@ pub(super) fn board() -> BrainDump {
     a.sources.push(Source{id:1,text:"PR ready for human review; restaurateur, not cook; both harness and codebases compound.".into(),in_reply_to:None});
     a.applied = 1;
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: vec![],
         previous: None,
@@ -31,7 +32,7 @@ pub(super) fn board() -> BrainDump {
     let mut guess = Simulated
         .reshape(r.clone(), &AtomicBool::new(false))
         .unwrap();
-    guess.framings[0].text="A PR ready for human review with you as restaurateur judging the result; harness and codebase both compound.".into();
+    guess.parts.outcome = Some("A PR ready for human review with you as restaurateur judging the result; harness and codebase both compound.".into());
     a.guess = Some(board::Board::verify(guess, &r).unwrap());
     a
 }
@@ -46,9 +47,11 @@ fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affi
         a.review_goal();
         let text = snapshot(w, h, &mut a, false).unwrap();
         assert!(text.contains("type confirm"));
-        assert!(text.contains("Running out of questions"));
-        assert!(right_text(&text, w).contains("doesn't mean I understood you."));
-        key(&mut a, KeyCode::PageDown);
+        assert!(!text.contains("Running out of questions"));
+        assert!(right_text(&text, w).contains("type confirm to save."));
+        for _ in 0..30 {
+            key(&mut a, KeyCode::PageDown);
+        }
         let scrolled = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&scrolled, w).contains(&q));
         assert!(a.handoff_job.is_none());
@@ -81,6 +84,7 @@ fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
     a.applied = 1;
     a.ready = Some((
         BoardRequest {
+            ask_counts: Default::default(),
             sources: a.sources.clone(),
             fragments: vec![],
             previous: None,
@@ -106,6 +110,9 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     snapshot(100, 30, &mut a, false).unwrap();
     let original = a.sources[0].text.clone();
     let goal = a.goal_review.as_ref().unwrap().affirmation.goal.clone();
+    for _ in 0..30 {
+        key(&mut a, KeyCode::PageDown);
+    }
     a.paste("confirm");
     key(&mut a, KeyCode::Enter);
     let end = std::time::Instant::now() + std::time::Duration::from_secs(3);
@@ -124,6 +131,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
 fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_options() {
     let a = board();
     let mut r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: vec![],
         previous: None,
@@ -137,6 +145,7 @@ fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_option
     assert!(g.validate(&r).is_ok());
     r.settled.push(Settled {
         question: Question {
+            target: None,
             id: "already-different".into(),
             text: "Harness or codebase, or both?".into(),
         },
@@ -147,29 +156,34 @@ fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_option
     assert!(g.validate(&r).is_ok());
     g.framings.pop();
     assert!(g.validate(&r).is_ok());
-    g.framings[0].text = std::iter::repeat_n("combined", 65)
-        .collect::<Vec<_>>()
-        .join(" ");
+    g.parts.outcome = Some(
+        std::iter::repeat_n("combined", 65)
+            .collect::<Vec<_>>()
+            .join(" "),
+    );
     assert!(g.validate(&r).is_ok());
     g.framings[0].text.push_str(" excess");
     assert!(g.validate(&r).is_ok());
     r.settled.clear();
     g.uncertain = false;
-    g.framings[0].text = std::iter::repeat_n("initial", 46)
-        .collect::<Vec<_>>()
-        .join(" ");
+    g.parts.outcome = Some(
+        std::iter::repeat_n("initial", 46)
+            .collect::<Vec<_>>()
+            .join(" "),
+    );
     assert!(g.validate(&r).is_ok());
 }
 #[test]
 fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible() {
     let mut a = board();
     let skipped = Question {
+        target: None,
         id: "skipped-context".into(),
         text: "Which boundaries remain despite skipping this question?".into(),
     };
     a.skipped.push(skipped.clone());
     amend_board(&mut a, |g| {
-        g.questions.extend((0..5).map(|i|Question{id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}))
+        g.questions.extend((0..5).map(|i|Question{target: None,id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}))
     });
     a.review_goal();
     snapshot(80, 24, &mut a, false).unwrap();
@@ -194,6 +208,7 @@ fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
     let mut a = board();
     let g = a.guess.as_ref().unwrap().wire();
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: vec![],
         previous: None,
@@ -225,7 +240,7 @@ fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
         serde_json::to_value(a.guess.as_ref().unwrap().wire()).unwrap()
     );
     amend_board(&mut a, |g| {
-        g.framings[0].text = "A software result for human review.".into()
+        g.parts.outcome = Some("A software result for human review.".into());
     });
     a.review_goal();
     assert!(
@@ -245,6 +260,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     a.sources.push(Source{id:3,text:"judge the final result, with earlier taste checks on UI and consequential design choices.".into(),in_reply_to:None});
     a.settled.push(Settled {
         question: Question {
+            target: None,
             id: "compounding".into(),
             text: "Harness or codebase, or both?".into(),
         },
@@ -252,7 +268,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     });
     a.applied = 3;
     let mut g = a.guess.as_ref().unwrap().wire();
-    g.framings[0].text="A human-first meta harness and board carries the agentic software development lifecycle to a PR ready for human review. Both harness and codebase compound, preserving codebase health and easier future changes; you are the restaurateur judging the final result with earlier UI and consequential design taste checks.".into();
+    g.parts.outcome = Some("A human-first meta harness and board carries the agentic software development lifecycle to a PR ready for human review. Both harness and codebase compound, preserving codebase health and easier future changes; you are the restaurateur judging the final result with earlier UI and consequential design taste checks.".into());
     g.framings[0].supports.push(Anchor {
         source: 3,
         quote: a.sources[2].text.clone(),
@@ -267,7 +283,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     for term in [
         "PR ready for human review",
         "restaurateur",
-        "Both harness and codebase compound",
+        "both harness and codebase compound",
         "UI",
         "design taste checks",
     ] {

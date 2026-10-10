@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       You are confirming                      
+  learners to see why they got          Learners can understand why they got    
+  something wrong, not just that        something wrong, on phones.             
+  they did. right now we just show a    Why: learners currently see a red X     
+  red X and move on and people          and move on; people feel dumb and       
+  bounce. I think we should add an      leave.                                  
+  AI tutor chat panel next to every     Done when: learners leave a wrong       
+  question. but honestly I'm worried    answer feeling smarter not dumber.      
+  that turns into one more chatbot      Keep: no gamification.                  
+  nobody asked for and it gets          Avoid: one more chatbot nobody asked    
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

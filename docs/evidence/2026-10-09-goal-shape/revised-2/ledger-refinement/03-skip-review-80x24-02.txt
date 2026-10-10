@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    using targets.                          
+  in the morning. its a wall of         Must: Useful changes per hour is        
+  numbers and i dont know what to do    included.                               
+  with it. i want to open tinkery       Must: A failed job overrides            
+  and in like 5 seconds know if         everything.                             
+  yesterday went well or not. maybe     Must: Cost matters only if it is way    
+  one number? useful changes per        off.                                    
+  hour is the one that matters. cost    Must not: The result must not be a      
+  too maybe. i dont want a              dashboard.                              
+  dashboard. also the 6am job           Must not: The result must not be a      
+  sometimes fails silently and i        wall of numbers.                        
+  only find out days later                                                      
+                                        also in your dump: Detect when the 6am  
+                                        job fails                               
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

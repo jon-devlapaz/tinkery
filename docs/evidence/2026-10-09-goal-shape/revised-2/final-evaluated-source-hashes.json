@@ -1,0 +1,12 @@
+{
+  "src/shaping/brain_dump.rs": "de6408bfce98f07ffbcc426622c1e3e9a4259fc236d581dded26e93a4224d8b9",
+  "src/shaping/brain_dump/handoff.rs": "72be15bc752e8657a38857e47b2729395515cb5fd03291e66fe891b2103af250",
+  "src/shaping/brain_dump/goal_view.rs": "5aa38a86201b5372852ff10f5367a6d7151a1acaee031cd6acda369068354f6e",
+  "src/shaping/brain_dump/checks.rs": "00104e41c04f8383d3be0e6f84c11c04245b986def1e602541d649053c1b9a24",
+  "src/shaping/brain_dump/meaning_check.rs": "ccf51b80f20bee2a5e1d63d619d5d4fbc50732664cc5eea6acdf9a3c7f121e03",
+  "src/shaping/brain_dump/board.rs": "bbaf18529aaa1c0a2518572017d2a8cdf217ef4b6b554c0234c66c6bb4d85731",
+  "src/shaping/brain_dump/goal.rs": "2eb6d7124d650d59524de7f380a44e04e1f21d238d78a6de8bc28ad0ea60426a",
+  "src/shaping/brain_dump/yohaku.rs": "1c6581f8ca17eb486755b74e8cd33b55c1778a1aefc17d12a7b40aee597f53b6",
+  "src/shaping/brain_dump/intact_view.rs": "8dc00aa0988eae5ecfc629be4e5c8b2d6b7907a3281a94a0f21dfca886463520",
+  "src/shaping/brain_dump/question_continuity.rs": "5eb5b9a3de943993e1b263b98b22477c9065624e88c46f38cce8062d3f4b7d96"
+}

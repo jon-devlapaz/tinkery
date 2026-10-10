@@ -10,7 +10,7 @@ use tinkery::shaping::{
 const DUMP: &str = "I keep losing track of which Tinkery checks used a real model and which just used a stub.\nI want a small receipt in the PR thread so the next person can see what's actually been checked before they dogfood it.\nBut I don't want to fill another form with every tiny edit.\nI also want to be able to say 'that question wasn't useful' and not get it again.";
 fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
     let paper = app.paper();
-    std::fs::write(dir.join(format!("{name}-state.json")),serde_json::to_string_pretty(&serde_json::json!({"sources":app.sources,"settled":app.settled,"update":app.update,"notice":app.notice})).unwrap()+"\n").unwrap();
+    std::fs::write(dir.join(format!("{name}-state.json")),serde_json::to_string_pretty(&serde_json::json!({"sources":app.sources,"settled":app.settled,"changed_lines":app.changed_lines,"notice":app.notice})).unwrap()+"\n").unwrap();
     std::fs::write(
         dir.join(format!("{name}-paper.json")),
         serde_json::to_string_pretty(&serde_json::json!({"paper":paper})).unwrap() + "\n",

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    numbers, so I do not know what to do    
+  in the morning. its a wall of         with it; the 6am job sometimes fails    
+  numbers and i dont know what to do    silently and I find out days later.     
+  with it. i want to open tinkery       Done when: A failed job overrides the   
+  and in like 5 seconds know if         result; otherwise the morning view      
+  yesterday went well or not. maybe     indicates whether yesterday went well,  
+  one number? useful changes per        with cost highlighted only if it is     
+  hour is the one that matters. cost    way off.                                
+  too maybe. i dont want a              Must: Useful changes per hour is        
+  dashboard. also the 6am job           included.                               
+  sometimes fails silently and i        Must: A failed job overrides            
+  only find out days later              everything.                             
+                                        Must: Cost matters only if it is way    
+                                        off.                                    
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

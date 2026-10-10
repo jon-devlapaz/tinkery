@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  I have been trying so hard to work on a system that compounds itself and    I think you mean…                                                                 
+  serves as a meta harness. its a human first board for coordinainting        I am trying to work on a system that compounds itself and serves as a meta        
+  work from the entire continuum of agentic software development lifecycle    harness for coordinating work across the entire continuum of agentic software     
+  that has the rigor and durability and cohesive and verification that all    development lifecycle, I can take work from a brain dump, prompt, hunch, or       
+  'just work's and thinks about the future of any code base it works on.      intuition through a cohesive, rigorous, durable, verified change to a PR ready    
+  not just the trees, but the forest. it should operate like a michellin      for human review, so The system helps me consider the health of the whole         
+  star resteraunt and I am the resterauntaur that tastes the final            codebase—the forest, not just the trees—and makes the next change easier. I want  
+  delicious product. it goes from this part (the brain dump-the prompt-the    a human-first system in which I am the restaurateur who tastes the final          
+  hunch-the intuition) all the way to a PR that is ready to be reviewed by    product; rigor, durability, cohesion, and verification should all just work.      
+  human that considers the health of the code base and makes the next                                                                                           
+  change easier. that is my true goal.                                                                                                                          
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              One thing I'm not sure about                                                      
+                                                                              What would let you know that this system is achieving its true goal?              
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              your answer                                                                       
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+  2 send   3 review   8 skip   10 menu                                                                                                                          

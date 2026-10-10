@@ -1,0 +1,32 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error[E0308]: mismatched types
+   --> src/shaping/brain_dump/c16_tests.rs:348:26
+    |
+348 |             p.must_not = Some("no targets".into());
+    |             ----------   ^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Vec<String>`, found `Option<_>`
+    |             |
+    |             expected due to the type of this binding
+    |
+    = note: expected struct `Vec<std::string::String>`
+                 found enum `std::option::Option<_>`
+
+error[E0609]: no field `update` on type `brain_dump::BrainDump`
+   --> src/shaping/brain_dump_tests.rs:881:19
+    |
+881 |         assert!(a.update.as_ref().unwrap().contains("both"));
+    |                   ^^^^^^ unknown field
+    |
+    = note: available fields are: `input`, `quit`, `sources`, `fragments`, `guess` ... and 48 others
+
+error[E0609]: no field `update` on type `brain_dump::BrainDump`
+   --> src/shaping/brain_dump_tests.rs:995:11
+    |
+995 |         a.update.as_deref(),
+    |           ^^^^^^ unknown field
+    |
+    = note: available fields are: `input`, `quit`, `sources`, `fragments`, `guess` ... and 48 others
+
+Some errors have detailed explanations: E0308, E0609.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `tinkery` (lib test) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...

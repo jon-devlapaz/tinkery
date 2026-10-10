@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for                                               
+  learners to see why they got          Still open                              
+  something wrong, not just that        it works if — What observable change    
+  they did. right now we just show a    would show that a learner leaves a      
+  red X and move on and people          wrong answer feeling smarter?           
+  bounce. I think we should add an                                              
+  AI tutor chat panel next to every     The reported drop-off around question   
+  question. but honestly I'm worried    4 is PROVISIONAL and unverified.        
+  that turns into one more chatbot                                              
+  nobody asked for and it gets          The cause—explanation, tone, or         
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

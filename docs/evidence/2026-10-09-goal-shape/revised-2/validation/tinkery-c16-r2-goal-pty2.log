@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 7, in <module>
+    SKILL=Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
+               ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen os>", line 717, in __getitem__
+KeyError: 'SEED_ME_TEST_SKILL'

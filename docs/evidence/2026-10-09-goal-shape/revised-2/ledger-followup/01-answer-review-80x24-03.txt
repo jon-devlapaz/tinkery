@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  your dump                                                                     
+  the ledger report is useless to me    Must: A failed job overrides            
+  in the morning. its a wall of         everything.                             
+  numbers and i dont know what to do    Must: Cost matters only if it is way    
+  with it. i want to open tinkery       off.                                    
+  and in like 5 seconds know if         Must not: The result must not be a      
+  yesterday went well or not. maybe     dashboard.                              
+  one number? useful changes per        Must not: The result must not be a      
+  hour is the one that matters. cost    wall of numbers.                        
+  too maybe. i dont want a                                                      
+  dashboard. also the 6am job           also in your dump: Detect when the 6am  
+  sometimes fails silently and i        job fails                               
+  only find out days later                                                      
+                                        Still open                              
+                                        What counts as cost being way off is    
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

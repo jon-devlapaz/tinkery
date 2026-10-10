@@ -1,0 +1,9 @@
+# Tinkery / provisional board
+
+Nothing confirmed. Unsaved.
+
+## Your deliberate extractions / exact excerpts
+
+## Original 1 / dump
+
+ok so the ci on tinkery takes like 2 minutes on mac and i dont really care about that but what bugs me is that the clippy version on ci is different from my laptop so things pass locally and fail on github. happened twice this week. also unrelated but i want to rename the measure tab to something nicer, ledger maybe? and honestly i think the release build should happen automatically when a pr merges so i stop copying binaries around by hand. rm then cp every time is annoying and i forgot once and ran an old build for an hour

@@ -1,0 +1,9 @@
+reasked-skipped-part baseline passed; mutant failed
+extra-sentences baseline passed; mutant failed
+comma-inside-data baseline passed; mutant failed
+omit-boundaries baseline passed; mutant failed
+rewrite-criteria baseline passed; mutant failed
+empty-queue-ready baseline passed; mutant failed
+third-ask baseline passed; mutant failed
+stale-counts baseline passed; mutant failed
+independent-goal baseline passed; mutant failed

@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  I have been trying so hard to work on a system that compounds itself and    for human review, so The system helps me consider the health of the whole         
+  serves as a meta harness. its a human first board for coordinainting        codebase—the forest, not just the trees—and makes the next change easier. I want  
+  work from the entire continuum of agentic software development lifecycle    a human-first system in which I am the restaurateur who tastes the final          
+  that has the rigor and durability and cohesive and verification that all    product; rigor, durability, cohesion, and verification should all just work.      
+  'just work's and thinks about the future of any code base it works on.                                                                                        
+  not just the trees, but the forest. it should operate like a michellin      when                                                                              
+  star resteraunt and I am the resterauntaur that tastes the final            I am trying to work on a system that compounds itself and serves as a meta        
+  delicious product. it goes from this part (the brain dump-the prompt-the    harness for coordinating work across the entire continuum of agentic software     
+  hunch-the intuition) all the way to a PR that is ready to be reviewed by    development lifecycle.                                                            
+  human that considers the health of the code base and makes the next                                                                                           
+  change easier. that is my true goal.                                        I can                                                                             
+                                                                              I can take work from a brain dump, prompt, hunch, or intuition through a          
+                                                                              cohesive, rigorous, durable, verified change to a PR ready for human review.      
+                                                                                                                                                                
+                                                                              so                                                                                
+                                                                              The system helps me consider the health of the whole codebase—the forest, not     
+                                                                              just the trees—and makes the next change easier.                                  
+                                                                                                                                                                
+                                                                              not                                                                               
+                                                                              I want a human-first system in which I am the restaurateur who tastes the final   
+                                                                              product; rigor, durability, cohesion, and verification should all just work.      
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              it works if — What would let you know that this system is achieving its true      
+                                                                              goal?                                                                             
+                                                                                                                                                                
+                                                                              Running out of questions doesn't mean I understood you.                           
+                                                                                                                                                                
+                                                                              Creates a Seed Me session; this goal can't be edited after.                       
+                                                                                                                                                                
+                                                                              type confirm                                                                      
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

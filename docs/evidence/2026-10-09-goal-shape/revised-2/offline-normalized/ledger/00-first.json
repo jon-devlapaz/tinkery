@@ -1,0 +1,91 @@
+{
+  "action": {
+    "method": "offline cached native raw response through ordinary submit/apply; zero provider calls",
+    "origin": {
+      "input": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later",
+      "kind": "explicit F2"
+    }
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": "Uncited",
+        "text": "I know in about 5 seconds whether yesterday went well, using useful changes per hour and possibly cost, in the morning when I open Tinkery.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nMust: Useful changes per hour is included.\nMust: The result is not a dashboard.\nMust not: The result must not be a wall of numbers."
+      }
+    ],
+    "misfits": [],
+    "open": [
+      "done_when"
+    ],
+    "other_goals": [
+      "Detect when the 6am job fails"
+    ],
+    "outcome": null,
+    "parts": {
+      "done_when": null,
+      "must": [
+        "Useful changes per hour is included",
+        "The result is not a dashboard"
+      ],
+      "must_not": [
+        "The result must not be a wall of numbers"
+      ],
+      "outcome": "I know in about 5 seconds whether yesterday went well, using useful changes per hour and possibly cost",
+      "when": "in the morning when I open Tinkery",
+      "who": "I",
+      "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+    },
+    "questions": [
+      {
+        "id": "model-3818d3afb8d4c53b",
+        "target": "done_when",
+        "text": "What should you be able to observe or decide that shows this is working?"
+      }
+    ],
+    "unresolved_notes": [
+      "A single number may be useful",
+      "Cost may also matter",
+      "A 5-second morning view may help",
+      "What observable check shows that I know whether yesterday went well",
+      "A full dashboard appears inconsistent with your stated preference",
+      "The main goal is quickly judging yesterday's performance, while silent-job detection is a separate related goal.",
+      "'yesterday went well' can be evaluated using useful changes per hour, with cost possibly included."
+    ]
+  },
+  "board_available_ms": 24,
+  "decisions_cumulative": [],
+  "focused_question": {
+    "id": "model-3818d3afb8d4c53b",
+    "text": "What should you be able to observe or decide that shows this is working?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [
+    "done_when"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-3818d3afb8d4c53b",
+      "text": "What should you be able to observe or decide that shows this is working?"
+    }
+  ],
+  "reading_text": "I know in about 5 seconds whether yesterday went well, using useful changes per hour and possibly cost, in the morning when I open Tinkery.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nMust: Useful changes per hour is included.\nMust: The result is not a dashboard.\nMust not: The result must not be a wall of numbers.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+    }
+  ],
+  "step_total_ms": 146
+}

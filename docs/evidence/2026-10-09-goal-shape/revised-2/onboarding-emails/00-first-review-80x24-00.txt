@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I'm worried our onboarding emails     You are confirming                      
+  are annoying people. we send five     New users new users do not feel         
+  in the first week and the             spammed by onboarding emails, during    
+  unsubscribe rate keeps going up.      the first week.                         
+  marketing loves them though. I        Why: The unsubscribe rate keeps going   
+  don't want to kill them entirely,     up, while marketing values the emails.  
+  I just don't want new users to        Must: onboarding emails are not         
+  feel spammed.                         eliminated entirely.                    
+                                        Must not: new users feel spammed.       
+                                                                                
+                                        Still open                              
+                                        Done when — What observable sign would  
+                                        show that new users no longer feel      
+                                        spammed?                                
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,9 @@
+
+running 1 test
+test shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/repo)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.68s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/target/debug/deps/tinkery-57634f1bcdbf9627)

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I have been trying so hard to work    human.                                  
+  on a system that compounds itself     Why: make the next change easier while  
+  and serves as a meta harness. its     considering the health of the code      
+  a human first board for               base; think about the forest, not just  
+  coordinainting work from the          the trees.                              
+  entire continuum of agentic           Done when: a PR is ready to be          
+  software development lifecycle        reviewed by a human.                    
+  that has the rigor and durability     Keep: human first; rigor; durability;   
+  and cohesive and verification that    cohesion; verification; a system that   
+  all 'just work's and thinks about     compounds itself and serves as a meta   
+  the future of any code base it        Running out of questions doesn't mean   
+  works on. not just the trees, but     I understood you.                       
+  the forest. it should operate like                                            
+  a michellin star resteraunt and I     Creates a Seed Me session; this goal    
+  am the resterauntaur that tastes      can't be edited after.                  
+  the final delicious product. it                                               
+  goes from this part (the brain        type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  
