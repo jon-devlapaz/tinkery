@@ -739,9 +739,13 @@ impl BrainDump {
         if staged_sources.len() > self.sources.len() {
             self.sources = staged_sources;
             self.settled = request.settled.clone();
-            self.source_view = self.sources.len() - 1;
-            self.source_scroll = 0;
-            self.source_cursor = 0;
+            // Answers keep the dump in view (reachable with Ctrl-PgUp/PgDn). Added words are
+            // unresolved and asked about, so they come into view.
+            if addition {
+                self.source_view = self.sources.len() - 1;
+                self.source_scroll = 0;
+                self.source_cursor = 0;
+            }
             self.selection = None;
             self.drag_anchor = None;
             self.input = Note::new("");

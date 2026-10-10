@@ -488,3 +488,21 @@ fn left_label_names_what_you_wrote_and_hides_while_only_the_dump() {
     a.source_view = 0;
     assert_eq!(a.source_label().unwrap(), "your dump");
 }
+#[test]
+fn answering_keeps_the_dump_in_view() {
+    let mut a = board();
+    let dump = a.sources[0].text.clone();
+    a.paste("my answer");
+    a.submit();
+    wait(&mut a);
+    assert!(a.sources.len() >= 2);
+    assert_eq!(a.source_view, 0);
+    let screen = snapshot(100, 30, &mut a, false).unwrap();
+    let first: String = dump
+        .split_whitespace()
+        .take(3)
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(screen.contains(&first), "dump left view");
+    assert!(screen.contains("your dump"));
+}
