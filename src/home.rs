@@ -117,6 +117,23 @@ impl Home {
         }
     }
 
+    pub fn from_receipt(mut dump: BrainDump, session: &Path, open_shape: bool) -> Self {
+        let (default_root, substrate) = Self::default_paths();
+        let root = session
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or(default_root);
+        let mut home = Self::new(dump.fresh_factory(), root, substrate);
+        home.key_bar = dump.key_bar_on();
+        if let Some(receipt) = dump.finish_handoff() {
+            home.receipts.push(receipt);
+        }
+        if open_shape {
+            home.open_shape_session(session);
+        }
+        home
+    }
+
     /// Default Seed Me session location and installed tink-substrate package.
     pub fn default_paths() -> (PathBuf, PathBuf) {
         let home = std::env::var_os("HOME")
@@ -129,14 +146,37 @@ impl Home {
     }
 
     pub fn tick(&mut self) {
+        let mut shape_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
-            if dump.quit {
+            shape_request = dump.take_shape_request();
+            if dump.quit || shape_request.is_some() {
                 self.key_bar = dump.key_bar_on();
                 if let Some(receipt) = dump.finish_handoff() {
                     self.receipts.push(receipt);
                 }
                 self.view = View::Menu;
+            }
+        }
+        if let Some(path) = shape_request {
+            self.open_shape_session(&path);
+        }
+    }
+
+    fn open_shape_session(&mut self, path: &Path) {
+        self.open(1);
+        if let View::Shape(shape) = &mut self.view {
+            let resolved = path.canonicalize().ok();
+            if let Some(index) = shape.sessions.iter().position(|s| {
+                s.path == path
+                    || resolved.as_ref().is_some_and(|p| {
+                        s.path.canonicalize().is_ok_and(|candidate| &candidate == p)
+                    })
+            }) {
+                shape.selected = index;
+            } else if shape.error.is_none() {
+                shape.error = Some(format!("Saved session is unavailable: {}", path.display()));
+                shape.sessions.clear();
             }
         }
     }
@@ -668,6 +708,67 @@ mod tests {
                 ("goal old", "goal confirmed")
             ]
         );
+    }
+
+    #[test]
+    fn receipt_shape_request_selects_exact_session_and_missing_is_explicit() {
+        let tmp = tempfile::tempdir().unwrap();
+        session(tmp.path(), "old", "active", "2026-10-01T00:00:00Z", None);
+        session(tmp.path(), "new", "active", "2026-10-10T00:00:00Z", None);
+        let path = tmp.path().join("old");
+        let before = fs::read(path.join("ledger.json")).unwrap();
+        let mut h = home(tmp.path());
+        h.open(0);
+        let View::Think(dump) = &mut h.view else {
+            panic!()
+        };
+        dump.receipt = Some(crate::shaping::brain_dump::handoff::Receipt::test(
+            path.clone(),
+        ));
+        h.handle_key(key(KeyCode::Char('s')));
+        h.tick();
+        let View::Shape(shape) = &h.view else {
+            panic!()
+        };
+        assert_eq!(shape.selected, 1);
+        assert_eq!(shape.sessions[shape.selected].path, path);
+        assert!(!shape.detail && shape.error.is_none());
+        assert_eq!(fs::read(path.join("ledger.json")).unwrap(), before);
+        #[cfg(unix)]
+        {
+            let alias = tmp.path().join("alias-root");
+            std::os::unix::fs::symlink(tmp.path(), &alias).unwrap();
+            h.sessions_root = alias;
+            h.open_shape_session(&path.canonicalize().unwrap());
+            let View::Shape(shape) = &h.view else {
+                panic!()
+            };
+            assert_eq!(shape.selected, 1);
+            assert_eq!(
+                shape.sessions[shape.selected].path.canonicalize().unwrap(),
+                path.canonicalize().unwrap()
+            );
+            h.sessions_root = tmp.path().to_path_buf();
+        }
+        h.open_shape_session(&tmp.path().join("missing"));
+        let View::Shape(shape) = &h.view else {
+            panic!()
+        };
+        assert!(shape.sessions.is_empty());
+        assert!(
+            shape
+                .error
+                .as_ref()
+                .unwrap()
+                .contains("Saved session is unavailable")
+        );
+        h.sessions_root = tmp.path().join("not-a-directory");
+        fs::write(&h.sessions_root, "not a directory").unwrap();
+        h.open_shape_session(&path);
+        let View::Shape(shape) = &h.view else {
+            panic!()
+        };
+        assert!(shape.error.is_some() && shape.sessions.is_empty());
     }
 
     #[test]

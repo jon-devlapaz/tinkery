@@ -1,5 +1,5 @@
 use super::*;
-use handoff::{Affirmation, Config};
+use handoff::{Affirmation, Config, Receipt};
 use std::{path::PathBuf, sync::mpsc};
 
 pub(super) struct Review {
@@ -121,7 +121,7 @@ impl BrainDump {
             }
             match result {
                 Ok(receipt) => {
-                    self.notice = "Goal confirmed. The seed isn't written yet.".into();
+                    self.notice = "Saved.".into();
                     self.goal_review = None;
                     self.paper_scroll = 0;
                     self.receipt = Some(receipt);
@@ -171,16 +171,17 @@ impl BrainDump {
         }
         if self.receipt.is_some() {
             match key.code {
-                KeyCode::Char('q') | KeyCode::Esc => self.quit = true,
+                KeyCode::Char('c') if key.modifiers.is_empty() => {
+                    self.copy = self.receipt.as_ref().map(Receipt::continuation_prompt);
+                }
+                KeyCode::Char('s') if key.modifiers.is_empty() => {
+                    self.shape_request = self.receipt.as_ref().map(|r| r.session.clone());
+                }
                 KeyCode::PageDown | KeyCode::Down => {
                     self.paper_scroll = self.paper_scroll.saturating_add(5)
                 }
                 KeyCode::PageUp | KeyCode::Up => {
                     self.paper_scroll = self.paper_scroll.saturating_sub(5)
-                }
-                KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                    self.original = true;
-                    self.original_scroll = 0;
                 }
                 _ => {}
             }
@@ -219,35 +220,43 @@ impl BrainDump {
         false
     }
 }
+fn goal_block(body: String, palette: Palette) -> Paragraph<'static> {
+    Paragraph::new(body)
+        .wrap(Wrap { trim: false })
+        .style(palette.ink)
+}
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let inner = app.agent_area;
     if let Some(receipt) = &app.receipt {
-        let path_lines = Paragraph::new(receipt.session.display().to_string())
+        let next = "Next: shape it into a seed with Seed Me.";
+        let next_rows = Paragraph::new(next)
             .wrap(Wrap { trim: false })
-            .line_count(inner.width);
+            .line_count(inner.width) as u16;
         let rows = Layout::vertical([
             Constraint::Length(2),
-            Constraint::Length(path_lines.min(usize::from(inner.height.saturating_sub(4))) as u16),
-            Constraint::Length(2),
+            Constraint::Min(1),
+            Constraint::Length(next_rows + 2),
         ])
-        .flex(ratatui::layout::Flex::Start)
         .split(inner);
-        frame.render_widget(
-            Paragraph::new("Goal confirmed — seed not written yet").style(palette.ink),
-            rows[0],
-        );
-        let p = Paragraph::new(receipt.session.display().to_string())
-            .wrap(Wrap { trim: false })
-            .style(palette.ink);
+        frame.render_widget(Paragraph::new("Saved.").style(palette.ink), rows[0]);
+        let p = goal_block(receipt.goal.clone(), palette);
         let max = p
             .line_count(rows[1].width)
             .saturating_sub(rows[1].height as usize) as u16;
         app.paper_scroll = app.paper_scroll.min(max);
         frame.render_widget(p.scroll((app.paper_scroll, 0)), rows[1]);
         frame.render_widget(
-            Paragraph::new("Continue with Seed Me in any harness").style(palette.muted),
-            Rect::new(rows[2].x, rows[2].y + 1, rows[2].width, 1),
+            Paragraph::new(next)
+                .wrap(Wrap { trim: false })
+                .style(palette.ink),
+            rows[2],
         );
+        if app.notice == "Copied." || app.notice.starts_with("Clipboard") {
+            frame.render_widget(
+                Paragraph::new(app.notice.as_str()).style(palette.muted),
+                Rect::new(rows[2].x, rows[2].bottom() - 1, rows[2].width, 1),
+            );
+        }
         return;
     }
     let Some(review) = app.goal_review.as_mut() else {
@@ -280,9 +289,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     if !open.is_empty() {
         body.push_str(&format!("\n\nStill open\n{}", open.join("\n\n")));
     }
-    let p = Paragraph::new(body)
-        .wrap(Wrap { trim: false })
-        .style(palette.ink);
+    let p = goal_block(body, palette);
     review.max = p
         .line_count(rows[0].width)
         .saturating_sub(rows[0].height as usize) as u16;

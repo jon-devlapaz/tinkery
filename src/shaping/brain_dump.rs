@@ -405,6 +405,7 @@ pub struct BrainDump {
     goal_review: Option<goal_view::Review>,
     handoff_job: Option<std::sync::mpsc::Receiver<Result<handoff::Receipt, String>>>,
     pub receipt: Option<handoff::Receipt>,
+    shape_request: Option<std::path::PathBuf>,
     exit_after_handoff: bool,
     goal_button: Rect,
     copy: Option<String>,
@@ -475,6 +476,7 @@ impl BrainDump {
             goal_review: None,
             handoff_job: None,
             receipt: None,
+            shape_request: None,
             exit_after_handoff: false,
             goal_button: Rect::default(),
             copy: None,
@@ -1131,14 +1133,32 @@ impl BrainDump {
             self.notice = e.into();
         }
     }
+    pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {
+        let host = self.host.clone();
+        let real = self.real;
+        let config = self.goal_config.clone();
+        let voice = self.voice.is_some();
+        Box::new(move || {
+            let mut dump = Self::with_mode(host.clone(), real);
+            dump.goal_config = config.as_ref().map(handoff::Config::fresh);
+            if voice {
+                dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
+            }
+            dump
+        })
+    }
+    pub fn take_shape_request(&mut self) -> Option<std::path::PathBuf> {
+        self.shape_request.take()
+    }
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()
     }
     pub fn copy_result(&mut self, sent: bool) {
-        self.notice = if sent {
-            "Copy sent; host may require clipboard permission."
-        } else {
-            "Clipboard send failed; board retained."
+        self.notice = match (sent, self.receipt.is_some()) {
+            (true, true) => "Copied.",
+            (true, false) => "Copy sent; host may require clipboard permission.",
+            (false, true) => "Clipboard send failed; goal retained.",
+            (false, false) => "Clipboard send failed; board retained.",
         }
         .into();
     }
@@ -1172,6 +1192,46 @@ impl BrainDump {
                     "Waiting for durable goal read-back before returning to the menu.".into();
             } else {
                 self.request_leave();
+            }
+            return;
+        }
+        if self.receipt.is_some() {
+            if key.kind == KeyEventKind::Repeat || !key.modifiers.is_empty() {
+                return;
+            }
+            if key.code == KeyCode::F(1) {
+                if self.help && !self.help_all && !self.how {
+                    self.help_all = true;
+                } else {
+                    self.help = !self.help;
+                    self.help_all = false;
+                }
+                self.how = false;
+                self.original_scroll = 0;
+            } else if self.help {
+                match key.code {
+                    KeyCode::Char('h') => {
+                        self.how = !self.how;
+                        self.original_scroll = 0;
+                    }
+                    KeyCode::Esc if self.how => {
+                        self.how = false;
+                        self.original_scroll = 0;
+                    }
+                    KeyCode::Esc => {
+                        self.help = false;
+                        self.help_all = false;
+                    }
+                    KeyCode::PageDown | KeyCode::Down => {
+                        self.original_scroll = self.original_scroll.saturating_add(5)
+                    }
+                    KeyCode::PageUp | KeyCode::Up => {
+                        self.original_scroll = self.original_scroll.saturating_sub(5)
+                    }
+                    _ => {}
+                }
+            } else {
+                self.goal_key(key);
             }
             return;
         }
@@ -1559,6 +1619,18 @@ impl BrainDump {
             ) && self.source_area.contains((event.column, event.row).into())
             {
                 self.handle_source_mouse(event);
+            }
+            if self.receipt.is_some() && self.agent_area.contains((event.column, event.row).into())
+            {
+                match event.kind {
+                    MouseEventKind::ScrollDown => {
+                        self.paper_scroll = self.paper_scroll.saturating_add(3)
+                    }
+                    MouseEventKind::ScrollUp => {
+                        self.paper_scroll = self.paper_scroll.saturating_sub(3)
+                    }
+                    _ => {}
+                }
             }
             return;
         }

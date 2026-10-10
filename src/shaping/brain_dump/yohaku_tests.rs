@@ -66,26 +66,10 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         l1.pop();
         l2.pop();
         assert_eq!(l1, l2);
-        assert_eq!(
-            receipt
-                .matches("Goal confirmed — seed not written yet")
-                .count(),
-            1
-        );
-        assert!(receipt.contains("Continue with Seed Me in any harness"));
-        let next_row = receipt
-            .lines()
-            .position(|l| l.contains("Continue with Seed Me"))
-            .unwrap();
-        let path_row = receipt
-            .lines()
-            .position(|l| l.contains("Tinkery-TEST/session-id"))
-            .unwrap();
-        assert_eq!(
-            next_row,
-            path_row + 2,
-            "Next action drifted into footer chrome"
-        );
+        assert_eq!(receipt.matches("Saved.").count(), 1);
+        assert!(right_text(&receipt, w).contains("Next: shape it into a seed with Seed Me."));
+        assert!(!receipt.contains("Tinkery-TEST/session-id"));
+        assert!(!receipt.contains("seed not written yet"));
         for s in [&before, &review, &receipt] {
             for clutter in [
                 "Ctrl-",
@@ -134,27 +118,28 @@ fn literal_question_mark_and_corner_help_preserve_local_typing_and_review() {
     assert!(!a.running());
 }
 #[test]
-fn long_receipt_path_is_scrollable_without_hiding_the_next_action() {
+fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
     let mut a = board();
     let path = format!(
         "/tmp/Tinkery-TEST/{}/END-SESSION-ID",
         "long-path-component/".repeat(35)
     );
-    a.receipt = Some(handoff::Receipt::test(path.clone().into()));
-    for (w, h) in [(80, 24), (100, 30), (320, 40)] {
+    let mut receipt = handoff::Receipt::test(path.clone().into());
+    receipt.goal = format!("{}\nEND-GOAL", "Long confirmed goal line.\n".repeat(80));
+    a.receipt = Some(receipt);
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         a.paper_scroll = 0;
         let first = snapshot(w, h, &mut a, false).unwrap();
-        assert!(first.contains("Continue with Seed Me in any harness"));
+        assert!(right_text(&first, w).contains("Next: shape it into a seed with Seed Me."));
+        assert!(!first.contains("Tinkery-TEST"));
         for _ in 0..50 {
             key(&mut a, KeyCode::PageDown);
         }
         let last = snapshot(w, h, &mut a, false).unwrap();
-        assert!(
-            right_text(&last, w)
-                .replace(' ', "")
-                .contains("END-SESSION-ID")
-        );
-        assert!(last.contains("Continue with Seed Me in any harness"));
+        assert!(right_text(&last, w).contains("END-GOAL"));
+        assert!(right_text(&last, w).contains("Next: shape it into a seed with Seed Me."));
+        assert!(!last.contains("END-SESSION-ID"));
+        assert!(yohaku::how_text(&a).contains(&path));
         assert_eq!(a.receipt.as_ref().unwrap().session.to_string_lossy(), path);
     }
 }

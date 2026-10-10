@@ -480,7 +480,10 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
     key(&mut a, KeyCode::F(6));
     assert!(fake.borrow().commands.is_empty());
     assert!(!yohaku::help_text(&a).contains("speak"));
-    assert_eq!(yohaku::key_bar_items(&a), vec![("10", "menu")]);
+    assert_eq!(
+        yohaku::key_bar_items(&a),
+        vec![("c", "copy prompt"), ("s", "open in shape"), ("10", "menu")]
+    );
 }
 #[test]
 fn active_voice_blocks_readiness_and_review_even_without_typed_text() {

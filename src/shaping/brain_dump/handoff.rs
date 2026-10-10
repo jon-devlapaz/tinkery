@@ -31,23 +31,35 @@ pub struct Affirmation {
 }
 pub struct Receipt {
     pub session: PathBuf,
+    pub goal: String,
+    pub skill: PathBuf,
     pub ledger: String,
     pub warning: Option<String>,
     viewer: Option<Child>,
 }
 impl Receipt {
     #[cfg(test)]
-    pub(super) fn test(session: PathBuf) -> Self {
+    pub(crate) fn test(session: PathBuf) -> Self {
         Self {
             session,
+            goal: "TEST confirmed goal".into(),
+            skill: "/TEST/seed-me/SKILL.md".into(),
             ledger: "TEST saved view".into(),
             warning: None,
             viewer: None,
         }
     }
+    pub fn continuation_prompt(&self) -> String {
+        format!(
+            "Use the seed-me skill at \"{}\" to continue the existing Seed Me session at \"{}\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.",
+            self.skill.display(),
+            self.session.display()
+        )
+    }
     pub fn text(&self) -> String {
         format!(
-            "Goal confirmed. The seed isn't written yet.\nSession: {}\nContinue this session with Seed Me in Claude Code, Codex, or Pi.\nLedger: {}{}",
+            "Saved.\n{}\nNext: shape it into a seed with Seed Me.\nSession: {}\nLedger: {}{}",
+            self.goal,
             self.session.display(),
             self.ledger,
             self.warning
@@ -136,6 +148,9 @@ impl Config {
     }
     pub fn recovery_path(&self) -> Option<PathBuf> {
         self.session.lock().unwrap().clone()
+    }
+    pub(super) fn fresh(&self) -> Self {
+        Self::new(self.skill.clone(), self.root.clone())
     }
     pub fn confirm(&self, a: Affirmation) -> Result<Receipt, String> {
         let skill = self
@@ -253,6 +268,8 @@ impl Config {
         };
         let mut receipt = Receipt {
             session,
+            goal: a.goal,
+            skill,
             viewer,
             ledger,
             warning,
