@@ -1,0 +1,85 @@
+== tests/brain_dump_terminal.py
+{"width": 80, "height": 24, "burst_seconds": 0.0009, "answer_burst_seconds": 0.0007, "paced_1ms_seconds": 0.0434, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 100, "height": 30, "burst_seconds": 0.001, "answer_burst_seconds": 0.0008, "paced_1ms_seconds": 0.0445, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 160, "height": 40, "burst_seconds": 0.0017, "answer_burst_seconds": 0.0015, "paced_1ms_seconds": 0.0443, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+{"width": 320, "height": 40, "burst_seconds": 0.0029, "answer_burst_seconds": 0.0019, "paced_1ms_seconds": 0.0448, "journey": "submit/answer/original/copy/failure/cancel/restore", "provider": "stub"}
+== tests/dogfood_terminal.py
+{"width": 80, "height": 24, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+{"width": 100, "height": 30, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+{"width": 160, "height": 40, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+{"width": 320, "height": 40, "provider": "stub", "journey": "one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore", "confirmation": false}
+== tests/goal_confirmation_terminal.py
+{"width": 80, "height": 24, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 100, "height": 30, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 160, "height": 40, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+{"width": 320, "height": 40, "provider": "stub", "helper": "official", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "viewer_stopped": true, "session_root": "isolated temporary directory"}
+== tests/help_exit_terminal.py
+{"width": 80, "height": 24, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+{"width": 100, "height": 30, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+{"width": 160, "height": 40, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+{"width": 320, "height": 40, "provider": "stub", "journey": "contextual help/source wheel/review/header/live resize/guarded exit/restore", "test_source": "synthetic concern; not operator recognition"}
+== tests/terminal_smoke.py
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: workbench, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'q')
+PASS: scratchpad, 100x30, input, help, resize, no writes, restore (b'\x03')
+PASS: scratchpad, 80x24, multiple notes, full-width drag, inspector, no writes, restore
+PASS: problem-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 100x30, draft, source correction, right-click delete, undo/redo, no writes
+PASS: problem-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+PASS: plan-first, 80x24, draft, source correction, right-click delete, undo/redo, no writes
+LATENCY: legacy 100x30, note=0.0022s, feedback=0.0032s (plain burst)
+PASS: model adapter stub, 100x30, shape/correct/revise, original retained, no writes, safe exit
+LATENCY: legacy 80x24, note=0.0013s, feedback=0.0029s (plain burst)
+PASS: model adapter stub, 80x24, shape/correct/revise, original retained, no writes, safe exit
+LATENCY: legacy 160x40, note=0.0036s, feedback=0.0051s (plain burst)
+PASS: wide stub journey, 160x40, paper/revision/repaint/clean OSC52, full_redraw=False
+LATENCY: legacy 240x40, note=0.0044s, feedback=0.0042s (plain burst)
+PASS: wide stub journey, 240x40, paper/revision/repaint/clean OSC52, full_redraw=False
+LATENCY: legacy 320x40, note=0.0091s, feedback=0.0082s (plain burst)
+PASS: wide stub journey, 320x40, paper/revision/repaint/clean OSC52, full_redraw=True
+PASS: noninteractive modes and explicit CLI errors
+== tests/test_rejection_census.py
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.211s
+
+OK
+== tests/voice_terminal.py
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 176, in <module>
+    journey(*size, no_color)
+    ~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 103, in journey
+    text('speak (local;')
+    ~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 87, in text
+    wait(lambda: needle in screen.text(), needle)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 84, in wait
+    raise AssertionError(f'{label}:\n{screen.text()}')
+AssertionError: speak (local;:
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+                                        Every key                               
+    What's on your mind?                F1 close · h how it works · PgUp/PgDn   
+                                        scroll                                  
+                                                                                
+                                        Write                                   
+                                        Type; Enter starts a new line.          
+                                        ! F2   send (your words go to the       
+                                        model; small cost)                      
+                                        F6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)   
+                                        ! Shift-F2  start a new dump instead    
+                                        of answering                            
+                                                                                
+                                        Look                                    
+                                        F4   your originals                     
+                                        F5   why (attempts and checks)          
+                                        F9   copy the reading                   
+                                        Drag across your original to select;    
+                                        Ctrl-C copies                           
+                                                                                
+  2 send   ⌃⌥Z speak   10 menu                                                  

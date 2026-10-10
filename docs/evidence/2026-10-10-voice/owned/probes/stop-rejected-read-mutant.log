@@ -1,0 +1,18 @@
+✖ a rejected read during stop preserves the final, unexpected read rejection fails (4216.180166ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4253.720208
+
+✖ failing tests:
+
+test at voice/helper.test.mjs:96:1
+✖ a rejected read during stop preserves the final, unexpected read rejection fails (4216.180166ms)
+  Error: Timed out waiting for final: [{"event":"loading"},{"event":"ready","version":1},{"event":"listening","take":1},{"event":"partial","take":1,"text":"spoken words"},{"event":"error","take":1,"kind":"capture","message":"Microphone capture failed: PvRecorder failed to read audio data frame"}], stderr 
+      at Timeout._onTimeout (file:///private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-4d4hwwpv/stop-rejected-read/voice/helper.test.mjs:50:85)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7)

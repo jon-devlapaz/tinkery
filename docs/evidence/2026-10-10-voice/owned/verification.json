@@ -1,0 +1,34 @@
+{
+  "base_stop_fix": "cacbcabc203b079a5985d8550c37014fe2c7b7fb",
+  "runtime_hashes": {
+    "voice/setup.mjs": "33eadf1a6d574d678dbcbe2ddaafd97488458e0e1bae88438e173e34082888df",
+    "voice/helper.mjs": "67daaea9f330e6afe4e3c068bf0e675a16a6f8ef3b99886c04c881342c3c9ba0",
+    "src/voice/mod.rs": "d8a97b437f1ff4fdd36d26089166943e13f2adb74c57316d479ddaebc02bc774",
+    "src/voice/process.rs": "af32dc6cc64ba6ee801ffef70e54ee7fe182c7d0def622fa042fdd5ac315c07e",
+    "src/voice/protocol.rs": "500ef05c78272d156321dbd7c3f5717c04e4b1c4b1b68f488ef643eccd2e587e",
+    "src/voice/setup.rs": "d800c0d5322cda9239d8d5152cd814b7b6b35bf3eb232054b82878d1d82ef8ec",
+    "src/shaping/brain_dump/voice_input.rs": "aeab5382d9cdd4a08c9ce8119ed1707a8b5f979b0d5b5dbb599846dddbb6c1c8",
+    "src/shaping/brain_dump/yohaku.rs": "f20ca462ef9663816cdc5c29de95b508e186b22bcdc66cce2f3c7cd92e13a5f2"
+  },
+  "embedded_source_sha256": "274ac074bd5040bc16379283dec6fc8603fac5ac32a8a9c47289dba1d474eb1c",
+  "provider_calls": 0,
+  "real_microphone_recordings": 0,
+  "protected_file_count": 77,
+  "protected_files_unchanged": true,
+  "permanent_engine_installed": false,
+  "config_written": false,
+  "launcher_modified": false,
+  "binary_modified": false,
+  "operator_sessions_modified": false,
+  "built_binary_sha256": "008ee71672040724d73a3c107e9c74dce001299a5f2fd7c9dc33532c56fe0a3f",
+  "tests": {
+    "tinkery": 171,
+    "pinstar": 41,
+    "integration": 31,
+    "compile_fail_docs": 2,
+    "node": 36,
+    "voice_pty": 8,
+    "python_scripts": 7,
+    "reversion_probes": 15
+  }
+}

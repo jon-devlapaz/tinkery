@@ -1,0 +1,11 @@
+Diff in /Users/jondev/dev/active/tinkery/src/voice/tests.rs:251:
+     fake.borrow_mut().fail_send = false;
+     voice.toggle(now);
+     assert_eq!(fake.borrow().restarted, 1);
+[31m-    fake.borrow_mut().events.push_back(Event::Ready { version: 1 });
+(B[m[32m+    fake.borrow_mut()
+(B[m[32m+        .events
+(B[m[32m+        .push_back(Event::Ready { version: 1 });
+(B[m     voice.tick(now);
+     assert!(voice.available());
+     assert!(!voice.active());

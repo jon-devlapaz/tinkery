@@ -1,0 +1,31 @@
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-mlgt018t/stale-take)
+warning: unused variable: `take`
+   --> src/voice/mod.rs:197:32
+    |
+197 |                 Event::Final { take, text } if true => {
+    |                                ^^^^ help: try ignoring the field: `take: _`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning (run `cargo fix --lib -p tinkery --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/debug/deps/tinkery-57634f1bcdbf9627)
+
+running 1 test
+test voice::tests::cancel_discards_and_stale_events_cannot_touch_new_take ... FAILED
+
+failures:
+
+---- voice::tests::cancel_discards_and_stale_events_cannot_touch_new_take stdout ----
+
+thread 'voice::tests::cancel_discards_and_stale_events_cannot_touch_new_take' (62683000) panicked at src/voice/tests.rs:160:5:
+assertion failed: voice.tick(now).is_none()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    voice::tests::cancel_discards_and_stale_events_cannot_touch_new_take
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 161 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

@@ -1,0 +1,1 @@
+{"source": "generated 1s 440Hz tone; no speech/microphone recording", "node": "v26.8.1", "helper_sha256": "3ac5d42a87dfbb3ec9c3165f0202c8caeb90136c57f2bf36fb0834d7931a4791", "events": ["ready", "listening", "partial", "partial", "final"], "final_empty": true, "pi_calls": 0, "recorder_imported": false}

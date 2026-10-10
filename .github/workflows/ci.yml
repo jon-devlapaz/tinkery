@@ -34,8 +34,11 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build
         run: cargo build --locked
+      - name: Local voice helper (fake-only; runner Node is required)
+        run: node --test voice/*.test.mjs
       - name: Terminal journeys (real binary in a pseudo-terminal)
         env:
+          TINKERY_NODE: /tinkery-TEST-no-node
           SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
         shell: bash
         run: |

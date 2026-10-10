@@ -324,6 +324,11 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         "F2   send (practice reading; nothing leaves)"
     };
+    let voice = if app.voice_available() {
+        "\nF6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"
+    } else {
+        ""
+    };
     let finish = if app.receipt.is_some() {
         "Goal saved. Continue with Seed Me in any harness."
     } else if !app.real || app.goal_config.is_none() {
@@ -337,7 +342,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "! F10  back to the menu; asks before losing your draft"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
@@ -361,8 +366,17 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         vec![("10", "menu")]
     } else if app.goal_review.is_some() {
         vec![("type confirm", "save"), ("esc", "back")]
+    } else if app.voice_active() {
+        vec![
+            (crate::voice::key_label(std::env::consts::OS), "stop"),
+            ("esc", "cancel"),
+        ]
     } else if app.running() {
-        vec![("esc", "cancel"), ("10", "menu")]
+        let mut items = vec![("esc", "cancel"), ("10", "menu")];
+        if app.voice_available() {
+            items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
+        }
+        items
     } else {
         let mut items = vec![("2", "send")];
         if app.guess.is_some() {
@@ -370,6 +384,9 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         }
         if app.focused_question().is_some() {
             items.push(("8", "skip"));
+        }
+        if app.voice_available() {
+            items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
         }
         items.push(("10", "menu"));
         items

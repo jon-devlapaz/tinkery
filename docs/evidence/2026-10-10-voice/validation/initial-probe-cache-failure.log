@@ -1,0 +1,8 @@
+{"name": "current-cursor", "test": "partial_and_final_follow_current_cursor_not_a_captured_anchor", "baseline": 0, "mutant": 101}
+{"name": "f2-final-only", "test": "send_during_start_or_listening_waits_and_sends_exactly_once", "baseline": 0, "mutant": 101}
+{"name": "stale-take", "test": "cancel_discards_and_stale_events_cannot_touch_new_take", "baseline": 0, "mutant": 101}
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/docs/evidence/2026-10-10-voice/reversion-probes.py", line 43, in <module>
+    assert baseline == 0, (name, 'baseline failed')
+           ^^^^^^^^^^^^^
+AssertionError: ('deadline', 'baseline failed')

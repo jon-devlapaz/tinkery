@@ -1,0 +1,24 @@
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-4d4hwwpv/platform-label)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.55s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-4d4hwwpv/target/debug/deps/tinkery-57634f1bcdbf9627)
+
+running 1 test
+test voice::setup_tests::key_label_matches_platform_and_setup_protocol_stays_typed ... FAILED
+
+failures:
+
+---- voice::setup_tests::key_label_matches_platform_and_setup_protocol_stays_typed stdout ----
+
+thread 'voice::setup_tests::key_label_matches_platform_and_setup_protocol_stays_typed' (63435640) panicked at src/voice/setup_tests.rs:173:5:
+assertion `left == right` failed
+  left: "6"
+ right: "⌃⌥Z"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    voice::setup_tests::key_label_matches_platform_and_setup_protocol_stays_typed
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 170 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

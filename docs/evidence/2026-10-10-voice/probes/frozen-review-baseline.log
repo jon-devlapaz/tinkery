@@ -1,0 +1,9 @@
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-mlgt018t/frozen-review)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.07s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/debug/deps/tinkery-57634f1bcdbf9627)
+
+running 1 test
+test shaping::brain_dump::voice_tests::review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 161 filtered out; finished in 0.01s
+

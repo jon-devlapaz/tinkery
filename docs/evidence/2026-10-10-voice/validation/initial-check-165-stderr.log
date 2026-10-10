@@ -1,0 +1,31 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.11s
+     Running unittests src/lib.rs (target/debug/deps/pinstar-b60bb9ade8cb9ee8)
+     Running unittests src/main.rs (target/debug/deps/pinstar-2b2f32b2e6e0a164)
+     Running unittests src/lib.rs (target/debug/deps/tinkery-804b628ceebf5b8f)
+     Running unittests src/main.rs (target/debug/deps/tinkery-aa387c70f00a81a0)
+     Running tests/cabinet.rs (target/debug/deps/cabinet-05b5f339bc6121c2)
+     Running tests/drawer.rs (target/debug/deps/drawer-6524d45033e4feab)
+     Running tests/mouse.rs (target/debug/deps/mouse-8d01d70ca5d5c015)
+     Running tests/shaping.rs (target/debug/deps/shaping-ff2c5d743666d0a3)
+     Running tests/shaping_polish.rs (target/debug/deps/shaping_polish-b06d8d3bfd076540)
+   Doc-tests pinstar
+   Doc-tests tinkery
+    Checking tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error: field assignment outside of initializer for an instance created with Default::default()
+   --> src/shaping/brain_dump/voice_tests.rs:500:5
+    |
+500 |     a.help_all = true;
+    |     ^^^^^^^^^^^^^^^^^^
+    |
+note: consider initializing the variable with `shaping::brain_dump::BrainDump { help_all: true, ..Default::default() }` and removing relevant reassignments
+   --> src/shaping/brain_dump/voice_tests.rs:499:5
+    |
+499 |     let mut a = BrainDump::default();
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#field_reassign_with_default
+    = note: `-D clippy::field-reassign-with-default` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::field_reassign_with_default)]`
+
+error: could not compile `tinkery` (lib test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

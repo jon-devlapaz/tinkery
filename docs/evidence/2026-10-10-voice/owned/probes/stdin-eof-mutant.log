@@ -1,0 +1,15 @@
+✖ stdin EOF exits immediately during load, listen and finalization (5012.495166ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5053.942417
+
+✖ failing tests:
+
+test at voice/helper.test.mjs:81:1
+✖ stdin EOF exits immediately during load, listen and finalization (5012.495166ms)
+  'test timed out after 5000ms'

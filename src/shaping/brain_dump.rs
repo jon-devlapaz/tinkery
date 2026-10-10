@@ -369,6 +369,7 @@ pub struct BrainDump {
     pub fragments: Vec<Fragment>,
     pub guess: Option<board::Board>,
     host: Arc<dyn BoardHost>,
+    voice: Option<crate::voice::Voice>,
     job: Option<Job<Guess>>,
     audit_job: Option<Job<checks::Decision>>,
     last_failure: Option<String>,
@@ -439,6 +440,7 @@ impl BrainDump {
             fragments: vec![],
             guess: None,
             host,
+            voice: None,
             job: None,
             audit_job: None,
             last_failure: None,
@@ -564,6 +566,7 @@ impl BrainDump {
             && self.focused_question().is_none()
             && !self.running()
             && self.ready.is_none()
+            && !self.voice_active()
     }
     pub fn layout(&self) -> Vec<(String, f64, f64)> {
         self.canvas
@@ -790,6 +793,13 @@ impl BrainDump {
         if self.receipt.is_some() || self.goal_review.is_some() || self.handoff_job.is_some() {
             return;
         }
+        if self.voice_active() {
+            self.voice
+                .as_mut()
+                .unwrap()
+                .stop(true, std::time::Instant::now());
+            return;
+        }
         if self.running() {
             self.notice = "Still thinking; new typing is kept for your next submit.".into();
             return;
@@ -1009,6 +1019,7 @@ impl BrainDump {
             }));
     }
     pub fn tick(&mut self) {
+        self.voice_tick();
         self.goal_tick();
         if self.audit_job.as_ref().and_then(Job::poll).is_some() {
             self.audit_job = None;
@@ -1016,7 +1027,7 @@ impl BrainDump {
         if let Some(result) = self.job.as_ref().and_then(Job::poll) {
             self.job.take();
             let request = self.request.take().unwrap();
-            if self.input.text.is_empty() {
+            if self.input.text.is_empty() && !self.voice_active() {
                 self.apply_result(request, result);
             } else {
                 self.ready = Some((request, result));
@@ -1153,12 +1164,18 @@ impl BrainDump {
         }
         if key.code == KeyCode::F(10) {
             if self.handoff_job.is_some() {
+                if let Some(voice) = &mut self.voice {
+                    voice.close();
+                }
                 self.exit_after_handoff = true;
                 self.notice =
                     "Waiting for durable goal read-back before returning to the menu.".into();
             } else {
                 self.request_leave();
             }
+            return;
+        }
+        if self.voice_key(key) {
             return;
         }
         if !self.leave_prompt && matches!(key.code, KeyCode::F(2..=9)) {
@@ -1481,6 +1498,9 @@ impl BrainDump {
         self
     }
     fn request_leave(&mut self) {
+        if let Some(voice) = &mut self.voice {
+            voice.close();
+        }
         if self.leave_prompt
             || self.receipt.is_some()
             || (self.input.text.is_empty()
@@ -1595,6 +1615,7 @@ pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     yohaku::render(frame, app, palette);
     yohaku::render_header(frame, palette);
     yohaku::render_key_bar(frame, app, palette);
+    voice_input::render_notice(frame, app, palette);
     yohaku::render_leave_prompt(frame, app, palette);
 }
 fn agent_text(text: &str) -> String {
@@ -1741,7 +1762,7 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
     }
 }
 fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
-    let wrapped = app.input.wrap(app.input_area.width);
+    let (wrapped, text) = voice_input::input_text(app, palette);
     if wrapped.cursor.0 < app.input_scroll {
         app.input_scroll = wrapped.cursor.0;
     }
@@ -1752,7 +1773,7 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             .saturating_sub(app.input_area.height.saturating_sub(1));
     }
     frame.render_widget(
-        Paragraph::new(wrapped.lines.join("\n"))
+        Paragraph::new(text)
             .style(palette.ink)
             .scroll((app.input_scroll, 0)),
         app.input_area,
@@ -1802,6 +1823,9 @@ mod meaning_check;
 mod question_continuity;
 #[cfg(test)]
 mod revision2_tests;
+mod voice_input;
+#[cfg(test)]
+mod voice_tests;
 mod yohaku;
 #[cfg(test)]
 mod yohaku_tests;

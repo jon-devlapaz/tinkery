@@ -1,0 +1,18 @@
+✖ Node major mismatch precedes engine loading with the prescribed message (4011.785166ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4049.512166
+
+✖ failing tests:
+
+test at voice/helper.test.mjs:114:1
+✖ Node major mismatch precedes engine loading with the prescribed message (4011.785166ms)
+  Error: Timed out waiting for error: [{"event":"ready","version":1}], stderr 
+      at Timeout._onTimeout (file:///private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-mlgt018t/node-major/voice/helper.test.mjs:29:85)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7)
