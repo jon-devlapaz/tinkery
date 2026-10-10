@@ -10,6 +10,11 @@ impl BoardHost for Counting {
     fn reshape(&self, r: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
         self.requests.lock().unwrap().push(r.clone());
         Ok(Guess {
+            parts: GoalParts {
+                outcome: Some("keep track of the books you've read".into()),
+                ..Default::default()
+            },
+            open: vec![],
             unresolved_notes: vec![],
             uncertain: false,
             framings: vec![Framing {
@@ -32,6 +37,7 @@ impl BoardHost for Counting {
             },
             questions: if r.settled.is_empty() {
                 vec![Question {
+                    target: None,
                     id: "books-note".into(),
                     text: "What would you like to remember about each book?".into(),
                 }]
@@ -228,6 +234,7 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
     a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
     assert_eq!(a.focused_question().unwrap().id, original.id);
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: vec![],
         previous: a.guess.as_ref().map(|g| g.wire()),
@@ -326,7 +333,7 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
     let mut a = board();
     let mut g = a.guess.as_ref().unwrap().wire();
     a.sources[0].text = "Learners feel dumb. Proposed AI tutor chat. Unverified question 4.".into();
-    g.framings[0].text = "Learners leave a wrong answer feeling smarter.".into();
+    g.parts.outcome = Some("Learners leave a wrong answer feeling smarter.".into());
     g.outcome = g.framings[0].text.clone();
     g.framings[0].supports = vec![Anchor {
         source: 1,
@@ -348,6 +355,7 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
         },
     ];
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: vec![],
         previous: None,

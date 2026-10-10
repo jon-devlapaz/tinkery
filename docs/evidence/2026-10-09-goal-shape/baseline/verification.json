@@ -1,0 +1,300 @@
+{
+  "head": "8818e63cc4811fc0935409580589ddbdc0612b7f",
+  "branch": "main",
+  "tracked_worktree_diff": false,
+  "index_diff": false,
+  "provider_calls": 14,
+  "shared_budget": 40,
+  "remaining": 26,
+  "kinds": {
+    "shape": 7,
+    "meaning-preservation": 7
+  },
+  "decision_modes": {
+    "blocking": 7,
+    "log-only": 7
+  },
+  "audits": {
+    "pass": 5,
+    "flag": 2
+  },
+  "protected": {
+    "ledger": {
+      "path": "/Users/jondev/.local/share/seed-me/sessions/27b55e8f-4a80-419a-99b5-7a26d6db1faa/ledger.json",
+      "sha256_before": "d649545d15c9eb7c41c50b27ac8d3814ab872f4e581d3d031427136126ecd197",
+      "sha256_after": "d649545d15c9eb7c41c50b27ac8d3814ab872f4e581d3d031427136126ecd197",
+      "unchanged": true
+    },
+    "installed_binary": {
+      "path": "/Users/jondev/.local/share/tinkery/bin/tinkery",
+      "sha256_before": "7a43c763e54856878c8f303c9c6f2f8c03dd647ffdca5b7cab455b7155f019a9",
+      "sha256_after": "7a43c763e54856878c8f303c9c6f2f8c03dd647ffdca5b7cab455b7155f019a9",
+      "unchanged": true
+    },
+    "launcher": {
+      "path": "/Users/jondev/.local/bin/tinkery",
+      "is_symlink": false,
+      "sha256_before": "f8bb16e4c43fbdc1211c86c98a88abc7f610684f584cc143805b047cc89f983e",
+      "link_before": null,
+      "sha256_after": "f8bb16e4c43fbdc1211c86c98a88abc7f610684f584cc143805b047cc89f983e",
+      "unchanged": true
+    }
+  },
+  "cases": {
+    "books": {
+      "first_board_displayed": true,
+      "intact_source_equal": true,
+      "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots/books",
+      "session_root_empty": true,
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "timing": [
+        {
+          "snapshot": "00-first",
+          "board_available_ms": 7776,
+          "total_ms": 14357
+        }
+      ]
+    },
+    "onboarding-emails": {
+      "first_board_displayed": true,
+      "intact_source_equal": true,
+      "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots/onboarding-emails",
+      "session_root_empty": true,
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "timing": [
+        {
+          "snapshot": "00-first",
+          "board_available_ms": 7737,
+          "total_ms": 14052
+        }
+      ]
+    },
+    "trap": {
+      "first_board_displayed": true,
+      "intact_source_equal": true,
+      "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots/trap",
+      "session_root_empty": true,
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "timing": [
+        {
+          "snapshot": "00-first",
+          "board_available_ms": 9067,
+          "total_ms": 16356
+        }
+      ]
+    },
+    "ledger": {
+      "first_board_displayed": true,
+      "intact_source_equal": true,
+      "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots/ledger",
+      "session_root_empty": true,
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "timing": [
+        {
+          "snapshot": "00-first",
+          "board_available_ms": 14719,
+          "total_ms": 21197
+        },
+        {
+          "snapshot": "01-answer",
+          "board_available_ms": 16066,
+          "total_ms": 25868
+        }
+      ]
+    },
+    "voice": {
+      "first_board_displayed": true,
+      "intact_source_equal": true,
+      "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots/voice",
+      "session_root_empty": true,
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "timing": [
+        {
+          "snapshot": "00-first",
+          "board_available_ms": 7171,
+          "total_ms": 14114
+        }
+      ]
+    },
+    "operator-goal": {
+      "first_board_displayed": true,
+      "intact_source_equal": true,
+      "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase1-session-roots/operator-goal",
+      "session_root_empty": true,
+      "goal_confirmed": false,
+      "helper_invocations": 0,
+      "timing": [
+        {
+          "snapshot": "00-first",
+          "board_available_ms": 11163,
+          "total_ms": 19028
+        }
+      ]
+    }
+  },
+  "ledger_continuation": {
+    "additional_provider_calls": 0,
+    "checkpoint_equal": true,
+    "events": [
+      {
+        "board": {
+          "alternatives": [
+            {
+              "benefit": "Fastest judgment.",
+              "cost": "Could hide unusual cost or context.",
+              "label": "One-number summary",
+              "undo_cost": null
+            },
+            {
+              "benefit": "Keeps the view minimal while exposing the two stated exceptions.",
+              "cost": "Adds a small amount of information beyond one number.",
+              "label": "One-number summary with exceptional cost and job status",
+              "undo_cost": null
+            }
+          ],
+          "framings": [
+            {
+              "supports": {
+                "Cited": [
+                  {
+                    "occurrence": 0,
+                    "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+                    "source": 1
+                  },
+                  {
+                    "occurrence": 0,
+                    "quote": "useful changes per hour is the one that matters.",
+                    "source": 1
+                  },
+                  {
+                    "occurrence": 0,
+                    "quote": "a failed job should override everything. cost only matters if its way off",
+                    "source": 2
+                  }
+                ]
+              },
+              "text": "Know within about five seconds each morning whether yesterday went well, with useful changes per hour as the main signal, a failed 6am job overriding the result, and cost shown only when it is unusually high."
+            }
+          ],
+          "misfits": [],
+          "outcome": "A minimal morning view\u2014not a dashboard\u2014that gives a clear yesterday assessment and makes job failure impossible to miss.",
+          "questions": [],
+          "unresolved_notes": []
+        },
+        "fixed_action": "better than my usual week. no targets",
+        "notice": "Added words kept unresolved, outside the reading, until you answer their scope question.",
+        "provider_calls": 0,
+        "question_after": {
+          "id": "scope-addition-3",
+          "text": "Should these added words be part of this goal, or stay separate?"
+        },
+        "question_before": null,
+        "round": 2,
+        "sources": [
+          {
+            "id": 1,
+            "in_reply_to": null,
+            "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+          },
+          {
+            "id": 2,
+            "in_reply_to": "well-definition",
+            "text": "a failed job should override everything. cost only matters if its way off"
+          },
+          {
+            "id": 3,
+            "in_reply_to": null,
+            "text": "better than my usual week. no targets"
+          }
+        ]
+      },
+      {
+        "board": {
+          "alternatives": [
+            {
+              "benefit": "Fastest judgment.",
+              "cost": "Could hide unusual cost or context.",
+              "label": "One-number summary",
+              "undo_cost": null
+            },
+            {
+              "benefit": "Keeps the view minimal while exposing the two stated exceptions.",
+              "cost": "Adds a small amount of information beyond one number.",
+              "label": "One-number summary with exceptional cost and job status",
+              "undo_cost": null
+            }
+          ],
+          "framings": [
+            {
+              "supports": {
+                "Cited": [
+                  {
+                    "occurrence": 0,
+                    "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+                    "source": 1
+                  },
+                  {
+                    "occurrence": 0,
+                    "quote": "useful changes per hour is the one that matters.",
+                    "source": 1
+                  },
+                  {
+                    "occurrence": 0,
+                    "quote": "a failed job should override everything. cost only matters if its way off",
+                    "source": 2
+                  }
+                ]
+              },
+              "text": "Know within about five seconds each morning whether yesterday went well, with useful changes per hour as the main signal, a failed 6am job overriding the result, and cost shown only when it is unusually high."
+            }
+          ],
+          "misfits": [],
+          "outcome": "A minimal morning view\u2014not a dashboard\u2014that gives a clear yesterday assessment and makes job failure impossible to miss.",
+          "questions": [],
+          "unresolved_notes": []
+        },
+        "fixed_action": "skip",
+        "notice": "Question skipped. Ctrl-Z brings it back.",
+        "provider_calls": 0,
+        "question_after": null,
+        "question_before": {
+          "id": "scope-addition-3",
+          "text": "Should these added words be part of this goal, or stay separate?"
+        },
+        "round": 3,
+        "sources": [
+          {
+            "id": 1,
+            "in_reply_to": null,
+            "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+          },
+          {
+            "id": 2,
+            "in_reply_to": "well-definition",
+            "text": "a failed job should override everything. cost only matters if its way off"
+          },
+          {
+            "id": 3,
+            "in_reply_to": null,
+            "text": "better than my usual week. no targets"
+          }
+        ]
+      }
+    ],
+    "final_empty_question_round": 3,
+    "first_empty_question_round": 1,
+    "goal_confirmed": false,
+    "helper_invocations": 0,
+    "method": "Offline restore of exact captured live round-1 board and sources through current-main submit/apply pipeline, then remaining actual F2/F8 actions; no substitute/new model response",
+    "second_answer_classification": "added words, not an answer; scope subsequently skipped; not included in the reading",
+    "seed_session_root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-ledger-continuation-root",
+    "session_root_empty": true
+  },
+  "local_toolchain": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+  "phase2_started": false
+}

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       rebuild is the solution.                
+  learners to see why they got                                                  
+  something wrong, not just that        when                                    
+  they did. right now we just show a    When Socratink learners answer          
+  red X and move on and people          incorrectly, they currently see a red   
+  bounce. I think we should add an      X and may leave                         
+  AI tutor chat panel next to every                                             
+  question. but honestly I'm worried    I can                                   
+  that turns into one more chatbot      leave a wrong answer feeling smarter    
+  nobody asked for and it gets          rather than dumber                      
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

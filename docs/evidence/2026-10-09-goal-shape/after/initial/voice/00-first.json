@@ -1,0 +1,200 @@
+{
+  "action": {
+    "input": "i keep thinking about voice. talking is faster than typing for me when im tired. but maybe the real problem is i dont start dumps at all at night because opening a terminal feels like work. or maybe its both",
+    "kind": "explicit F2"
+  },
+  "actor": "assistant-driven after eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "Could reduce the effort of getting thoughts out when tired.",
+        "cost": "May not address the reluctance to open a terminal.",
+        "label": "Prioritize voice capture",
+        "undo_cost": "Low"
+      },
+      {
+        "benefit": "Could address the barrier that prevents starting at all.",
+        "cost": "May leave typing friction unresolved.",
+        "label": "Prioritize easier dump initiation",
+        "undo_cost": "Low"
+      },
+      {
+        "benefit": "Could cover both possible causes.",
+        "cost": "Broader and potentially more effortful to investigate.",
+        "label": "Address both voice and initiation",
+        "undo_cost": "Low"
+      }
+    ],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "talking is faster than typing for me when im tired",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "opening a terminal feels like work",
+              "source": 1
+            }
+          ]
+        },
+        "text": "When I’m tired at night, talking is faster than typing, and opening a terminal feels like work, I can determine whether I need voice input, an easier way to start dumps, or both, so I can make starting a dump feel less effortful."
+      }
+    ],
+    "misfits": [],
+    "open": [
+      "outcome"
+    ],
+    "outcome": "I can determine whether I need voice input, an easier way to start dumps, or both.",
+    "parts": {
+      "boundaries": null,
+      "outcome": "I can determine whether I need voice input, an easier way to start dumps, or both.",
+      "proof": null,
+      "situation": "When I’m tired at night, talking is faster than typing, and opening a terminal feels like work.",
+      "why": "I can make starting a dump feel less effortful."
+    },
+    "questions": [
+      {
+        "id": "model-2f42041f2f103850",
+        "target": "outcome",
+        "text": "Do you mainly want to identify the biggest source of friction, or design a way to start nighttime dumps despite both frictions?"
+      }
+    ],
+    "unresolved_notes": [
+      "PROVISIONAL assumption: the desired change is making nighttime dumps easier to start, rather than only understanding the cause."
+    ]
+  },
+  "board_available_ms": 8066,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Could reduce the effort of getting thoughts out when tired.",
+            "cost": "May not address the reluctance to open a terminal.",
+            "label": "Prioritize voice capture",
+            "undo_cost": "Low"
+          },
+          {
+            "benefit": "Could address the barrier that prevents starting at all.",
+            "cost": "May leave typing friction unresolved.",
+            "label": "Prioritize easier dump initiation",
+            "undo_cost": "Low"
+          },
+          {
+            "benefit": "Could cover both possible causes.",
+            "cost": "Broader and potentially more effortful to investigate.",
+            "label": "Address both voice and initiation",
+            "undo_cost": "Low"
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "talking is faster than typing for me when im tired",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "opening a terminal feels like work",
+                "source": 1
+              }
+            ],
+            "text": "When I’m tired at night, talking is faster than typing, and opening a terminal feels like work, I can determine whether I need voice input, an easier way to start dumps, or both, so I can make starting a dump feel less effortful."
+          }
+        ],
+        "misfits": [],
+        "open": [
+          "outcome"
+        ],
+        "outcome": "I can determine whether I need voice input, an easier way to start dumps, or both.",
+        "parts": {
+          "boundaries": null,
+          "outcome": "I can determine whether I need voice input, an easier way to start dumps, or both.",
+          "proof": null,
+          "situation": "When I’m tired at night, talking is faster than typing, and opening a terminal feels like work.",
+          "why": "I can make starting a dump feel less effortful."
+        },
+        "questions": [
+          {
+            "id": "model-2f42041f2f103850",
+            "target": "outcome",
+            "text": "Do you mainly want to identify the biggest source of friction, or design a way to start nighttime dumps despite both frictions?"
+          }
+        ],
+        "uncertain": false,
+        "unresolved_notes": [
+          "PROVISIONAL assumption: the desired change is making nighttime dumps easier to start, rather than only understanding the cause."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [],
+      "decision": "pass",
+      "elapsed_ms": 8043,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent/unreadable optional proof",
+        "Absent/unreadable optional boundaries",
+        "Absent framings: empty collection",
+        "Absent/unreadable optional question 0 ID",
+        "Allocated question ID model-2f42041f2f103850",
+        "Retained unresolved 0 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"situation\": \"When I’m tired at night, talking is faster than typing, and opening a terminal feels like work.\",\n    \"outcome\": \"I can determine whether I need voice input, an easier way to start dumps, or both.\",\n    \"why\": \"I can make starting a dump feel less effortful.\",\n    \"proof\": \"\",\n    \"boundaries\": \"\"\n  },\n  \"open\": [\"outcome\"],\n  \"questions\": [\n    {\n      \"target\": \"outcome\",\n      \"text\": \"Do you mainly want to identify the biggest source of friction, or design a way to start nighttime dumps despite both frictions?\"\n    }\n  ],\n  \"supports\": [\n    {\n      \"source\": 1,\n      \"quote\": \"talking is faster than typing for me when im tired\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 1,\n      \"quote\": \"opening a terminal feels like work\",\n      \"occurrence\": 0\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"label\": \"Prioritize voice capture\",\n      \"benefit\": \"Could reduce the effort of getting thoughts out when tired.\",\n      \"cost\": \"May not address the reluctance to open a terminal.\",\n      \"undo_cost\": \"Low\"\n    },\n    {\n      \"label\": \"Prioritize easier dump initiation\",\n      \"benefit\": \"Could address the barrier that prevents starting at all.\",\n      \"cost\": \"May leave typing friction unresolved.\",\n      \"undo_cost\": \"Low\"\n    },\n    {\n      \"label\": \"Address both voice and initiation\",\n      \"benefit\": \"Could cover both possible causes.\",\n      \"cost\": \"Broader and potentially more effortful to investigate.\",\n      \"undo_cost\": \"Low\"\n    }\n  ],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL assumption: the desired change is making nighttime dumps easier to start, rather than only understanding the cause.\"\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "cf9d71d69c407d3a",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [],
+      "decision": "pass",
+      "elapsed_ms": 5812,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "No whole-board loss identified by the model; not proof of understanding.",
+      "request_key": "cf9d71d69c407d3a",
+      "version": 3
+    }
+  ],
+  "focused_question": {
+    "id": "model-2f42041f2f103850",
+    "text": "Do you mainly want to identify the biggest source of friction, or design a way to start nighttime dumps despite both frictions?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [
+    "outcome",
+    "proof",
+    "boundaries"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-2f42041f2f103850",
+      "text": "Do you mainly want to identify the biggest source of friction, or design a way to start nighttime dumps despite both frictions?"
+    }
+  ],
+  "reading_text": "When I’m tired at night, talking is faster than typing, and opening a terminal feels like work, I can determine whether I need voice input, an easier way to start dumps, or both, so I can make starting a dump feel less effortful.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "i keep thinking about voice. talking is faster than typing for me when im tired. but maybe the real problem is i dont start dumps at all at night because opening a terminal feels like work. or maybe its both"
+    }
+  ],
+  "step_total_ms": 14049
+}

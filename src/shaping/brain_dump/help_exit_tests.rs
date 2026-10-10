@@ -244,13 +244,13 @@ if r.get('kind')=='meaning-preservation':
  assert r['board']['framings']==r['reading'] and r['mode']=='log-only'
  print(json.dumps(dict(missing=[] if {faithful} else [dict(source=1,quote=worry,occurrence=0)],false_choice=False)));sys.exit(0)
 assert worry==r['sources'][0]['text']
-assert 'Worries stay worries, not diagnoses, praise or aspirations' in p
+assert 'Worries stay worries, not diagnoses or aspirations' in p
 log=root/'shapes'
 n=int(log.read_text()) if log.exists() else 0
 assert n==0
 log.write_text(str(n+1))
 text='You worry this thing has been overengineered.' if {faithful} else 'Learn this system better, durable and robust.'
-print(json.dumps(dict(uncertain=False,framings=[dict(text=text,supports=[dict(source=1,quote=worry,occurrence=0)])],outcome=text,misfits=[],questions=[],alternatives=[])))
+print(json.dumps(dict(parts=dict(outcome=text),open=[],supports=[dict(source=1,quote=worry,occurrence=0)],misfits=[],questions=[],alternatives=[])))
 "#,faithful=if faithful{"True"}else{"False"})).unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
         let host = Arc::new(PiHost::new(program, "test/model".into(), skill).unwrap());

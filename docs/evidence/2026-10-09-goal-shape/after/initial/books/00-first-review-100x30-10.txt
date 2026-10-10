@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I want a way to keep track of the books I've    thought of each one.                              
+  read this year. I usually forget what I read                                                      
+  by december. it would be nice to see them       so                                                
+  all in one place with a short note on what I    I can remember and review my reading more         
+  thought of each one. nothing fancy.             easily.                                           
+                                                                                                    
+                                                  it works if                                       
+                                                  I can find each book I've read this year and its  
+                                                  short note in one place.                          
+                                                                                                    
+                                                  not                                               
+                                                  It should be nothing fancy.                       
+                                                                                                    
+                                                  Still open                                        
+                                                  PROVISIONAL: The simplest suitable approach is    
+                                                  not yet chosen.                                   
+                                                  Running out of questions doesn't mean I           
+                                                  understood you.                                   
+                                                                                                    
+                                                  Creates a Seed Me session; this goal can't be     
+                                                  edited after.                                     
+                                                                                                    
+                                                  type confirm                                      
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

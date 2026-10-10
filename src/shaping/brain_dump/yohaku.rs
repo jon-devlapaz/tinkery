@@ -161,7 +161,13 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             "I think you mean…",
             palette.muted,
         ));
-        for line in agent_text(&g.framings[0].text).lines() {
+        for line in g
+            .framings
+            .first()
+            .map(|f| f.text.as_str())
+            .unwrap_or("")
+            .lines()
+        {
             lines.push(ratatui::text::Line::styled(
                 line.to_owned(),
                 palette.ink.add_modifier(Modifier::ITALIC),
@@ -197,8 +203,12 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
             ratatui::text::Line::styled(q.text.clone(), palette.jade),
         ]),
-        None if app.guess.is_some() && !app.running() => ratatui::text::Text::styled(
+        None if app.goal_ready() => ratatui::text::Text::styled(
             "Nothing I'm unsure about. Review when you're ready.",
+            palette.muted,
+        ),
+        None if app.guess.is_some() && !app.running() => ratatui::text::Text::styled(
+            "Some parts remain open for the seed. Review when you're ready.",
             palette.muted,
         ),
         None => ratatui::text::Text::default(),

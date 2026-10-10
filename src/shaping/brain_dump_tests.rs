@@ -30,6 +30,17 @@ pub(super) struct Recording {
 }
 fn guess(r: &BoardRequest) -> Guess {
     Guess {
+        parts: GoalParts {
+            situation: Some("Here".into()),
+            outcome: Some(format!(
+                "Model reading {} originals: make reading comfortable",
+                r.sources.len()
+            )),
+            why: Some("I can read comfortably".into()),
+            proof: Some("reading is comfortable".into()),
+            boundaries: Some("no confirmation".into()),
+        },
+        open: vec![],
         unresolved_notes: vec![],
         uncertain: false,
         framings: vec![Framing {
@@ -45,16 +56,19 @@ fn guess(r: &BoardRequest) -> Guess {
             || r.skipped.iter().any(|q| q.id == "reader")
         {
             vec![Question {
+                target: None,
                 id: "rss-control".into(),
                 text: "Who controls RSS appearance?".into(),
             }]
         } else {
             vec![
                 Question {
+                    target: None,
                     id: "reader".into(),
                     text: "What is Hamster?".into(),
                 },
                 Question {
+                    target: None,
                     id: "audience".into(),
                     text: "Who needs comfortable reading?".into(),
                 },
@@ -88,6 +102,7 @@ pub(super) fn amend_board(a: &mut BrainDump, edit: impl FnOnce(&mut Guess)) {
     let mut g = a.guess.as_ref().unwrap().wire();
     edit(&mut g);
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: a.sources.clone(),
         fragments: a.fragments.clone(),
         previous: None,
@@ -203,7 +218,9 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     let before = a.paper();
     a.board_focus = !a.board_focus;
     key(&mut a, KeyCode::Char('s'));
-    assert_eq!(a.focused_question().unwrap().id, "audience");
+    assert!(a.focused_question().is_none(), "only one model question");
+    a.undo_skip();
+    assert_eq!(a.focused_question().unwrap().id, "reader");
     a.board_focus = !a.board_focus;
     host.fail.store(true, Ordering::Relaxed);
     a.paste("A second dump.");
@@ -229,9 +246,9 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
             .unwrap()
             .last()
             .unwrap()
-            .skipped
+            .settled
             .iter()
-            .any(|q| q.id == "reader")
+            .any(|s| s.question.id == "reader")
     );
 }
 #[test]
@@ -269,7 +286,10 @@ fn boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings
     bad.framings.push(bad.framings[0].clone());
     assert!(bad.validate(&r).is_ok());
     bad.framings.clear();
-    assert!(bad.validate(&r).is_err());
+    assert!(
+        bad.validate(&r).is_ok(),
+        "missing parts are displayable, not invented"
+    );
     let mut bad = g.clone();
     bad.outcome = "\x1b]52;c;payload".into();
     assert!(bad.validate(&r).is_err());
@@ -303,7 +323,7 @@ fn boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings
     .unwrap();
     assert_eq!(
         serde_json::to_value(ignored).unwrap(),
-        serde_json::to_value(g).unwrap()
+        serde_json::to_value(board::parse(&json, &r, &mut vec![]).unwrap()).unwrap()
     );
     assert!(a.receipt.is_none());
 }
@@ -551,7 +571,7 @@ fn unresolved_roles_can_overlap_and_long_readings_do_not_veto_a_board() {
     g.framings[0].supports.push(anchor("A tangent."));
     assert!(g.validate(&r).is_ok());
     g.framings[0].supports.pop();
-    g.framings[0].text = vec!["word"; 46].join(" ");
+    g.parts.outcome = Some(vec!["word"; 46].join(" "));
     assert!(g.validate(&r).is_ok());
     assert_eq!(
         agent_text("PROVISIONAL: uncertain meaning\nPROVISIONAL: conditional cost"),
@@ -575,14 +595,11 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
     let r = host.requests.lock().unwrap()[0].clone();
     let response = serde_json::to_string(&guess(&r)).unwrap();
     let program = dir.path().join("pi");
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms remain candidates' in p\nassert 'Do not manufacture alternatives or false choices' in p\nassert 'No research, tools, execution, approvals, ledger' in p\nassert 'Never alter originals or invent properties of unknown names' in p\nassert 'most consequential unresolved question' in p\nassert 'existing source ID' in p and 'whole Unicode graphemes' in p\nassert 'two to four' not in p and 'EXACT keys' not in p and 'at most 45' not in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms remain candidates' in p\nassert 'preserve compatible aims rather than forcing a choice' in p\nassert 'No research, tools, execution, approvals, ledger' in p\nassert 'Never invent properties of unknown names' in p\nassert 'most consequential missing or vague part' in p\nassert 'existing source ID' in p and 'whole Unicode graphemes' in p\nassert not any(example in p for example in ['way off','usual week','no dashboard','five emails','no gamification','Kirra','restaurateur'])\nassert 'two to four' not in p and 'EXACT keys' not in p and 'at most 45' not in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
     let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
-    assert_eq!(
-        actual.outcome,
-        guess(&host.requests.lock().unwrap()[0]).outcome
-    );
+    assert_eq!(actual.parts, guess(&host.requests.lock().unwrap()[0]).parts);
 }
 
 #[test]
@@ -889,6 +906,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
     g.questions.insert(
         0,
         Question {
+            target: None,
             id: "a-new-id".into(),
             text: "WHAT IS HAMSTER ?".into(),
         },
@@ -897,6 +915,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
     assert_eq!(a.focused_question().unwrap().id, "rss-control");
     let mut g = guess(&r);
     g.questions = vec![Question {
+        target: None,
         id: "reader".into(),
         text: "What is Hamster?".into(),
     }];
@@ -979,6 +998,7 @@ fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
 #[test]
 fn paraphrase_advice_is_logged_without_withholding_or_authorizing() {
     let r = BoardRequest {
+        ask_counts: Default::default(),
         sources: vec![Source {
             id: 1,
             text: "both".into(),
@@ -990,6 +1010,7 @@ fn paraphrase_advice_is_logged_without_withholding_or_authorizing() {
         answered: vec![],
         settled: vec![Settled {
             question: Question {
+                target: None,
                 id: "answered".into(),
                 text: "Harness, codebase, or both?".into(),
             },
@@ -1000,10 +1021,12 @@ fn paraphrase_advice_is_logged_without_withholding_or_authorizing() {
     let mut g = guess(&r);
     g.questions = vec![
         Question {
+            target: None,
             id: "renamed-topic".into(),
             text: "Harness, codebase, or both?".into(),
         },
         Question {
+            target: None,
             id: "boundary".into(),
             text: "When should you taste the result?".into(),
         },

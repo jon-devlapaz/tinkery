@@ -1,0 +1,18 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/active/tinkery)
+error: unexpected closing delimiter: `}`
+   --> src/shaping/brain_dump_tests.rs:560:1
+    |
+540 | fn unresolved_roles_can_overlap_and_long_readings_do_not_veto_a_board() {
+    |                                                                         - the nearest open delimiter
+...
+554 |     g.parts.outcome = Some(vec!["word"); 46].join(" ");
+    |                                -      -    - missing open `[` for this delimiter
+    |                                |      |
+    |                                |      missing open `(` for this delimiter
+    |                                the nearest open delimiter
+...
+560 | }
+    | ^ unexpected closing delimiter
+
+error: could not compile `tinkery` (lib test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

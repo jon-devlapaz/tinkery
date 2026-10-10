@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I want a way to keep track of the     read this year because I usually        
+  books I've read this year. I          forget what I read by december.         
+  usually forget what I read by                                                 
+  december. it would be nice to see     I can                                   
+  them all in one place with a short    I can see all the books I've read this  
+  note on what I thought of each        year in one place, with a short note    
+  one. nothing fancy.                   about what I thought of each one.       
+                                                                                
+                                        so                                      
+                                        I can remember and review my reading    
+                                        Running out of questions doesn't mean   
+                                        I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

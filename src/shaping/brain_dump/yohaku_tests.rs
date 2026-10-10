@@ -273,6 +273,7 @@ fn one_shape_then_one_log_only_audit_never_auto_repairs_or_withholds() {
         )
         .unwrap();
         let r = BoardRequest {
+            ask_counts: Default::default(),
             sources: vec![Source {
                 id: 1,
                 text: "the restaurateur judges the result".into(),

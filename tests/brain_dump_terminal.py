@@ -16,7 +16,7 @@ if 'FAIL' in r['sources'][-1]['text']: print('bad JSON');sys.exit(0)
 if any('WAIT' in s['text'] for s in r['sources']): time.sleep(10)
 anchors=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']]
 q='context' if 'meaning' in r['answered'] else 'meaning'
-print(json.dumps(dict(uncertain=False,framings=[dict(text='Keep review evidence understandable between handovers.',supports=anchors)],outcome='You can distinguish observed evidence from an unreviewed suggestion in a PR thread.',misfits=[],questions=[dict(id=q,text='What would make a handover trustworthy?' if q=='context' else 'Which evidence gets confused?'),dict(id='boundary',text='Who needs this distinction?')],alternatives=[dict(label=l,benefit='Clearer handovers.',cost='Check the workflow.',undo_cost='Unknown.') for l in ['A small receipt / candidate','Link existing evidence / candidate']])))
+print(json.dumps(dict(parts=dict(outcome='Keep review evidence understandable between handovers'),open=['proof'],supports=anchors,misfits=[],questions=[dict(id=q,text='What would make a handover trustworthy?' if q=='context' else 'Which evidence gets confused?'),dict(id='boundary',text='Who needs this distinction?')],alternatives=[dict(label=l,benefit='Clearer handovers.',cost='Check the workflow.',undo_cost='Unknown.') for l in ['A small receipt / candidate','Link existing evidence / candidate']])))
 '''
 def journey(width,height):
  with tempfile.TemporaryDirectory(prefix='tinkery-brain-pty-') as directory:

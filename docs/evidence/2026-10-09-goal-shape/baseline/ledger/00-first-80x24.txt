@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    I think you mean…                       
+  in the morning. its a wall of         Know within about five seconds each     
+  numbers and i dont know what to do    morning whether yesterday went well,    
+  with it. i want to open tinkery       primarily through useful changes per    
+  and in like 5 seconds know if         hour, while making job failures         
+  yesterday went well or not. maybe     visible before they go unnoticed.       
+  one number? useful changes per        One thing I'm not sure about            
+  hour is the one that matters. cost    What specifically should make           
+  too maybe. i dont want a              yesterday count as having gone well: a  
+  dashboard. also the 6am job           target or threshold for useful changes  
+  sometimes fails silently and i        per hour, a comparison with another     
+  only find out days later              day, or something else?                 
+                                        your answer                             
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  2 send   3 review   8 skip   10 menu                                          

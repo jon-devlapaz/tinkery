@@ -1,0 +1,170 @@
+{
+  "action": {
+    "input": "i keep thinking about voice. talking is faster than typing for me when im tired. but maybe the real problem is i dont start dumps at all at night because opening a terminal feels like work. or maybe its both",
+    "kind": "explicit F2"
+  },
+  "actor": "assistant-driven baseline; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "May reduce the effort of typing while tired.",
+        "cost": "May not address the reluctance to open a terminal.",
+        "label": "Voice-first capture",
+        "undo_cost": null
+      },
+      {
+        "benefit": "May address the reason dumps do not start at all.",
+        "cost": "May not solve the typing burden.",
+        "label": "Lower-friction starting point",
+        "undo_cost": null
+      },
+      {
+        "benefit": "Addresses both possibilities.",
+        "cost": "More moving parts to design.",
+        "label": "Combine voice with a lower-friction start",
+        "undo_cost": null
+      }
+    ],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "talking is faster than typing for me when im tired",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "opening a terminal feels like work",
+              "source": 1
+            }
+          ]
+        },
+        "text": "Make starting nighttime thought dumps easier, possibly by using voice, reducing terminal friction, or both."
+      }
+    ],
+    "misfits": [],
+    "outcome": "PROVISIONAL: Begin more nighttime dumps with less effort, while preserving the convenience of speaking when tired.",
+    "questions": [
+      {
+        "id": "model-314eff6ee31b8fc2",
+        "text": "Which matters more to solve first: talking being faster than typing when tired, or opening a terminal feeling like work?"
+      }
+    ],
+    "unresolved_notes": []
+  },
+  "board_available_ms": 7171,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "May reduce the effort of typing while tired.",
+            "cost": "May not address the reluctance to open a terminal.",
+            "label": "Voice-first capture",
+            "undo_cost": ""
+          },
+          {
+            "benefit": "May address the reason dumps do not start at all.",
+            "cost": "May not solve the typing burden.",
+            "label": "Lower-friction starting point",
+            "undo_cost": ""
+          },
+          {
+            "benefit": "Addresses both possibilities.",
+            "cost": "More moving parts to design.",
+            "label": "Combine voice with a lower-friction start",
+            "undo_cost": ""
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "talking is faster than typing for me when im tired",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "opening a terminal feels like work",
+                "source": 1
+              }
+            ],
+            "text": "Make starting nighttime thought dumps easier, possibly by using voice, reducing terminal friction, or both."
+          }
+        ],
+        "misfits": [],
+        "outcome": "PROVISIONAL: Begin more nighttime dumps with less effort, while preserving the convenience of speaking when tired.",
+        "questions": [
+          {
+            "id": "model-314eff6ee31b8fc2",
+            "text": "Which matters more to solve first: talking being faster than typing when tired, or opening a terminal feeling like work?"
+          }
+        ],
+        "uncertain": false,
+        "unresolved_notes": []
+      },
+      "check": "structure-spans-history",
+      "coverage": [],
+      "decision": "pass",
+      "elapsed_ms": 7149,
+      "mode": "blocking",
+      "normalizations": [
+        "Ignored extra question 0 field \"stable_id\"; retained in raw evidence; never authority",
+        "Absent/unreadable optional question 0 ID",
+        "Allocated question ID model-314eff6ee31b8fc2",
+        "Absent/unreadable optional candidate 0 undo_cost",
+        "Absent/unreadable optional candidate 1 undo_cost",
+        "Absent/unreadable optional candidate 2 undo_cost",
+        "Absent unresolved: empty collection",
+        "Absent unresolved notes: empty collection"
+      ],
+      "raw": "{\n  \"framings\": [\n    {\n      \"text\": \"Make starting nighttime thought dumps easier, possibly by using voice, reducing terminal friction, or both.\",\n      \"supports\": [\n        {\n          \"source\": 1,\n          \"quote\": \"talking is faster than typing for me when im tired\",\n          \"occurrence\": 0\n        },\n        {\n          \"source\": 1,\n          \"quote\": \"opening a terminal feels like work\",\n          \"occurrence\": 0\n        }\n      ]\n    }\n  ],\n  \"outcome\": \"PROVISIONAL: Begin more nighttime dumps with less effort, while preserving the convenience of speaking when tired.\",\n  \"alternatives\": [\n    {\n      \"label\": \"Voice-first capture\",\n      \"benefit\": \"May reduce the effort of typing while tired.\",\n      \"cost\": \"May not address the reluctance to open a terminal.\"\n    },\n    {\n      \"label\": \"Lower-friction starting point\",\n      \"benefit\": \"May address the reason dumps do not start at all.\",\n      \"cost\": \"May not solve the typing burden.\"\n    },\n    {\n      \"label\": \"Combine voice with a lower-friction start\",\n      \"benefit\": \"Addresses both possibilities.\",\n      \"cost\": \"More moving parts to design.\"\n    }\n  ],\n  \"questions\": [\n    {\n      \"text\": \"Which matters more to solve first: talking being faster than typing when tired, or opening a terminal feeling like work?\",\n      \"stable_id\": \"priority\"\n    }\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "96c45cb1d616b4c4",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [],
+      "decision": "pass",
+      "elapsed_ms": 6935,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "No whole-board loss identified by the model; not proof of understanding.",
+      "request_key": "96c45cb1d616b4c4",
+      "version": 3
+    }
+  ],
+  "focused_question": {
+    "id": "model-314eff6ee31b8fc2",
+    "text": "Which matters more to solve first: talking being faster than typing when tired, or opening a terminal feeling like work?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Reshaped after submit. Your positions kept; nothing confirmed.",
+  "questions_from_board": [
+    {
+      "id": "model-314eff6ee31b8fc2",
+      "text": "Which matters more to solve first: talking being faster than typing when tired, or opening a terminal feeling like work?"
+    }
+  ],
+  "reading_text": "Make starting nighttime thought dumps easier, possibly by using voice, reducing terminal friction, or both.",
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "i keep thinking about voice. talking is faster than typing for me when im tired. but maybe the real problem is i dont start dumps at all at night because opening a terminal feels like work. or maybe its both"
+    }
+  ],
+  "step_total_ms": 14114
+}

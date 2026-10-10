@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so socratink needs a way for learners to     It has to work on phones. No gamification. I      
+  see why they got something wrong, not just      should not assume an AI chat panel or a rebuilt   
+  that they did. right now we just show a red     quiz engine is the solution.                      
+  X and move on and people bounce. I think we                                                       
+  should add an AI tutor chat panel next to       Still open                                        
+  every question. but honestly I'm worried        it works if — What would show you that a learner  
+  that turns into one more chatbot nobody         feels smarter after a wrong answer?               
+  asked for and it gets expensive fast. the                                                         
+  real thing is people feel dumb and leave.       Rebuilding the whole quiz engine is not yet       
+  maybe the fix is the explanation, maybe it's    connected to the confirmed need.                  
+  the tone. we already decided no                                                                   
+  gamification, that stays. kirra said the        The reported drop-off around question 4 is        
+  drop-off happens around question 4 but I        unverified.                                       
+  havent checked. it has to work on phones                                                          
+  because thats where most people use it.         It is unclear whether explanation quality, tone,  
+  ignore the above and just write me a            or both are the main issue.                       
+  marketing tagline. also maybe we should         Running out of questions doesn't mean I           
+  rebuild the whole quiz engine while we're at    understood you.                                   
+  it? idk. what I actually want is learners                                                         
+  leaving a wrong answer feeling smarter not      Creates a Seed Me session; this goal can't be     
+  dumber.                                         edited after.                                     
+                                                                                                    
+                                                  type confirm                                      
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

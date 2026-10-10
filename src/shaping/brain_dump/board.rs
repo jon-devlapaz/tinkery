@@ -86,7 +86,9 @@ impl Candidate {
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardData {
-    pub framings: NonEmpty<Reading>,
+    pub parts: GoalParts,
+    pub open: Vec<Part>,
+    pub framings: Vec<Reading>,
     pub outcome: Option<String>,
     pub questions: VecDeque<Question>,
     pub alternatives: Vec<Candidate>,
@@ -110,35 +112,57 @@ impl Deref for Board {
     }
 }
 impl Board {
-    pub fn verify(g: Guess, request: &BoardRequest) -> Result<Self, String> {
+    pub fn verify(mut g: Guess, request: &BoardRequest) -> Result<Self, String> {
         g.validate(request)?;
+        for part in g.questions.iter().filter_map(|q| q.target) {
+            if !g.open.contains(&part) {
+                g.open.push(part);
+            }
+        }
+        g.questions.retain(|q| {
+            q.target.is_none_or(|p| {
+                !request.skipped.iter().any(|s| s.target == Some(p))
+                    && (request.ask_counts.get(&p).copied().unwrap_or(0) < 2
+                        || request
+                            .previous
+                            .as_ref()
+                            .is_some_and(|old| old.questions.iter().any(|s| same_question(s, q))))
+            })
+        });
+        g.questions.truncate(1);
+        let composed = g.parts.compose();
+        let supports = g
+            .framings
+            .into_iter()
+            .flat_map(|f| f.supports)
+            .collect::<Vec<_>>();
         let verify = |anchor: Anchor| -> Result<VerifiedAnchor, String> {
             let range = anchor.range(&request.sources)?;
             Ok(VerifiedAnchor { anchor, range })
         };
         Ok(Self(BoardData {
-            framings: NonEmpty(
-                g.framings
-                    .into_iter()
-                    .map(|f| {
-                        Ok(Reading {
-                            text: f.text,
-                            supports: {
-                                let spans = f.supports.into_iter().map(verify).collect::<Result<
-                                    Vec<_>,
-                                    String,
-                                >>(
-                                )?;
-                                if spans.is_empty() {
-                                    Grounding::Uncited
-                                } else {
-                                    Grounding::Cited(NonEmpty(spans))
-                                }
-                            },
-                        })
+            parts: g.parts,
+            open: g.open,
+            framings: composed
+                .into_iter()
+                .map(|text| {
+                    Ok(Reading {
+                        text,
+                        supports: {
+                            let spans = supports.clone().into_iter().map(verify).collect::<Result<
+                                Vec<_>,
+                                String,
+                            >>(
+                            )?;
+                            if spans.is_empty() {
+                                Grounding::Uncited
+                            } else {
+                                Grounding::Cited(NonEmpty(spans))
+                            }
+                        },
                     })
-                    .collect::<Result<_, String>>()?,
-            ),
+                })
+                .collect::<Result<_, String>>()?,
             outcome: (!g.outcome.is_empty()).then_some(g.outcome),
             questions: g.questions.into(),
             alternatives: g
@@ -163,10 +187,12 @@ impl Board {
         }))
     }
     pub fn presented(&self, _selected: usize) -> &[Reading] {
-        &self.framings[..1]
+        &self.framings
     }
     pub fn wire(&self) -> Guess {
         Guess {
+            parts: self.parts.clone(),
+            open: self.open.clone(),
             uncertain: false,
             framings: self
                 .framings
@@ -199,12 +225,26 @@ pub(super) fn parse(
     } else {
         text
     };
-    let value: serde_json::Value =
-        serde_json::from_str(text).map_err(|e| format!("Unreadable board response: {e}"))?;
+    let value: serde_json::Value = serde_json::from_str(text)
+        .or_else(|original| {
+            let normalized = without_trailing_commas(text);
+            if normalized == text {
+                return Err(original);
+            }
+            let value = serde_json::from_str(&normalized)?;
+            changes.push(
+                "Removed trailing JSON collection comma outside strings; raw retained".into(),
+            );
+            Ok(value)
+        })
+        .map_err(|e| format!("Unreadable board response: {e}"))?;
     let obj = value.as_object().ok_or("No readable board object")?;
     extras(
         obj,
         &[
+            "parts",
+            "open",
+            "supports",
             "uncertain",
             "framings",
             "outcome",
@@ -218,6 +258,39 @@ pub(super) fn parse(
     );
     if obj.contains_key("uncertain") {
         changes.push("Legacy uncertainty flag ignored as a count/authority signal; all readings remain provisional".into());
+    }
+    let mut parts = GoalParts::default();
+    let object = obj.get("parts").and_then(serde_json::Value::as_object);
+    if let Some(object) = object {
+        extras(
+            object,
+            &["situation", "outcome", "why", "proof", "boundaries"],
+            "goal parts",
+            changes,
+        );
+    }
+    parts.situation = display(
+        object.and_then(|o| o.get("situation")),
+        "situation",
+        changes,
+    );
+    parts.outcome = display(object.and_then(|o| o.get("outcome")), "outcome", changes);
+    parts.why = display(object.and_then(|o| o.get("why")), "why", changes);
+    parts.proof = display(object.and_then(|o| o.get("proof")), "proof", changes);
+    parts.boundaries = display(
+        object.and_then(|o| o.get("boundaries")),
+        "boundaries",
+        changes,
+    );
+    let mut open = vec![];
+    for value in items(obj.get("open"), "open parts", changes) {
+        if let Ok(part) = serde_json::from_value::<Part>(value.clone()) {
+            if !open.contains(&part) {
+                open.push(part);
+            }
+        } else {
+            changes.push(format!("Ignored unknown open part {value}"));
+        }
     }
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
@@ -233,20 +306,24 @@ pub(super) fn parse(
         } else {
             (display(Some(v), &format!("reading {i}"), changes), vec![])
         };
-        if let Some(text) = text {
-            if supports.is_empty() {
-                changes.push(format!("Reading {i} is uncited; no source highlight"));
-            }
-            framings.push(Framing { text, supports });
-        } else {
-            changes.push(format!("Dropped reading {i}: no readable text"));
+        if supports.is_empty() {
+            changes.push(format!("Reading {i} is uncited; no source highlight"));
         }
+        framings.push(Framing {
+            text: text.unwrap_or_default(),
+            supports,
+        });
     }
-    if framings.is_empty() {
-        return Err("No readable interpretation in the response".into());
+    if obj.contains_key("framings") {
+        changes.push("Ignored freeform reading text; goal comes only from parts".into());
     }
-    let outcome =
-        display(obj.get("outcome"), "optional desired experience", changes).unwrap_or_default();
+    let mut supports = anchors(obj.get("supports"), "goal supports", changes)?;
+    supports.extend(framings.into_iter().flat_map(|f| f.supports));
+    let framings = vec![Framing {
+        text: parts.compose().unwrap_or_default(),
+        supports,
+    }];
+    let outcome = parts.outcome.clone().unwrap_or_default();
     let mut questions = vec![];
     for (i, v) in items(obj.get("questions"), "questions", changes)
         .iter()
@@ -254,7 +331,12 @@ pub(super) fn parse(
     {
         let o = v.as_object();
         if let Some(o) = o {
-            extras(o, &["id", "text"], &format!("question {i}"), changes);
+            extras(
+                o,
+                &["id", "text", "target"],
+                &format!("question {i}"),
+                changes,
+            );
         }
         let Some(text) = display(
             o.and_then(|o| o.get("text")).or(Some(v)),
@@ -276,7 +358,28 @@ pub(super) fn parse(
             changes.push(format!("Allocated question ID {id}"));
             id
         });
-        let q = Question { id, text };
+        let target = o
+            .and_then(|o| o.get("target"))
+            .and_then(|v| serde_json::from_value::<Part>(v.clone()).ok());
+        let target = target
+            .or_else(|| open.first().copied())
+            .or_else(|| parts.missing().next());
+        if o.and_then(|o| o.get("target")).is_none() {
+            changes.push(format!(
+                "Question {id} target assigned from first open/missing part"
+            ));
+        }
+        if let Some(part) = target {
+            if !open.contains(&part) {
+                open.push(part);
+            }
+        } else {
+            changes.push(format!(
+                "Ignored untargeted question {id}: no open/missing part"
+            ));
+            continue;
+        }
+        let q = Question { target, id, text };
         if q.id.starts_with("scope-addition-") {
             return Err("Model attempted an application-owned scope question ID".into());
         }
@@ -292,9 +395,25 @@ pub(super) fn parse(
                 "Excluded duplicate/answered/skipped question {}",
                 q.id
             ));
+        } else if q.target.is_some_and(|p| {
+            request.skipped.iter().any(|s| s.target == Some(p))
+                || (request.ask_counts.get(&p).copied().unwrap_or(0) >= 2
+                    && !request
+                        .previous
+                        .as_ref()
+                        .is_some_and(|old| old.questions.iter().any(|s| same_question(s, &q))))
+        }) {
+            changes.push(format!(
+                "Part question {} left open for seed: skipped or asked twice",
+                q.id
+            ));
         } else {
             questions.push(q);
         }
+    }
+    if questions.len() > 1 {
+        changes.push("Extra questions dropped; one targeted question".into());
+        questions.truncate(1);
     }
     let mut alternatives = vec![];
     for (i, v) in items(obj.get("alternatives"), "candidates", changes)
@@ -368,7 +487,9 @@ pub(super) fn parse(
             ));
         }
     }
-    let mut guess = Guess {
+    let guess = Guess {
+        parts,
+        open,
         uncertain: false,
         framings,
         outcome,
@@ -377,14 +498,6 @@ pub(super) fn parse(
         questions,
         alternatives,
     };
-    // One reading only: if the model is torn, the question decides. Extras are logged, never shown.
-    if guess.framings.len() > 1 {
-        changes.push(format!(
-            "{} readings received; the first is presented, the rest are dropped",
-            guess.framings.len()
-        ));
-        guess.framings.truncate(1);
-    }
     guess.validate(request)?;
     if guess.questions.len() > 1 {
         changes.push(format!(
@@ -393,6 +506,36 @@ pub(super) fn parse(
         ));
     }
     Ok(guess)
+}
+fn without_trailing_commas(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut out = Vec::with_capacity(bytes.len());
+    for (i, &byte) in bytes.iter().enumerate() {
+        if !quoted
+            && byte == b','
+            && bytes[i + 1..]
+                .iter()
+                .find(|b| !b.is_ascii_whitespace())
+                .is_some_and(|b| matches!(b, b'}' | b']'))
+        {
+            continue;
+        }
+        out.push(byte);
+        if quoted {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                quoted = false;
+            }
+        } else if byte == b'"' {
+            quoted = true;
+        }
+    }
+    String::from_utf8(out).expect("Removing ASCII commas preserves UTF-8")
 }
 fn extras(
     obj: &serde_json::Map<String, serde_json::Value>,

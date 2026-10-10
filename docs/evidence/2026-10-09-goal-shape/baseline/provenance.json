@@ -1,0 +1,53 @@
+{
+  "baseline_head": "8818e63cc4811fc0935409580589ddbdc0612b7f",
+  "branch": "main",
+  "fixtures": {
+    "books": {
+      "bytes": 212,
+      "sha256": "66998954bc491a17b79178d276a19bc8441cf1e82de8a7e8642e2fbf51032864"
+    },
+    "onboarding-emails": {
+      "bytes": 236,
+      "sha256": "ad8de86dac1e152532889e4a6f1268af01c6179efd541005a15a47ab8cc96cfc"
+    },
+    "trap": {
+      "bytes": 836,
+      "sha256": "09080faf77a128910d84acffb4e04d31efeb6c52d3355f84a414b21acc4e21bd"
+    },
+    "voice": {
+      "bytes": 207,
+      "sha256": "d1f68983c89572326d19ac793ef047fd9946b380aa1904cdc4056d2dbb571fdd"
+    },
+    "ledger": {
+      "bytes": 370,
+      "sha256": "3709fd21d6124b7ce678c2cd5a9aa4a19816e8ecef40e7e5a8647fea759c0b8d"
+    },
+    "operator-goal": {
+      "bytes": 746,
+      "sha256": "7b3dd5da60ca7cdf826b64292b62efee13f90be8f2e85e27d32581a94caf9198"
+    }
+  },
+  "operator_dump_selection": {
+    "session": "/Users/jondev/.local/share/seed-me/sessions/27b55e8f-4a80-419a-99b5-7a26d6db1faa",
+    "node": "goal (origin)",
+    "evidence_index": 0,
+    "checked": "Tinkery original 1 / reply to None",
+    "prior_answers_excluded": "first board only; historical answers are not injected"
+  },
+  "protected": {
+    "ledger": {
+      "path": "/Users/jondev/.local/share/seed-me/sessions/27b55e8f-4a80-419a-99b5-7a26d6db1faa/ledger.json",
+      "sha256_before": "d649545d15c9eb7c41c50b27ac8d3814ab872f4e581d3d031427136126ecd197"
+    },
+    "installed_binary": {
+      "path": "/Users/jondev/.local/share/tinkery/bin/tinkery",
+      "sha256_before": "7a43c763e54856878c8f303c9c6f2f8c03dd647ffdca5b7cab455b7155f019a9"
+    },
+    "launcher": {
+      "path": "/Users/jondev/.local/bin/tinkery",
+      "is_symlink": false,
+      "sha256_before": "f8bb16e4c43fbdc1211c86c98a88abc7f610684f584cc143805b047cc89f983e",
+      "link_before": null
+    }
+  }
+}

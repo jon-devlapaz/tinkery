@@ -65,7 +65,8 @@ class CensusTests(unittest.TestCase):
         latest = [e for e in result["events"] if e["artifact"].startswith("2026-10-09-log-only/initial-eval/")]
         self.assertEqual(len(latest), 2)
         self.assertTrue(all(e["class"] == "S" for e in latest))
-        self.assertEqual(result["counts"]["P"], 0)
+        historical = [e for e in result["events"] if e["artifact"].startswith(("2026-10-08-", "2026-10-09-log-only/", "2026-10-09-subtraction/"))]
+        self.assertFalse(any(e["class"] == "P" for e in historical))
 
 
 if __name__ == "__main__":

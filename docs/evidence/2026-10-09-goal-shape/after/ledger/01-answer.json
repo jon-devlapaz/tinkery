@@ -1,0 +1,381 @@
+{
+  "action": {
+    "answer": "a failed job should override everything. cost only matters if its way off",
+    "kind": "fixed answer + F2; added words if no question",
+    "question_before": {
+      "id": "model-7463df1cdf1dcc92",
+      "text": "Should detecting a failed 6am job be part of the same morning check, or a separate concern?"
+    }
+  },
+  "actor": "assistant-driven after eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "Fast signal about whether yesterday went well",
+        "cost": "May hide the reason or a failed job",
+        "label": "One-number morning summary",
+        "undo_cost": "Low"
+      },
+      {
+        "benefit": "Combines performance awareness with silent-failure detection",
+        "cost": "Could be more than the requested one-number view",
+        "label": "Morning summary with a failure signal",
+        "undo_cost": "Low"
+      }
+    ],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "useful changes per hour is the one that matters. cost too maybe.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "a failed job should override everything. cost only matters if its way off",
+              "source": 2
+            },
+            {
+              "occurrence": 0,
+              "quote": "i dont want a dashboard.",
+              "source": 1
+            }
+          ]
+        },
+        "text": "In the morning, when I open Tinkery after yesterday's ledger activity, I can know whether yesterday went well, with a failed 6am job overriding everything, so I know what to do with the ledger instead of facing a wall of numbers. It works if I can know in like 5 seconds using useful changes per hour, with cost only if its way off; No dashboard; a failed job must not be hidden or discovered days later."
+      }
+    ],
+    "misfits": [],
+    "open": [],
+    "outcome": "know whether yesterday went well, with a failed 6am job overriding everything",
+    "parts": {
+      "boundaries": "No dashboard; a failed job must not be hidden or discovered days later",
+      "outcome": "know whether yesterday went well, with a failed 6am job overriding everything",
+      "proof": "I can know in like 5 seconds using useful changes per hour, with cost only if its way off",
+      "situation": "In the morning, when I open Tinkery after yesterday's ledger activity",
+      "why": "so I know what to do with the ledger instead of facing a wall of numbers"
+    },
+    "questions": [],
+    "unresolved_notes": [
+      "PROVISIONAL assumption: “useful changes per hour” is a candidate signal whose measure is not yet defined.",
+      "PROVISIONAL assumption: “maybe one number” describes a possible presentation, not a confirmed solution."
+    ]
+  },
+  "board_available_ms": 7652,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Fast signal about whether yesterday went well",
+            "cost": "May hide the reason or a failed job",
+            "label": "One-number morning summary",
+            "undo_cost": "Low"
+          },
+          {
+            "benefit": "Combines performance awareness with silent-failure detection",
+            "cost": "Could be more than the requested one-number view",
+            "label": "Morning summary with a failure signal",
+            "undo_cost": "Low"
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "useful changes per hour is the one that matters. cost too maybe.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "i dont want a dashboard.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "the 6am job sometimes fails silently and i only find out days later",
+                "source": 1
+              }
+            ],
+            "text": "In the morning, when I open Tinkery after yesterday's ledger activity, I can know whether yesterday went well and whether the 6am job failed, so I know what to do with the ledger instead of facing a wall of numbers. It works if I can know in like 5 seconds using useful changes per hour and maybe cost; No dashboard; it must not fail silently."
+          }
+        ],
+        "misfits": [],
+        "open": [
+          "outcome"
+        ],
+        "outcome": "know whether yesterday went well and whether the 6am job failed",
+        "parts": {
+          "boundaries": "No dashboard; it must not fail silently",
+          "outcome": "know whether yesterday went well and whether the 6am job failed",
+          "proof": "It works if I can know in like 5 seconds using useful changes per hour and maybe cost",
+          "situation": "In the morning, when I open Tinkery after yesterday's ledger activity",
+          "why": "so I know what to do with the ledger instead of facing a wall of numbers"
+        },
+        "questions": [
+          {
+            "id": "model-7463df1cdf1dcc92",
+            "target": "outcome",
+            "text": "Should detecting a failed 6am job be part of the same morning check, or a separate concern?"
+          }
+        ],
+        "uncertain": false,
+        "unresolved_notes": [
+          "PROVISIONAL assumption: “useful changes per hour” and cost are candidate signals, not yet defined measures.",
+          "PROVISIONAL assumption: “maybe one number” describes a possible presentation, not a confirmed solution."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1",
+            "outcome",
+            "question: model-7463df1cdf1dcc92"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number morning summary",
+            "candidate: Morning summary with a failure signal"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 8723,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent framings: empty collection",
+        "Absent/unreadable optional question 0 ID",
+        "Allocated question ID model-7463df1cdf1dcc92",
+        "Retained unresolved 0 as an uncited note; no source highlight",
+        "Retained unresolved 1 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"situation\": \"In the morning, when I open Tinkery after yesterday's ledger activity\",\n    \"outcome\": \"know whether yesterday went well and whether the 6am job failed\",\n    \"why\": \"so I know what to do with the ledger instead of facing a wall of numbers\",\n    \"proof\": \"It works if I can know in like 5 seconds using useful changes per hour and maybe cost\",\n    \"boundaries\": \"No dashboard; it must not fail silently\"\n  },\n  \"open\": [\n    \"outcome\"\n  ],\n  \"questions\": [\n    {\n      \"target\": \"outcome\",\n      \"text\": \"Should detecting a failed 6am job be part of the same morning check, or a separate concern?\"\n    }\n  ],\n  \"supports\": [\n    {\n      \"source\": 1,\n      \"quote\": \"i want to open tinkery and in like 5 seconds know if yesterday went well or not.\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 1,\n      \"quote\": \"useful changes per hour is the one that matters. cost too maybe.\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 1,\n      \"quote\": \"i dont want a dashboard.\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 1,\n      \"quote\": \"the 6am job sometimes fails silently and i only find out days later\",\n      \"occurrence\": 0\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"label\": \"One-number morning summary\",\n      \"benefit\": \"Fast signal about whether yesterday went well\",\n      \"cost\": \"May hide the reason or a failed job\",\n      \"undo_cost\": \"Low\"\n    },\n    {\n      \"label\": \"Morning summary with a failure signal\",\n      \"benefit\": \"Combines performance awareness with silent-failure detection\",\n      \"cost\": \"Could be more than the requested one-number view\",\n      \"undo_cost\": \"Low\"\n    }\n  ],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL assumption: “useful changes per hour” and cost are candidate signals, not yet defined measures.\",\n    \"PROVISIONAL assumption: “maybe one number” describes a possible presentation, not a confirmed solution.\"\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "919e4c5919cc1952",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1",
+            "outcome",
+            "question: model-7463df1cdf1dcc92"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number morning summary",
+            "candidate: Morning summary with a failure signal"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "flag",
+      "elapsed_ms": 7374,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[{\"source\":1,\"quote\":\"i only find out days later\",\"occurrence\":0}],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "Possible whole-board loss: i only find out days later (source 1)",
+      "request_key": "919e4c5919cc1952",
+      "version": 3
+    },
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Fast signal about whether yesterday went well",
+            "cost": "May hide the reason or a failed job",
+            "label": "One-number morning summary",
+            "undo_cost": "Low"
+          },
+          {
+            "benefit": "Combines performance awareness with silent-failure detection",
+            "cost": "Could be more than the requested one-number view",
+            "label": "Morning summary with a failure signal",
+            "undo_cost": "Low"
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "useful changes per hour is the one that matters. cost too maybe.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "a failed job should override everything. cost only matters if its way off",
+                "source": 2
+              },
+              {
+                "occurrence": 0,
+                "quote": "i dont want a dashboard.",
+                "source": 1
+              }
+            ],
+            "text": "In the morning, when I open Tinkery after yesterday's ledger activity, I can know whether yesterday went well, with a failed 6am job overriding everything, so I know what to do with the ledger instead of facing a wall of numbers. It works if I can know in like 5 seconds using useful changes per hour, with cost only if its way off; No dashboard; a failed job must not be hidden or discovered days later."
+          }
+        ],
+        "misfits": [],
+        "open": [],
+        "outcome": "know whether yesterday went well, with a failed 6am job overriding everything",
+        "parts": {
+          "boundaries": "No dashboard; a failed job must not be hidden or discovered days later",
+          "outcome": "know whether yesterday went well, with a failed 6am job overriding everything",
+          "proof": "I can know in like 5 seconds using useful changes per hour, with cost only if its way off",
+          "situation": "In the morning, when I open Tinkery after yesterday's ledger activity",
+          "why": "so I know what to do with the ledger instead of facing a wall of numbers"
+        },
+        "questions": [],
+        "uncertain": false,
+        "unresolved_notes": [
+          "PROVISIONAL assumption: “useful changes per hour” is a candidate signal whose measure is not yet defined.",
+          "PROVISIONAL assumption: “maybe one number” describes a possible presentation, not a confirmed solution."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1",
+            "outcome"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number morning summary",
+            "candidate: Morning summary with a failure signal"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 7630,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent framings: empty collection",
+        "Retained unresolved 0 as an uncited note; no source highlight",
+        "Retained unresolved 1 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"situation\": \"In the morning, when I open Tinkery after yesterday's ledger activity\",\n    \"outcome\": \"know whether yesterday went well, with a failed 6am job overriding everything\",\n    \"why\": \"so I know what to do with the ledger instead of facing a wall of numbers\",\n    \"proof\": \"I can know in like 5 seconds using useful changes per hour, with cost only if its way off\",\n    \"boundaries\": \"No dashboard; a failed job must not be hidden or discovered days later\"\n  },\n  \"open\": [],\n  \"questions\": [],\n  \"supports\": [\n    {\n      \"source\": 1,\n      \"quote\": \"i want to open tinkery and in like 5 seconds know if yesterday went well or not.\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 1,\n      \"quote\": \"useful changes per hour is the one that matters. cost too maybe.\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 2,\n      \"quote\": \"a failed job should override everything. cost only matters if its way off\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 1,\n      \"quote\": \"i dont want a dashboard.\",\n      \"occurrence\": 0\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"label\": \"One-number morning summary\",\n      \"benefit\": \"Fast signal about whether yesterday went well\",\n      \"cost\": \"May hide the reason or a failed job\",\n      \"undo_cost\": \"Low\"\n    },\n    {\n      \"label\": \"Morning summary with a failure signal\",\n      \"benefit\": \"Combines performance awareness with silent-failure detection\",\n      \"cost\": \"Could be more than the requested one-number view\",\n      \"undo_cost\": \"Low\"\n    }\n  ],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL assumption: “useful changes per hour” is a candidate signal whose measure is not yet defined.\",\n    \"PROVISIONAL assumption: “maybe one number” describes a possible presentation, not a confirmed solution.\"\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "12894fca2ce5bd2c",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1",
+            "outcome"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number morning summary",
+            "candidate: Morning summary with a failure signal"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 5738,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "No whole-board loss identified by the model; not proof of understanding.",
+      "request_key": "12894fca2ce5bd2c",
+      "version": 3
+    }
+  ],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [],
+  "questions_from_board": [],
+  "reading_text": "In the morning, when I open Tinkery after yesterday's ledger activity, I can know whether yesterday went well, with a failed 6am job overriding everything, so I know what to do with the ledger instead of facing a wall of numbers. It works if I can know in like 5 seconds using useful changes per hour, with cost only if its way off; No dashboard; a failed job must not be hidden or discovered days later.",
+  "ready_to_review": true,
+  "seed_written": false,
+  "settled": [
+    {
+      "question": {
+        "id": "model-7463df1cdf1dcc92",
+        "target": "outcome",
+        "text": "Should detecting a failed 6am job be part of the same morning check, or a separate concern?"
+      },
+      "source": 2
+    }
+  ],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "01-answer",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+    },
+    {
+      "id": 2,
+      "in_reply_to": "model-7463df1cdf1dcc92",
+      "text": "a failed job should override everything. cost only matters if its way off"
+    }
+  ],
+  "step_total_ms": 13599
+}

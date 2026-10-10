@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for                                               
+  learners to see why they got          Still open                              
+  something wrong, not just that        it works if — What would show you that  
+  they did. right now we just show a    a learner feels smarter after a wrong   
+  red X and move on and people          answer?                                 
+  bounce. I think we should add an                                              
+  AI tutor chat panel next to every     Rebuilding the whole quiz engine is     
+  question. but honestly I'm worried    not yet connected to the confirmed      
+  that turns into one more chatbot      need.                                   
+  nobody asked for and it gets                                                  
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

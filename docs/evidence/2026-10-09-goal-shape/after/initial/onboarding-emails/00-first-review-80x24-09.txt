@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I'm worried our onboarding emails                                             
+  are annoying people. we send five     PROVISIONAL assumption: The rising      
+  in the first week and the             unsubscribe rate is related to the      
+  unsubscribe rate keeps going up.      first-week email sequence; this has     
+  marketing loves them though. I        not been established.                   
+  don't want to kill them entirely,                                             
+  I just don't want new users to        The acceptable balance between          
+  feel spammed.                         unsubscribe reduction, user             
+                                        experience, and marketing value is      
+                                        unspecified.                            
+                                        Running out of questions doesn't mean   
+                                        I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

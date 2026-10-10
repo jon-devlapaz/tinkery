@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  i keep thinking about voice. talking is faster than typing for me when      You are confirming                                                                
+  im tired. but maybe the real problem is i dont start dumps at all at        When I’m tired at night, talking is faster than typing, and opening a terminal    
+  night because opening a terminal feels like work. or maybe its both         feels like work, I can determine whether I need voice input, an easier way to     
+                                                                              start dumps, or both, so I can make starting a dump feel less effortful.          
+                                                                                                                                                                
+                                                                              when                                                                              
+                                                                              When I’m tired at night, talking is faster than typing, and opening a terminal    
+                                                                              feels like work.                                                                  
+                                                                                                                                                                
+                                                                              I can                                                                             
+                                                                              I can determine whether I need voice input, an easier way to start dumps, or      
+                                                                              both.                                                                             
+                                                                                                                                                                
+                                                                              so                                                                                
+                                                                              I can make starting a dump feel less effortful.                                   
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              I can — Do you mainly want to identify the biggest source of friction, or design  
+                                                                              a way to start nighttime dumps despite both frictions?                            
+                                                                                                                                                                
+                                                                              it works if — still open                                                          
+                                                                                                                                                                
+                                                                              not — still open                                                                  
+                                                                                                                                                                
+                                                                              PROVISIONAL assumption: the desired change is making nighttime dumps easier to    
+                                                                              start, rather than only understanding the cause.                                  
+                                                                              Running out of questions doesn't mean I understood you.                           
+                                                                                                                                                                
+                                                                              Creates a Seed Me session; this goal can't be edited after.                       
+                                                                                                                                                                
+                                                                              type confirm                                                                      
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

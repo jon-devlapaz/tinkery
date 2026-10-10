@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       I think you mean…                       
+  learners to see why they got          When Socratink learners answer          
+  something wrong, not just that        incorrectly, they currently see a red   
+  they did. right now we just show a    X and may leave, I can leave a wrong    
+  red X and move on and people          answer feeling smarter rather than      
+  bounce. I think we should add an      dumber, so learners understand why      
+  AI tutor chat panel next to every     One thing I'm not sure about            
+  question. but honestly I'm worried    What observable change would show that  
+  that turns into one more chatbot      a learner leaves a wrong answer         
+  nobody asked for and it gets          feeling smarter?                        
+  expensive fast. the real thing is                                             
+  people feel dumb and leave. maybe                                             
+  the fix is the explanation, maybe     your answer                             
+  it's the tone. we already decided                                             
+  no gamification, that stays. kirra                                            
+  said the drop-off happens around                                              
+  question 4 but I havent checked.                                              
+  ↓ more                                                                        
+                                                                                
+  2 send   3 review   8 skip   10 menu                                          

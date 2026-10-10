@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I have been trying so hard to work    software development lifecycle, I can   
+  on a system that compounds itself     take work from a brain dump, prompt,    
+  and serves as a meta harness. its     hunch, or intuition through a           
+  a human first board for               cohesive, rigorous, durable, verified   
+  coordinainting work from the          change to a PR ready for human review,  
+  entire continuum of agentic           so The system helps me consider the     
+  software development lifecycle        health of the whole codebase—the        
+  that has the rigor and durability     forest, not just the trees—and makes    
+  and cohesive and verification that    the next change easier. I want a        
+  all 'just work's and thinks about     human-first system in which I am the    
+  the future of any code base it        Running out of questions doesn't mean   
+  works on. not just the trees, but     I understood you.                       
+  the forest. it should operate like                                            
+  a michellin star resteraunt and I     Creates a Seed Me session; this goal    
+  am the resterauntaur that tastes      can't be edited after.                  
+  the final delicious product. it                                               
+  goes from this part (the brain        type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

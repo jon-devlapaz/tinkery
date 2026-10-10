@@ -25,6 +25,7 @@ fn audit_attempt(args: &[String]) {
         .as_str()
         .expect("Exact earlier shaping response required");
     let request = BoardRequest {
+        ask_counts: Default::default(),
         sources: vec![Source {
             id: 1,
             text: source.clone(),

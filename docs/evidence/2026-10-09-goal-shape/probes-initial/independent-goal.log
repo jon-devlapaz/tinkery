@@ -1,0 +1,33 @@
+
+running 1 test
+test shaping::brain_dump::c16_tests::quiet_review_freezes_present_parts_and_identical_goal_without_missing_lines ... FAILED
+
+failures:
+
+---- shaping::brain_dump::c16_tests::quiet_review_freezes_present_parts_and_identical_goal_without_missing_lines stdout ----
+
+thread 'shaping::brain_dump::c16_tests::quiet_review_freezes_present_parts_and_identical_goal_without_missing_lines' (61862890) panicked at src/shaping/brain_dump/c16_tests.rs:367:9:
+assertion `left == right` failed
+  left: "see five emails in the first week"
+ right: "I can see five emails in the first week. phones; no gamification; Kirra's claim remains unverified."
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::c16_tests::quiet_review_freezes_present_parts_and_identical_goal_without_missing_lines
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 118 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-probes-9j_8t5wi/repo)
+warning: unused variable: `goal`
+  --> src/shaping/brain_dump/goal_view.rs:38:18
+   |
+38 |         let Some(goal) = g.parts.compose() else {
+   |                  ^^^^ help: if this is intentional, prefix it with an underscore: `_goal`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning (run `cargo fix --lib -p tinkery --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.77s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-probes-9j_8t5wi/target/debug/deps/tinkery-23622fe9a6aabf91)
+error: test failed, to rerun pass `--lib`

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    It works if I can know in like 5        
+  in the morning. its a wall of         seconds using useful changes per hour   
+  numbers and i dont know what to do    and maybe cost                          
+  with it. i want to open tinkery                                               
+  and in like 5 seconds know if         not                                     
+  yesterday went well or not. maybe     No dashboard; it must not fail          
+  one number? useful changes per        silently                                
+  hour is the one that matters. cost                                            
+  too maybe. i dont want a              Still open                              
+  dashboard. also the 6am job           I can — Should detecting a failed 6am   
+  sometimes fails silently and i        Running out of questions doesn't mean   
+  only find out days later              I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

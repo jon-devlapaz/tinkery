@@ -1,0 +1,2 @@
+cargo build --lib --locked --message-format=json
+rustc --edition=2024 /tmp/tinkery-c16-after.rs -L dependency=target/debug/deps --extern tinkery=/Users/jondev/dev/active/tinkery/target/debug/libtinkery.rlib --extern serde_json=/Users/jondev/dev/active/tinkery/target/debug/deps/libserde_json-86e149e43221e071.rlib --extern crossterm=/Users/jondev/dev/active/tinkery/target/debug/deps/libcrossterm-71685f24724d5e55.rlib -o /tmp/tinkery-c16-after-final

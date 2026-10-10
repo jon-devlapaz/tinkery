@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I'm worried our onboarding emails     I can — What do you want to be able to  
+  are annoying people. we send five     know, decide, or do about the           
+  in the first week and the             onboarding emails?                      
+  unsubscribe rate keeps going up.                                              
+  marketing loves them though. I        it works if — still open                
+  don't want to kill them entirely,                                             
+  I just don't want new users to        PROVISIONAL assumption: the desired     
+  feel spammed.                         outcome may be a decision about         
+                                        changing the onboarding email           
+                                        sequence.                               
+                                        Running out of questions doesn't mean   
+                                        I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

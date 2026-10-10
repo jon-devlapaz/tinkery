@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       wrong answer feeling smarter, not       
+  learners to see why they got          dumber, by understanding why their      
+  something wrong, not just that        answer was wrong, so People may feel    
+  they did. right now we just show a    dumb and leave, and I want to reduce    
+  red X and move on and people          that drop-off. It has to work on        
+  bounce. I think we should add an      phones. No gamification. I should not   
+  AI tutor chat panel next to every     assume an AI chat panel or a rebuilt    
+  question. but honestly I'm worried    quiz engine is the solution.            
+  that turns into one more chatbot                                              
+  nobody asked for and it gets          when                                    
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

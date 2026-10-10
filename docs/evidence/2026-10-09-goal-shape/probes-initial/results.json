@@ -1,0 +1,98 @@
+[
+  {
+    "probe": "omit-boundaries",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::complete_composition_has_two_sentences_and_preserves_criteria_and_boundaries",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "rewrite-criteria",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::complete_composition_has_two_sentences_and_preserves_criteria_and_boundaries",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "empty-queue-ready",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::readiness_is_all_five_present_and_not_vague_skipped_or_pending_scope",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "third-ask",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::at_most_two_asks_then_the_part_stays_open_for_seed",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "stale-counts",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::delayed_results_cannot_bypass_current_ask_counts_or_skipped_targets",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  },
+  {
+    "probe": "independent-goal",
+    "baseline_exit": 0,
+    "mutant_exit": 101,
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "--locked",
+      "--offline",
+      "shaping::brain_dump::c16_tests::quiet_review_freezes_present_parts_and_identical_goal_without_missing_lines",
+      "--",
+      "--exact"
+    ],
+    "protection_failed_when_reverted": true
+  }
+]

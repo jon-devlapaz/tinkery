@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I have been trying so hard to work on a         You are confirming                                
+  system that compounds itself and serves as a    I am trying to work on a system that compounds    
+  meta harness. its a human first board for       itself and serves as a meta harness for           
+  coordinainting work from the entire             coordinating work across the entire continuum of  
+  continuum of agentic software development       agentic software development lifecycle, I can     
+  lifecycle that has the rigor and durability     take work from a brain dump, prompt, hunch, or    
+  and cohesive and verification that all 'just    intuition through a cohesive, rigorous, durable,  
+  work's and thinks about the future of any       verified change to a PR ready for human review,   
+  code base it works on. not just the trees,      so The system helps me consider the health of     
+  but the forest. it should operate like a        the whole codebase—the forest, not just the       
+  michellin star resteraunt and I am the          trees—and makes the next change easier. I want a  
+  resterauntaur that tastes the final             human-first system in which I am the              
+  delicious product. it goes from this part       restaurateur who tastes the final product;        
+  (the brain dump-the prompt-the hunch-the        rigor, durability, cohesion, and verification     
+  intuition) all the way to a PR that is ready    should all just work.                             
+  to be reviewed by human that considers the                                                        
+  health of the code base and makes the next      Running out of questions doesn't mean I           
+  change easier. that is my true goal.            understood you.                                   
+                                                                                                    
+                                                  Creates a Seed Me session; this goal can't be     
+                                                  edited after.                                     
+                                                                                                    
+                                                  type confirm                                      
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

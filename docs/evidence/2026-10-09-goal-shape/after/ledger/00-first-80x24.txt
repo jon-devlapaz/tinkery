@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    I think you mean…                       
+  in the morning. its a wall of         In the morning, when I open Tinkery     
+  numbers and i dont know what to do    after yesterday's ledger activity, I    
+  with it. i want to open tinkery       can know whether yesterday went well    
+  and in like 5 seconds know if         and whether the 6am job failed, so I    
+  yesterday went well or not. maybe     know what to do with the ledger         
+  one number? useful changes per        One thing I'm not sure about            
+  hour is the one that matters. cost    Should detecting a failed 6am job be    
+  too maybe. i dont want a              part of the same morning check, or a    
+  dashboard. also the 6am job           separate concern?                       
+  sometimes fails silently and i                                                
+  only find out days later                                                      
+                                        your answer                             
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  2 send   3 review   8 skip   10 menu                                          

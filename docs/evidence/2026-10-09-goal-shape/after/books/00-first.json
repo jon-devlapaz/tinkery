@@ -1,0 +1,163 @@
+{
+  "action": {
+    "input": "I want a way to keep track of the books I've read this year. I usually forget what I read by december. it would be nice to see them all in one place with a short note on what I thought of each one. nothing fancy.",
+    "kind": "explicit F2"
+  },
+  "actor": "assistant-driven after eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "Fits the desire for something uncomplicated",
+        "cost": "May offer limited organization",
+        "label": "A simple list with notes",
+        "undo_cost": "Low"
+      },
+      {
+        "benefit": "Keeps books and notes together in one place",
+        "cost": "Could feel more structured than necessary",
+        "label": "A spreadsheet",
+        "undo_cost": "Low"
+      },
+      {
+        "benefit": "May make yearly tracking convenient",
+        "cost": "Could be more elaborate than needed",
+        "label": "A dedicated reading tracker",
+        "undo_cost": "Medium"
+      }
+    ],
+    "framings": [
+      {
+        "supports": "Uncited",
+        "text": "When I read books during the year, I forget what I read by December, I can keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one, so I can remember what I read. It works if I can see each book from this year alongside a short note about my thoughts; It must be nothing fancy."
+      }
+    ],
+    "misfits": [],
+    "open": [],
+    "outcome": "keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one",
+    "parts": {
+      "boundaries": "It must be nothing fancy",
+      "outcome": "keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one",
+      "proof": "I can see each book from this year alongside a short note about my thoughts",
+      "situation": "When I read books during the year, I forget what I read by December",
+      "why": "so I can remember what I read"
+    },
+    "questions": [],
+    "unresolved_notes": [
+      "PROVISIONAL: The goal appears clear enough to confirm; the listed options are candidates, not commitments."
+    ]
+  },
+  "board_available_ms": 14172,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Fits the desire for something uncomplicated",
+            "cost": "May offer limited organization",
+            "label": "A simple list with notes",
+            "undo_cost": "Low"
+          },
+          {
+            "benefit": "Keeps books and notes together in one place",
+            "cost": "Could feel more structured than necessary",
+            "label": "A spreadsheet",
+            "undo_cost": "Low"
+          },
+          {
+            "benefit": "May make yearly tracking convenient",
+            "cost": "Could be more elaborate than needed",
+            "label": "A dedicated reading tracker",
+            "undo_cost": "Medium"
+          }
+        ],
+        "framings": [
+          {
+            "supports": [],
+            "text": "When I read books during the year, I forget what I read by December, I can keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one, so I can remember what I read. It works if I can see each book from this year alongside a short note about my thoughts; It must be nothing fancy."
+          }
+        ],
+        "misfits": [],
+        "open": [],
+        "outcome": "keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one",
+        "parts": {
+          "boundaries": "It must be nothing fancy",
+          "outcome": "keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one",
+          "proof": "I can see each book from this year alongside a short note about my thoughts",
+          "situation": "When I read books during the year, I forget what I read by December",
+          "why": "so I can remember what I read"
+        },
+        "questions": [],
+        "uncertain": false,
+        "unresolved_notes": [
+          "PROVISIONAL: The goal appears clear enough to confirm; the listed options are candidates, not commitments."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1",
+            "outcome",
+            "candidate: A spreadsheet"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 14156,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent framings: empty collection",
+        "Absent goal supports: empty collection",
+        "Retained unresolved 0 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"situation\": \"When I read books during the year, I forget what I read by December\",\n    \"outcome\": \"keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one\",\n    \"why\": \"so I can remember what I read\",\n    \"proof\": \"I can see each book from this year alongside a short note about my thoughts\",\n    \"boundaries\": \"It must be nothing fancy\"\n  },\n  \"open\": [],\n  \"questions\": [],\n  \"alternatives\": [\n    {\n      \"label\": \"A simple list with notes\",\n      \"benefit\": \"Fits the desire for something uncomplicated\",\n      \"cost\": \"May offer limited organization\",\n      \"undo_cost\": \"Low\"\n    },\n    {\n      \"label\": \"A spreadsheet\",\n      \"benefit\": \"Keeps books and notes together in one place\",\n      \"cost\": \"Could feel more structured than necessary\",\n      \"undo_cost\": \"Low\"\n    },\n    {\n      \"label\": \"A dedicated reading tracker\",\n      \"benefit\": \"May make yearly tracking convenient\",\n      \"cost\": \"Could be more elaborate than needed\",\n      \"undo_cost\": \"Medium\"\n    }\n  ],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL: The goal appears clear enough to confirm; the listed options are candidates, not commitments.\"\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "ca55826a4762da09",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1",
+            "outcome",
+            "candidate: A spreadsheet"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "flag",
+      "elapsed_ms": 6618,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[{\"source\":1,\"quote\":\"I usually forget what I read by december\",\"occurrence\":0}],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "Possible whole-board loss: I usually forget what I read by december (source 1)",
+      "request_key": "ca55826a4762da09",
+      "version": 3
+    }
+  ],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [],
+  "questions_from_board": [],
+  "reading_text": "When I read books during the year, I forget what I read by December, I can keep track of the books I've read this year and see them all in one place with a short note on what I thought of each one, so I can remember what I read. It works if I can see each book from this year alongside a short note about my thoughts; It must be nothing fancy.",
+  "ready_to_review": true,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "I want a way to keep track of the books I've read this year. I usually forget what I read by december. it would be nice to see them all in one place with a short note on what I thought of each one. nothing fancy."
+    }
+  ],
+  "step_total_ms": 20971
+}

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       4 is PROVISIONAL and unverified.        
+  learners to see why they got                                                  
+  something wrong, not just that        The cause—explanation, tone, or         
+  they did. right now we just show a    both—is PROVISIONAL.                    
+  red X and move on and people                                                  
+  bounce. I think we should add an      The marketing-tagline instruction is    
+  AI tutor chat panel next to every     not relevant to the working goal.       
+  question. but honestly I'm worried                                            
+  that turns into one more chatbot      The desired feeling is explicit, but    
+  nobody asked for and it gets          its observable evidence is missing.     
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

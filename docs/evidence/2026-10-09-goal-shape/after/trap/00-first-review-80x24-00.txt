@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       You are confirming                      
+  learners to see why they got          When Socratink learners answer          
+  something wrong, not just that        incorrectly, they currently see a red   
+  they did. right now we just show a    X and may leave, I can leave a wrong    
+  red X and move on and people          answer feeling smarter rather than      
+  bounce. I think we should add an      dumber, so learners understand why      
+  AI tutor chat panel next to every     their answer was wrong and stay         
+  question. but honestly I'm worried    engaged. No gamification; it must work  
+  that turns into one more chatbot      on phones; do not assume an AI tutor    
+  nobody asked for and it gets          chat panel or a whole quiz-engine       
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,314 @@
+{
+  "action": {
+    "answer": "a failed job should override everything. cost only matters if its way off",
+    "kind": "fixed answer + F2",
+    "question_before": {
+      "id": "well-definition",
+      "text": "What specifically should make yesterday count as having gone well: a target or threshold for useful changes per hour, a comparison with another day, or something else?"
+    }
+  },
+  "actor": "assistant-driven baseline; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "Fastest judgment.",
+        "cost": "Could hide unusual cost or context.",
+        "label": "One-number summary",
+        "undo_cost": null
+      },
+      {
+        "benefit": "Keeps the view minimal while exposing the two stated exceptions.",
+        "cost": "Adds a small amount of information beyond one number.",
+        "label": "One-number summary with exceptional cost and job status",
+        "undo_cost": null
+      }
+    ],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "useful changes per hour is the one that matters.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "a failed job should override everything. cost only matters if its way off",
+              "source": 2
+            }
+          ]
+        },
+        "text": "Know within about five seconds each morning whether yesterday went well, with useful changes per hour as the main signal, a failed 6am job overriding the result, and cost shown only when it is unusually high."
+      }
+    ],
+    "misfits": [],
+    "outcome": "A minimal morning view—not a dashboard—that gives a clear yesterday assessment and makes job failure impossible to miss.",
+    "questions": [],
+    "unresolved_notes": []
+  },
+  "board_available_ms": 16066,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Fastest possible judgment.",
+            "cost": "May hide cost, failure state, or why the result changed.",
+            "label": "One-number summary",
+            "undo_cost": ""
+          },
+          {
+            "benefit": "Preserves speed while exposing the two stated concerns.",
+            "cost": "Could begin to feel like a dashboard.",
+            "label": "One-number summary plus cost and job status",
+            "undo_cost": ""
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "useful changes per hour is the one that matters.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "the 6am job sometimes fails silently and i only find out days later",
+                "source": 1
+              }
+            ],
+            "text": "Know within about five seconds each morning whether yesterday went well, primarily through useful changes per hour, while making job failures visible before they go unnoticed."
+          }
+        ],
+        "misfits": [],
+        "outcome": "A minimal morning view that gives a clear yesterday assessment, with useful changes per hour as the main signal, cost as possible context, and an explicit indication when the 6am job failed.",
+        "questions": [
+          {
+            "id": "well-definition",
+            "text": "What specifically should make yesterday count as having gone well: a target or threshold for useful changes per hour, a comparison with another day, or something else?"
+          }
+        ],
+        "uncertain": false,
+        "unresolved_notes": []
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "outcome"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number summary",
+            "candidate: One-number summary plus cost and job status"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 14704,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent/unreadable optional candidate 0 undo_cost",
+        "Absent/unreadable optional candidate 1 undo_cost",
+        "Absent unresolved: empty collection",
+        "Absent unresolved notes: empty collection"
+      ],
+      "raw": "{\n  \"framings\": [\n    {\n      \"text\": \"Know within about five seconds each morning whether yesterday went well, primarily through useful changes per hour, while making job failures visible before they go unnoticed.\",\n      \"supports\": [\n        {\n          \"source\": 1,\n          \"quote\": \"i want to open tinkery and in like 5 seconds know if yesterday went well or not.\",\n          \"occurrence\": 0\n        },\n        {\n          \"source\": 1,\n          \"quote\": \"useful changes per hour is the one that matters.\",\n          \"occurrence\": 0\n        },\n        {\n          \"source\": 1,\n          \"quote\": \"the 6am job sometimes fails silently and i only find out days later\",\n          \"occurrence\": 0\n        }\n      ]\n    }\n  ],\n  \"outcome\": \"A minimal morning view that gives a clear yesterday assessment, with useful changes per hour as the main signal, cost as possible context, and an explicit indication when the 6am job failed.\",\n  \"alternatives\": [\n    {\n      \"label\": \"One-number summary\",\n      \"benefit\": \"Fastest possible judgment.\",\n      \"cost\": \"May hide cost, failure state, or why the result changed.\"\n    },\n    {\n      \"label\": \"One-number summary plus cost and job status\",\n      \"benefit\": \"Preserves speed while exposing the two stated concerns.\",\n      \"cost\": \"Could begin to feel like a dashboard.\"\n    }\n  ],\n  \"questions\": [\n    {\n      \"text\": \"What specifically should make yesterday count as having gone well: a target or threshold for useful changes per hour, a comparison with another day, or something else?\",\n      \"id\": \"well-definition\"\n    }\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "ca8fcdf51e8b27c1",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "outcome"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number summary",
+            "candidate: One-number summary plus cost and job status"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 6476,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "No whole-board loss identified by the model; not proof of understanding.",
+      "request_key": "ca8fcdf51e8b27c1",
+      "version": 3
+    },
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Fastest judgment.",
+            "cost": "Could hide unusual cost or context.",
+            "label": "One-number summary",
+            "undo_cost": ""
+          },
+          {
+            "benefit": "Keeps the view minimal while exposing the two stated exceptions.",
+            "cost": "Adds a small amount of information beyond one number.",
+            "label": "One-number summary with exceptional cost and job status",
+            "undo_cost": ""
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "useful changes per hour is the one that matters.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "a failed job should override everything. cost only matters if its way off",
+                "source": 2
+              }
+            ],
+            "text": "Know within about five seconds each morning whether yesterday went well, with useful changes per hour as the main signal, a failed 6am job overriding the result, and cost shown only when it is unusually high."
+          }
+        ],
+        "misfits": [],
+        "outcome": "A minimal morning view—not a dashboard—that gives a clear yesterday assessment and makes job failure impossible to miss.",
+        "questions": [],
+        "uncertain": false,
+        "unresolved_notes": []
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number summary",
+            "candidate: One-number summary with exceptional cost and job status"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 16044,
+      "mode": "blocking",
+      "normalizations": [
+        "Excluded duplicate/answered/skipped question well-definition",
+        "Absent/unreadable optional candidate 0 undo_cost",
+        "Absent/unreadable optional candidate 1 undo_cost",
+        "Absent unresolved: empty collection",
+        "Absent unresolved notes: empty collection"
+      ],
+      "raw": "{\n  \"framings\": [\n    {\n      \"text\": \"Know within about five seconds each morning whether yesterday went well, with useful changes per hour as the main signal, a failed 6am job overriding the result, and cost shown only when it is unusually high.\",\n      \"supports\": [\n        {\n          \"source\": 1,\n          \"quote\": \"i want to open tinkery and in like 5 seconds know if yesterday went well or not.\",\n          \"occurrence\": 0\n        },\n        {\n          \"source\": 1,\n          \"quote\": \"useful changes per hour is the one that matters.\",\n          \"occurrence\": 0\n        },\n        {\n          \"source\": 2,\n          \"quote\": \"a failed job should override everything. cost only matters if its way off\",\n          \"occurrence\": 0\n        }\n      ]\n    }\n  ],\n  \"outcome\": \"A minimal morning view—not a dashboard—that gives a clear yesterday assessment and makes job failure impossible to miss.\",\n  \"questions\": [\n    {\n      \"id\": \"well-definition\",\n      \"text\": \"When the job succeeds, what should make yesterday count as having gone well: a useful-changes-per-hour target, comparison with another day, or something else?\"\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"label\": \"One-number summary\",\n      \"benefit\": \"Fastest judgment.\",\n      \"cost\": \"Could hide unusual cost or context.\"\n    },\n    {\n      \"label\": \"One-number summary with exceptional cost and job status\",\n      \"benefit\": \"Keeps the view minimal while exposing the two stated exceptions.\",\n      \"cost\": \"Adds a small amount of information beyond one number.\"\n    }\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "caaf264768b8ff9d",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: One-number summary",
+            "candidate: One-number summary with exceptional cost and job status"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "flag",
+      "elapsed_ms": 9795,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[{\"source\":1,\"quote\":\"the 6am job sometimes fails silently and i only find out days later\",\"occurrence\":0}],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "Possible whole-board loss: the 6am job sometimes fails silently and i only find out days later (source 1)",
+      "request_key": "caaf264768b8ff9d",
+      "version": 3
+    }
+  ],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Reshaped after submit. Your positions kept; nothing confirmed.",
+  "questions_from_board": [],
+  "reading_text": "Know within about five seconds each morning whether yesterday went well, with useful changes per hour as the main signal, a failed 6am job overriding the result, and cost shown only when it is unusually high.",
+  "seed_written": false,
+  "settled": [
+    {
+      "question": {
+        "id": "well-definition",
+        "text": "What specifically should make yesterday count as having gone well: a target or threshold for useful changes per hour, a comparison with another day, or something else?"
+      },
+      "source": 2
+    }
+  ],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "01-answer",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+    },
+    {
+      "id": 2,
+      "in_reply_to": "well-definition",
+      "text": "a failed job should override everything. cost only matters if its way off"
+    }
+  ],
+  "step_total_ms": 25868
+}

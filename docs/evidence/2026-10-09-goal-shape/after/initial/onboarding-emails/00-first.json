@@ -1,0 +1,192 @@
+{
+  "action": {
+    "input": "I'm worried our onboarding emails are annoying people. we send five in the first week and the unsubscribe rate keeps going up. marketing loves them though. I don't want to kill them entirely, I just don't want new users to feel spammed.",
+    "kind": "explicit F2"
+  },
+  "actor": "assistant-driven after eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "Preserves the existing onboarding and marketing structure.",
+        "cost": "May not sufficiently reduce the feeling of spam.",
+        "label": "Keep five emails but revise their content or timing",
+        "undo_cost": "PROVISIONAL: Changes could require restoring prior content or timing."
+      },
+      {
+        "benefit": "Could reduce perceived spam and unsubscribes.",
+        "cost": "May reduce marketing reach or onboarding coverage.",
+        "label": "Reduce or condition the number of first-week emails",
+        "undo_cost": "PROVISIONAL: Some missed communication may not be recoverable."
+      }
+    ],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "I don't want to kill them entirely, I just don't want new users to feel spammed.",
+              "source": 1
+            }
+          ]
+        },
+        "text": "I'm worried our onboarding emails are annoying people, while marketing values them, I can decide whether and how to change the first-week onboarding emails without eliminating them entirely, so I want new users not to feel spammed while preserving useful marketing value. I don't want to kill the emails entirely, and they must not make new users feel spammed."
+      }
+    ],
+    "misfits": [],
+    "open": [
+      "proof"
+    ],
+    "outcome": "I can decide whether and how to change the first-week onboarding emails without eliminating them entirely.",
+    "parts": {
+      "boundaries": "I don't want to kill the emails entirely, and they must not make new users feel spammed.",
+      "outcome": "I can decide whether and how to change the first-week onboarding emails without eliminating them entirely.",
+      "proof": null,
+      "situation": "I'm worried our onboarding emails are annoying people, while marketing values them.",
+      "why": "I want new users not to feel spammed while preserving useful marketing value."
+    },
+    "questions": [
+      {
+        "id": "model-8e04ab2098d0cddc",
+        "target": "proof",
+        "text": "What would convince you that the onboarding emails are no longer causing an unacceptable annoyance?"
+      }
+    ],
+    "unresolved_notes": [
+      "PROVISIONAL assumption: The rising unsubscribe rate is related to the first-week email sequence; this has not been established.",
+      "The acceptable balance between unsubscribe reduction, user experience, and marketing value is unspecified."
+    ]
+  },
+  "board_available_ms": 7945,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "Preserves the existing onboarding and marketing structure.",
+            "cost": "May not sufficiently reduce the feeling of spam.",
+            "label": "Keep five emails but revise their content or timing",
+            "undo_cost": "PROVISIONAL: Changes could require restoring prior content or timing."
+          },
+          {
+            "benefit": "Could reduce perceived spam and unsubscribes.",
+            "cost": "May reduce marketing reach or onboarding coverage.",
+            "label": "Reduce or condition the number of first-week emails",
+            "undo_cost": "PROVISIONAL: Some missed communication may not be recoverable."
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "I don't want to kill them entirely, I just don't want new users to feel spammed.",
+                "source": 1
+              }
+            ],
+            "text": "I'm worried our onboarding emails are annoying people, while marketing values them, I can decide whether and how to change the first-week onboarding emails without eliminating them entirely, so I want new users not to feel spammed while preserving useful marketing value. I don't want to kill the emails entirely, and they must not make new users feel spammed."
+          }
+        ],
+        "misfits": [],
+        "open": [
+          "proof"
+        ],
+        "outcome": "I can decide whether and how to change the first-week onboarding emails without eliminating them entirely.",
+        "parts": {
+          "boundaries": "I don't want to kill the emails entirely, and they must not make new users feel spammed.",
+          "outcome": "I can decide whether and how to change the first-week onboarding emails without eliminating them entirely.",
+          "proof": null,
+          "situation": "I'm worried our onboarding emails are annoying people, while marketing values them.",
+          "why": "I want new users not to feel spammed while preserving useful marketing value."
+        },
+        "questions": [
+          {
+            "id": "model-8e04ab2098d0cddc",
+            "target": "proof",
+            "text": "What would convince you that the onboarding emails are no longer causing an unacceptable annoyance?"
+          }
+        ],
+        "uncertain": false,
+        "unresolved_notes": [
+          "PROVISIONAL assumption: The rising unsubscribe rate is related to the first-week email sequence; this has not been established.",
+          "The acceptable balance between unsubscribe reduction, user experience, and marketing value is unspecified."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "candidate: Keep five emails but revise their content or timing"
+          ],
+          "term": "five"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 7922,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent/unreadable optional proof",
+        "Absent framings: empty collection",
+        "Absent/unreadable optional question 0 ID",
+        "Allocated question ID model-8e04ab2098d0cddc",
+        "Retained unresolved 0 as an uncited note; no source highlight",
+        "Retained unresolved 1 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"situation\": \"I'm worried our onboarding emails are annoying people, while marketing values them.\",\n    \"outcome\": \"I can decide whether and how to change the first-week onboarding emails without eliminating them entirely.\",\n    \"why\": \"I want new users not to feel spammed while preserving useful marketing value.\",\n    \"proof\": \"\",\n    \"boundaries\": \"I don't want to kill the emails entirely, and they must not make new users feel spammed.\"\n  },\n  \"open\": [\"proof\"],\n  \"questions\": [\n    {\n      \"target\": \"proof\",\n      \"text\": \"What would convince you that the onboarding emails are no longer causing an unacceptable annoyance?\"\n    }\n  ],\n  \"supports\": [\n    {\n      \"source\": 1,\n      \"quote\": \"I don't want to kill them entirely, I just don't want new users to feel spammed.\",\n      \"occurrence\": 0\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"label\": \"Keep five emails but revise their content or timing\",\n      \"benefit\": \"Preserves the existing onboarding and marketing structure.\",\n      \"cost\": \"May not sufficiently reduce the feeling of spam.\",\n      \"undo_cost\": \"PROVISIONAL: Changes could require restoring prior content or timing.\"\n    },\n    {\n      \"label\": \"Reduce or condition the number of first-week emails\",\n      \"benefit\": \"Could reduce perceived spam and unsubscribes.\",\n      \"cost\": \"May reduce marketing reach or onboarding coverage.\",\n      \"undo_cost\": \"PROVISIONAL: Some missed communication may not be recoverable.\"\n    }\n  ],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL assumption: The rising unsubscribe rate is related to the first-week email sequence; this has not been established.\",\n    \"The acceptable balance between unsubscribe reduction, user experience, and marketing value is unspecified.\"\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "880a6d54cef7b50c",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "candidate: Keep five emails but revise their content or timing"
+          ],
+          "term": "five"
+        }
+      ],
+      "decision": "flag",
+      "elapsed_ms": 7363,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[{\"source\":1,\"quote\":\"the unsubscribe rate keeps going up\",\"occurrence\":0}],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "Possible whole-board loss: the unsubscribe rate keeps going up (source 1)",
+      "request_key": "880a6d54cef7b50c",
+      "version": 3
+    }
+  ],
+  "focused_question": {
+    "id": "model-8e04ab2098d0cddc",
+    "text": "What would convince you that the onboarding emails are no longer causing an unacceptable annoyance?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [
+    "proof"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-8e04ab2098d0cddc",
+      "text": "What would convince you that the onboarding emails are no longer causing an unacceptable annoyance?"
+    }
+  ],
+  "reading_text": "I'm worried our onboarding emails are annoying people, while marketing values them, I can decide whether and how to change the first-week onboarding emails without eliminating them entirely, so I want new users not to feel spammed while preserving useful marketing value. I don't want to kill the emails entirely, and they must not make new users feel spammed.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "I'm worried our onboarding emails are annoying people. we send five in the first week and the unsubscribe rate keeps going up. marketing loves them though. I don't want to kill them entirely, I just don't want new users to feel spammed."
+    }
+  ],
+  "step_total_ms": 15504
+}

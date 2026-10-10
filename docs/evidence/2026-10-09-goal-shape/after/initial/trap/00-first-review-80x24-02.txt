@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       phones. No gamification. I should not   
+  learners to see why they got          assume an AI chat panel or a rebuilt    
+  something wrong, not just that        quiz engine is the solution.            
+  they did. right now we just show a                                            
+  red X and move on and people          when                                    
+  bounce. I think we should add an      When learners answer a question         
+  AI tutor chat panel next to every     incorrectly, especially on phones,      
+  question. but honestly I'm worried    they currently see a red X and may      
+  that turns into one more chatbot      leave.                                  
+  nobody asked for and it gets                                                  
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

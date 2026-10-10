@@ -1,0 +1,196 @@
+{
+  "provider_calls": 39,
+  "shared_cap": 40,
+  "unspent": 1,
+  "counts_total": {
+    "shape": 20,
+    "meaning-preservation": 19
+  },
+  "counts_baseline": {
+    "shape": 7,
+    "meaning-preservation": 7
+  },
+  "counts_initial_after": {
+    "shape": 6,
+    "meaning-preservation": 5
+  },
+  "counts_final_after": {
+    "shape": 7,
+    "meaning-preservation": 7
+  },
+  "final_audits": {
+    "flag": 3,
+    "pass": 4
+  },
+  "protected": {
+    "ledger": {
+      "path": "/Users/jondev/.local/share/seed-me/sessions/27b55e8f-4a80-419a-99b5-7a26d6db1faa/ledger.json",
+      "sha256_before": "d649545d15c9eb7c41c50b27ac8d3814ab872f4e581d3d031427136126ecd197",
+      "sha256_after": "d649545d15c9eb7c41c50b27ac8d3814ab872f4e581d3d031427136126ecd197",
+      "unchanged": true
+    },
+    "installed_binary": {
+      "path": "/Users/jondev/.local/share/tinkery/bin/tinkery",
+      "sha256_before": "7a43c763e54856878c8f303c9c6f2f8c03dd647ffdca5b7cab455b7155f019a9",
+      "sha256_after": "7a43c763e54856878c8f303c9c6f2f8c03dd647ffdca5b7cab455b7155f019a9",
+      "unchanged": true
+    },
+    "launcher": {
+      "path": "/Users/jondev/.local/bin/tinkery",
+      "is_symlink": false,
+      "sha256_before": "f8bb16e4c43fbdc1211c86c98a88abc7f610684f584cc143805b047cc89f983e",
+      "link_before": null,
+      "sha256_after": "f8bb16e4c43fbdc1211c86c98a88abc7f610684f584cc143805b047cc89f983e",
+      "unchanged": true
+    }
+  },
+  "cases": {
+    "books": {
+      "board_displayed": true,
+      "root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase2-final-session-roots/books",
+      "root_empty": true,
+      "first_question": null,
+      "open_parts": [],
+      "ready": true,
+      "timings": [
+        {
+          "snapshot": "00-first",
+          "board_ms": 14172,
+          "step_ms": 20971
+        }
+      ]
+    },
+    "onboarding-emails": {
+      "board_displayed": true,
+      "root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase2-final-session-roots/onboarding-emails",
+      "root_empty": true,
+      "first_question": {
+        "id": "model-c10868c455aaf6a8",
+        "text": "What do you want to be able to know, decide, or do about the onboarding emails?"
+      },
+      "open_parts": [
+        "outcome",
+        "proof"
+      ],
+      "ready": false,
+      "timings": [
+        {
+          "snapshot": "00-first",
+          "board_ms": 15597,
+          "step_ms": 23930
+        }
+      ]
+    },
+    "trap": {
+      "board_displayed": true,
+      "root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase2-final-session-roots/trap",
+      "root_empty": true,
+      "first_question": {
+        "id": "model-3b0f6894b051c4ab",
+        "text": "What observable change would show that a learner leaves a wrong answer feeling smarter?"
+      },
+      "open_parts": [
+        "proof"
+      ],
+      "ready": false,
+      "timings": [
+        {
+          "snapshot": "00-first",
+          "board_ms": 9371,
+          "step_ms": 17758
+        }
+      ]
+    },
+    "ledger": {
+      "board_displayed": true,
+      "root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase2-final-session-roots/ledger",
+      "root_empty": true,
+      "first_question": {
+        "id": "model-7463df1cdf1dcc92",
+        "text": "Should detecting a failed 6am job be part of the same morning check, or a separate concern?"
+      },
+      "open_parts": [
+        "outcome"
+      ],
+      "ready": false,
+      "timings": [
+        {
+          "snapshot": "00-first",
+          "board_ms": 8744,
+          "step_ms": 16314
+        },
+        {
+          "snapshot": "01-answer",
+          "board_ms": 7652,
+          "step_ms": 13599
+        },
+        {
+          "snapshot": "02-answer",
+          "board_ms": null,
+          "step_ms": 162
+        },
+        {
+          "snapshot": "03-skip",
+          "board_ms": null,
+          "step_ms": 162
+        }
+      ]
+    },
+    "voice": {
+      "board_displayed": true,
+      "root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase2-final-session-roots/voice",
+      "root_empty": true,
+      "first_question": {
+        "id": "model-dd2786a8d036a661",
+        "text": "Do you want to investigate whether voice, starting dumps, or both is the main problem, or are you already aiming to make night-time dumping easier regardless of the cause?"
+      },
+      "open_parts": [
+        "outcome",
+        "proof",
+        "boundaries"
+      ],
+      "ready": false,
+      "timings": [
+        {
+          "snapshot": "00-first",
+          "board_ms": 7145,
+          "step_ms": 13263
+        }
+      ]
+    },
+    "operator-goal": {
+      "board_displayed": true,
+      "root": "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-phase2-final-session-roots/operator-goal",
+      "root_empty": true,
+      "first_question": {
+        "id": "model-3bfb8ddecefdfa77",
+        "text": "What must this system never take out of the human's hands or get wrong?"
+      },
+      "open_parts": [
+        "boundaries"
+      ],
+      "ready": false,
+      "timings": [
+        {
+          "snapshot": "00-first",
+          "board_ms": 9115,
+          "step_ms": 17307
+        }
+      ]
+    }
+  },
+  "all_test_roots_empty": true,
+  "runtime_source_hashes_match_evaluated_code": true,
+  "post_eval_test_only_changes": {
+    "src/shaping/brain_dump/c16_tests.rs": {
+      "evaluated": "226361554fca00a49eb307afff772ce74cf41f5af0cf3c86f9e228bf39001078",
+      "current": "d9c7beb9c454baeac57ba954312e9d698978eb0d04bd55ac29c7ef2a674e851d"
+    }
+  },
+  "ledger_first_empty_round": 1,
+  "ledger_final_ready": false,
+  "confirmations": 0,
+  "helper_invocations_in_evals": 0,
+  "default_toolchain_not_changed": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+  "ci_toolchain": "rustc 1.99.0 (b940084d7 2026-09-28)"
+}
