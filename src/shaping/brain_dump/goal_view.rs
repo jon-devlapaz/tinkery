@@ -4,7 +4,6 @@ use std::{path::PathBuf, sync::mpsc};
 
 pub(super) struct Review {
     pub affirmation: Affirmation,
-    pub(super) parts: GoalParts,
     pub(super) input: String,
     pub(super) scroll: u16,
     pub(super) max: u16,
@@ -77,7 +76,7 @@ impl BrainDump {
             .filter(|p| !unresolved.iter().any(|q| q.target == Some(*p)))
             .map(|p| format!("{} — still open", p.label()))
             .collect::<Vec<_>>();
-        self.goal_review=Some(Review{parts:g.parts.clone(),affirmation:Affirmation{goal,outcome:g.outcome.clone().unwrap_or_default(),options:g.alternatives.iter().map(board::Candidate::wire).collect(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,unresolved_notes:missing.into_iter().chain(g.unresolved_notes.iter().cloned()).chain(g.misfits.iter().map(|s|format!("{} (original {})",s.quote,s.source))).collect(),source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});
+        self.goal_review=Some(Review{affirmation:Affirmation{goal,parts:g.parts.clone(),outcome:g.parts.done_when.clone().unwrap_or_default(),options:g.alternatives.iter().map(board::Candidate::wire).collect(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,unresolved_notes:missing.into_iter().chain(g.unresolved_notes.iter().cloned()).chain(g.misfits.iter().map(|s|format!("{} (original {})",s.quote,s.source))).collect(),source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});
     }
     pub(super) fn goal_tick(&mut self) {
         let result = self
@@ -232,11 +231,6 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     };
     let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(8)]).split(inner);
     let mut body = format!("You are confirming\n{}", review.affirmation.goal);
-    for part in Part::ALL {
-        if let Some(value) = review.parts.get(part) {
-            body.push_str(&format!("\n\n{}\n{}", part.label(), value));
-        }
-    }
     let mut open = review
         .affirmation
         .unresolved

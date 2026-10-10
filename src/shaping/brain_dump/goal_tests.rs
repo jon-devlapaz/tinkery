@@ -283,7 +283,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     for term in [
         "PR ready for human review",
         "restaurateur",
-        "Both harness and codebase compound",
+        "both harness and codebase compound",
         "UI",
         "design taste checks",
     ] {

@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       for; rebuilding the whole quiz engine.  
+  learners to see why they got                                                  
+  something wrong, not just that        Still open                              
+  they did. right now we just show a    Outcome — After a wrong answer, what    
+  red X and move on and people          should learners be able to do:          
+  bounce. I think we should add an      understand the explanation, try again   
+  AI tutor chat panel next to every     with more confidence, or something      
+  question. but honestly I'm worried    else?                                   
+  that turns into one more chatbot                                              
+  nobody asked for and it gets          marketing tagline request conflicts     
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

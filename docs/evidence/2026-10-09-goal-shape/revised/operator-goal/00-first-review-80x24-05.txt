@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I have been trying so hard to work                                            
+  on a system that compounds itself     Still open                              
+  and serves as a meta harness. its     PROVISIONAL assumption: “a PR that is   
+  a human first board for               ready to be reviewed by a human” is     
+  coordinainting work from the          the primary observable completion       
+  entire continuum of agentic           check.                                  
+  software development lifecycle                                                
+  that has the rigor and durability     PROVISIONAL assumption: “make the next  
+  and cohesive and verification that    change easier” captures the intended    
+  all 'just work's and thinks about     change from the current state.          
+  the future of any code base it        Running out of questions doesn't mean   
+  works on. not just the trees, but     I understood you.                       
+  the forest. it should operate like                                            
+  a michellin star resteraunt and I     Creates a Seed Me session; this goal    
+  am the resterauntaur that tastes      can't be edited after.                  
+  the final delicious product. it                                               
+  goes from this part (the brain        type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

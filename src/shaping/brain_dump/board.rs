@@ -131,6 +131,7 @@ impl Board {
         });
         g.questions.truncate(1);
         let composed = g.parts.compose();
+        let outcome = g.parts.done_when.clone().filter(|s| !s.trim().is_empty());
         let supports = g
             .framings
             .into_iter()
@@ -163,7 +164,7 @@ impl Board {
                     })
                 })
                 .collect::<Result<_, String>>()?,
-            outcome: (!g.outcome.is_empty()).then_some(g.outcome),
+            outcome,
             questions: g.questions.into(),
             alternatives: g
                 .alternatives
@@ -264,24 +265,30 @@ pub(super) fn parse(
     if let Some(object) = object {
         extras(
             object,
-            &["situation", "outcome", "why", "proof", "boundaries"],
+            &[
+                "who",
+                "outcome",
+                "when",
+                "why",
+                "done_when",
+                "keep",
+                "avoid",
+            ],
             "goal parts",
             changes,
         );
     }
-    parts.situation = display(
-        object.and_then(|o| o.get("situation")),
-        "situation",
-        changes,
-    );
+    parts.who = display(object.and_then(|o| o.get("who")), "who", changes);
     parts.outcome = display(object.and_then(|o| o.get("outcome")), "outcome", changes);
+    parts.when = display(object.and_then(|o| o.get("when")), "when", changes);
     parts.why = display(object.and_then(|o| o.get("why")), "why", changes);
-    parts.proof = display(object.and_then(|o| o.get("proof")), "proof", changes);
-    parts.boundaries = display(
-        object.and_then(|o| o.get("boundaries")),
-        "boundaries",
+    parts.done_when = display(
+        object.and_then(|o| o.get("done_when")),
+        "done_when",
         changes,
     );
+    parts.keep = display(object.and_then(|o| o.get("keep")), "keep", changes);
+    parts.avoid = display(object.and_then(|o| o.get("avoid")), "avoid", changes);
     let mut open = vec![];
     for value in items(obj.get("open"), "open parts", changes) {
         if let Ok(part) = serde_json::from_value::<Part>(value.clone()) {
@@ -323,7 +330,7 @@ pub(super) fn parse(
         text: parts.compose().unwrap_or_default(),
         supports,
     }];
-    let outcome = parts.outcome.clone().unwrap_or_default();
+    let outcome = parts.done_when.clone().unwrap_or_default();
     let mut questions = vec![];
     for (i, v) in items(obj.get("questions"), "questions", changes)
         .iter()
@@ -380,8 +387,8 @@ pub(super) fn parse(
             continue;
         }
         let q = Question { target, id, text };
-        if q.id.starts_with("scope-addition-") {
-            return Err("Model attempted an application-owned scope question ID".into());
+        if q.id.starts_with("scope-addition-") || q.id.starts_with("goal-refinement-") {
+            return Err("Model attempted an application-owned question ID".into());
         }
         if questions.iter().any(|old| same_question(old, &q))
             || request.answered.contains(&q.id)

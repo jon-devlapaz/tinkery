@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       should learners be able to do:          
+  learners to see why they got          understand the explanation, try again   
+  something wrong, not just that        with more confidence, or something      
+  they did. right now we just show a    else?                                   
+  red X and move on and people                                                  
+  bounce. I think we should add an      marketing tagline request conflicts     
+  AI tutor chat panel next to every     with the stated product goal            
+  question. but honestly I'm worried                                            
+  that turns into one more chatbot      Kirra's claim that drop-off happens     
+  nobody asked for and it gets          around question 4 is unverified         
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

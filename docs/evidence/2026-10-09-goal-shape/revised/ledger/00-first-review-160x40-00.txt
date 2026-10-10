@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  the ledger report is useless to me in the morning. its a wall of numbers    You are confirming                                                                
+  and i dont know what to do with it. i want to open tinkery and in like 5    I can know whether yesterday went well or not within like 5 seconds, in the       
+  seconds know if yesterday went well or not. maybe one number? useful        morning when I open Tinkery.                                                      
+  changes per hour is the one that matters. cost too maybe. i dont want a     Why: the ledger report is useless to me; its a wall of numbers and i dont know    
+  dashboard. also the 6am job sometimes fails silently and i only find out    what to do with it; the 6am job sometimes fails silently.                         
+  days later                                                                  Done when: yesterday went well or not is clear in like 5 seconds.                 
+                                                                              Keep: useful changes per hour; cost maybe.                                        
+                                                                              Avoid: a dashboard; silent failures.                                              
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              Keep — Does cost need to be part of the morning signal, or is useful changes per  
+                                                                              hour the one that matters?                                                        
+                                                                                                                                                                
+                                                                              PROVISIONAL assumption: the morning signal should also make a failed 6am job      
+                                                                              visible.                                                                          
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Running out of questions doesn't mean I understood you.                           
+                                                                                                                                                                
+                                                                              Creates a Seed Me session; this goal can't be edited after.                       
+                                                                                                                                                                
+                                                                              type confirm                                                                      
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

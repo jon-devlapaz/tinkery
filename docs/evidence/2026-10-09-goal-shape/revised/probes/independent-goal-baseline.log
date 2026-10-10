@@ -1,0 +1,9 @@
+
+running 1 test
+test shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.12s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/repo)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/target/debug/deps/tinkery-57634f1bcdbf9627)

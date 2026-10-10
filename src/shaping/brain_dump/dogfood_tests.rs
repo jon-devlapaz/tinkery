@@ -11,6 +11,7 @@ impl BoardHost for Counting {
         self.requests.lock().unwrap().push(r.clone());
         Ok(Guess {
             parts: GoalParts {
+                who: Some("I".into()),
                 outcome: Some("keep track of the books you've read".into()),
                 ..Default::default()
             },

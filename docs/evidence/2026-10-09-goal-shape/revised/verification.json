@@ -1,0 +1,33 @@
+{
+  "prior_invocations": 39,
+  "revision_invocations": 16,
+  "authorized_followup_invocations": 4,
+  "cumulative_invocations": 59,
+  "approved_ceiling": 60,
+  "counts": {
+    "shape": 30,
+    "meaning-preservation": 29
+  },
+  "revised_audits": {
+    "pass": 5,
+    "flag": 5
+  },
+  "prior_trace_unchanged": true,
+  "protected_hashes_unchanged": true,
+  "empty_test_roots": [
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-c5fb12b6-8676-4ca2-aaa9-b0afb845d82e/books",
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-c5fb12b6-8676-4ca2-aaa9-b0afb845d82e/onboarding-emails",
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-c5fb12b6-8676-4ca2-aaa9-b0afb845d82e/trap",
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-c5fb12b6-8676-4ca2-aaa9-b0afb845d82e/ledger",
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-c5fb12b6-8676-4ca2-aaa9-b0afb845d82e/voice",
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-c5fb12b6-8676-4ca2-aaa9-b0afb845d82e/operator-goal",
+    "/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-ledger-followup-aa84adb3-16cf-466f-8a27-8182ba013d4d"
+  ],
+  "last_evaluated_runtime_matches": true,
+  "ledger_refinement_sent_and_in_done_when_avoid": true,
+  "six_first_boards_under_prior_prompt": true,
+  "current_code_replays": 10,
+  "confirmation": false,
+  "helpers_during_live_eval": 0,
+  "seed": false
+}

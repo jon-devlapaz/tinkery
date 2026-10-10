@@ -1,4 +1,14 @@
-# C16 plan — approved with review changes
+# C16 plan — historical two-sentence version
+
+**Superseded by the operator-approved pstack revision** in
+`factory/reports/Tinkery C16 revision brief.md` and `Tinkery goal shape from pstack.md`.
+Current implementation/evaluation: [`revised/README.md`](revised/README.md).
+Seven parts replace the former five; who/outcome/why/done_when are required;
+when/keep/avoid are optional. A labelled block replaces the two-sentence composer
+and is identical in reading and frozen confirmation. Typing after readiness refines
+the goal via explicit F2; source/history/consent remain unchanged. Success/constraints
+are carried through existing official origin evidence, not a new Seed Me schema.
+The original plan below is retained as history, not current implementation authority.
 
 Authority: operator authorized Phase 2 after the Claude planning-session review in
 `factory/reports/Tinkery C16 plan review.md` (2026-10-09). Baseline is main

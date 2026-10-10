@@ -1,0 +1,243 @@
+{
+  "action": {
+    "answer": "a failed job should override everything. cost only matters if its way off",
+    "kind": "fixed answer + explicit F2 from exact offline first-board checkpoint",
+    "question_before": {
+      "id": "model-132a657ca6c40234",
+      "text": "Does cost need to be part of the morning signal, or is useful changes per hour the one that matters?"
+    }
+  },
+  "actor": "assistant-driven revised eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": "fast to interpret",
+        "cost": "may hide useful context",
+        "label": "one-number morning signal",
+        "undo_cost": "low"
+      },
+      {
+        "benefit": "keeps the important measure and unusual cost visible",
+        "cost": "may feel less immediate",
+        "label": "compact status with useful changes per hour and exceptional cost",
+        "undo_cost": "low"
+      }
+    ],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "useful changes per hour is the one that matters. cost too maybe.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "i dont want a dashboard.",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "the 6am job sometimes fails silently and i only find out days later",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "a failed job should override everything. cost only matters if its way off",
+              "source": 2
+            }
+          ]
+        },
+        "text": "I can know whether yesterday went well or not within like 5 seconds, in the morning when I open Tinkery.\nWhy: the ledger report is useless to me; its a wall of numbers and i dont know what to do with it; the 6am job sometimes fails silently and i only find out days later.\nDone when: yesterday went well or not is clear in like 5 seconds; a failed job overrides everything.\nKeep: useful changes per hour; cost only if its way off.\nAvoid: a dashboard; silent failures."
+      }
+    ],
+    "misfits": [],
+    "open": [],
+    "outcome": "yesterday went well or not is clear in like 5 seconds; a failed job overrides everything",
+    "parts": {
+      "avoid": "a dashboard; silent failures",
+      "done_when": "yesterday went well or not is clear in like 5 seconds; a failed job overrides everything",
+      "keep": "useful changes per hour; cost only if its way off",
+      "outcome": "know whether yesterday went well or not within like 5 seconds",
+      "when": "in the morning when I open Tinkery",
+      "who": "I",
+      "why": "the ledger report is useless to me; its a wall of numbers and i dont know what to do with it; the 6am job sometimes fails silently and i only find out days later"
+    },
+    "questions": [],
+    "unresolved_notes": []
+  },
+  "board_available_ms": 7991,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [
+          {
+            "benefit": "fast to interpret",
+            "cost": "may hide useful context",
+            "label": "one-number morning signal",
+            "undo_cost": "low"
+          },
+          {
+            "benefit": "keeps the important measure and unusual cost visible",
+            "cost": "may feel less immediate",
+            "label": "compact status with useful changes per hour and exceptional cost",
+            "undo_cost": "low"
+          }
+        ],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "useful changes per hour is the one that matters. cost too maybe.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "i dont want a dashboard.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "the 6am job sometimes fails silently and i only find out days later",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "a failed job should override everything. cost only matters if its way off",
+                "source": 2
+              }
+            ],
+            "text": "I can know whether yesterday went well or not within like 5 seconds, in the morning when I open Tinkery.\nWhy: the ledger report is useless to me; its a wall of numbers and i dont know what to do with it; the 6am job sometimes fails silently and i only find out days later.\nDone when: yesterday went well or not is clear in like 5 seconds; a failed job overrides everything.\nKeep: useful changes per hour; cost only if its way off.\nAvoid: a dashboard; silent failures."
+          }
+        ],
+        "misfits": [],
+        "open": [],
+        "outcome": "yesterday went well or not is clear in like 5 seconds; a failed job overrides everything",
+        "parts": {
+          "avoid": "a dashboard; silent failures",
+          "done_when": "yesterday went well or not is clear in like 5 seconds; a failed job overrides everything",
+          "keep": "useful changes per hour; cost only if its way off",
+          "outcome": "know whether yesterday went well or not within like 5 seconds",
+          "when": "in the morning when I open Tinkery",
+          "who": "I",
+          "why": "the ledger report is useless to me; its a wall of numbers and i dont know what to do with it; the 6am job sometimes fails silently and i only find out days later"
+        },
+        "questions": [],
+        "uncertain": false,
+        "unresolved_notes": []
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1",
+            "outcome"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: one-number morning signal"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 7969,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent framings: empty collection"
+      ],
+      "raw": "{\"parts\":{\"who\":\"I\",\"outcome\":\"know whether yesterday went well or not within like 5 seconds\",\"when\":\"in the morning when I open Tinkery\",\"why\":\"the ledger report is useless to me; its a wall of numbers and i dont know what to do with it; the 6am job sometimes fails silently and i only find out days later\",\"done_when\":\"yesterday went well or not is clear in like 5 seconds; a failed job overrides everything\",\"keep\":\"useful changes per hour; cost only if its way off\",\"avoid\":\"a dashboard; silent failures\"},\"open\":[],\"questions\":[],\"supports\":[{\"source\":1,\"quote\":\"i want to open tinkery and in like 5 seconds know if yesterday went well or not.\",\"occurrence\":0},{\"source\":1,\"quote\":\"useful changes per hour is the one that matters. cost too maybe.\",\"occurrence\":0},{\"source\":1,\"quote\":\"i dont want a dashboard.\",\"occurrence\":0},{\"source\":1,\"quote\":\"the 6am job sometimes fails silently and i only find out days later\",\"occurrence\":0},{\"source\":2,\"quote\":\"a failed job should override everything. cost only matters if its way off\",\"occurrence\":0}],\"alternatives\":[{\"label\":\"one-number morning signal\",\"benefit\":\"fast to interpret\",\"cost\":\"may hide useful context\",\"undo_cost\":\"low\"},{\"label\":\"compact status with useful changes per hour and exceptional cost\",\"benefit\":\"keeps the important measure and unusual cost visible\",\"cost\":\"may feel less immediate\",\"undo_cost\":\"low\"}],\"misfits\":[],\"unresolved_notes\":[]}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "6124420d0d7f6efb",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1",
+            "outcome"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [
+            "candidate: one-number morning signal"
+          ],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 7595,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "No whole-board loss identified by the model; not proof of understanding.",
+      "request_key": "6124420d0d7f6efb",
+      "version": 3
+    }
+  ],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [],
+  "questions_from_board": [],
+  "reading_text": "I can know whether yesterday went well or not within like 5 seconds, in the morning when I open Tinkery.\nWhy: the ledger report is useless to me; its a wall of numbers and i dont know what to do with it; the 6am job sometimes fails silently and i only find out days later.\nDone when: yesterday went well or not is clear in like 5 seconds; a failed job overrides everything.\nKeep: useful changes per hour; cost only if its way off.\nAvoid: a dashboard; silent failures.",
+  "ready_to_review": true,
+  "seed_written": false,
+  "settled": [
+    {
+      "question": {
+        "id": "model-132a657ca6c40234",
+        "target": "keep",
+        "text": "Does cost need to be part of the morning signal, or is useful changes per hour the one that matters?"
+      },
+      "source": 2
+    }
+  ],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "01-answer",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+    },
+    {
+      "id": 2,
+      "in_reply_to": "model-132a657ca6c40234",
+      "text": "a failed job should override everything. cost only matters if its way off"
+    }
+  ],
+  "step_total_ms": 15764
+}

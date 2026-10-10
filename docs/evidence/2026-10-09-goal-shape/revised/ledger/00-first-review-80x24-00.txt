@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    You are confirming                      
+  in the morning. its a wall of         I can know whether yesterday went well  
+  numbers and i dont know what to do    or not within like 5 seconds, in the    
+  with it. i want to open tinkery       morning when I open Tinkery.            
+  and in like 5 seconds know if         Why: the ledger report is useless to    
+  yesterday went well or not. maybe     me; its a wall of numbers and i dont    
+  one number? useful changes per        know what to do with it; the 6am job    
+  hour is the one that matters. cost    sometimes fails silently.               
+  too maybe. i dont want a              Done when: yesterday went well or not   
+  dashboard. also the 6am job           is clear in like 5 seconds.             
+  sometimes fails silently and i        Running out of questions doesn't mean   
+  only find out days later              I understood you.                       
+                                                                                
+                                        Creates a Seed Me session; this goal    
+                                        can't be edited after.                  
+                                                                                
+                                        type confirm                            
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

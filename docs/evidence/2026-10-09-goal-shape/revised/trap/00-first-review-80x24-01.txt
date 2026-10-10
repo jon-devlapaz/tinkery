@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       leave.                                  
+  learners to see why they got          Done when: learners leave a wrong       
+  something wrong, not just that        answer feeling smarter not dumber.      
+  they did. right now we just show a    Keep: no gamification.                  
+  red X and move on and people          Avoid: one more chatbot nobody asked    
+  bounce. I think we should add an      for; rebuilding the whole quiz engine.  
+  AI tutor chat panel next to every                                             
+  question. but honestly I'm worried    Still open                              
+  that turns into one more chatbot      Outcome — After a wrong answer, what    
+  nobody asked for and it gets          should learners be able to do:          
+  expensive fast. the real thing is     Running out of questions doesn't mean   
+  people feel dumb and leave. maybe     I understood you.                       
+  the fix is the explanation, maybe                                             
+  it's the tone. we already decided     Creates a Seed Me session; this goal    
+  no gamification, that stays. kirra    can't be edited after.                  
+  said the drop-off happens around                                              
+  question 4 but I havent checked.      type confirm                            
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

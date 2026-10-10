@@ -31,14 +31,16 @@ pub(super) struct Recording {
 fn guess(r: &BoardRequest) -> Guess {
     Guess {
         parts: GoalParts {
-            situation: Some("Here".into()),
+            who: Some("I".into()),
+            when: Some("Here".into()),
             outcome: Some(format!(
                 "Model reading {} originals: make reading comfortable",
                 r.sources.len()
             )),
             why: Some("I can read comfortably".into()),
-            proof: Some("reading is comfortable".into()),
-            boundaries: Some("no confirmation".into()),
+            done_when: Some("reading is comfortable".into()),
+            keep: None,
+            avoid: Some("no confirmation".into()),
         },
         open: vec![],
         unresolved_notes: vec![],
@@ -230,7 +232,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     assert_eq!(a.sources.len(), 2);
     assert_eq!(
         a.guess.as_ref().unwrap().outcome.as_deref().unwrap(),
-        "Read comfortably in the blog and RSS reader."
+        "reading is comfortable"
     );
     assert!(a.originals().contains("A second dump."));
     assert!(a.paper().contains("Nothing confirmed"));
@@ -595,7 +597,7 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
     let r = host.requests.lock().unwrap()[0].clone();
     let response = serde_json::to_string(&guess(&r)).unwrap();
     let program = dir.path().join("pi");
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms remain candidates' in p\nassert 'preserve compatible aims rather than forcing a choice' in p\nassert 'No research, tools, execution, approvals, ledger' in p\nassert 'Never invent properties of unknown names' in p\nassert 'most consequential missing or vague part' in p\nassert 'existing source ID' in p and 'whole Unicode graphemes' in p\nassert not any(example in p for example in ['way off','usual week','no dashboard','five emails','no gamification','Kirra','restaurateur'])\nassert 'two to four' not in p and 'EXACT keys' not in p and 'at most 45' not in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms remain candidates' in p\nassert 'preserve compatible aims rather than forcing a choice' in p\nassert 'No research, tools, execution, approvals, ledger' in p\nassert 'Never invent properties of unknown names' in p\nassert 'most consequential missing or too-vague part' in p\nassert 'existing source ID' in p and 'whole Unicode graphemes' in p\nassert not any(example in p for example in ['went well','way off','usual week','no targets','no dashboard','five emails','phones','no gamification','Kirra','restaurateur'])\nassert 'never echo field definitions' in p and 'Never ask facts an agent could find out' in p\nassert 'know, decide, or do' not in p\nassert 'two to four' not in p and 'EXACT keys' not in p and 'at most 45' not in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
     let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();

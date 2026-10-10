@@ -1,0 +1,14 @@
+who-forced-to-i baseline passed; mutant failed
+duplicate-can baseline passed; mutant failed
+capital-after-semicolon baseline passed; mutant failed
+eval-phrase-in-prompt baseline passed; mutant failed
+omit-avoid baseline passed; mutant failed
+rewrite-criteria baseline passed; mutant failed
+empty-queue-ready baseline passed; mutant failed
+third-ask baseline passed; mutant failed
+stale-counts baseline passed; mutant failed
+reasked-skipped-part baseline passed; mutant failed
+scope-instead-of-refinement baseline passed; mutant failed
+independent-goal baseline passed; mutant failed
+wrong-outcome-mapping baseline passed; mutant failed
+comma-inside-data baseline passed; mutant failed

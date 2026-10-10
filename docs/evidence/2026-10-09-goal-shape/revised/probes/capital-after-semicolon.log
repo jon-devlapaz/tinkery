@@ -1,0 +1,24 @@
+
+running 1 test
+test shaping::brain_dump::c16_tests::semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive ... FAILED
+
+failures:
+
+---- shaping::brain_dump::c16_tests::semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive stdout ----
+
+thread 'shaping::brain_dump::c16_tests::semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive' (62094236) panicked at src/shaping/brain_dump/c16_tests.rs:78:5:
+assertion `left == right` failed
+  left: "Café learners 👩\u{200d}💻 can read 2.5 hours.\nAvoid: No dashboard; No targets; Showing \"same. Words\" differently."
+ right: "Café learners 👩\u{200d}💻 can read 2.5 hours.\nAvoid: No dashboard; no targets; showing \"same. Words\" differently."
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::c16_tests::semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/repo)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/target/debug/deps/tinkery-57634f1bcdbf9627)
+error: test failed, to rerun pass `--lib`

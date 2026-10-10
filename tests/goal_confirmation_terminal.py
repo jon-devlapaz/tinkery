@@ -11,7 +11,7 @@ import json,sys
 r=json.load(sys.stdin)
 if r.get('kind')=='meaning-preservation': print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)
 if r.get('kind')=='question-continuity':print('{"repeated":[]}');sys.exit(0)
-print(json.dumps(dict(parts=dict(outcome='judge a PR ready for human review as restaurateur while both the harness and codebase compound',boundaries='not cook; way off stays way off; no dashboard'),open=['proof'],supports=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']],misfits=[],questions=[dict(target='proof',id='open',text='Which UI or consequential design checkpoints remain unresolved?')],alternatives=[])))
+print(json.dumps(dict(parts=dict(who='I',outcome='judge a PR ready for human review as restaurateur while both the harness and codebase compound',why='I retain final judgment',done_when='a PR is ready for human review',keep='human taste',avoid='not cook; way off stays way off; no dashboard'),open=['why'],supports=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']],misfits=[],questions=[dict(target='why',id='open',text='Which UI or consequential design checkpoints remain unresolved?')],alternatives=[])))
 '''
 def helper(*args):
  p=subprocess.run(['python3',str(HELPER),*map(str,args)],capture_output=True,text=True,check=True);return json.loads(p.stdout)
@@ -53,7 +53,11 @@ def journey(width,height):
    assert status['viewer'].startswith('live http://127.0.0.1:'),json.dumps(dict(status=status,screen=screen.text(),viewer_record=json.loads((session/'viewer.json').read_text()) if (session/'viewer.json').exists() else None))
    origin=next(n for n in ledger['nodes'] if n['id']==ledger['origin'])
    assert origin['status']=='settled' and origin['kind']=='decision' and origin['authority']=='user'
-   assert origin['answer']==ledger['goal']=='I can judge a PR ready for human review as restaurateur while both the harness and codebase compound. not cook; way off stays way off; no dashboard.'
+   assert origin['answer']==ledger['goal']=='I can judge a PR ready for human review as restaurateur while both the harness and codebase compound.\nWhy: I retain final judgment.\nDone when: a PR is ready for human review.\nKeep: human taste.\nAvoid: not cook; way off stays way off; no dashboard.'
+   context=json.loads(origin['evidence'][-1]['observed'])
+   assert ledger['draft']['outcome']==context['success']==context['goal_parts']['done_when']=='a PR is ready for human review'
+   assert context['constraints']==dict(keep='human taste',avoid='not cook; way off stays way off; no dashboard')
+   assert context['problem']==context['goal_parts']['why']=='I retain final judgment'
    assert any(e.get('observed')==dump and e.get('checked')=='Tinkery original 1' for e in origin['evidence']);assert 'unresolved' in origin['evidence'][-1]['observed']
    assert not (session/'seed-contract.md').exists()
    failed=subprocess.run(['python3',str(HELPER),'end',str(session),'--status','completed','--reason','TEST must refuse incomplete seed'],capture_output=True,text=True)

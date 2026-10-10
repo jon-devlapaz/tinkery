@@ -24,11 +24,11 @@ fn parsed(raw: &str) -> (board::Board, Vec<String>) {
 #[test]
 fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority() {
     let (b, changes) = parsed(
-        r#"{"parts":{"outcome":"remember books","unexpected":"ignore"},"alternatives":{"label":"Maybe","precondition":"unknown"},"misfits":[{"text":"Unsure about a relationship"}],"confirmed":true,"settled":[{"source":99}]}"#,
+        r#"{"parts":{"who":"I","outcome":"remember books","unexpected":"ignore"},"alternatives":{"label":"Maybe","precondition":"unknown"},"misfits":[{"text":"Unsure about a relationship"}],"confirmed":true,"settled":[{"source":99}]}"#,
     );
     assert!(matches!(b.framings[0].supports, board::Grounding::Uncited));
     assert_eq!(b.parts.outcome.as_deref(), Some("remember books"));
-    assert_eq!(b.parts.missing().count(), 4);
+    assert_eq!(b.parts.missing().count(), 2);
     assert!(b.questions.is_empty() && b.misfits.is_empty());
     assert_eq!(b.unresolved_notes, ["Unsure about a relationship"]);
     assert!(b.alternatives[0].benefit.is_none());
@@ -39,13 +39,13 @@ fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority()
 }
 #[test]
 fn lengths_and_optional_types_are_not_boundary_rules_and_one_question_is_presented() {
-    let input = serde_json::json!({"parts":{"outcome":vec!["word";100].join(" "),"why":{},"proof":null},"open":["proof","nonsense"],"questions":(0..9).map(|i|serde_json::json!({"target":"proof","text":format!("Unresolved {i} without question mark")})).collect::<Vec<_>>(),"alternatives":vec!["same";7]});
+    let input = serde_json::json!({"parts":{"who":"I","outcome":vec!["word";100].join(" "),"why":{},"done_when":null},"open":["done_when","nonsense"],"questions":(0..9).map(|i|serde_json::json!({"target":"done_when","text":format!("Unresolved {i} without question mark")})).collect::<Vec<_>>(),"alternatives":vec!["same";7]});
     let (b, changes) = parsed(&input.to_string());
     assert_eq!(b.framings.len(), 1);
     assert_eq!(b.questions.len(), 1);
     assert_eq!(b.alternatives.len(), 7);
     assert_eq!(b.presented(0).len(), 1);
-    assert!(b.parts.why.is_none() && b.parts.proof.is_none());
+    assert!(b.parts.why.is_none() && b.parts.done_when.is_none());
     assert!(changes.iter().any(|s| s.contains("unknown open part")));
     assert!(changes.iter().any(|s| s.contains("Extra questions")));
 }
@@ -61,7 +61,7 @@ fn malformed_json_fails_but_empty_partial_parts_display_without_fabrication() {
     ] {
         let (b, _) = parsed(raw);
         assert!(b.framings.is_empty());
-        assert_eq!(b.parts.missing().count(), 5);
+        assert_eq!(b.parts.missing().count(), 4);
         let mut app = BrainDump {
             sources: request().sources,
             applied: 1,
@@ -96,8 +96,9 @@ fn claimed_citations_remain_exact_and_grapheme_safe_even_without_parts() {
             );
         }
     }
-    let (b, _) =
-        parsed(r#"{"parts":{"outcome":"read"},"supports":[{"source":1,"quote":"Café 👩‍💻"}]}"#);
+    let (b, _) = parsed(
+        r#"{"parts":{"who":"I","outcome":"read"},"supports":[{"source":1,"quote":"Café 👩‍💻"}]}"#,
+    );
     let span = &b.framings[0].supports[0];
     assert_eq!(
         &request().sources[0].text[span.range(&request().sources).unwrap()],
@@ -133,7 +134,7 @@ fn local_history_and_scope_identity_cannot_be_replaced_by_model_output() {
 }
 #[test]
 fn normalization_escapes_controls_and_logs_fences_without_changing_originals() {
-    let raw = "```json\n{\"parts\":{\"outcome\":\"Meaning\\u001b[31m\"},\"misfits\":[\"Uncertain\"]}\n```";
+    let raw = "```json\n{\"parts\":{\"who\":\"I\",\"outcome\":\"Meaning\\u001b[31m\"},\"misfits\":[\"Uncertain\"]}\n```";
     let (b, changes) = parsed(raw);
     assert!(!b.framings[0].text.contains('\x1b'));
     assert!(b.framings[0].text.contains("\\u{1b}"));
@@ -195,9 +196,9 @@ fn historical_raw_captures_display_without_inferred_parts_or_provider_helpers() 
 #[test]
 fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     let (b, changes) = parsed(
-        r#"{"parts":{"boundaries":"no dashboard"},"framings":["Reading zero","Reading one"],"misfits":["Unresolved note"]}"#,
+        r#"{"parts":{"avoid":"no dashboard"},"framings":["Reading zero","Reading one"],"misfits":["Unresolved note"]}"#,
     );
-    assert_eq!(b.framings[0].text, "no dashboard.");
+    assert_eq!(b.framings[0].text, "Avoid: no dashboard.");
     assert!(changes.iter().any(|s| s.contains("Ignored freeform")));
     assert_eq!(b.unresolved_notes, ["Unresolved note"]);
     let mut app =
@@ -207,7 +208,7 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     app.guess = Some(b);
     app.review_goal();
     let frozen = app.goal_review.unwrap();
-    assert_eq!(frozen.affirmation.goal, "no dashboard.");
+    assert_eq!(frozen.affirmation.goal, "Avoid: no dashboard.");
     assert!(
         frozen
             .affirmation

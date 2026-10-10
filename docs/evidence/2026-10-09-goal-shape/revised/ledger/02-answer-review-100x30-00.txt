@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+  your dump                                                                                         
+  the ledger report is useless to me in the       You are confirming                                
+  morning. its a wall of numbers and i dont       I can know whether yesterday went well or not     
+  know what to do with it. i want to open         within like 5 seconds, in the morning when I      
+  tinkery and in like 5 seconds know if           open Tinkery.                                     
+  yesterday went well or not. maybe one           Why: the ledger report is useless to me; its a    
+  number? useful changes per hour is the one      wall of numbers and i dont know what to do with   
+  that matters. cost too maybe. i dont want a     it; the 6am job sometimes fails silently and i    
+  dashboard. also the 6am job sometimes fails     only find out days later.                         
+  silently and i only find out days later         Done when: yesterday went well or not is clear    
+                                                  in like 5 seconds; a failed job overrides         
+                                                  everything.                                       
+                                                  Keep: useful changes per hour; cost only if its   
+                                                  way off.                                          
+                                                  Avoid: a dashboard; silent failures.              
+                                                                                                    
+                                                  Still open                                        
+                                                  Running out of questions doesn't mean I           
+                                                  understood you.                                   
+                                                                                                    
+                                                  Creates a Seed Me session; this goal can't be     
+                                                  edited after.                                     
+                                                                                                    
+                                                  type confirm                                      
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

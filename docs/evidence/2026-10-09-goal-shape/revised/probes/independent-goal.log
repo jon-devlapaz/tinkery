@@ -1,0 +1,33 @@
+
+running 1 test
+test shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines ... FAILED
+
+failures:
+
+---- shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines stdout ----
+
+thread 'shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines' (62103159) panicked at src/shaping/brain_dump/c16_tests.rs:194:9:
+assertion `left == right` failed
+  left: "tell whether yesterday went well"
+ right: "I can tell whether yesterday went well, each morning.\nWhy: the report is hard to act on.\nDone when: useful changes per hour are better than my usual week.\nAvoid: no targets; no dashboard; cost only when it's way off."
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.00s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/repo)
+warning: unused variable: `goal`
+  --> src/shaping/brain_dump/goal_view.rs:37:18
+   |
+37 |         let Some(goal) = g.parts.compose() else {
+   |                  ^^^^ help: if this is intentional, prefix it with an underscore: `_goal`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning (run `cargo fix --lib -p tinkery --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.69s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-et9aatrk/target/debug/deps/tinkery-57634f1bcdbf9627)
+error: test failed, to rerun pass `--lib`
