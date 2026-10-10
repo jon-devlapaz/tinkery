@@ -300,8 +300,14 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         a.goal_review = None;
         a.receipt = Some(handoff::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
-        assert!(receipt.contains("Continue with Seed Me"));
-        assert!(receipt.lines().last().unwrap().trim() == "10 menu");
+        assert!(
+            super::goal_tests::right_text(&receipt, w)
+                .contains("Next: shape it into a seed with Seed Me.")
+        );
+        assert_eq!(
+            receipt.lines().last().unwrap().trim(),
+            "c copy prompt   s open in shape   10 menu"
+        );
         assert_eq!(rect, a.source_area);
     }
     let mut empty = BrainDump::default();
