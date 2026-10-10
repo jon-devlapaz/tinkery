@@ -462,12 +462,14 @@ fn right_side_speaks_in_one_voice_and_two_readings_are_visibly_two() {
     assert!(!one.contains("Review goal"));
     amend_board(&mut a, |g| {
         let mut second = g.framings[0].clone();
-        second.text = "Proposed goal: A second, different reading.".into();
+        second.text = "Possible goal: A second, different reading.".into();
         g.framings.push(second);
     });
     let two = right_text(&snapshot(100, 30, &mut a, false).unwrap(), 100);
     assert!(two.contains("I think you mean…") && two.contains("or maybe…"));
-    assert!(two.contains("A second, different reading.") && !two.contains("Proposed goal:"));
+    assert!(two.contains("A second, different reading.") && !two.contains("Possible goal:"));
+    assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
+    assert_eq!(agent_text("PROVISIONAL goal: x"), "x");
     let ink_of = |a: &mut BrainDump, needle: &str| {
         let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
         t.draw(|f| render(f, a, crate::Palette::new(false)))
