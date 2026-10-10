@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 180, in <module>
+    journey(*size, no_color)
+    ~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 168, in journey
+    assert {p.name for p in cwd.iterdir()} == {'node', 'pi', 'python3', 'SKILL.md', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-closed.txt'}
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

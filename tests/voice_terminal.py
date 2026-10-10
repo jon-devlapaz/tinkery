@@ -14,6 +14,7 @@ from pathlib import Path
 from vt_screen import Screen
 
 ROOT = Path(__file__).resolve().parents[1]
+VOICE_KEY = '⌃⌥Z' if sys.platform == 'darwin' else '6'
 NODE = '''#!/usr/bin/env python3
 import json,os,sys,threading,time
 from pathlib import Path
@@ -26,6 +27,7 @@ def emit(event):
  with lock: print(json.dumps(event),flush=True)
 with open('node-pids.txt','a') as f:f.write(str(os.getpid())+'\\n')
 emit(dict(event='ready',version=1))
+Path('node-ready.txt').write_text('ready')
 def final(take):
  time.sleep(.15)
  emit(dict(event='final',take=take,text='spoken words' if take==1 else 'second words' if take==2 else 'late final'))
@@ -95,19 +97,22 @@ def journey(width, height, no_color):
             return [json.loads(line) for line in p.read_text().splitlines()] if p.exists() else []
 
         try:
-            text('6 speak')
+            text(VOICE_KEY + ' speak')
+            wait(lambda: (cwd / 'node-ready.txt').exists(), 'fake helper ready')
+            deadline = time.monotonic() + .1
+            while time.monotonic() < deadline: pump()
             assert not rows('voice-calls.jsonl') and not rows('requests.jsonl')
             send(b'\x1bOP', 'Right now')
             send(b'\x1bOP', 'Every key')
-            text('speak (local;')
+            text('speak (local)')
             send(b'\x1bOP', "What's on your mind?")
             send(b'typed ', 'typed')
             send(b'\x1b[17~', 'ghost words')
-            text('6 stop   esc cancel')
+            text(VOICE_KEY + ' stop   esc cancel')
             send(b'kept ', 'typed kept ghost words')
             assert not rows('requests.jsonl')
             send(b'\x1b[17~', 'typed kept spoken words')
-            text('6 speak')
+            text(VOICE_KEY + ' speak')
             assert not rows('requests.jsonl')
             send(b'\x1bOQ', 'Which evidence gets confused?')
             assert rows('requests.jsonl')[0]['sources'][0]['text'] == 'typed kept spoken words'
@@ -124,7 +129,7 @@ def journey(width, height, no_color):
             assert requests[1]['sources'][1]['in_reply_to'] == 'meaning'
             send(b'untouched', 'untouched')
             send('Ω'.encode(), 'ghost words')
-            send(b'\x1b', '6 speak')
+            send(b'\x1b', VOICE_KEY + ' speak')
             time.sleep(.3)
             for _ in range(5):
                 pump()
@@ -137,7 +142,7 @@ def journey(width, height, no_color):
             time.sleep(.1)
             assert len(rows('voice-calls.jsonl')) == before
             assert 'Ω' not in screen.text() and len(rows('requests.jsonl')) == 2
-            send(b'\x1b', '6 speak')
+            send(b'\x1b', VOICE_KEY + ' speak')
             send(b'\x1b[17~', 'ghost words')
             send(b'\x1b[21~', 'Back to menu and lose this draft? y / n')
             wait(lambda: (cwd / 'node-closed.txt').exists(), 'helper stdin EOF')
@@ -150,7 +155,7 @@ def journey(width, height, no_color):
                     raise AssertionError(f'Voice process {pid} was not reaped')
             send(b'n')
             send(b'\x1b[17~')
-            text('6 speak')
+            text(VOICE_KEY + ' speak')
             assert len(rows('requests.jsonl')) == 2
             send(b'\x1b[21~', 'Back to menu and lose this draft? y / n')
             send(b'y')
@@ -160,7 +165,7 @@ def journey(width, height, no_color):
             original[3] &= ~getattr(termios, 'PENDIN', 0)
             after[3] &= ~getattr(termios, 'PENDIN', 0)
             assert after == original
-            assert {p.name for p in cwd.iterdir()} == {'node', 'pi', 'python3', 'SKILL.md', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-closed.txt'}
+            assert {p.name for p in cwd.iterdir()} == {'node', 'pi', 'python3', 'SKILL.md', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-closed.txt', 'node-ready.txt'}
             print(json.dumps(dict(width=width, height=height, no_color=no_color, journey='current cursor/stop/F2/cancel/alias/review/EOF/reap', pi_calls=0, microphone=False, node_runtime=False)))
         finally:
             if process.poll() is None:

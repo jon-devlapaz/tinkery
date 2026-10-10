@@ -1,0 +1,54 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.24s
+     Running unittests src/lib.rs (target/debug/deps/pinstar-60d5f05c0a33043b)
+     Running unittests src/main.rs (target/debug/deps/pinstar-fa29ed0d54008284)
+     Running unittests src/lib.rs (target/debug/deps/tinkery-0ff32378e2119199)
+     Running unittests src/main.rs (target/debug/deps/tinkery-2668a92699994d77)
+     Running tests/cabinet.rs (target/debug/deps/cabinet-2d9e95a24cb58e08)
+     Running tests/drawer.rs (target/debug/deps/drawer-b06ba39ea6efa03c)
+     Running tests/mouse.rs (target/debug/deps/mouse-a12dec4442d93f7b)
+     Running tests/shaping.rs (target/debug/deps/shaping-5346f2af0e6e77d1)
+     Running tests/shaping_polish.rs (target/debug/deps/shaping_polish-b612618492f9142c)
+   Doc-tests pinstar
+   Doc-tests tinkery
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.15s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 176, in <module>
+    journey(*size, no_color)
+    ~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 106, in journey
+    send(b'\x1b[17~', 'ghost words')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 92, in send
+    text(needle)
+    ~~~~^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 87, in text
+    wait(lambda: needle in screen.text(), needle)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/voice_terminal.py", line 84, in wait
+    raise AssertionError(f'{label}:\n{screen.text()}')
+AssertionError: ghost words:
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+                                                                                
+    What's on your mind?                                                        
+                                                                                
+                                                                                
+    typed                                                                       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  2 send   ⌃⌥Z speak   10 menu                                                  

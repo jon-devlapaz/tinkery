@@ -1,0 +1,57 @@
+✔ eval ESM loads fake engine once and reuses it across takes (419.633875ms)
+✔ stop during asynchronous start never begins recording (159.084625ms)
+✔ cancel during start and finalization discards callbacks, newer take survives (756.440625ms)
+✔ stdin EOF exits immediately during load, listen and finalization (486.133125ms)
+✔ recorder starts only on command, then stops and releases once (282.00725ms)
+✔ a rejected read during stop preserves the final, unexpected read rejection fails (293.984958ms)
+✔ cancel during permission query never starts the recorder (180.780458ms)
+✔ device selection and sample-rate validation use the real recorder glue (97.027666ms)
+✔ signals terminate capture without a final (210.665333ms)
+✔ near-zero whole take reports plain permission guidance, not empty final (236.676834ms)
+✔ batch-only models still produce final without partials (123.259167ms)
+✔ injected failure kinds are specific and never produce a final (589.337916ms)
+✔ PCM backlog is bounded and cancellation suppresses queued work (1622.400917ms)
+✔ malformed, oversized and stale commands fail explicitly (121.320083ms)
+✔ Node major mismatch offers reinstall before native imports (26.394291ms)
+✔ missing install and missing model wait for consent without native imports (72.891792ms)
+✔ eval resolves import-only engine exports from an isolated owned install (27.267834ms)
+✔ generated WAV fake capture writes neither audio nor transcript (263.130417ms)
+✔ asynchronous native feeds borrow immutable PCM buffers (976.745875ms)
+✔ empty fake env does not hide the explicitly supplied smoke WAV (61.515958ms)
+✔ empty and filler finals remain data for the Rust insertion guard (985.682875ms)
+✔ fake install and model download require commands, complete without restarting (261.175208ms)
+✔ install failure is short and actionable, EOF stops a pending install (81.122334ms)
+✔ missing install is discovery-only: exact muted prompt and no files (2.503083ms)
+✔ install success pins both packages and records this Node major, failure is not installed (3.511834ms)
+✔ Node major mismatch offers a one-line reinstall and wrong package pins also reinstall (1.731333ms)
+✔ newest shared-cache snapshot wins, missing lookup does not download or create files (1.373834ms)
+✔ model override precedes config/cache and invalid explicit override never falls back (0.798959ms)
+✔ optional config defaults to system microphone/English; invalid values are explicit errors (1.229125ms)
+✔ model missing reports download size; owned downloaded model is discovered (1.638834ms)
+✔ explicit model download is bounded/atomic, failure retains no partial and does not replace a model (11.991084ms)
+✖ voice helper and voice-owned Rust have no former dependency strings or file reads (1.275958ms)
+✔ technical install reasons are one line and bounded (0.336292ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 32
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8370.016708
+
+✖ failing tests:
+
+test at voice/setup.test.mjs:80:1
+✖ voice helper and voice-owned Rust have no former dependency strings or file reads (1.275958ms)
+  AssertionError [ERR_ASSERTION]: ../src/voice/tests.rs contains pi-voice
+      at TestContext.<anonymous> (file:///Users/jondev/dev/active/tinkery/voice/setup.test.mjs:85:42)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

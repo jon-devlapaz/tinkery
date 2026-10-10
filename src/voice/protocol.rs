@@ -9,11 +9,22 @@ pub enum Command {
     Start { take: u64 },
     Stop { take: u64 },
     Cancel { take: u64 },
+    Install,
+    Download,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(tag = "event", rename_all = "lowercase")]
 pub enum Event {
+    NeedsInstall {
+        size_mb: u32,
+        message: String,
+    },
+    NeedsModel {
+        size_mb: u32,
+        message: String,
+    },
+    Loading,
     Ready {
         version: u32,
     },

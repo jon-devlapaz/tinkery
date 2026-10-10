@@ -13,10 +13,10 @@ use std::{
 };
 
 const HELPER: &str = include_str!("../../voice/helper.mjs");
+const SETUP: &str = include_str!("../../voice/setup.mjs");
 #[derive(Clone)]
 struct Node {
     executable: PathBuf,
-    pi_major: String,
 }
 static NODE: OnceLock<Result<Node, Failure>> = OnceLock::new();
 
@@ -51,6 +51,9 @@ impl ProcessHost {
     }
 }
 impl VoiceHost for ProcessHost {
+    fn setup_session(&self) -> Arc<std::sync::Mutex<super::Consent>> {
+        super::setup::session()
+    }
     fn send(&mut self, command: Command) -> Result<(), Failure> {
         self.commands
             .as_ref()
@@ -128,7 +131,7 @@ fn probe(mut command: Process, stop: &AtomicBool) -> Result<String, Failure> {
     .map_err(|_| {
         Failure::new(
             "no-node",
-            "Voice needs Node. Set TINKERY_NODE to the Node executable Pi uses.",
+            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
         )
     })?;
     let stdout = child.stdout.take().unwrap();
@@ -155,7 +158,7 @@ fn probe(mut command: Process, stop: &AtomicBool) -> Result<String, Failure> {
     if !status.is_some_and(|s| s.success()) {
         return Err(Failure::new(
             "no-node",
-            "Voice needs Node. Set TINKERY_NODE to the Node executable Pi uses.",
+            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
         ));
     }
     text.map(|text| text.trim().into()).ok_or_else(|| {
@@ -172,26 +175,25 @@ fn version(path: &std::ffi::OsStr, stop: &AtomicBool) -> Result<String, Failure>
     let major = value
         .strip_prefix('v')
         .and_then(|v| v.split('.').next())
-        .filter(|v| v.parse::<u32>().is_ok())
+        .filter(|v| v.parse::<u32>().is_ok_and(|v| v >= 22))
         .ok_or_else(|| {
             Failure::new(
                 "no-node",
-                "Invalid Node version. Set TINKERY_NODE to the Node executable Pi uses.",
+                "Invalid Node version. Set TINKERY_NODE to a Node 22+ executable.",
             )
         })?;
     Ok(major.into())
 }
 fn default_node(stop: &AtomicBool) -> Result<Node, Failure> {
-    if let Ok(pi_major) = version(std::ffi::OsStr::new("node"), stop) {
+    if version(std::ffi::OsStr::new("node"), stop).is_ok() {
         return Ok(Node {
             executable: "node".into(),
-            pi_major,
         });
     }
     let shell = std::env::var_os("SHELL").ok_or_else(|| {
         Failure::new(
             "no-node",
-            "Voice needs Node. Set TINKERY_NODE to the Node executable Pi uses.",
+            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
         )
     })?;
     let mut command = Process::new(shell);
@@ -203,10 +205,8 @@ fn default_node(stop: &AtomicBool) -> Result<Node, Failure> {
             "Login shell did not find Node. Set TINKERY_NODE.",
         ));
     }
-    Ok(Node {
-        pi_major: version(path.as_os_str(), stop)?,
-        executable: path,
-    })
+    version(path.as_os_str(), stop)?;
+    Ok(Node { executable: path })
 }
 fn discover(stop: &AtomicBool) -> Result<Node, Failure> {
     if let Some(cached) = NODE.get() {
@@ -214,13 +214,9 @@ fn discover(stop: &AtomicBool) -> Result<Node, Failure> {
     }
     let result = (|| {
         if let Some(path) = std::env::var_os("TINKERY_NODE") {
-            // Pi's installed entry point uses /usr/bin/env node. Check that runtime,
-            // independently of the helper override, before native imports.
-            let actual = version(&path, stop)?;
-            let pi_major = default_node(stop).map_or(actual, |node| node.pi_major);
+            version(&path, stop)?;
             Ok(Node {
                 executable: path.into(),
-                pi_major,
             })
         } else {
             default_node(stop)
@@ -298,8 +294,14 @@ fn run(
     };
     let mut child = match launch(
         Process::new(node.executable)
-            .args(["--input-type=module", "--eval", HELPER])
-            .env("TINKERY_PI_NODE_MAJOR", node.pi_major)
+            .args([
+                "--input-type=module",
+                "--eval",
+                &format!("{SETUP}\n{HELPER}"),
+            ])
+            .env_remove("NODE_PATH")
+            .env_remove("NODE_OPTIONS")
+            .env_remove("TRANSCRIBE_LIBRARY")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null()),
@@ -311,7 +313,7 @@ fn run(
                 &overflow,
                 Failure::new(
                     "no-node",
-                    "Could not start Node. Set TINKERY_NODE to the Node executable Pi uses.",
+                    "Could not start Node. Set TINKERY_NODE to a Node 22+ executable.",
                 )
                 .event(),
             );

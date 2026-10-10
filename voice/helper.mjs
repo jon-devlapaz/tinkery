@@ -1,14 +1,10 @@
-import { readFile, access } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const RATE = 16000, CHUNK = 8000, MAX_SAMPLES = RATE * 300, MAX_QUEUE = 8;
 const MAX_LINE = 32768;
-const permissionHelp = 'Allow terminal mic access: System Settings → Privacy & Security → Microphone';
+const permissionHelp = 'Allow microphone access for your terminal in System Settings → Privacy & Security → Microphone.';
 const issue = (kind, message) => Object.assign(new Error(message), { kind });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const emit = event => {
@@ -44,17 +40,14 @@ async function permission() {
   const script = "ObjC.import('Foundation'); ObjC.import('AVFoundation'); $.NSClassFromString('AVCaptureDevice').authorizationStatusForMediaType($.AVMediaTypeAudio).toString();";
   let stdout;
   try { ({ stdout } = await promisify(execFile)('osascript', ['-l', 'JavaScript', '-e', script], { timeout: 5000, maxBuffer: 1024 })); }
-  catch { throw issue('mic-permission', 'Could not check microphone permission. ' + permissionHelp); }
+  catch { throw issue('mic-permission', permissionHelp); }
   const status = stdout.trim();
   if (status === '1' || status === '2') throw issue('mic-permission', permissionHelp);
-  if (status !== '0' && status !== '3') throw issue('mic-permission', 'Unknown microphone permission status. ' + permissionHelp);
+  if (status !== '0' && status !== '3') throw issue('mic-permission', permissionHelp);
   // Undetermined is allowed to request access at the explicit start, never at load.
 }
 
 async function load() {
-  const expected = process.env.TINKERY_PI_NODE_MAJOR;
-  if (expected && expected !== process.versions.node.split('.')[0])
-    throw issue('engine-load', `Voice needs the Node version Pi uses (${expected}). Set TINKERY_NODE to it.`);
   const fake = process.env.TINKERY_VOICE_FAKE_PCM;
   const smoke = process.env.TINKERY_VOICE_SMOKE_WAV;
   let pcm;
@@ -81,13 +74,14 @@ async function load() {
     class Recorder {
       static getAvailableDevices() { return config.noDevices ? [] : ['Simulated microphone']; }
       constructor() { this.sampleRate = config.sampleRate ?? RATE; this.isRecording = false; this.offset = 0; }
-      start() { testFailure('record'); this.isRecording = true; trace('start'); }
+      start() { if (config.nativeError) throw new Error(config.nativeError); testFailure('record'); this.isRecording = true; trace('start'); }
       stop() { this.isRecording = false; trace('stop'); }
       release() { trace('release'); }
       async read() {
         await sleep(10);
         // Like PvRecorder: a read pending when stop() is called rejects.
         if (!this.isRecording) throw new Error('PvRecorder failed to read audio data frame');
+        testFailure('read');
         return Int16Array.from({ length: 512 }, () => Math.round(pcm[this.offset++ % pcm.length] * 32768));
       }
     }
@@ -96,38 +90,15 @@ async function load() {
       model: { capabilities: { supportsStreaming: !config.batch }, createSession: () => ({ stream: async () => { await sleep(config.startDelay ?? 0); testFailure('start'); return stream(); }, dispose() {} }),
         transcribe: async () => { await sleep(config.finalDelay ?? 0); testFailure('final'); return { text: config.text ?? 'spoken words' }; } } };
   }
-  const install = join(homedir(), '.pi/agent/npm/node_modules/@earendil-works/pi-voice');
-  let settings;
-  try { await access(join(install, 'package.json')); settings = JSON.parse(await readFile(join(homedir(), '.pi/agent/pi-voice.json'), 'utf8')); }
-  catch { throw issue('no-pi-voice', 'Voice needs Pi Voice: run /voice-settings in Pi once'); }
-  if (settings.version !== 1 || settings.backend?.type !== 'transcribe-cpp' ||
-      !['system-default', 'device'].includes(settings.microphone?.type) || typeof settings.transcriptionLanguage !== 'string' ||
-      (settings.microphone.type === 'device' && (typeof settings.microphone.name !== 'string' || !Number.isInteger(settings.microphone.occurrence) || settings.microphone.occurrence < 0)))
-    throw issue('no-pi-voice', 'Voice needs supported Pi Voice settings: run /voice-settings in Pi once');
-  if (typeof settings.model?.path !== 'string') throw issue('no-model', 'Choose a local model with /voice-settings in Pi.');
-  try { await access(settings.model.path); } catch { throw issue('no-model', 'Voice model is missing. Choose a local model with /voice-settings in Pi.'); }
+  const { paths, config: settings, model: modelPath } = owned;
   try {
-    const require = createRequire(join(install, 'package.json'));
-    let enginePath;
-    try { enginePath = require.resolve('transcribe-cpp'); }
-    catch (error) {
-      if (error.code !== 'ERR_PACKAGE_PATH_NOT_EXPORTED') throw error;
-      for (const root of require.resolve.paths('transcribe-cpp') ?? []) {
-        const candidate = join(root, 'transcribe-cpp/dist/index.js');
-        try { await access(candidate); enginePath = candidate; break; } catch {}
-      }
-      if (!enginePath) throw error;
-    }
-    const engine = await import(pathToFileURL(enginePath).href);
-    engine.setLogHandler(() => {});
-    const { PvRecorder } = smoke ? {} : require('@picovoice/pvrecorder-node');
-    const model = await engine.TranscribeModel.load(settings.model.path);
-    if (settings.transcriptionLanguage && !model.capabilities.languages.includes(settings.transcriptionLanguage))
-      throw new Error('Configured language is unsupported. Choose another with /voice-settings in Pi.');
-    return { model, PvRecorder, settings, language: settings.transcriptionLanguage, pcm, checkPermission: smoke ? async () => {} : permission };
+    const { engine, PvRecorder } = await loadVoiceModules(paths, !smoke);
+    const model = await engine.TranscribeModel.load(modelPath);
+    if (!model.capabilities.languages.includes(settings.language))
+      throw new Error('Unsupported language. Check ~/.config/tinkery/voice.json.');
+    return { model, PvRecorder, settings, language: settings.language, pcm, checkPermission: smoke ? async () => {} : permission };
   } catch (error) {
-    const abi = /NODE_MODULE_VERSION|different Node\.js version/.test(error.message);
-    throw issue('engine-load', abi ? `Voice needs the Node version Pi uses (${expected ?? 'unknown'}). Set TINKERY_NODE to it.` : `Voice engine could not load: ${error.message}`);
+    throw issue('engine-load', `Voice engine could not load: ${shortReason(error)}`);
   }
 }
 
@@ -194,7 +165,7 @@ async function read(take) {
         capture(take, Float32Array.from(frame, value => value / 32768));
       }
     }
-  } catch (error) { failure(error.kind ? error : issue('capture', `Microphone capture failed. Check /voice-settings in Pi. ${error.message}`), take); }
+  } catch (error) { failure(error.kind ? error : issue('capture', `Microphone capture failed: ${shortReason(error)}`), take); }
   finally { take.recorder?.release(); take.recorder = undefined; }
 }
 function microphone() {
@@ -205,8 +176,8 @@ function microphone() {
     if (dependencies.settings.microphone.type === 'device') {
       const selected = dependencies.settings.microphone;
       index = devices.map((name, i) => ({ name, i })).filter(item => item.name === selected.name)[selected.occurrence]?.i ?? -1;
-      if (index < 0) throw issue('mic-unavailable', 'Selected microphone is unavailable. Choose another with /voice-settings in Pi.');
-    } else if (!devices.length) throw issue('mic-unavailable', 'No microphone is available. Connect one and retry.');
+      if (index < 0) throw issue('mic-unavailable', 'No microphone found.');
+    } else if (!devices.length) throw issue('mic-unavailable', 'No microphone found.');
     recorder = new dependencies.PvRecorder(512, index);
     if (recorder.sampleRate !== RATE) throw issue('capture', 'Microphone must supply 16 kHz PCM.');
     recorder.start();
@@ -215,8 +186,8 @@ function microphone() {
     recorder?.release();
     if (error.kind) throw error;
     if (/DeviceAlreadyInitialized|in use|busy/i.test(error.name + ' ' + error.message))
-      throw issue('mic-busy', 'Microphone is in use by another app. Close it and retry.');
-    throw issue('capture', `Microphone could not start. Check /voice-settings in Pi. ${error.message}`);
+      throw issue('mic-busy', 'Microphone is in use by another app.');
+    throw issue('capture', `Microphone could not start: ${shortReason(error)}`);
   }
 }
 async function begin(take) {
@@ -248,7 +219,7 @@ async function finish(take) {
     await take.feeds;
     if (!live(take)) return;
     if (take.samples && Math.sqrt(take.energy / take.samples) < 0.00001)
-      throw issue('mic-permission', 'Mic captured near-zero audio. Check Privacy & Security → Microphone settings.');
+      throw issue('mic-permission', permissionHelp);
     let text = '';
     if (take.samples) {
       if (take.stream) { await take.stream.finalize(); if (live(take)) text = take.stream.snapshot.text; }
@@ -264,6 +235,12 @@ async function finish(take) {
   } catch (error) { failure(error, take); }
 }
 function command(value) {
+  if (value && ['install', 'download'].includes(value.command)) {
+    if (current || setupBusy || requirement?.event !== (value.command === 'install' ? 'needsinstall' : 'needsmodel'))
+      throw issue('protocol', 'Voice setup is not awaiting that action.');
+    void setupAction(value.command);
+    return;
+  }
   if (!value || !['start', 'stop', 'cancel'].includes(value.command) || !Number.isSafeInteger(value.take) || value.take < 1)
     throw issue('protocol', 'Invalid voice command. Restart think.');
   if (value.command === 'start') {
@@ -308,5 +285,35 @@ process.stdin.on('data', chunk => {
     failEvent(error.kind ? error : issue('protocol', 'Malformed voice command. Restart think.'), take);
   }
 });
-try { dependencies = await load(); emit({ event: 'ready', version: 1 }); }
+let owned, requirement, setupBusy = false;
+const fakeConfig = process.env.TINKERY_VOICE_FAKE_PCM ? JSON.parse(process.env.TINKERY_VOICE_FAKE_CONFIG ?? '{}') : undefined;
+let fakeRequirement = fakeConfig?.setup;
+async function prepareVoice() {
+  dependencies = undefined;
+  if (fakeConfig && fakeRequirement) {
+    requirement = { event: fakeRequirement === 'model' ? 'needsmodel' : 'needsinstall', size_mb: 20,
+      message: fakeRequirement === 'model' ? 'Voice model is missing (732 MB). Download now? y / n' : 'Voice needs a one-time local install (about 20 MB). Install now? y / n' };
+  } else if (!fakeConfig) {
+    owned = await discoverVoice(); requirement = owned.requirement;
+  } else requirement = undefined;
+  if (requirement) { emit(requirement); return; }
+  emit({ event: 'loading' });
+  dependencies = await load();
+  if (!closed) emit({ event: 'ready', version: 1 });
+}
+async function setupAction(action) {
+  setupBusy = true;
+  try {
+    if (fakeConfig) {
+      await sleep(fakeConfig.installDelay ?? 0);
+      if (fakeConfig.installFailure) throw new Error(fakeConfig.installFailure);
+      fakeRequirement = undefined;
+    } else if (action === 'install') await installVoice(voicePaths());
+    else await downloadVoiceModel(voicePaths());
+    if (!closed) await prepareVoice();
+  } catch (error) {
+    failEvent(issue(action === 'install' ? 'install' : 'download', `Voice ${action === 'install' ? 'install' : 'download'} failed: ${shortReason(error)}. Press the voice key to retry.`));
+  } finally { setupBusy = false; }
+}
+try { await prepareVoice(); }
 catch (error) { failEvent(error); }

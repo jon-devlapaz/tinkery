@@ -204,7 +204,9 @@ fn loading_and_starting_are_bounded_but_listening_waits_for_explicit_stop() {
 fn every_failure_preserves_specific_kind_and_cancels_pending_send() {
     for kind in [
         "no-node",
-        "no-pi-voice",
+        "install",
+        "download",
+        "config",
         "no-model",
         "engine-load",
         "mic-permission",
@@ -246,6 +248,15 @@ fn transport_failure_and_global_error_disable_voice() {
     voice.tick(now);
     assert!(!voice.available());
     assert_eq!(voice.notice(), "Engine exited.");
+    fake.borrow_mut().fail_send = false;
+    voice.toggle(now);
+    assert_eq!(fake.borrow().restarted, 1);
+    fake.borrow_mut()
+        .events
+        .push_back(Event::Ready { version: 1 });
+    voice.tick(now);
+    assert!(voice.available());
+    assert!(!voice.active());
 }
 #[test]
 fn oversized_partial_cancels_without_silent_truncation() {

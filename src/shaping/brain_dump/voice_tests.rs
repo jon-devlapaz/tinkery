@@ -332,7 +332,9 @@ fn direct_submit_uses_the_same_wait_for_final_contract() {
 fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
     for kind in [
         "no-node",
-        "no-pi-voice",
+        "install",
+        "download",
+        "config",
         "no-model",
         "engine-load",
         "mic-permission",
@@ -507,12 +509,18 @@ fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
             .contains("6 speak")
     );
     let (mut a, fake) = attach(a);
-    assert!(yohaku::help_text(&a).contains("F6   speak (local; nothing leaves your Mac)"));
-    assert!(yohaku::key_bar_items(&a).contains(&("6", "speak")));
+    assert!(yohaku::help_text(&a).contains("F6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"));
+    assert!(
+        yohaku::key_bar_items(&a)
+            .contains(&(crate::voice::key_label(std::env::consts::OS), "speak"))
+    );
     start(&mut a, &fake);
     assert_eq!(
         yohaku::key_bar_items(&a),
-        vec![("6", "stop"), ("esc", "cancel")]
+        vec![
+            (crate::voice::key_label(std::env::consts::OS), "stop"),
+            ("esc", "cancel")
+        ]
     );
     event(
         &mut a,
@@ -523,7 +531,7 @@ fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
             message: "Set TINKERY_NODE.".into(),
         },
     );
-    assert!(!yohaku::help_text(&a).contains("speak"));
+    assert!(yohaku::help_text(&a).contains("speak"));
 }
 #[test]
 fn shaping_results_defer_while_voice_is_active_even_with_empty_input() {
@@ -542,4 +550,106 @@ fn shaping_results_defer_while_voice_is_active_even_with_empty_input() {
     assert!(a.guess.is_none());
     assert_eq!(a.sources[0].text, "ordinary original");
     assert!(!a.goal_ready());
+}
+
+#[test]
+fn first_use_key_bar_and_muted_prompt_preserve_input_and_require_explicit_yes() {
+    for no_color in [false, true] {
+        let fake = Rc::new(RefCell::new(Fake::default()));
+        let mut a = BrainDump::default().with_voice(Box::new(fake.clone()));
+        a.paste("typed");
+        assert!(
+            yohaku::key_bar_items(&a)
+                .contains(&(crate::voice::key_label(std::env::consts::OS), "speak"))
+        );
+        event(
+            &mut a,
+            &fake,
+            Event::NeedsInstall {
+                size_mb: 20,
+                message: "Voice needs a one-time local install (about 20 MB). Install now? y / n"
+                    .into(),
+            },
+        );
+        assert!(a.voice.as_ref().unwrap().notice().is_empty());
+        key(&mut a, KeyCode::F(6));
+        assert!(a.voice.as_ref().unwrap().setup_prompt());
+        let palette = Palette::new(no_color);
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+        terminal.draw(|f| render(f, &mut a, palette)).unwrap();
+        let cell = &terminal.backend().buffer()[(2, 28)];
+        assert_eq!(cell.symbol(), "V");
+        if no_color {
+            assert!(cell.modifier.contains(ratatui::style::Modifier::DIM));
+        } else {
+            assert_eq!(cell.fg, palette.muted.fg.unwrap());
+        }
+        key(&mut a, KeyCode::Char('y'));
+        assert_eq!(a.input.text, "typed");
+        assert_eq!(fake.borrow().commands, [Command::Install]);
+        assert_eq!(a.voice.as_ref().unwrap().notice(), "installing voice…");
+        event(&mut a, &fake, Event::Loading);
+        event(&mut a, &fake, Event::Ready { version: 1 });
+        assert!(!a.voice_active());
+        assert!(a.sources.is_empty());
+        assert_eq!(a.input.text, "typed");
+    }
+}
+
+#[test]
+fn decline_is_consumed_without_typing_or_repeated_prompt_and_plain_messages_are_muted() {
+    let fake = Rc::new(RefCell::new(Fake::default()));
+    let mut a = BrainDump::default().with_voice(Box::new(fake.clone()));
+    a.paste("typed");
+    event(
+        &mut a,
+        &fake,
+        Event::NeedsInstall {
+            size_mb: 20,
+            message: "Install now? y / n".into(),
+        },
+    );
+    key(&mut a, KeyCode::F(6));
+    key(&mut a, KeyCode::Char('n'));
+    key(&mut a, KeyCode::F(6));
+    assert!(!a.voice.as_ref().unwrap().setup_prompt());
+    assert!(fake.borrow().commands.is_empty());
+    assert_eq!(a.input.text, "typed");
+    for (kind, message) in [
+        (
+            "mic-permission",
+            "Allow microphone access for your terminal in System Settings → Privacy & Security → Microphone.",
+        ),
+        ("mic-busy", "Microphone is in use by another app."),
+        ("mic-unavailable", "No microphone found."),
+        (
+            "install",
+            "Voice install failed: registry unavailable. Press the voice key to retry.",
+        ),
+    ] {
+        let (mut a, fake) = attach(BrainDump::default());
+        a.paste("typed");
+        event(
+            &mut a,
+            &fake,
+            Event::Error {
+                take: None,
+                kind: kind.into(),
+                message: message.into(),
+            },
+        );
+        assert_eq!(a.voice.as_ref().unwrap().notice(), message);
+        assert_eq!(a.input.text, "typed");
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 30)).unwrap();
+        terminal
+            .draw(|f| render(f, &mut a, Palette::new(true)))
+            .unwrap();
+        assert!(
+            terminal.backend().buffer()[(2, 28)]
+                .modifier
+                .contains(ratatui::style::Modifier::DIM)
+        );
+    }
 }

@@ -1,0 +1,30 @@
+✖ newest shared-cache snapshot wins, missing lookup does not download or create files (2.942666ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34.518
+
+✖ failing tests:
+
+test at voice/setup.test.mjs:57:1
+✖ newest shared-cache snapshot wins, missing lookup does not download or create files (2.942666ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-owned-PDf8dK/.cache/huggingface/hub/models--handy-computer--parakeet-unified-en-0.6b-gguf/snapshots/zz-old/parakeet-unified-en-0.6b-Q8_0.gguf'
+  - '/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-owned-PDf8dK/.cache/huggingface/hub/models--handy-computer--parakeet-unified-en-0.6b-gguf/snapshots/aa-new/parakeet-unified-en-0.6b-Q8_0.gguf'
+  
+      at TestContext.<anonymous> (file:///private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-4d4hwwpv/newest-model/voice/setup.test.mjs:63:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-owned-PDf8dK/.cache/huggingface/hub/models--handy-computer--parakeet-unified-en-0.6b-gguf/snapshots/zz-old/parakeet-unified-en-0.6b-Q8_0.gguf',
+    expected: '/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-owned-PDf8dK/.cache/huggingface/hub/models--handy-computer--parakeet-unified-en-0.6b-gguf/snapshots/aa-new/parakeet-unified-en-0.6b-Q8_0.gguf',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

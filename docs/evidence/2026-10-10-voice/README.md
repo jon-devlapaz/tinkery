@@ -1,4 +1,6 @@
-# Think voice — build report
+# Think voice — initial build report
+
+Historical borrowed-engine slice. The [ownership update](owned/README.md) supersedes its runtime dependencies, settings, messages and setup behavior; initial evidence remains intact.
 
 Authority: the operator-approved voice brief and four decisions in the voice plan review (2026-10-10). Built from `main` at `945cb39` on `think-voice`; **PR only, no merge or installation**.
 

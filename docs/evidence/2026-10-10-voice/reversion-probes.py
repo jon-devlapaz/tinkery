@@ -18,14 +18,19 @@ PROBES = [
     ('muted-cells', 'src/shaping/brain_dump/voice_input.rs', '                                palette.muted\n', '                                palette.ink\n', 'actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color', 'rust'),
     ('immutable-pcm', 'voice/helper.mjs', 'const immutable = pcm.slice();', 'const immutable = pcm;', 'asynchronous native feeds borrow immutable PCM buffers', 'node'),
     ('stdin-eof', 'voice/helper.mjs', "process.stdin.on('end', exit);", "process.stdin.on('end', () => {});", 'stdin EOF exits immediately during load, listen and finalization', 'node'),
-    ('node-major', 'voice/helper.mjs', 'if (expected && expected !==', 'if (false && expected && expected !==', 'Node major mismatch precedes engine loading with the prescribed message', 'node'),
+    ('node-major', 'voice/setup.mjs', 'if (metadata.nodeMajor !== major)', 'if (false && metadata.nodeMajor !== major)', 'Node major mismatch offers reinstall before native imports', 'node'),
+    ('stop-rejected-read', 'voice/helper.mjs', 'if (take.stopping || !take.recorder?.isRecording) break;', 'if (false) break;', 'a rejected read during stop preserves the final, unexpected read rejection fails', 'node'),
+    ('setup-consent', 'src/voice/setup.rs', 'yes.then(|| need.command())', 'Some(need.command())', 'declined_install_is_not_asked_again_even_after_a_new_think_visit', 'rust'),
+    ('platform-label', 'src/voice/setup.rs', '"⌃⌥Z"', '"6"', 'key_label_matches_platform_and_setup_protocol_stays_typed', 'rust'),
+    ('newest-model', 'voice/setup.mjs', 'b.modified - a.modified', 'a.modified - b.modified', 'newest shared-cache snapshot wins', 'setup'),
+    ('model-override', 'voice/setup.mjs', 'const override = env.TINKERY_VOICE_MODEL ?? config.model;', 'const override = config.model;', 'model override precedes config', 'setup'),
 ]
 
 
 def check(path, test, language, log):
     command = (['cargo', '+1.99.0', 'test', '--locked', '--lib', test] if language == 'rust'
-               else ['node', '--test', '--test-name-pattern=' + test, 'voice/helper.test.mjs'])
-    result = subprocess.run(command, cwd=path, env={**os.environ, 'CARGO_TARGET_DIR': str(ROOT / 'target')},
+               else ['node', '--test', '--test-name-pattern=' + test, 'voice/setup.test.mjs' if language == 'setup' else 'voice/helper.test.mjs'])
+    result = subprocess.run(command, cwd=path, env={**os.environ, 'CARGO_TARGET_DIR': str(OUT / 'target')},
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=60)
     log.write_text(result.stdout)
     return result.returncode, result.stdout

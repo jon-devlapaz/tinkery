@@ -35,7 +35,7 @@ jobs:
       - name: Build
         run: cargo build --locked
       - name: Local voice helper (fake-only; runner Node is required)
-        run: node --test voice/helper.test.mjs
+        run: node --test voice/*.test.mjs
       - name: Terminal journeys (real binary in a pseudo-terminal)
         env:
           TINKERY_NODE: /tinkery-TEST-no-node

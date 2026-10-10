@@ -325,7 +325,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "F2   send (practice reading; nothing leaves)"
     };
     let voice = if app.voice_available() {
-        "\nF6   speak (local; nothing leaves your Mac)"
+        "\nF6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"
     } else {
         ""
     };
@@ -367,11 +367,14 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     } else if app.goal_review.is_some() {
         vec![("type confirm", "save"), ("esc", "back")]
     } else if app.voice_active() {
-        vec![("6", "stop"), ("esc", "cancel")]
+        vec![
+            (crate::voice::key_label(std::env::consts::OS), "stop"),
+            ("esc", "cancel"),
+        ]
     } else if app.running() {
         let mut items = vec![("esc", "cancel"), ("10", "menu")];
         if app.voice_available() {
-            items.push(("6", "speak"));
+            items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
         }
         items
     } else {
@@ -383,7 +386,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
             items.push(("8", "skip"));
         }
         if app.voice_available() {
-            items.push(("6", "speak"));
+            items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
         }
         items.push(("10", "menu"));
         items

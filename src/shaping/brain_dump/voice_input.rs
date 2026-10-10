@@ -19,9 +19,25 @@ impl BrainDump {
             && self.handoff_job.is_none()
     }
     pub(super) fn voice_available(&self) -> bool {
-        self.voice_allowed() && self.voice.as_ref().is_some_and(Voice::available)
+        self.voice_allowed() && self.voice.is_some()
     }
     pub(super) fn voice_key(&mut self, key: KeyEvent) -> bool {
+        if self.voice_allowed()
+            && key.kind == KeyEventKind::Press
+            && key.modifiers.is_empty()
+            && self.voice.as_ref().is_some_and(Voice::setup_prompt)
+        {
+            match key.code {
+                KeyCode::Char('y' | 'Y' | 'n' | 'N') | KeyCode::Esc => {
+                    self.voice
+                        .as_mut()
+                        .unwrap()
+                        .answer_setup(matches!(key.code, KeyCode::Char('y' | 'Y')), Instant::now());
+                    return true;
+                }
+                _ => {}
+            }
+        }
         if key.code == KeyCode::Esc && self.voice_active() && !self.leave_prompt {
             self.voice.as_mut().unwrap().cancel();
             return true;

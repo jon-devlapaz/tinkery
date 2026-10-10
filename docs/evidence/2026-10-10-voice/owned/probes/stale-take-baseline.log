@@ -1,0 +1,9 @@
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-4d4hwwpv/stale-take)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.54s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-4d4hwwpv/target/debug/deps/tinkery-57634f1bcdbf9627)
+
+running 1 test
+test voice::tests::cancel_discards_and_stale_events_cannot_touch_new_take ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 170 filtered out; finished in 0.00s
+
