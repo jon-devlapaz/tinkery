@@ -452,55 +452,24 @@ fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_d
     assert_eq!(a.sources[0].text, original);
 }
 #[test]
-fn right_side_speaks_in_one_voice_and_two_readings_are_visibly_two() {
+fn right_side_speaks_in_one_voice_with_one_reading() {
     let mut a = board();
     let one = right_text(&snapshot(100, 30, &mut a, false).unwrap(), 100);
     assert!(one.contains("I think you mean…"));
-    assert!(!one.contains("or maybe…"));
     assert!(one.contains("One thing I'm not sure about"));
     assert!(one.contains("your answer"));
-    assert!(!one.contains("Review goal"));
-    amend_board(&mut a, |g| {
-        let mut second = g.framings[0].clone();
-        second.text = "Possible goal: A second, different reading.".into();
-        g.framings.push(second);
-    });
-    let two = right_text(&snapshot(100, 30, &mut a, false).unwrap(), 100);
-    assert!(two.contains("I think you mean…") && two.contains("or maybe…"));
-    assert!(two.contains("A second, different reading.") && !two.contains("Possible goal:"));
+    assert!(!one.contains("Review goal") && !one.contains("or maybe"));
+    let bar = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(!bar.lines().last().unwrap().contains('7'));
+    let before = a.reading;
+    key(&mut a, KeyCode::F(7));
+    assert_eq!(a.reading, before, "F7 does nothing");
+    assert_eq!(agent_text("Possible goal: a reading."), "A reading.");
     assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
     assert_eq!(agent_text("PROVISIONAL goal: x"), "X");
     assert_eq!(
         agent_text("Alternative goal: the main outcome"),
         "The main outcome"
-    );
-    let ink_of = |a: &mut BrainDump, needle: &str| {
-        let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
-        t.draw(|f| render(f, a, crate::Palette::new(false)))
-            .unwrap();
-        let b = t.backend().buffer().clone();
-        (0..30)
-            .find_map(|y| {
-                let row: String = (0..100).map(|x| b[(x, y)].symbol()).collect();
-                row.find(needle).map(|i| {
-                    let x = row[..i].chars().count() as u16;
-                    b[(x, y)].fg
-                })
-            })
-            .unwrap()
-    };
-    use ratatui::style::Color;
-    assert_eq!(
-        ink_of(&mut a, "A second"),
-        Color::Rgb(87, 86, 83),
-        "unpicked is muted"
-    );
-    key(&mut a, KeyCode::F(7));
-    assert_eq!(a.reading, 1);
-    assert_eq!(
-        ink_of(&mut a, "A second"),
-        Color::Rgb(16, 15, 15),
-        "picked is ink"
     );
 }
 #[test]

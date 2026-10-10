@@ -431,30 +431,13 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             CanvasNode::Text(n) => n.title.is_none(),
             _ => false,
         }));
-        let mut terminal =
-            ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
-        terminal
-            .draw(|f| render(f, &mut a, Palette::new(false)))
-            .unwrap();
-        let first = terminal.backend().buffer().clone();
-        a.board_focus = !a.board_focus;
-        key(&mut a, KeyCode::Char(']'));
-        terminal
-            .draw(|f| render(f, &mut a, Palette::new(false)))
-            .unwrap();
-        let second = terminal.backend().buffer();
-        let area = a.canvas.area;
-        assert!(
-            (area.y..area.bottom())
-                .any(|y| (area.x..area.right()).any(|x| first[(x, y)] != second[(x, y)])),
-            "Support highlights didn't switch"
-        );
         assert_eq!(a.layout(), layout);
         assert!(!a.running(), "Highlighting sent a model request");
         assert_eq!(a.sources.len(), 1, "Highlighting was recorded as an answer");
         for (n, f) in a.canvas.state.data.nodes.iter().zip(&fragments) {
             assert_eq!(n.text(), f.text);
         }
+        a.board_focus = true;
         key(&mut a, KeyCode::Char('d'));
         let detail = snapshot(w, h, &mut a, false).unwrap();
         assert!(detail.contains("Desired experience"));

@@ -149,8 +149,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     };
     let mut text = ratatui::text::Text::from(content);
     if let (Some(g), None) = (&app.guess, failure) {
-        // One voice: "I think you mean…", then "or maybe…"; the picked reading in ink.
-        let start = (app.reading.min(g.framings.len() - 1) / 2) * 2;
+        // One voice, one reading: "I think you mean…".
         let mut lines = vec![];
         if let Some(u) = &app.update {
             lines.push(ratatui::text::Line::styled(
@@ -159,26 +158,15 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             ));
             lines.push(ratatui::text::Line::raw(""));
         }
-        for (i, f) in g.presented(app.reading).iter().enumerate() {
-            if i > 0 {
-                lines.push(ratatui::text::Line::raw(""));
-            }
+        lines.push(ratatui::text::Line::styled(
+            "I think you mean…",
+            palette.muted,
+        ));
+        for line in agent_text(&g.framings[0].text).lines() {
             lines.push(ratatui::text::Line::styled(
-                if i == 0 {
-                    "I think you mean…"
-                } else {
-                    "or maybe…"
-                },
-                palette.muted,
+                line.to_owned(),
+                palette.ink.add_modifier(Modifier::ITALIC),
             ));
-            let style = if start + i == app.reading {
-                palette.ink.add_modifier(Modifier::ITALIC)
-            } else {
-                palette.muted.add_modifier(Modifier::ITALIC)
-            };
-            for line in agent_text(&f.text).lines() {
-                lines.push(ratatui::text::Line::styled(line.to_owned(), style));
-            }
         }
         text = ratatui::text::Text::from(lines);
     }
@@ -332,7 +320,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "! F10  back to the menu; asks before losing your draft"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF7   pick the other reading\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\ngreen     words the reading is based on\nunderline words not placed yet\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\ngreen     words the reading is based on\nunderline words not placed yet\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
@@ -362,9 +350,6 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         let mut items = vec![("2", "send")];
         if app.guess.is_some() {
             items.push(("3", "review"));
-        }
-        if app.guess.as_ref().is_some_and(|g| g.framings.len() > 1) {
-            items.push(("7", "pick the other"));
         }
         if app.focused_question().is_some() {
             items.push(("8", "skip"));
