@@ -1,5 +1,5 @@
 use super::*;
-use ratatui::style::{Color, Modifier};
+use ratatui::style::Modifier;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -269,36 +269,8 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
             .scroll((app.source_scroll, 0)),
         inner,
     );
-    let supports = app
-        .guess
-        .as_ref()
-        .and_then(|g| g.framings.get(app.reading))
-        .map(|f| {
-            f.supports
-                .iter()
-                .filter(|a| a.source == source.id)
-                .filter_map(|a| a.range(&app.sources).ok())
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    let mut unresolved = app
-        .guess
-        .as_ref()
-        .map(|g| {
-            g.misfits
-                .iter()
-                .filter(|a| a.source == source.id)
-                .filter_map(|a| a.range(&app.sources).ok())
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    if app
-        .scope_pending
-        .as_ref()
-        .is_some_and(|(id, _)| *id == source.id)
-    {
-        unresolved.push(0..source.text.len());
-    }
+    // P10: the original stays plain ink; only your own selection is drawn. The exact-quote
+    // check still runs; evidence is shown on demand later (C13), never painted by default.
     if app.board_focus
         && !app.original
         && !app.help
@@ -328,20 +300,6 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
             continue;
         }
         let mut style = palette.ink;
-        if supports.iter().any(|r| r.contains(&index)) {
-            app.annotations_visible.0 = true;
-            style = if palette.ink.fg.is_none() {
-                style.add_modifier(Modifier::BOLD)
-            } else {
-                style
-                    .bg(Color::Rgb(219, 235, 217))
-                    .add_modifier(Modifier::BOLD)
-            };
-        }
-        if unresolved.iter().any(|r| r.contains(&index)) {
-            app.annotations_visible.1 = true;
-            style = style.add_modifier(Modifier::UNDERLINED);
-        }
         if app
             .selection
             .is_some_and(|(a, b)| (a.min(b)..a.max(b)).contains(&index))

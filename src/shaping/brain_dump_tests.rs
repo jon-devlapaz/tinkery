@@ -635,7 +635,7 @@ fn annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes() {
 }
 
 #[test]
-fn annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards() {
+fn original_stays_plain_ink_even_with_cited_and_unplaced_words() {
     use ratatui::style::{Color, Modifier};
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         for mono in [false, true] {
@@ -675,16 +675,16 @@ fn annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards() {
                 let cell =
                     &terminal.backend().buffer()[(area.x + *col as u16, area.y + *row as u16)];
                 assert_eq!(cell.symbol(), g);
-                assert_eq!(
-                    cell.modifier.contains(Modifier::BOLD),
+                // P10: cited and unplaced words are not painted; the original stays plain ink.
+                assert!(
+                    !cell
+                        .modifier
+                        .intersects(Modifier::BOLD | Modifier::UNDERLINED),
+                    "painted cell at {i} (supported {}, unresolved {})",
                     supported.contains(&i),
-                    "wrong supporting cell at {i}"
+                    unresolved.contains(&i)
                 );
-                assert_eq!(
-                    cell.modifier.contains(Modifier::UNDERLINED),
-                    unresolved.contains(&i),
-                    "wrong unresolved cell at {i}"
-                );
+                assert_ne!(cell.bg, Color::Rgb(219, 235, 217), "green highlight at {i}");
                 if !mono {
                     assert_eq!(
                         cell.fg,

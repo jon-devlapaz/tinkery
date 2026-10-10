@@ -75,7 +75,6 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     assert_eq!(a.source_view, 1);
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(view.contains("Also fix a typo"));
-    assert!(a.annotations_visible.1);
     assert_eq!(a.guess.as_ref().unwrap().framings, old.framings);
     assert!(a.misfit_text().contains("scope not answered"));
     assert!(a.misfit_text().contains("welcome email"));
