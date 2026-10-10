@@ -411,3 +411,17 @@ fn rust_marks_only_consequence_and_never_alone() {
     let mono = render(&mut a, true);
     assert!(rows(&mono, rust).is_empty(), "NO_COLOR uses no colour");
 }
+
+#[test]
+fn help_before_the_first_send_keeps_the_draft_in_view() {
+    let mut a = BrainDump::default();
+    a.paste("my half-finished thought");
+    key(&mut a, KeyCode::F(1));
+    let screen = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(screen.contains("my half-finished thought"));
+    assert!(screen.contains("Right now"));
+    assert!(!screen.contains("Words 1 / 0"));
+    a.submit();
+    let screen = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(!screen.contains("· writing") && !screen.contains("board controls"));
+}

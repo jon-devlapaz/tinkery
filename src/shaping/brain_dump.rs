@@ -1235,7 +1235,7 @@ impl BrainDump {
             KeyCode::Char('s') if self.board_focus => {
                 if let Some(q) = self.focused_question().cloned() {
                     self.skipped.push(q);
-                    self.notice = "Question skipped. Undo is available.".into();
+                    self.notice = "Question skipped. Ctrl-Z brings it back.".into();
                 }
             }
             KeyCode::PageDown => self.paper_scroll = self.paper_scroll.saturating_add(5),

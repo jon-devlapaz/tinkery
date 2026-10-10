@@ -19,13 +19,40 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     }
     app.goal_button = Rect::default();
     app.back_button = Rect::default();
-    if app.sources.is_empty() && !app.help {
+    if app.sources.is_empty() {
+        // Before the first send, help sits beside the draft; the draft never leaves view.
+        let width = if app.help {
+            area.width * 48 / 100 - 4
+        } else {
+            area.width - 8
+        };
         frame.render_widget(
             Paragraph::new("What's on your mind?").style(palette.muted),
-            Rect::new(4, 5, area.width - 8, 1),
+            Rect::new(4, 5, width, 1),
         );
-        app.input_area = Rect::new(4, 8, area.width - 8, area.height - 12);
+        app.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
+        if app.help {
+            let right = Rect::new(
+                area.width * 48 / 100 + 2,
+                4,
+                area.width - area.width * 48 / 100 - 4,
+                area.height - 6,
+            );
+            let text = if app.how {
+                how_text(app)
+            } else {
+                help_text(app)
+            };
+            let p = Paragraph::new(styled_help(text, palette))
+                .style(palette.ink)
+                .wrap(Wrap { trim: false });
+            let max = p
+                .line_count(right.width)
+                .saturating_sub(right.height as usize) as u16;
+            app.original_scroll = app.original_scroll.min(max);
+            frame.render_widget(p.scroll((app.original_scroll, 0)), right);
+        }
         return;
     }
     let left = Rect::new(2, 4, area.width * 48 / 100 - 4, area.height - 6);
@@ -178,19 +205,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         rows[1],
     );
     let input = Block::default()
-        .title(format!(
-            "{} · {}",
-            if app.add_more {
-                "Add more"
-            } else {
-                "Your reply"
-            },
-            if app.board_focus {
-                "board controls"
-            } else {
-                "writing"
-            }
-        ))
+        .title(if app.add_more {
+            "Add more"
+        } else {
+            "Your reply"
+        })
         .style(palette.ink);
     app.input_area = input.inner(rows[2]);
     frame.render_widget(input, rows[2]);
@@ -307,7 +326,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "! F10  back to the menu; asks before losing your draft"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF7   the other reading\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag or Shift+arrows on your words selects; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\ngreen     words the reading is based on\nunderline words not placed yet\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF7   the other reading\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\ngreen     words the reading is based on\nunderline words not placed yet\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
