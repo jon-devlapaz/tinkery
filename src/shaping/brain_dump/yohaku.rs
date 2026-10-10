@@ -419,7 +419,8 @@ pub(super) fn render_leave_prompt(frame: &mut Frame, app: &BrainDump, palette: P
         Paragraph::new(ratatui::text::Line::from(vec![
             ratatui::text::Span::styled("! ", palette.rust),
             ratatui::text::Span::styled("Back to menu and lose this draft? y / n", palette.ink),
-        ])),
+        ]))
+        .style(palette.ink),
         rect,
     );
 }

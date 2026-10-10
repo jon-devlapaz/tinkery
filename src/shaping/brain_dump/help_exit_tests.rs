@@ -391,6 +391,13 @@ fn rust_marks_only_consequence_and_never_alone() {
         })
         .find(|l| l.contains("! Back to menu and lose this draft? y / n"));
     assert!(line.is_some(), "the colour always comes with words");
+    let y = (0..screen.area.height)
+        .find(|&y| screen[(2, y)].symbol() == "!")
+        .unwrap();
+    assert!(
+        (0..100).all(|x| screen[(x, y)].bg == Color::Rgb(255, 252, 240)),
+        "the prompt row keeps the paper background"
+    );
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::F(1));
