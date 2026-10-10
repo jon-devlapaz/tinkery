@@ -86,6 +86,8 @@ async function load() {
       release() { trace('release'); }
       async read() {
         await sleep(10);
+        // Like PvRecorder: a read pending when stop() is called rejects.
+        if (!this.isRecording) throw new Error('PvRecorder failed to read audio data frame');
         return Int16Array.from({ length: 512 }, () => Math.round(pcm[this.offset++ % pcm.length] * 32768));
       }
     }
@@ -182,7 +184,13 @@ async function read(take) {
       }
     } else {
       while (live(take) && !take.stopping && take.recorder.isRecording) {
-        const frame = await take.recorder.read();
+        let frame;
+        try { frame = await take.recorder.read(); }
+        catch (error) {
+          // Stopping the recorder rejects the pending read: that is the end of the take, not a failure.
+          if (take.stopping || !take.recorder?.isRecording) break;
+          throw error;
+        }
         capture(take, Float32Array.from(frame, value => value / 32768));
       }
     }
