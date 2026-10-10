@@ -75,7 +75,6 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     assert_eq!(a.source_view, 1);
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(view.contains("Also fix a typo"));
-    assert!(a.annotations_visible.1);
     assert_eq!(a.guess.as_ref().unwrap().framings, old.framings);
     assert!(a.misfit_text().contains("scope not answered"));
     assert!(a.misfit_text().contains("welcome email"));
@@ -437,7 +436,7 @@ fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
 fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_discard() {
     assert_eq!(
         agent_text("PROVISIONAL goal: PROVISIONAL: intended meaning"),
-        "intended meaning"
+        "Intended meaning"
     );
     let mut a = board();
     let original = a.sources[0].text.clone();
@@ -450,4 +449,59 @@ fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_d
     a.handle_key(repeated);
     assert!(a.skipped.is_empty());
     assert_eq!(a.sources[0].text, original);
+}
+#[test]
+fn right_side_speaks_in_one_voice_with_one_reading() {
+    let mut a = board();
+    let one = right_text(&snapshot(100, 30, &mut a, false).unwrap(), 100);
+    assert!(one.contains("I think you mean…"));
+    assert!(one.contains("One thing I'm not sure about"));
+    assert!(one.contains("your answer"));
+    assert!(!one.contains("Review goal") && !one.contains("or maybe"));
+    let bar = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(!bar.lines().last().unwrap().contains('7'));
+    let before = a.reading;
+    key(&mut a, KeyCode::F(7));
+    assert_eq!(a.reading, before, "F7 does nothing");
+    assert_eq!(agent_text("Possible goal: a reading."), "A reading.");
+    assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
+    assert_eq!(agent_text("PROVISIONAL goal: x"), "X");
+    assert_eq!(
+        agent_text("Alternative goal: the main outcome"),
+        "The main outcome"
+    );
+}
+#[test]
+fn left_label_names_what_you_wrote_and_hides_while_only_the_dump() {
+    let mut a = board();
+    let screen = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(!screen.contains("Words") && !screen.contains("your dump"));
+    let q = a.focused_question().unwrap().clone();
+    a.paste("my answer");
+    a.submit();
+    wait(&mut a);
+    a.source_view = 1;
+    let label = a.source_label().unwrap();
+    assert!(label.starts_with("your answer to: “"), "{label}");
+    assert!(label.contains(&q.text.chars().take(20).collect::<String>()));
+    a.source_view = 0;
+    assert_eq!(a.source_label().unwrap(), "your dump");
+}
+#[test]
+fn answering_keeps_the_dump_in_view() {
+    let mut a = board();
+    let dump = a.sources[0].text.clone();
+    a.paste("my answer");
+    a.submit();
+    wait(&mut a);
+    assert!(a.sources.len() >= 2);
+    assert_eq!(a.source_view, 0);
+    let screen = snapshot(100, 30, &mut a, false).unwrap();
+    let first: String = dump
+        .split_whitespace()
+        .take(3)
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(screen.contains(&first), "dump left view");
+    assert!(screen.contains("your dump"));
 }

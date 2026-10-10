@@ -431,30 +431,13 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             CanvasNode::Text(n) => n.title.is_none(),
             _ => false,
         }));
-        let mut terminal =
-            ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
-        terminal
-            .draw(|f| render(f, &mut a, Palette::new(false)))
-            .unwrap();
-        let first = terminal.backend().buffer().clone();
-        a.board_focus = !a.board_focus;
-        key(&mut a, KeyCode::Char(']'));
-        terminal
-            .draw(|f| render(f, &mut a, Palette::new(false)))
-            .unwrap();
-        let second = terminal.backend().buffer();
-        let area = a.canvas.area;
-        assert!(
-            (area.y..area.bottom())
-                .any(|y| (area.x..area.right()).any(|x| first[(x, y)] != second[(x, y)])),
-            "Support highlights didn't switch"
-        );
         assert_eq!(a.layout(), layout);
         assert!(!a.running(), "Highlighting sent a model request");
         assert_eq!(a.sources.len(), 1, "Highlighting was recorded as an answer");
         for (n, f) in a.canvas.state.data.nodes.iter().zip(&fragments) {
             assert_eq!(n.text(), f.text);
         }
+        a.board_focus = true;
         key(&mut a, KeyCode::Char('d'));
         let detail = snapshot(w, h, &mut a, false).unwrap();
         assert!(detail.contains("Desired experience"));
@@ -572,7 +555,7 @@ fn unresolved_roles_can_overlap_and_long_readings_do_not_veto_a_board() {
     assert!(g.validate(&r).is_ok());
     assert_eq!(
         agent_text("PROVISIONAL: uncertain meaning\nPROVISIONAL: conditional cost"),
-        "uncertain meaning\nconditional cost"
+        "Uncertain meaning\nConditional cost"
     );
 }
 
@@ -652,7 +635,7 @@ fn annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes() {
 }
 
 #[test]
-fn annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards() {
+fn original_stays_plain_ink_even_with_cited_and_unplaced_words() {
     use ratatui::style::{Color, Modifier};
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         for mono in [false, true] {
@@ -692,16 +675,16 @@ fn annotation_styles_are_on_the_exact_source_cells_not_on_reworded_cards() {
                 let cell =
                     &terminal.backend().buffer()[(area.x + *col as u16, area.y + *row as u16)];
                 assert_eq!(cell.symbol(), g);
-                assert_eq!(
-                    cell.modifier.contains(Modifier::BOLD),
+                // P10: cited and unplaced words are not painted; the original stays plain ink.
+                assert!(
+                    !cell
+                        .modifier
+                        .intersects(Modifier::BOLD | Modifier::UNDERLINED),
+                    "painted cell at {i} (supported {}, unresolved {})",
                     supported.contains(&i),
-                    "wrong supporting cell at {i}"
+                    unresolved.contains(&i)
                 );
-                assert_eq!(
-                    cell.modifier.contains(Modifier::UNDERLINED),
-                    unresolved.contains(&i),
-                    "wrong unresolved cell at {i}"
-                );
+                assert_ne!(cell.bg, Color::Rgb(219, 235, 217), "green highlight at {i}");
                 if !mono {
                     assert_eq!(
                         cell.fg,
@@ -846,7 +829,14 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
         assert!(!frame.contains("Settled: both"));
         assert!(a.details_text().contains("both"));
         assert!(frame.contains("Who controls RSS appearance?"));
-        assert!(!frame.contains("What is Hamster?"));
+        // The answered question is no longer asked; it only labels your answer on the left.
+        assert!(!frame.contains("One thing I'm not sure about\nWhat is Hamster?"));
+        assert!(
+            frame
+                .lines()
+                .filter(|l| l.contains("What is Hamster?"))
+                .all(|l| l.contains("your answer to:"))
+        );
         assert!(a.details_text().contains(&question));
         assert!(a.paper().contains("Answer / original 2: both"));
         let mut terminal =
@@ -915,7 +905,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("No unanswered question")
+            .contains("Nothing I'm unsure about")
     );
     assert_eq!(a.settled.len(), 1);
     assert_eq!(a.sources[1].text, "both");
@@ -940,7 +930,7 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     ] {
         assert!(!view.contains(clutter), "{clutter} in sparse view");
     }
-    assert!(view.contains("Your reply"));
+    assert!(view.contains("your answer"));
     assert!(!view.contains("F2"));
     assert!(!view.contains("Highlighted words support"));
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
@@ -948,7 +938,7 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("Add more")
+            .contains("add more")
     );
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     a.paste("both");

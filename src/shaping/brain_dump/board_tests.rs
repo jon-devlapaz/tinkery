@@ -41,13 +41,20 @@ fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority()
 fn counts_word_lengths_labels_and_question_punctuation_are_not_boundary_rules() {
     let input = serde_json::json!({"framings":(0..5).map(|i|format!("reading {i} {}",vec!["word";100].join(" "))).collect::<Vec<_>>(),"questions":(0..9).map(|i|format!("Unresolved {i} without question mark")).collect::<Vec<_>>(),"alternatives":vec!["same";7]});
     let (b, changes) = parsed(&input.to_string());
-    assert_eq!(b.framings.len(), 5);
+    assert_eq!(
+        b.framings.len(),
+        1,
+        "one reading: the question decides, not a second guess"
+    );
+    assert!(b.framings[0].text.starts_with("reading 0"));
     assert_eq!(b.questions.len(), 9);
     assert_eq!(b.alternatives.len(), 7);
-    assert_eq!(b.presented(0).len(), 2);
-    assert!(b.presented(2)[0].text.starts_with("reading 2"));
-    assert_eq!(b.presented(4).len(), 1);
-    assert!(changes.iter().any(|c| c.contains("5 readings retained")));
+    assert_eq!(b.presented(0).len(), 1);
+    assert!(
+        changes
+            .iter()
+            .any(|c| c.contains("5 readings received; the first is presented"))
+    );
 }
 #[test]
 fn malformed_json_and_no_readable_core_fail_but_optional_types_do_not() {
@@ -168,8 +175,12 @@ fn final_boundary_replays_all_three_live_boards_without_a_provider_or_helper() {
         )
         .unwrap();
         let b = board::Board::verify(g, &r).unwrap();
-        let live: serde_json::Value =
+        let mut live: serde_json::Value =
             serde_json::from_slice(&std::fs::read(dir.join("first-board.json")).unwrap()).unwrap();
+        // Recorded before one-reading-only (2026-10-09): only the first reading is kept now.
+        if let Some(f) = live["framings"].as_array_mut() {
+            f.truncate(1);
+        }
         assert_eq!(
             serde_json::to_value(b).unwrap(),
             live,
@@ -179,7 +190,7 @@ fn final_boundary_replays_all_three_live_boards_without_a_provider_or_helper() {
     }
 }
 #[test]
-fn extra_readings_are_retained_in_details_and_notes_in_the_goal_review() {
+fn extra_readings_are_dropped_and_logged_and_notes_reach_the_goal_review() {
     let mut app = BrainDump::with_host(Arc::new(Recording::default()))
         .with_seed_me("/tmp/Tinkery-TEST-unused/SKILL.md".into(), None);
     app.real = true;
@@ -187,14 +198,16 @@ fn extra_readings_are_retained_in_details_and_notes_in_the_goal_review() {
     app.submit();
     settle(&mut app);
     let raw = r#"{"framings":["Reading zero","Reading one","Extra reading two"],"misfits":["Unresolved note"]}"#;
-    let g = board::parse(raw, &request(), &mut vec![]).unwrap();
+    let mut changes = vec![];
+    let g = board::parse(raw, &request(), &mut changes).unwrap();
+    assert!(changes.iter().any(|c| c.contains("3 readings received")));
     app.apply_result(request(), Ok(g));
-    assert!(app.details_text().contains("Extra reading two"));
-    assert!(app.paper().contains("Extra reading two"));
-    app.reading = 2;
+    let view = snapshot(100, 30, &mut app, false).unwrap();
+    assert!(view.contains("Reading zero"));
+    assert!(!view.contains("Reading one") && !app.paper().contains("Extra reading two"));
     app.review_goal();
     let goal = app.goal_review.unwrap();
-    assert!(goal.affirmation.goal.contains("Extra reading two"));
+    assert_eq!(goal.affirmation.goal, "Reading zero");
     assert_eq!(goal.affirmation.unresolved_notes, ["Unresolved note"]);
     assert!(app.receipt.is_none());
 }

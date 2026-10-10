@@ -44,9 +44,9 @@ def journey(w,h):
    send(b'\x1b[15~','Why');send(b'\x1b','What would you want')
    send(b'\x1bOS','Original 1 / dump');send(b'\x1b','What would you want')
    assert '10 menu' in screen.text().splitlines()[-1]
-   send(b'\x1bOP','Right now');os.write(master,b'b');send(b'\x1b','Words 1')
+   send(b'\x1bOP','Right now');os.write(master,b'b');send(b'\x1b','I think you mean')
    assert '10 menu' not in screen.text().splitlines()[-1]
-   send(b'\x1b[1;2Q','Add more')
+   send(b'\x1b[1;2Q','add more')
    send(b'\x1b[200~Also fix a welcome-email typo.\x1b[201~','welcome-email typo')
    send(b'\x1bOQ','Should these added words')
    assert 'Also fix a welcome-email typo.' in screen.text(),screen.text()

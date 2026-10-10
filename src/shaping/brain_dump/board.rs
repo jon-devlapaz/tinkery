@@ -162,9 +162,8 @@ impl Board {
             unresolved_notes: g.unresolved_notes,
         }))
     }
-    pub fn presented(&self, selected: usize) -> &[Reading] {
-        let start = (selected.min(self.framings.len() - 1) / 2) * 2;
-        &self.framings[start..(start + 2).min(self.framings.len())]
+    pub fn presented(&self, _selected: usize) -> &[Reading] {
+        &self.framings[..1]
     }
     pub fn wire(&self) -> Guess {
         Guess {
@@ -369,7 +368,7 @@ pub(super) fn parse(
             ));
         }
     }
-    let guess = Guess {
+    let mut guess = Guess {
         uncertain: false,
         framings,
         outcome,
@@ -378,16 +377,20 @@ pub(super) fn parse(
         questions,
         alternatives,
     };
+    // One reading only: if the model is torn, the question decides. Extras are logged, never shown.
+    if guess.framings.len() > 1 {
+        changes.push(format!(
+            "{} readings received; the first is presented, the rest are dropped",
+            guess.framings.len()
+        ));
+        guess.framings.truncate(1);
+    }
     guess.validate(request)?;
-    for (name, n, visible) in [
-        ("readings", guess.framings.len(), 2),
-        ("questions", guess.questions.len(), 1),
-    ] {
-        if n > visible {
-            changes.push(format!(
-                "{n} {name} retained; up to {visible} presented, remainder available in details"
-            ));
-        }
+    if guess.questions.len() > 1 {
+        changes.push(format!(
+            "{} questions retained; up to 1 presented, remainder available in details",
+            guess.questions.len()
+        ));
     }
     Ok(guess)
 }

@@ -64,19 +64,15 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     );
     app.agent_area = right;
     app.canvas.area = left;
-    app.annotations_visible = (false, false);
     if app.show_extractions {
         draw_fragments(frame, app, left, palette);
     } else {
-        frame.render_widget(
-            Paragraph::new(format!(
-                "Words {} / {}",
-                app.source_view + 1,
-                app.sources.len()
-            ))
-            .style(palette.muted),
-            Rect::new(left.x, 3, left.width, 1),
-        );
+        if let Some(label) = app.source_label() {
+            frame.render_widget(
+                Paragraph::new(label).style(palette.muted),
+                Rect::new(left.x, 3, left.width, 1),
+            );
+        }
         intact_view::render_source(frame, app, left, palette);
     }
     if app.help || app.original || app.details {
@@ -117,7 +113,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     }
     let rows = Layout::vertical([
         Constraint::Min(5),
-        Constraint::Length(5),
+        Constraint::Length(6),
         Constraint::Length(4),
         Constraint::Length(2),
     ])
@@ -139,16 +135,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         format!(
             "Reading failed: {error}\n\nOriginals retained. Retry, inspect Why, or add clarification.\n\n{retained}"
         )
-    } else if let Some(g) = &app.guess {
-        let reading = g
-            .presented(app.reading)
-            .iter()
-            .map(|f| agent_text(&f.text))
-            .collect::<Vec<_>>()
-            .join("\n\n");
-        app.update
-            .as_ref()
-            .map_or(reading.clone(), |u| format!("{u}\n\n{reading}"))
+    } else if app.guess.is_some() {
+        String::new()
     } else if app.running() {
         "Thinking…".into()
     } else if app.ready.is_some() {
@@ -159,6 +147,28 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         String::new()
     };
     let mut text = ratatui::text::Text::from(content);
+    if let (Some(g), None) = (&app.guess, failure) {
+        // One voice, one reading: "I think you mean…".
+        let mut lines = vec![];
+        if let Some(u) = &app.update {
+            lines.push(ratatui::text::Line::styled(
+                u.clone(),
+                palette.jade.add_modifier(Modifier::BOLD),
+            ));
+            lines.push(ratatui::text::Line::raw(""));
+        }
+        lines.push(ratatui::text::Line::styled(
+            "I think you mean…",
+            palette.muted,
+        ));
+        for line in agent_text(&g.framings[0].text).lines() {
+            lines.push(ratatui::text::Line::styled(
+                line.to_owned(),
+                palette.ink.add_modifier(Modifier::ITALIC),
+            ));
+        }
+        text = ratatui::text::Text::from(lines);
+    }
     if failure.is_some() {
         let retained_lines = app.guess.as_ref().map_or(0, |g| {
             g.presented(app.reading)
@@ -174,12 +184,6 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             line.style = palette.ink.remove_modifier(Modifier::ITALIC);
         }
     }
-    if app.update.is_some() && app.guess.is_some() && failure.is_none() {
-        text.lines[0].style = palette
-            .jade
-            .add_modifier(Modifier::BOLD)
-            .remove_modifier(Modifier::ITALIC);
-    }
     let p = Paragraph::new(text)
         .style(palette.muted.add_modifier(Modifier::ITALIC))
         .wrap(Wrap { trim: false });
@@ -188,39 +192,28 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         .saturating_sub(rows[0].height as usize) as u16;
     app.paper_scroll = app.paper_scroll.min(max);
     frame.render_widget(p.scroll((app.paper_scroll, 0)), rows[0]);
-    let q = app
-        .focused_question()
-        .map(|q| q.text.clone())
-        .unwrap_or_else(|| {
-            if app.guess.is_some() {
-                "No unanswered question.".into()
-            } else {
-                String::new()
-            }
-        });
-    frame.render_widget(
-        Paragraph::new(q)
-            .style(palette.jade)
-            .wrap(Wrap { trim: false }),
-        rows[1],
-    );
+    let question = match app.focused_question() {
+        Some(q) => ratatui::text::Text::from(vec![
+            ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
+            ratatui::text::Line::styled(q.text.clone(), palette.jade),
+        ]),
+        None if app.guess.is_some() && !app.running() => ratatui::text::Text::styled(
+            "Nothing I'm unsure about. Review when you're ready.",
+            palette.muted,
+        ),
+        None => ratatui::text::Text::default(),
+    };
+    frame.render_widget(Paragraph::new(question).wrap(Wrap { trim: false }), rows[1]);
     let input = Block::default()
         .title(if app.add_more {
-            "Add more"
+            "add more"
         } else {
-            "Your reply"
+            "your answer"
         })
         .style(palette.ink);
     app.input_area = input.inner(rows[2]);
     frame.render_widget(input, rows[2]);
     render_input(frame, app, palette);
-    if app.goal_config.is_some() && app.guess.is_some() {
-        app.goal_button = Rect::new(rows[3].x, rows[3].y, 12, 1);
-        frame.render_widget(
-            Paragraph::new("Review goal").style(palette.jade),
-            app.goal_button,
-        );
-    }
     if [
         "Copy",
         "Clipboard",
@@ -326,7 +319,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "! F10  back to the menu; asks before losing your draft"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF7   the other reading\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\ngreen     words the reading is based on\nunderline words not placed yet\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
@@ -356,9 +349,6 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         let mut items = vec![("2", "send")];
         if app.guess.is_some() {
             items.push(("3", "review"));
-        }
-        if app.guess.as_ref().is_some_and(|g| g.framings.len() > 1) {
-            items.push(("7", "other reading"));
         }
         if app.focused_question().is_some() {
             items.push(("8", "skip"));

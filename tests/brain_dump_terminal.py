@@ -65,7 +65,7 @@ def journey(width,height):
    send(b'\x1bOQ','What would make a handover');await_text('Reading');assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
    send(b'\x1b[15~','Desired experience');send(b'\x1b[15~','Keep review evidence');assert len(requests())==2
    # A deliberate source selection extracts one card; neither action calls the provider.
-   send(b'\x1b[5;5~','Typed evidence');os.write(master,b'\x1b[<0;3;5M\x1b[<0;3;5m');time.sleep(.1);notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
+   await_text('Typed evidence');os.write(master,b'\x1b[<0;3;5M\x1b[<0;3;5m');time.sleep(.1);notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
    send(b'e','Typed');send(b'\r','Typed evidence');assert len(requests())==2
    notice(b'y','Copy sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
    send(b'\x1bOS','Original 1');send(b'\x04','Desired experience');send(b'\x04','Keep review evidence');send(b'\x1bOS','Original 1');send(b'\x1b','Keep review evidence')
