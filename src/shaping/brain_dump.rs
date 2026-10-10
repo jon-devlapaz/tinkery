@@ -1482,6 +1482,7 @@ fn agent_text(text: &str) -> String {
     text.lines()
         .map(|line| {
             let mut line = line.trim_start();
+            let mut stripped = false;
             // The interface supplies "I think you mean…"; drop a self-label such as
             // "Goal:", "Possible goal:" or "PROVISIONAL:" (at most three words before the colon).
             while let Some(colon) = line.find(':').filter(|&i| i <= 32) {
@@ -1491,11 +1492,17 @@ fn agent_text(text: &str) -> String {
                     && (lower.ends_with("goal") || lower.starts_with("provisional"))
                 {
                     line = line[colon + 1..].trim_start();
+                    stripped = true;
                 } else {
                     break;
                 }
             }
-            line
+            // A stripped label can leave a lowercase start; the reading begins as a sentence.
+            let mut chars = line.chars();
+            match chars.next() {
+                Some(first) if stripped => first.to_uppercase().chain(chars).collect(),
+                _ => line.to_owned(),
+            }
         })
         .collect::<Vec<_>>()
         .join("\n")

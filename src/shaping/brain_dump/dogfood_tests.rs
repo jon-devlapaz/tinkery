@@ -437,7 +437,7 @@ fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
 fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_discard() {
     assert_eq!(
         agent_text("PROVISIONAL goal: PROVISIONAL: intended meaning"),
-        "intended meaning"
+        "Intended meaning"
     );
     let mut a = board();
     let original = a.sources[0].text.clone();
@@ -469,7 +469,11 @@ fn right_side_speaks_in_one_voice_and_two_readings_are_visibly_two() {
     assert!(two.contains("I think you mean…") && two.contains("or maybe…"));
     assert!(two.contains("A second, different reading.") && !two.contains("Possible goal:"));
     assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
-    assert_eq!(agent_text("PROVISIONAL goal: x"), "x");
+    assert_eq!(agent_text("PROVISIONAL goal: x"), "X");
+    assert_eq!(
+        agent_text("Alternative goal: the main outcome"),
+        "The main outcome"
+    );
     let ink_of = |a: &mut BrainDump, needle: &str| {
         let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
         t.draw(|f| render(f, a, crate::Palette::new(false)))

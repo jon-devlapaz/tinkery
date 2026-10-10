@@ -572,7 +572,7 @@ fn unresolved_roles_can_overlap_and_long_readings_do_not_veto_a_board() {
     assert!(g.validate(&r).is_ok());
     assert_eq!(
         agent_text("PROVISIONAL: uncertain meaning\nPROVISIONAL: conditional cost"),
-        "uncertain meaning\nconditional cost"
+        "Uncertain meaning\nConditional cost"
     );
 }
 
