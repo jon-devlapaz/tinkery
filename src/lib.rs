@@ -172,6 +172,8 @@ pub struct Palette {
     ink: Style,
     jade: Style,
     muted: Style,
+    /// Consequence only (`!`, loss prompts). Never the sole cue: always paired with `!` and words.
+    rust: Style,
 }
 
 impl Palette {
@@ -194,6 +196,11 @@ impl Palette {
                 base.add_modifier(Modifier::DIM)
             } else {
                 base.fg(Color::Rgb(87, 86, 83))
+            },
+            rust: if no_color {
+                base.bold().underlined()
+            } else {
+                base.fg(Color::Rgb(160, 62, 36)).bold()
             },
         }
     }

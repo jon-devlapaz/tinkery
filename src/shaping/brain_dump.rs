@@ -303,6 +303,8 @@ pub struct BrainDump {
     add_more: bool,
     original: bool,
     help: bool,
+    /// Help layer 2: every action, one key each.
+    help_all: bool,
     how: bool,
     leave_prompt: bool,
     original_scroll: u16,
@@ -357,7 +359,7 @@ impl BrainDump {
             last_failure: None,
             local_checks: vec![],
             scope_pending: None,
-            key_bar: false,
+            key_bar: true,
             back_button: Rect::default(),
             request: None,
             ready: None,
@@ -371,6 +373,7 @@ impl BrainDump {
             add_more: false,
             original: false,
             help: false,
+            help_all: false,
             how: false,
             leave_prompt: false,
             original_scroll: 0,
@@ -986,9 +989,14 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::F(10) {
-            key.code = KeyCode::Char('c');
-            key.modifiers = KeyModifiers::CONTROL;
-            ctrl = true;
+            if self.handoff_job.is_some() {
+                self.exit_after_handoff = true;
+                self.notice =
+                    "Waiting for durable goal read-back before returning to the menu.".into();
+            } else {
+                self.request_leave();
+            }
+            return;
         }
         if !self.leave_prompt && matches!(key.code, KeyCode::F(2..=9)) {
             match key.code {
@@ -1013,17 +1021,6 @@ impl BrainDump {
                 KeyCode::F(5) => {
                     self.toggle_details();
                     return;
-                }
-                KeyCode::F(6)
-                    if self.goal_review.is_none()
-                        && self.receipt.is_none()
-                        && !self.help
-                        && !self.details
-                        && !self.original =>
-                {
-                    key.code = KeyCode::Tab;
-                    key.modifiers = KeyModifiers::NONE;
-                    ctrl = false;
                 }
                 KeyCode::F(7..=9)
                     if self.goal_review.is_none()
@@ -1050,12 +1047,14 @@ impl BrainDump {
         if self.leave_prompt && key.kind == KeyEventKind::Repeat {
             return;
         }
+        // Ctrl-C never leaves: it copies a selection, or cancels a running request.
         if ctrl && key.code == KeyCode::Char('c') {
-            if self.handoff_job.is_some() {
-                self.exit_after_handoff = true;
-                self.notice = "Waiting for durable goal read-back before exit.".into();
-            } else {
-                self.request_leave();
+            if let Some(text) = self.selected_text() {
+                self.copy = Some(text);
+            } else if self.running() && !self.leave_prompt {
+                self.job.take();
+                self.request = None;
+                self.notice = "Cancelled; original and previous board retained. F2 retries.".into();
             }
             return;
         }
@@ -1080,7 +1079,13 @@ impl BrainDump {
                 && self.goal_review.is_none()
                 && key.code == KeyCode::Char('?'))
         {
-            self.help = !self.help;
+            // F1 cycles: what to do now → every action → closed.
+            if self.help && !self.help_all && !self.how {
+                self.help_all = true;
+            } else {
+                self.help = !self.help;
+                self.help_all = false;
+            }
             self.how = false;
             self.original = false;
             self.details = false;
@@ -1144,6 +1149,7 @@ impl BrainDump {
                 KeyCode::Esc => {
                     self.original = false;
                     self.help = false;
+                    self.help_all = false;
                     self.details = false;
                 }
                 KeyCode::PageDown | KeyCode::Down => {
@@ -1161,11 +1167,6 @@ impl BrainDump {
         }
         match key.code {
             KeyCode::F(2) => self.submit(),
-            KeyCode::Tab => {
-                self.board_focus = !self.board_focus;
-                self.canvas.cancel_gesture();
-                self.drag_anchor = None;
-            }
             KeyCode::Char('n') if ctrl => {
                 self.add_more = !self.add_more;
                 self.board_focus = false;
@@ -1230,20 +1231,21 @@ impl BrainDump {
                 }
             }
             KeyCode::Char('u') if self.board_focus && !ctrl => self.undo_skip(),
+            KeyCode::Char('z') if ctrl => self.undo_skip(),
             KeyCode::Char('s') if self.board_focus => {
                 if let Some(q) = self.focused_question().cloned() {
                     self.skipped.push(q);
-                    self.notice = "Question skipped. Undo is available.".into();
+                    self.notice = "Question skipped. Ctrl-Z brings it back.".into();
                 }
             }
-            KeyCode::Char('q') if self.board_focus => self.request_leave(),
             KeyCode::PageDown => self.paper_scroll = self.paper_scroll.saturating_add(5),
             KeyCode::PageUp => self.paper_scroll = self.paper_scroll.saturating_sub(5),
             KeyCode::Char('f') if self.board_focus && ctrl => {
                 self.canvas.state.fit_to_view(self.canvas.area)
             }
-            _ if self.board_focus => {}
             KeyCode::Char(c) if !ctrl => {
+                // Typing always writes; the app returns focus to the writing box itself.
+                self.board_focus = false;
                 if let Err(e) = self.input.insert(&c.to_string()) {
                     self.notice = e.into();
                 }
@@ -1301,6 +1303,22 @@ impl BrainDump {
         self.help = false;
         self.details = was_modal || !self.details;
         self.paper_scroll = 0;
+    }
+    /// Exact text of the current selection in the original, if any.
+    fn selected_text(&self) -> Option<String> {
+        let (a, b) = self.selection?;
+        let text = &self.sources.get(self.source_view)?.text;
+        let (start, end) = (a.min(b), a.max(b));
+        text.get(start..end)
+            .filter(|t| !t.is_empty())
+            .map(str::to_owned)
+    }
+    pub fn key_bar_on(&self) -> bool {
+        self.key_bar
+    }
+    pub fn with_key_bar(mut self, on: bool) -> Self {
+        self.key_bar = on;
+        self
     }
     fn request_leave(&mut self) {
         if self.leave_prompt

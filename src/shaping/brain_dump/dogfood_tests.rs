@@ -156,8 +156,7 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
     );
     assert!(a.handoff_job.is_none());
     key(&mut a, KeyCode::Esc);
-    key(&mut a, KeyCode::F(6));
-    key(&mut a, KeyCode::Char('u'));
+    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
     assert_eq!(a.focused_question().unwrap().id, "scope-addition-2");
     assert!(
         a.guess
@@ -173,12 +172,7 @@ fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
     let mut a = board();
     assert!(!a.board_focus);
     key(&mut a, KeyCode::F(6));
-    assert!(a.board_focus);
-    assert!(
-        snapshot(100, 30, &mut a, false)
-            .unwrap()
-            .contains("board controls")
-    );
+    assert!(!a.board_focus, "F6 no longer switches focus");
     let q = a.focused_question().unwrap().id.clone();
     key(&mut a, KeyCode::F(8));
     assert_eq!(a.skipped.len(), 1);
@@ -187,7 +181,7 @@ fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
             .unwrap()
             .contains("Question skipped")
     );
-    key(&mut a, KeyCode::Char('u'));
+    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
     assert_eq!(a.focused_question().unwrap().id, q);
     assert!(a.skipped.is_empty());
     key(&mut a, KeyCode::F(9));
@@ -232,8 +226,7 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
     let mut a = board();
     let original = a.focused_question().unwrap().clone();
     key(&mut a, KeyCode::F(8));
-    key(&mut a, KeyCode::F(6));
-    key(&mut a, KeyCode::Char('u'));
+    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
     assert_eq!(a.focused_question().unwrap().id, original.id);
     let r = BoardRequest {
         sources: a.sources.clone(),
@@ -262,35 +255,50 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
     assert!(a.handoff_job.is_none());
 }
 #[test]
-fn optional_bar_uses_reserved_row_without_moving_source_review_or_receipt() {
+fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();
-        let before = snapshot(w, h, &mut a, false).unwrap();
+        let with_bar = snapshot(w, h, &mut a, false).unwrap();
         let rect = a.source_area;
-        assert!(!before.lines().last().unwrap().contains("1 help"));
+        let bar = with_bar.lines().last().unwrap();
+        assert!(bar.contains("2 send") && bar.contains("10 menu"), "{bar}");
+        assert!(bar.contains("8 skip") && bar.contains("3 review"), "{bar}");
+        for gone in ["switch", "originals", "why", "copy", "exit", "1 help"] {
+            assert!(!bar.contains(gone), "{gone} in {bar}");
+        }
         key(&mut a, KeyCode::F(1));
         key(&mut a, KeyCode::Char('b'));
         key(&mut a, KeyCode::Esc);
-        let after = snapshot(w, h, &mut a, false).unwrap();
+        let without = snapshot(w, h, &mut a, false).unwrap();
         assert_eq!(rect, a.source_area);
-        let bar = after.lines().last().unwrap();
-        assert!(bar.contains("1 help") && bar.contains("10 exit"), "{bar}");
+        assert!(!without.lines().last().unwrap().contains("send"));
         assert_eq!(
-            before.lines().take(usize::from(h - 1)).collect::<Vec<_>>(),
-            after.lines().take(usize::from(h - 1)).collect::<Vec<_>>()
+            with_bar
+                .lines()
+                .take(usize::from(h - 1))
+                .collect::<Vec<_>>(),
+            without.lines().take(usize::from(h - 1)).collect::<Vec<_>>()
         );
+        a.key_bar = true;
         key(&mut a, KeyCode::F(3));
         let review = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&review, w).contains("Creates a Seed Me session"));
-        assert!(review.contains("Back"));
+        let bar = review.lines().last().unwrap();
+        assert!(
+            bar.contains("type confirm") && bar.contains("esc back"),
+            "{bar}"
+        );
         a.goal_review = None;
         a.receipt = Some(handoff::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
         assert!(receipt.contains("Continue with Seed Me"));
-        assert!(receipt.lines().last().unwrap().contains("10 exit"));
+        assert!(receipt.lines().last().unwrap().trim() == "10 menu");
         assert_eq!(rect, a.source_area);
     }
-    assert!(!BrainDump::default().key_bar);
+    let mut empty = BrainDump::default();
+    assert!(empty.key_bar);
+    let bar = snapshot(100, 30, &mut empty, false).unwrap();
+    assert_eq!(bar.lines().last().unwrap().trim(), "2 send   10 menu");
 }
 #[test]
 fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation() {
@@ -308,7 +316,7 @@ fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation(
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(right_text(&view, 100).contains("The quoted line doesn't exist"));
     let help = yohaku::help_text(&a);
-    assert!(help.starts_with("Right now\nReading failed"));
+    assert!(help.starts_with("Right now\nThe reading failed"));
     assert!(!help.lines().nth(1).unwrap().contains("review"));
     key(&mut a, KeyCode::F(3));
     assert!(a.goal_review.is_none());

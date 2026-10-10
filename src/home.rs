@@ -65,6 +65,8 @@ pub struct Home {
     selected: usize,
     view: View,
     help: bool,
+    /// The muted key bar preference lasts the session, across visits to think.
+    key_bar: bool,
     receipts: Vec<String>,
 }
 
@@ -110,6 +112,7 @@ impl Home {
             selected: 0,
             view: View::Menu,
             help: false,
+            key_bar: true,
             receipts: Vec::new(),
         }
     }
@@ -129,6 +132,7 @@ impl Home {
         if let View::Think(dump) = &mut self.view {
             dump.tick();
             if dump.quit {
+                self.key_bar = dump.key_bar_on();
                 if let Some(receipt) = dump.finish_handoff() {
                     self.receipts.push(receipt);
                 }
@@ -170,7 +174,7 @@ impl Home {
         self.selected = index;
         self.help = false;
         self.view = match index {
-            0 => View::Think(Box::new((self.make_dump)())),
+            0 => View::Think(Box::new((self.make_dump)().with_key_bar(self.key_bar))),
             1 => View::Shape(match load_sessions(&self.sessions_root) {
                 Ok(sessions) => Shape {
                     sessions,
@@ -395,7 +399,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         area.height.saturating_sub(4),
     );
     if home.help {
-        let help = "Right now\n1–6 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\nshape   your Seed Me sessions (read-only); continue them in any harness\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 or Ctrl-C leaves (it asks first if you'd lose work) and returns here.\nEsc goes back from shape, measure and unbuilt places.";
+        let help = "Right now\n1–6 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\nshape   your Seed Me sessions (read-only); continue them in any harness\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -611,6 +615,24 @@ mod tests {
         h.tick();
         assert!(matches!(h.view, View::Menu));
         assert!(!h.quit);
+    }
+
+    #[test]
+    fn key_bar_preference_lasts_across_visits_to_think() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut h = home(tmp.path());
+        h.open(0);
+        if let View::Think(dump) = &mut h.view {
+            assert!(dump.key_bar_on(), "on by default");
+            dump.handle_key(key(KeyCode::F(1)));
+            dump.handle_key(key(KeyCode::Char('b')));
+            dump.handle_key(key(KeyCode::F(10)));
+        }
+        h.tick();
+        assert!(matches!(h.view, View::Menu));
+        h.open(0);
+        let View::Think(dump) = &h.view else { panic!() };
+        assert!(!dump.key_bar_on(), "turned off stays off");
     }
 
     #[test]

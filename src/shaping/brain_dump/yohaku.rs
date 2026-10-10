@@ -8,7 +8,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         frame.render_widget(
             Paragraph::new(if app.help {
-                "Help\nF1 or Esc returns. Ctrl-C exits.\nResize to 80×24. Words retained."
+                "Help\nF1 or Esc returns. F10 back to the menu.\nResize to 80×24. Words retained."
             } else {
                 "Need 80×24. Words retained."
             })
@@ -19,13 +19,40 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     }
     app.goal_button = Rect::default();
     app.back_button = Rect::default();
-    if app.sources.is_empty() && !app.help {
+    if app.sources.is_empty() {
+        // Before the first send, help sits beside the draft; the draft never leaves view.
+        let width = if app.help {
+            area.width * 48 / 100 - 4
+        } else {
+            area.width - 8
+        };
         frame.render_widget(
             Paragraph::new("What's on your mind?").style(palette.muted),
-            Rect::new(4, 5, area.width - 8, 1),
+            Rect::new(4, 5, width, 1),
         );
-        app.input_area = Rect::new(4, 8, area.width - 8, area.height - 12);
+        app.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
+        if app.help {
+            let right = Rect::new(
+                area.width * 48 / 100 + 2,
+                4,
+                area.width - area.width * 48 / 100 - 4,
+                area.height - 6,
+            );
+            let text = if app.how {
+                how_text(app)
+            } else {
+                help_text(app)
+            };
+            let p = Paragraph::new(styled_help(text, palette))
+                .style(palette.ink)
+                .wrap(Wrap { trim: false });
+            let max = p
+                .line_count(right.width)
+                .saturating_sub(right.height as usize) as u16;
+            app.original_scroll = app.original_scroll.min(max);
+            frame.render_widget(p.scroll((app.original_scroll, 0)), right);
+        }
         return;
     }
     let left = Rect::new(2, 4, area.width * 48 / 100 - 4, area.height - 6);
@@ -68,6 +95,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 app.notice,
                 checks::why(&app.diagnostics())
             )
+        };
+        let text = if app.help {
+            styled_help(text, palette)
+        } else {
+            ratatui::text::Text::styled(text, palette.ink)
         };
         let p = Paragraph::new(text)
             .style(palette.ink)
@@ -173,19 +205,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         rows[1],
     );
     let input = Block::default()
-        .title(format!(
-            "{} · {}",
-            if app.add_more {
-                "Add more"
-            } else {
-                "Your reply"
-            },
-            if app.board_focus {
-                "board controls"
-            } else {
-                "writing"
-            }
-        ))
+        .title(if app.add_more {
+            "Add more"
+        } else {
+            "Your reply"
+        })
         .style(palette.ink);
     app.input_area = input.inner(rows[2]);
     frame.render_widget(input, rows[2]);
@@ -255,65 +279,59 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
 }
 pub(super) fn help_text(app: &BrainDump) -> String {
     let now = if app.receipt.is_some() {
-        "Continue with Seed Me · Ctrl-C leave"
+        "Your goal is saved. Continue it in Seed Me.\nF10 back to the menu."
     } else if app.handoff_job.is_some() {
-        "Wait for saving · Ctrl-C leave after saving"
+        "Saving your goal. Wait a moment."
     } else if app.goal_review.is_some() {
-        "Type confirm · Enter affirm · Esc go back"
+        "Type confirm, then Enter, to save this goal.\nEsc goes back without saving."
     } else if app.running() {
-        "Keep your draft · Esc cancel sending"
+        "Reading your words. Keep writing if you like.\nEsc cancels."
     } else if app.sources.is_empty() {
-        "Type anything · F2 send"
+        "Type anything, in any order.\nF2 sends it."
     } else if app.ready.is_some() {
-        "Keep your draft · F2 when ready"
+        "A new reading is ready.\nF2 when you want it."
     } else if app
         .scope_pending
         .as_ref()
         .is_some_and(|(_, q)| app.available(q))
     {
-        "Added words stay unresolved · answer their scope question · F2 send"
+        "Answer the question about your added words.\nF2 sends."
     } else if app.last_failure.is_some() {
-        "Reading failed · F2 tries again · F5 why · Shift-F2 add clarification"
+        "The reading failed; your words are safe.\nF2 tries again · F5 why."
     } else if app.add_more {
-        "Type a new dump · F2 send"
+        "Type a new dump.\nF2 sends it."
     } else if app.focused_question().is_none() {
-        "No question active · F5 why · F3 review a reading"
-    } else if app.board_focus {
-        "F6 / Tab write · F5 why · F3 review goal"
+        "No question left.\nF3 reviews the goal."
     } else {
-        "Type your answer · F2 send · F3 review goal"
+        "Type your answer.\nF2 sends · F8 skips · F3 reviews the goal."
     };
+    if !app.help_all {
+        return format!("Right now\n{now}\n\nF1 every key · Esc close");
+    }
     let send = if app.real {
-        "! F2 sends your words to the model; may cost extra calls."
+        "! F2   send (your words go to the model; small cost)"
     } else {
-        "F2 gives a practice reading; no model call or save."
+        "F2   send (practice reading; nothing leaves)"
     };
     let finish = if app.receipt.is_some() {
         "Goal saved. Continue with Seed Me in any harness."
     } else if !app.real || app.goal_config.is_none() {
-        "Goal confirmation needs real mode and Seed Me."
+        "Saving a goal needs real mode and Seed Me."
     } else {
-        "! F3 / Ctrl-G reviews, without saving; clicking Review goal also works. Type confirm + Enter to create a Seed Me session; this goal can't be edited after."
+        "! F3   review the goal; typing confirm saves it for good"
     };
     let leave = if app.receipt.is_some() {
-        "Ctrl-C exits; your confirmed goal stays saved."
-    } else if app
-        .goal_config
-        .as_ref()
-        .and_then(handoff::Config::recovery_path)
-        .is_some()
-    {
-        "! Ctrl-C exits; unconfirmed work is lost. The recovery session remains."
+        "F10  back to the menu; your goal stays saved"
     } else {
-        "! Ctrl-C exits; nothing is saved yet. You'll be asked before losing work."
+        "! F10  back to the menu; asks before losing your draft"
     };
     format!(
-        "Right now\n{now}\n\nHelp — actions after returning\nF1 return · PgUp/PgDn scroll\nh How it works\n! means a consequential action\n\nWrite\nType; Enter starts a new line.\n! Shift-F2 / Ctrl-N switches between a new dump and an answer.\n\nSend\n{send}\n\nLook\nF6 / Tab switches writing / board controls.\nF7 / board [ / ] changes reading; F9 / board y copies.\nF5 / Ctrl-D why · F4 / Ctrl-O originals\nPgUp/PgDn scrolls the reading or review.\nWheel scrolls source; Ctrl-PgUp/PgDn changes original.\nDrag or Shift+arrows selects exact text; Ctrl-E extracts.\ne shows cards; Enter returns to source.\n! F8 / board s skips the question; board u undoes the last skip.\nCtrl-L repaints.\nMac keyboards may need fn, or the standard function keys setting.\nb toggles the muted key bar (this run only; off by default).\n\nFinish\n{finish}\n\nLeave\n! F10 is an alternative to Ctrl-C.\n{leave}\nn or Esc keeps your work; y or a second Ctrl-C leaves.\n\nItalic is my guess, not your words. Highlighted words support it. Underlined words are still unclear."
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF7   the other reading\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\ngreen     words the reading is based on\nunderline words not placed yet\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call is on the display path. After valid output is displayed, one meaning/continuity audit runs in the background: at most two provider calls per send, no automatic retry. Meaning checks are log-only: no flags shown, no rejection, repair, question withholding or confirmation barrier. Exact spans/schema/history remain local blocking checks. Audit failure leaves the reading untouched. Calls remain bounded and cancellable; a newer send cancels the owned older audit. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; Ctrl-C waits for read-back before exit.\n\nLeaving\nUnconfirmed work is not saved. Ctrl-C (or board q) asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second Ctrl-C leaves. Paste is not an exit authorization. After confirmation, the goal stays saved, so exit is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; e shows cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call is on the display path. After valid output is displayed, one meaning/continuity audit runs in the background: at most two provider calls per send, no automatic retry. Meaning checks are log-only: no flags shown, no rejection, repair, question withholding or confirmation barrier. Exact spans/schema/history remain local blocking checks. Audit failure leaves the reading untouched. Calls remain bounded and cancellable; a newer send cancels the owned older audit. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
         if app.real {
             "Real provider mode."
         } else {
@@ -324,38 +342,42 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         app.notice
     )
 }
+/// Only what's possible right now (C1): key in ink, word muted.
+pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)> {
+    if app.leave_prompt || app.handoff_job.is_some() {
+        vec![]
+    } else if app.receipt.is_some() {
+        vec![("10", "menu")]
+    } else if app.goal_review.is_some() {
+        vec![("type confirm", "save"), ("esc", "back")]
+    } else if app.running() {
+        vec![("esc", "cancel"), ("10", "menu")]
+    } else {
+        let mut items = vec![("2", "send")];
+        if app.guess.is_some() {
+            items.push(("3", "review"));
+        }
+        if app.guess.as_ref().is_some_and(|g| g.framings.len() > 1) {
+            items.push(("7", "other reading"));
+        }
+        if app.focused_question().is_some() {
+            items.push(("8", "skip"));
+        }
+        items.push(("10", "menu"));
+        items
+    }
+}
 pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let area = frame.area();
     if !app.key_bar || area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         return;
     }
-    let labels = if area.width >= 110 {
-        [
-            "help",
-            "send",
-            "review",
-            "originals",
-            "why",
-            "switch",
-            "reading",
-            "skip",
-            "copy",
-            "exit",
-        ]
-    } else {
-        [
-            "help", "send", "goal", "src", "why", "mode", "read", "skip", "copy", "exit",
-        ]
-    };
     let mut spans = vec![];
-    for (i, label) in labels.iter().enumerate() {
+    for (i, (key, label)) in key_bar_items(app).into_iter().enumerate() {
         if i > 0 {
-            spans.push(ratatui::text::Span::raw(" "));
+            spans.push(ratatui::text::Span::raw("   "));
         }
-        spans.push(ratatui::text::Span::styled(
-            (i + 1).to_string(),
-            palette.ink,
-        ));
+        spans.push(ratatui::text::Span::styled(key, palette.ink));
         spans.push(ratatui::text::Span::styled(
             format!(" {label}"),
             palette.muted,
@@ -365,6 +387,28 @@ pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palett
         Paragraph::new(ratatui::text::Line::from(spans)).style(palette.ink),
         Rect::new(2, area.height - 1, area.width - 4, 1),
     );
+}
+/// Help text with `!` in rust (never alone: the words say what's lost) and headings in bold.
+pub(super) fn styled_help(text: String, palette: Palette) -> ratatui::text::Text<'static> {
+    let mut prev_blank = true;
+    let lines = text
+        .lines()
+        .map(|line| {
+            let heading = prev_blank && !line.is_empty() && line.len() < 24 && !line.contains('·');
+            prev_blank = line.is_empty();
+            if let Some(rest) = line.strip_prefix("! ") {
+                ratatui::text::Line::from(vec![
+                    ratatui::text::Span::styled("! ", palette.rust),
+                    ratatui::text::Span::styled(rest.to_owned(), palette.ink),
+                ])
+            } else if heading {
+                ratatui::text::Line::styled(line.to_owned(), palette.ink.bold())
+            } else {
+                ratatui::text::Line::styled(line.to_owned(), palette.ink)
+            }
+        })
+        .collect::<Vec<_>>();
+    ratatui::text::Text::from(lines)
 }
 pub(super) fn render_header(frame: &mut Frame, palette: Palette) {
     let area = frame.area();
@@ -391,7 +435,11 @@ pub(super) fn render_leave_prompt(frame: &mut Frame, app: &BrainDump, palette: P
     .intersection(area);
     frame.render_widget(Clear, rect);
     frame.render_widget(
-        Paragraph::new("Leave and lose this? y / n").style(palette.jade),
+        Paragraph::new(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled("! ", palette.rust),
+            ratatui::text::Span::styled("Back to menu and lose this draft? y / n", palette.ink),
+        ]))
+        .style(palette.ink),
         rect,
     );
 }
