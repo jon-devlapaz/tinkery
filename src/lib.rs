@@ -9,6 +9,7 @@ use ratatui::{
 
 pub mod home;
 pub mod shaping;
+pub mod voice;
 
 pub const MIN_WIDTH: u16 = 80;
 pub const MIN_HEIGHT: u16 = 24;
