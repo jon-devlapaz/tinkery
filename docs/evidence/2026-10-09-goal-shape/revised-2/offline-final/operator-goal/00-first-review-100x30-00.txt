@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I have been trying so hard to work on a         You are confirming                                
+  system that compounds itself and serves as a    I receive a delicious change ready for human      
+  meta harness. its a human first board for       review that considers the health of the code      
+  coordinainting work from the entire             base and makes the next change easier.            
+  continuum of agentic software development       Why: I want work across the entire continuum of   
+  lifecycle that has the rigor and durability     agentic software development to have rigor,       
+  and cohesive and verification that all 'just    durability, cohesion, and verification, from      
+  work's and thinks about the future of any       brain dump, prompt, hunch, or intuition through   
+  code base it works on. not just the trees,      a review-ready pull request.                      
+  but the forest. it should operate like a        Must: The work serves as a meta harness.          
+  michellin star resteraunt and I am the          Must: The work is human first.                    
+  resterauntaur that tastes the final             Must: The work considers the forest, not just     
+  delicious product. it goes from this part       the trees.                                        
+  (the brain dump-the prompt-the hunch-the                                                          
+  intuition) all the way to a PR that is ready    also in your dump: Build a system that compounds  
+  to be reviewed by human that considers the      itself.; Coordinate the entire agentic software   
+  health of the code base and makes the next      development lifecycle.; Make the parts of the     
+  change easier. that is my true goal.            workflow just work together.                      
+                                                                                                    
+                                                  Still open                                        
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

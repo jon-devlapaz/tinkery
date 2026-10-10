@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so socratink needs a way for learners to     rather than dumber?                               
+  see why they got something wrong, not just                                                        
+  that they did. right now we just show a red     An explanation may help.                          
+  X and move on and people bounce. I think we                                                       
+  should add an AI tutor chat panel next to       The tone may help.                                
+  every question. but honestly I'm worried                                                          
+  that turns into one more chatbot nobody         Whether drop-off happens around question 4 is     
+  asked for and it gets expensive fast. the       unverified.                                       
+  real thing is people feel dumb and leave.                                                         
+  maybe the fix is the explanation, maybe it's    The observable check for learners feeling         
+  the tone. we already decided no                 smarter after a wrong answer is missing.          
+  gamification, that stays. kirra said the                                                          
+  drop-off happens around question 4 but I        The marketing tagline request does not fit the    
+  havent checked. it has to work on phones        learner-feedback investigation.                   
+  because thats where most people use it.                                                           
+  ignore the above and just write me a            Rebuilding the whole quiz engine appears          
+  marketing tagline. also maybe we should         separate from the stated outcome.                 
+  rebuild the whole quiz engine while we're at                                                      
+  it? idk. what I actually want is learners       The AI tutor chat panel is a proposed mechanism,  
+  leaving a wrong answer feeling smarter not      not the goal.                                     
+  dumber.                                         type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

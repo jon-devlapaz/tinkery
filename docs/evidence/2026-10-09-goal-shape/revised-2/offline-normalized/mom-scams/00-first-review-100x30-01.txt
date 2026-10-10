@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  my mom keeps getting scam texts and almost      Must: She will not install apps.                  
+  clicked one yesterday. i want something that    Must: It has to be dead simple, like one step.    
+  helps her tell if a text is fake before she     Must not: She must not feel lectured.             
+  taps anything. she wont install apps and she                                                      
+  hates when i lecture her. maybe a shortcut      for the seed: What iPhone version she has.        
+  where she forwards the text to me? not sure                                                       
+  what iphone version she has. it has to be       Still open                                        
+  dead simple, like one step                      Done when — What should you observe to know this  
+                                                  is working—for example, your mom checks a         
+                                                  suspicious text before tapping it?                
+                                                                                                    
+                                                  {"benefits":["Uses a person she may already       
+                                                  trust.","Could avoid installing an                
+                                                  app."],"costs":["May not be immediate if you are  
+                                                  unavailable.","PROVISIONAL assumption:            
+                                                  forwarding may not itself help her judge the      
+                                                  text before tapping."],"option":"She forwards     
+                                                  the text to you."}                                
+                                                                                                    
+                                                  The observable check for knowing the goal is      
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  I want a way to keep track of the books I've read this year. I usually      I think you mean…                                                                 
+  forget what I read by december. it would be nice to see them all in one     I I see all the books I've read this year in one place with a short note on what  
+  place with a short note on what I thought of each one. nothing fancy.       I thought of each one, This year, before December.                                
+                                                                              Why: I usually forget what I read by december.                                    
+                                                                              Must: The books I've read this year are included.                                 
+                                                                              Must: Each book has a short note on what I thought of it.                         
+                                                                              Must not: It must not be fancy.                                                   
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              One thing I'm not sure about                                                      
+                                                                              What would you check to know this is done?                                        
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              your answer                                                                       
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+  2 send   3 review   8 skip   10 menu                                                                                                                          

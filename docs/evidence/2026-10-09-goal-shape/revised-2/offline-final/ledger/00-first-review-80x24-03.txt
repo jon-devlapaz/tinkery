@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    also in your dump: Detect when the 6am  
+  in the morning. its a wall of         job fails                               
+  numbers and i dont know what to do                                            
+  with it. i want to open tinkery       Still open                              
+  and in like 5 seconds know if         Done when — What should you be able to  
+  yesterday went well or not. maybe     observe or decide that shows this is    
+  one number? useful changes per        working?                                
+  hour is the one that matters. cost                                            
+  too maybe. i dont want a              A single number may be useful           
+  dashboard. also the 6am job                                                   
+  sometimes fails silently and i        Cost may also matter                    
+  only find out days later                                                      
+                                        A 5-second morning view may help        
+                                                                                
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

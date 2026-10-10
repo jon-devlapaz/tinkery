@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       The observable check for learners       
+  learners to see why they got          feeling smarter after a wrong answer    
+  something wrong, not just that        is missing.                             
+  they did. right now we just show a                                            
+  red X and move on and people          The marketing tagline request does not  
+  bounce. I think we should add an      fit the learner-feedback                
+  AI tutor chat panel next to every     investigation.                          
+  question. but honestly I'm worried                                            
+  that turns into one more chatbot      Rebuilding the whole quiz engine        
+  nobody asked for and it gets          appears separate from the stated        
+  expensive fast. the real thing is     outcome.                                
+  people feel dumb and leave. maybe                                             
+  the fix is the explanation, maybe     The AI tutor chat panel is a proposed   
+  it's the tone. we already decided     mechanism, not the goal.                
+  no gamification, that stays. kirra    type confirm to save. You can't edit    
+  said the drop-off happens around      it after.                               
+  question 4 but I havent checked.                                              
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

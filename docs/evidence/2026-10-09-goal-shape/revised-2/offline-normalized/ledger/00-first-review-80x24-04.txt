@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    observe or decide that shows this is    
+  in the morning. its a wall of         working?                                
+  numbers and i dont know what to do                                            
+  with it. i want to open tinkery       A single number may be useful           
+  and in like 5 seconds know if                                                 
+  yesterday went well or not. maybe     Cost may also matter                    
+  one number? useful changes per                                                
+  hour is the one that matters. cost    A 5-second morning view may help        
+  too maybe. i dont want a                                                      
+  dashboard. also the 6am job           What observable check shows that I      
+  sometimes fails silently and i        know whether yesterday went well        
+  only find out days later                                                      
+                                        A full dashboard appears inconsistent   
+                                        with your stated preference             
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -29,7 +29,8 @@ fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority()
     assert!(matches!(b.framings[0].supports, board::Grounding::Uncited));
     assert_eq!(b.parts.outcome.as_deref(), Some("remember books"));
     assert_eq!(b.parts.missing().count(), 2);
-    assert!(b.questions.is_empty() && b.misfits.is_empty());
+    assert_eq!(b.questions[0].target, Some(Part::Why));
+    assert!(b.misfits.is_empty());
     assert_eq!(b.unresolved_notes, ["Unsure about a relationship"]);
     assert!(b.alternatives[0].benefit.is_none());
     for key in ["unexpected", "precondition", "confirmed", "settled"] {
@@ -196,9 +197,9 @@ fn historical_raw_captures_display_without_inferred_parts_or_provider_helpers() 
 #[test]
 fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     let (b, changes) = parsed(
-        r#"{"parts":{"avoid":"no dashboard"},"framings":["Reading zero","Reading one"],"misfits":["Unresolved note"]}"#,
+        r#"{"parts":{"must_not":"no dashboard"},"framings":["Reading zero","Reading one"],"misfits":["Unresolved note"]}"#,
     );
-    assert_eq!(b.framings[0].text, "Avoid: no dashboard.");
+    assert_eq!(b.framings[0].text, "Must not: no dashboard.");
     assert!(changes.iter().any(|s| s.contains("Ignored freeform")));
     assert_eq!(b.unresolved_notes, ["Unresolved note"]);
     let mut app =
@@ -208,7 +209,7 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     app.guess = Some(b);
     app.review_goal();
     let frozen = app.goal_review.unwrap();
-    assert_eq!(frozen.affirmation.goal, "Avoid: no dashboard.");
+    assert_eq!(frozen.affirmation.goal, "Must not: no dashboard.");
     assert!(
         frozen
             .affirmation

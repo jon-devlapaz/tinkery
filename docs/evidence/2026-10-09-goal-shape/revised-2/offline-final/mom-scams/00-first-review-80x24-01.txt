@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  my mom keeps getting scam texts       Must: She won't install apps.           
+  and almost clicked one yesterday.     Must: It has to be dead simple, like    
+  i want something that helps her       one step.                               
+  tell if a text is fake before she     Must not: She must not be lectured.     
+  taps anything. she wont install                                               
+  apps and she hates when i lecture     Still open                              
+  her. maybe a shortcut where she       Done when — What observable result      
+  forwards the text to me? not sure     would show that this is working?        
+  what iphone version she has. it                                               
+  has to be dead simple, like one       which iPhone version she has            
+  step                                                                          
+                                        The main goal is helping her identify   
+                                        suspicious texts before tapping,        
+                                        rather than building a particular       
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

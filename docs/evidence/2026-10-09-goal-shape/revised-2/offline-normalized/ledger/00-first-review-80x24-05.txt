@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    Cost may also matter                    
+  in the morning. its a wall of                                                 
+  numbers and i dont know what to do    A 5-second morning view may help        
+  with it. i want to open tinkery                                               
+  and in like 5 seconds know if         What observable check shows that I      
+  yesterday went well or not. maybe     know whether yesterday went well        
+  one number? useful changes per                                                
+  hour is the one that matters. cost    A full dashboard appears inconsistent   
+  too maybe. i dont want a              with your stated preference             
+  dashboard. also the 6am job                                                   
+  sometimes fails silently and i        The main goal is quickly judging        
+  only find out days later              yesterday's performance, while          
+                                        silent-job detection is a separate      
+                                        related goal.                           
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -12,7 +12,7 @@ if r.get('kind')=='meaning-preservation':
  (root/'audit.pid').write_text(str(os.getpid()))
  time.sleep(15)
  print(json.dumps(dict(missing=[],false_choice=True)));sys.exit(0)
-print(json.dumps(dict(parts=dict(who='I',outcome='remember books and notes'),open=['done_when'],supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)],misfits=[],questions=[dict(id='book-notes',text='What would you want to remember about each book?')],alternatives=[])))
+print(json.dumps(dict(parts=dict(who='I',outcome='remember books and notes',why='I forget what I read',done_when='I can find a book and its note'),open=['outcome'],supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)],misfits=[],questions=[dict(id='book-notes',text='What would you want to remember about each book?')],alternatives=[])))
 '''
 def journey(w,h):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-dogfood-') as d:

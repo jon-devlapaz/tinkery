@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I have been trying so hard to work    Why: I want work across the entire      
+  on a system that compounds itself     continuum of agentic software           
+  and serves as a meta harness. its     development to have rigor, durability,  
+  a human first board for               cohesion, and verification, from brain  
+  coordinainting work from the          dump, prompt, hunch, or intuition       
+  entire continuum of agentic           through a review-ready pull request.    
+  software development lifecycle        Must: The work serves as a meta         
+  that has the rigor and durability     harness.                                
+  and cohesive and verification that    Must: The work is human first.          
+  all 'just work's and thinks about     Must: The work considers the forest,    
+  the future of any code base it        not just the trees.                     
+  works on. not just the trees, but                                             
+  the forest. it should operate like    also in your dump: Build a system that  
+  a michellin star resteraunt and I     compounds itself.; Coordinate the       
+  am the resterauntaur that tastes      type confirm to save. You can't edit    
+  the final delicious product. it       it after.                               
+  goes from this part (the brain                                                
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

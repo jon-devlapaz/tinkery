@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  i keep thinking about voice. talking is                                                           
+  faster than typing for me when im tired. but    {"benefits":["Addresses the feeling that opening  
+  maybe the real problem is i dont start dumps    a terminal is work"],"costs":["May not address    
+  at all at night because opening a terminal      typing difficulty"],"option":"Reduce the effort   
+  feels like work. or maybe its both              of starting a dump"}                              
+                                                                                                    
+                                                  {"benefits":["Talking is faster than typing when  
+                                                  tired"],"costs":["May not address the reluctance  
+                                                  to start"],"option":"Use voice for night-time     
+                                                  dumps"}                                           
+                                                                                                    
+                                                  {"benefits":["Addresses both possible parts of    
+                                                  the problem"],"costs":["The priority between the  
+                                                  two remains unclear"],"option":"Combine easier    
+                                                  starting with voice capture"}                     
+                                                                                                    
+                                                  Whether the main issue is starting dumps, using   
+                                                  voice, or both                                    
+                                                                                                    
+                                                  What observable check would show that this is     
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

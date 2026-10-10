@@ -1,0 +1,240 @@
+{
+  "action": {
+    "key": "F8"
+  },
+  "actor": "assistant-driven revised eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "a failed job should override everything. cost only matters if its way off",
+              "source": 2
+            },
+            {
+              "occurrence": 0,
+              "quote": "better than my usual week. no targets",
+              "source": 3
+            }
+          ]
+        },
+        "text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: I can tell that yesterday was better than my usual week, without using targets.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers."
+      }
+    ],
+    "misfits": [],
+    "open": [],
+    "other_goals": [
+      "Detect when the 6am job fails"
+    ],
+    "outcome": "I can tell that yesterday was better than my usual week, without using targets",
+    "parts": {
+      "done_when": "I can tell that yesterday was better than my usual week, without using targets",
+      "must": [
+        "Useful changes per hour is included",
+        "A failed job overrides everything",
+        "Cost matters only if it is way off"
+      ],
+      "must_not": [
+        "The result must not be a dashboard",
+        "The result must not be a wall of numbers"
+      ],
+      "outcome": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+      "when": "in the morning",
+      "who": "I",
+      "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+    },
+    "questions": [],
+    "unresolved_notes": [
+      "What counts as cost being way off is unspecified.",
+      "The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.",
+      "A failed job is intended to be surfaced as the dominant status."
+    ]
+  },
+  "board_available_ms": null,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [],
+        "deferred": [],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "a failed job should override everything. cost only matters if its way off",
+                "source": 2
+              },
+              {
+                "occurrence": 0,
+                "quote": "better than my usual week. no targets",
+                "source": 3
+              }
+            ],
+            "text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: I can tell that yesterday was better than my usual week, without using targets.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers."
+          }
+        ],
+        "misfits": [],
+        "open": [],
+        "other_goals": [
+          "Detect when the 6am job fails"
+        ],
+        "outcome": "I can tell that yesterday was better than my usual week, without using targets",
+        "parts": {
+          "done_when": "I can tell that yesterday was better than my usual week, without using targets",
+          "must": [
+            "Useful changes per hour is included",
+            "A failed job overrides everything",
+            "Cost matters only if it is way off"
+          ],
+          "must_not": [
+            "The result must not be a dashboard",
+            "The result must not be a wall of numbers"
+          ],
+          "outcome": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+          "when": "in the morning",
+          "who": "I",
+          "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+        },
+        "questions": [],
+        "uncertain": false,
+        "unresolved_notes": [
+          "What counts as cost being way off is unspecified.",
+          "The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.",
+          "A failed job is intended to be surfaced as the dominant status."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 20871,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent framings: empty collection",
+        "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+        "Absent/unreadable optional candidate 0 label",
+        "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+        "Absent/unreadable optional candidate 1 label",
+        "Retained unresolved 0 as an uncited note; no source highlight",
+        "Retained unresolved 1 as an uncited note; no source highlight",
+        "Retained unresolved 2 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"who\": \"I\",\n    \"outcome\": \"I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning\",\n    \"when\": \"in the morning\",\n    \"why\": \"The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later\",\n    \"done_when\": \"I can tell that yesterday was better than my usual week, without using targets\",\n    \"must\": [\n      \"Useful changes per hour is included\",\n      \"A failed job overrides everything\",\n      \"Cost matters only if it is way off\"\n    ],\n    \"must_not\": [\n      \"The result must not be a dashboard\",\n      \"The result must not be a wall of numbers\"\n    ]\n  },\n  \"other_goals\": [\n    \"Detect when the 6am job fails\"\n  ],\n  \"deferred\": [],\n  \"open\": [],\n  \"questions\": [],\n  \"supports\": [\n    {\n      \"source\": 1,\n      \"quote\": \"i want to open tinkery and in like 5 seconds know if yesterday went well or not\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 2,\n      \"quote\": \"a failed job should override everything. cost only matters if its way off\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 3,\n      \"quote\": \"better than my usual week. no targets\",\n      \"occurrence\": 0\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"option\": \"One number\",\n      \"benefits\": [\n        \"Fast to interpret\"\n      ],\n      \"costs\": [\n        \"May not show useful changes per hour and cost when relevant\"\n      ]\n    },\n    {\n      \"option\": \"Useful changes per hour as the primary signal, with cost only when it is way off\",\n      \"benefits\": [\n        \"Uses the measure that matters most\",\n        \"Keeps cost from dominating unnecessarily\"\n      ],\n      \"costs\": [\n        \"The meaning of way off is unspecified\"\n      ]\n    }\n  ],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"What counts as cost being way off is unspecified.\",\n    \"The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.\",\n    \"A failed job is intended to be surfaced as the dominant status.\"\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "9c102745d9893491",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [],
+          "term": "one"
+        }
+      ],
+      "decision": "flag",
+      "elapsed_ms": 11876,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[{\"source\":1,\"quote\":\"useful changes per hour is the one that matters\",\"occurrence\":0}],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "Possible whole-board loss: useful changes per hour is the one that matters (source 1)",
+      "request_key": "9c102745d9893491",
+      "version": 3
+    }
+  ],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [],
+  "questions_from_board": [],
+  "reading_text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: I can tell that yesterday was better than my usual week, without using targets.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [
+    {
+      "question": {
+        "id": "model-3818d3afb8d4c53b",
+        "target": "done_when",
+        "text": "What should you be able to observe or decide that shows this is working?"
+      },
+      "source": 2
+    },
+    {
+      "question": {
+        "id": "goal-refinement-3",
+        "target": null,
+        "text": "What should change about this goal?"
+      },
+      "source": 3
+    }
+  ],
+  "shape_submitted": false,
+  "skip_action": false,
+  "snapshot": "03-skip",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+    },
+    {
+      "id": 2,
+      "in_reply_to": "model-3818d3afb8d4c53b",
+      "text": "a failed job should override everything. cost only matters if its way off"
+    },
+    {
+      "id": 3,
+      "in_reply_to": "goal-refinement-3",
+      "text": "better than my usual week. no targets"
+    }
+  ],
+  "step_total_ms": 196
+}

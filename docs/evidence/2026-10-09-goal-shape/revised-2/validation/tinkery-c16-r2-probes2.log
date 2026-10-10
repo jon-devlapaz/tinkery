@@ -1,0 +1,11 @@
+o1-forced-can baseline passed; mutant failed
+o3-repeated-check baseline passed; mutant failed
+o6-timing-duplication baseline passed; mutant failed
+o6-subject-duplication baseline passed; mutant failed
+s6-muting-without-change baseline passed; mutant failed
+s6-no-color-ink baseline passed; mutant failed
+q1-required-priority baseline passed; mutant failed
+s3-open-not-ready baseline passed; mutant failed
+o4-one-constraint-per-line baseline passed; mutant failed
+o9-deferred-retained baseline passed; mutant failed
+eval-phrase-in-prompt baseline passed; mutant failed

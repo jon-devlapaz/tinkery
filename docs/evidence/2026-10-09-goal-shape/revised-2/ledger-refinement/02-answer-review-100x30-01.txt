@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+  your dump                                                                                         
+  the ledger report is useless to me in the       sometimes fails silently and I find out days      
+  morning. its a wall of numbers and i dont       later.                                            
+  know what to do with it. i want to open         Done when: I can tell that yesterday was better   
+  tinkery and in like 5 seconds know if           than my usual week, without using targets.        
+  yesterday went well or not. maybe one           Must: Useful changes per hour is included.        
+  number? useful changes per hour is the one      Must: A failed job overrides everything.          
+  that matters. cost too maybe. i dont want a     Must: Cost matters only if it is way off.         
+  dashboard. also the 6am job sometimes fails     Must not: The result must not be a dashboard.     
+  silently and i only find out days later         Must not: The result must not be a wall of        
+                                                  numbers.                                          
+                                                                                                    
+                                                  also in your dump: Detect when the 6am job fails  
+                                                                                                    
+                                                  Still open                                        
+                                                  What counts as cost being way off is              
+                                                  unspecified.                                      
+                                                                                                    
+                                                  The main goal is quickly judging yesterday's      
+                                                  performance; silent-job detection is a separate   
+                                                  related goal.                                     
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

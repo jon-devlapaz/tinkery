@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  the ledger report is useless to me    Why: The ledger report is a wall of     
+  in the morning. its a wall of         numbers, so I do not know what to do    
+  numbers and i dont know what to do    with it; the 6am job sometimes fails    
+  with it. i want to open tinkery       silently and I find out days later.     
+  and in like 5 seconds know if         Must: Useful changes per hour is        
+  yesterday went well or not. maybe     included.                               
+  one number? useful changes per        Must: The result is not a dashboard.    
+  hour is the one that matters. cost    Must not: The result must not be a      
+  too maybe. i dont want a              wall of numbers.                        
+  dashboard. also the 6am job                                                   
+  sometimes fails silently and i        also in your dump: Detect when the 6am  
+  only find out days later              job fails                               
+                                                                                
+                                        Still open                              
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

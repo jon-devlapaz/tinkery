@@ -16,6 +16,8 @@ impl BoardHost for Counting {
                 ..Default::default()
             },
             open: vec![],
+            other_goals: vec![],
+            deferred: vec![],
             unresolved_notes: vec![],
             uncertain: false,
             framings: vec![Framing {
@@ -289,7 +291,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         a.key_bar = true;
         key(&mut a, KeyCode::F(3));
         let review = snapshot(w, h, &mut a, false).unwrap();
-        assert!(right_text(&review, w).contains("Creates a Seed Me session"));
+        assert!(right_text(&review, w).contains("type confirm to save."));
         let bar = review.lines().last().unwrap();
         assert!(
             bar.contains("type confirm") && bar.contains("esc back"),

@@ -1,0 +1,2 @@
+cargo +1.99.0 build --lib --locked --message-format=json
+rustc +1.99.0 --edition=2024 /Users/jondev/dev/active/tinkery/docs/evidence/2026-10-09-goal-shape/revised-2/driver.rs -L dependency=target/debug/deps --extern tinkery=/Users/jondev/dev/active/tinkery/target/debug/libtinkery.rlib --extern serde_json=/Users/jondev/dev/active/tinkery/target/debug/deps/libserde_json-b95cb1045e4a234d.rlib --extern crossterm=/Users/jondev/dev/active/tinkery/target/debug/deps/libcrossterm-91b97fcbfcea6d53.rlib -o /tmp/tinkery-c16-r2

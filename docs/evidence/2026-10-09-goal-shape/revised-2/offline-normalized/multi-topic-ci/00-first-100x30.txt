@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so the ci on tinkery takes like 2 minutes    I think you mean…                                 
+  on mac and i dont really care about that but    I get the same clippy results locally and on      
+  what bugs me is that the clippy version on      GitHub CI, during CI checks.                      
+  ci is different from my laptop so things        Why: The clippy version differs between CI and    
+  pass locally and fail on github. happened       my laptop, so things pass locally and fail on     
+  twice this week. also unrelated but i want      GitHub; this happened twice this week.            
+  to rename the measure tab to something          Must: The clippy version on CI matches the        
+  nicer, ledger maybe? and honestly i think       clippy version on my laptop.                      
+  the release build should happen                 also in your dump: rename the measure tab to      
+  automatically when a pr merges so i stop        something nicer, possibly ledger; automatically   
+  copying binaries around by hand. rm then cp     build a release when a PR merges                  
+  every time is annoying and i forgot once and                                                      
+  ran an old build for an hour                    One thing I'm not sure about                      
+                                                  What observable check should show that the        
+                                                  clippy mismatch problem is resolved?              
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                  your answer                                       
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  2 send   3 review   8 skip   10 menu                                                              

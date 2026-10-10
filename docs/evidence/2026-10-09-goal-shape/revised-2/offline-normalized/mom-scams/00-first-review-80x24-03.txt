@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  my mom keeps getting scam texts       know this is working—for example, your  
+  and almost clicked one yesterday.     mom checks a suspicious text before     
+  i want something that helps her       tapping it?                             
+  tell if a text is fake before she                                             
+  taps anything. she wont install       {"benefits":["Uses a person she may     
+  apps and she hates when i lecture     already trust.","Could avoid            
+  her. maybe a shortcut where she       installing an app."],"costs":["May not  
+  forwards the text to me? not sure     be immediate if you are                 
+  what iphone version she has. it       unavailable.","PROVISIONAL assumption:  
+  has to be dead simple, like one       forwarding may not itself help her      
+  step                                  judge the text before                   
+                                        tapping."],"option":"She forwards the   
+                                        text to you."}                          
+                                                                                
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

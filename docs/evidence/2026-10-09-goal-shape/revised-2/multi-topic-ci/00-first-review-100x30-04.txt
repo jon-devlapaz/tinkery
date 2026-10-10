@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so the ci on tinkery takes like 2 minutes    Reading failed: Invalid claimed source span at    
+  on mac and i dont really care about that but    goal supports 0                                   
+  what bugs me is that the clippy version on                                                        
+  ci is different from my laptop so things        Originals retained. Retry, inspect Why, or add    
+  pass locally and fail on github. happened       clarification.                                    
+  twice this week. also unrelated but i want                                                        
+  to rename the measure tab to something                                                            
+  nicer, ledger maybe? and honestly i think                                                         
+  the release build should happen                                                                   
+  automatically when a pr merges so i stop                                                          
+  copying binaries around by hand. rm then cp                                                       
+  every time is annoying and i forgot once and                                                      
+  ran an old build for an hour                                                                      
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                  your answer                                       
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  2 send   10 menu                                                                                  

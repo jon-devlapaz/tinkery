@@ -1,0 +1,1218 @@
+[
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "I see all the books I've read this year in one place with a short note on what I thought of each one, This year, before December.\nWhy: I usually forget what I read by december.\nMust: The books I've read this year are included.\nMust: Each book has a short note on what I thought of it.\nMust not: It must not be fancy."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "The books I've read this year are included",
+          "Each book has a short note on what I thought of it"
+        ],
+        "must_not": [
+          "It must not be fancy"
+        ],
+        "outcome": "I see all the books I've read this year in one place with a short note on what I thought of each one",
+        "when": "This year, before December",
+        "who": "I",
+        "why": "I usually forget what I read by december"
+      },
+      "questions": [
+        {
+          "id": "model-519996abe1f78ed8",
+          "target": "done_when",
+          "text": "What would you check to know this is done?"
+        }
+      ],
+      "unresolved_notes": [
+        "What observable check would show that this is done?",
+        "“This year” refers to the current calendar year."
+      ]
+    },
+    "call": 59,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional done_when",
+      "Ignored unknown open part \"What observable check would show that this is done?\"",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-519996abe1f78ed8",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 1 label",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "The books I've read this year are included",
+        "Each book has a short note on what I thought of it"
+      ],
+      "must_not": [
+        "It must not be fancy"
+      ],
+      "outcome": "I see all the books I've read this year in one place with a short note on what I thought of each one",
+      "when": "This year, before December",
+      "who": "I",
+      "why": "I usually forget what I read by december"
+    },
+    "rendered_goal": "I see all the books I've read this year in one place with a short note on what I thought of each one, This year, before December.\nWhy: I usually forget what I read by december.\nMust: The books I've read this year are included.\nMust: Each book has a short note on what I thought of it.\nMust not: It must not be fancy.",
+    "snapshot": "revised-2/books/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "New users do not feel spammed by onboarding emails, during the first week.\nWhy: The unsubscribe rate keeps going up, while marketing values the emails.\nMust: onboarding emails are not eliminated entirely.\nMust not: new users feel spammed."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "onboarding emails are not eliminated entirely"
+        ],
+        "must_not": [
+          "new users feel spammed"
+        ],
+        "outcome": "new users do not feel spammed by onboarding emails",
+        "when": "during the first week",
+        "who": "new users",
+        "why": "The unsubscribe rate keeps going up, while marketing values the emails."
+      },
+      "questions": [
+        {
+          "id": "model-43498cf4c758f837",
+          "target": "done_when",
+          "text": "What observable sign would show that new users no longer feel spammed?"
+        }
+      ],
+      "unresolved_notes": [
+        "Reducing perceived spam while retaining some onboarding emails is the main goal."
+      ]
+    },
+    "call": 61,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional done_when",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-43498cf4c758f837",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 1 label",
+      "Retained unresolved 0 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "onboarding emails are not eliminated entirely"
+      ],
+      "must_not": [
+        "new users feel spammed"
+      ],
+      "outcome": "new users do not feel spammed by onboarding emails",
+      "when": "during the first week",
+      "who": "new users",
+      "why": "The unsubscribe rate keeps going up, while marketing values the emails."
+    },
+    "rendered_goal": "New users do not feel spammed by onboarding emails, during the first week.\nWhy: The unsubscribe rate keeps going up, while marketing values the emails.\nMust: onboarding emails are not eliminated entirely.\nMust not: new users feel spammed.",
+    "snapshot": "revised-2/onboarding-emails/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "Learners leave a wrong answer feeling smarter rather than dumber, after a wrong answer.\nWhy: Learners currently see a red X and move on, feel dumb, and leave.\nMust: work on phones.\nMust not: include gamification."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [
+        "Choose whether to improve explanations or tone",
+        "Decide whether to add an AI tutor chat panel",
+        "Rebuild the whole quiz engine",
+        "Write a marketing tagline"
+      ],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "work on phones"
+        ],
+        "must_not": [
+          "include gamification"
+        ],
+        "outcome": "leave a wrong answer feeling smarter rather than dumber",
+        "when": "after a wrong answer",
+        "who": "learners",
+        "why": "Learners currently see a red X and move on, feel dumb, and leave."
+      },
+      "questions": [
+        {
+          "id": "model-0fc714bf70c564d3",
+          "target": "done_when",
+          "text": "What observable sign would show that learners leave a wrong answer feeling smarter rather than dumber?"
+        }
+      ],
+      "unresolved_notes": [
+        "An explanation may help.",
+        "The tone may help.",
+        "Whether drop-off happens around question 4 is unverified.",
+        "The observable check for learners feeling smarter after a wrong answer is missing.",
+        "The marketing tagline request does not fit the learner-feedback investigation.",
+        "Rebuilding the whole quiz engine appears separate from the stated outcome.",
+        "The AI tutor chat panel is a proposed mechanism, not the goal."
+      ]
+    },
+    "call": 63,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional done_when",
+      "Ignored unknown open part \"Whether drop-off happens around question 4 is unverified.\"",
+      "Ignored unknown open part \"The observable check for learners feeling smarter after a wrong answer is missing.\"",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-0fc714bf70c564d3",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 1 label",
+      "Ignored extra candidate 2 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 2 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 2 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 2 label",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight",
+      "Retained unresolved 2 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "work on phones"
+      ],
+      "must_not": [
+        "include gamification"
+      ],
+      "outcome": "leave a wrong answer feeling smarter rather than dumber",
+      "when": "after a wrong answer",
+      "who": "learners",
+      "why": "Learners currently see a red X and move on, feel dumb, and leave."
+    },
+    "rendered_goal": "Learners leave a wrong answer feeling smarter rather than dumber, after a wrong answer.\nWhy: Learners currently see a red X and move on, feel dumb, and leave.\nMust: work on phones.\nMust not: include gamification.",
+    "snapshot": "revised-2/trap/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "I know in about 5 seconds whether yesterday went well, using useful changes per hour and possibly cost, in the morning when I open Tinkery.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nMust: Useful changes per hour is included.\nMust: The result is not a dashboard.\nMust not: The result must not be a wall of numbers."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [
+        "Detect when the 6am job fails"
+      ],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "Useful changes per hour is included",
+          "The result is not a dashboard"
+        ],
+        "must_not": [
+          "The result must not be a wall of numbers"
+        ],
+        "outcome": "I know in about 5 seconds whether yesterday went well, using useful changes per hour and possibly cost",
+        "when": "in the morning when I open Tinkery",
+        "who": "I",
+        "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+      },
+      "questions": [
+        {
+          "id": "model-3818d3afb8d4c53b",
+          "target": "done_when",
+          "text": "What should you be able to observe or decide that shows this is working?"
+        }
+      ],
+      "unresolved_notes": [
+        "A single number may be useful",
+        "Cost may also matter",
+        "A 5-second morning view may help",
+        "What observable check shows that I know whether yesterday went well",
+        "A full dashboard appears inconsistent with your stated preference",
+        "The main goal is quickly judging yesterday's performance, while silent-job detection is a separate related goal.",
+        "'yesterday went well' can be evaluated using useful changes per hour, with cost possibly included."
+      ]
+    },
+    "call": 64,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional done_when",
+      "Ignored unknown open part \"What observable check shows that I know whether yesterday went well\"",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-3818d3afb8d4c53b",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 1 label",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight",
+      "Retained unresolved 2 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "Useful changes per hour is included",
+        "The result is not a dashboard"
+      ],
+      "must_not": [
+        "The result must not be a wall of numbers"
+      ],
+      "outcome": "I know in about 5 seconds whether yesterday went well, using useful changes per hour and possibly cost",
+      "when": "in the morning when I open Tinkery",
+      "who": "I",
+      "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+    },
+    "rendered_goal": "I know in about 5 seconds whether yesterday went well, using useful changes per hour and possibly cost, in the morning when I open Tinkery.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nMust: Useful changes per hour is included.\nMust: The result is not a dashboard.\nMust not: The result must not be a wall of numbers.",
+    "snapshot": "revised-2/ledger/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "I start capturing thought dumps at night, including by voice when talking is faster than typing.\nWhy: Opening a terminal feels like work, and typing is harder when I am tired."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [],
+        "must_not": [],
+        "outcome": "I start capturing thought dumps at night, including by voice when talking is faster than typing",
+        "when": "at night",
+        "who": "I",
+        "why": "Opening a terminal feels like work, and typing is harder when I am tired"
+      },
+      "questions": [
+        {
+          "id": "model-c9289e9e4a3562ff",
+          "target": "done_when",
+          "text": "What would you observe to know this is working?"
+        }
+      ],
+      "unresolved_notes": [
+        "{\"benefits\":[\"Addresses the feeling that opening a terminal is work\"],\"costs\":[\"May not address typing difficulty\"],\"option\":\"Reduce the effort of starting a dump\"}",
+        "{\"benefits\":[\"Talking is faster than typing when tired\"],\"costs\":[\"May not address the reluctance to start\"],\"option\":\"Use voice for night-time dumps\"}",
+        "{\"benefits\":[\"Addresses both possible parts of the problem\"],\"costs\":[\"The priority between the two remains unclear\"],\"option\":\"Combine easier starting with voice capture\"}",
+        "Whether the main issue is starting dumps, using voice, or both",
+        "What observable check would show that this is working",
+        "The main goal is easier night-time thought capture; voice and terminal friction are possible contributing issues, not confirmed goals."
+      ]
+    },
+    "call": 65,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional done_when",
+      "Ignored unknown open part \"Whether the main issue is starting dumps, using voice, or both\"",
+      "Ignored unknown open part \"What observable check would show that this is working\"",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-c9289e9e4a3562ff",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [],
+      "must_not": [],
+      "outcome": "I start capturing thought dumps at night, including by voice when talking is faster than typing",
+      "when": "at night",
+      "who": "I",
+      "why": "Opening a terminal feels like work, and typing is harder when I am tired"
+    },
+    "rendered_goal": "I start capturing thought dumps at night, including by voice when talking is faster than typing.\nWhy: Opening a terminal feels like work, and typing is harder when I am tired.",
+    "snapshot": "revised-2/voice/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.\nWhy: I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request.\nMust: The work serves as a meta harness.\nMust: The work is human first.\nMust: The work considers the forest, not just the trees."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [
+        "Build a system that compounds itself.",
+        "Coordinate the entire agentic software development lifecycle.",
+        "Make the parts of the workflow just work together."
+      ],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "The work serves as a meta harness.",
+          "The work is human first.",
+          "The work considers the forest, not just the trees."
+        ],
+        "must_not": [],
+        "outcome": "I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.",
+        "when": null,
+        "who": "I",
+        "why": "I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request."
+      },
+      "questions": [
+        {
+          "id": "model-8998d6d36794c546",
+          "target": "done_when",
+          "text": "What observable check would tell you this is working?"
+        }
+      ],
+      "unresolved_notes": [
+        "A workflow spanning the brain dump, prompt, hunch, or intuition through a pull request ready for human review.",
+        "What observable check shows that the outcome is achieved?",
+        "The desired outcome is represented as a review-ready code change rather than the system itself."
+      ]
+    },
+    "call": 66,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional when",
+      "Absent/unreadable optional done_when",
+      "Ignored unknown open part \"What observable check shows that the outcome is achieved?\"",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-8998d6d36794c546",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "The work serves as a meta harness.",
+        "The work is human first.",
+        "The work considers the forest, not just the trees."
+      ],
+      "must_not": [],
+      "outcome": "I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.",
+      "when": null,
+      "who": "I",
+      "why": "I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request."
+    },
+    "rendered_goal": "I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.\nWhy: I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request.\nMust: The work serves as a meta harness.\nMust: The work is human first.\nMust: The work considers the forest, not just the trees.",
+    "snapshot": "revised-2/operator-goal/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [
+        {
+          "benefit": null,
+          "cost": null,
+          "label": "PROVISIONAL: New users complete onboarding more easily.",
+          "undo_cost": null
+        },
+        {
+          "benefit": null,
+          "cost": null,
+          "label": "PROVISIONAL: The onboarding process creates fewer problems for its intended users.",
+          "undo_cost": null
+        }
+      ],
+      "deferred": [],
+      "framings": [],
+      "misfits": [],
+      "open": [
+        "who",
+        "outcome",
+        "why",
+        "done_when"
+      ],
+      "other_goals": [],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [],
+        "must_not": [],
+        "outcome": null,
+        "when": null,
+        "who": null,
+        "why": null
+      },
+      "questions": [
+        {
+          "id": "model-14272a9eb54ad36a",
+          "target": "who",
+          "text": "Who should benefit from fixing onboarding?"
+        }
+      ],
+      "unresolved_notes": [
+        "“fix onboarding somehow” identifies a concern but not yet a specific outcome, reason, or observable completion check."
+      ]
+    },
+    "call": 67,
+    "exact_board": true,
+    "normalizations": [
+      "Absent/unreadable optional who",
+      "Absent/unreadable optional outcome",
+      "Absent/unreadable optional when",
+      "Absent/unreadable optional why",
+      "Absent/unreadable optional done_when",
+      "Absent must: empty collection",
+      "Absent must not: empty collection",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-14272a9eb54ad36a",
+      "Absent/unreadable optional candidate 0 benefit",
+      "Absent/unreadable optional candidate 0 cost",
+      "Absent/unreadable optional candidate 0 undo_cost",
+      "Absent/unreadable optional candidate 1 benefit",
+      "Absent/unreadable optional candidate 1 cost",
+      "Absent/unreadable optional candidate 1 undo_cost",
+      "Retained unresolved 0 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [],
+      "must_not": [],
+      "outcome": null,
+      "when": null,
+      "who": null,
+      "why": null
+    },
+    "rendered_goal": null,
+    "snapshot": "revised-2/vague-onboarding/00-first.json",
+    "surface_change_only": false
+  },
+  {
+    "board": {
+      "alternatives": [
+        {
+          "benefit": "Addresses the stated retention problem.",
+          "cost": "May not capture other onboarding problems.",
+          "label": "PROVISIONAL: More people who sign up return for a second session.",
+          "undo_cost": null
+        },
+        {
+          "benefit": "Leaves room for improvements beyond return visits.",
+          "cost": "Does not specify an observable outcome.",
+          "label": "PROVISIONAL: People who sign up have a better onboarding experience.",
+          "undo_cost": null
+        }
+      ],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": {
+            "Cited": [
+              {
+                "occurrence": 0,
+                "quote": "people sign up then never come back. like 70% never do a second session",
+                "source": 2
+              }
+            ]
+          },
+          "text": "Why: People sign up then never come back; like 70% never do a second session."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "outcome",
+        "done_when"
+      ],
+      "other_goals": [],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [],
+        "must_not": [],
+        "outcome": null,
+        "when": null,
+        "who": "People who sign up",
+        "why": "People sign up then never come back; like 70% never do a second session."
+      },
+      "questions": [
+        {
+          "id": "model-3a7ee45ac6319c1f",
+          "target": "outcome",
+          "text": "What should become true for people who sign up: should more of them return for a second session, or is there another outcome you want?"
+        }
+      ],
+      "unresolved_notes": [
+        "The 70% figure is retained as the person's claim, not independently verified."
+      ]
+    },
+    "call": 69,
+    "exact_board": true,
+    "normalizations": [
+      "Absent/unreadable optional outcome",
+      "Absent/unreadable optional when",
+      "Absent/unreadable optional done_when",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-3a7ee45ac6319c1f",
+      "Absent/unreadable optional candidate 0 undo_cost",
+      "Absent/unreadable optional candidate 1 undo_cost",
+      "Retained unresolved 0 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [],
+      "must_not": [],
+      "outcome": null,
+      "when": null,
+      "who": "People who sign up",
+      "why": "People sign up then never come back; like 70% never do a second session."
+    },
+    "rendered_goal": "Why: People sign up then never come back; like 70% never do a second session.",
+    "snapshot": "revised-2/vague-onboarding/01-answer.json",
+    "surface_change_only": false
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": {
+            "Cited": [
+              {
+                "occurrence": 0,
+                "quote": "people sign up then never come back. like 70% never do a second session",
+                "source": 2
+              },
+              {
+                "occurrence": 0,
+                "quote": "id know it worked if more than half come back within a week",
+                "source": 3
+              }
+            ]
+          },
+          "text": "People who sign up return for a second session within a week.\nWhy: People sign up then never come back; like 70% never do a second session.\nDone when: More than half come back within a week."
+        }
+      ],
+      "misfits": [],
+      "open": [],
+      "other_goals": [],
+      "outcome": "More than half come back within a week.",
+      "parts": {
+        "done_when": "More than half come back within a week.",
+        "must": [],
+        "must_not": [],
+        "outcome": "return for a second session within a week",
+        "when": null,
+        "who": "People who sign up",
+        "why": "People sign up then never come back; like 70% never do a second session."
+      },
+      "questions": [],
+      "unresolved_notes": [
+        "The 70% figure is retained as the person's claim, not independently verified."
+      ]
+    },
+    "call": 71,
+    "exact_board": true,
+    "normalizations": [
+      "Absent/unreadable optional when",
+      "Absent framings: empty collection",
+      "Retained unresolved 0 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": "More than half come back within a week.",
+      "must": [],
+      "must_not": [],
+      "outcome": "return for a second session within a week",
+      "when": null,
+      "who": "People who sign up",
+      "why": "People sign up then never come back; like 70% never do a second session."
+    },
+    "rendered_goal": "People who sign up return for a second session within a week.\nWhy: People sign up then never come back; like 70% never do a second session.\nDone when: More than half come back within a week.",
+    "snapshot": "revised-2/vague-onboarding/02-answer.json",
+    "surface_change_only": false
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [
+        "What iPhone version she has."
+      ],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "My mom identifies whether a text is fake before tapping anything.\nWhy: She keeps receiving scam texts and almost clicked one yesterday.\nMust: She will not install apps.\nMust: It has to be dead simple, like one step.\nMust not: She must not feel lectured."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "She will not install apps.",
+          "It has to be dead simple, like one step."
+        ],
+        "must_not": [
+          "She must not feel lectured."
+        ],
+        "outcome": "my mom identifies whether a text is fake before tapping anything",
+        "when": null,
+        "who": "my mom",
+        "why": "She keeps receiving scam texts and almost clicked one yesterday."
+      },
+      "questions": [
+        {
+          "id": "model-91504caae7102179",
+          "target": "done_when",
+          "text": "What should you observe to know this is working—for example, your mom checks a suspicious text before tapping it?"
+        }
+      ],
+      "unresolved_notes": [
+        "{\"benefits\":[\"Uses a person she may already trust.\",\"Could avoid installing an app.\"],\"costs\":[\"May not be immediate if you are unavailable.\",\"PROVISIONAL assumption: forwarding may not itself help her judge the text before tapping.\"],\"option\":\"She forwards the text to you.\"}",
+        "The observable check for knowing the goal is achieved.",
+        "Any solution requiring an app conflicts with her stated preference.",
+        "The forwarding idea is a candidate mechanism, not yet the confirmed outcome."
+      ]
+    },
+    "call": 73,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional when",
+      "Absent/unreadable optional done_when",
+      "Ignored unknown open part \"The observable check for knowing the goal is achieved.\"",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-91504caae7102179",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "She will not install apps.",
+        "It has to be dead simple, like one step."
+      ],
+      "must_not": [
+        "She must not feel lectured."
+      ],
+      "outcome": "my mom identifies whether a text is fake before tapping anything",
+      "when": null,
+      "who": "my mom",
+      "why": "She keeps receiving scam texts and almost clicked one yesterday."
+    },
+    "rendered_goal": "My mom identifies whether a text is fake before tapping anything.\nWhy: She keeps receiving scam texts and almost clicked one yesterday.\nMust: She will not install apps.\nMust: It has to be dead simple, like one step.\nMust not: She must not feel lectured.",
+    "snapshot": "revised-2/mom-scams/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "I get the same clippy results locally and on GitHub CI, during CI checks.\nWhy: The clippy version differs between CI and my laptop, so things pass locally and fail on GitHub; this happened twice this week.\nMust: The clippy version on CI matches the clippy version on my laptop."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [
+        "rename the measure tab to something nicer, possibly ledger",
+        "automatically build a release when a PR merges"
+      ],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "The clippy version on CI matches the clippy version on my laptop"
+        ],
+        "must_not": [],
+        "outcome": "I get the same clippy results locally and on GitHub CI",
+        "when": "during CI checks",
+        "who": "I",
+        "why": "The clippy version differs between CI and my laptop, so things pass locally and fail on GitHub; this happened twice this week."
+      },
+      "questions": [
+        {
+          "id": "model-fc65577a057af1f8",
+          "target": "done_when",
+          "text": "What observable check should show that the clippy mismatch problem is resolved?"
+        }
+      ],
+      "unresolved_notes": [
+        "Pinning or otherwise synchronizing the clippy version is a possible approach.",
+        "The measure-tab rename and automatic release build appear to be separate goals from the clippy-version problem.",
+        "The desired release-build trigger and artifact handling are not defined."
+      ]
+    },
+    "call": 74,
+    "exact_board": false,
+    "normalizations": [
+      "Absent/unreadable optional done_when",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-fc65577a057af1f8",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "The clippy version on CI matches the clippy version on my laptop"
+      ],
+      "must_not": [],
+      "outcome": "I get the same clippy results locally and on GitHub CI",
+      "when": "during CI checks",
+      "who": "I",
+      "why": "The clippy version differs between CI and my laptop, so things pass locally and fail on GitHub; this happened twice this week."
+    },
+    "rendered_goal": "I get the same clippy results locally and on GitHub CI, during CI checks.\nWhy: The clippy version differs between CI and my laptop, so things pass locally and fail on GitHub; this happened twice this week.\nMust: The clippy version on CI matches the clippy version on my laptop.",
+    "snapshot": "revised-2/multi-topic-ci/00-first.json",
+    "surface_change_only": true
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": {
+            "Cited": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "a failed job should override everything. cost only matters if its way off",
+                "source": 2
+              }
+            ]
+          },
+          "text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers."
+        }
+      ],
+      "misfits": [],
+      "open": [],
+      "other_goals": [
+        "Detect when the 6am job fails"
+      ],
+      "outcome": "A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off",
+      "parts": {
+        "done_when": "A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off",
+        "must": [
+          "Useful changes per hour is included",
+          "A failed job overrides everything",
+          "Cost matters only if it is way off"
+        ],
+        "must_not": [
+          "The result must not be a dashboard",
+          "The result must not be a wall of numbers"
+        ],
+        "outcome": "know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+        "when": "in the morning",
+        "who": "I",
+        "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+      },
+      "questions": [],
+      "unresolved_notes": [
+        "What counts as cost being way off is unspecified",
+        "The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.",
+        "A failed job is intended to be surfaced as the dominant status."
+      ]
+    },
+    "call": 75,
+    "exact_board": true,
+    "normalizations": [
+      "Ignored unknown open part \"What counts as cost being way off is unspecified\"",
+      "Absent framings: empty collection",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 1 label",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": "A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off",
+      "must": [
+        "Useful changes per hour is included",
+        "A failed job overrides everything",
+        "Cost matters only if it is way off"
+      ],
+      "must_not": [
+        "The result must not be a dashboard",
+        "The result must not be a wall of numbers"
+      ],
+      "outcome": "know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+      "when": "in the morning",
+      "who": "I",
+      "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+    },
+    "rendered_goal": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers.",
+    "snapshot": "revised-2/ledger-followup/01-answer.json",
+    "surface_change_only": false
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": {
+            "Cited": [
+              {
+                "occurrence": 0,
+                "quote": "my mom keeps getting scam texts and almost clicked one yesterday.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "she wont install apps and she hates when i lecture her.",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "maybe a shortcut where she forwards the text to me?",
+                "source": 1
+              }
+            ]
+          },
+          "text": "My mom tells if a text is fake before she taps anything.\nWhy: my mom keeps getting scam texts and almost clicked one yesterday.\nMust: She won't install apps.\nMust: It has to be dead simple, like one step.\nMust not: She must not be lectured."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [
+          "She won't install apps",
+          "It has to be dead simple, like one step"
+        ],
+        "must_not": [
+          "She must not be lectured"
+        ],
+        "outcome": "my mom tells if a text is fake before she taps anything",
+        "when": null,
+        "who": "my mom",
+        "why": "my mom keeps getting scam texts and almost clicked one yesterday"
+      },
+      "questions": [
+        {
+          "id": "model-2b77000e137deedb",
+          "target": "done_when",
+          "text": "What observable result would show that this is working?"
+        }
+      ],
+      "unresolved_notes": [
+        "which iPhone version she has",
+        "The main goal is helping her identify suspicious texts before tapping, rather than building a particular shortcut.",
+        "Avoiding lectures means the approach should not rely on corrective or admonishing messages."
+      ]
+    },
+    "call": 77,
+    "exact_board": true,
+    "normalizations": [
+      "Absent/unreadable optional when",
+      "Absent/unreadable optional done_when",
+      "Ignored unknown open part \"which iPhone version she has\"",
+      "Absent framings: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-2b77000e137deedb",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Retained narrative support/open prose as uncited note; no highlight",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [
+        "She won't install apps",
+        "It has to be dead simple, like one step"
+      ],
+      "must_not": [
+        "She must not be lectured"
+      ],
+      "outcome": "my mom tells if a text is fake before she taps anything",
+      "when": null,
+      "who": "my mom",
+      "why": "my mom keeps getting scam texts and almost clicked one yesterday"
+    },
+    "rendered_goal": "My mom tells if a text is fake before she taps anything.\nWhy: my mom keeps getting scam texts and almost clicked one yesterday.\nMust: She won't install apps.\nMust: It has to be dead simple, like one step.\nMust not: She must not be lectured.",
+    "snapshot": "revised-2/final-checks/mom-scams/00-first.json",
+    "surface_change_only": false
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": "Uncited",
+          "text": "I get consistent clippy results locally and on GitHub.\nWhy: The clippy version on CI differs from the laptop, so checks pass locally and fail on GitHub; this happened twice this week."
+        }
+      ],
+      "misfits": [],
+      "open": [
+        "done_when"
+      ],
+      "other_goals": [
+        "Rename the measure tab",
+        "Automate release builds after a PR merges"
+      ],
+      "outcome": null,
+      "parts": {
+        "done_when": null,
+        "must": [],
+        "must_not": [],
+        "outcome": "get consistent clippy results locally and on GitHub",
+        "when": null,
+        "who": "I",
+        "why": "The clippy version on CI differs from the laptop, so checks pass locally and fail on GitHub; this happened twice this week."
+      },
+      "questions": [
+        {
+          "id": "model-957c42a453b7489f",
+          "target": "done_when",
+          "text": "What observable check would show that local and GitHub clippy results are consistent?"
+        }
+      ],
+      "unresolved_notes": [
+        "The tab rename and automatic release build look like separate goals rather than parts of the clippy-consistency goal.",
+        "Clippy consistency is the main goal because it is the stated source of repeated failures."
+      ]
+    },
+    "call": 79,
+    "exact_board": true,
+    "normalizations": [
+      "Absent/unreadable optional when",
+      "Absent/unreadable optional done_when",
+      "Absent framings: empty collection",
+      "Absent goal supports: empty collection",
+      "Absent/unreadable optional question 0 ID",
+      "Allocated question ID model-957c42a453b7489f",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 1 label",
+      "Absent uncited supports: empty collection",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": null,
+      "must": [],
+      "must_not": [],
+      "outcome": "get consistent clippy results locally and on GitHub",
+      "when": null,
+      "who": "I",
+      "why": "The clippy version on CI differs from the laptop, so checks pass locally and fail on GitHub; this happened twice this week."
+    },
+    "rendered_goal": "I get consistent clippy results locally and on GitHub.\nWhy: The clippy version on CI differs from the laptop, so checks pass locally and fail on GitHub; this happened twice this week.",
+    "snapshot": "revised-2/final-checks/multi-topic-ci/00-first.json",
+    "surface_change_only": false
+  },
+  {
+    "board": {
+      "alternatives": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": {
+            "Cited": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "a failed job should override everything. cost only matters if its way off",
+                "source": 2
+              },
+              {
+                "occurrence": 0,
+                "quote": "better than my usual week. no targets",
+                "source": 3
+              }
+            ]
+          },
+          "text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: I can tell that yesterday was better than my usual week, without using targets.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers."
+        }
+      ],
+      "misfits": [],
+      "open": [],
+      "other_goals": [
+        "Detect when the 6am job fails"
+      ],
+      "outcome": "I can tell that yesterday was better than my usual week, without using targets",
+      "parts": {
+        "done_when": "I can tell that yesterday was better than my usual week, without using targets",
+        "must": [
+          "Useful changes per hour is included",
+          "A failed job overrides everything",
+          "Cost matters only if it is way off"
+        ],
+        "must_not": [
+          "The result must not be a dashboard",
+          "The result must not be a wall of numbers"
+        ],
+        "outcome": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+        "when": "in the morning",
+        "who": "I",
+        "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+      },
+      "questions": [],
+      "unresolved_notes": [
+        "What counts as cost being way off is unspecified.",
+        "The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.",
+        "A failed job is intended to be surfaced as the dominant status."
+      ]
+    },
+    "call": 81,
+    "exact_board": true,
+    "normalizations": [
+      "Absent framings: empty collection",
+      "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 0 label",
+      "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+      "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+      "Absent/unreadable optional candidate 1 label",
+      "Retained unresolved 0 as an uncited note; no source highlight",
+      "Retained unresolved 1 as an uncited note; no source highlight",
+      "Retained unresolved 2 as an uncited note; no source highlight"
+    ],
+    "parts": {
+      "done_when": "I can tell that yesterday was better than my usual week, without using targets",
+      "must": [
+        "Useful changes per hour is included",
+        "A failed job overrides everything",
+        "Cost matters only if it is way off"
+      ],
+      "must_not": [
+        "The result must not be a dashboard",
+        "The result must not be a wall of numbers"
+      ],
+      "outcome": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+      "when": "in the morning",
+      "who": "I",
+      "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+    },
+    "rendered_goal": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: I can tell that yesterday was better than my usual week, without using targets.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers.",
+    "snapshot": "revised-2/ledger-refinement/02-answer.json",
+    "surface_change_only": false
+  }
+]

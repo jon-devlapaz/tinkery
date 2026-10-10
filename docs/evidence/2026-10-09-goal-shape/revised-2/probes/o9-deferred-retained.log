@@ -1,0 +1,24 @@
+
+running 1 test
+test shaping::brain_dump::revision2_tests::quiet_asides_survive_paper_review_and_are_not_constraints ... FAILED
+
+failures:
+
+---- shaping::brain_dump::revision2_tests::quiet_asides_survive_paper_review_and_are_not_constraints stdout ----
+
+thread 'shaping::brain_dump::revision2_tests::quiet_asides_survive_paper_review_and_are_not_constraints' (62507204) panicked at src/shaping/brain_dump/revision2_tests.rs:131:5:
+assertion `left == right` failed
+  left: []
+ right: ["editing can wait"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::revision2_tests::quiet_asides_survive_paper_review_and_are_not_constraints
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 130 filtered out; finished in 0.01s
+
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-syw_25f3/repo)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.51s
+     Running unittests src/lib.rs (/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-C16-revised-probes-syw_25f3/target/debug/deps/tinkery-57634f1bcdbf9627)
+error: test failed, to rerun pass `--lib`

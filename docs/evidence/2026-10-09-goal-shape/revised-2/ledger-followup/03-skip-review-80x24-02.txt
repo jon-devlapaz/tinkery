@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  added later                                                                   
+  better than my usual week. no         indicates whether yesterday went well,  
+  targets                               with cost highlighted only if it is     
+                                        way off.                                
+                                        Must: Useful changes per hour is        
+                                        included.                               
+                                        Must: A failed job overrides            
+                                        everything.                             
+                                        Must: Cost matters only if it is way    
+                                        off.                                    
+                                        Must not: The result must not be a      
+                                        dashboard.                              
+                                        Must not: The result must not be a      
+                                        wall of numbers.                        
+                                                                                
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

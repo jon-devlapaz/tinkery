@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  my mom keeps getting scam texts and almost                                                        
+  clicked one yesterday. i want something that    Still open                                        
+  helps her tell if a text is fake before she     Done when — What should you observe to know this  
+  taps anything. she wont install apps and she    is working—for example, your mom checks a         
+  hates when i lecture her. maybe a shortcut      suspicious text before tapping it?                
+  where she forwards the text to me? not sure                                                       
+  what iphone version she has. it has to be       {"benefits":["Uses a person she may already       
+  dead simple, like one step                      trust.","Could avoid installing an                
+                                                  app."],"costs":["May not be immediate if you are  
+                                                  unavailable.","PROVISIONAL assumption:            
+                                                  forwarding may not itself help her judge the      
+                                                  text before tapping."],"option":"She forwards     
+                                                  the text to you."}                                
+                                                                                                    
+                                                  The observable check for knowing the goal is      
+                                                  achieved.                                         
+                                                                                                    
+                                                  Any solution requiring an app conflicts with her  
+                                                  stated preference.                                
+                                                                                                    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

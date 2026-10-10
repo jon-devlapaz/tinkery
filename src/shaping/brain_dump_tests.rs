@@ -39,10 +39,12 @@ fn guess(r: &BoardRequest) -> Guess {
             )),
             why: Some("I can read comfortably".into()),
             done_when: Some("reading is comfortable".into()),
-            keep: None,
-            avoid: Some("no confirmation".into()),
+            must: vec![],
+            must_not: vec!["no confirmation".into()],
         },
         open: vec![],
+        other_goals: vec![],
+        deferred: vec![],
         unresolved_notes: vec![],
         uncertain: false,
         framings: vec![Framing {
@@ -597,7 +599,7 @@ fn board_process_uses_only_shaping_guidance_and_disabled_resources() {
     let r = host.requests.lock().unwrap()[0].clone();
     let response = serde_json::to_string(&guess(&r)).unwrap();
     let program = dir.path().join("pi");
-    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms remain candidates' in p\nassert 'preserve compatible aims rather than forcing a choice' in p\nassert 'No research, tools, execution, approvals, ledger' in p\nassert 'Never invent properties of unknown names' in p\nassert 'most consequential missing or too-vague part' in p\nassert 'existing source ID' in p and 'whole Unicode graphemes' in p\nassert not any(example in p for example in ['went well','way off','usual week','no targets','no dashboard','five emails','phones','no gamification','Kirra','restaurateur'])\nassert 'never echo field definitions' in p and 'Never ask facts an agent could find out' in p\nassert 'know, decide, or do' not in p\nassert 'two to four' not in p and 'EXACT keys' not in p and 'at most 45' not in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
+    std::fs::write(&program,format!("#!/usr/bin/env python3\nimport sys,json,os\nr=json.load(sys.stdin)\nif r.get('kind')=='meaning-preservation': print('{{\"missing\":[],\"false_choice\":false}}');sys.exit(0)\np=sys.argv[sys.argv.index('--system-prompt')+1]\nassert 'ACTUAL_SHAPING_GUIDANCE' in p\nassert 'FAKE_LEDGER_REPLY_RULE' not in p and 'DO_NOT_RUN_LATER_GATE' not in p\nassert 'Proposed mechanisms remain candidates' in p\nassert 'preserve compatible aims rather than forcing a choice' in p\nassert 'No research, tools, execution, approvals, ledger' in p\nassert 'Never invent properties of unknown names' in p\nassert 'Fill missing required parts FIRST' in p\nassert 'existing source ID' in p and 'whole Unicode graphemes' in p\nassert not any(example in p for example in ['went well','way off','usual week','no targets','no dashboard','five emails','phones','no gamification','Kirra','restaurateur'])\nassert 'never field definitions' in p and 'never facts an agent could find out' in p\nassert 'know, decide, or do' not in p\nassert 'two to four' not in p and 'EXACT keys' not in p and 'at most 45' not in p\nassert all(x in sys.argv for x in ['--no-tools','--no-session','--no-extensions','--no-mcp','--no-context-files'])\nassert 'PI_SESSION_FILE' not in os.environ\nassert r['sources'][0]['text']=='My exact words.'\nprint({response:?})\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
     let actual = pi.reshape(r, &AtomicBool::new(false)).unwrap();
@@ -842,8 +844,8 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
         assert_eq!(r.sources[1].in_reply_to.as_deref(), Some("reader"));
         let frame = snapshot(w, h, &mut a, false).unwrap();
         assert!(
-            frame.contains("Reading updated from your answer: both"),
-            "No glanceable answer update"
+            !frame.contains("Reading updated from your answer"),
+            "No redundant banner"
         );
         assert!(!frame.contains("Settled: both"));
         assert!(a.details_text().contains("both"));
@@ -863,20 +865,10 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
         terminal
             .draw(|f| render(f, &mut a, Palette::new(false)))
             .unwrap();
-        assert!(
-            terminal.backend().buffer()[(a.agent_area.x, a.agent_area.y)]
-                .modifier
-                .contains(ratatui::style::Modifier::BOLD)
-        );
-        assert!(
-            !terminal.backend().buffer()[(a.agent_area.x, a.agent_area.y + 2)]
-                .modifier
-                .contains(ratatui::style::Modifier::BOLD),
-            "Update cue has no visual contrast against reading"
-        );
+        assert!(a.changed_lines.is_some());
         a.paste("new local typing");
         a.tick();
-        assert!(a.update.as_ref().unwrap().contains("both"));
+        assert!(a.changed_lines.is_none());
         assert_eq!(a.input.text, "new local typing");
         a.input = Note::new("Only final judgment.");
         a.submit();
@@ -887,7 +879,7 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
         assert!(
             snapshot(w, h, &mut a, false)
                 .unwrap()
-                .contains("Reading updated from your answer")
+                .contains("I think you mean…")
         );
         assert_eq!(a.sources[2].in_reply_to.as_deref(), Some("rss-control"));
     }
@@ -989,9 +981,9 @@ fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
     a.paste("both");
     a.submit();
     settle(&mut a);
-    assert_eq!(
-        a.update.as_deref(),
-        Some("Answer recorded; reading unchanged: both")
+    assert!(
+        a.changed_lines.is_none(),
+        "No muting when the block did not change"
     );
     assert!(a.focused_question().is_none());
     assert_eq!(a.settled.len(), 1);

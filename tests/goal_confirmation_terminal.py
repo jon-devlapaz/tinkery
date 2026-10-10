@@ -11,7 +11,7 @@ import json,sys
 r=json.load(sys.stdin)
 if r.get('kind')=='meaning-preservation': print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)
 if r.get('kind')=='question-continuity':print('{"repeated":[]}');sys.exit(0)
-print(json.dumps(dict(parts=dict(who='I',outcome='judge a PR ready for human review as restaurateur while both the harness and codebase compound',why='I retain final judgment',done_when='a PR is ready for human review',keep='human taste',avoid='not cook; way off stays way off; no dashboard'),open=['why'],supports=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']],misfits=[],questions=[dict(target='why',id='open',text='Which UI or consequential design checkpoints remain unresolved?')],alternatives=[])))
+print(json.dumps(dict(parts=dict(who='I',outcome='judge a PR ready for human review as restaurateur while both the harness and codebase compound',why='I retain final judgment',done_when='a PR is ready for human review',must=['human taste'],must_not=['cook','show cost unless it is way off','build a dashboard']),open=['why'],supports=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']],misfits=[],questions=[dict(target='why',id='open',text='Which UI or consequential design checkpoints remain unresolved?')],alternatives=[])))
 '''
 def helper(*args):
  p=subprocess.run(['python3',str(HELPER),*map(str,args)],capture_output=True,text=True,check=True);return json.loads(p.stdout)
@@ -41,7 +41,7 @@ def journey(width,height):
    dump='  PR ready for human review. restaurateur, not cook. Café 👩‍💻; harness and codebase both compound. Cost only when it\'s way off; no dashboard.  '
    os.write(master,b'\x1b[200~'+dump.encode()+b'\x1b[201~');await_text('compound.')
    send(b'\x1bOQ','Which UI');assert not root.exists()
-   send(b'\x07','type confirm');assert 'Creates a Seed Me session' in screen.text();assert not root.exists()
+   send(b'\x07','type confirm');assert "type confirm to save. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists()
    os.write(master,b'\r\x1bOQ');time.sleep(.1);assert not root.exists(),'Opening/Enter/F2 implied consent'
    os.write(master,b'\x1b');absent('type confirm');assert not root.exists()
    send(b'\x07','type confirm')
@@ -53,10 +53,10 @@ def journey(width,height):
    assert status['viewer'].startswith('live http://127.0.0.1:'),json.dumps(dict(status=status,screen=screen.text(),viewer_record=json.loads((session/'viewer.json').read_text()) if (session/'viewer.json').exists() else None))
    origin=next(n for n in ledger['nodes'] if n['id']==ledger['origin'])
    assert origin['status']=='settled' and origin['kind']=='decision' and origin['authority']=='user'
-   assert origin['answer']==ledger['goal']=='I can judge a PR ready for human review as restaurateur while both the harness and codebase compound.\nWhy: I retain final judgment.\nDone when: a PR is ready for human review.\nKeep: human taste.\nAvoid: not cook; way off stays way off; no dashboard.'
+   assert origin['answer']==ledger['goal']=='I judge a PR ready for human review as restaurateur while both the harness and codebase compound.\nWhy: I retain final judgment.\nDone when: a PR is ready for human review.\nMust: human taste.\nMust not: cook.\nMust not: show cost unless it is way off.\nMust not: build a dashboard.'
    context=json.loads(origin['evidence'][-1]['observed'])
    assert ledger['draft']['outcome']==context['success']==context['goal_parts']['done_when']=='a PR is ready for human review'
-   assert context['constraints']==dict(keep='human taste',avoid='not cook; way off stays way off; no dashboard')
+   assert context['constraints']==dict(must=['human taste'],must_not=['cook','show cost unless it is way off','build a dashboard'])
    assert context['problem']==context['goal_parts']['why']=='I retain final judgment'
    assert any(e.get('observed')==dump and e.get('checked')=='Tinkery original 1' for e in origin['evidence']);assert 'unresolved' in origin['evidence'][-1]['observed']
    assert not (session/'seed-contract.md').exists()

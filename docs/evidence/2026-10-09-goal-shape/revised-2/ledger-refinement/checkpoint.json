@@ -1,0 +1,6 @@
+{
+  "method": "ordinary submit/apply cached raw first and first-answer responses; no private-state mutation",
+  "native_after_answer_one_board_equal": true,
+  "restoration_calls": 0,
+  "sources_equal": true
+}

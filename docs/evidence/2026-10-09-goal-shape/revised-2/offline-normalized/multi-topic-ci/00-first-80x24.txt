@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so the ci on tinkery takes like    I think you mean…                       
+  2 minutes on mac and i dont really    I get the same clippy results locally   
+  care about that but what bugs me      and on GitHub CI, during CI checks.     
+  is that the clippy version on ci      Why: The clippy version differs         
+  is different from my laptop so        between CI and my laptop, so things     
+  things pass locally and fail on       pass locally and fail on GitHub; this   
+  github. happened twice this week.     One thing I'm not sure about            
+  also unrelated but i want to          What observable check should show that  
+  rename the measure tab to             the clippy mismatch problem is          
+  something nicer, ledger maybe? and    resolved?                               
+  honestly i think the release build                                            
+  should happen automatically when a                                            
+  pr merges so i stop copying           your answer                             
+  binaries around by hand. rm then                                              
+  cp every time is annoying and i                                               
+  forgot once and ran an old build                                              
+  for an hour                                                                   
+                                                                                
+                                                                                
+  2 send   3 review   8 skip   10 menu                                          

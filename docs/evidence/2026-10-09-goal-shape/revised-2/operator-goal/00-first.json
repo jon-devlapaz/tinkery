@@ -1,0 +1,50 @@
+{
+  "action": {
+    "input": "I have been trying so hard to work on a system that compounds itself and serves as a meta harness. its a human first board for coordinainting work from the entire continuum of agentic software development lifecycle that has the rigor and durability and cohesive and verification that all 'just work's and thinks about the future of any code base it works on. not just the trees, but the forest. it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product. it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier. that is my true goal.\n",
+    "kind": "explicit F2"
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": null,
+  "board_available_ms": null,
+  "decisions_cumulative": [
+    {
+      "candidate": null,
+      "check": "structure-spans-history",
+      "coverage": [],
+      "decision": "reject",
+      "elapsed_ms": 9176,
+      "mode": "blocking",
+      "normalizations": [
+        "Absent/unreadable optional when",
+        "Absent/unreadable optional done_when",
+        "Ignored unknown open part \"What observable check shows that the outcome is achieved?\"",
+        "Absent framings: empty collection"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"who\": \"I\",\n    \"outcome\": \"I receive a delicious change ready for human review that considers the health of the code base and makes the next change easier.\",\n    \"when\": \"\",\n    \"why\": \"I want work across the entire continuum of agentic software development to have rigor, durability, cohesion, and verification, from brain dump, prompt, hunch, or intuition through a review-ready pull request.\",\n    \"done_when\": \"\",\n    \"must\": [\n      \"The work serves as a meta harness.\",\n      \"The work is human first.\",\n      \"The work considers the forest, not just the trees.\"\n    ],\n    \"must_not\": []\n  },\n  \"other_goals\": [\n    \"Build a system that compounds itself.\",\n    \"Coordinate the entire agentic software development lifecycle.\",\n    \"Make the parts of the workflow just work together.\"\n  ],\n  \"deferred\": [],\n  \"open\": [\n    \"What observable check shows that the outcome is achieved?\"\n  ],\n  \"questions\": [\n    {\n      \"target\": \"done_when\",\n      \"text\": \"What observable check would tell you this is working?\"\n    }\n  ],\n  \"supports\": [\n    \"A workflow spanning the brain dump, prompt, hunch, or intuition through a pull request ready for human review.\"\n  ],\n  \"alternatives\": [],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL: The desired outcome is represented as a review-ready code change rather than the system itself.\"\n  ]\n}\n",
+      "reason": "Invalid claimed source span at goal supports 0",
+      "request_key": "8fadb4156fbb415d",
+      "version": 3
+    }
+  ],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Submit or clear local text and wait for reshaping before reviewing a goal.",
+  "open_parts": [],
+  "questions_from_board": [],
+  "reading_text": "",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "I have been trying so hard to work on a system that compounds itself and serves as a meta harness. its a human first board for coordinainting work from the entire continuum of agentic software development lifecycle that has the rigor and durability and cohesive and verification that all 'just work's and thinks about the future of any code base it works on. not just the trees, but the forest. it should operate like a michellin star resteraunt and I am the resterauntaur that tastes the final delicious product. it goes from this part (the brain dump-the prompt-the hunch-the intuition) all the way to a PR that is ready to be reviewed by human that considers the health of the code base and makes the next change easier. that is my true goal.\n"
+    }
+  ],
+  "step_total_ms": 9489
+}

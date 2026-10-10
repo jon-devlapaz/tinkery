@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+  your dump                                                                                         
+  the ledger report is useless to me in the       yesterday went well, with cost highlighted only   
+  morning. its a wall of numbers and i dont       if it is way off.                                 
+  know what to do with it. i want to open         Must: Useful changes per hour is included.        
+  tinkery and in like 5 seconds know if           Must: A failed job overrides everything.          
+  yesterday went well or not. maybe one           Must: Cost matters only if it is way off.         
+  number? useful changes per hour is the one      Must not: The result must not be a dashboard.     
+  that matters. cost too maybe. i dont want a     Must not: The result must not be a wall of        
+  dashboard. also the 6am job sometimes fails     numbers.                                          
+  silently and i only find out days later                                                           
+                                                  also in your dump: Detect when the 6am job fails  
+                                                                                                    
+                                                  Still open                                        
+                                                  What counts as cost being way off is unspecified  
+                                                                                                    
+                                                  The main goal is quickly judging yesterday's      
+                                                  performance; silent-job detection is a separate   
+                                                  related goal.                                     
+                                                                                                    
+                                                  A failed job is intended to be surfaced as the    
+                                                  dominant status.                                  
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

@@ -1,0 +1,223 @@
+{
+  "action": {
+    "answer": "a failed job should override everything. cost only matters if its way off",
+    "kind": "fixed answer + explicit F2 from exact offline first-board checkpoint",
+    "question_before": {
+      "id": "model-3818d3afb8d4c53b",
+      "text": "What should you be able to observe or decide that shows this is working?"
+    }
+  },
+  "actor": "assistant-driven revised eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [],
+    "deferred": [],
+    "framings": [
+      {
+        "supports": {
+          "Cited": [
+            {
+              "occurrence": 0,
+              "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not",
+              "source": 1
+            },
+            {
+              "occurrence": 0,
+              "quote": "a failed job should override everything. cost only matters if its way off",
+              "source": 2
+            }
+          ]
+        },
+        "text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers."
+      }
+    ],
+    "misfits": [],
+    "open": [],
+    "other_goals": [
+      "Detect when the 6am job fails"
+    ],
+    "outcome": "A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off",
+    "parts": {
+      "done_when": "A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off",
+      "must": [
+        "Useful changes per hour is included",
+        "A failed job overrides everything",
+        "Cost matters only if it is way off"
+      ],
+      "must_not": [
+        "The result must not be a dashboard",
+        "The result must not be a wall of numbers"
+      ],
+      "outcome": "know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+      "when": "in the morning",
+      "who": "I",
+      "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+    },
+    "questions": [],
+    "unresolved_notes": [
+      "What counts as cost being way off is unspecified",
+      "The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.",
+      "A failed job is intended to be surfaced as the dominant status."
+    ]
+  },
+  "board_available_ms": 10918,
+  "decisions_cumulative": [
+    {
+      "candidate": {
+        "alternatives": [],
+        "deferred": [],
+        "framings": [
+          {
+            "supports": [
+              {
+                "occurrence": 0,
+                "quote": "i want to open tinkery and in like 5 seconds know if yesterday went well or not",
+                "source": 1
+              },
+              {
+                "occurrence": 0,
+                "quote": "a failed job should override everything. cost only matters if its way off",
+                "source": 2
+              }
+            ],
+            "text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers."
+          }
+        ],
+        "misfits": [],
+        "open": [],
+        "other_goals": [
+          "Detect when the 6am job fails"
+        ],
+        "outcome": "A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off",
+        "parts": {
+          "done_when": "A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off",
+          "must": [
+            "Useful changes per hour is included",
+            "A failed job overrides everything",
+            "Cost matters only if it is way off"
+          ],
+          "must_not": [
+            "The result must not be a dashboard",
+            "The result must not be a wall of numbers"
+          ],
+          "outcome": "know in about 5 seconds whether yesterday went well when I open Tinkery in the morning",
+          "when": "in the morning",
+          "who": "I",
+          "why": "The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later"
+        },
+        "questions": [],
+        "uncertain": false,
+        "unresolved_notes": [
+          "What counts as cost being way off is unspecified",
+          "PROVISIONAL: The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.",
+          "PROVISIONAL: A failed job is intended to be surfaced as the dominant status."
+        ]
+      },
+      "check": "structure-spans-history",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 10904,
+      "mode": "blocking",
+      "normalizations": [
+        "Ignored unknown open part \"What counts as cost being way off is unspecified\"",
+        "Absent framings: empty collection",
+        "Ignored extra candidate 0 field \"benefits\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 0 field \"costs\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 0 field \"option\"; retained in raw evidence; never authority",
+        "Absent/unreadable optional candidate 0 label",
+        "Ignored extra candidate 1 field \"benefits\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 1 field \"costs\"; retained in raw evidence; never authority",
+        "Ignored extra candidate 1 field \"option\"; retained in raw evidence; never authority",
+        "Absent/unreadable optional candidate 1 label",
+        "Retained narrative support/open prose as uncited note; no highlight",
+        "Retained unresolved 0 as an uncited note; no source highlight",
+        "Retained unresolved 1 as an uncited note; no source highlight"
+      ],
+      "raw": "{\n  \"parts\": {\n    \"who\": \"I\",\n    \"outcome\": \"know in about 5 seconds whether yesterday went well when I open Tinkery in the morning\",\n    \"when\": \"in the morning\",\n    \"why\": \"The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later\",\n    \"done_when\": \"A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off\",\n    \"must\": [\n      \"Useful changes per hour is included\",\n      \"A failed job overrides everything\",\n      \"Cost matters only if it is way off\"\n    ],\n    \"must_not\": [\n      \"The result must not be a dashboard\",\n      \"The result must not be a wall of numbers\"\n    ]\n  },\n  \"other_goals\": [\n    \"Detect when the 6am job fails\"\n  ],\n  \"deferred\": [],\n  \"open\": [\n    \"What counts as cost being way off is unspecified\"\n  ],\n  \"questions\": [],\n  \"supports\": [\n    {\n      \"source\": 1,\n      \"quote\": \"i want to open tinkery and in like 5 seconds know if yesterday went well or not\",\n      \"occurrence\": 0\n    },\n    {\n      \"source\": 2,\n      \"quote\": \"a failed job should override everything. cost only matters if its way off\",\n      \"occurrence\": 0\n    }\n  ],\n  \"alternatives\": [\n    {\n      \"option\": \"One primary number focused on useful changes per hour\",\n      \"benefits\": [\n        \"Fast to interpret\",\n        \"Matches the stated priority\"\n      ],\n      \"costs\": [\n        \"May omit useful context\"\n      ]\n    },\n    {\n      \"option\": \"Useful changes per hour with cost shown only when way off\",\n      \"benefits\": [\n        \"Preserves the primary signal\",\n        \"Surfaces exceptional cost without creating a dashboard\"\n      ],\n      \"costs\": [\n        \"The meaning of way off remains unspecified\"\n      ]\n    }\n  ],\n  \"misfits\": [],\n  \"unresolved_notes\": [\n    \"PROVISIONAL: The main goal is quickly judging yesterday's performance; silent-job detection is a separate related goal.\",\n    \"PROVISIONAL: A failed job is intended to be surfaced as the dominant status.\"\n  ]\n}\n",
+      "reason": "Readable board, exact claimed spans and application-owned history. Not a meaning judgment.",
+      "request_key": "22578060d369e972",
+      "version": 3
+    },
+    {
+      "candidate": null,
+      "check": "meaning-and-continuity",
+      "coverage": [
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "5"
+        },
+        {
+          "locations": [
+            "reading 1"
+          ],
+          "term": "6am"
+        },
+        {
+          "locations": [],
+          "term": "one"
+        }
+      ],
+      "decision": "pass",
+      "elapsed_ms": 7700,
+      "mode": "log-only",
+      "normalizations": [],
+      "raw": "{\"missing\":[],\"false_choice\":false,\"repeated\":[]}\n",
+      "reason": "No whole-board loss identified by the model; not proof of understanding.",
+      "request_key": "22578060d369e972",
+      "version": 3
+    }
+  ],
+  "focused_question": null,
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "Nothing saved. Review the goal and remaining questions before affirming.",
+  "open_parts": [],
+  "questions_from_board": [],
+  "reading_text": "I know in about 5 seconds whether yesterday went well when I open Tinkery in the morning.\nWhy: The ledger report is a wall of numbers, so I do not know what to do with it; the 6am job sometimes fails silently and I find out days later.\nDone when: A failed job overrides the result; otherwise the morning view indicates whether yesterday went well, with cost highlighted only if it is way off.\nMust: Useful changes per hour is included.\nMust: A failed job overrides everything.\nMust: Cost matters only if it is way off.\nMust not: The result must not be a dashboard.\nMust not: The result must not be a wall of numbers.",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [
+    {
+      "question": {
+        "id": "model-3818d3afb8d4c53b",
+        "target": "done_when",
+        "text": "What should you be able to observe or decide that shows this is working?"
+      },
+      "source": 2
+    }
+  ],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "01-answer",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "the ledger report is useless to me in the morning. its a wall of numbers and i dont know what to do with it. i want to open tinkery and in like 5 seconds know if yesterday went well or not. maybe one number? useful changes per hour is the one that matters. cost too maybe. i dont want a dashboard. also the 6am job sometimes fails silently and i only find out days later"
+    },
+    {
+      "id": 2,
+      "in_reply_to": "model-3818d3afb8d4c53b",
+      "text": "a failed job should override everything. cost only matters if its way off"
+    }
+  ],
+  "step_total_ms": 18820
+}

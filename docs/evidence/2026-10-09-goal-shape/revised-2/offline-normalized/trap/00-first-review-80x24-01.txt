@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       and move on, feel dumb, and leave.      
+  learners to see why they got          Must: work on phones.                   
+  something wrong, not just that        Must not: include gamification.         
+  they did. right now we just show a                                            
+  red X and move on and people          also in your dump: Choose whether to    
+  bounce. I think we should add an      improve explanations or tone; Decide    
+  AI tutor chat panel next to every     whether to add an AI tutor chat panel;  
+  question. but honestly I'm worried    Rebuild the whole quiz engine; Write a  
+  that turns into one more chatbot      marketing tagline                       
+  nobody asked for and it gets                                                  
+  expensive fast. the real thing is     Still open                              
+  people feel dumb and leave. maybe     Done when — What observable sign would  
+  the fix is the explanation, maybe     show that learners leave a wrong        
+  it's the tone. we already decided     answer feeling smarter rather than      
+  no gamification, that stays. kirra    type confirm to save. You can't edit    
+  said the drop-off happens around      it after.                               
+  question 4 but I havent checked.                                              
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

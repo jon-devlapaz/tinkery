@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I have been trying so hard to work on a         Must: The work is human first.                    
+  system that compounds itself and serves as a    Must: The work considers the forest, not just     
+  meta harness. its a human first board for       the trees.                                        
+  coordinainting work from the entire                                                               
+  continuum of agentic software development       also in your dump: Build a system that compounds  
+  lifecycle that has the rigor and durability     itself.; Coordinate the entire agentic software   
+  and cohesive and verification that all 'just    development lifecycle.; Make the parts of the     
+  work's and thinks about the future of any       workflow just work together.                      
+  code base it works on. not just the trees,                                                        
+  but the forest. it should operate like a        Still open                                        
+  michellin star resteraunt and I am the          Done when — What observable check would tell you  
+  resterauntaur that tastes the final             this is working?                                  
+  delicious product. it goes from this part                                                         
+  (the brain dump-the prompt-the hunch-the        A workflow spanning the brain dump, prompt,       
+  intuition) all the way to a PR that is ready    hunch, or intuition through a pull request ready  
+  to be reviewed by human that considers the      for human review.                                 
+  health of the code base and makes the next                                                        
+  change easier. that is my true goal.            What observable check shows that the outcome is   
+                                                  achieved?                                         
+                                                                                                    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

@@ -1,0 +1,31 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 88, in <module>
+    for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+                                                     ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 44, in journey
+    send(b'\x07','type confirm');assert 'type confirm to save.' in screen.text() and 'edit it after.' in screen.text(),screen.text();assert not root.exists()
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError:                                                                                 
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+    PR ready for human review.          You are confirming                      
+  restaurateur, not cook. Café 👩‍;      I judge a PR ready for human review as  
+  harness and codebase both             restaurateur while both the harness     
+  compound. Cost only when it's way     and codebase compound.                  
+  off; no dashboard.                    Why: I retain final judgment.           
+                                        Done when: a PR is ready for human      
+                                        review.                                 
+                                        Must: human taste.                      
+                                        Must not: cook.                         
+                                        Must not: show cost unless it is way    
+                                        off.                                    
+                                        Must not: build a dashboard.            
+                                                                                
+                                        Still open                              
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

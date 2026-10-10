@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for       You are confirming                      
+  learners to see why they got          Learners leave a wrong answer feeling   
+  something wrong, not just that        smarter rather than dumber, after a     
+  they did. right now we just show a    wrong answer.                           
+  red X and move on and people          Why: Learners currently see a red X     
+  bounce. I think we should add an      and move on, feel dumb, and leave.      
+  AI tutor chat panel next to every     Must: work on phones.                   
+  question. but honestly I'm worried    Must not: include gamification.         
+  that turns into one more chatbot                                              
+  nobody asked for and it gets          also in your dump: Choose whether to    
+  expensive fast. the real thing is     improve explanations or tone; Decide    
+  people feel dumb and leave. maybe     whether to add an AI tutor chat panel;  
+  the fix is the explanation, maybe     Rebuild the whole quiz engine; Write a  
+  it's the tone. we already decided     marketing tagline                       
+  no gamification, that stays. kirra    type confirm to save. You can't edit    
+  said the drop-off happens around      it after.                               
+  question 4 but I havent checked.                                              
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

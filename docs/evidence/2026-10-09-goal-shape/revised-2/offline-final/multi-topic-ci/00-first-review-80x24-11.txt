@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so the ci on tinkery takes like                                            
+  2 minutes on mac and i dont really    Still open                              
+  care about that but what bugs me      Done when — What observable check       
+  is that the clippy version on ci      would show that local and GitHub        
+  is different from my laptop so        clippy results are consistent?          
+  things pass locally and fail on                                               
+  github. happened twice this week.     The tab rename and automatic release    
+  also unrelated but i want to          build look like separate goals rather   
+  rename the measure tab to             than parts of the clippy-consistency    
+  something nicer, ledger maybe? and    goal.                                   
+  honestly i think the release build                                            
+  should happen automatically when a    Clippy consistency is the main goal     
+  pr merges so i stop copying           because it is the stated source of      
+  binaries around by hand. rm then      repeated failures.                      
+  cp every time is annoying and i       type confirm to save. You can't edit    
+  forgot once and ran an old build      it after.                               
+  for an hour                                                                   
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

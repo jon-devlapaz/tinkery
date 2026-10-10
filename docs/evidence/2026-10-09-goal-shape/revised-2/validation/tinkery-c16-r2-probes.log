@@ -1,0 +1,14 @@
+o1-forced-can baseline passed; mutant failed
+o3-repeated-check baseline passed; mutant failed
+o6-timing-duplication baseline passed; mutant failed
+o6-subject-duplication baseline passed; mutant failed
+s6-muting-without-change baseline passed; mutant failed
+s6-no-color-ink baseline passed; mutant failed
+q1-required-priority baseline passed; mutant failed
+s3-open-not-ready baseline passed; mutant failed
+o4-one-constraint-per-line baseline passed; mutant failed
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/docs/evidence/2026-10-09-goal-shape/revised-2/reversion-probes.py", line 30, in <module>
+    text=(work/path).read_text();assert text.count(old)==1,(label,path,old,text.count(old));(work/path).write_text(text.replace(old,new))
+                                        ^^^^^^^^^^^^^^^^^^
+AssertionError: ('o9-deferred-retained', 'src/shaping/brain_dump/goal_view.rs', 'deferred: g.deferred.clone()', 0)

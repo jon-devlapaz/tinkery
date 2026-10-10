@@ -1,0 +1,92 @@
+{
+  "action": {
+    "method": "offline cached native raw response through ordinary submit/apply; zero provider calls",
+    "origin": {
+      "input": "need to fix onboarding somehow",
+      "kind": "explicit F2"
+    }
+  },
+  "actor": "assistant-driven revision 2 eval; fixed relayed answers, not operator recognition or affirmation",
+  "board": {
+    "alternatives": [
+      {
+        "benefit": null,
+        "cost": null,
+        "label": "PROVISIONAL: New users complete onboarding more easily.",
+        "undo_cost": null
+      },
+      {
+        "benefit": null,
+        "cost": null,
+        "label": "PROVISIONAL: The onboarding process creates fewer problems for its intended users.",
+        "undo_cost": null
+      }
+    ],
+    "deferred": [],
+    "framings": [],
+    "misfits": [],
+    "open": [
+      "who",
+      "outcome",
+      "why",
+      "done_when"
+    ],
+    "other_goals": [],
+    "outcome": null,
+    "parts": {
+      "done_when": null,
+      "must": [],
+      "must_not": [],
+      "outcome": null,
+      "when": null,
+      "who": null,
+      "why": null
+    },
+    "questions": [
+      {
+        "id": "model-14272a9eb54ad36a",
+        "target": "who",
+        "text": "Who should benefit from fixing onboarding?"
+      }
+    ],
+    "unresolved_notes": [
+      "“fix onboarding somehow” identifies a concern but not yet a specific outcome, reason, or observable completion check."
+    ]
+  },
+  "board_available_ms": 25,
+  "decisions_cumulative": [],
+  "focused_question": {
+    "id": "model-14272a9eb54ad36a",
+    "text": "Who should benefit from fixing onboarding?"
+  },
+  "goal_confirmed": false,
+  "helper_invocations": 0,
+  "notice": "No composed goal to confirm; parts remain open.",
+  "open_parts": [
+    "who",
+    "outcome",
+    "why",
+    "done_when"
+  ],
+  "questions_from_board": [
+    {
+      "id": "model-14272a9eb54ad36a",
+      "text": "Who should benefit from fixing onboarding?"
+    }
+  ],
+  "reading_text": "",
+  "ready_to_review": false,
+  "seed_written": false,
+  "settled": [],
+  "shape_submitted": true,
+  "skip_action": false,
+  "snapshot": "00-first",
+  "sources": [
+    {
+      "id": 1,
+      "in_reply_to": null,
+      "text": "need to fix onboarding somehow"
+    }
+  ],
+  "step_total_ms": 99
+}

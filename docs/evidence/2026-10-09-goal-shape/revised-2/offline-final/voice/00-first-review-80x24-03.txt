@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  i keep thinking about voice.          typing difficulty"],"option":"Reduce    
+  talking is faster than typing for     the effort of starting a dump"}         
+  me when im tired. but maybe the                                               
+  real problem is i dont start dumps    {"benefits":["Talking is faster than    
+  at all at night because opening a     typing when tired"],"costs":["May not   
+  terminal feels like work. or maybe    address the reluctance to               
+  its both                              start"],"option":"Use voice for         
+                                        night-time dumps"}                      
+                                                                                
+                                        {"benefits":["Addresses both possible   
+                                        parts of the problem"],"costs":["The    
+                                        priority between the two remains        
+                                        unclear"],"option":"Combine easier      
+                                        starting with voice capture"}           
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

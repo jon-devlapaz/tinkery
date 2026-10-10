@@ -47,8 +47,8 @@ fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affi
         a.review_goal();
         let text = snapshot(w, h, &mut a, false).unwrap();
         assert!(text.contains("type confirm"));
-        assert!(text.contains("Running out of questions"));
-        assert!(right_text(&text, w).contains("doesn't mean I understood you."));
+        assert!(!text.contains("Running out of questions"));
+        assert!(right_text(&text, w).contains("type confirm to save."));
         for _ in 0..30 {
             key(&mut a, KeyCode::PageDown);
         }

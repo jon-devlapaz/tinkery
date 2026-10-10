@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  ok so the ci on tinkery takes like 2 minutes on mac and i dont really       I think you mean…                                                                 
+  care about that but what bugs me is that the clippy version on ci is        I get consistent clippy results locally and on GitHub.                            
+  different from my laptop so things pass locally and fail on github.         Why: The clippy version on CI differs from the laptop, so checks pass locally     
+  happened twice this week. also unrelated but i want to rename the           and fail on GitHub; this happened twice this week.                                
+  measure tab to something nicer, ledger maybe? and honestly i think the      also in your dump: Rename the measure tab; Automate release builds after a PR     
+  release build should happen automatically when a pr merges so i stop        merges                                                                            
+  copying binaries around by hand. rm then cp every time is annoying and i                                                                                      
+  forgot once and ran an old build for an hour                                                                                                                  
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              One thing I'm not sure about                                                      
+                                                                              What observable check would show that local and GitHub clippy results are         
+                                                                              consistent?                                                                       
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              your answer                                                                       
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+  2 send   3 review   8 skip   10 menu                                                                                                                          

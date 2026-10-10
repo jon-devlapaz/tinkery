@@ -1,18 +1,18 @@
 use super::tests::settle;
 use super::*;
 
-fn parts() -> GoalParts {
+pub(super) fn parts() -> GoalParts {
     GoalParts {
         who: Some("I".into()),
         outcome: Some("tell whether yesterday went well".into()),
         when: Some("each morning".into()),
         why: Some("the report is hard to act on".into()),
         done_when: Some("useful changes per hour are better than my usual week".into()),
-        keep: None,
-        avoid: Some("no targets; no dashboard; cost only when it's way off".into()),
+        must: vec![],
+        must_not: vec!["no targets; no dashboard; cost only when it's way off".into()],
     }
 }
-fn app(raw: serde_json::Value) -> BrainDump {
+pub(super) fn app(raw: serde_json::Value) -> BrainDump {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
     a.sources.push(Source {
@@ -46,17 +46,17 @@ fn request(a: &BrainDump) -> BoardRequest {
 fn beneficiary_and_labelled_lines_preserve_criteria_and_constraints() {
     assert_eq!(
         parts().compose().unwrap(),
-        "I can tell whether yesterday went well, each morning.\nWhy: the report is hard to act on.\nDone when: useful changes per hour are better than my usual week.\nAvoid: no targets; no dashboard; cost only when it's way off."
+        "I tell whether yesterday went well, each morning.\nWhy: the report is hard to act on.\nDone when: useful changes per hour are better than my usual week.\nMust not: no targets.\nMust not: no dashboard.\nMust not: cost only when it's way off."
     );
     let p = GoalParts {
         who: Some("learners".into()),
         outcome: Some("understand why they got a question wrong".into()),
-        keep: Some("No gamification; It must work on phones".into()),
+        must: vec!["No gamification; It must work on phones".into()],
         ..Default::default()
     };
     assert_eq!(
         p.compose().unwrap(),
-        "Learners can understand why they got a question wrong.\nKeep: No gamification; it must work on phones."
+        "Learners understand why they got a question wrong.\nMust: No gamification.\nMust: It must work on phones."
     );
     assert!(
         GoalParts {
@@ -72,17 +72,17 @@ fn semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive() {
     let p = GoalParts {
         who: Some("café learners 👩‍💻".into()),
         outcome: Some("read 2.5 hours".into()),
-        avoid: Some("No dashboard. No targets; Showing \"same. Words\" differently".into()),
+        must_not: vec!["No dashboard. No targets; Showing \"same. Words\" differently".into()],
         ..Default::default()
     };
     assert_eq!(
         p.compose().unwrap(),
-        "Café learners 👩‍💻 can read 2.5 hours.\nAvoid: No dashboard; no targets; showing \"same. Words\" differently."
+        "Café learners 👩‍💻 read 2.5 hours.\nMust not: No dashboard.\nMust not: No targets.\nMust not: Showing \"same. Words\" differently."
     );
 }
 #[test]
 fn supplied_can_is_not_duplicated_in_the_goal_line() {
-    for outcome in ["can coordinate a handover", "Can coordinate a handover"] {
+    for outcome in ["can coordinate a handover", "can can coordinate a handover"] {
         let p = GoalParts {
             who: Some("I".into()),
             outcome: Some(outcome.into()),
@@ -94,14 +94,18 @@ fn supplied_can_is_not_duplicated_in_the_goal_line() {
 #[test]
 fn every_combination_omits_missing_lines_without_inventing_a_beneficiary() {
     let full = GoalParts {
-        keep: Some("unchanged originals".into()),
+        must: vec!["unchanged originals".into()],
         ..parts()
     };
     for mask in 0..128 {
         let mut v = serde_json::to_value(&full).unwrap();
         for (i, p) in Part::ALL.into_iter().enumerate() {
             if mask & (1 << i) == 0 {
-                v[p.name()] = serde_json::Value::Null;
+                v[p.name()] = if matches!(p, Part::Must | Part::MustNot) {
+                    serde_json::json!([])
+                } else {
+                    serde_json::Value::Null
+                };
             }
         }
         let partial: GoalParts = serde_json::from_value(v).unwrap();
@@ -112,10 +116,10 @@ fn every_combination_omits_missing_lines_without_inventing_a_beneficiary() {
                 && !text.starts_with([',', ';'])
         );
         assert_eq!(
-            text.contains("I can"),
+            text.contains("I tell"),
             partial.get(Part::Who).is_some() && partial.get(Part::Outcome).is_some()
         );
-        for p in [Part::Why, Part::DoneWhen, Part::Keep, Part::Avoid] {
+        for p in [Part::Why, Part::DoneWhen, Part::Must, Part::MustNot] {
             assert_eq!(
                 text.contains(&format!("{}:", p.label())),
                 partial.get(p).is_some()
@@ -163,7 +167,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
     assert!(!a.goal_ready());
     a.scope_pending = None;
     a.skipped.push(Question {
-        target: Some(Part::Keep),
+        target: Some(Part::Must),
         id: "skip".into(),
         text: "Keep what?".into(),
     });
@@ -202,7 +206,7 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
         for term in [
             "You are confirming",
             "Done when:",
-            "Avoid:",
+            "Must not:",
             "Still open",
             "type confirm",
         ] {
@@ -215,7 +219,7 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
         assert!(a.handoff_job.is_none());
     }
     let mut partial = app(
-        serde_json::json!({"parts":{"who":"Learners","outcome":"learn","avoid":"new targets"}}),
+        serde_json::json!({"parts":{"who":"Learners","outcome":"learn","must_not":"new targets"}}),
     );
     partial.review_goal();
     assert_eq!(
@@ -225,7 +229,14 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
             .unwrap()
             .affirmation
             .unresolved_notes
-            .len(),
+            .len()
+            + partial
+                .goal_review
+                .as_ref()
+                .unwrap()
+                .affirmation
+                .unresolved
+                .len(),
         2
     );
 }
@@ -267,7 +278,7 @@ fn skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask() {
     assert_eq!(a.ask_counts[&Part::DoneWhen], 1);
     a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
     let r = request(&a);
-    let raw = serde_json::json!({"parts":parts(),"questions":[{"target":"done_when","id":"renamed","text":"Reworded check?"}]});
+    let raw = serde_json::json!({"parts":parts(),"open":["done_when"],"questions":[{"target":"done_when","id":"renamed","text":"Reworded check?"}]});
     let g = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();
     assert!(g.questions.is_empty());
     assert!(g.open.contains(&Part::DoneWhen));
@@ -345,7 +356,7 @@ impl BoardHost for Refinements {
         let mut p = parts();
         if r.sources.len() > 1 {
             p.done_when = Some(r.sources.last().unwrap().text.clone());
-            p.avoid = Some("no targets".into());
+            p.must_not = vec!["no targets".into()];
         }
         Guess::decode(&serde_json::json!({"parts":p}).to_string(), &r, &mut vec![])
     }
@@ -380,12 +391,16 @@ fn typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2() {
     assert!(a.receipt.is_none());
 }
 #[test]
-fn incomplete_goal_and_explicit_add_more_keep_scope_question() {
+fn open_without_question_refines_but_explicit_add_more_keeps_scope_question() {
     let mut a = app(serde_json::json!({"parts":parts(),"open":["why"]}));
     a.paste("new words");
     a.submit();
-    assert!(a.scope_pending.is_some());
-    assert!(!a.running());
+    assert!(a.scope_pending.is_none());
+    assert_eq!(
+        a.sources.last().unwrap().in_reply_to.as_deref(),
+        Some("goal-refinement-2")
+    );
+    settle(&mut a);
     let mut a = app(serde_json::json!({"parts":parts()}));
     a.add_more = true;
     a.paste("separate words");

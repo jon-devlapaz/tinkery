@@ -1,0 +1,11 @@
+00-first: reading="I I see all the books I've read this year in one place with a short note on what I thought of each one, This year, before December.\nWhy: I usually forget what I read by december.\nMust: The books I've read this year are included.\nMust: Each book has a short note on what I thought of it.\nMust not: It must not be fancy." focused={"id":"model-519996abe1f78ed8","text":"What would you check to know this is done?"}
+00-first: reading="New users new users do not feel spammed by onboarding emails, during the first week.\nWhy: The unsubscribe rate keeps going up, while marketing values the emails.\nMust: onboarding emails are not eliminated entirely.\nMust not: new users feel spammed." focused={"id":"model-43498cf4c758f837","text":"What observable sign would show that new users no longer feel spammed?"}
+00-first: reading="" focused=null
+00-first: reading="" focused=null
+00-first: reading="" focused=null
+00-first: reading="" focused=null
+00-first: reading="" focused={"id":"model-14272a9eb54ad36a","text":"Who should benefit from fixing onboarding?"}
+01-answer: reading="Why: People sign up then never come back; like 70% never do a second session." focused={"id":"model-3a7ee45ac6319c1f","text":"What should become true for people who sign up: should more of them return for a second session, or is there another outcome you want?"}
+02-answer: reading="People who sign up return for a second session within a week.\nWhy: People sign up then never come back; like 70% never do a second session.\nDone when: More than half come back within a week." focused=null
+00-first: reading="" focused=null
+00-first: reading="" focused=null

@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  I have been trying so hard to work on a system that compounds itself and    You are confirming                                                                
+  serves as a meta harness. its a human first board for coordinainting        I receive a delicious change ready for human review that considers the health of  
+  work from the entire continuum of agentic software development lifecycle    the code base and makes the next change easier.                                   
+  that has the rigor and durability and cohesive and verification that all    Why: I want work across the entire continuum of agentic software development to   
+  'just work's and thinks about the future of any code base it works on.      have rigor, durability, cohesion, and verification, from brain dump, prompt,      
+  not just the trees, but the forest. it should operate like a michellin      hunch, or intuition through a review-ready pull request.                          
+  star resteraunt and I am the resterauntaur that tastes the final            Must: The work serves as a meta harness.                                          
+  delicious product. it goes from this part (the brain dump-the prompt-the    Must: The work is human first.                                                    
+  hunch-the intuition) all the way to a PR that is ready to be reviewed by    Must: The work considers the forest, not just the trees.                          
+  human that considers the health of the code base and makes the next                                                                                           
+  change easier. that is my true goal.                                        also in your dump: Build a system that compounds itself.; Coordinate the entire   
+                                                                              agentic software development lifecycle.; Make the parts of the workflow just      
+                                                                              work together.                                                                    
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              Done when — What observable check would tell you this is working?                 
+                                                                                                                                                                
+                                                                              A workflow spanning the brain dump, prompt, hunch, or intuition through a pull    
+                                                                              request ready for human review.                                                   
+                                                                                                                                                                
+                                                                              What observable check shows that the outcome is achieved?                         
+                                                                                                                                                                
+                                                                              The desired outcome is represented as a review-ready code change rather than the  
+                                                                              system itself.                                                                    
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              type confirm to save. You can't edit it after.                                    
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

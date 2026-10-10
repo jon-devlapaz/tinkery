@@ -87,6 +87,8 @@ impl Candidate {
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardData {
     pub parts: GoalParts,
+    pub other_goals: Vec<String>,
+    pub deferred: Vec<String>,
     pub open: Vec<Part>,
     pub framings: Vec<Reading>,
     pub outcome: Option<String>,
@@ -114,11 +116,61 @@ impl Deref for Board {
 impl Board {
     pub fn verify(mut g: Guess, request: &BoardRequest) -> Result<Self, String> {
         g.validate(request)?;
+        for value in [
+            &mut g.parts.who,
+            &mut g.parts.outcome,
+            &mut g.parts.when,
+            &mut g.parts.why,
+            &mut g.parts.done_when,
+        ] {
+            *value = value.take().map(|s| agent_text(&s));
+        }
+        for values in [
+            &mut g.parts.must,
+            &mut g.parts.must_not,
+            &mut g.other_goals,
+            &mut g.deferred,
+            &mut g.unresolved_notes,
+        ] {
+            for value in values {
+                *value = agent_text(value);
+            }
+        }
+        g.parts.distinct_check();
+        if let Some(missing) = g.parts.missing().next() {
+            g.questions
+                .retain(|q| q.target.is_none_or(|p| p == missing));
+            for q in &mut g.questions {
+                q.target = Some(missing);
+            }
+            if g.questions.is_empty() {
+                let who = g.parts.get(Part::Who).unwrap_or("the person this is for");
+                let text = match missing {
+                    Part::Who => "Who is this for?".into(),
+                    Part::Outcome => format!("What should change for {who}?"),
+                    Part::Why => format!("What is going wrong for {who}?"),
+                    _ => format!(
+                        "What would show that {}?",
+                        g.parts.goal_line().unwrap_or_else(|| "this worked".into())
+                    ),
+                };
+                g.questions.push(Question {
+                    target: Some(missing),
+                    id: format!(
+                        "missing-{}-{}",
+                        missing.name(),
+                        request.sources.iter().map(|s| s.id).max().unwrap_or(0)
+                    ),
+                    text,
+                });
+            }
+        }
         for part in g.questions.iter().filter_map(|q| q.target) {
             if !g.open.contains(&part) {
                 g.open.push(part);
             }
         }
+        g.validate(request)?;
         g.questions.retain(|q| {
             q.target.is_none_or(|p| {
                 !request.skipped.iter().any(|s| s.target == Some(p))
@@ -143,6 +195,8 @@ impl Board {
         };
         Ok(Self(BoardData {
             parts: g.parts,
+            other_goals: g.other_goals,
+            deferred: g.deferred,
             open: g.open,
             framings: composed
                 .into_iter()
@@ -193,6 +247,8 @@ impl Board {
     pub fn wire(&self) -> Guess {
         Guess {
             parts: self.parts.clone(),
+            other_goals: self.other_goals.clone(),
+            deferred: self.deferred.clone(),
             open: self.open.clone(),
             uncertain: false,
             framings: self
@@ -244,6 +300,8 @@ pub(super) fn parse(
         obj,
         &[
             "parts",
+            "other_goals",
+            "deferred",
             "open",
             "supports",
             "uncertain",
@@ -271,8 +329,8 @@ pub(super) fn parse(
                 "when",
                 "why",
                 "done_when",
-                "keep",
-                "avoid",
+                "must",
+                "must_not",
             ],
             "goal parts",
             changes,
@@ -287,8 +345,23 @@ pub(super) fn parse(
         "done_when",
         changes,
     );
-    parts.keep = display(object.and_then(|o| o.get("keep")), "keep", changes);
-    parts.avoid = display(object.and_then(|o| o.get("avoid")), "avoid", changes);
+    parts.must = items(object.and_then(|o| o.get("must")), "must", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "must", changes))
+        .collect();
+    parts.must_not = items(object.and_then(|o| o.get("must_not")), "must not", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "must not", changes))
+        .collect();
+    parts.distinct_check();
+    let other_goals = items(obj.get("other_goals"), "other goals", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "other goal", changes))
+        .collect();
+    let deferred = items(obj.get("deferred"), "deferred", changes)
+        .iter()
+        .filter_map(|v| display(Some(v), "deferred", changes))
+        .collect();
     let mut open = vec![];
     for value in items(obj.get("open"), "open parts", changes) {
         if let Ok(part) = serde_json::from_value::<Part>(value.clone()) {
@@ -377,8 +450,9 @@ pub(super) fn parse(
             ));
         }
         if let Some(part) = target {
-            if !open.contains(&part) {
-                open.push(part);
+            if parts.missing().next().is_none() && !open.contains(&part) {
+                changes.push(format!("Ignored question {id}: no missing/open target"));
+                continue;
             }
         } else {
             changes.push(format!(
@@ -460,6 +534,35 @@ pub(super) fn parse(
     }
     let mut misfits = vec![];
     let mut unresolved_notes = vec![];
+    for value in items(obj.get("supports"), "uncited supports", changes)
+        .into_iter()
+        .chain(
+            items(obj.get("open"), "open prose", changes)
+                .into_iter()
+                .filter(|v| v.as_str().is_some_and(|s| s.split_whitespace().count() > 1)),
+        )
+    {
+        if !value.as_object().is_some_and(|o| {
+            ["source", "quote", "occurrence"]
+                .iter()
+                .any(|key| o.contains_key(*key))
+        }) {
+            let text = value
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| value.to_string());
+            if let Some(text) = display(
+                Some(&serde_json::Value::String(text)),
+                "uncited note",
+                changes,
+            ) {
+                unresolved_notes.push(text);
+                changes.push(
+                    "Retained narrative support/open prose as uncited note; no highlight".into(),
+                );
+            }
+        }
+    }
     for (i, v) in items(obj.get("misfits"), "unresolved", changes)
         .into_iter()
         .chain(items(
@@ -496,6 +599,8 @@ pub(super) fn parse(
     }
     let guess = Guess {
         parts,
+        other_goals,
+        deferred,
         open,
         uncertain: false,
         framings,
@@ -606,6 +711,13 @@ fn anchors(
     items(value, where_, changes)
         .iter()
         .enumerate()
+        .filter(|(_, v)| {
+            v.as_object().is_some_and(|o| {
+                ["source", "quote", "occurrence"]
+                    .iter()
+                    .any(|key| o.contains_key(*key))
+            })
+        })
         .map(|(i, v)| anchor(v, &format!("{where_} {i}"), changes))
         .collect()
 }

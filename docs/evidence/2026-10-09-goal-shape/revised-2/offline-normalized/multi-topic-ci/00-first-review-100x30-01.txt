@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so the ci on tinkery takes like 2 minutes    GitHub; this happened twice this week.            
+  on mac and i dont really care about that but    Must: The clippy version on CI matches the        
+  what bugs me is that the clippy version on      clippy version on my laptop.                      
+  ci is different from my laptop so things                                                          
+  pass locally and fail on github. happened       also in your dump: rename the measure tab to      
+  twice this week. also unrelated but i want      something nicer, possibly ledger; automatically   
+  to rename the measure tab to something          build a release when a PR merges                  
+  nicer, ledger maybe? and honestly i think                                                         
+  the release build should happen                 Still open                                        
+  automatically when a pr merges so i stop        Done when — What observable check should show     
+  copying binaries around by hand. rm then cp     that the clippy mismatch problem is resolved?     
+  every time is annoying and i forgot once and                                                      
+  ran an old build for an hour                    Pinning or otherwise synchronizing the clippy     
+                                                  version is a possible approach.                   
+                                                                                                    
+                                                  The measure-tab rename and automatic release      
+                                                  build appear to be separate goals from the        
+                                                  clippy-version problem.                           
+                                                                                                    
+                                                  The desired release-build trigger and artifact    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

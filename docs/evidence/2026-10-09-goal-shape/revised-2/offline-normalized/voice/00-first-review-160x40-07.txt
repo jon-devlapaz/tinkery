@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  i keep thinking about voice. talking is faster than typing for me when      You are confirming                                                                
+  im tired. but maybe the real problem is i dont start dumps at all at        I start capturing thought dumps at night, including by voice when talking is      
+  night because opening a terminal feels like work. or maybe its both         faster than typing.                                                               
+                                                                              Why: Opening a terminal feels like work, and typing is harder when I am tired.    
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              Done when — What would you observe to know this is working?                       
+                                                                                                                                                                
+                                                                              {"benefits":["Addresses the feeling that opening a terminal is                    
+                                                                              work"],"costs":["May not address typing difficulty"],"option":"Reduce the effort  
+                                                                              of starting a dump"}                                                              
+                                                                                                                                                                
+                                                                              {"benefits":["Talking is faster than typing when tired"],"costs":["May not        
+                                                                              address the reluctance to start"],"option":"Use voice for night-time dumps"}      
+                                                                                                                                                                
+                                                                              {"benefits":["Addresses both possible parts of the problem"],"costs":["The        
+                                                                              priority between the two remains unclear"],"option":"Combine easier starting      
+                                                                              with voice capture"}                                                              
+                                                                                                                                                                
+                                                                              Whether the main issue is starting dumps, using voice, or both                    
+                                                                                                                                                                
+                                                                              What observable check would show that this is working                             
+                                                                                                                                                                
+                                                                              The main goal is easier night-time thought capture; voice and terminal friction   
+                                                                              are possible contributing issues, not confirmed goals.                            
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              type confirm to save. You can't edit it after.                                    
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

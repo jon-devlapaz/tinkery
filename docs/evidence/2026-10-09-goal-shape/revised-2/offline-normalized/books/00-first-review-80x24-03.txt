@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  I want a way to keep track of the     are included.                           
+  books I've read this year. I          Must: Each book has a short note on     
+  usually forget what I read by         what I thought of it.                   
+  december. it would be nice to see     Must not: It must not be fancy.         
+  them all in one place with a short                                            
+  note on what I thought of each        Still open                              
+  one. nothing fancy.                   Done when — What would you check to     
+                                        know this is done?                      
+                                                                                
+                                        What observable check would show that   
+                                        this is done?                           
+                                                                                
+                                        “This year” refers to the current       
+                                        calendar year.                          
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

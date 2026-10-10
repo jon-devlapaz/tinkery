@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so the ci on tinkery takes like    You are confirming                      
+  2 minutes on mac and i dont really    I get the same clippy results locally   
+  care about that but what bugs me      and on GitHub CI, during CI checks.     
+  is that the clippy version on ci      Why: The clippy version differs         
+  is different from my laptop so        between CI and my laptop, so things     
+  things pass locally and fail on       pass locally and fail on GitHub; this   
+  github. happened twice this week.     happened twice this week.               
+  also unrelated but i want to          Must: The clippy version on CI matches  
+  rename the measure tab to             the clippy version on my laptop.        
+  something nicer, ledger maybe? and                                            
+  honestly i think the release build    also in your dump: rename the measure   
+  should happen automatically when a    tab to something nicer, possibly        
+  pr merges so i stop copying           ledger; automatically build a release   
+  binaries around by hand. rm then      when a PR merges                        
+  cp every time is annoying and i       type confirm to save. You can't edit    
+  forgot once and ran an old build      it after.                               
+  for an hour                                                                   
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  the ledger report is useless to me in the       Must not: The result must not be a wall of        
+  morning. its a wall of numbers and i dont       numbers.                                          
+  know what to do with it. i want to open                                                           
+  tinkery and in like 5 seconds know if           also in your dump: Detect when the 6am job fails  
+  yesterday went well or not. maybe one                                                             
+  number? useful changes per hour is the one      Still open                                        
+  that matters. cost too maybe. i dont want a     Done when — What should you be able to observe    
+  dashboard. also the 6am job sometimes fails     or decide that shows this is working?             
+  silently and i only find out days later                                                           
+                                                  A single number may be useful                     
+                                                                                                    
+                                                  Cost may also matter                              
+                                                                                                    
+                                                  A 5-second morning view may help                  
+                                                                                                    
+                                                  What observable check shows that I know whether   
+                                                  yesterday went well                               
+                                                                                                    
+                                                  A full dashboard appears inconsistent with your   
+                                                  stated preference                                 
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

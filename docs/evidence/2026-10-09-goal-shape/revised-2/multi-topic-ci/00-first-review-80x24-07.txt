@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so the ci on tinkery takes like    Reading failed: Invalid claimed source  
+  2 minutes on mac and i dont really    span at goal supports 0                 
+  care about that but what bugs me                                              
+  is that the clippy version on ci      Originals retained. Retry, inspect      
+  is different from my laptop so        Why, or add clarification.              
+  things pass locally and fail on                                               
+  github. happened twice this week.                                             
+  also unrelated but i want to                                                  
+  rename the measure tab to                                                     
+  something nicer, ledger maybe? and                                            
+  honestly i think the release build                                            
+  should happen automatically when a                                            
+  pr merges so i stop copying           your answer                             
+  binaries around by hand. rm then                                              
+  cp every time is annoying and i                                               
+  forgot once and ran an old build                                              
+  for an hour                                                                   
+                                                                                
+                                                                                
+  2 send   10 menu                                                              

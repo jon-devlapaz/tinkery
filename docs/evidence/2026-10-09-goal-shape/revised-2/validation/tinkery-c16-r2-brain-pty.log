@@ -1,0 +1,34 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 92, in <module>
+    for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+                                                     ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 59, in journey
+    assert not requests()[0]['fragments'];await_text('Typed evidence');await_text('Keep review evidence');assert 'Ctrl-O originals' not in screen.text()
+                                                                       ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/brain_dump_terminal.py", line 35, in await_text
+    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
+AssertionError: Missing 'Keep review evidence':
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  Typed evidence should appear          I think you mean…                       
+  promptly without waiting for a        I keep review evidence understandable   
+  provider call.                        between handovers.                      
+                                        Why: Evidence gets confused.            
+                                        Done when: a handover points to its     
+                                        supporting evidence.                    
+                                        One thing I'm not sure about            
+                                        Which evidence gets confused?           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                        your answer                             
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  2 send   3 review   8 skip   10 menu                                          

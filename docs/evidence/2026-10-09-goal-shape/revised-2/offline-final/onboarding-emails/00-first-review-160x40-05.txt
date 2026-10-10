@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  I'm worried our onboarding emails are annoying people. we send five in      You are confirming                                                                
+  the first week and the unsubscribe rate keeps going up. marketing loves     New users do not feel spammed by onboarding emails, during the first week.        
+  them though. I don't want to kill them entirely, I just don't want new      Why: The unsubscribe rate keeps going up, while marketing values the emails.      
+  users to feel spammed.                                                      Must: onboarding emails are not eliminated entirely.                              
+                                                                              Must not: new users feel spammed.                                                 
+                                                                                                                                                                
+                                                                              Still open                                                                        
+                                                                              Done when — What observable sign would show that new users no longer feel         
+                                                                              spammed?                                                                          
+                                                                                                                                                                
+                                                                              Reducing perceived spam while retaining some onboarding emails is the main goal.  
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              type confirm to save. You can't edit it after.                                    
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              Back                                                                              
+                                                                                                                                                                
+  type confirm save   esc back                                                                                                                                  

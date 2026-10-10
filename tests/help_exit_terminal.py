@@ -7,7 +7,7 @@ HOST='''#!/usr/bin/env python3
 import json,sys
 r=json.load(sys.stdin)
 if r.get('kind')=='meaning-preservation':print('{"missing":[],"false_choice":false}');sys.exit(0)
-print(json.dumps(dict(parts=dict(who='I',outcome='understand whether its complexity earns its keep'),open=['done_when'],supports=[dict(source=1,quote='i am worried that this thing has been overengineered',occurrence=0)],misfits=[],questions=[dict(id='complexity',text='Which complexity makes you worry?')],alternatives=[])))
+print(json.dumps(dict(parts=dict(who='I',outcome='understand whether its complexity earns its keep',why='I worry about overengineering',done_when='I can identify a reason for the complexity'),open=['outcome'],supports=[dict(source=1,quote='i am worried that this thing has been overengineered',occurrence=0)],misfits=[],questions=[dict(id='complexity',text='Which complexity makes you worry?')],alternatives=[])))
 '''
 def journey(w,h):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-help-exit-') as d:

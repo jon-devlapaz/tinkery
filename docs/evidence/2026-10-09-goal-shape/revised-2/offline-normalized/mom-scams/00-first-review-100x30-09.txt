@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  my mom keeps getting scam texts and almost      Done when — What should you observe to know this  
+  clicked one yesterday. i want something that    is working—for example, your mom checks a         
+  helps her tell if a text is fake before she     suspicious text before tapping it?                
+  taps anything. she wont install apps and she                                                      
+  hates when i lecture her. maybe a shortcut      {"benefits":["Uses a person she may already       
+  where she forwards the text to me? not sure     trust.","Could avoid installing an                
+  what iphone version she has. it has to be       app."],"costs":["May not be immediate if you are  
+  dead simple, like one step                      unavailable.","PROVISIONAL assumption:            
+                                                  forwarding may not itself help her judge the      
+                                                  text before tapping."],"option":"She forwards     
+                                                  the text to you."}                                
+                                                                                                    
+                                                  The observable check for knowing the goal is      
+                                                  achieved.                                         
+                                                                                                    
+                                                  Any solution requiring an app conflicts with her  
+                                                  stated preference.                                
+                                                                                                    
+                                                  The forwarding idea is a candidate mechanism,     
+                                                  not yet the confirmed outcome.                    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

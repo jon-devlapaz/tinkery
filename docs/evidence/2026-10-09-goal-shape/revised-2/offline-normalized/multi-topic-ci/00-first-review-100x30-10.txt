@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  ok so the ci on tinkery takes like 2 minutes    Must: The clippy version on CI matches the        
+  on mac and i dont really care about that but    clippy version on my laptop.                      
+  what bugs me is that the clippy version on                                                        
+  ci is different from my laptop so things        also in your dump: rename the measure tab to      
+  pass locally and fail on github. happened       something nicer, possibly ledger; automatically   
+  twice this week. also unrelated but i want      build a release when a PR merges                  
+  to rename the measure tab to something                                                            
+  nicer, ledger maybe? and honestly i think       Still open                                        
+  the release build should happen                 Done when — What observable check should show     
+  automatically when a pr merges so i stop        that the clippy mismatch problem is resolved?     
+  copying binaries around by hand. rm then cp                                                       
+  every time is annoying and i forgot once and    Pinning or otherwise synchronizing the clippy     
+  ran an old build for an hour                    version is a possible approach.                   
+                                                                                                    
+                                                  The measure-tab rename and automatic release      
+                                                  build appear to be separate goals from the        
+                                                  clippy-version problem.                           
+                                                                                                    
+                                                  The desired release-build trigger and artifact    
+                                                  handling are not defined.                         
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

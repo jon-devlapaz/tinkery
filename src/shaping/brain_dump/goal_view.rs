@@ -76,7 +76,27 @@ impl BrainDump {
             .filter(|p| !unresolved.iter().any(|q| q.target == Some(*p)))
             .map(|p| format!("{} — still open", p.label()))
             .collect::<Vec<_>>();
-        self.goal_review=Some(Review{affirmation:Affirmation{goal,parts:g.parts.clone(),outcome:g.parts.done_when.clone().unwrap_or_default(),options:g.alternatives.iter().map(board::Candidate::wire).collect(),sources:self.sources.clone(),answered:self.settled.clone(),unresolved,unresolved_notes:missing.into_iter().chain(g.unresolved_notes.iter().cloned()).chain(g.misfits.iter().map(|s|format!("{} (original {})",s.quote,s.source))).collect(),source:"Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into()},input:String::new(),scroll:0,max:u16::MAX});
+        self.goal_review = Some(Review {
+            affirmation: Affirmation {
+                goal,
+                parts: g.parts.clone(),
+                other_goals: g.other_goals.clone(),
+                deferred: g.deferred.clone(),
+                outcome: g.parts.done_when.clone().unwrap_or_default(),
+                options: g.alternatives.iter().map(board::Candidate::wire).collect(),
+                sources: self.sources.clone(),
+                answered: self.settled.clone(),
+                unresolved,
+                unresolved_notes: missing.into_iter()
+                    .chain(g.unresolved_notes.iter().cloned())
+                    .chain(g.misfits.iter().map(|s| format!("{} (original {})", s.quote, s.source)))
+                    .collect(),
+                source: "Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into(),
+            },
+            input: String::new(),
+            scroll: 0,
+            max: u16::MAX,
+        });
     }
     pub(super) fn goal_tick(&mut self) {
         let result = self
@@ -229,8 +249,20 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     let Some(review) = app.goal_review.as_mut() else {
         return;
     };
-    let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(8)]).split(inner);
+    let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(4)]).split(inner);
     let mut body = format!("You are confirming\n{}", review.affirmation.goal);
+    if !review.affirmation.other_goals.is_empty() {
+        body.push_str(&format!(
+            "\n\nalso in your dump: {}",
+            review.affirmation.other_goals.join("; ")
+        ));
+    }
+    if !review.affirmation.deferred.is_empty() {
+        body.push_str(&format!(
+            "\n\nfor the seed: {}",
+            review.affirmation.deferred.join("; ")
+        ));
+    }
     let mut open = review
         .affirmation
         .unresolved
@@ -260,7 +292,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         ""
     };
     let prompt = format!(
-        "Running out of questions doesn't mean I understood you.\n\nCreates a Seed Me session; this goal can't be edited after.\n\ntype confirm   {}{}",
+        "type confirm to save. You can't edit it after.\n{}{}",
         review.input, saving
     );
     frame.render_widget(

@@ -1,0 +1,40 @@
+                                                                                                                                                                
+  tinkery                                                                                                                                                    ?  
+                                                                                                                                                                
+                                                                                                                                                                
+  I have been trying so hard to work on a system that compounds itself and    Reading failed: Invalid claimed source span at goal supports 0                    
+  serves as a meta harness. its a human first board for coordinainting                                                                                          
+  work from the entire continuum of agentic software development lifecycle    Originals retained. Retry, inspect Why, or add clarification.                     
+  that has the rigor and durability and cohesive and verification that all                                                                                      
+  'just work's and thinks about the future of any code base it works on.                                                                                        
+  not just the trees, but the forest. it should operate like a michellin                                                                                        
+  star resteraunt and I am the resterauntaur that tastes the final                                                                                              
+  delicious product. it goes from this part (the brain dump-the prompt-the                                                                                      
+  hunch-the intuition) all the way to a PR that is ready to be reviewed by                                                                                      
+  human that considers the health of the code base and makes the next                                                                                           
+  change easier. that is my true goal.                                                                                                                          
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                              your answer                                                                       
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+                                                                                                                                                                
+  2 send   10 menu                                                                                                                                              

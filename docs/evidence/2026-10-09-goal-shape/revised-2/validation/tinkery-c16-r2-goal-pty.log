@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 88, in <module>
+    for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+                                                     ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/active/tinkery/tests/goal_confirmation_terminal.py", line 44, in journey
+    send(b'\x07','type confirm');assert "type confirm to save. You can't edit it after." in screen.text();assert not root.exists()
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

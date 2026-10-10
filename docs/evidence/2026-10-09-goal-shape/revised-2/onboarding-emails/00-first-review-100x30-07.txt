@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  I'm worried our onboarding emails are           You are confirming                                
+  annoying people. we send five in the first      New users new users do not feel spammed by        
+  week and the unsubscribe rate keeps going       onboarding emails, during the first week.         
+  up. marketing loves them though. I don't        Why: The unsubscribe rate keeps going up, while   
+  want to kill them entirely, I just don't        marketing values the emails.                      
+  want new users to feel spammed.                 Must: onboarding emails are not eliminated        
+                                                  entirely.                                         
+                                                  Must not: new users feel spammed.                 
+                                                                                                    
+                                                  Still open                                        
+                                                  Done when — What observable sign would show that  
+                                                  new users no longer feel spammed?                 
+                                                                                                    
+                                                  Reducing perceived spam while retaining some      
+                                                  onboarding emails is the main goal.               
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

@@ -1,0 +1,23 @@
+{
+  "vague-onboarding": {
+    "capture": "/private/tmp/claude-501/-Users-jondev-dev-active/62a156cf-f808-49a3-bc45-90e3341cafc6/scratchpad/a1.txt",
+    "capture_sha256": "41c6a291779da3c4651081f5db67cdfcaefc21364fa969a3ac3806cb531e1e0f",
+    "method": "left pane transcribed from designated fixed-width capture, soft wraps joined by one space; no claim about uncaptured keystroke bytes",
+    "text": "need to fix onboarding somehow",
+    "sha256": "77169733662975508d2bd22eb15ef1e537a61c14946325c54d230697b13481ce"
+  },
+  "mom-scams": {
+    "capture": "/private/tmp/claude-501/-Users-jondev-dev-active/62a156cf-f808-49a3-bc45-90e3341cafc6/scratchpad/b1.txt",
+    "capture_sha256": "39b2cbdb4cbfd540713186a80a687facccbfdfe65e33d358491ff5a051fc8e02",
+    "method": "left pane transcribed from designated fixed-width capture, soft wraps joined by one space; no claim about uncaptured keystroke bytes",
+    "text": "my mom keeps getting scam texts and almost clicked one yesterday. i want something that helps her tell if a text is fake before she taps anything. she wont install apps and she hates when i lecture her. maybe a shortcut where she forwards the text to me? not sure what iphone version she has. it has to be dead simple, like one step",
+    "sha256": "97536f8e788bb4aae787634d8eb2345efe31f0386e0b01044425388d4ec40e05"
+  },
+  "multi-topic-ci": {
+    "capture": "/private/tmp/claude-501/-Users-jondev-dev-active/62a156cf-f808-49a3-bc45-90e3341cafc6/scratchpad/c1.txt",
+    "capture_sha256": "ed0cf60a7cb13bf771cc2da71450719208474d2b0e6f373623c319664011eb6d",
+    "method": "left pane transcribed from designated fixed-width capture, soft wraps joined by one space; no claim about uncaptured keystroke bytes",
+    "text": "ok so the ci on tinkery takes like 2 minutes on mac and i dont really care about that but what bugs me is that the clippy version on ci is different from my laptop so things pass locally and fail on github. happened twice this week. also unrelated but i want to rename the measure tab to something nicer, ledger maybe? and honestly i think the release build should happen automatically when a pr merges so i stop copying binaries around by hand. rm then cp every time is annoying and i forgot once and ran an old build for an hour",
+    "sha256": "b4c62594037a107ec43fff0ca6a3fc84e0d80810c05b203856a43d5cb73eb932"
+  }
+}

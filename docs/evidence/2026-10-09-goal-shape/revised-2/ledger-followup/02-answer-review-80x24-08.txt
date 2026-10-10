@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+  added later                                                                   
+  better than my usual week. no                                                 
+  targets                               Still open                              
+                                        Should these added words be part of     
+                                        this goal, or stay separate?            
+                                                                                
+                                        What counts as cost being way off is    
+                                        unspecified                             
+                                                                                
+                                        The main goal is quickly judging        
+                                        yesterday's performance; silent-job     
+                                        detection is a separate related goal.   
+                                                                                
+                                        A failed job is intended to be          
+                                        surfaced as the dominant status.        
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  

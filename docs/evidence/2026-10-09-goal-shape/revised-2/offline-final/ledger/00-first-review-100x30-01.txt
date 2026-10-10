@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery                                                                                        ?  
+                                                                                                    
+                                                                                                    
+  the ledger report is useless to me in the       I do not know what to do with it; the 6am job     
+  morning. its a wall of numbers and i dont       sometimes fails silently and I find out days      
+  know what to do with it. i want to open         later.                                            
+  tinkery and in like 5 seconds know if           Must: Useful changes per hour is included.        
+  yesterday went well or not. maybe one           Must: The result is not a dashboard.              
+  number? useful changes per hour is the one      Must not: The result must not be a wall of        
+  that matters. cost too maybe. i dont want a     numbers.                                          
+  dashboard. also the 6am job sometimes fails                                                       
+  silently and i only find out days later         also in your dump: Detect when the 6am job fails  
+                                                                                                    
+                                                  Still open                                        
+                                                  Done when — What should you be able to observe    
+                                                  or decide that shows this is working?             
+                                                                                                    
+                                                  A single number may be useful                     
+                                                                                                    
+                                                  Cost may also matter                              
+                                                                                                    
+                                                  A 5-second morning view may help                  
+                                                                                                    
+                                                  type confirm to save. You can't edit it after.    
+                                                                                                    
+                                                                                                    
+                                                  Back                                              
+                                                                                                    
+  type confirm save   esc back                                                                      

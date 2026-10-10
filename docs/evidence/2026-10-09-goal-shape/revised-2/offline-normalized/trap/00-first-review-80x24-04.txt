@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  ok so socratink needs a way for                                               
+  learners to see why they got          An explanation may help.                
+  something wrong, not just that                                                
+  they did. right now we just show a    The tone may help.                      
+  red X and move on and people                                                  
+  bounce. I think we should add an      Whether drop-off happens around         
+  AI tutor chat panel next to every     question 4 is unverified.               
+  question. but honestly I'm worried                                            
+  that turns into one more chatbot      The observable check for learners       
+  nobody asked for and it gets          feeling smarter after a wrong answer    
+  expensive fast. the real thing is     is missing.                             
+  people feel dumb and leave. maybe                                             
+  the fix is the explanation, maybe     The marketing tagline request does not  
+  it's the tone. we already decided     fit the learner-feedback                
+  no gamification, that stays. kirra    type confirm to save. You can't edit    
+  said the drop-off happens around      it after.                               
+  question 4 but I havent checked.                                              
+  ↓ more                                Back                                    
+                                                                                
+  type confirm save   esc back                                                  

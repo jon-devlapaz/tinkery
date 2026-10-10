@@ -1,0 +1,24 @@
+                                                                                
+  tinkery                                                                    ?  
+                                                                                
+                                                                                
+  i keep thinking about voice.          parts of the problem"],"costs":["The    
+  talking is faster than typing for     priority between the two remains        
+  me when im tired. but maybe the       unclear"],"option":"Combine easier      
+  real problem is i dont start dumps    starting with voice capture"}           
+  at all at night because opening a                                             
+  terminal feels like work. or maybe    Whether the main issue is starting      
+  its both                              dumps, using voice, or both             
+                                                                                
+                                        What observable check would show that   
+                                        this is working                         
+                                                                                
+                                        The main goal is easier night-time      
+                                        thought capture; voice and terminal     
+                                        friction are possible contributing      
+                                        type confirm to save. You can't edit    
+                                        it after.                               
+                                                                                
+                                        Back                                    
+                                                                                
+  type confirm save   esc back                                                  
