@@ -1190,20 +1190,28 @@ impl BrainDump {
             KeyCode::Char('[' | ']') if self.board_focus => {
                 if let Some(g) = &self.guess {
                     self.reading = (self.reading + 1) % g.framings.len();
-                    let before = g
-                        .framings
+                    // Scroll so the picked reading's heading is in view (headings: 1 line + 1 blank).
+                    let start = (self.reading / 2) * 2;
+                    let width = self.agent_area.width;
+                    let update = self.update.as_ref().map_or(0, |u| {
+                        Paragraph::new(u.as_str())
+                            .wrap(Wrap { trim: false })
+                            .line_count(width)
+                            + 1
+                    });
+                    let before: usize = g.framings[start..self.reading]
                         .iter()
-                        .take(self.reading)
-                        .map(|f| agent_text(&f.text))
-                        .collect::<Vec<_>>()
-                        .join("\n\n");
-                    self.paper_scroll = if before.is_empty() {
+                        .map(|f| {
+                            Paragraph::new(agent_text(&f.text))
+                                .wrap(Wrap { trim: false })
+                                .line_count(width)
+                                + 2
+                        })
+                        .sum();
+                    self.paper_scroll = if before == 0 {
                         0
                     } else {
-                        Paragraph::new(before)
-                            .wrap(Wrap { trim: false })
-                            .line_count(self.agent_area.width) as u16
-                            + 1
+                        (update + before) as u16
                     };
                     if let Some(anchor) = g.framings[self.reading].supports.first()
                         && let Some(view) = self.sources.iter().position(|s| s.id == anchor.source)
@@ -1312,6 +1320,39 @@ impl BrainDump {
         text.get(start..end)
             .filter(|t| !t.is_empty())
             .map(str::to_owned)
+    }
+    /// What the left side is showing, in plain words; none while there's only the dump.
+    pub(super) fn source_label(&self) -> Option<String> {
+        if self.sources.len() < 2 {
+            return None;
+        }
+        let source = self.sources.get(self.source_view)?;
+        let Some(id) = &source.in_reply_to else {
+            return Some(
+                if self.source_view == 0 {
+                    "your dump"
+                } else {
+                    "added later"
+                }
+                .into(),
+            );
+        };
+        let question = self
+            .settled
+            .iter()
+            .map(|s| &s.question)
+            .chain(self.skipped.iter())
+            .chain(self.guess.iter().flat_map(|g| g.questions.iter()))
+            .find(|q| &q.id == id)
+            .map(|q| q.text.clone());
+        Some(match question {
+            Some(q) => {
+                let short: String = q.chars().take(48).collect();
+                let more = if q.chars().count() > 48 { "…" } else { "" };
+                format!("your answer to: “{short}{more}”")
+            }
+            None => "your answer".into(),
+        })
     }
     pub fn key_bar_on(&self) -> bool {
         self.key_bar
@@ -1441,10 +1482,13 @@ fn agent_text(text: &str) -> String {
     text.lines()
         .map(|line| {
             let mut line = line.trim_start();
-            while let Some(prefix) = ["PROVISIONAL goal:", "PROVISIONAL:"].iter().find(|p| {
-                line.get(..p.len())
-                    .is_some_and(|s| s.eq_ignore_ascii_case(p))
-            }) {
+            while let Some(prefix) = ["PROVISIONAL goal:", "PROVISIONAL:", "Proposed goal:"]
+                .iter()
+                .find(|p| {
+                    line.get(..p.len())
+                        .is_some_and(|s| s.eq_ignore_ascii_case(p))
+                })
+            {
                 line = line[prefix.len()..].trim_start();
             }
             line

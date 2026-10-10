@@ -846,7 +846,14 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
         assert!(!frame.contains("Settled: both"));
         assert!(a.details_text().contains("both"));
         assert!(frame.contains("Who controls RSS appearance?"));
-        assert!(!frame.contains("What is Hamster?"));
+        // The answered question is no longer asked; it only labels your answer on the left.
+        assert!(!frame.contains("One thing I'm not sure about\nWhat is Hamster?"));
+        assert!(
+            frame
+                .lines()
+                .filter(|l| l.contains("What is Hamster?"))
+                .all(|l| l.contains("your answer to:"))
+        );
         assert!(a.details_text().contains(&question));
         assert!(a.paper().contains("Answer / original 2: both"));
         let mut terminal =
@@ -915,7 +922,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("No unanswered question")
+            .contains("Nothing I'm unsure about")
     );
     assert_eq!(a.settled.len(), 1);
     assert_eq!(a.sources[1].text, "both");
@@ -940,7 +947,7 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     ] {
         assert!(!view.contains(clutter), "{clutter} in sparse view");
     }
-    assert!(view.contains("Your reply"));
+    assert!(view.contains("your answer"));
     assert!(!view.contains("F2"));
     assert!(!view.contains("Highlighted words support"));
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
@@ -948,7 +955,7 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("Add more")
+            .contains("add more")
     );
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     a.paste("both");

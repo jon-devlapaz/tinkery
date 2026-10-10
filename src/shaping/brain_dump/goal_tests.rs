@@ -99,7 +99,8 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     let mut a = board();
     amend_board(&mut a, |g| g.questions.clear());
     let text = snapshot(100, 30, &mut a, false).unwrap();
-    assert!(text.contains("Review goal"));
+    assert!(text.contains("Nothing I'm unsure about."));
+    assert!(text.contains("3 review"));
     assert!(a.receipt.is_none());
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();

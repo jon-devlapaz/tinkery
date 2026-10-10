@@ -451,3 +451,65 @@ fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_d
     assert!(a.skipped.is_empty());
     assert_eq!(a.sources[0].text, original);
 }
+#[test]
+fn right_side_speaks_in_one_voice_and_two_readings_are_visibly_two() {
+    let mut a = board();
+    let one = right_text(&snapshot(100, 30, &mut a, false).unwrap(), 100);
+    assert!(one.contains("I think you mean…"));
+    assert!(!one.contains("or maybe…"));
+    assert!(one.contains("One thing I'm not sure about"));
+    assert!(one.contains("your answer"));
+    assert!(!one.contains("Review goal"));
+    amend_board(&mut a, |g| {
+        let mut second = g.framings[0].clone();
+        second.text = "Proposed goal: A second, different reading.".into();
+        g.framings.push(second);
+    });
+    let two = right_text(&snapshot(100, 30, &mut a, false).unwrap(), 100);
+    assert!(two.contains("I think you mean…") && two.contains("or maybe…"));
+    assert!(two.contains("A second, different reading.") && !two.contains("Proposed goal:"));
+    let ink_of = |a: &mut BrainDump, needle: &str| {
+        let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+        t.draw(|f| render(f, a, crate::Palette::new(false)))
+            .unwrap();
+        let b = t.backend().buffer().clone();
+        (0..30)
+            .find_map(|y| {
+                let row: String = (0..100).map(|x| b[(x, y)].symbol()).collect();
+                row.find(needle).map(|i| {
+                    let x = row[..i].chars().count() as u16;
+                    b[(x, y)].fg
+                })
+            })
+            .unwrap()
+    };
+    use ratatui::style::Color;
+    assert_eq!(
+        ink_of(&mut a, "A second"),
+        Color::Rgb(87, 86, 83),
+        "unpicked is muted"
+    );
+    key(&mut a, KeyCode::F(7));
+    assert_eq!(a.reading, 1);
+    assert_eq!(
+        ink_of(&mut a, "A second"),
+        Color::Rgb(16, 15, 15),
+        "picked is ink"
+    );
+}
+#[test]
+fn left_label_names_what_you_wrote_and_hides_while_only_the_dump() {
+    let mut a = board();
+    let screen = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(!screen.contains("Words") && !screen.contains("your dump"));
+    let q = a.focused_question().unwrap().clone();
+    a.paste("my answer");
+    a.submit();
+    wait(&mut a);
+    a.source_view = 1;
+    let label = a.source_label().unwrap();
+    assert!(label.starts_with("your answer to: “"), "{label}");
+    assert!(label.contains(&q.text.chars().take(20).collect::<String>()));
+    a.source_view = 0;
+    assert_eq!(a.source_label().unwrap(), "your dump");
+}
