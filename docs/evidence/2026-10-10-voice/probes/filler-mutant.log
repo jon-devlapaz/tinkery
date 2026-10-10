@@ -1,0 +1,22 @@
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-mlgt018t/filler)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/debug/deps/tinkery-57634f1bcdbf9627)
+
+running 1 test
+test voice::tests::silence_fillers_are_exact_not_a_semantic_rewrite ... FAILED
+
+failures:
+
+---- voice::tests::silence_fillers_are_exact_not_a_semantic_rewrite stdout ----
+
+thread 'voice::tests::silence_fillers_are_exact_not_a_semantic_rewrite' (62684477) panicked at src/voice/tests.rs:282:9:
+assertion failed: silence_filler(text)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    voice::tests::silence_fillers_are_exact_not_a_semantic_rewrite
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 161 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

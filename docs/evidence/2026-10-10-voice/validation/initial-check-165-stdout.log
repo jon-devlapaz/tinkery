@@ -1,0 +1,288 @@
+
+running 41 tests
+test camera::tests::clamp_world_nonfinite ... ok
+test camera::tests::zoom_in_out_bounds ... ok
+test camera::tests::nearest_in_cone_prefers_straightest ... ok
+test menu::tests::color_picker_specs_carry_colors ... ok
+test data::tests::parses_canvas_json_without_orientation ... ok
+test menu::tests::image_node_item_only_when_enabled ... ok
+test menu::tests::canvas_menu_specs_gate_by_format ... ok
+test menu::tests::find_shortcut_case_insensitive ... ok
+test overlay::tests::clear_nukes_both ... ok
+test overlay::tests::commit_rect_normalizes_both_directions ... ok
+test overlay::tests::is_dragging_screen_manhattan ... ok
+test overlay::tests::on_down_sets_start_end ... ok
+test overlay::tests::on_drag_updates_end ... ok
+test grid::tests::degenerate_projection_is_noop ... ok
+test grid::tests::hidden_grid_draws_nothing ... ok
+test menu::tests::rect_clamps_to_area ... ok
+test grid::tests::grid_dots_appear_on_empty_cells_only ... ok
+test selection::tests::all_unions ... ok
+test selection::tests::clear_nukes_both ... ok
+test selection::tests::clear_set_keeps_primary ... ok
+test selection::tests::is_selected_primary_and_extra ... ok
+test selection::tests::select_only_clears_extra ... ok
+test state::tests::canvas_context_menu_remains_available ... ok
+test image::tests::test_eviction ... ok
+test data::tests::parses_nodes_with_and_without_title ... ok
+test input::tests::image_node_menu_item_sets_picker_trigger ... ok
+test textsel::tests::click_without_drag_cancels_selection ... ok
+test state::tests::edge_overlay_lists_and_selects_connected_edges ... ok
+test render::tests::marquee_and_menu_render_without_panic ... ok
+test state::tests::screen_to_canvas_center_offset_and_clamp ... ok
+test formats::plantuml::tests::test_plantuml_basic ... ok
+test formats::mermaid::tests::test_dt_parse_and_serialize ... ok
+test formats::mermaid::tests::test_basic_parse_and_serialize ... ok
+test formats::dot::tests::test_dot_dt_orientation ... ok
+test formats::dot::tests::test_dot_parse_and_serialize ... ok
+test render::tests::test_draw_pinstar_view_with_editor ... ok
+test formats::mermaid::tests::test_dt_markdown_parse_and_serialize ... ok
+test render::tests::test_draw_flowchart_view ... ok
+test state::tests::connection_flow_and_delete_both_ways ... ok
+test state::tests::undo_restores_and_prunes_selection ... ok
+test state::tests::rename_title_and_id_modes ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 159 tests
+test home::tests::q_quits_from_home ... ok
+test markdown_tests::headings_and_emphasis_are_styled_without_markers_or_text_loss ... ok
+test shaping::brain_dump::board_tests::claimed_citations_remain_exact_and_grapheme_safe_even_without_parts ... ok
+test shaping::brain_dump::board_tests::freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal ... ok
+test shaping::brain_dump::board_tests::lengths_and_optional_types_are_not_boundary_rules_and_one_question_is_presented ... ok
+test shaping::brain_dump::board_tests::omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority ... ok
+test shaping::brain_dump::board_tests::local_history_and_scope_identity_cannot_be_replaced_by_model_output ... ok
+test shaping::brain_dump::board_tests::normalization_escapes_controls_and_logs_fences_without_changing_originals ... ok
+test home::tests::leaving_think_returns_home_not_out_of_the_app ... ok
+test shaping::brain_dump::c16_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints ... ok
+test shaping::brain_dump::c16_tests::coarse_criteria_are_present_and_empty_queue_is_not_completion ... ok
+test home::tests::home_shows_six_places_and_only_counts_what_exists ... ok
+test home::tests::digits_open_places_and_esc_returns_home ... ok
+test shaping::brain_dump::c16_tests::delayed_results_use_current_counts_and_skipped_targets ... ok
+test shaping::brain_dump::c16_tests::model_cannot_impersonate_owned_goal_refinement_history ... ok
+test home::tests::shape_reads_stage_from_seed_me_files_newest_first ... ok
+test home::tests::key_bar_preference_lasts_across_visits_to_think ... ok
+test shaping::brain_dump::c16_tests::every_combination_omits_missing_lines_without_inventing_a_beneficiary ... ok
+test shaping::brain_dump::c16_tests::semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive ... ok
+test shaping::brain_dump::c16_tests::supplied_can_is_not_duplicated_in_the_goal_line ... ok
+test shaping::brain_dump::c16_tests::trailing_commas_normalize_only_outside_strings_and_span_guards_remain ... ok
+test shaping::brain_dump::c16_tests::unsent_words_and_unknown_fields_never_grant_authority ... ok
+test shaping::brain_dump::c16_tests::skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask ... ok
+test home::tests::missing_ledger_is_unknown_not_empty ... ok
+test shaping::brain_dump::dogfood_tests::model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_discard ... ok
+test shaping::brain_dump::dogfood_tests::rejected_schema_attempt_is_readable_lossless_and_never_promoted ... ok
+test shaping::brain_dump::c16_tests::open_without_question_refines_but_explicit_add_more_keeps_scope_question ... ok
+test shaping::brain_dump::c16_tests::at_most_two_asks_then_the_part_stays_open_for_seed ... ok
+test shaping::brain_dump::c16_tests::typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2 ... ok
+test shaping::brain_dump::dogfood_tests::f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard ... ok
+test shaping::brain_dump::dogfood_tests::undone_skip_survives_a_later_model_result_without_mutating_model_questions ... ok
+test shaping::brain_dump::dogfood_tests::whole_board_coverage_records_candidate_location_and_never_requires_goal_overlap ... ok
+test shaping::brain_dump::goal_tests::answered_scope_accepts_reading_lengths_and_counts_without_manufactured_options ... ok
+test shaping::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text ... ok
+test shaping::brain_dump::dogfood_tests::right_side_speaks_in_one_voice_with_one_reading ... ok
+test shaping::brain_dump::goal_tests::meaning_findings_are_log_only_and_bad_evidence_never_gains_authority ... ok
+test shaping::brain_dump::goal_tests::literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates ... ok
+test shaping::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible ... ok
+test shaping::brain_dump::help_exit_tests::ctrl_c_copies_a_selection_cancels_sending_and_never_leaves ... ok
+test shaping::brain_dump::help_exit_tests::empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits ... ok
+test shaping::brain_dump::goal_tests::empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source ... ok
+test shaping::brain_dump::dogfood_tests::answering_keeps_the_dump_in_view ... ok
+test shaping::brain_dump::dogfood_tests::failure_help_names_only_real_actions_and_exposes_reason_without_confirmation ... ok
+test shaping::brain_dump::help_exit_tests::help_before_the_first_send_keeps_the_draft_in_view ... ok
+test shaping::brain_dump::dogfood_tests::left_label_names_what_you_wrote_and_hides_while_only_the_dump ... ok
+test shaping::brain_dump::c16_tests::readiness_requires_four_parts_optional_constraints_only_block_when_open ... ok
+test shaping::brain_dump::revision2_tests::fact_and_owned_history_guards_run_before_question_priority_filtering ... ok
+test shaping::brain_dump::help_exit_tests::exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave ... ok
+test shaping::brain_dump::revision2_tests::outcome_is_a_behaviour_without_forced_can ... ok
+test shaping::brain_dump::help_exit_tests::help_leads_with_context_groups_actions_and_keeps_internals_on_second_page ... ok
+test shaping::brain_dump::revision2_tests::repeated_check_is_missing_and_required_question_precedes_vague_outcome ... ok
+test shaping::brain_dump::revision2_tests::repeated_subjects_and_uncited_supports_are_not_fabricated_citations ... ok
+test shaping::brain_dump::revision2_tests::timing_and_capacity_are_not_duplicated_and_constraints_each_get_a_line ... ok
+test shaping::brain_dump::board_tests::malformed_json_fails_but_empty_partial_parts_display_without_fabrication ... ok
+test shaping::brain_dump::revision2_tests::quiet_asides_survive_paper_review_and_are_not_constraints ... ok
+test shaping::brain_dump::tests::annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes ... ok
+test shaping::brain_dump::help_exit_tests::rust_marks_only_consequence_and_never_alone ... ok
+test shaping::brain_dump::revision2_tests::open_notes_cannot_contradict_ready_and_self_labels_never_render ... ok
+test shaping::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback ... ok
+test shaping::brain_dump::revision2_tests::unchanged_answer_never_mutes_the_whole_block ... ok
+test shaping::brain_dump::dogfood_tests::added_words_are_visible_unresolved_and_not_sent_until_scope_answer ... ok
+test shaping::brain_dump::dogfood_tests::skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them ... ok
+test shaping::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... ok
+test shaping::brain_dump::dogfood_tests::encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible ... ok
+test shaping::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus ... ok
+test shaping::brain_dump::tests::boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings ... ok
+test shaping::brain_dump::tests::actual_drag_keeps_exact_words_and_layout_on_the_next_submit ... ok
+test shaping::brain_dump::tests::paraphrase_advice_is_logged_without_withholding_or_authorizing ... ok
+test shaping::brain_dump::revision2_tests::changed_lines_ink_unchanged_muted_until_any_keystroke_paste_or_send ... ok
+test shaping::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect ... ok
+test shaping::brain_dump::tests::details_are_accessible_without_stealing_literal_answer_text_or_focus ... ok
+test shaping::brain_dump::tests::originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_neutral ... ok
+test shaping::brain_dump::tests::clipping_is_visible_and_original_is_one_action_away ... ok
+test shaping::brain_dump::tests::simulated_is_explicit_and_never_an_automatic_real_failure_fallback ... ok
+test shaping::brain_dump::tests::failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap ... ok
+test shaping::brain_dump::voice_tests::active_voice_blocks_readiness_and_review_even_without_typed_text ... ok
+test shaping::brain_dump::dogfood_tests::key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout ... ok
+test shaping::brain_dump::voice_tests::aliases_never_undo_skip_or_insert_omega_and_repeats_do_not_toggle ... ok
+test shaping::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden ... ok
+test shaping::brain_dump::voice_tests::direct_submit_uses_the_same_wait_for_final_contract ... ok
+test shaping::brain_dump::voice_tests::conditional_help_and_key_bar_and_no_voice_in_library_snapshots ... ok
+test shaping::brain_dump::voice_tests::edit_delete_paste_and_replaced_partial_preserve_ordinary_text ... ok
+test shaping::brain_dump::voice_tests::esc_cancels_voice_before_shaping_and_drops_all_late_callbacks ... ok
+test shaping::brain_dump::voice_tests::empty_fillers_and_insert_overflow_never_send_or_overwrite ... ok
+test shaping::brain_dump::voice_tests::f10_closes_helper_preserves_unsaved_guard_and_can_reload_after_n ... ok
+test shaping::brain_dump::voice_tests::f2_waits_for_final_then_submits_exactly_once_with_intact_source ... ok
+test shaping::brain_dump::voice_tests::final_uses_existing_paste_sanitation_and_does_not_grant_confirmation ... ok
+test shaping::brain_dump::tests::typing_during_request_is_never_replaced_by_the_result ... ok
+test shaping::brain_dump::tests::unresolved_roles_can_overlap_and_long_readings_do_not_veto_a_board ... ok
+test shaping::brain_dump::voice_tests::review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm ... ok
+test shaping::brain_dump::tests::unchanged_reading_records_the_answer_without_claiming_a_wording_change ... ok
+test shaping::brain_dump::voice_tests::partial_and_final_follow_current_cursor_not_a_captured_anchor ... ok
+test shaping::brain_dump::yohaku_tests::evidence_labels_are_plain_and_leave_source_bytes_untouched ... ok
+test shaping::brain_dump::voice_tests::unicode_combining_partial_and_wrapping_do_not_modify_or_split_input ... ok
+test shaping::brain_dump::voice_tests::every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words ... ok
+test shaping::brain_dump::voice_tests::shaping_results_defer_while_voice_is_active_even_with_empty_input ... ok
+test shaping::brain_dump::yohaku_tests::literal_question_mark_and_corner_help_preserve_local_typing_and_review ... ok
+test shaping::brain_dump::yohaku_tests::full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading ... ok
+test shaping::brain_dump::voice_tests::actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color ... ok
+test shaping::brain_dump::board_tests::historical_raw_captures_display_without_inferred_parts_or_provider_helpers ... ok
+test shaping::brain_dump::yohaku_tests::long_receipt_path_is_scrollable_without_hiding_the_next_action ... ok
+test shaping::canvas_tests::help_resize_and_mouse_release_outside_canvas_cancel_captured_gestures ... ok
+test shaping::canvas_tests::inline_editor_sanitizes_and_rejects_overflow_without_corrupting_undo ... ok
+test shaping::canvas_tests::memory_only_save_is_safe_even_with_a_writable_destination ... ok
+test shaping::canvas_tests::resize_and_extreme_projection_cannot_paint_over_the_paper ... ok
+test shaping::canvas_tests::upstream_double_click_and_editor_submit_live_text_without_losing_original ... ok
+test shaping::canvas_tests::actual_pinstar_node_and_completed_paper_fit_supported_sizes ... ok
+test shaping::drafting::tests::draft_values_cannot_supply_authority_or_terminal_controls ... ok
+test shaping::brain_dump::tests::original_stays_plain_ink_even_with_cited_and_unplaced_words ... ok
+test shaping::canvas_tests::upstream_drag_pan_and_zoom_leave_paper_and_note_text_unchanged ... ok
+test shaping::canvas_tests::upstream_inline_editor_retains_carbon_text_on_warm_paper ... ok
+test shaping::brain_dump::tests::selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words ... ok
+test shaping::scratchpad::tests::arbitrary_thoughts_get_an_honest_template_and_stale_selections_are_rejected ... ok
+test shaping::scratchpad::tests::actual_pinstar_drag_crosses_the_old_pane_boundary_and_undo_redo_restore_it ... ok
+test shaping::brain_dump::c16_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines ... ok
+test shaping::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... ok
+test shaping::scratchpad::tests::creation_editing_and_deletion_use_upstream_undo_without_cross_note_corruption ... ok
+test shaping::brain_dump::yohaku_tests::one_help_control_and_stable_original_across_review_help_and_receipt ... ok
+test shaping::brain_dump::tests::silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_layout ... ok
+test shaping::scratchpad::tests::editing_limits_modal_help_stale_resize_and_outside_releases_remain_safe ... ok
+test shaping::scratchpad::tests::inspector_toggles_preserve_world_geometry_camera_and_visible_note_positions ... ok
+test shaping::scratchpad::tests::missing_or_empty_selections_never_fall_back_to_a_different_note ... ok
+test shaping::scratchpad::tests::full_width_workspace_and_inspector_are_readable_at_supported_sizes ... ok
+test shaping::scratchpad::tests::inspector_is_read_only_and_writer_growth_preserves_focus_scroll_and_hidden_canvas ... ok
+test shaping::scratchpad::tests::model_shaping_skips_blanks_preserves_sources_and_all_blank_retains_the_paper ... ok
+test shaping::scratchpad::tests::feedback_revises_the_paper_not_the_notes_and_failure_never_falls_back_to_a_sample ... ok
+test shaping::scratchpad::tests::multiple_notes_edit_independently_and_f2_shapes_exactly_the_selected_live_note ... ok
+test shaping::scratchpad::tests::multi_note_sources_track_changes_and_removal_without_rewriting_the_draft ... ok
+test shaping::scratchpad::tests::paper_mono_corner_fallback_never_rewrites_authored_arrows ... ok
+test shaping::scratchpad::tests::no_actions_write_files_even_with_a_real_destination_and_deleted_source_paper_survives ... ok
+test shaping::scratchpad::tests::right_click_delete_commits_another_notes_live_editor_before_deleting ... ok
+test shaping::scratchpad::tests::right_click_delete_removes_only_the_clicked_note_and_supports_undo_redo ... ok
+test shaping::scratchpad::tests::right_click_menu_creates_notes_but_exposes_no_graph_files_or_external_editor ... ok
+test voice::tests::cancel_discards_and_stale_events_cannot_touch_new_take ... ok
+test voice::tests::every_failure_preserves_specific_kind_and_cancels_pending_send ... ok
+test voice::tests::finalization_deadline_does_not_extend_and_late_final_cannot_send ... ok
+test voice::tests::incompatible_version_disables_and_closes_helper ... ok
+test voice::tests::loading_and_starting_are_bounded_but_listening_waits_for_explicit_stop ... ok
+test voice::tests::oversized_partial_cancels_without_silent_truncation ... ok
+test voice::tests::partial_replaces_and_final_is_never_an_implicit_send ... ok
+test voice::tests::send_during_start_or_listening_waits_and_sends_exactly_once ... ok
+test voice::tests::shutdown_drop_and_restart_do_not_record ... ok
+test voice::tests::silence_fillers_are_exact_not_a_semantic_rewrite ... ok
+test voice::tests::transport_failure_and_global_error_disable_voice ... ok
+test voice::tests::typed_protocol_tolerates_extra_and_future_fields_not_broken_required_fields ... ok
+test shaping::scratchpad::tests::problem_first_and_plan_first_examples_share_a_goal_without_accepting_a_solution ... ok
+test shaping::scratchpad::tests::right_clicking_a_different_note_commits_the_current_editor_before_reselection ... ok
+test shaping::scratchpad::tests::selected_thoughts_include_live_edits_once_in_note_order_and_exclude_other_notes ... ok
+test shaping::scratchpad::tests::right_click_delete_over_the_inspector_is_visible_clickable_and_retains_the_paper ... ok
+test shaping::scratchpad::tests::paper_copy_preserves_markdown_and_drag_selects_unwrapped_logical_lines ... ok
+test shaping::scratchpad::tests::shift_click_is_an_explicit_toggle_and_shaping_preserves_unreleased_marquee_selection ... ok
+test shaping::brain_dump::help_exit_tests::source_wrap_positions_header_and_scroll_survive_review_and_resize ... ok
+test shaping::scratchpad::tests::differential_frames_preserve_every_cell_when_paper_opens_scrolls_and_closes_at_wide_sizes ... ok
+test shaping::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources ... ok
+test shaping::drafting::tests::pi_process_receives_only_bounded_drafting_inputs_and_disabled_resources ... ok
+test shaping::brain_dump::yohaku_tests::background_advice_does_not_delay_display_help_or_local_typing_and_is_owned ... ok
+test shaping::drafting::tests::failures_timeout_overflow_and_cancellation_never_return_a_draft ... ok
+test shaping::brain_dump::help_exit_tests::concern_loss_is_logged_not_silently_repaired_or_declared_faithful ... ok
+test shaping::brain_dump::yohaku_tests::one_shape_then_one_log_only_audit_never_auto_repairs_or_withholds ... ok
+
+test result: ok. 159 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.44s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test release_events_do_not_trigger_navigation ... ok
+test pane_focus_cycles_in_both_directions ... ok
+test cabinet_at_100_by_30_is_explicit_and_readable ... ok
+test help_is_modal_and_quit_still_works ... ok
+test palette_matches_arcade_and_has_monochrome_fallback ... ok
+test undersized_terminal_preserves_selection_but_allows_quit ... ok
+test selection_updates_both_artifact_and_attention_and_clamps ... ok
+test scrolling_reaches_end_and_switching_artifact_resets_it ... ok
+test resizing_clamps_scroll_and_keeps_every_pane_available ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 4 tests
+test compact_header_footer_and_carbon_document_at_100_by_30 ... ok
+test drawer_can_close_with_toggle_or_tab_and_help_preserves_it ... ok
+test drawer_restores_focus_selection_artifact_and_reading_position ... ok
+test drawer_and_help_are_readable_at_minimum_size_and_recover_from_resize ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 5 tests
+test card_click_places_cursor_and_paper_click_is_read_only ... ok
+test clicks_handle_wrapped_text_wide_characters_and_blank_lines ... ok
+test blank_space_right_clicks_releases_and_stale_resize_targets_do_nothing ... ok
+test wheel_scrolls_each_surface_without_moving_focus_or_changing_note ... ok
+test footer_controls_send_pause_focus_help_and_quit ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 9 tests
+test pause_help_and_small_terminal_freeze_the_writer ... ok
+test unicode_editing_moves_and_deletes_whole_graphemes ... ok
+test wrapping_keeps_words_and_wide_characters_inside_the_card ... ok
+test keyboard_editing_paste_and_q_do_not_trigger_commands ... ok
+test writer_captures_a_copy_never_mutates_card_or_steals_focus ... ok
+test note_card_and_paper_are_readable_at_100_by_30 ... ok
+test empty_notes_and_oversize_pastes_have_explicit_errors ... ok
+test long_papers_scroll_without_following_new_sections ... ok
+test help_resize_release_and_ctrl_c_keep_the_prototype_safe ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 4 tests
+test other_notes_are_honestly_labeled_templates_not_the_authored_example ... ok
+test example_becomes_one_tentative_goal_outcome_and_open_question ... ok
+test overflow_cues_track_top_middle_bottom_and_clear_when_content_fits ... ok
+test card_overflow_and_unsent_changes_remain_visible_without_explanatory_chrome ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test src/shaping/brain_dump/board.rs - shaping::brain_dump::board::Board (line 101) - compile fail ... ok
+test src/shaping/brain_dump/board.rs - shaping::brain_dump::board::NonEmpty (line 5) - compile fail ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+

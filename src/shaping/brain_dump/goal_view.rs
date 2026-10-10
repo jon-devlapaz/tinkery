@@ -14,6 +14,10 @@ impl BrainDump {
         self
     }
     pub fn review_goal(&mut self) {
+        if self.voice_active() {
+            self.notice = "Stop or cancel voice before reviewing a goal.".into();
+            return;
+        }
         if self.receipt.is_some() || self.handoff_job.is_some() {
             return;
         }

@@ -16,12 +16,7 @@ impl Note {
 
     pub fn insert(&mut self, text: &str) -> Result<(), &'static str> {
         // Paste is data, not terminal control sequences. Keep line breaks, not escapes.
-        let clean: String = text
-            .replace("\r\n", "\n")
-            .replace('\r', "\n")
-            .chars()
-            .filter(|c| *c == '\n' || !c.is_control())
-            .collect();
+        let clean = Self::sanitize(text);
         if self.text.len().saturating_add(clean.len()) > 4096 {
             return Err("Card limit: 4096 bytes. Nothing inserted.");
         }
@@ -37,6 +32,14 @@ impl Note {
             self.cursor += self.text[self.cursor..].chars().next().unwrap().len_utf8();
         }
         Ok(())
+    }
+
+    pub(crate) fn sanitize(text: &str) -> String {
+        text.replace("\r\n", "\n")
+            .replace('\r', "\n")
+            .chars()
+            .filter(|c| *c == '\n' || !c.is_control())
+            .collect()
     }
 
     pub fn left(&mut self) {

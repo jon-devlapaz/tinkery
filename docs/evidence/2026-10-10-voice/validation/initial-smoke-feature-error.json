@@ -1,0 +1,16 @@
+{
+  "source": "generated 1s 440Hz tone; not speech or microphone recording",
+  "node": "26.8.1",
+  "events": [
+    {
+      "event": "ready",
+      "version": 1
+    },
+    {
+      "event": "error",
+      "take": 1,
+      "kind": "transcription",
+      "message": "invalid feature \"streaming\"; expected one of initial_prompt, temperature_fallback, long_form, cancellation, pnc, itn, diarization"
+    }
+  ]
+}

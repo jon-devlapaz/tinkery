@@ -1,0 +1,13 @@
+{"name": "current-cursor", "test": "partial_and_final_follow_current_cursor_not_a_captured_anchor", "baseline": 0, "mutant": 101}
+{"name": "f2-final-only", "test": "send_during_start_or_listening_waits_and_sends_exactly_once", "baseline": 0, "mutant": 101}
+{"name": "stale-take", "test": "cancel_discards_and_stale_events_cannot_touch_new_take", "baseline": 0, "mutant": 101}
+{"name": "deadline", "test": "finalization_deadline_does_not_extend_and_late_final_cannot_send", "baseline": 0, "mutant": 101}
+{"name": "filler", "test": "silence_fillers_are_exact_not_a_semantic_rewrite", "baseline": 0, "mutant": 101}
+{"name": "frozen-review", "test": "review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm", "baseline": 0, "mutant": 101}
+{"name": "muted-cells", "test": "actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color", "baseline": 0, "mutant": 101}
+{"name": "immutable-pcm", "test": "asynchronous native feeds borrow immutable PCM buffers", "baseline": 0, "mutant": 1}
+Traceback (most recent call last):
+  File "/Users/jondev/dev/active/tinkery/docs/evidence/2026-10-10-voice/reversion-probes.py", line 57, in <module>
+    assert mutant != 0 and ('FAILED' in output or 'fail 1' in output or 'not ok' in output), (name, 'protection did not fail at runtime')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('stdin-eof', 'protection did not fail at runtime')

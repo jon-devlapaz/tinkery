@@ -1,0 +1,24 @@
+   Compiling tinkery v0.1.0 (/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-mlgt018t/muted-cells)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.84s
+     Running unittests src/lib.rs (/Users/jondev/dev/active/tinkery/target/debug/deps/tinkery-57634f1bcdbf9627)
+
+running 1 test
+test shaping::brain_dump::voice_tests::actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color ... FAILED
+
+failures:
+
+---- shaping::brain_dump::voice_tests::actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color stdout ----
+
+thread 'shaping::brain_dump::voice_tests::actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color' (62686066) panicked at src/shaping/brain_dump/voice_tests.rs:156:21:
+assertion `left == right` failed
+  left: Rgb(16, 15, 15)
+ right: Rgb(87, 86, 83)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shaping::brain_dump::voice_tests::actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 161 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

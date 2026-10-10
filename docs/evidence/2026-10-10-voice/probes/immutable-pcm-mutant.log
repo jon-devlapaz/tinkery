@@ -1,0 +1,18 @@
+✖ asynchronous native feeds borrow immutable PCM buffers (4037.2155ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4078.510167
+
+✖ failing tests:
+
+test at voice/helper.test.mjs:143:1
+✖ asynchronous native feeds borrow immutable PCM buffers (4037.2155ms)
+  Error: Timed out waiting for partial: [{"event":"ready","version":1},{"event":"listening","take":1},{"event":"error","take":1,"kind":"transcription","message":"Borrowed PCM was mutated."}], stderr 
+      at Timeout._onTimeout (file:///private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-voice-probes-mlgt018t/immutable-pcm/voice/helper.test.mjs:29:85)
+      at listOnTimeout (node:internal/timers:685:17)
+      at process.processTimers (node:internal/timers:618:7)
