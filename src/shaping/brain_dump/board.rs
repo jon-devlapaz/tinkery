@@ -386,12 +386,11 @@ pub(super) fn parse(
         guess.framings.truncate(1);
     }
     guess.validate(request)?;
-    for (name, n, visible) in [("questions", guess.questions.len(), 1)] {
-        if n > visible {
-            changes.push(format!(
-                "{n} {name} retained; up to {visible} presented, remainder available in details"
-            ));
-        }
+    if guess.questions.len() > 1 {
+        changes.push(format!(
+            "{} questions retained; up to 1 presented, remainder available in details",
+            guess.questions.len()
+        ));
     }
     Ok(guess)
 }
