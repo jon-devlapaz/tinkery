@@ -175,7 +175,7 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
         assert!(a.paper().contains("Hamster is my RSS reader"));
         assert_eq!(host.requests.lock().unwrap().len(), 2);
         assert_eq!(host.requests.lock().unwrap()[1].layout[..old.len()], old);
-        key(&mut a, KeyCode::Tab);
+        a.board_focus = !a.board_focus;
         key(&mut a, KeyCode::Char('y'));
         assert_eq!(a.take_copy_request(), Some(a.paper()));
         key(&mut a, KeyCode::Char('o'));
@@ -201,10 +201,10 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     a.submit();
     settle(&mut a);
     let before = a.paper();
-    key(&mut a, KeyCode::Tab);
+    a.board_focus = !a.board_focus;
     key(&mut a, KeyCode::Char('s'));
     assert_eq!(a.focused_question().unwrap().id, "audience");
-    key(&mut a, KeyCode::Tab);
+    a.board_focus = !a.board_focus;
     host.fail.store(true, Ordering::Relaxed);
     a.paste("A second dump.");
     a.submit();
@@ -347,7 +347,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     a.submit();
     settle(&mut a);
     a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
-    key(&mut a, KeyCode::Tab);
+    a.board_focus = !a.board_focus;
     key(&mut a, KeyCode::Char('e'));
     snapshot(100, 30, &mut a, false).unwrap();
     let area = a.area;
@@ -384,7 +384,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     for (n, f) in a.canvas.state.data.nodes.iter().zip(&a.fragments) {
         assert_eq!(n.text(), f.text);
     }
-    key(&mut a, KeyCode::Tab);
+    a.board_focus = !a.board_focus;
     a.paste("It is an RSS reader.");
     a.submit();
     settle(&mut a);
@@ -437,7 +437,7 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             .draw(|f| render(f, &mut a, Palette::new(false)))
             .unwrap();
         let first = terminal.backend().buffer().clone();
-        key(&mut a, KeyCode::Tab);
+        a.board_focus = !a.board_focus;
         key(&mut a, KeyCode::Char(']'));
         terminal
             .draw(|f| render(f, &mut a, Palette::new(false)))
@@ -522,7 +522,7 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     assert!(a.help && !a.original);
     assert_eq!(a.input.text, input);
     key(&mut a, KeyCode::Esc);
-    key(&mut a, KeyCode::Tab);
+    a.board_focus = !a.board_focus;
     key(&mut a, KeyCode::Char('d'));
     assert!(a.details);
     key(&mut a, KeyCode::Esc);
@@ -726,7 +726,7 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
     settle(&mut a);
     snapshot(100, 30, &mut a, false).unwrap();
     assert!(a.fragments.is_empty());
-    key(&mut a, KeyCode::Tab);
+    a.board_focus = !a.board_focus;
     for _ in "Café 👩‍💻".graphemes(true) {
         a.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
     }

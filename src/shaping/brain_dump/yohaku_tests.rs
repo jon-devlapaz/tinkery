@@ -39,7 +39,11 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         assert!(!a.details);
         let review = snapshot(w, h, &mut a, false).unwrap();
         assert_eq!(a.source_area, source_area);
-        assert_eq!(left(&before, w), left(&review, w));
+        // The key bar (last row) follows the state; everything above it stays put.
+        let (mut l1, mut l2) = (left(&before, w), left(&review, w));
+        l1.pop();
+        l2.pop();
+        assert_eq!(l1, l2);
         let review_text = right_text(&review, w);
         assert!(review_text.contains("Running out of questions doesn't mean I understood you."));
         assert!(
@@ -48,8 +52,11 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         assert!(review_text.contains("type confirm"));
         key(&mut a, KeyCode::F(1));
         let help = snapshot(w, h, &mut a, false).unwrap();
-        assert!(help.contains("Help"));
-        assert_eq!(left(&before, w), left(&help, w));
+        assert!(help.contains("Right now"));
+        let (mut l1, mut l2) = (left(&before, w), left(&help, w));
+        l1.pop();
+        l2.pop();
+        assert_eq!(l1, l2);
         key(&mut a, KeyCode::Esc);
         a.goal_review = None;
         a.receipt = Some(handoff::Receipt::test(
@@ -57,7 +64,10 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         ));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
         assert_eq!(a.source_area, source_area);
-        assert_eq!(left(&before, w), left(&receipt, w));
+        let (mut l1, mut l2) = (left(&before, w), left(&receipt, w));
+        l1.pop();
+        l2.pop();
+        assert_eq!(l1, l2);
         assert_eq!(
             receipt
                 .matches("Goal confirmed — seed not written yet")

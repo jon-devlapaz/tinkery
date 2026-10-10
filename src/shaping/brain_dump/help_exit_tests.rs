@@ -7,25 +7,64 @@ fn key(a: &mut BrainDump, k: KeyCode) {
 fn ctrl_c(a: &mut BrainDump) {
     a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
 }
+fn leave(a: &mut BrainDump) {
+    key(a, KeyCode::F(10));
+}
 #[test]
 fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     let mut a = BrainDump::default();
-    assert!(yohaku::help_text(&a).starts_with("Right now\nType anything · F2 send"));
-    assert!(yohaku::help_text(&a).contains("practice reading; no model call"));
+    let now = yohaku::help_text(&a);
+    assert_eq!(
+        now,
+        "Right now\nType anything, in any order.\nF2 sends it.\n\nF1 every key · Esc close"
+    );
+    a.help = true;
+    a.help_all = true;
+    assert!(yohaku::help_text(&a).contains("practice reading; nothing leaves"));
     a = board();
+    a.help = true;
+    assert!(yohaku::help_text(&a).starts_with("Right now\nType your answer"));
+    assert!(
+        yohaku::help_text(&a).lines().count() <= 5,
+        "layer 1 stays short"
+    );
+    key(&mut a, KeyCode::F(1));
+    key(&mut a, KeyCode::F(1));
+    assert!(
+        !a.help,
+        "F1 from closed opens layer 1; then layer 2; then closes"
+    );
+    key(&mut a, KeyCode::F(1));
+    assert!(a.help && !a.help_all);
+    key(&mut a, KeyCode::F(1));
+    assert!(a.help && a.help_all);
     let text = yohaku::help_text(&a);
-    assert!(text.starts_with("Right now\nType your answer"));
-    for heading in ["Write", "Send", "Look", "Finish", "Leave"] {
+    assert!(text.starts_with("Every key"));
+    for heading in ["Write", "Look", "Finish", "Leave", "Words"] {
         assert!(text.contains(&format!("\n{heading}\n")));
     }
     for consequence in [
-        "! F2 sends your words",
-        "! Shift-F2 / Ctrl-N switches",
-        "! F8 / board s skips",
-        "! F3 / Ctrl-G reviews",
-        "! Ctrl-C exits",
+        "! Shift-F2  start a new dump",
+        "! F8   skip the question",
+        "! F10  back to the menu; asks before losing your draft",
     ] {
-        assert!(text.contains(consequence));
+        assert!(text.contains(consequence), "{consequence}");
+    }
+    for gone in [
+        "F6",
+        "Tab",
+        "board",
+        "source",
+        "extract",
+        "cards",
+        "consequential",
+        "after returning",
+        "Ctrl-L",
+        "fn",
+        "Ctrl-C exits",
+        " / Ctrl-",
+    ] {
+        assert!(!text.contains(gone), "{gone}");
     }
     for internal in [
         "shape/audit",
@@ -36,11 +75,11 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     ] {
         assert!(!text.contains(internal));
     }
-    assert_eq!(text.matches("Italic is my guess, not your words. Highlighted words support it. Underlined words are still unclear.").count(),1);
-    assert!(text.contains("nothing is saved yet"));
-    a.board_focus = true;
-    assert!(yohaku::help_text(&a).starts_with("Right now\nF6 / Tab write"));
-    a.board_focus = false;
+    assert!(
+        text.contains("reading   my guess") && text.contains("original  exactly what you typed")
+    );
+    key(&mut a, KeyCode::Esc);
+    assert!(!a.help && !a.help_all);
     a.add_more = true;
     assert!(yohaku::help_text(&a).starts_with("Right now\nType a new dump"));
     a.add_more = false;
@@ -77,8 +116,8 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     a.goal_review = None;
     a.receipt = Some(handoff::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     let text = yohaku::help_text(&a);
-    assert!(text.starts_with("Right now\nContinue with Seed Me"));
-    assert!(!text.contains("nothing is saved"));
+    assert!(text.starts_with("Right now\nYour goal is saved"));
+    assert!(text.contains("F10 back to the menu"));
 }
 #[test]
 fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave() {
@@ -102,14 +141,21 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
         let input = a.input.text.clone();
         let review = a.goal_review.as_ref().map(|r| r.input.clone());
         ctrl_c(&mut a);
+        assert!(!a.leave_prompt && !a.quit, "Ctrl-C never leaves");
+        leave(&mut a);
         assert!(a.leave_prompt && !a.quit);
         let screen = snapshot(100, 30, &mut a, false).unwrap();
-        assert_eq!(screen.matches("Leave and lose this? y / n").count(), 1);
+        assert_eq!(
+            screen
+                .matches("! Back to menu and lose this draft? y / n")
+                .count(),
+            1
+        );
         assert!(screen.lines().nth(1).unwrap().contains("tinkery"));
         a.paste("y");
         key(&mut a, KeyCode::Enter);
         key(&mut a, KeyCode::F(2));
-        let mut repeated = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        let mut repeated = KeyEvent::new(KeyCode::F(10), KeyModifiers::NONE);
         repeated.kind = KeyEventKind::Repeat;
         a.handle_key(repeated);
         a.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::ALT));
@@ -123,14 +169,14 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
         assert_eq!(a.input.text, input);
         assert_eq!(a.goal_review.as_ref().map(|r| r.input.clone()), review);
         assert!(!a.running());
-        ctrl_c(&mut a);
+        leave(&mut a);
         key(&mut a, KeyCode::Esc);
         assert!(!a.leave_prompt);
-        ctrl_c(&mut a);
+        leave(&mut a);
         if state % 2 == 0 {
             key(&mut a, KeyCode::Char('y'));
         } else {
-            ctrl_c(&mut a);
+            leave(&mut a);
         }
         assert!(a.quit);
         assert!(a.receipt.is_none());
@@ -139,22 +185,40 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
 #[test]
 fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     let mut a = BrainDump::default();
-    ctrl_c(&mut a);
+    leave(&mut a);
     assert!(a.quit && !a.leave_prompt);
     let mut a = board();
     a.receipt = Some(handoff::Receipt::test("/tmp/Tinkery-TEST/session".into()));
-    ctrl_c(&mut a);
+    leave(&mut a);
     assert!(a.quit && !a.leave_prompt && a.receipt.is_some());
     let mut a = board();
     a.review_goal();
     let (tx, rx) = std::sync::mpsc::channel();
     a.handoff_job = Some(rx);
-    ctrl_c(&mut a);
+    leave(&mut a);
     assert!(!a.quit && a.exit_after_handoff && !a.leave_prompt);
     assert!(a.notice.contains("durable goal read-back"));
     tx.send(Err("TEST missing helper".into())).unwrap();
     a.tick();
     assert!(a.quit && a.notice.contains("TEST missing helper"));
+}
+#[test]
+fn ctrl_c_copies_a_selection_cancels_sending_and_never_leaves() {
+    let mut a = board();
+    ctrl_c(&mut a);
+    assert!(!a.quit && !a.leave_prompt && a.take_copy_request().is_none());
+    let text = a.sources[0].text.clone();
+    a.selection = Some((0, 6));
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().unwrap(), text[..6]);
+    assert!(!a.quit && !a.leave_prompt);
+    a.selection = None;
+    a.submit();
+    if a.running() {
+        ctrl_c(&mut a);
+        assert!(!a.running() && a.notice.starts_with("Cancelled"));
+    }
+    assert!(!a.quit && !a.leave_prompt);
 }
 #[cfg(unix)]
 #[test]
@@ -289,4 +353,54 @@ fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
         assert_eq!(a.sources[0].text, text);
         assert!(!a.quit);
     }
+}
+
+#[test]
+fn rust_marks_only_consequence_and_never_alone() {
+    use ratatui::style::Color;
+    let rust = Color::Rgb(160, 62, 36);
+    let render = |a: &mut BrainDump, mono: bool| {
+        let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+        t.draw(|f| render(f, a, crate::Palette::new(mono))).unwrap();
+        t.backend().buffer().clone()
+    };
+    let rows = |b: &ratatui::buffer::Buffer, colour: Color| -> Vec<String> {
+        (0..b.area.height)
+            .filter_map(|y| {
+                let row: String = (0..b.area.width)
+                    .filter(|&x| b[(x, y)].fg == colour)
+                    .map(|x| b[(x, y)].symbol().to_owned())
+                    .collect();
+                (!row.trim().is_empty()).then(|| row.trim().to_owned())
+            })
+            .collect()
+    };
+    let mut a = board();
+    assert!(
+        rows(&render(&mut a, false), rust).is_empty(),
+        "no rust when nothing is at stake"
+    );
+    leave(&mut a);
+    let screen = render(&mut a, false);
+    assert_eq!(rows(&screen, rust), vec!["!"]);
+    let line = (0..screen.area.height)
+        .map(|y| {
+            (0..100)
+                .map(|x| screen[(x, y)].symbol())
+                .collect::<String>()
+        })
+        .find(|l| l.contains("! Back to menu and lose this draft? y / n"));
+    assert!(line.is_some(), "the colour always comes with words");
+    key(&mut a, KeyCode::Esc);
+    key(&mut a, KeyCode::F(1));
+    key(&mut a, KeyCode::F(1));
+    let help = render(&mut a, false);
+    assert!(
+        rows(&help, rust)
+            .iter()
+            .all(|r| r.chars().all(|c| c == '!' || c == ' '))
+    );
+    assert!(!rows(&help, rust).is_empty());
+    let mono = render(&mut a, true);
+    assert!(rows(&mono, rust).is_empty(), "NO_COLOR uses no colour");
 }

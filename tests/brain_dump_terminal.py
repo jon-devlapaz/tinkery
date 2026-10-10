@@ -63,21 +63,21 @@ def journey(width,height):
    answer='A real model capture is different from a stub or a human review.'
    start=time.monotonic();send(answer.encode(),'review.');answer_burst=time.monotonic()-start;assert answer_burst<1.0
    send(b'\x1bOQ','What would make a handover');await_text('Reading');assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
-   send(b'\t','Keep review evidence');send(b'd','Desired experience');send(b'd','Keep review evidence');assert len(requests())==2
+   send(b'\x1b[15~','Desired experience');send(b'\x1b[15~','Keep review evidence');assert len(requests())==2
    # A deliberate source selection extracts one card; neither action calls the provider.
-   send(b'\x1b[5;5~','Typed evidence');notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
+   send(b'\x1b[5;5~','Typed evidence');os.write(master,b'\x1b[<0;3;5M\x1b[<0;3;5m');time.sleep(.1);notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
    send(b'e','Typed');send(b'\r','Typed evidence');assert len(requests())==2
    notice(b'y','Copy sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
-   send(b'o','Original 1');send(b'\x04','Desired experience');send(b'\x04','Keep review evidence');send(b'o','Original 1');send(b'\x1b','Keep review evidence');send(b'\t','Keep review evidence')
+   send(b'\x1bOS','Original 1');send(b'\x04','Desired experience');send(b'\x04','Keep review evidence');send(b'\x1bOS','Original 1');send(b'\x1b','Keep review evidence')
    # Character-by-character injection, with 1ms pacing (not a paste event).
    slow=' Streamed letters stay responsive.';start=time.monotonic()
    for c in slow:os.write(master,c.encode());time.sleep(0.001)
    await_text('responsive.');stream=time.monotonic()-start;assert stream<1.0,(width,stream)
    send(b'\x15FAIL','FAIL');send(b'\x1bOQ',"Reading couldn't be updated.");notice(b'', 'Reshape failed');assert requests()[2]['fragments'][0]['text']=='Typed';assert requests()[2]['fragments'][0]['start']==0 and requests()[2]['fragments'][0]['end']==5;assert 'Keep review evidence' in screen.text();send(b'\x0f','Original 3');send(b'\x1b','Keep review evidence')
    send(b'\x0eWAIT','WAIT');send(b'\x1bOQ','Should these added words');send(b'include','include');send(b'\x1bOQ','Thinking…');notice(b'\x1b','Cancelled; original');assert 'Keep review evidence' in screen.text()
-   send(b'\x03','Leave and lose this? y / n');assert process.poll() is None
-   send(b'n',"Reading couldn't be updated.");absent('Leave and lose this?')
-   send(b'\x03','Leave and lose this? y / n');os.write(master,b'\x03');process.wait(timeout=5);assert process.returncode==0
+   send(b'\x1b[21~','Back to menu and lose this draft? y / n');assert process.poll() is None
+   send(b'n',"Reading couldn't be updated.");absent('lose this draft?')
+   send(b'\x03',"Reading couldn't be updated.");absent('lose this draft');send(b'\x1b[21~','Back to menu and lose this draft? y / n');os.write(master,b'\x1b[21~');process.wait(timeout=5);assert process.returncode==0
    while select.select([master],[],[],0.02)[0]:
     chunk=os.read(master,65536)
     if not chunk:break

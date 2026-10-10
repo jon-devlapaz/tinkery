@@ -30,18 +30,18 @@ def journey(w,h):
    wait("What's on your mind?");send(b'\x1bOP','Type anything');send(b'h','How it works');send(b'\x1bOP',"What's on your mind?")
    dump='i am worried that this thing has been overengineered\n'+''.join(f'line-{i:02d} preserves an exact concern and its context.\n' for i in range(36))+'LAST-ORIGINAL-LINE'
    send(b'\x1b[200~'+dump.encode()+b'\x1b[201~','LAST-ORIGINAL-LINE')
-   send(b'\x03','Leave and lose this? y / n');assert process.poll() is None
-   os.write(master,b'n');await_condition(lambda s:'Leave and lose this?' not in s);wait('LAST-ORIGINAL-LINE')
+   send(b'\x1b[21~','Back to menu and lose this draft? y / n');assert process.poll() is None
+   os.write(master,b'n');await_condition(lambda s:'lose this draft?' not in s);wait('LAST-ORIGINAL-LINE')
    send(b'\x1bOQ','Which complexity');send(b'\x07','type confirm')
    # Source starts at its beginning; review never paints over the top header.
    assert ''.join(screen.cells[4][2:20])=='i am worried that ',screen.text()
    os.write(master,b'\x1b[<65;4;6M'*30);wait('LAST-ORIGINAL-LINE')
-   send(b'\x03','Leave and lose this? y / n');os.write(master,b'n');await_condition(lambda s:'Leave and lose this?' not in s);wait('type confirm')
+   send(b'\x1b[21~','Back to menu and lose this draft? y / n');os.write(master,b'n');await_condition(lambda s:'lose this draft?' not in s);wait('type confirm')
    send(b'\x1bOP','Type confirm');send(b'h','How it works')
    # Resize the same live alternate screen and force a complete repaint.
    nw,nh=(100,30) if w==80 else (80,24)
    fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',nh,nw,0,0));screen=Screen(nw,nh);os.write(master,b'\x0c');wait('How it works')
-   send(b'\x03','Leave and lose this? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
+   send(b'\x1b[21~','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
    while select.select([master],[],[],.02)[0]:raw.extend(os.read(master,65536))
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw and b'\x1b[>0s' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original

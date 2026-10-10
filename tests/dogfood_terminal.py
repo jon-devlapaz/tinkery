@@ -37,14 +37,15 @@ def journey(w,h):
    # Audit sleeps for 15s; review/display/help must remain available immediately.
    send(b'\x1bOR','type confirm');assert process.poll() is None
    send(b'\x1b','What would you want')
-   send(b'\x1b[17~','board controls')
+   os.write(master,b'\x1b[17~');time.sleep(.2);assert 'board controls' not in screen.text()
    send(b'\x1b[19~','Question skipped')
-   send(b'u','Skip undone')
+   send(b'\x1a','Skip undone')
    send(b'\x1b[20~','Copy sent');assert b'\x1b]52;' in raw
    send(b'\x1b[15~','Why');send(b'\x1b','What would you want')
    send(b'\x1bOS','Original 1 / dump');send(b'\x1b','What would you want')
-   send(b'\x1bOP','Right now');os.write(master,b'b');send(b'\x1b','10 exit')
-   assert '1 help' in screen.text().splitlines()[-1]
+   assert '10 menu' in screen.text().splitlines()[-1]
+   send(b'\x1bOP','Right now');os.write(master,b'b');send(b'\x1b','Words 1')
+   assert '10 menu' not in screen.text().splitlines()[-1]
    send(b'\x1b[1;2Q','Add more')
    send(b'\x1b[200~Also fix a welcome-email typo.\x1b[201~','welcome-email typo')
    send(b'\x1bOQ','Should these added words')
@@ -55,9 +56,9 @@ def journey(w,h):
    # Click the quiet Back action, never Enter/confirm.
    col=w*48//100+3;row=h-2
    send(f'\x1b[<0;{col};{row}M'.encode(),'Should these added words')
-   send(b'\x1b[21~','Leave and lose this? y / n');assert process.poll() is None
-   os.write(master,b'n');await_condition(lambda s:'Leave and lose this?' not in s)
-   send(b'\x1b[21~','Leave and lose this? y / n');os.write(master,b'\x1b[21~');process.wait(timeout=5);assert process.returncode==0
+   send(b'\x1b[21~','Back to menu and lose this draft? y / n');assert process.poll() is None
+   os.write(master,b'n');await_condition(lambda s:'lose this draft?' not in s)
+   send(b'\x1b[21~','Back to menu and lose this draft? y / n');os.write(master,b'\x1b[21~');process.wait(timeout=5);assert process.returncode==0
    while select.select([master],[],[],.02)[0]:raw.extend(os.read(master,65536))
    assert not (cwd/'TEST-sessions').exists(),'Implicit handoff'
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw
