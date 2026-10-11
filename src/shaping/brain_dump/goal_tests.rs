@@ -40,6 +40,111 @@ fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
 }
 #[test]
+fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let mut a = board();
+        a.review_goal();
+        let frozen = a.goal_review.as_ref().unwrap().affirmation.goal.clone();
+        let mut receipt = handoff::Receipt::test("/tmp/TEST-receipt/session".into());
+        receipt.goal = frozen.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        a.handoff_job = Some(rx);
+        tx.send(Ok(receipt)).unwrap();
+        a.guess = None;
+        a.goal_tick();
+        assert!(a.goal_review.is_none());
+        assert_eq!(a.receipt.as_ref().unwrap().goal, frozen);
+        let text = snapshot(w, h, &mut a, false).unwrap();
+        let right = right_text(&text, w);
+        assert!(
+            right.contains(&frozen.split_whitespace().collect::<Vec<_>>().join(" ")),
+            "{right}"
+        );
+        assert!(!text.contains("later guess"));
+        assert!(!text.contains("/tmp/TEST-receipt"));
+        assert!(!text.contains("seed not written yet"));
+        let backend = ratatui::backend::TestBackend::new(w, h);
+        let mut terminal = ratatui::Terminal::new(backend).unwrap();
+        let palette = Palette::new(false);
+        terminal
+            .draw(|f| super::render(f, &mut a, palette))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+        for y in a.agent_area.y..a.agent_area.bottom() {
+            for x in a.agent_area.x..a.agent_area.right() {
+                let cell = &buffer[(x, y)];
+                if cell.symbol() != " " {
+                    assert_eq!(cell.fg, palette.ink.fg.unwrap());
+                }
+            }
+        }
+        for code in [
+            KeyCode::F(2),
+            KeyCode::F(3),
+            KeyCode::F(4),
+            KeyCode::F(5),
+            KeyCode::F(6),
+            KeyCode::F(8),
+            KeyCode::F(9),
+            KeyCode::Esc,
+            KeyCode::Char('q'),
+        ] {
+            key(&mut a, code);
+        }
+        for c in ['n', 'g', 'o', 'd', 'c'] {
+            a.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL));
+        }
+        assert!(!a.quit && !a.original && !a.details && !a.running());
+        assert!(a.handoff_job.is_none());
+        assert!(a.take_copy_request().is_none());
+        assert!(a.take_shape_request().is_none());
+        assert_eq!(a.receipt.as_ref().unwrap().goal, frozen);
+    }
+}
+#[test]
+fn receipt_copy_is_exact_and_shape_is_an_explicit_one_shot_request() {
+    let mut a = board();
+    a.receipt = Some(handoff::Receipt::test("/tmp/TEST-receipt/session".into()));
+    a.key_bar = false;
+    assert_eq!(
+        snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .lines()
+            .last()
+            .unwrap()
+            .trim(),
+        "c copy prompt   s open in shape   10 menu"
+    );
+    let expected = "Use the seed-me skill at \"/TEST/seed-me/SKILL.md\" to continue the existing Seed Me session at \"/tmp/TEST-receipt/session\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.";
+    key(&mut a, KeyCode::Char('c'));
+    assert_eq!(a.take_copy_request().as_deref(), Some(expected));
+    assert!(a.take_copy_request().is_none());
+    a.copy_result(true);
+    assert!(
+        snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("Copied.")
+    );
+    a.copy_result(false);
+    assert!(a.notice.starts_with("Clipboard send failed"));
+    let mut repeated = KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE);
+    repeated.kind = KeyEventKind::Repeat;
+    a.handle_key(repeated);
+    assert!(a.take_shape_request().is_none());
+    key(&mut a, KeyCode::Char('s'));
+    assert_eq!(
+        a.take_shape_request(),
+        Some("/tmp/TEST-receipt/session".into())
+    );
+    assert!(a.take_shape_request().is_none());
+    assert!(!a.quit && !a.running());
+    a.help_all = true;
+    let help = yohaku::help_text(&a);
+    assert!(help.contains("s   open in shape"));
+    assert!(!help.contains("send") && !help.contains("speak"));
+    assert!(yohaku::how_text(&a).contains("/tmp/TEST-receipt/session"));
+}
+#[test]
 fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();

@@ -15,7 +15,7 @@ use crossterm::event::{
 use ratatui::{
     Frame,
     layout::Rect,
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Paragraph, Wrap},
 };
 use serde_json::Value;
@@ -54,6 +54,10 @@ pub const PLACES: [(&str, &str, bool); 6] = [
         true,
     ),
 ];
+mod shape;
+use shape::Shape;
+pub use shape::{Session, Stage};
+
 const FIRST_ROW: u16 = 4;
 const ROW_GAP: u16 = 2;
 
@@ -68,6 +72,7 @@ pub struct Home {
     /// The muted key bar preference lasts the session, across visits to think.
     key_bar: bool,
     receipts: Vec<String>,
+    seed_me: Option<PathBuf>,
 }
 
 enum View {
@@ -76,21 +81,6 @@ enum View {
     Shape(Shape),
     Measure(Reading),
     Soon(usize),
-}
-
-struct Shape {
-    sessions: Vec<Session>,
-    error: Option<String>,
-    selected: usize,
-    detail: bool,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Session {
-    pub path: PathBuf,
-    pub goal: String,
-    pub stage: String,
-    pub updated: String,
 }
 
 struct Reading {
@@ -114,7 +104,31 @@ impl Home {
             help: false,
             key_bar: true,
             receipts: Vec::new(),
+            seed_me: None,
         }
+    }
+
+    pub fn with_seed_me(mut self, skill: PathBuf) -> Self {
+        self.seed_me = Some(skill);
+        self
+    }
+
+    pub fn from_receipt(mut dump: BrainDump, session: &Path, open_shape: bool) -> Self {
+        let (default_root, substrate) = Self::default_paths();
+        let root = session
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or(default_root);
+        let mut home = Self::new(dump.fresh_factory(), root, substrate);
+        home.key_bar = dump.key_bar_on();
+        home.seed_me = dump.receipt.as_ref().map(|r| r.skill.clone());
+        if let Some(receipt) = dump.finish_handoff() {
+            home.receipts.push(receipt);
+        }
+        if open_shape {
+            home.open_shape_session(session);
+        }
+        home
     }
 
     /// Default Seed Me session location and installed tink-substrate package.
@@ -129,14 +143,41 @@ impl Home {
     }
 
     pub fn tick(&mut self) {
+        let mut shape_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
-            if dump.quit {
+            shape_request = dump.take_shape_request();
+            if let Some(receipt) = &dump.receipt {
+                self.seed_me = Some(receipt.skill.clone());
+            }
+            if dump.quit || shape_request.is_some() {
                 self.key_bar = dump.key_bar_on();
                 if let Some(receipt) = dump.finish_handoff() {
                     self.receipts.push(receipt);
                 }
                 self.view = View::Menu;
+            }
+        }
+        if let Some(path) = shape_request {
+            self.open_shape_session(&path);
+        }
+    }
+
+    fn open_shape_session(&mut self, path: &Path) {
+        self.open(1);
+        if let View::Shape(shape) = &mut self.view {
+            let resolved = path.canonicalize().ok();
+            if let Some(index) = shape.sessions.iter().position(|s| {
+                s.path == path
+                    || resolved.as_ref().is_some_and(|p| {
+                        s.path.canonicalize().is_ok_and(|candidate| &candidate == p)
+                    })
+            }) {
+                shape.selected = index;
+                shape.detail = true;
+            } else if shape.error.is_none() {
+                shape.error = Some(format!("Saved session is unavailable: {}", path.display()));
+                shape.sessions.clear();
             }
         }
     }
@@ -160,13 +201,23 @@ impl Home {
     pub fn take_copy_request(&mut self) -> Option<String> {
         match &mut self.view {
             View::Think(dump) => dump.take_copy_request(),
+            View::Shape(shape) => shape.copy.take(),
             _ => None,
         }
     }
 
     pub fn copy_result(&mut self, sent: bool) {
-        if let View::Think(dump) = &mut self.view {
-            dump.copy_result(sent);
+        match &mut self.view {
+            View::Think(dump) => dump.copy_result(sent),
+            View::Shape(shape) => {
+                shape.notice = if sent {
+                    "Copied."
+                } else {
+                    "Couldn't copy; try again."
+                }
+                .into()
+            }
+            _ => {}
         }
     }
 
@@ -175,20 +226,7 @@ impl Home {
         self.help = false;
         self.view = match index {
             0 => View::Think(Box::new((self.make_dump)().with_key_bar(self.key_bar))),
-            1 => View::Shape(match load_sessions(&self.sessions_root) {
-                Ok(sessions) => Shape {
-                    sessions,
-                    error: None,
-                    selected: 0,
-                    detail: false,
-                },
-                Err(error) => Shape {
-                    sessions: vec![],
-                    error: Some(error),
-                    selected: 0,
-                    detail: false,
-                },
-            }),
+            1 => View::Shape(Shape::new(load_sessions(&self.sessions_root))),
             5 => View::Measure(Reading {
                 body: ledger_report(&self.substrate_dir),
                 scroll: 0,
@@ -204,6 +242,53 @@ impl Home {
         if let View::Think(dump) = &mut self.view {
             dump.handle_key(key);
             return;
+        }
+        if matches!(self.view, View::Shape(_)) {
+            if key.modifiers != KeyModifiers::NONE
+                || key.kind == KeyEventKind::Repeat
+                    && matches!(
+                        key.code,
+                        KeyCode::Char('c') | KeyCode::F(1) | KeyCode::F(10) | KeyCode::Enter
+                    )
+            {
+                return;
+            }
+            if key.code == KeyCode::F(10) {
+                self.view = View::Menu;
+                self.help = false;
+                return;
+            }
+            if matches!(key.code, KeyCode::F(1) | KeyCode::Char('?')) {
+                self.help = !self.help;
+                if let View::Shape(shape) = &mut self.view {
+                    shape.how = false;
+                    shape.help_scroll = 0;
+                }
+                return;
+            }
+            if self.help {
+                if let View::Shape(shape) = &mut self.view {
+                    match key.code {
+                        KeyCode::Char('h') => {
+                            shape.how = !shape.how;
+                            shape.help_scroll = 0;
+                        }
+                        KeyCode::Esc if shape.how => {
+                            shape.how = false;
+                            shape.help_scroll = 0;
+                        }
+                        KeyCode::Esc => self.help = false,
+                        KeyCode::Down | KeyCode::PageDown => {
+                            shape.help_scroll = shape.help_scroll.saturating_add(5)
+                        }
+                        KeyCode::Up | KeyCode::PageUp => {
+                            shape.help_scroll = shape.help_scroll.saturating_sub(5)
+                        }
+                        _ => {}
+                    }
+                }
+                return;
+            }
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') || key.code == KeyCode::F(10) {
@@ -232,15 +317,32 @@ impl Home {
                 _ => {}
             },
             View::Shape(shape) => match key.code {
-                KeyCode::Esc if shape.detail => shape.detail = false,
-                KeyCode::Esc | KeyCode::Char('q') => self.view = View::Menu,
+                KeyCode::Esc if shape.detail => {
+                    shape.detail = false;
+                    shape.scroll = 0;
+                    shape.notice.clear();
+                }
+                KeyCode::Esc => self.view = View::Menu,
+                KeyCode::Char('c') if shape.detail => shape.copy_prompt(self.seed_me.as_deref()),
+                KeyCode::Down | KeyCode::Char('j') if shape.detail => {
+                    shape.scroll = shape.scroll.saturating_add(1)
+                }
+                KeyCode::Up | KeyCode::Char('k') if shape.detail => {
+                    shape.scroll = shape.scroll.saturating_sub(1)
+                }
+                KeyCode::PageDown if shape.detail => shape.scroll = shape.scroll.saturating_add(5),
+                KeyCode::PageUp if shape.detail => shape.scroll = shape.scroll.saturating_sub(5),
                 KeyCode::Down | KeyCode::Char('j') if !shape.sessions.is_empty() => {
                     shape.selected = (shape.selected + 1).min(shape.sessions.len() - 1)
                 }
                 KeyCode::Up | KeyCode::Char('k') => {
                     shape.selected = shape.selected.saturating_sub(1)
                 }
-                KeyCode::Enter if !shape.sessions.is_empty() => shape.detail = true,
+                KeyCode::Enter if !shape.sessions.is_empty() => {
+                    shape.detail = true;
+                    shape.scroll = 0;
+                    shape.notice.clear();
+                }
                 _ => {}
             },
             View::Measure(reading) => match key.code {
@@ -291,7 +393,7 @@ impl Home {
         let active = load_sessions(&self.sessions_root)
             .ok()?
             .iter()
-            .filter(|s| s.stage != "completed" && s.stage != "stopped")
+            .filter(|s| s.stage != Stage::Ended)
             .count();
         (active > 0).then(|| active.to_string())
     }
@@ -322,27 +424,35 @@ pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_string();
-            let seed = fs::read_to_string(path.join("seed-contract.md")).ok();
-            let stage = match (
-                status.as_str(),
-                seed.as_deref().and_then(|s| s.lines().next()),
-            ) {
-                ("completed", _) => "completed".into(),
-                ("stopped", _) => "stopped".into(),
-                (_, Some("status: confirmed for intake")) => "seed confirmed".into(),
-                (_, Some("status: simulated")) => "simulated seed".into(),
-                (_, Some(_)) => "seed draft".into(),
-                (_, None) => "goal confirmed".into(),
+            let stage = if ledger
+                .get("goal")
+                .and_then(Value::as_str)
+                .is_none_or(|goal| goal.trim().is_empty())
+                && status == "active"
+            {
+                Stage::Unknown
+            } else {
+                match fs::read_to_string(path.join("seed-contract.md")) {
+                    Ok(seed) => Stage::from_files(status.as_str(), Some(&seed)),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                        Stage::from_files(status.as_str(), None)
+                    }
+                    Err(_) => Stage::Unknown,
+                }
             };
             Some(Session {
-                path,
+                path: path.canonicalize().ok()?,
                 goal,
                 stage,
                 updated,
             })
         })
         .collect();
-    sessions.sort_by(|a, b| b.updated.cmp(&a.updated));
+    sessions.sort_by(|a, b| {
+        shape::timestamp(&b.updated)
+            .cmp(&shape::timestamp(&a.updated))
+            .then_with(|| b.updated.cmp(&a.updated))
+    });
     Ok(sessions)
 }
 
@@ -399,7 +509,18 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         area.height.saturating_sub(4),
     );
     if home.help {
-        let help = "Right now\n1–6 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\nshape   your Seed Me sessions (read-only); continue them in any harness\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from shape, measure and unbuilt places.";
+        if let View::Shape(shape) = &mut home.view {
+            let p = Paragraph::new(shape.help_text(home.seed_me.as_deref()))
+                .wrap(Wrap { trim: false })
+                .style(palette.ink);
+            let max = p
+                .line_count(body.width)
+                .saturating_sub(body.height as usize) as u16;
+            shape.help_scroll = shape.help_scroll.min(max);
+            frame.render_widget(p.scroll((shape.help_scroll, 0)), body);
+            return;
+        }
+        let help = "Right now\n1–6 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\nshape   your saved goals and seeds; copy a prompt to continue\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -408,7 +529,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         );
         return;
     }
-    match &home.view {
+    match &mut home.view {
         View::Menu => {
             for (i, (name, _, built)) in PLACES.iter().enumerate() {
                 let y = FIRST_ROW + i as u16 * ROW_GAP;
@@ -446,7 +567,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                 Rect::new(0, area.height.saturating_sub(2), area.width, 1),
             );
         }
-        View::Shape(shape) => render_shape(frame, shape, body, palette),
+        View::Shape(shape) => shape::render(frame, shape, body, palette),
         View::Measure(reading) => frame.render_widget(
             Paragraph::new(reading.body.as_str())
                 .style(palette.ink)
@@ -460,67 +581,6 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         ),
         View::Think(_) => {}
     }
-}
-
-fn render_shape(frame: &mut Frame, shape: &Shape, area: Rect, palette: Palette) {
-    if let Some(error) = &shape.error {
-        frame.render_widget(Paragraph::new(error.as_str()).style(palette.ink), area);
-        return;
-    }
-    if shape.sessions.is_empty() {
-        frame.render_widget(
-            Paragraph::new("No Seed Me sessions yet. Confirm a goal in think to start one.")
-                .style(palette.muted),
-            area,
-        );
-        return;
-    }
-    if shape.detail {
-        let s = &shape.sessions[shape.selected];
-        let text = Text::from(vec![
-            Line::styled(s.goal.clone(), palette.ink),
-            Line::from(""),
-            Line::styled(s.stage.clone(), palette.jade),
-            Line::styled(s.path.display().to_string(), palette.muted),
-            Line::from(""),
-            Line::styled(
-                "Continue with Seed Me in any harness. Esc goes back.",
-                palette.muted,
-            ),
-        ]);
-        frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), area);
-        return;
-    }
-    let width = area.width.saturating_sub(18) as usize;
-    let lines: Vec<Line> = shape
-        .sessions
-        .iter()
-        .enumerate()
-        .map(|(i, s)| {
-            let goal: String = s.goal.chars().take(width.saturating_sub(2)).collect();
-            let goal = if s.goal.chars().count() > goal.chars().count() {
-                format!("{goal}…")
-            } else {
-                goal
-            };
-            let style = if i == shape.selected {
-                palette.jade
-            } else {
-                palette.ink
-            };
-            Line::from(vec![
-                Span::styled(format!("{goal:<width$}"), style),
-                Span::styled(format!("  {}", s.stage), palette.muted),
-            ])
-        })
-        .collect();
-    let skip = shape
-        .selected
-        .saturating_sub(area.height.saturating_sub(1) as usize);
-    frame.render_widget(
-        Paragraph::new(Text::from(lines)).scroll((skip as u16, 0)),
-        area,
-    );
 }
 
 pub fn snapshot(
@@ -658,16 +718,289 @@ mod tests {
         let sessions = load_sessions(tmp.path()).unwrap();
         let got: Vec<(&str, &str)> = sessions
             .iter()
-            .map(|s| (s.goal.as_str(), s.stage.as_str()))
+            .map(|s| (s.goal.as_str(), s.stage.label()))
             .collect();
         assert_eq!(
             got,
             vec![
-                ("goal new", "seed confirmed"),
-                ("goal draft", "seed draft"),
-                ("goal old", "goal confirmed")
+                ("goal new", "seed ready"),
+                ("goal draft", "seed drafted"),
+                ("goal old", "goal saved")
             ]
         );
+    }
+
+    #[test]
+    fn receipt_shape_request_selects_exact_session_and_missing_is_explicit() {
+        let tmp = tempfile::tempdir().unwrap();
+        session(tmp.path(), "old", "active", "2026-10-01T00:00:00Z", None);
+        session(tmp.path(), "new", "active", "2026-10-10T00:00:00Z", None);
+        let path = tmp.path().join("old");
+        let before = fs::read(path.join("ledger.json")).unwrap();
+        let mut h = home(tmp.path());
+        h.open(0);
+        let View::Think(dump) = &mut h.view else {
+            panic!()
+        };
+        dump.receipt = Some(crate::shaping::brain_dump::handoff::Receipt::test(
+            path.clone(),
+        ));
+        h.handle_key(key(KeyCode::Char('s')));
+        h.tick();
+        let View::Shape(shape) = &h.view else {
+            panic!()
+        };
+        assert_eq!(shape.selected, 1);
+        assert_eq!(
+            shape.sessions[shape.selected].path,
+            path.canonicalize().unwrap()
+        );
+        assert!(shape.detail && shape.error.is_none());
+        assert_eq!(fs::read(path.join("ledger.json")).unwrap(), before);
+        #[cfg(unix)]
+        {
+            let alias = tmp.path().join("alias-root");
+            std::os::unix::fs::symlink(tmp.path(), &alias).unwrap();
+            h.sessions_root = alias;
+            h.open_shape_session(&path.canonicalize().unwrap());
+            let View::Shape(shape) = &h.view else {
+                panic!()
+            };
+            assert_eq!(shape.selected, 1);
+            assert_eq!(
+                shape.sessions[shape.selected].path.canonicalize().unwrap(),
+                path.canonicalize().unwrap()
+            );
+            h.sessions_root = tmp.path().to_path_buf();
+        }
+        h.open_shape_session(&tmp.path().join("missing"));
+        let View::Shape(shape) = &h.view else {
+            panic!()
+        };
+        assert!(shape.sessions.is_empty());
+        assert!(
+            shape
+                .error
+                .as_ref()
+                .unwrap()
+                .contains("Saved session is unavailable")
+        );
+        h.sessions_root = tmp.path().join("not-a-directory");
+        fs::write(&h.sessions_root, "not a directory").unwrap();
+        h.open_shape_session(&path);
+        let View::Shape(shape) = &h.view else {
+            panic!()
+        };
+        assert!(shape.error.is_some() && shape.sessions.is_empty());
+    }
+
+    #[test]
+    fn shape_rows_derive_each_state_and_only_show_goal_lines_newest_first() {
+        let tmp = tempfile::tempdir().unwrap();
+        for (id, status, date, seed) in [
+            ("saved", "active", "2026-10-10T00:00:00Z", None),
+            (
+                "drafted",
+                "active",
+                "2026-10-09T00:00:00Z",
+                Some("status: draft"),
+            ),
+            (
+                "ready",
+                "active",
+                "2026-10-08T00:00:00Z",
+                Some("status: confirmed for intake"),
+            ),
+            (
+                "ended",
+                "stopped",
+                "2026-10-07T00:00:00Z",
+                Some("status: confirmed for intake"),
+            ),
+        ] {
+            session(tmp.path(), id, status, date, seed);
+            let path = tmp.path().join(id).join("ledger.json");
+            let mut ledger: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            ledger["goal"] = format!(
+                "{id} {}\nWhy: never on list\nDone when: separate in detail",
+                "a long goal line ".repeat(20)
+            )
+            .into();
+            fs::write(path, ledger.to_string()).unwrap();
+        }
+        let loaded = load_sessions(tmp.path()).unwrap();
+        assert_eq!(
+            loaded.iter().map(|s| s.stage).collect::<Vec<_>>(),
+            vec![
+                Stage::GoalSaved,
+                Stage::SeedDrafted,
+                Stage::SeedReady,
+                Stage::Ended
+            ]
+        );
+        for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            let mut h = home(tmp.path());
+            h.open(1);
+            let screen = snapshot(w, height, &mut h, false).unwrap();
+            assert!(
+                !screen.contains("Why:") && !screen.contains("Done when:") && !screen.contains("/")
+            );
+            for (row, label) in ["goal saved", "seed drafted", "seed ready", "ended"]
+                .into_iter()
+                .enumerate()
+            {
+                assert!(
+                    screen.lines().nth(row + 3).unwrap().contains(label),
+                    "{screen}"
+                );
+                assert!(screen.lines().nth(row + 3).unwrap().contains('…'));
+                assert!(screen.lines().nth(row + 3).unwrap().contains(" · "));
+            }
+            assert_eq!(
+                screen.lines().last().unwrap().trim(),
+                "↑↓ move   enter open   esc back"
+            );
+        }
+    }
+
+    #[test]
+    fn shape_detail_preserves_receipt_block_and_copy_is_exact_repeatable_and_manual() {
+        let tmp = tempfile::tempdir().unwrap();
+        session(tmp.path(), "saved", "active", "2026-10-11T00:00:00Z", None);
+        let path = tmp.path().join("saved").canonicalize().unwrap();
+        let goal = "I can read Café 👩‍💻 in a calm dark theme.\nWhy: Night work.\nDone when: The block stays readable.\nMust: Keep every line.\nMust not: Run agents.";
+        let mut ledger: Value =
+            serde_json::from_slice(&fs::read(path.join("ledger.json")).unwrap()).unwrap();
+        ledger["goal"] = goal.into();
+        fs::write(path.join("ledger.json"), ledger.to_string()).unwrap();
+        let before = fs::read(path.join("ledger.json")).unwrap();
+        let mut receipt = brain_dump::handoff::Receipt::test(path.clone());
+        receipt.goal = goal.into();
+        for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            let mut h = home(tmp.path()).with_seed_me(receipt.skill.clone());
+            h.open_shape_session(&path);
+            let screen = snapshot(w, height, &mut h, false).unwrap();
+            let normalized = screen.split_whitespace().collect::<Vec<_>>().join(" ");
+            for line in receipt.goal.lines() {
+                assert!(normalized.contains(line), "{screen}");
+            }
+            let View::Shape(shape) = &h.view else {
+                panic!()
+            };
+            assert_eq!(shape.current().unwrap().goal, receipt.goal);
+            for label in ["Why:", "Done when:", "Must:", "Must not:"] {
+                assert!(
+                    screen
+                        .lines()
+                        .any(|line| line.trim_start().starts_with(label)),
+                    "{screen}"
+                );
+            }
+            assert!(
+                !screen.contains("Saved.")
+                    && !screen.contains("any harness")
+                    && !screen.contains("/")
+            );
+            assert!(screen.contains("Next: shape it into a seed with Seed Me."));
+            assert_eq!(
+                screen.lines().last().unwrap().trim(),
+                "c copy prompt   esc back   10 menu"
+            );
+            for _ in 0..2 {
+                h.handle_key(key(KeyCode::Char('c')));
+                assert_eq!(
+                    h.take_copy_request().unwrap(),
+                    receipt.continuation_prompt()
+                );
+                assert!(h.take_copy_request().is_none());
+                h.copy_result(true);
+                assert!(
+                    snapshot(w, height, &mut h, false)
+                        .unwrap()
+                        .contains("Copied.")
+                );
+            }
+            h.copy_result(false);
+            assert!(
+                snapshot(w, height, &mut h, false)
+                    .unwrap()
+                    .contains("Couldn't copy; try again.")
+            );
+            h.handle_key(key(KeyCode::F(1)));
+            assert!(
+                !snapshot(w, height, &mut h, false)
+                    .unwrap()
+                    .contains(path.to_str().unwrap())
+            );
+            h.handle_key(key(KeyCode::Char('h')));
+            let View::Shape(shape) = &h.view else {
+                panic!()
+            };
+            assert!(
+                shape
+                    .help_text(h.seed_me.as_deref())
+                    .contains(path.to_str().unwrap())
+            );
+            h.handle_key(key(KeyCode::Esc));
+            h.handle_key(key(KeyCode::Esc));
+            h.handle_key(key(KeyCode::Esc));
+            let View::Shape(shape) = &h.view else {
+                panic!()
+            };
+            assert!(!shape.detail);
+            h.handle_key(key(KeyCode::Enter));
+            h.handle_key(key(KeyCode::F(10)));
+            assert!(matches!(h.view, View::Menu) && !h.quit);
+            assert_eq!(fs::read(path.join("ledger.json")).unwrap(), before);
+        }
+    }
+
+    #[test]
+    fn shape_next_action_follows_status_and_ended_sessions_cannot_copy() {
+        let tmp = tempfile::tempdir().unwrap();
+        for (id, status, seed, next) in [
+            (
+                "draft",
+                "active",
+                Some("status: draft"),
+                Some("Next: confirm the seed draft with Seed Me."),
+            ),
+            (
+                "ready",
+                "active",
+                Some("status: confirmed for intake"),
+                Some("Next: the seed is ready for intake."),
+            ),
+            ("stopped", "stopped", None, None),
+            (
+                "completed",
+                "completed",
+                Some("status: confirmed for intake"),
+                None,
+            ),
+        ] {
+            session(tmp.path(), id, status, "2026-10-11T00:00:00Z", seed);
+            let mut h = home(tmp.path()).with_seed_me("/TEST/SKILL.md".into());
+            h.open_shape_session(&tmp.path().join(id));
+            let screen = snapshot(100, 30, &mut h, false).unwrap();
+            if let Some(next) = next {
+                assert!(screen.contains(next));
+            } else {
+                assert!(!screen.contains("Next:") && !screen.contains("c copy prompt"));
+            }
+            h.handle_key(key(KeyCode::Char('c')));
+            assert_eq!(h.take_copy_request().is_some(), next.is_some());
+        }
+        assert_eq!(
+            Stage::from_files("active", Some("status: simulated")),
+            Stage::Simulated
+        );
+        assert!(!Stage::Simulated.can_copy());
+        assert_eq!(
+            Stage::from_files("active", Some("not a status")),
+            Stage::Unknown
+        );
+        assert!(!Stage::Unknown.can_copy());
     }
 
     #[test]

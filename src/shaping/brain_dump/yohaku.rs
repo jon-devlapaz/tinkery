@@ -289,9 +289,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     }
 }
 pub(super) fn help_text(app: &BrainDump) -> String {
-    let now = if app.receipt.is_some() {
-        "Your goal is saved. Continue it in Seed Me.\nF10 back to the menu."
-    } else if app.handoff_job.is_some() {
+    if app.receipt.is_some() {
+        return if app.help_all {
+            "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nc   copy prompt to continue in Claude, Codex or Pi\ns   open in shape with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
+        } else {
+            "Right now\nYour goal is saved. Next: shape it into a seed with Seed Me.\nc copy prompt · s open in shape · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
+        };
+    }
+    let now = if app.handoff_job.is_some() {
         "Saving your goal. Wait a moment."
     } else if app.goal_review.is_some() {
         "Type confirm, then Enter, to save this goal.\nEsc goes back without saving."
@@ -329,23 +334,23 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         ""
     };
-    let finish = if app.receipt.is_some() {
-        "Goal saved. Continue with Seed Me in any harness."
-    } else if !app.real || app.goal_config.is_none() {
+    let finish = if !app.real || app.goal_config.is_none() {
         "Saving a goal needs real mode and Seed Me."
     } else {
         "! F3   review the goal; typing confirm saves it for good"
     };
-    let leave = if app.receipt.is_some() {
-        "F10  back to the menu; your goal stays saved"
-    } else {
-        "! F10  back to the menu; asks before losing your draft"
-    };
+    let leave = "! F10  back to the menu; asks before losing your draft";
     format!(
         "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nDrag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
+    if let Some(receipt) = &app.receipt {
+        return format!(
+            "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}\n\nCopying sends the continuation prompt through OSC 52; your terminal may require clipboard permission. Paste it into Claude, Codex or Pi yourself. Opening shape only selects this saved session. No agent, harness or browser starts.\n\nThe session stays active. Only Tinkery's owned viewer stops when you leave. Goal confirmation is not seed or implementation approval.",
+            receipt.text()
+        );
+    }
     format!(
         "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; e shows cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call is on the display path. After valid output is displayed, one meaning/continuity audit runs in the background: at most two provider calls per send, no automatic retry. Meaning checks are log-only: no flags shown, no rejection, repair, question withholding or confirmation barrier. Exact spans/schema/history remain local blocking checks. Audit failure leaves the reading untouched. Calls remain bounded and cancellable; a newer send cancels the owned older audit. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
         if app.real {
@@ -363,7 +368,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     if app.leave_prompt || app.handoff_job.is_some() {
         vec![]
     } else if app.receipt.is_some() {
-        vec![("10", "menu")]
+        vec![("c", "copy prompt"), ("s", "open in shape"), ("10", "menu")]
     } else if app.goal_review.is_some() {
         vec![("type confirm", "save"), ("esc", "back")]
     } else if app.voice_active() {
@@ -394,7 +399,8 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
 }
 pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let area = frame.area();
-    if !app.key_bar || area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
+    if (!app.key_bar && app.receipt.is_none()) || area.width < MIN_WIDTH || area.height < MIN_HEIGHT
+    {
         return;
     }
     let mut spans = vec![];

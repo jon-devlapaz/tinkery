@@ -130,6 +130,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Box::new(move || make_dump().with_voice(Box::new(tinkery::voice::ProcessHost::new())))
         };
         let mut menu = Home::new(make_dump, sessions_root, substrate_dir);
+        if let Some(skill) = goal_skill {
+            menu = menu.with_seed_me(skill.canonicalize()?);
+        }
         if snapshot {
             println!("{}", home::snapshot(100, 30, &mut menu, no_color)?);
             return Ok(());
@@ -233,7 +236,7 @@ impl Intake {
     fn quit(&self) -> bool {
         match self {
             Self::Home(a) => a.quit,
-            Self::Brain(a) => a.quit,
+            Self::Brain(a) => a.quit && a.receipt.is_none(),
             Self::Sticky(a) => a.quit,
         }
     }
@@ -242,6 +245,24 @@ impl Intake {
             Self::Home(a) => a.tick(),
             Self::Brain(a) => a.tick(),
             Self::Sticky(a) => a.tick(elapsed, area),
+        }
+        if let Self::Brain(dump) = self {
+            let shape = dump.take_shape_request();
+            let session = shape.clone().or_else(|| {
+                dump.quit
+                    .then(|| dump.receipt.as_ref().map(|r| r.session.clone()))
+                    .flatten()
+            });
+            if let Some(session) = session {
+                let Self::Brain(dump) = std::mem::replace(self, Self::Brain(Box::default())) else {
+                    unreachable!()
+                };
+                *self = Self::Home(Box::new(Home::from_receipt(
+                    *dump,
+                    &session,
+                    shape.is_some(),
+                )));
+            }
         }
     }
     fn render(&mut self, f: &mut ratatui::Frame, p: Palette) {
