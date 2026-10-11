@@ -344,9 +344,15 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else if app.add_more {
         "Type a new dump.\nF2 sends it."
     } else if app.focused_question().is_none() {
+        let composed = app.guess.as_ref().is_some_and(|g| !g.framings.is_empty());
         open_now = format!(
-            "{}\nF3 reviews the goal.",
-            open_intent(app).unwrap_or_else(|| "No question left.".into())
+            "{}\n{}",
+            open_intent(app).unwrap_or_else(|| "No question left.".into()),
+            if composed {
+                "F3 reviews the goal."
+            } else {
+                "Type it, then F2 sends."
+            }
         );
         open_now.as_str()
     } else {

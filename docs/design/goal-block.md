@@ -44,7 +44,8 @@ Original sources and answers are never changed.
 
 Anything else is left as written: a prefix that is not leading, a quoted phrase
 (including a `;` inside the quotes),
-other spacing or punctuation inside or after the prefix (`must  not`, `must not:`),
+other spacing or punctuation inside or after the prefix (`must  not`, `must not:`,
+`must not—…`),
 `mustn't`, or a negative prefix followed by `only`, `just`, `necessarily`, `always`,
 `care` or `mind` (“must not only support phones”, “don't care about colours”). This
 is not a negation parser; an ambiguous clause keeps its polarity.
@@ -60,7 +61,8 @@ For display, a clause is split at `;` or a sentence end outside quotes (`"…"`,
 inside a word, as in `don’t`, neither opens nor closes one). A period
 between digits, or after a lone letter or a common abbreviation (“U.S. data”, “the
 U.S. Army”, “e.g. maps”, “Dr. Smith”; the list is `ABBREVIATIONS` in `goal.rs`), is not
-a sentence end unless constraint syntax follows it.
+a sentence end unless a capitalised constraint starts after it
+(“U.S. Do not…” splits; “the U.S. must remain…” does not).
 
 When later clauses of why, done when, the goal line or `when` are joined with `;`,
 a clause keeps its case unless its first word is one of a short list of common

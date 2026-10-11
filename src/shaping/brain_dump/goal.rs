@@ -95,8 +95,8 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
             && previous.is_some_and(|c| c.is_ascii_digit())
             && next.is_some_and(|c| c.is_ascii_digit());
         // A period after a lone letter or a common abbreviation ("U.S. data", "e.g. maps",
-        // "Dr. Smith") is not a clause end unless explicit constraint syntax follows
-        // ("U.S. Do not upload").
+        // "Dr. Smith") is not a clause end unless a capitalised constraint starts after it
+        // ("U.S. Do not upload"; "the U.S. must remain" stays one clause).
         let word = if c == '.' {
             chars[..i]
                 .iter()
@@ -115,7 +115,11 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
                 .checked_sub(1)
                 .and_then(|n| chars.get(n))
                 .is_none_or(|c| !c.is_alphanumeric())
-            && !starts_with_syntax(&chars[i + 1..]);
+            && !(starts_with_syntax(&chars[i + 1..])
+                && chars[i + 1..]
+                    .iter()
+                    .find(|c| !c.is_whitespace())
+                    .is_some_and(|c| c.is_uppercase()));
         if quote.is_none()
             && (c == ';'
                 || (matches!(c, '.' | '!' | '?')
@@ -214,11 +218,11 @@ fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {
     (!negative)
         .then(|| after_prefix(clause, "must"))
         .flatten()
+        // "must not" followed by anything but a plain space ("must not:", "must not—…")
+        // is unsupported syntax: leave it whole rather than strip only "must".
         .filter(|rest| {
-            !rest.split_whitespace().next().is_some_and(|w| {
-                w.trim_end_matches(|c: char| !c.is_alphanumeric())
-                    .eq_ignore_ascii_case("not")
-            })
+            !rest.get(..3).is_some_and(|w| w.eq_ignore_ascii_case("not"))
+                || rest[3..].starts_with(char::is_alphanumeric)
         })
         .map(|rest| (false, rest))
 }

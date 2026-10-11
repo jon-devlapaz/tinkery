@@ -247,6 +247,8 @@ fn ambiguous_or_quoted_negation_is_left_unchanged() {
         (&["mustard yellow headers"], &[]),
         (&["must  not upload recordings"], &[]),
         (&["must not: upload recordings"], &[]),
+        (&["must not—under any circumstances—upload recordings"], &[]),
+        (&["service in the U.S. must remain available"], &[]),
         (
             &["Display ‘must work offline; must not upload recordings’"],
             &[],
@@ -452,6 +454,12 @@ fn no_composed_goal_names_who_without_offering_review() {
         assert!(screen.contains("Still missing: Who."), "{screen}");
         assert!(!screen.contains("Review when you're ready"));
     }
+    let help = yohaku::help_text(&a);
+    assert!(
+        help.contains("Still missing: Who.\nType it, then F2 sends."),
+        "{help}"
+    );
+    assert!(!help.contains("F3 reviews"));
 }
 struct FailsAfterFirst(std::sync::atomic::AtomicUsize);
 impl BoardHost for FailsAfterFirst {
