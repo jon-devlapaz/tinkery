@@ -160,6 +160,13 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: preserve U.S. data, e.g. maps.",
         ),
         (
+            &["must preserve U.S. Do not upload logs"],
+            &[],
+            &["preserve U.S"],
+            &["upload logs"],
+            "Must: preserve U.S.\nMust not: upload logs.",
+        ),
+        (
             &["must keep café 👩‍💻 names"],
             &[],
             &["keep café 👩‍💻 names"],
@@ -392,4 +399,43 @@ fn no_composed_goal_names_who_without_offering_review() {
         assert!(screen.contains("Still missing: Who."), "{screen}");
         assert!(!screen.contains("Review when you're ready"));
     }
+}
+struct FailsAfterFirst(std::sync::atomic::AtomicUsize);
+impl BoardHost for FailsAfterFirst {
+    fn reshape(&self, r: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+        if self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0 {
+            return Err("TEST stub failure".into());
+        }
+        Guess::decode(
+            &serde_json::json!({ "parts": head() }).to_string(),
+            &r,
+            &mut vec![],
+        )
+    }
+}
+#[test]
+fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
+    let mut a = BrainDump::with_host(Arc::new(FailsAfterFirst(Default::default())))
+        .with_seed_me("/missing/SKILL.md".into(), None);
+    a.paste(SOURCE);
+    a.submit();
+    settle(&mut a);
+    assert!(a.goal_ready());
+    a.paste("also sync over wifi only");
+    a.submit();
+    settle(&mut a);
+    assert_ne!(a.applied, a.sources.len());
+    for screen in screens(&mut a) {
+        assert!(!screen.contains("Nothing I'm unsure"), "{screen}");
+        assert!(
+            screen.contains("Some parts remain open for the seed."),
+            "{screen}"
+        );
+    }
+    assert!(
+        !yohaku::open_intent(&a)
+            .unwrap()
+            .contains("Nothing I'm unsure")
+    );
+    assert_eq!(a.sources[1].text, "also sync over wifi only");
 }

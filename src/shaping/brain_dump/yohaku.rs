@@ -291,13 +291,16 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     }
 }
 /// With no question in focus: ready, the next missing required part, or other open context.
-/// Only goal content decides; transient states such as voice or unsent text do not.
+/// Only goal content decides, including submitted words not yet applied; transient
+/// states such as voice or unsent text do not.
 /// Review lists everything still open; this names one thing.
 pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
     let g = app.guess.as_ref()?;
     Some(if let Some(part) = g.parts.missing().next() {
         format!("Still missing: {}.", part.label())
     } else if app.open_parts().is_empty()
+        && app.applied == app.sources.len()
+        && app.ready.is_none()
         && g.unresolved_notes.is_empty()
         && g.misfits.is_empty()
         && app.scope_pending.is_none()
