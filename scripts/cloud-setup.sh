@@ -70,6 +70,15 @@ git -C "$fixture" fetch --depth=1 origin "$ref"
 git -C "$fixture" checkout --detach --quiet FETCH_HEAD
 [[ $(git -C "$fixture" rev-parse HEAD) == "$ref" ]] || fail 'Seed Me checkout did not match the CI pin.'
 [[ -f $fixture/skills/seed-me/SKILL.md ]] || fail 'Pinned fixture has no Seed Me skill.'
+# Official Python helpers create bytecode caches; ignore only those generated files.
+python3 - "$fixture/.git/info/exclude" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+if '__pycache__/' not in path.read_text().splitlines():
+    with path.open('a') as file:
+        file.write('\n__pycache__/\n')
+PY
 
 printf '\nSetup complete. Set these in your current shell, then run the CLAUDE.md verification block:\n'
 printf 'export PATH=%q:"$PATH"\n' "${CARGO_HOME:-$HOME/.cargo}/bin:$tools/node/bin"

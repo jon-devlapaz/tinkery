@@ -84,4 +84,5 @@ jobs:
           Path('/tmp/tinkery-cold-check.sh').write_text(blocks[0] + '\n')
           PY
           bash -euo pipefail /tmp/tinkery-cold-check.sh
+          ./scripts/cloud-setup.sh
           test -z "$(git status --porcelain --untracked-files=all)"

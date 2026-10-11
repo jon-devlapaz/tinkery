@@ -58,8 +58,10 @@ The script installs missing build/Python prerequisites, stable Rust with rustfmt
 and Clippy, and Node if missing. It checks out the **same Seed Me commit as CI**
 into ignored `.ci-seed-me/` and prints shell exports. Re-running it is safe; it
 refuses a dirty or unrelated fixture checkout rather than resetting it.
-It fetches only packages and Git repositories: no providers, microphones, native
-voice engines, or speech models. A non-root box needs sudo for missing apt packages.
+The fixture's local Git exclude ignores generated Python bytecode caches, so helper
+tests do not make it dirty; tracked Seed Me files remain untouched. It fetches only
+packages and Git repositories: no providers, microphones, native voice engines, or
+speech models. A non-root box needs sudo for missing apt packages.
 
 CI uses **stable Rust** on Ubuntu and macOS. Local Clippy must use the same updated
 stable toolchain, not an older default. The setup script updates stable in the
