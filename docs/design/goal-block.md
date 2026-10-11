@@ -57,9 +57,9 @@ in the same category is not repeated.
 
 For display, a clause is split at `;` or a sentence end outside quotes (`"…"`, `“…”`,
 `'…'` or `‘…’`; an apostrophe inside a word, as in `don’t`, does not close a quote). A period
-between digits, or after a lone letter (“U.S. data”, “the U.S. Army”, “e.g. maps”),
-is not a sentence end unless constraint syntax follows it. Other abbreviations such
-as “Dr.” still break the displayed line, as before this change.
+between digits, or after a lone letter or a common abbreviation (“U.S. data”, “the
+U.S. Army”, “e.g. maps”, “Dr. Smith”; the list is `ABBREVIATIONS` in `goal.rs`), is not
+a sentence end unless constraint syntax follows it.
 
 When later clauses of why, done when, the goal line or `when` are joined with `;`,
 a clause keeps its case unless its first word is one of a short list of common

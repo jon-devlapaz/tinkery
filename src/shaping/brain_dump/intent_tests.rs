@@ -178,7 +178,14 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             &[],
             &["coordinate with Dr. Smith"],
             &[],
-            "Must: coordinate with Dr.\nMust: Smith.",
+            "Must: coordinate with Dr. Smith.",
+        ),
+        (
+            &["must ask Prof. Lee, Mrs. Diaz etc. first. Do not email Mr. Ng"],
+            &[],
+            &["ask Prof. Lee, Mrs. Diaz etc. first"],
+            &["email Mr. Ng"],
+            "Must: ask Prof. Lee, Mrs. Diaz etc. first.\nMust not: email Mr. Ng.",
         ),
         (
             &["must keep café 👩‍💻 names"],

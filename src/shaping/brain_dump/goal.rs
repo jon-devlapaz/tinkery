@@ -94,11 +94,22 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
         let decimal = c == '.'
             && previous.is_some_and(|c| c.is_ascii_digit())
             && next.is_some_and(|c| c.is_ascii_digit());
-        // A period after a lone letter ("U.S. data", "the U.S. Army", "e.g. maps") is not
-        // a clause end unless explicit constraint syntax follows ("U.S. Do not upload").
+        // A period after a lone letter or a common abbreviation ("U.S. data", "e.g. maps",
+        // "Dr. Smith") is not a clause end unless explicit constraint syntax follows
+        // ("U.S. Do not upload").
+        let word = chars[..i]
+            .iter()
+            .rev()
+            .take_while(|c| c.is_alphabetic())
+            .count();
         let initial = c == '.'
-            && previous.is_some_and(char::is_alphabetic)
-            && i.checked_sub(2)
+            && word > 0
+            && (word == 1 || {
+                let w = chars[i - word..i].iter().collect::<String>();
+                ABBREVIATIONS.iter().any(|a| a.eq_ignore_ascii_case(&w))
+            })
+            && (i - word)
+                .checked_sub(1)
                 .and_then(|n| chars.get(n))
                 .is_none_or(|&c| c == '.' || c.is_whitespace())
             && !starts_with_syntax(&chars[i + 1..]);
@@ -133,6 +144,10 @@ fn constraint_segments(text: &str) -> Vec<String> {
     }
     segments
 }
+/// Abbreviations whose period is not a clause end (see `ended_clauses`).
+const ABBREVIATIONS: [&str; 14] = [
+    "co", "dr", "etc", "inc", "jr", "ltd", "mr", "mrs", "ms", "mt", "prof", "sr", "st", "vs",
+];
 /// Common words lowered when they start a later clause. Any other first word (a name,
 /// acronym such as "IT", quote or number) keeps its case.
 const LOWERED: [&str; 34] = [
