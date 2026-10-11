@@ -31,39 +31,38 @@ negate the person's words, or promote injected instructions into their goals.
 
 ## Constraint syntax
 
+Each `must` and `must_not` item the model returns is **one line**, in its own words.
+Tinkery does not split an item at `;` or a period: that would be a guess, and every
+splitting rule misfires somewhere (“Dr. Smith”, “U.S. Army”, quoted text). The shaping
+prompt asks for one constraint per item instead. When an item seems to hold more than
+one (a later clause starts with syntax from the table below), a log-only note goes to
+Why (F5); the item is still shown and saved as written, with no flag on the goal block.
+
 Before composition, `GoalParts::normalize_constraints` rewrites one thing only: an
-explicit leading prefix on a generated constraint clause. The prefix is matched
-case-insensitively and must be followed by whitespace; the remainder keeps its spelling
-and case. Typed parts, the composed block and handoff context all use the result.
-Original sources and answers are never changed.
+explicit leading prefix on a whole item. The prefix is matched case-insensitively and
+must be followed by whitespace; the remainder keeps its spelling and case. Typed
+parts, the composed block and handoff context all use the result. Original sources
+and answers are never changed.
 
 | Leading syntax | In `must` | In `must_not` |
 | --- | --- | --- |
 | `must X` | `X` stays in Must | unchanged |
 | `must not X`, `do not X`, `don't X` (also `don’t`) | `X` moves to Must not | `X` stays in Must not |
 
-Anything else is left as written: a prefix that is not leading, a quoted phrase
-(including a `;` inside the quotes),
-other spacing or punctuation inside or after the prefix (`must  not`, `must not:`,
-`must not—…`),
-`mustn't`, or a negative prefix followed by `only`, `just`, `necessarily`, `always`,
-`care` or `mind` (“must not only support phones”, “don't care about colours”). This
-is not a negation parser; an ambiguous clause keeps its polarity.
+Anything else is left as written: a prefix that is not leading, other spacing or
+punctuation inside or after the prefix (`must  not`, `must not:`, `must not—…`),
+`mustn't`, or a negative prefix whose next word is `only`, `just`, `necessarily`,
+`always`, `care` or `mind` (“must not only support phones”, “don't care about
+colours”). This is not a negation parser; an ambiguous item keeps its polarity. A
+rewritten item already stated in the same category is not repeated (compared
+exactly, except the first letter's case, so “use IT” and “use it” are both kept).
 
-Normalization splits one stored value into separate constraints only where the next
-clause itself starts with syntax from the table (“must work offline. Must not upload
-recordings”). Every other part of a value stays together with its own wording, so
-“coordinate with Dr. Smith” is one constraint. A rewritten constraint already stated
-in the same category is not repeated (compared exactly, except the first letter's
-case, so “use IT” and “use it” are both kept).
-
-For display, a clause is split at `;` or a sentence end outside quotes (`"…"`, `“…”`,
-`'…'` or `‘…’`; a single quote opens after a space or punctuation and closes at the last
-single quote of its kind, so an apostrophe (`don’t`, `users' choices`) never ends it early). A period
-between digits, or after a lone letter or a common abbreviation (“U.S. data”, “the
-U.S. Army”, “e.g. maps”, “Dr. Smith”; the list is `ABBREVIATIONS` in `goal.rs`), is not
-a sentence end unless a capitalised constraint starts after it
-(“U.S. Do not…” splits; “the U.S. must remain…” does not).
+Prose parts (why, done when, the goal line, `when`) are still split into clauses
+and joined with `;`. A clause ends at `;` or a sentence end outside quotes (`"…"`,
+`“…”`, `'…'` or `‘…’`; a single quote opens after a space or punctuation and closes
+at the last single quote of its kind, so an apostrophe never ends it early). A period
+between digits, or after a lone letter or a common abbreviation (“U.S.”, “e.g.”,
+“Dr.”; the list is `ABBREVIATIONS` in `goal.rs`), is not a sentence end.
 
 When later clauses of why, done when, the goal line or `when` are joined with `;`,
 a clause keeps its case unless its first word is one of a short list of common

@@ -74,11 +74,9 @@ fn constraint_identity(text: &str) -> String {
         c.to_lowercase().collect::<String>() + chars.as_str()
     })
 }
+/// Clauses of prose (why, done when, the goal line, when). Constraint items are never
+/// split: each is one line as the model gave it.
 fn clauses(text: &str) -> Vec<String> {
-    ended_clauses(text).into_iter().map(|(s, _)| s).collect()
-}
-/// Clauses with the separator that ended each (`.` for the last).
-fn ended_clauses(text: &str) -> Vec<(String, char)> {
     let chars = text
         .trim()
         .trim_end_matches(['.', ',', ';'])
@@ -121,8 +119,7 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
             && previous.is_some_and(|c| c.is_ascii_digit())
             && next.is_some_and(|c| c.is_ascii_digit());
         // A period after a lone letter or a common abbreviation ("U.S. data", "e.g. maps",
-        // "Dr. Smith") is not a clause end unless a capitalised constraint starts after it
-        // ("U.S. Do not upload"; "the U.S. must remain" stays one clause).
+        // "Dr. Smith") is not a clause end.
         let word = if c == '.' {
             chars[..i]
                 .iter()
@@ -140,12 +137,7 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
             && (i - word)
                 .checked_sub(1)
                 .and_then(|n| chars.get(n))
-                .is_none_or(|c| !c.is_alphanumeric())
-            && !(starts_with_syntax(&chars[i + 1..])
-                && chars[i + 1..]
-                    .iter()
-                    .find(|c| !c.is_whitespace())
-                    .is_some_and(|c| c.is_uppercase()));
+                .is_none_or(|c| !c.is_alphanumeric());
         if quote.is_none()
             && (c == ';'
                 || (matches!(c, '.' | '!' | '?')
@@ -153,31 +145,16 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
                     && !initial
                     && next.is_some_and(char::is_whitespace)))
         {
-            parts.push((current.trim().to_owned(), c));
+            parts.push(current.trim().to_owned());
             current.clear();
         } else {
             current.push(if c == '\n' { ' ' } else { c });
         }
     }
-    parts.push((current.trim().to_owned(), '.'));
-    parts.into_iter().filter(|(s, _)| !s.is_empty()).collect()
+    parts.push(current.trim().to_owned());
+    parts.into_iter().filter(|s| !s.is_empty()).collect()
 }
-/// A value split only where the next clause starts with constraint syntax, so other
-/// periods ("Dr. Smith") never turn one stated constraint into two.
-fn constraint_segments(text: &str) -> Vec<String> {
-    let mut segments: Vec<String> = vec![];
-    let mut ended = '.';
-    for (clause, end) in ended_clauses(text) {
-        let starts = starts_with_syntax(&clause.chars().collect::<Vec<_>>());
-        match segments.last_mut() {
-            Some(last) if !starts => last.push_str(&format!("{ended} {clause}")),
-            _ => segments.push(clause),
-        }
-        ended = end;
-    }
-    segments
-}
-/// Abbreviations whose period is not a clause end (see `ended_clauses`).
+/// Abbreviations whose period is not a clause end (see `clauses`).
 const ABBREVIATIONS: [&str; 14] = [
     "co", "dr", "etc", "inc", "jr", "ltd", "mr", "mrs", "ms", "mt", "prof", "sr", "st", "vs",
 ];
@@ -221,24 +198,13 @@ fn after_prefix<'a>(clause: &'a str, prefix: &str) -> Option<&'a str> {
         .trim_start();
     (!rest.is_empty()).then_some(rest)
 }
-/// Whether `chars` (after any whitespace) begins with constraint syntax that rewriting
-/// accepts (`constraint_syntax`), read from a bounded head so it never copies the rest.
-/// 32 visible characters cover any supported prefix plus the word after it.
-fn starts_with_syntax(chars: &[char]) -> bool {
-    let start = chars
+/// Whether a constraint item seems to hold more than one constraint: a later clause starts
+/// with syntax that rewriting accepts. Only ever logged; the item is shown as written.
+pub(super) fn looks_compound(item: &str) -> bool {
+    clauses(item)
         .iter()
-        .position(|c| !c.is_whitespace())
-        .unwrap_or(chars.len());
-    // Bounded by visible characters only, so long runs of spaces never cut the payload.
-    let mut visible = 0;
-    let head = chars[start..]
-        .iter()
-        .take_while(|c| {
-            visible += usize::from(!c.is_whitespace());
-            visible <= 32
-        })
-        .collect::<String>();
-    constraint_syntax(&head, false).is_some()
+        .skip(1)
+        .any(|c| constraint_syntax(c, false).is_some())
 }
 /// Where an unambiguous leading prefix puts this clause: (is an exclusion, remainder).
 fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {
@@ -320,8 +286,8 @@ impl GoalParts {
         }
         Some(goal)
     }
-    /// Rewrites only explicit leading `must`/`must not`/`do not`/`don't` in constraints;
-    /// anything else, and every original source, stays as written.
+    /// Rewrites only an explicit leading `must`/`must not`/`do not`/`don't` on each whole
+    /// constraint item; anything else, and every original source, stays as written.
     pub(super) fn normalize_constraints(&mut self) {
         let mut lists: [Vec<(String, bool)>; 2] = Default::default();
         for (negative, values) in [
@@ -329,46 +295,22 @@ impl GoalParts {
             (true, std::mem::take(&mut self.must_not)),
         ] {
             for value in values {
-                let split = constraint_segments(&value);
-                let rewrites = split
-                    .iter()
-                    .map(|c| constraint_syntax(c, negative).map(|(n, rest)| (n, rest.to_owned())))
-                    .collect::<Vec<_>>();
-                if rewrites.iter().all(Option::is_none) {
-                    lists[usize::from(negative)].push((value, false));
-                    continue;
-                }
-                for (segment, rewrite) in split.into_iter().zip(rewrites) {
-                    match rewrite {
-                        Some((to, rest)) => lists[usize::from(to)].push((rest, true)),
-                        None => lists[usize::from(negative)].push((segment, false)),
-                    }
+                match constraint_syntax(value.trim(), negative) {
+                    Some((to, rest)) => lists[usize::from(to)].push((rest.to_owned(), true)),
+                    None => lists[usize::from(negative)].push((value, false)),
                 }
             }
         }
-        // A rewritten constraint already stated in its category is not repeated: one
-        // pass over the identities of every unrewritten entry and earlier rewrites.
+        // A rewritten item already stated in its category is not repeated.
         let [must, must_not] = lists.map(|list| {
-            let ids = |v: &str| {
-                clauses(v)
-                    .iter()
-                    .map(|c| constraint_identity(c))
-                    .collect::<Vec<_>>()
-            };
             let mut stated = list
                 .iter()
                 .filter(|(_, rewritten)| !rewritten)
-                .flat_map(|(v, _)| ids(v))
+                .map(|(v, _)| constraint_identity(v))
                 .collect::<std::collections::HashSet<_>>();
             list.into_iter()
                 .filter_map(|(value, rewritten)| {
-                    if !rewritten {
-                        return Some(value);
-                    }
-                    let own = ids(&value);
-                    let repeated = own.iter().all(|id| stated.contains(id));
-                    stated.extend(own);
-                    (!repeated).then_some(value)
+                    (!rewritten || stated.insert(constraint_identity(&value))).then_some(value)
                 })
                 .collect()
         });
@@ -413,9 +355,13 @@ impl GoalParts {
         }
         for (label, values) in [("Must", &self.must), ("Must not", &self.must_not)] {
             let mut seen = std::collections::BTreeSet::new();
-            for value in values.iter().flat_map(|s| clauses(s)) {
-                if seen.insert(constraint_identity(&value)) {
-                    lines.push(finish(format!("{label}: {value}")));
+            for value in values {
+                let line = value
+                    .trim()
+                    .trim_end_matches(['.', ',', ';'])
+                    .replace('\n', " ");
+                if !line.is_empty() && seen.insert(constraint_identity(&line)) {
+                    lines.push(finish(format!("{label}: {line}")));
                 }
             }
         }
