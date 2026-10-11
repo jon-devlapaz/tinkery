@@ -56,7 +56,7 @@ Ctrl-L. Leave out credentials and private data.
 
 ## Function keys
 
-Think is driven by function keys: F1 help, F2 send, F3 review the goal, F8 skip,
+Think is driven by function keys: F1 help, F2 send, F3 review the goal (real drafting only), F8 skip,
 F9 copy, F10 back to the menu. F4 (originals), F5 (why) and F6 (speak, local
 voice) are listed in help. On a Mac keyboard you may need to hold **fn**, or enable
 **Use F1, F2, etc. keys as standard function keys** in System Settings → Keyboard.
@@ -76,8 +76,9 @@ It returns to the menu, where `q` quits. The one exception: launched without
 Tinkery captures the mouse while it runs and releases it on exit. In think, the
 wheel scrolls the reading and the original, and dragging across your original
 selects text for Ctrl-C to copy. Because Tinkery captures the mouse, the host's own
-click-to-select usually needs a modifier (often Shift or Option); a native
-selection copies terminal cells, boxes and wrapping included.
+click-to-select needs whatever bypass modifier the host offers (Option in many
+macOS terminals). Shift works only in hosts that ignore the Shift forwarding
+request below. A native selection copies terminal cells, boxes and wrapping included.
 
 Tinkery also asks the terminal to forward Shift-clicks
 ([XTSHIFTESCAPE](https://ghostty.org/docs/vt/csi/xtshiftescape)) and restores the
