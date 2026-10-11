@@ -136,6 +136,7 @@ impl Board {
                 *value = agent_text(value);
             }
         }
+        g.parts.normalize_constraints();
         g.parts.distinct_check();
         if let Some(missing) = g.parts.missing().next() {
             g.questions

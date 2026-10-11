@@ -1891,6 +1891,8 @@ pub mod handoff;
 #[cfg(test)]
 mod help_exit_tests;
 mod intact_view;
+#[cfg(test)]
+mod intent_tests;
 mod meaning_check;
 mod question_continuity;
 #[cfg(test)]

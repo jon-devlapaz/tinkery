@@ -14,6 +14,11 @@ injected instruction appearing as another goal. The review's “Some parts remai
 open for the seed” message also needs to agree with readiness rather than sound
 like a contradictory disclaimer.
 
+**Shipped for issue #13:** explicit leading constraint prefixes, clause casing and the
+three-state no-question line ([goal block](goal-block.md#constraint-syntax),
+[think](think.md)). Concrete questions, injected-topic exclusion and operator
+dogfood remain open here.
+
 **Build:** Ask concrete, dump-specific success questions. File “Must: …must not…”
 and other negatives under Must not; strip redundant leading “must (not)” wording.
 Avoid repeating `when` or turning remembered timing into a deadline. Keep injected

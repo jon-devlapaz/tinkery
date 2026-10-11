@@ -96,22 +96,62 @@ fn clauses(text: &str) -> Vec<String> {
     parts.push(current.trim().to_owned());
     parts.into_iter().filter(|s| !s.is_empty()).collect()
 }
+/// Common words lowered when they start a later clause. Any other first word (a name,
+/// acronym, quote or number) keeps its case.
+const LOWERED: [&str; 34] = [
+    "a", "all", "also", "an", "and", "both", "but", "each", "every", "he", "her", "his", "if",
+    "it", "its", "no", "not", "or", "our", "she", "so", "some", "that", "the", "their", "then",
+    "there", "these", "they", "this", "those", "we", "you", "your",
+];
 fn prose(text: &str) -> String {
     clauses(text)
         .into_iter()
         .enumerate()
         .map(|(i, s)| {
-            if i == 0 {
-                s
-            } else {
-                let mut chars = s.chars();
-                chars.next().map_or_else(String::new, |c| {
+            let first = s.split_whitespace().next().unwrap_or_default();
+            let mut chars = s.chars();
+            match chars.next() {
+                Some(c) if i > 0 && LOWERED.contains(&first.to_lowercase().as_str()) => {
                     c.to_lowercase().collect::<String>() + chars.as_str()
-                })
+                }
+                _ => s,
             }
         })
         .collect::<Vec<_>>()
         .join("; ")
+}
+/// Explicit leading negative syntax, matched case-insensitively; see goal-block.md.
+const NEGATIVE: [&str; 4] = ["must not", "do not", "don't", "don\u{2019}t"];
+/// Words after a negative prefix that make the clause something other than an exclusion.
+const NOT_AN_EXCLUSION: [&str; 6] = ["only", "just", "necessarily", "always", "care", "mind"];
+fn after_prefix<'a>(clause: &'a str, prefix: &str) -> Option<&'a str> {
+    let rest = clause
+        .get(..prefix.len())
+        .filter(|head| head.eq_ignore_ascii_case(prefix))
+        .and_then(|_| clause[prefix.len()..].strip_prefix(char::is_whitespace))?
+        .trim_start();
+    (!rest.is_empty()).then_some(rest)
+}
+/// Where an unambiguous leading prefix puts this clause: (is an exclusion, remainder).
+fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {
+    if let Some(rest) = NEGATIVE.iter().find_map(|p| after_prefix(clause, p)) {
+        let first = rest
+            .split_whitespace()
+            .next()?
+            .trim_matches(|c: char| !c.is_alphanumeric())
+            .to_lowercase();
+        return (!NOT_AN_EXCLUSION.contains(&first.as_str())).then_some((true, rest));
+    }
+    (!negative)
+        .then(|| after_prefix(clause, "must"))
+        .flatten()
+        .filter(|rest| {
+            !rest
+                .split_whitespace()
+                .next()
+                .is_some_and(|w| w.eq_ignore_ascii_case("not"))
+        })
+        .map(|rest| (false, rest))
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GoalParts {
@@ -170,6 +210,52 @@ impl GoalParts {
             goal.push_str(&format!(", {when}"));
         }
         Some(goal)
+    }
+    /// Rewrites only explicit leading `must`/`must not`/`do not`/`don't` in constraints;
+    /// anything else, and every original source, stays as written.
+    pub(super) fn normalize_constraints(&mut self) {
+        let mut lists: [Vec<(String, bool)>; 2] = Default::default();
+        for (negative, values) in [
+            (false, std::mem::take(&mut self.must)),
+            (true, std::mem::take(&mut self.must_not)),
+        ] {
+            for value in values {
+                let split = clauses(&value);
+                let rewrites = split
+                    .iter()
+                    .map(|c| constraint_syntax(c, negative).map(|(n, rest)| (n, rest.to_owned())))
+                    .collect::<Vec<_>>();
+                if rewrites.iter().all(Option::is_none) {
+                    lists[usize::from(negative)].push((value, false));
+                    continue;
+                }
+                for (clause, rewrite) in split.into_iter().zip(rewrites) {
+                    match rewrite {
+                        Some((to, rest)) => lists[usize::from(to)].push((rest, true)),
+                        None => lists[usize::from(negative)].push((clause, false)),
+                    }
+                }
+            }
+        }
+        // A rewritten constraint already stated in its category is not repeated.
+        let [must, must_not] = lists.map(|list| {
+            let ids = list
+                .iter()
+                .map(|(v, _)| clauses(v).iter().map(|c| identity(c)).collect::<Vec<_>>())
+                .collect::<Vec<_>>();
+            list.iter()
+                .enumerate()
+                .filter(|(j, (value, rewritten))| {
+                    !rewritten
+                        || !(0..list.len()).any(|k| {
+                            k != *j && (k < *j || !list[k].1) && ids[k].contains(&identity(value))
+                        })
+                })
+                .map(|(_, (value, _))| value.clone())
+                .collect()
+        });
+        self.must = must;
+        self.must_not = must_not;
     }
     pub(super) fn distinct_check(&mut self) {
         if let Some(why) = self.get(Part::Why)
