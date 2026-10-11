@@ -29,6 +29,47 @@ Each line has one job. A constraint goes on one line, in one category. Keep othe
 goals and deferred work as separate context. Do not turn “don't care” into Must,
 negate the person's words, or promote injected instructions into their goals.
 
+## Constraint syntax
+
+Before composition, `GoalParts::normalize_constraints` rewrites one thing only: an
+explicit leading prefix on a generated constraint clause. The prefix is matched
+case-insensitively and must be followed by whitespace; the remainder keeps its spelling
+and case. Typed parts, the composed block and handoff context all use the result.
+Original sources and answers are never changed.
+
+| Leading syntax | In `must` | In `must_not` |
+| --- | --- | --- |
+| `must X` | `X` stays in Must | unchanged |
+| `must not X`, `do not X`, `don't X` (also `don’t`) | `X` moves to Must not | `X` stays in Must not |
+
+Anything else is left as written: a prefix that is not leading, a quoted phrase
+(including a `;` inside the quotes),
+other spacing or punctuation inside or after the prefix (`must  not`, `must not:`,
+`must not—…`),
+`mustn't`, or a negative prefix followed by `only`, `just`, `necessarily`, `always`,
+`care` or `mind` (“must not only support phones”, “don't care about colours”). This
+is not a negation parser; an ambiguous clause keeps its polarity.
+
+Normalization splits one stored value into separate constraints only where the next
+clause itself starts with syntax from the table (“must work offline. Must not upload
+recordings”). Every other part of a value stays together with its own wording, so
+“coordinate with Dr. Smith” is one constraint. A rewritten constraint already stated
+in the same category is not repeated (compared exactly, except the first letter's
+case, so “use IT” and “use it” are both kept).
+
+For display, a clause is split at `;` or a sentence end outside quotes (`"…"`, `“…”`,
+`'…'` or `‘…’`; a single quote opens after a space or punctuation and closes at the last
+single quote of its kind, so an apostrophe (`don’t`, `users' choices`) never ends it early). A period
+between digits, or after a lone letter or a common abbreviation (“U.S. data”, “the
+U.S. Army”, “e.g. maps”, “Dr. Smith”; the list is `ABBREVIATIONS` in `goal.rs`), is not
+a sentence end unless a capitalised constraint starts after it
+(“U.S. Do not…” splits; “the U.S. must remain…” does not).
+
+When later clauses of why, done when, the goal line or `when` are joined with `;`,
+a clause keeps its case unless its first word is one of a short list of common
+words (`the`, `it`, `both`…) written in lower or title case. Names, acronyms
+(including “IT”), quotes and numbers keep their case.
+
 `GoalParts::compose` owns composition; `confirmed_goal::goal_block` and the shared
 saved-goal renderer preserve line breaks across reading, review, receipt and shape
 detail. Confirmation freezes the **whole displayed block**, not just its headline.
@@ -49,6 +90,6 @@ stories preserve situation/motivation; Shape Up contributes no-gos. The short
 rule/why/test pattern makes these scannable without forcing one actor or “I can”.
 The older two-sentence and Keep/Avoid designs were superseded in PR #8.
 
-Remaining composer/question/message problems are explicit in
+Remaining composer and question problems are explicit in
 [goal-block polish](backlog.md#1-goal-block-polish); this contract is the target,
 not a claim that every model-generated block is already good.

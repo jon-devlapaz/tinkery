@@ -21,10 +21,26 @@ is log-only: it does not gate a valid reading, retry it, or show warning flags.
 In live mode a submitted reshape includes a shaping call and that audit, so budget
 for both. Practice and the documented suite use fakes.
 
+When no question is in focus (none left, skipped, or a part asked twice), one
+muted line says which of three states holds:
+
+| State | Line |
+| --- | --- |
+| Goal ready | Nothing I'm unsure about. Review when you're ready. |
+| A required part is missing | Still missing: Done when. Review when you're ready. (names the part) |
+| Required parts present, something else open | Some parts remain open for the seed. Review when you're ready. |
+
+The missing line names only the first missing part in the order who, outcome, why,
+done when. Without any composed goal it drops “Review when you're ready.” F1 help
+uses the same first sentence, then offers F3 only when a composed goal exists (else: type
+it, then F2 sends). If the first reading was cancelled or never applied, help says F2 tries again. Only goal content decides the state, including sent
+words not yet applied and any skipped question still unanswered; recording or
+unsent text does not change it. Review still lists everything open.
+
 Review is deliberate (F3), then typed `confirm` plus Enter. It freezes the displayed
 goal; [the receipt](shape-and-handoff.md) follows only successful saving. Review can
-carry remaining questions into the seed; the wording about open parts still needs
-review and must not be mistaken for seed/implementation approval.
+carry remaining questions and missing parts into the seed: readiness is not needed
+to save, and saving is not seed or implementation approval.
 
 ## Interaction contracts
 

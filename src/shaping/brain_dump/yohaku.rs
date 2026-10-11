@@ -209,15 +209,17 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
             ratatui::text::Line::styled(q.text.clone(), palette.jade),
         ]),
-        None if app.goal_ready() => ratatui::text::Text::styled(
-            "Nothing I'm unsure about. Review when you're ready.",
-            palette.muted,
-        ),
-        None if app.guess.is_some() && !app.running() => ratatui::text::Text::styled(
-            "Some parts remain open for the seed. Review when you're ready.",
-            palette.muted,
-        ),
-        None => ratatui::text::Text::default(),
+        None => match (open_intent(app), &app.guess) {
+            (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
+                if g.framings.is_empty() {
+                    line
+                } else {
+                    format!("{line} Review when you're ready.")
+                },
+                palette.muted,
+            ),
+            _ => ratatui::text::Text::default(),
+        },
     };
     frame.render_widget(Paragraph::new(question).wrap(Wrap { trim: false }), rows[1]);
     let input = Block::default()
@@ -288,6 +290,30 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
     }
 }
+/// With no question in focus: ready, the next missing required part, or other open context.
+/// Only goal content decides, including submitted words not yet applied; transient
+/// states such as voice or unsent text do not.
+/// Review lists everything still open; this names one thing.
+pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
+    let g = app.guess.as_ref()?;
+    Some(if let Some(part) = g.parts.missing().next() {
+        format!("Still missing: {}.", part.label())
+    } else if app.open_parts().is_empty()
+        && app.applied == app.sources.len()
+        && app.ready.is_none()
+        && app
+            .skipped
+            .iter()
+            .all(|q| app.settled.iter().any(|s| same_question(&s.question, q)))
+        && g.unresolved_notes.is_empty()
+        && g.misfits.is_empty()
+        && app.scope_pending.is_none()
+    {
+        "Nothing I'm unsure about.".into()
+    } else {
+        "Some parts remain open for the seed.".into()
+    })
+}
 pub(super) fn help_text(app: &BrainDump) -> String {
     if app.receipt.is_some() {
         return if app.help_all {
@@ -296,6 +322,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
             "Right now\nYour goal is saved. Next: shape it into a seed with Seed Me.\nc copy prompt · s open in shape · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
         };
     }
+    let open_now;
     let now = if app.handoff_job.is_some() {
         "Saving your goal. Wait a moment."
     } else if app.goal_review.is_some() {
@@ -316,8 +343,20 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "The reading failed; your words are safe.\nF2 tries again · F5 why."
     } else if app.add_more {
         "Type a new dump.\nF2 sends it."
+    } else if app.guess.is_none() && app.applied < app.sources.len() {
+        "Your words haven't been read yet.\nF2 tries again."
     } else if app.focused_question().is_none() {
-        "No question left.\nF3 reviews the goal."
+        let composed = app.guess.as_ref().is_some_and(|g| !g.framings.is_empty());
+        open_now = format!(
+            "{}\n{}",
+            open_intent(app).unwrap_or_else(|| "No question left.".into()),
+            if composed {
+                "F3 reviews the goal."
+            } else {
+                "Type it, then F2 sends."
+            }
+        );
+        open_now.as_str()
     } else {
         "Type your answer.\nF2 sends · F8 skips · F3 reviews the goal."
     };
