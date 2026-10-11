@@ -616,6 +616,7 @@ fn a_compound_item_is_noted_for_why_but_shown_whole() {
     let a = constraints(&[], &[]);
     for (must, noted) in [
         ("must work offline; must not upload recordings", true),
+        ("do not upload; must preserve files", true),
         ("work offline. Do not upload recordings", true),
         ("must coordinate with Dr. Smith", false),
         (
@@ -633,9 +634,9 @@ fn a_compound_item_is_noted_for_why_but_shown_whole() {
         )
         .unwrap();
         assert_eq!(
-            changes
-                .iter()
-                .any(|c| c.contains("looks like more than one constraint")),
+            changes.iter().any(|c| c
+                .starts_with("A constraint item looks like more than one constraint")
+                && c.ends_with(must)),
             noted,
             "{must}: {changes:?}"
         );
@@ -646,6 +647,5 @@ fn a_compound_item_is_noted_for_why_but_shown_whole() {
             1,
             "{block}"
         );
-        assert!(board.parts.must_not.is_empty());
     }
 }

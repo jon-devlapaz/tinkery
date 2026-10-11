@@ -354,12 +354,15 @@ pub(super) fn parse(
         .iter()
         .filter_map(|v| display(Some(v), "must not", changes))
         .collect();
-    for (label, values) in [("must", &parts.must), ("must not", &parts.must_not)] {
-        for value in values.iter().filter(|v| goal::looks_compound(v)) {
-            changes.push(format!(
-                "One {label} item looks like more than one constraint; shown as one line as written: {value}"
-            ));
-        }
+    for value in parts
+        .must
+        .iter()
+        .chain(&parts.must_not)
+        .filter(|v| goal::looks_compound(v))
+    {
+        changes.push(format!(
+            "A constraint item looks like more than one constraint; shown as one line as written: {value}"
+        ));
     }
     parts.distinct_check();
     let other_goals = items(obj.get("other_goals"), "other goals", changes)
