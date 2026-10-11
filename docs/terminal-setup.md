@@ -41,8 +41,9 @@ stty size
 ```
 
 Bold stays aligned, italic is readable without clipping, box corners join, and no
-letters are missing. Tinkery needs at least 80×24; smaller windows show
-"Need 80×24. Words retained." until resized.
+letters are missing. Think needs at least 80×24; in a smaller window it shows
+"Need 80×24. Words retained." until resized. The menu has no such notice and is
+simply clipped.
 
 ## Repaint problems
 
@@ -67,8 +68,8 @@ voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
 
 **Ctrl-C** copies a selection or cancels a running request; it never leaves think.
 F10 leaves think and asks first (`y` / `n`) when leaving would lose unsaved work.
-Launched with `--home`, it returns to the menu, where `q` quits; launched without
-`--home`, think is the whole session, so F10 exits Tinkery.
+It returns to the menu, where `q` quits. The one exception: launched without
+`--home`, F10 before a goal is saved exits Tinkery; after saving, it opens the menu.
 
 ## Mouse
 
@@ -127,9 +128,10 @@ cargo +stable run --locked -- --shape-pi \
 only when you mean to save real sessions. `--thinking` sets Pi's reasoning level
 (default `low`).
 
-Each send makes one shaping call and, once a valid reading is shown, one
-background audit that is log-only: at most two calls, with no automatic retry.
-F3 opens the review; typing `confirm` then Enter saves the goal to a new Seed Me
-session. Saving a goal is not seed confirmation or permission to implement, and
+A send makes at most two provider calls: one shaping call and, once a valid
+reading is shown, one log-only background audit, with no automatic retry. Some
+sends make none, such as a new dump that first asks how its words fit.
+F3 opens the review. Scroll to its end (PgDn), then type `confirm` and Enter to
+save the goal to a new Seed Me session. Saving a goal is not seed confirmation or permission to implement, and
 nothing launches an agent. See [think](design/think.md) and
 [shape and handoff](design/shape-and-handoff.md).
