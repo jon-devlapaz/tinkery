@@ -1,104 +1,138 @@
 # Terminal setup
 
-Tinkery inherits **every font face from its terminal**. It cannot install or select Paper Mono itself. No terminal/host settings or installed fonts were changed for this patch.
+Tinkery draws in whatever terminal hosts it. It takes every font face from that
+terminal and cannot install or pick one itself. This page covers the host settings
+that matter: font, function keys, mouse, clipboard and colour. Key behaviour here
+follows the in-app help (F1, then F1 again for every key); if they ever disagree,
+the help and [docs/design/](design/principles.md) win.
 
-The reported dogfood host was the **Claude Code desktop terminal panel**. The coding harness here runs under Herdr; that is not evidence about the desktop panel. Ghostty was not detected, so its instructions below are optional, not a claim about the operator's setup.
+## Font
 
-## Install Paper Mono
+Any monospace font with box-drawing glyphs works. Tinkery assumes a fixed cell grid.
+[Paper Mono](https://paper.design/mono) ([releases](https://github.com/paper-design/paper-mono/releases/latest))
+is the font it was designed with. It is SIL Open Font License 1.1 and is not bundled.
 
-1. Download the font from [Paper Mono](https://paper.design/mono), or its official [latest release](https://github.com/paper-design/paper-mono/releases/latest).
-2. On macOS, open the static TTF files in Font Book and choose **Install**. Install at least Regular and Bold; installing the whole static family is fine. Pick **Paper Mono** as the terminal's family, not a proportional font. Restart the terminal if it does not discover the new family.
-3. Leave the optional **duospace (`ss02`)** and **narrow-space (`ss03`)** features disabled. Tinkery assumes a fixed cell grid.
+- Install at least the Regular and Bold static faces, then select **Paper Mono** as
+  the terminal's font family. Restart the terminal if it does not find the family.
+- Leave its optional **duospace (`ss02`)** and **narrow-space (`ss03`)** features off.
+- Paper Mono has no italic face. Tinkery's reading is italic (a guess), so check that
+  your terminal synthesizes a slant. If it shows regular text instead, the reading
+  is still marked by its "I think you mean…" heading.
 
-The font is SIL Open Font License 1.1; it is not bundled with Tinkery. The v1.0 assets inspected here contain native Regular/Bold faces, but no native italic face. Italics depend on the terminal synthesizing a slant or showing regular text.
+Where to set it:
 
-## Set it in the actual host
+- **macOS Terminal.app:** Terminal → Settings → Profiles → Text → Font → Change.
+  Enable **Use bold fonts**.
+- **Ghostty:** add `font-family = Paper Mono` via **Settings / Open Configuration**,
+  then check `ghostty +list-fonts`. See its
+  [font configuration](https://ghostty.org/docs/config/reference).
+- **Embedded terminal panels** (editors, desktop apps): use the panel's own terminal
+  font setting if it has one. A chat or editor font setting may not apply to the
+  terminal. Otherwise use an external terminal.
+- **Multiplexers** (tmux, Herdr and similar): set the font in the outer terminal.
 
-### Claude Code desktop panel
+### Typography check
 
-An official, documented terminal-specific custom font control could not be established. Do not assume a chat font setting changes the terminal. If your desktop version exposes a **terminal font** setting, choose Paper Mono there and run the proof below. Otherwise use an external terminal with a supported font selector; no undocumented app-file/CSS edits are recommended.
-
-### macOS Terminal.app
-
-Open **Terminal → Settings → Profiles → Text → Font → Change**, select **Paper Mono**, and enable **Use bold fonts**. Set that profile as the default if you want it in new windows. Check italics in the proof below; a regular-looking italic line means that host did not synthesize it.
-
-### Ghostty (if you choose it)
-
-Use Ghostty's **Settings / Open Configuration** action rather than guessing a configuration path. Add:
-
-```ini
-font-family = Paper Mono
-```
-
-Verify discovery with `ghostty +list-fonts` (or the executable inside `Ghostty.app` if it is not on PATH), then open a new terminal. Ghostty searches the family for bold variants and documents synthesized italics when a native face is absent. Do not override bold/italic to a different family if you want Paper Mono consistently.
-
-References: [font configuration](https://ghostty.org/docs/config/reference), [Shift mouse forwarding](https://ghostty.org/docs/vt/csi/xtshiftescape).
-
-### Herdr
-
-The note-selection/menu gestures below apply to the explicit `--scratchpad` legacy prototype, not the default brain-dump intake.
-
-Set the font in the **outer terminal**, not in Tinkery or a pane. Herdr can also mediate mouse/clipboard traffic. Shift-click does not depend on the right-click forwarding setting. If the host consumes Shift-click for native text selection, use explicit **Ctrl-A** to select all notes outside editing; F2 never implicitly includes unselected notes.
-
-Tinkery requests Shift mouse forwarding while running and restores the terminal's default override behavior on exit. Hosts may ignore that request. Existing right-click forwarding is only needed for the optional note menu/right-drag gestures; no Herdr configuration was changed.
-
-## Check typography and the original glitch
-
-Run in the terminal that will host Tinkery:
+Run this in the terminal that will host Tinkery:
 
 ```sh
-printf '\033[1mDraft / Note 1 / edit — bold\033[0m\n\033[3mProvisional / italic\033[0m\n┌────────────┐\n│ Paper Mono │\n└────────────┘\n┄┄┄┄ ┆ ↑ ↓\n'
+printf '\033[1mbold line\033[0m\n\033[3mitalic line\033[0m\n┌────────────┐\n│ Paper Mono │\n└────────────┘\n┄┄┄┄ ┆ ↑ ↓\n'
 stty size
 ```
 
-Check that bold stays aligned, italic remains readable without clipping, boxes join, and none of the ASCII letters disappear. The legacy working paper's headings and field labels use bold; its provisional text uses italics. The default brain-dump panel distinguishes the agent's reading with jade. Unavailable characters in your own notes may still require the terminal's normal fallback font.
+Bold stays aligned, italic is readable without clipping, box corners join, and no
+letters are missing. Think needs at least 80×24; in a smaller window it shows
+"Need 80×24. Words retained." until resized. The menu has no such notice and is
+simply clipped.
 
-The inspected Regular/Bold font files contain the UI's box/dashed glyphs at the same advance width as ASCII. They lack Pinstar's double diagonal corner arrows, so Tinkery projects those selection markers onto supported box corners. This proves glyph coverage/metrics, **not visual correctness in the operator's host**.
+## Repaint problems
 
-Missing ASCII in the desktop panel has not been reproduced in differential buffers or the POSIX PTY journeys. Frames now use synchronized updates. **Ctrl-L** requests a full repaint without changing notes, selection, paper, or provider requests. If the problem persists, try **`--full-redraw`** (more terminal output; unsupported synchronized updates may flicker). Neither is yet a confirmed fix for that panel.
+Frames use synchronized updates. If the view looks damaged (missing letters,
+stale cells), press **Ctrl-L** to repaint; it changes nothing else. If damage
+persists, launch with `--full-redraw`, which repaints every frame at the cost of
+more terminal output. When reporting a rendering problem, include the terminal and
+its version, `stty size`, the selected font, and a screenshot before and after
+Ctrl-L. Leave out credentials and private data.
 
-For a useful report, record the desktop/terminal version, `stty size`, whether Paper Mono is actually selected, and a screenshot before/after Ctrl-L. Compare the same case in an external terminal if possible. Do not include credentials or private bookmarks.
+## Function keys
 
-## Default brain-dump intake
+Think is driven by function keys: F1 help, F2 send, F3 review the goal (real drafting only), F8 skip,
+F9 copy, F10 back to the menu. F4 (originals), F5 (why) and F6 (speak, local
+voice) are listed in help. On a Mac keyboard you may need to hold **fn**, or enable
+**Use F1, F2, etc. keys as standard function keys** in System Settings → Keyboard.
+The terminal must also pass function keys through rather than binding them itself.
 
-- Start with **What's on your mind?** Type freely; **Enter** inserts a newline, **F2** submits. No provider request or interpretation before submit.
-- After submission, exact fragments and a provisional centre reading appear. Answer the focused question or **Ctrl-N** to add another dump; F2 reshapes. A reply arriving during new typing waits for the next submit.
-- **Ctrl-O** opens intact originals; **Esc** closes. **Tab** switches input/board focus. **Ctrl-D** or the visible header control opens details from any focus (including originals/help); plain `d` remains text in the input. On the board: **d** toggles details, **s** skips the focused question, **y** explicitly copies board Markdown, and **q** exits. **Ctrl-C** exits from input.
-- Drag fragment cards to arrange them; later responses retain existing positions. Double borders highlight the current reading's supporting words; **[ / ]** on the board switches the highlighted reading without answering or confirming. Misfit cards are marked **doesn't fit yet**; **… Ctrl-O** flags clipped text. Card titles/ID lists are absent from the default view. **Ctrl-F** on the board explicitly fits the view. **PageUp/PageDown** scroll the agent reading.
-- **Esc** cancels an active request; failure/cancellation retains originals and the previous reading. F2 is an explicit retry. Nothing is saved, confirmed, or handed off.
-- No answer choices in this slice. Clusters, relationships, settled strip, centre editing, and confirmation are not implemented.
+Ctrl aliases exist for hosts that capture function keys: **Ctrl-N** new dump
+(also Shift-F2), **Ctrl-G** review, **Ctrl-O** originals, **Ctrl-D** why. Local
+voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
 
-## Legacy paper selection (`--scratchpad`)
+**Ctrl-C** copies a selection or cancels a running request; it never leaves think.
+F10 leaves think and asks first (`y` / `n`) when leaving would lose unsaved work.
+It returns to the menu, where `q` quits. The one exception: launched without
+`--home`, F10 before a goal is saved exits Tinkery; after saving, it opens the menu.
 
-- **Shift-click** toggles notes; **Ctrl-A** selects all notes outside editing. Double-click edits a note. Selection survives F2.
-- Drag **inside the paper body** to select complete logical Markdown lines/paragraphs, including their wrapped display rows. This is line selection, not character-level selection. **Esc** clears it without closing the paper.
-- **y**, outside text editing, copies selected paper lines—or the entire paper when there is no selection. The **y copy** button also works while writing feedback.
-- Copy uses the original Markdown, not terminal cells: headings/emphasis are retained, with no UI boxes or artificial wrap breaks. It is an explicit clipboard export, not a saved seed. Ctrl-S still does not save anything.
-- The copy limit is 128 KiB; oversize selections are rejected, never silently truncated.
+## Mouse
 
-OSC 52 requires both the terminal and any multiplexer to allow clipboard writes. The message says **“Clipboard escape sent; host may require permission”**, not that the system clipboard was verified. Test by pasting into a scratch editor. Tinkery does not read the clipboard or change permissions. Native terminal mouse-copy may include wrapping/boxes; use **y** for clean Markdown.
+Tinkery captures the mouse while it runs and releases it on exit. In think, the
+wheel scrolls the reading and the original, and dragging across your original
+selects text for Ctrl-C to copy. Because Tinkery captures the mouse, the host's own
+click-to-select needs whatever bypass modifier the host offers (Option in many
+macOS terminals). Shift works only in hosts that ignore the Shift forwarding
+request below. A native selection copies terminal cells, boxes and wrapping included.
+
+Tinkery also asks the terminal to forward Shift-clicks
+([XTSHIFTESCAPE](https://ghostty.org/docs/vt/csi/xtshiftescape)) and restores the
+default on exit. Hosts may ignore that request. Right-click and Shift-click
+forwarding are only used by the legacy `--scratchpad` prototype (note menu,
+right-drag, Shift-click to toggle notes); think does not need them. If a
+multiplexer consumes those clicks, scratchpad's **Ctrl-A** selects all notes instead.
+
+## Clipboard (OSC 52)
+
+Copying (F9 in think, `c` on the receipt and in shape) sends text through the OSC 52
+escape. Tinkery cannot confirm the host clipboard changed. F9 says so ("Copy sent;
+host may require clipboard permission"); the receipt and shape just say "Copied."
+once the escape is written. Either way, both the terminal and any multiplexer must
+allow clipboard writes. Test by pasting into a scratch editor.
+Tinkery never reads the clipboard or changes host permissions. In think, a copy
+over 128 KiB is refused, never truncated.
+
+## Colour
+
+Tinkery uses colour for meaning (see the colour table in [the constitution](yohaku.md))
+but never only colour. Set `NO_COLOR=1` or pass `--no-color` and the same meanings
+carry through bold, dim and underline. The palette is light; dark mode is not built.
 
 ## Launch
 
-Seed Me's canonical home is [jon-devlapaz/seed-me](https://github.com/jon-devlapaz/seed-me), at `skills/seed-me/`. Clone it locally if missing; do not move/delete the historical tink-skills checkout:
+From the repository root, practice mode needs no providers and saves nothing:
 
 ```sh
-git clone https://github.com/jon-devlapaz/seed-me.git "$HOME/dev/active/factory/seed-me"
+cargo +stable run --locked -- --home
 ```
 
-For tests, add `--seed-session-root "$(mktemp -d /tmp/tinkery-TEST-goal-XXXXXX)"`; only explicitly affirmed goals create sessions. The canonical viewer fix is merged; CI pins `1a2f31a136d53bceff51ae8c2e0e787c1a8a90bb`. For matching dogfood behavior, check out that commit in the local clone. PR#3 is merged; PR#4 remains unmerged. Goal confirmation is not seed confirmation.
+Without `--home` the binary opens think directly. `--help` lists every option.
+
+Real drafting sends your submitted words to a model and can cost money. It needs
+an explicit budget from the operator, Pi, an explicit model, and a Seed Me
+checkout. `./scripts/cloud-setup.sh` checks out the Seed Me commit CI pins into
+`.ci-seed-me/`:
 
 ```sh
-cargo run --locked -- --shape-pi \
-  --model openai-codex/gpt-5.6-luna \
-  --thinking low \
-  --seed-me "$HOME/dev/active/factory/seed-me/skills/seed-me/SKILL.md"
+cargo +stable run --locked -- --shape-pi \
+  --model provider/model-id \
+  --seed-me .ci-seed-me/skills/seed-me/SKILL.md \
+  --seed-session-root "$(mktemp -d /tmp/tinkery-TEST-goal-XXXXXX)"
 ```
 
-Real mode defaults to **low** reasoning, selectable with `--thinking`; Pi clamps it to model capabilities. The separately authorized log-only eval uses Pi's native default by omitting that override. Earlier exploratory `off` runs included a malformed response; none of these settings proves reliability.
+`--seed-session-root` keeps trial sessions in a temporary directory; leave it out
+only when you mean to save real sessions. `--thinking` sets Pi's reasoning level
+(default `low`).
 
-F2 explicitly submits. One bounded shaping call precedes display; after valid output appears, one background meaning/continuity audit runs **log-only**. At most two provider calls per send, without automatic repair or retry. Exact spans, schema, request-size limits and application-owned history remain deterministic guards. Semantic findings, malformed audits, and audit failures cannot change a reading, withhold questions or block confirmation. Check decisions, coverage locations, timings and raw responses remain in Why / How it works. No advisory flags are enabled pending operator review of the eval logs.
-
-F1 help; F2 send; F3 review; F4 originals; F5 why; F6 writing/board; F7 reading; F8 skip (board u undoes); F9 copy; F10 guarded exit. Shift-F2 / Ctrl-N selects a separate dump; added words remain unresolved until their scope question is answered. Existing aliases remain. Mac keyboards may require fn or the standard function keys setting. From help, b toggles a muted key bar, off by default and remembered only for this run. No content is displaced.
-
-Default launch remains simulated and unsaved. In real mode, **F3 / Ctrl-G** or clicking Review goal opens the complete review with remaining questions and a Back action. Type `confirm` then Enter after reviewing to create the real goal-only Seed Me session. Questions, including an unresolved added-words scope question, do not block affirmation. Unscoped additions stay outside the reading, remain visible as unresolved, and appear in the review's Still open list; skipping is not permission to absorb them. Confirmation is separate from F2 and never confirms a seed. Nothing implements the bookmarks idea.
+A send makes at most two provider calls: one shaping call and, once a valid
+reading is shown, one log-only background audit, with no automatic retry. Some
+sends make none, such as a new dump that first asks how its words fit.
+F3 opens the review. Scroll to its end (PgDn), then type `confirm` and Enter to
+save the goal to a new Seed Me session. Saving a goal is not seed confirmation or permission to implement, and
+nothing launches an agent. See [think](design/think.md) and
+[shape and handoff](design/shape-and-handoff.md).
