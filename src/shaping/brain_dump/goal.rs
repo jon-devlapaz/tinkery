@@ -69,16 +69,27 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
         .trim_end_matches(['.', ',', ';'])
         .chars()
         .collect::<Vec<_>>();
+    // A single quote (straight or curly) closes only at the last one of its kind that
+    // isn't an apostrophe inside a word ("don’t"), so a possessive ("users' choices")
+    // inside a quotation doesn't end it early.
+    let closes = |kind: char| {
+        (0..chars.len())
+            .rev()
+            .find(|&n| chars[n] == kind && !chars.get(n + 1).is_some_and(|c| c.is_alphanumeric()))
+    };
+    let (last_straight, last_curly) = (closes('\''), closes('’'));
     let mut quote = None;
     let mut parts = vec![];
     let mut current = String::new();
     for (i, &c) in chars.iter().enumerate() {
         let previous = i.checked_sub(1).and_then(|n| chars.get(n)).copied();
         let next = chars.get(i + 1).copied();
-        // A single quote (straight or curly) closes only where it isn't an apostrophe
-        // inside a word, as in "don’t".
-        let apostrophe = matches!(c, '\'' | '’') && next.is_some_and(char::is_alphanumeric);
-        if quote == Some(c) && !apostrophe {
+        let closing = match c {
+            '\'' => last_straight == Some(i),
+            '’' => last_curly == Some(i),
+            _ => true,
+        };
+        if quote == Some(c) && closing {
             quote = None;
         } else if quote.is_none()
             && (c == '"'
@@ -197,12 +208,21 @@ fn after_prefix<'a>(clause: &'a str, prefix: &str) -> Option<&'a str> {
 }
 /// Whether `chars` (after any whitespace) begins with constraint syntax that rewriting
 /// accepts (`constraint_syntax`), read from a bounded head so it never copies the rest.
+/// 32 visible characters cover any supported prefix plus the word after it.
 fn starts_with_syntax(chars: &[char]) -> bool {
     let start = chars
         .iter()
         .position(|c| !c.is_whitespace())
         .unwrap_or(chars.len());
-    let head = chars[start..].iter().take(64).collect::<String>();
+    // Bounded by visible characters only, so long runs of spaces never cut the payload.
+    let mut visible = 0;
+    let head = chars[start..]
+        .iter()
+        .take_while(|c| {
+            visible += usize::from(!c.is_whitespace());
+            visible <= 32
+        })
+        .collect::<String>();
     constraint_syntax(&head, false).is_some()
 }
 /// Where an unambiguous leading prefix puts this clause: (is an exclusion, remainder).

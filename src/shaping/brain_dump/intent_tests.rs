@@ -209,6 +209,29 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: display (‘must work offline; must not upload recordings’) verbatim.",
         ),
         (
+            &[
+                "must work offline. Must not                                                            upload logs",
+            ],
+            &[],
+            &["work offline"],
+            &["upload logs"],
+            "Must: work offline.\nMust not: upload logs.",
+        ),
+        (
+            &["must display 'users' choices; must not upload' verbatim"],
+            &[],
+            &["display 'users' choices; must not upload' verbatim"],
+            &[],
+            "Must: display 'users' choices; must not upload' verbatim.",
+        ),
+        (
+            &["must display ‘users’ choices; must not upload’ verbatim"],
+            &[],
+            &["display ‘users’ choices; must not upload’ verbatim"],
+            &[],
+            "Must: display ‘users’ choices; must not upload’ verbatim.",
+        ),
+        (
             &["must keep café 👩‍💻 names"],
             &[],
             &["keep café 👩‍💻 names"],
@@ -572,4 +595,21 @@ fn clause_splitting_stays_linear_on_many_initials() {
         "{:?}",
         started.elapsed()
     );
+}
+#[test]
+fn a_cancelled_first_reading_offers_f2_retry_not_more_typing() {
+    let mut a =
+        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    a.sources.push(Source {
+        id: 1,
+        text: SOURCE.into(),
+        in_reply_to: None,
+    });
+    assert!(a.guess.is_none() && a.applied < a.sources.len() && !a.running());
+    let help = yohaku::help_text(&a);
+    assert!(
+        help.contains("Your words haven't been read yet.\nF2 tries again."),
+        "{help}"
+    );
+    assert!(!help.contains("Type it") && !help.contains("F3 reviews"));
 }

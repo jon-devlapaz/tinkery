@@ -57,8 +57,8 @@ recordings”). Every other part of a value stays together with its own wording,
 in the same category is not repeated.
 
 For display, a clause is split at `;` or a sentence end outside quotes (`"…"`, `“…”`,
-`'…'` or `‘…’`; a single quote opens after a space or punctuation, and an apostrophe
-inside a word, as in `don’t`, neither opens nor closes one). A period
+`'…'` or `‘…’`; a single quote opens after a space or punctuation and closes at the last
+single quote of its kind, so an apostrophe (`don’t`, `users' choices`) never ends it early). A period
 between digits, or after a lone letter or a common abbreviation (“U.S. data”, “the
 U.S. Army”, “e.g. maps”, “Dr. Smith”; the list is `ABBREVIATIONS` in `goal.rs`), is not
 a sentence end unless a capitalised constraint starts after it

@@ -343,6 +343,8 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "The reading failed; your words are safe.\nF2 tries again · F5 why."
     } else if app.add_more {
         "Type a new dump.\nF2 sends it."
+    } else if app.guess.is_none() && app.applied < app.sources.len() {
+        "Your words haven't been read yet.\nF2 tries again."
     } else if app.focused_question().is_none() {
         let composed = app.guess.as_ref().is_some_and(|g| !g.framings.is_empty());
         open_now = format!(

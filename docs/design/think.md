@@ -33,7 +33,7 @@ muted line says which of three states holds:
 The missing line names only the first missing part in the order who, outcome, why,
 done when. Without any composed goal it drops “Review when you're ready.” F1 help
 uses the same first sentence, then offers F3 only when a composed goal exists (else: type
-it, then F2 sends). Only goal content decides the state, including sent
+it, then F2 sends). If the first reading was cancelled or never applied, help says F2 tries again. Only goal content decides the state, including sent
 words not yet applied and any skipped question still unanswered; recording or
 unsent text does not change it. Review still lists everything open.
 
