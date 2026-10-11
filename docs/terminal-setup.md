@@ -66,8 +66,9 @@ Ctrl aliases exist for hosts that capture function keys: **Ctrl-N** new dump
 voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
 
 **Ctrl-C** copies a selection or cancels a running request; it never leaves think.
-F10 returns to the menu and asks first (`y` / `n`) when leaving would lose unsaved
-work. From the menu, `q` quits.
+F10 leaves think and asks first (`y` / `n`) when leaving would lose unsaved work.
+Launched with `--home`, it returns to the menu, where `q` quits; launched without
+`--home`, think is the whole session, so F10 exits Tinkery.
 
 ## Mouse
 
@@ -87,9 +88,10 @@ multiplexer consumes those clicks, scratchpad's **Ctrl-A** selects all notes ins
 ## Clipboard (OSC 52)
 
 Copying (F9 in think, `c` on the receipt and in shape) sends text through the OSC 52
-escape. Tinkery cannot confirm it arrived, so the message says the copy was
-*sent* and the host may require clipboard permission. Both the terminal and any
-multiplexer must allow clipboard writes. Test by pasting into a scratch editor.
+escape. Tinkery cannot confirm the host clipboard changed. F9 says so ("Copy sent;
+host may require clipboard permission"); the receipt and shape just say "Copied."
+once the escape is written. Either way, both the terminal and any multiplexer must
+allow clipboard writes. Test by pasting into a scratch editor.
 Tinkery never reads the clipboard or changes host permissions. In think, a copy
 over 128 KiB is refused, never truncated.
 
