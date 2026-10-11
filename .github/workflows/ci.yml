@@ -26,10 +26,12 @@ jobs:
           python-version: '3.13'
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Tests (Tinkery and vendored Pinstar)
         run: cargo test --workspace --locked
+      - name: Formatting
+        run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build
@@ -46,3 +48,40 @@ jobs:
             case "$t" in tests/vt_screen.py) continue;; esac
             echo "== $t"; python3 "$t"
           done
+  cold-clone:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Fresh Linux clone, idempotent setup, documented commands
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates
+          export HOME=$(mktemp -d "$RUNNER_TEMP/tinkery-home.XXXXXX")
+          unset CARGO_HOME RUSTUP_HOME
+          cold=$(mktemp -d "$RUNNER_TEMP/tinkery-cold.XXXXXX")
+          git clone --single-branch --branch "$HEAD_REF" "$HEAD_REPO" "$cold"
+          cd "$cold"
+          git checkout --detach "$HEAD_SHA"
+          echo "Cold source: $(git rev-parse HEAD)"
+          ./scripts/cloud-setup.sh
+          ./scripts/cloud-setup.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path('CLAUDE.md').read_text().split('<!-- full-check:start -->', 1)[1].split('<!-- full-check:end -->', 1)[0]
+          blocks = re.findall(r'```bash\n(.*?)\n```', source, re.S)
+          assert len(blocks) == 1, 'Expected exactly one documented verification block'
+          Path('/tmp/tinkery-cold-check.sh').write_text(blocks[0] + '\n')
+          PY
+          bash -euo pipefail /tmp/tinkery-cold-check.sh
+          test -z "$(git status --porcelain --untracked-files=all)"
