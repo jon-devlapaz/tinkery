@@ -83,7 +83,7 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
         } else if quote.is_none()
             && (c == '"'
                 || c == '“'
-                || (matches!(c, '\'' | '‘') && previous.is_none_or(char::is_whitespace)))
+                || (matches!(c, '\'' | '‘') && !previous.is_some_and(char::is_alphanumeric)))
         {
             quote = Some(match c {
                 '“' => '”',
@@ -97,13 +97,16 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
         // A period after a lone letter or a common abbreviation ("U.S. data", "e.g. maps",
         // "Dr. Smith") is not a clause end unless explicit constraint syntax follows
         // ("U.S. Do not upload").
-        let word = chars[..i]
-            .iter()
-            .rev()
-            .take_while(|c| c.is_alphabetic())
-            .count();
-        let initial = c == '.'
-            && word > 0
+        let word = if c == '.' {
+            chars[..i]
+                .iter()
+                .rev()
+                .take_while(|c| c.is_alphabetic())
+                .count()
+        } else {
+            0
+        };
+        let initial = word > 0
             && (word == 1 || {
                 let w = chars[i - word..i].iter().collect::<String>();
                 ABBREVIATIONS.iter().any(|a| a.eq_ignore_ascii_case(&w))
@@ -111,7 +114,7 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
             && (i - word)
                 .checked_sub(1)
                 .and_then(|n| chars.get(n))
-                .is_none_or(|&c| c == '.' || c.is_whitespace())
+                .is_none_or(|c| !c.is_alphanumeric())
             && !starts_with_syntax(&chars[i + 1..]);
         if quote.is_none()
             && (c == ';'
@@ -188,24 +191,15 @@ fn after_prefix<'a>(clause: &'a str, prefix: &str) -> Option<&'a str> {
         .trim_start();
     (!rest.is_empty()).then_some(rest)
 }
-/// Whether `chars` (after any whitespace) begins with supported constraint syntax,
-/// checked in place: same rule as `after_prefix`, without copying the text.
+/// Whether `chars` (after any whitespace) begins with constraint syntax that rewriting
+/// accepts (`constraint_syntax`), read from a bounded head so it never copies the rest.
 fn starts_with_syntax(chars: &[char]) -> bool {
     let start = chars
         .iter()
         .position(|c| !c.is_whitespace())
         .unwrap_or(chars.len());
-    let rest = &chars[start..];
-    NEGATIVE.iter().chain(&["must"]).any(|p| {
-        let n = p.chars().count();
-        rest.len() > n
-            && rest
-                .iter()
-                .zip(p.chars())
-                .all(|(a, b)| a.eq_ignore_ascii_case(&b))
-            && rest[n].is_whitespace()
-            && rest[n..].iter().any(|c| !c.is_whitespace())
-    })
+    let head = chars[start..].iter().take(64).collect::<String>();
+    constraint_syntax(&head, false).is_some()
 }
 /// Where an unambiguous leading prefix puts this clause: (is an exclusion, remainder).
 fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {

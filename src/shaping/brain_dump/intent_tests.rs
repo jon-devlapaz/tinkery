@@ -188,6 +188,27 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: ask Prof. Lee, Mrs. Diaz etc. first.\nMust not: email Mr. Ng.",
         ),
         (
+            &["must ask (Dr. Smith) before proceeding"],
+            &[],
+            &["ask (Dr. Smith) before proceeding"],
+            &[],
+            "Must: ask (Dr. Smith) before proceeding.",
+        ),
+        (
+            &["must coordinate with the U.S. Must not: upload logs"],
+            &[],
+            &["coordinate with the U.S. Must not: upload logs"],
+            &[],
+            "Must: coordinate with the U.S. Must not: upload logs.",
+        ),
+        (
+            &["must display (‘must work offline; must not upload recordings’) verbatim"],
+            &[],
+            &["display (‘must work offline; must not upload recordings’) verbatim"],
+            &[],
+            "Must: display (‘must work offline; must not upload recordings’) verbatim.",
+        ),
+        (
             &["must keep café 👩‍💻 names"],
             &[],
             &["keep café 👩‍💻 names"],
@@ -499,6 +520,25 @@ fn many_distinct_prefixed_constraints_normalize_in_linear_time() {
     p.normalize_constraints();
     assert_eq!(p.must.len(), 4000);
     assert_eq!(p.must[3999], "3999");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(1),
+        "{:?}",
+        started.elapsed()
+    );
+}
+#[test]
+fn clause_splitting_stays_linear_on_one_long_word() {
+    let long = "a".repeat(32 * 1024);
+    let mut p = GoalParts {
+        who: Some("I".into()),
+        outcome: Some("read".into()),
+        why: Some(long.clone()),
+        must: vec![format!("must {long}")],
+        ..Default::default()
+    };
+    let started = std::time::Instant::now();
+    p.normalize_constraints();
+    assert!(p.compose().is_some());
     assert!(
         started.elapsed() < std::time::Duration::from_secs(1),
         "{:?}",
