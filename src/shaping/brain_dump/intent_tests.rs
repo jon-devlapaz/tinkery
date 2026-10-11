@@ -446,3 +446,41 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
     );
     assert_eq!(a.sources[1].text, "also sync over wifi only");
 }
+#[test]
+fn a_skipped_question_without_a_target_keeps_the_goal_open() {
+    let mut a = constraints(&["must work offline"], &[]);
+    assert!(yohaku::open_intent(&a).unwrap().starts_with("Nothing"));
+    a.skipped.push(Question {
+        target: None,
+        id: "priority".into(),
+        text: "Which goal comes first?".into(),
+    });
+    for screen in screens(&mut a) {
+        assert!(
+            screen.contains("Some parts remain open for the seed."),
+            "{screen}"
+        );
+        assert!(!screen.contains("Nothing I'm unsure"));
+    }
+    review_lists_and_saves(&mut a, &["Which goal comes first?"]);
+}
+#[test]
+fn clause_splitting_stays_linear_on_many_initials() {
+    let long = "A. ".repeat(32 * 1024 / 3);
+    let p = GoalParts {
+        who: Some("I".into()),
+        outcome: Some("read".into()),
+        why: Some(long.clone()),
+        must: vec![format!("must {long}")],
+        ..Default::default()
+    };
+    let started = std::time::Instant::now();
+    let mut parts = p.clone();
+    parts.normalize_constraints();
+    assert!(parts.compose().is_some());
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(1),
+        "{:?}",
+        started.elapsed()
+    );
+}

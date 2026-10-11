@@ -301,6 +301,10 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
     } else if app.open_parts().is_empty()
         && app.applied == app.sources.len()
         && app.ready.is_none()
+        && app
+            .skipped
+            .iter()
+            .all(|q| app.settled.iter().any(|s| same_question(&s.question, q)))
         && g.unresolved_notes.is_empty()
         && g.misfits.is_empty()
         && app.scope_pending.is_none()

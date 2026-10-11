@@ -88,14 +88,7 @@ fn clauses(text: &str) -> Vec<String> {
             && i.checked_sub(2)
                 .and_then(|n| chars.get(n))
                 .is_none_or(|&c| c == '.' || c.is_whitespace())
-            && {
-                let rest = chars[i + 1..].iter().collect::<String>();
-                let rest = rest.trim_start();
-                !NEGATIVE
-                    .iter()
-                    .chain(&["must"])
-                    .any(|p| after_prefix(rest, p).is_some())
-            };
+            && !starts_with_syntax(&chars[i + 1..]);
         if quote.is_none()
             && (c == ';'
                 || (matches!(c, '.' | '!' | '?')
@@ -151,6 +144,25 @@ fn after_prefix<'a>(clause: &'a str, prefix: &str) -> Option<&'a str> {
         .and_then(|_| clause[prefix.len()..].strip_prefix(char::is_whitespace))?
         .trim_start();
     (!rest.is_empty()).then_some(rest)
+}
+/// Whether `chars` (after any whitespace) begins with supported constraint syntax,
+/// checked in place: same rule as `after_prefix`, without copying the text.
+fn starts_with_syntax(chars: &[char]) -> bool {
+    let start = chars
+        .iter()
+        .position(|c| !c.is_whitespace())
+        .unwrap_or(chars.len());
+    let rest = &chars[start..];
+    NEGATIVE.iter().chain(&["must"]).any(|p| {
+        let n = p.chars().count();
+        rest.len() > n
+            && rest
+                .iter()
+                .zip(p.chars())
+                .all(|(a, b)| a.eq_ignore_ascii_case(&b))
+            && rest[n].is_whitespace()
+            && rest[n..].iter().any(|c| !c.is_whitespace())
+    })
 }
 /// Where an unambiguous leading prefix puts this clause: (is an exclusion, remainder).
 fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {
