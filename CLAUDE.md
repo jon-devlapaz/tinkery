@@ -28,6 +28,10 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
   important protections go red when reverted. Restore the protection afterward.
 - Update `docs/design/` when decisions change. Read the relevant design below
   before implementation; backlog proposals are not shipped behavior or build permission.
+- Leave the repository at rest ("git equanimity"): on `main`, matching `origin/main` after a fetch,
+  clean, with no stashes, extra worktrees or leftover branches. While a PR is open, say so instead of
+  cleaning it up. Delete only merged branches (`git branch -d`); never force-delete, drop stashes or
+  remove worktrees to look clean.
 
 ## Layout and design entry points
 
