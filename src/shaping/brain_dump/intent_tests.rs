@@ -232,6 +232,20 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: display ‘users’ choices; must not upload’ verbatim.",
         ),
         (
+            &["use it", "must use IT"],
+            &[],
+            &["use it", "use IT"],
+            &[],
+            "Must: use it.\nMust: use IT.",
+        ),
+        (
+            &["must not Upload recordings"],
+            &["upload recordings"],
+            &[],
+            &["upload recordings"],
+            "Must not: upload recordings.",
+        ),
+        (
             &["must keep café 👩‍💻 names"],
             &[],
             &["keep café 👩‍💻 names"],
@@ -270,6 +284,8 @@ fn ambiguous_or_quoted_negation_is_left_unchanged() {
         (&["mustard yellow headers"], &[]),
         (&["must  not upload recordings"], &[]),
         (&["must not: upload recordings"], &[]),
+        (&["must not necessarily—at first—support tablets"], &[]),
+        (&[], &["don't care—really—about colours"]),
         (&["must not—under any circumstances—upload recordings"], &[]),
         (&["service in the U.S. must remain available"], &[]),
         (

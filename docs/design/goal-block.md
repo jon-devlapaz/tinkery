@@ -54,7 +54,8 @@ Normalization splits one stored value into separate constraints only where the n
 clause itself starts with syntax from the table (“must work offline. Must not upload
 recordings”). Every other part of a value stays together with its own wording, so
 “coordinate with Dr. Smith” is one constraint. A rewritten constraint already stated
-in the same category is not repeated.
+in the same category is not repeated (compared exactly, except the first letter's
+case, so “use IT” and “use it” are both kept).
 
 For display, a clause is split at `;` or a sentence end outside quotes (`"…"`, `“…”`,
 `'…'` or `‘…’`; a single quote opens after a space or punctuation and closes at the last

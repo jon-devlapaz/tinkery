@@ -59,6 +59,21 @@ pub(super) fn identity(text: &str) -> String {
         .join(" ")
         .to_lowercase()
 }
+/// Constraint identity for de-duplication: like `identity`, but only the first letter is
+/// case-folded, so "Upload logs" matches "upload logs" while "use IT" stays distinct
+/// from "use it".
+fn constraint_identity(text: &str) -> String {
+    let joined = text
+        .trim()
+        .trim_end_matches(['.', ',', ';', '!', '?'])
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut chars = joined.chars();
+    chars.next().map_or_else(String::new, |c| {
+        c.to_lowercase().collect::<String>() + chars.as_str()
+    })
+}
 fn clauses(text: &str) -> Vec<String> {
     ended_clauses(text).into_iter().map(|(s, _)| s).collect()
 }
@@ -228,10 +243,11 @@ fn starts_with_syntax(chars: &[char]) -> bool {
 /// Where an unambiguous leading prefix puts this clause: (is an exclusion, remainder).
 fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {
     if let Some(rest) = NEGATIVE.iter().find_map(|p| after_prefix(clause, p)) {
+        // The qualifier is the leading letters/digits, so "necessarily—at" still reads
+        // as "necessarily".
         let first = rest
-            .split_whitespace()
-            .next()?
-            .trim_matches(|c: char| !c.is_alphanumeric())
+            .split(|c: char| !c.is_alphanumeric())
+            .find(|w| !w.is_empty())?
             .to_lowercase();
         return (!NOT_AN_EXCLUSION.contains(&first.as_str())).then_some((true, rest));
     }
@@ -333,7 +349,12 @@ impl GoalParts {
         // A rewritten constraint already stated in its category is not repeated: one
         // pass over the identities of every unrewritten entry and earlier rewrites.
         let [must, must_not] = lists.map(|list| {
-            let ids = |v: &str| clauses(v).iter().map(|c| identity(c)).collect::<Vec<_>>();
+            let ids = |v: &str| {
+                clauses(v)
+                    .iter()
+                    .map(|c| constraint_identity(c))
+                    .collect::<Vec<_>>()
+            };
             let mut stated = list
                 .iter()
                 .filter(|(_, rewritten)| !rewritten)
@@ -393,7 +414,7 @@ impl GoalParts {
         for (label, values) in [("Must", &self.must), ("Must not", &self.must_not)] {
             let mut seen = std::collections::BTreeSet::new();
             for value in values.iter().flat_map(|s| clauses(s)) {
-                if seen.insert(identity(&value)) {
+                if seen.insert(constraint_identity(&value)) {
                     lines.push(finish(format!("{label}: {value}")));
                 }
             }
