@@ -120,12 +120,27 @@ def journey(width,height,home=False,menu_only=False):
    else:
     # Make the target non-first with the official helper, not hand-written canonical files.
     newer=Path(helper('init','--root',root)['session'])
-    send(b's','tinkery › shape')
-    assert 'Continue with Seed Me in any harness' not in screen.text()
-    send(b'\r','Continue with Seed Me in any harness')
-    assert session.name in screen.text().replace(' ','').replace('\n',''),screen.text()
-    assert newer.name not in screen.text()
-    send(b'\x1b','tinkery › shape');send(b'\x1b','think')
+    send(b's','c copy prompt   esc back   10 menu')
+    assert 'tinkery › shape' in screen.text()
+    assert 'Saved.' not in screen.text() and 'any harness' not in screen.text()
+    assert str(root) not in screen.text() and session.name not in screen.text()
+    shape_block=' '.join(screen.text().split())
+    for line in ledger['goal'].splitlines(): assert line in shape_block,(line,screen.text())
+    # Copy again after leaving the receipt, and repeat it without launching anything.
+    before=len(re.findall(rb'\x1b\]52;c;([^\x07\x1b]+)(?:\x07|\x1b\\)',bytes(raw)))
+    for extra in [1,2]:
+     os.write(master,b'c');deadline=time.monotonic()+5
+     while time.monotonic()<deadline:
+      if select.select([master],[],[],.02)[0]:feed()
+      copied=re.findall(rb'\x1b\]52;c;([^\x07\x1b]+)(?:\x07|\x1b\\)',bytes(raw))
+      if len(copied)>=before+extra:break
+     assert len(copied)==before+extra and base64.b64decode(copied[-1]).decode()==expected
+    await_text('Copied.')
+    send(b'\x1b','↑↓ move   enter open   esc back')
+    assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
+    send(b'\r','c copy prompt   esc back   10 menu')
+    assert 'Must not: build a dashboard.' in screen.text()
+    send(b'\x1b[21~','think')
    assert (session/'ledger.json').read_bytes()==saved
    assert helper('status',session)['viewer']=='started earlier, not running now'
    assert not descendants() and (cwd/'provider-calls').read_bytes()==calls

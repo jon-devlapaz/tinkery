@@ -2,6 +2,7 @@ pub mod brain_dump;
 mod canvas;
 #[cfg(test)]
 mod canvas_tests;
+pub mod confirmed_goal;
 pub mod drafting;
 mod note;
 mod response;

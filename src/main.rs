@@ -130,6 +130,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Box::new(move || make_dump().with_voice(Box::new(tinkery::voice::ProcessHost::new())))
         };
         let mut menu = Home::new(make_dump, sessions_root, substrate_dir);
+        if let Some(skill) = goal_skill {
+            menu = menu.with_seed_me(skill.canonicalize()?);
+        }
         if snapshot {
             println!("{}", home::snapshot(100, 30, &mut menu, no_color)?);
             return Ok(());

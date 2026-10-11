@@ -50,11 +50,7 @@ impl Receipt {
         }
     }
     pub fn continuation_prompt(&self) -> String {
-        format!(
-            "Use the seed-me skill at \"{}\" to continue the existing Seed Me session at \"{}\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.",
-            self.skill.display(),
-            self.session.display()
-        )
+        continuation_prompt(&self.skill, &self.session)
     }
     pub fn text(&self) -> String {
         format!(
@@ -82,6 +78,13 @@ impl Drop for Receipt {
     fn drop(&mut self) {
         let _ = self.stop_viewer();
     }
+}
+pub fn continuation_prompt(skill: &Path, session: &Path) -> String {
+    format!(
+        "Use the seed-me skill at \"{}\" to continue the existing Seed Me session at \"{}\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.",
+        skill.display(),
+        session.display()
+    )
 }
 fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String, String> {
     let mut child = Command::new("python3")

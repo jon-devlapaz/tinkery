@@ -1,4 +1,5 @@
 use super::*;
+use crate::shaping::confirmed_goal::{SavedGoal, goal_block, render_saved_goal};
 use handoff::{Affirmation, Config, Receipt};
 use std::{path::PathBuf, sync::mpsc};
 
@@ -220,43 +221,26 @@ impl BrainDump {
         false
     }
 }
-fn goal_block(body: String, palette: Palette) -> Paragraph<'static> {
-    Paragraph::new(body)
-        .wrap(Wrap { trim: false })
-        .style(palette.ink)
-}
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let inner = app.agent_area;
     if let Some(receipt) = &app.receipt {
-        let next = "Next: shape it into a seed with Seed Me.";
-        let next_rows = Paragraph::new(next)
-            .wrap(Wrap { trim: false })
-            .line_count(inner.width) as u16;
-        let rows = Layout::vertical([
-            Constraint::Length(2),
-            Constraint::Min(1),
-            Constraint::Length(next_rows + 2),
-        ])
-        .split(inner);
-        frame.render_widget(Paragraph::new("Saved.").style(palette.ink), rows[0]);
-        let p = goal_block(receipt.goal.clone(), palette);
-        let max = p
-            .line_count(rows[1].width)
-            .saturating_sub(rows[1].height as usize) as u16;
-        app.paper_scroll = app.paper_scroll.min(max);
-        frame.render_widget(p.scroll((app.paper_scroll, 0)), rows[1]);
-        frame.render_widget(
-            Paragraph::new(next)
-                .wrap(Wrap { trim: false })
-                .style(palette.ink),
-            rows[2],
+        let notice = if app.notice == "Copied." || app.notice.starts_with("Clipboard") {
+            app.notice.as_str()
+        } else {
+            ""
+        };
+        render_saved_goal(
+            frame,
+            &mut app.paper_scroll,
+            inner,
+            palette,
+            SavedGoal {
+                goal: &receipt.goal,
+                next: Some("Next: shape it into a seed with Seed Me."),
+                notice,
+                saved: true,
+            },
         );
-        if app.notice == "Copied." || app.notice.starts_with("Clipboard") {
-            frame.render_widget(
-                Paragraph::new(app.notice.as_str()).style(palette.muted),
-                Rect::new(rows[2].x, rows[2].bottom() - 1, rows[2].width, 1),
-            );
-        }
         return;
     }
     let Some(review) = app.goal_review.as_mut() else {
