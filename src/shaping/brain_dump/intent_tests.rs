@@ -219,6 +219,16 @@ fn ambiguous_or_quoted_negation_is_left_unchanged() {
         (&["mustard yellow headers"], &[]),
         (&["must  not upload recordings"], &[]),
         (&["must not: upload recordings"], &[]),
+        (
+            &["Display ‘must work offline; must not upload recordings’"],
+            &[],
+        ),
+        (
+            &["Display \"must work offline; must not upload recordings\""],
+            &[],
+        ),
+        (&["Show 'I don't sync; must not upload' on the label"], &[]),
+        (&["Show ‘I don’t sync; must not upload’ on the label"], &[]),
         (&["must"], &["do not"]),
     ] {
         let a = constraints(must, must_not);

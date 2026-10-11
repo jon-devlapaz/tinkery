@@ -75,12 +75,21 @@ fn ended_clauses(text: &str) -> Vec<(String, char)> {
     for (i, &c) in chars.iter().enumerate() {
         let previous = i.checked_sub(1).and_then(|n| chars.get(n)).copied();
         let next = chars.get(i + 1).copied();
-        if quote == Some(c) {
+        // A single quote (straight or curly) closes only where it isn't an apostrophe
+        // inside a word, as in "don’t".
+        let apostrophe = matches!(c, '\'' | '’') && next.is_some_and(char::is_alphanumeric);
+        if quote == Some(c) && !apostrophe {
             quote = None;
         } else if quote.is_none()
-            && (c == '"' || c == '“' || (c == '\'' && previous.is_none_or(char::is_whitespace)))
+            && (c == '"'
+                || c == '“'
+                || (matches!(c, '\'' | '‘') && previous.is_none_or(char::is_whitespace)))
         {
-            quote = Some(if c == '“' { '”' } else { c });
+            quote = Some(match c {
+                '“' => '”',
+                '‘' => '’',
+                c => c,
+            });
         }
         let decimal = c == '.'
             && previous.is_some_and(|c| c.is_ascii_digit())

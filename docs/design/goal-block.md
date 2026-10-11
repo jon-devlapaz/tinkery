@@ -42,7 +42,8 @@ Original sources and answers are never changed.
 | `must X` | `X` stays in Must | unchanged |
 | `must not X`, `do not X`, `don't X` (also `don’t`) | `X` moves to Must not | `X` stays in Must not |
 
-Anything else is left as written: a prefix that is not leading, a quoted phrase,
+Anything else is left as written: a prefix that is not leading, a quoted phrase
+(including a `;` inside the quotes),
 other spacing or punctuation inside or after the prefix (`must  not`, `must not:`),
 `mustn't`, or a negative prefix followed by `only`, `just`, `necessarily`, `always`,
 `care` or `mind` (“must not only support phones”, “don't care about colours”). This
@@ -54,7 +55,8 @@ recordings”). Every other part of a value stays together with its own wording,
 “coordinate with Dr. Smith” is one constraint. A rewritten constraint already stated
 in the same category is not repeated.
 
-For display, a clause is split at `;` or a sentence end outside quotes. A period
+For display, a clause is split at `;` or a sentence end outside quotes (`"…"`, `“…”`,
+`'…'` or `‘…’`; an apostrophe inside a word, as in `don’t`, does not close a quote). A period
 between digits, or after a lone letter (“U.S. data”, “the U.S. Army”, “e.g. maps”),
 is not a sentence end unless constraint syntax follows it. Other abbreviations such
 as “Dr.” still break the displayed line, as before this change.
