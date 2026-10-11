@@ -81,17 +81,21 @@ fn clauses(text: &str) -> Vec<String> {
         let decimal = c == '.'
             && previous.is_some_and(|c| c.is_ascii_digit())
             && next.is_some_and(|c| c.is_ascii_digit());
-        // A period after a lone letter ("U.S. data", "e.g. maps") is not a clause end
-        // when lowercase or a digit follows; a capital starts a new sentence.
+        // A period after a lone letter ("U.S. data", "the U.S. Army", "e.g. maps") is not
+        // a clause end unless explicit constraint syntax follows ("U.S. Do not upload").
         let initial = c == '.'
             && previous.is_some_and(char::is_alphabetic)
             && i.checked_sub(2)
                 .and_then(|n| chars.get(n))
                 .is_none_or(|&c| c == '.' || c.is_whitespace())
-            && chars[i + 1..]
-                .iter()
-                .find(|c| !c.is_whitespace())
-                .is_some_and(|c| c.is_lowercase() || c.is_ascii_digit());
+            && {
+                let rest = chars[i + 1..].iter().collect::<String>();
+                let rest = rest.trim_start();
+                !NEGATIVE
+                    .iter()
+                    .chain(&["must"])
+                    .any(|p| after_prefix(rest, p).is_some())
+            };
         if quote.is_none()
             && (c == ';'
                 || (matches!(c, '.' | '!' | '?')

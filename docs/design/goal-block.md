@@ -47,8 +47,9 @@ other spacing inside the prefix, `mustn't`, or a negative prefix followed by `on
 `just`, `necessarily`, `always`, `care` or `mind` (“must not only support phones”,
 “don't care about colours”). This is not a negation parser; an ambiguous clause
 keeps its polarity. A clause is split at `;` or a sentence end outside quotes; a
-period between digits, or after a lone letter followed by lowercase or a digit
-(“U.S. data”, “e.g. maps”), is not a sentence end. A capital after it starts a new one.
+period between digits, or after a lone letter (“U.S. data”, “the U.S. Army”, “e.g.
+maps”), is not a sentence end unless constraint syntax from the table follows it
+(“U.S. Do not upload logs” is two clauses).
 A rewritten clause already stated in the same category is not repeated.
 
 When later clauses of why, done when, the goal line or `when` are joined with `;`,

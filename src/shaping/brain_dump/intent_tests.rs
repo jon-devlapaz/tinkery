@@ -167,6 +167,13 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: preserve U.S.\nMust not: upload logs.",
         ),
         (
+            &["must coordinate with the U.S. Army"],
+            &[],
+            &["coordinate with the U.S. Army"],
+            &[],
+            "Must: coordinate with the U.S. Army.",
+        ),
+        (
             &["must keep café 👩‍💻 names"],
             &[],
             &["keep café 👩‍💻 names"],
