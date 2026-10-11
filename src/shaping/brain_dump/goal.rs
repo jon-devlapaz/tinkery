@@ -60,6 +60,10 @@ pub(super) fn identity(text: &str) -> String {
         .to_lowercase()
 }
 fn clauses(text: &str) -> Vec<String> {
+    ended_clauses(text).into_iter().map(|(s, _)| s).collect()
+}
+/// Clauses with the separator that ended each (`.` for the last).
+fn ended_clauses(text: &str) -> Vec<(String, char)> {
     let chars = text
         .trim()
         .trim_end_matches(['.', ',', ';'])
@@ -96,14 +100,29 @@ fn clauses(text: &str) -> Vec<String> {
                     && !initial
                     && next.is_some_and(char::is_whitespace)))
         {
-            parts.push(current.trim().to_owned());
+            parts.push((current.trim().to_owned(), c));
             current.clear();
         } else {
             current.push(if c == '\n' { ' ' } else { c });
         }
     }
-    parts.push(current.trim().to_owned());
-    parts.into_iter().filter(|s| !s.is_empty()).collect()
+    parts.push((current.trim().to_owned(), '.'));
+    parts.into_iter().filter(|(s, _)| !s.is_empty()).collect()
+}
+/// A value split only where the next clause starts with constraint syntax, so other
+/// periods ("Dr. Smith") never turn one stated constraint into two.
+fn constraint_segments(text: &str) -> Vec<String> {
+    let mut segments: Vec<String> = vec![];
+    let mut ended = '.';
+    for (clause, end) in ended_clauses(text) {
+        let starts = starts_with_syntax(&clause.chars().collect::<Vec<_>>());
+        match segments.last_mut() {
+            Some(last) if !starts => last.push_str(&format!("{ended} {clause}")),
+            _ => segments.push(clause),
+        }
+        ended = end;
+    }
+    segments
 }
 /// Common words lowered when they start a later clause. Any other first word (a name,
 /// acronym such as "IT", quote or number) keeps its case.
@@ -178,10 +197,10 @@ fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {
         .then(|| after_prefix(clause, "must"))
         .flatten()
         .filter(|rest| {
-            !rest
-                .split_whitespace()
-                .next()
-                .is_some_and(|w| w.eq_ignore_ascii_case("not"))
+            !rest.split_whitespace().next().is_some_and(|w| {
+                w.trim_end_matches(|c: char| !c.is_alphanumeric())
+                    .eq_ignore_ascii_case("not")
+            })
         })
         .map(|rest| (false, rest))
 }
@@ -252,7 +271,7 @@ impl GoalParts {
             (true, std::mem::take(&mut self.must_not)),
         ] {
             for value in values {
-                let split = clauses(&value);
+                let split = constraint_segments(&value);
                 let rewrites = split
                     .iter()
                     .map(|c| constraint_syntax(c, negative).map(|(n, rest)| (n, rest.to_owned())))
@@ -261,29 +280,33 @@ impl GoalParts {
                     lists[usize::from(negative)].push((value, false));
                     continue;
                 }
-                for (clause, rewrite) in split.into_iter().zip(rewrites) {
+                for (segment, rewrite) in split.into_iter().zip(rewrites) {
                     match rewrite {
                         Some((to, rest)) => lists[usize::from(to)].push((rest, true)),
-                        None => lists[usize::from(negative)].push((clause, false)),
+                        None => lists[usize::from(negative)].push((segment, false)),
                     }
                 }
             }
         }
-        // A rewritten constraint already stated in its category is not repeated.
+        // A rewritten constraint already stated in its category is not repeated: one
+        // pass over the identities of every unrewritten entry and earlier rewrites.
         let [must, must_not] = lists.map(|list| {
-            let ids = list
+            let ids = |v: &str| clauses(v).iter().map(|c| identity(c)).collect::<Vec<_>>();
+            let mut stated = list
                 .iter()
-                .map(|(v, _)| clauses(v).iter().map(|c| identity(c)).collect::<Vec<_>>())
-                .collect::<Vec<_>>();
-            list.iter()
-                .enumerate()
-                .filter(|(j, (value, rewritten))| {
-                    !rewritten
-                        || !(0..list.len()).any(|k| {
-                            k != *j && (k < *j || !list[k].1) && ids[k].contains(&identity(value))
-                        })
+                .filter(|(_, rewritten)| !rewritten)
+                .flat_map(|(v, _)| ids(v))
+                .collect::<std::collections::HashSet<_>>();
+            list.into_iter()
+                .filter_map(|(value, rewritten)| {
+                    if !rewritten {
+                        return Some(value);
+                    }
+                    let own = ids(&value);
+                    let repeated = own.iter().all(|id| stated.contains(id));
+                    stated.extend(own);
+                    (!repeated).then_some(value)
                 })
-                .map(|(_, (value, _))| value.clone())
                 .collect()
         });
         self.must = must;

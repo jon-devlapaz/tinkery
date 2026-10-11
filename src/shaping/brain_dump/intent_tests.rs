@@ -174,6 +174,13 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: coordinate with the U.S. Army.",
         ),
         (
+            &["must coordinate with Dr. Smith"],
+            &[],
+            &["coordinate with Dr. Smith"],
+            &[],
+            "Must: coordinate with Dr.\nMust: Smith.",
+        ),
+        (
             &["must keep café 👩‍💻 names"],
             &[],
             &["keep café 👩‍💻 names"],
@@ -211,6 +218,7 @@ fn ambiguous_or_quoted_negation_is_left_unchanged() {
         (&[], &["must work offline"]),
         (&["mustard yellow headers"], &[]),
         (&["must  not upload recordings"], &[]),
+        (&["must not: upload recordings"], &[]),
         (&["must"], &["do not"]),
     ] {
         let a = constraints(must, must_not);
@@ -248,7 +256,7 @@ fn combined_clauses_keep_names_acronyms_decimals_and_quotes() {
     let a = constraints(&["must keep NASA terms; Priya signs off at 2.5 GB"], &[]);
     assert_eq!(
         a.guess.as_ref().unwrap().parts.must,
-        ["keep NASA terms", "Priya signs off at 2.5 GB"]
+        ["keep NASA terms; Priya signs off at 2.5 GB"]
     );
 }
 #[test]
@@ -463,6 +471,22 @@ fn a_skipped_question_without_a_target_keeps_the_goal_open() {
         assert!(!screen.contains("Nothing I'm unsure"));
     }
     review_lists_and_saves(&mut a, &["Which goal comes first?"]);
+}
+#[test]
+fn many_distinct_prefixed_constraints_normalize_in_linear_time() {
+    let mut p = GoalParts {
+        must: (0..4000).map(|i| format!("must {i}")).collect(),
+        ..Default::default()
+    };
+    let started = std::time::Instant::now();
+    p.normalize_constraints();
+    assert_eq!(p.must.len(), 4000);
+    assert_eq!(p.must[3999], "3999");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(1),
+        "{:?}",
+        started.elapsed()
+    );
 }
 #[test]
 fn clause_splitting_stays_linear_on_many_initials() {

@@ -43,14 +43,21 @@ Original sources and answers are never changed.
 | `must not X`, `do not X`, `don't X` (also `don’t`) | `X` moves to Must not | `X` stays in Must not |
 
 Anything else is left as written: a prefix that is not leading, a quoted phrase,
-other spacing inside the prefix, `mustn't`, or a negative prefix followed by `only`,
-`just`, `necessarily`, `always`, `care` or `mind` (“must not only support phones”,
-“don't care about colours”). This is not a negation parser; an ambiguous clause
-keeps its polarity. A clause is split at `;` or a sentence end outside quotes; a
-period between digits, or after a lone letter (“U.S. data”, “the U.S. Army”, “e.g.
-maps”), is not a sentence end unless constraint syntax from the table follows it
-(“U.S. Do not upload logs” is two clauses).
-A rewritten clause already stated in the same category is not repeated.
+other spacing or punctuation inside or after the prefix (`must  not`, `must not:`),
+`mustn't`, or a negative prefix followed by `only`, `just`, `necessarily`, `always`,
+`care` or `mind` (“must not only support phones”, “don't care about colours”). This
+is not a negation parser; an ambiguous clause keeps its polarity.
+
+Normalization splits one stored value into separate constraints only where the next
+clause itself starts with syntax from the table (“must work offline. Must not upload
+recordings”). Every other part of a value stays together with its own wording, so
+“coordinate with Dr. Smith” is one constraint. A rewritten constraint already stated
+in the same category is not repeated.
+
+For display, a clause is split at `;` or a sentence end outside quotes. A period
+between digits, or after a lone letter (“U.S. data”, “the U.S. Army”, “e.g. maps”),
+is not a sentence end unless constraint syntax follows it. Other abbreviations such
+as “Dr.” still break the displayed line, as before this change.
 
 When later clauses of why, done when, the goal line or `when` are joined with `;`,
 a clause keeps its case unless its first word is one of a short list of common
