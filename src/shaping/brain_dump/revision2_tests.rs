@@ -41,7 +41,7 @@ fn timing_and_capacity_are_not_duplicated_and_constraints_each_get_a_line() {
     };
     assert_eq!(
         p.compose().unwrap(),
-        "My mom can spot a fake before tapping anything.\nMust: one step.\nMust: simple.\nMust not: require installing an app."
+        "My mom can spot a fake before tapping anything.\nMust: one step; one step.\nMust: simple.\nMust not: require installing an app."
     );
 }
 #[test]

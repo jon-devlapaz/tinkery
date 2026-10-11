@@ -116,12 +116,13 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             &["upload recordings"],
             "Must not: upload recordings.",
         ),
+        // A compound item stays one line, as written (the prefix of the whole item only).
         (
             &["must work offline; Must not upload recordings"],
             &[],
-            &["work offline"],
-            &["upload recordings"],
-            "Must: work offline.\nMust not: upload recordings.",
+            &["work offline; Must not upload recordings"],
+            &[],
+            "Must: work offline; Must not upload recordings.",
         ),
         // No duplicate constraints after normalization.
         (
@@ -162,9 +163,23 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
         (
             &["must preserve U.S. Do not upload logs"],
             &[],
-            &["preserve U.S"],
-            &["upload logs"],
-            "Must: preserve U.S.\nMust not: upload logs.",
+            &["preserve U.S. Do not upload logs"],
+            &[],
+            "Must: preserve U.S. Do not upload logs.",
+        ),
+        (
+            &[],
+            &["No dashboard. No targets"],
+            &[],
+            &["No dashboard. No targets"],
+            "Must not: No dashboard. No targets.",
+        ),
+        (
+            &["show the \"Saved. Next: shape it\" sentence"],
+            &[],
+            &["show the \"Saved. Next: shape it\" sentence"],
+            &[],
+            "Must: show the \"Saved. Next: shape it\" sentence.",
         ),
         (
             &["must coordinate with the U.S. Army"],
@@ -181,55 +196,11 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: coordinate with Dr. Smith.",
         ),
         (
-            &["must ask Prof. Lee, Mrs. Diaz etc. first. Do not email Mr. Ng"],
-            &[],
-            &["ask Prof. Lee, Mrs. Diaz etc. first"],
-            &["email Mr. Ng"],
-            "Must: ask Prof. Lee, Mrs. Diaz etc. first.\nMust not: email Mr. Ng.",
-        ),
-        (
-            &["must ask (Dr. Smith) before proceeding"],
-            &[],
-            &["ask (Dr. Smith) before proceeding"],
-            &[],
-            "Must: ask (Dr. Smith) before proceeding.",
-        ),
-        (
-            &["must coordinate with the U.S. Must not: upload logs"],
-            &[],
-            &["coordinate with the U.S. Must not: upload logs"],
-            &[],
-            "Must: coordinate with the U.S. Must not: upload logs.",
-        ),
-        (
             &["must display (‘must work offline; must not upload recordings’) verbatim"],
             &[],
             &["display (‘must work offline; must not upload recordings’) verbatim"],
             &[],
             "Must: display (‘must work offline; must not upload recordings’) verbatim.",
-        ),
-        (
-            &[
-                "must work offline. Must not                                                            upload logs",
-            ],
-            &[],
-            &["work offline"],
-            &["upload logs"],
-            "Must: work offline.\nMust not: upload logs.",
-        ),
-        (
-            &["must display 'users' choices; must not upload' verbatim"],
-            &[],
-            &["display 'users' choices; must not upload' verbatim"],
-            &[],
-            "Must: display 'users' choices; must not upload' verbatim.",
-        ),
-        (
-            &["must display ‘users’ choices; must not upload’ verbatim"],
-            &[],
-            &["display ‘users’ choices; must not upload’ verbatim"],
-            &[],
-            "Must: display ‘users’ choices; must not upload’ verbatim.",
         ),
         (
             &["use it", "must use IT"],
@@ -628,4 +599,53 @@ fn a_cancelled_first_reading_offers_f2_retry_not_more_typing() {
         "{help}"
     );
     assert!(!help.contains("Type it") && !help.contains("F3 reviews"));
+}
+#[test]
+fn a_compound_item_is_noted_for_why_but_shown_whole() {
+    let mut parts = head();
+    let r = |a: &BrainDump| BoardRequest {
+        ask_counts: Default::default(),
+        sources: a.sources.clone(),
+        fragments: vec![],
+        previous: None,
+        skipped: vec![],
+        answered: vec![],
+        settled: vec![],
+        layout: vec![],
+    };
+    let a = constraints(&[], &[]);
+    for (must, noted) in [
+        ("must work offline; must not upload recordings", true),
+        ("do not upload; must preserve files", true),
+        ("work offline. Do not upload recordings", true),
+        ("must coordinate with Dr. Smith", false),
+        (
+            "Display ‘must work offline; must not upload recordings’",
+            false,
+        ),
+        ("No gamification; It must work on phones", false),
+    ] {
+        parts["must"] = serde_json::json!([must]);
+        let mut changes = vec![];
+        let g = Guess::decode(
+            &serde_json::json!({ "parts": parts }).to_string(),
+            &r(&a),
+            &mut changes,
+        )
+        .unwrap();
+        assert_eq!(
+            changes.iter().any(|c| c
+                .starts_with("A constraint item looks like more than one constraint")
+                && c.ends_with(must)),
+            noted,
+            "{must}: {changes:?}"
+        );
+        let board = board::Board::verify(g, &r(&a)).unwrap();
+        let block = &board.framings[0].text;
+        assert_eq!(
+            block.lines().filter(|l| l.starts_with("Must")).count(),
+            1,
+            "{block}"
+        );
+    }
 }

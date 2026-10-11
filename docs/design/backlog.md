@@ -14,9 +14,9 @@ injected instruction appearing as another goal. The review's “Some parts remai
 open for the seed” message also needs to agree with readiness rather than sound
 like a contradictory disclaimer.
 
-**Shipped for issue #13:** explicit leading constraint prefixes, clause casing and the
-three-state no-question line ([goal block](goal-block.md#constraint-syntax),
-[think](think.md)). Concrete questions, injected-topic exclusion and operator
+**Shipped for issues #13 and #19:** explicit leading constraint prefixes, clause casing,
+the three-state no-question line, and one line per constraint item with no re-splitting
+([goal block](goal-block.md#constraint-syntax), [think](think.md)). Concrete questions, injected-topic exclusion and operator
 dogfood remain open here.
 
 **Build:** Ask concrete, dump-specific success questions. File “Must: …must not…”

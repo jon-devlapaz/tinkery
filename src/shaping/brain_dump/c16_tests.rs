@@ -46,7 +46,7 @@ fn request(a: &BrainDump) -> BoardRequest {
 fn beneficiary_and_labelled_lines_preserve_criteria_and_constraints() {
     assert_eq!(
         parts().compose().unwrap(),
-        "I tell whether yesterday went well, each morning.\nWhy: the report is hard to act on.\nDone when: useful changes per hour are better than my usual week.\nMust not: no targets.\nMust not: no dashboard.\nMust not: cost only when it's way off."
+        "I tell whether yesterday went well, each morning.\nWhy: the report is hard to act on.\nDone when: useful changes per hour are better than my usual week.\nMust not: no targets; no dashboard; cost only when it's way off."
     );
     let p = GoalParts {
         who: Some("learners".into()),
@@ -56,7 +56,7 @@ fn beneficiary_and_labelled_lines_preserve_criteria_and_constraints() {
     };
     assert_eq!(
         p.compose().unwrap(),
-        "Learners understand why they got a question wrong.\nMust: No gamification.\nMust: It must work on phones."
+        "Learners understand why they got a question wrong.\nMust: No gamification; It must work on phones."
     );
     assert!(
         GoalParts {
@@ -68,7 +68,7 @@ fn beneficiary_and_labelled_lines_preserve_criteria_and_constraints() {
     );
 }
 #[test]
-fn semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive() {
+fn constraint_items_are_one_line_and_quotes_decimals_unicode_survive() {
     let p = GoalParts {
         who: Some("café learners 👩‍💻".into()),
         outcome: Some("read 2.5 hours".into()),
@@ -77,7 +77,7 @@ fn semicolon_items_are_lowercase_and_quotes_decimals_unicode_survive() {
     };
     assert_eq!(
         p.compose().unwrap(),
-        "Café learners 👩‍💻 read 2.5 hours.\nMust not: No dashboard.\nMust not: No targets.\nMust not: Showing \"same. Words\" differently."
+        "Café learners 👩‍💻 read 2.5 hours.\nMust not: No dashboard. No targets; Showing \"same. Words\" differently."
     );
 }
 #[test]
