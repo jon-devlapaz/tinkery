@@ -34,7 +34,7 @@ fn app(raw: serde_json::Value) -> BrainDump {
     a.guess = Some(board::Board::verify(g, &r).unwrap());
     a
 }
-fn constraints(must: &[&str], must_not: &[&str]) -> BrainDump {
+pub(super) fn constraints(must: &[&str], must_not: &[&str]) -> BrainDump {
     let mut parts = head();
     parts["must"] = serde_json::json!(must);
     parts["must_not"] = serde_json::json!(must_not);
@@ -153,6 +153,13 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
             "Must: simple.\nMust: work offline.",
         ),
         (
+            &["must preserve U.S. data, e.g. maps"],
+            &[],
+            &["preserve U.S. data, e.g. maps"],
+            &[],
+            "Must: preserve U.S. data, e.g. maps.",
+        ),
+        (
             &["must keep café 👩‍💻 names"],
             &[],
             &["keep café 👩‍💻 names"],
@@ -215,14 +222,14 @@ fn combined_clauses_keep_names_acronyms_decimals_and_quotes() {
         who: Some("I".into()),
         outcome: Some("brief Priya".into()),
         why: Some(
-            "NASA data arrives late. Priya reviews 2.5 GB nightly; \"Ship it. Then rest\" is the motto. It costs hours"
+            "NASA data arrives late. Priya reviews 2.5 GB nightly; \"Ship it. Then rest\" is the motto. It costs hours. IT handles access. A backup exists"
                 .into(),
         ),
         ..Default::default()
     };
     assert_eq!(
         p.compose().unwrap(),
-        "I brief Priya.\nWhy: NASA data arrives late; Priya reviews 2.5 GB nightly; \"Ship it. Then rest\" is the motto; it costs hours."
+        "I brief Priya.\nWhy: NASA data arrives late; Priya reviews 2.5 GB nightly; \"Ship it. Then rest\" is the motto; it costs hours; IT handles access; a backup exists."
     );
     let a = constraints(&["must keep NASA terms; Priya signs off at 2.5 GB"], &[]);
     assert_eq!(

@@ -46,12 +46,14 @@ Anything else is left as written: a prefix that is not leading, a quoted phrase,
 other spacing inside the prefix, `mustn't`, or a negative prefix followed by `only`,
 `just`, `necessarily`, `always`, `care` or `mind` (“must not only support phones”,
 “don't care about colours”). This is not a negation parser; an ambiguous clause
-keeps its polarity. A clause is split at `;` or a sentence end outside quotes.
+keeps its polarity. A clause is split at `;` or a sentence end outside quotes; a
+period after a lone letter (“U.S.”, “e.g.”) or between digits is not a sentence end.
 A rewritten clause already stated in the same category is not repeated.
 
 When later clauses of why, done when, the goal line or `when` are joined with `;`,
 a clause keeps its case unless its first word is one of a short list of common
-words (`the`, `it`, `both`…). Names, acronyms, quotes and numbers keep their case.
+words (`the`, `it`, `both`…) written in lower or title case. Names, acronyms
+(including “IT”), quotes and numbers keep their case.
 
 `GoalParts::compose` owns composition; `confirmed_goal::goal_block` and the shared
 saved-goal renderer preserve line breaks across reading, review, receipt and shape

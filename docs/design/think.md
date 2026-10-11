@@ -32,7 +32,8 @@ muted line says which of three states holds:
 
 The missing line names only the first missing part in the order who, outcome, why,
 done when. Without any composed goal it drops “Review when you're ready.” F1 help
-uses the same first sentence. Review still lists everything open.
+uses the same first sentence. Only goal content decides the state: recording or
+unsent text does not change it. Review still lists everything open.
 
 Review is deliberate (F3), then typed `confirm` plus Enter. It freezes the displayed
 goal; [the receipt](shape-and-handoff.md) follows only successful saving. Review can

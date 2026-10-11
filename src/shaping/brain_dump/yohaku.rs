@@ -291,12 +291,17 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     }
 }
 /// With no question in focus: ready, the next missing required part, or other open context.
+/// Only goal content decides; transient states such as voice or unsent text do not.
 /// Review lists everything still open; this names one thing.
 pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
     let g = app.guess.as_ref()?;
     Some(if let Some(part) = g.parts.missing().next() {
         format!("Still missing: {}.", part.label())
-    } else if app.goal_ready_without_local_text() {
+    } else if app.open_parts().is_empty()
+        && g.unresolved_notes.is_empty()
+        && g.misfits.is_empty()
+        && app.scope_pending.is_none()
+    {
         "Nothing I'm unsure about.".into()
     } else {
         "Some parts remain open for the seed.".into()

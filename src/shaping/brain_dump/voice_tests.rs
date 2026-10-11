@@ -656,3 +656,23 @@ fn decline_is_consumed_without_typing_or_repeated_prompt_and_plain_messages_are_
         );
     }
 }
+#[test]
+fn recording_does_not_change_what_the_goal_line_says_is_open() {
+    let (mut a, fake) = attach(super::intent_tests::constraints(
+        &["must work offline"],
+        &[],
+    ));
+    let ready = "Nothing I'm unsure about. Review when you're ready.";
+    let right = |a: &mut BrainDump| {
+        super::goal_tests::right_text(&snapshot(100, 30, a, false).unwrap(), 100)
+    };
+    let before = right(&mut a);
+    assert!(before.contains(ready), "{before}");
+    start(&mut a, &fake);
+    assert!(a.voice_active() && !a.goal_ready());
+    let screen = right(&mut a);
+    assert!(screen.contains(ready), "{screen}");
+    assert!(!screen.contains("remain open"));
+    a.help = true;
+    assert!(yohaku::help_text(&a).contains("Nothing I'm unsure about."));
+}

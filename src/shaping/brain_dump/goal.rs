@@ -81,10 +81,17 @@ fn clauses(text: &str) -> Vec<String> {
         let decimal = c == '.'
             && previous.is_some_and(|c| c.is_ascii_digit())
             && next.is_some_and(|c| c.is_ascii_digit());
+        // A period after a lone letter, as in "U.S." or "e.g.", is not a clause end.
+        let initial = c == '.'
+            && previous.is_some_and(char::is_alphabetic)
+            && i.checked_sub(2)
+                .and_then(|n| chars.get(n))
+                .is_none_or(|&c| c == '.' || c.is_whitespace());
         if quote.is_none()
             && (c == ';'
                 || (matches!(c, '.' | '!' | '?')
                     && !decimal
+                    && !initial
                     && next.is_some_and(char::is_whitespace)))
         {
             parts.push(current.trim().to_owned());
@@ -97,7 +104,7 @@ fn clauses(text: &str) -> Vec<String> {
     parts.into_iter().filter(|s| !s.is_empty()).collect()
 }
 /// Common words lowered when they start a later clause. Any other first word (a name,
-/// acronym, quote or number) keeps its case.
+/// acronym such as "IT", quote or number) keeps its case.
 const LOWERED: [&str; 34] = [
     "a", "all", "also", "an", "and", "both", "but", "each", "every", "he", "her", "his", "if",
     "it", "its", "no", "not", "or", "our", "she", "so", "some", "that", "the", "their", "then",
@@ -111,7 +118,11 @@ fn prose(text: &str) -> String {
             let first = s.split_whitespace().next().unwrap_or_default();
             let mut chars = s.chars();
             match chars.next() {
-                Some(c) if i > 0 && LOWERED.contains(&first.to_lowercase().as_str()) => {
+                Some(c)
+                    if i > 0
+                        && LOWERED.contains(&first.to_lowercase().as_str())
+                        && !first.chars().skip(1).any(char::is_uppercase) =>
+                {
                     c.to_lowercase().collect::<String>() + chars.as_str()
                 }
                 _ => s,
