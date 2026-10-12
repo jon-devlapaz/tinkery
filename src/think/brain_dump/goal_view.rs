@@ -1,5 +1,5 @@
 use super::*;
-use crate::shaping::confirmed_goal::{SavedGoal, goal_block, render_saved_goal};
+use crate::goal::confirmed::{SavedGoal, goal_block, render_saved_goal};
 use handoff::{Affirmation, Config, Receipt};
 use std::{path::PathBuf, sync::mpsc};
 

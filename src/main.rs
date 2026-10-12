@@ -13,8 +13,8 @@ use crossterm::{
 };
 use tinkery::{
     Palette,
-    home::{self, Home},
-    shaping::{
+    menu::{self, Home},
+    think::{
         brain_dump::{self, BrainDump},
         drafting::PiHost,
     },
@@ -111,7 +111,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         if snapshot {
             menu.discover_for_snapshot(std::time::Duration::from_secs(5));
-            println!("{}", home::snapshot(100, 30, &mut menu, no_color)?);
+            println!("{}", menu::snapshot(100, 30, &mut menu, no_color)?);
             return Ok(());
         }
         if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
@@ -150,7 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "{}",
             match &mut app {
-                Intake::Home(app) => home::snapshot(100, 30, app, no_color)?,
+                Intake::Home(app) => menu::snapshot(100, 30, app, no_color)?,
                 Intake::Brain(app) => brain_dump::snapshot(100, 30, app, no_color)?,
             }
         );
@@ -211,7 +211,7 @@ impl Intake {
     }
     fn render(&mut self, f: &mut ratatui::Frame, p: Palette) {
         match self {
-            Self::Home(a) => home::render(f, a, p),
+            Self::Home(a) => menu::render(f, a, p),
             Self::Brain(a) => brain_dump::render(f, a, p),
         }
     }

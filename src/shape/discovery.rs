@@ -17,7 +17,7 @@ use std::{
 
 use serde_json::Value;
 
-use super::shape::{self, Session, Stage};
+use super::{self as shape, Session, Stage};
 
 /// What one scan found.
 #[derive(Debug, Clone, Default, PartialEq)]

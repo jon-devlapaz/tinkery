@@ -338,7 +338,7 @@ pub(super) fn parse(
         .must
         .iter()
         .chain(&parts.must_not)
-        .filter(|v| goal::looks_compound(v))
+        .filter(|v| crate::goal::looks_compound(v))
     {
         changes.push(format!(
             "A constraint item looks like more than one constraint; shown as one line as written: {value}"

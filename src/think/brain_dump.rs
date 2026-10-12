@@ -21,8 +21,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 pub mod board;
-pub mod goal;
-use goal::{GoalParts, Part};
+use crate::goal::{GoalParts, Part};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Source {

@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tinkery::shaping::{
+use tinkery::think::{
     brain_dump::{self, BrainDump},
     drafting::PiHost,
 };

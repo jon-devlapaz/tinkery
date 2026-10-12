@@ -1,6 +1,7 @@
 //! Menu and shape never wait on session discovery. The fake source is held open, so a
 //! regression that reads inside paint, tick or input fails instead of passing quietly.
 use super::*;
+use crate::shape::{Found, Outcome, Session, Stage, scan};
 use serde_json::json;
 use std::{
     collections::HashSet,
