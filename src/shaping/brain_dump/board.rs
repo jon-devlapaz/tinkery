@@ -274,28 +274,7 @@ pub(super) fn parse(
     request: &BoardRequest,
     changes: &mut Vec<String>,
 ) -> Result<Guess, String> {
-    let text = raw.trim();
-    let text = if text.starts_with("```") && text.ends_with("```") {
-        changes.push("Removed surrounding JSON code fence".into());
-        text.split_once('\n')
-            .map(|(_, s)| s[..s.len() - 3].trim())
-            .unwrap_or(text)
-    } else {
-        text
-    };
-    let value: serde_json::Value = serde_json::from_str(text)
-        .or_else(|original| {
-            let normalized = without_trailing_commas(text);
-            if normalized == text {
-                return Err(original);
-            }
-            let value = serde_json::from_str(&normalized)?;
-            changes.push(
-                "Removed trailing JSON collection comma outside strings; raw retained".into(),
-            );
-            Ok(value)
-        })
-        .map_err(|e| format!("Unreadable board response: {e}"))?;
+    let value = read(raw, changes)?;
     let obj = value.as_object().ok_or("No readable board object")?;
     extras(
         obj,
@@ -312,6 +291,7 @@ pub(super) fn parse(
             "unresolved_notes",
             "questions",
             "alternatives",
+            "decisions",
         ],
         "board",
         changes,
@@ -382,6 +362,51 @@ pub(super) fn parse(
         } else {
             changes.push(format!("Ignored unknown open part {value}"));
         }
+    }
+    // Typed decisions: a choice only the person can make, with answers that would change
+    // a goal line. Each keeps its part open (so it can be asked and blocks readiness) and
+    // travels to review and the seed as a note.
+    let mut decision_notes = vec![];
+    for (i, v) in items(obj.get("decisions"), "decisions", changes)
+        .iter()
+        .enumerate()
+    {
+        let Some(o) = v.as_object() else {
+            changes.push(format!("Ignored decision {i}: not an object"));
+            continue;
+        };
+        extras(
+            o,
+            &["part", "text", "answers"],
+            &format!("decision {i}"),
+            changes,
+        );
+        let part = o
+            .get("part")
+            .and_then(|v| serde_json::from_value::<Part>(v.clone()).ok());
+        let text = display(o.get("text"), &format!("decision {i}"), changes);
+        let mut answers: Vec<String> = vec![];
+        for a in items(o.get("answers"), &format!("decision {i} answers"), changes) {
+            if let Some(a) = display(Some(&a), &format!("decision {i} answer"), changes)
+                && !answers.contains(&a)
+            {
+                answers.push(a);
+            }
+        }
+        let (Some(part), Some(text)) = (part, text) else {
+            changes.push(format!("Ignored decision {i}: needs a known part and text"));
+            continue;
+        };
+        if answers.len() < 2 {
+            changes.push(format!(
+                "Ignored decision {i}: needs two answers that change the goal"
+            ));
+            continue;
+        }
+        if !open.contains(&part) {
+            open.push(part);
+        }
+        decision_notes.push(format!("Open decision: {text} ({})", answers.join(" / ")));
     }
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
@@ -608,6 +633,7 @@ pub(super) fn parse(
             ));
         }
     }
+    unresolved_notes.extend(decision_notes);
     let guess = Guess {
         parts,
         other_goals,
@@ -629,6 +655,82 @@ pub(super) fn parse(
         ));
     }
     Ok(guess)
+}
+pub(super) fn read(raw: &str, changes: &mut Vec<String>) -> Result<serde_json::Value, String> {
+    let text = raw.trim();
+    let text = if text.starts_with("```") && text.ends_with("```") {
+        changes.push("Removed surrounding JSON code fence".into());
+        text.split_once('\n')
+            .map(|(_, s)| s[..s.len() - 3].trim())
+            .unwrap_or(text)
+    } else {
+        text
+    };
+    serde_json::from_str(text)
+        .or_else(|original| {
+            let normalized = without_trailing_commas(text);
+            if normalized == text {
+                return Err(original);
+            }
+            let value = serde_json::from_str(&normalized)?;
+            changes.push(
+                "Removed trailing JSON collection comma outside strings; raw retained".into(),
+            );
+            Ok(value)
+        })
+        .map_err(|e| format!("Unreadable board response: {e}"))
+}
+// A separate review call sees only the person's words, their answers and the draft
+// parts, and names decisions the draft settled silently. Its decisions join the board's;
+// once required parts are present, its top question is asked first. Board validation
+// still applies (ask counts, skips, duplicates), so a dropped review question falls back
+// to the board's own.
+pub(super) fn with_review(raw: &str, review: &str, changes: &mut Vec<String>) -> Option<String> {
+    let mut board = read(raw, &mut vec![]).ok()?;
+    let review = match read(review, &mut vec![]) {
+        Ok(v) => v,
+        Err(e) => {
+            changes.push(format!("Ignored decision review: {e}"));
+            return None;
+        }
+    };
+    let found: Vec<_> = items(review.get("decisions"), "review decisions", &mut vec![])
+        .into_iter()
+        .filter_map(|v| v.as_object().cloned())
+        .collect();
+    let obj = board.as_object_mut()?;
+    if found.is_empty() {
+        return None;
+    }
+    let required_missing = Part::REQUIRED.iter().any(|p| {
+        let key = serde_json::to_value(p).ok();
+        obj.get("parts")
+            .and_then(|parts| parts.get(key.as_ref()?.as_str()?))
+            .and_then(|v| v.as_str())
+            .is_none_or(|s| s.trim().is_empty())
+    });
+    let mut decisions = items(obj.get("decisions"), "decisions", &mut vec![]);
+    let mut asks = vec![];
+    for mut d in found {
+        if let Some(text) = d.remove("question").filter(|q| q.is_string()) {
+            asks.push(serde_json::json!({"target": d.get("part"), "text": text}));
+        }
+        decisions.push(serde_json::Value::Object(d));
+    }
+    let mut questions = items(obj.get("questions"), "questions", &mut vec![]);
+    if required_missing {
+        questions.extend(asks);
+    } else {
+        asks.extend(questions);
+        questions = asks;
+    }
+    changes.push(format!(
+        "Decision review added {} decision(s)",
+        decisions.len()
+    ));
+    obj.insert("decisions".into(), decisions.into());
+    obj.insert("questions".into(), questions.into());
+    serde_json::to_string(&board).ok()
 }
 fn without_trailing_commas(text: &str) -> String {
     let bytes = text.as_bytes();

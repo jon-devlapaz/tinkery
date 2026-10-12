@@ -219,3 +219,66 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     );
     assert!(app.receipt.is_none());
 }
+#[test]
+fn a_typed_decision_keeps_its_part_open_and_can_be_asked_after_required_parts() {
+    let parts = r#""parts":{"who":"I","outcome":"have a clean workspace","why":"I lost work","done_when":"merged branches are gone","must_not":["force delete anything"]}"#;
+    let (b, _) = parsed(&format!(
+        r#"{{{parts},"open":[],"decisions":[{{"part":"must_not","text":"Worktrees that still hold work","answers":["leave them and report them","save their work, then remove them"]}}],"questions":[{{"target":"must_not","text":"Should worktrees that still hold work be left alone or rescued first?"}}]}}"#
+    ));
+    assert_eq!(b.open, [Part::MustNot]);
+    assert_eq!(b.questions[0].target, Some(Part::MustNot));
+    assert_eq!(
+        b.unresolved_notes,
+        [
+            "Open decision: Worktrees that still hold work (leave them and report them / save their work, then remove them)"
+        ]
+    );
+    let mut app = BrainDump::with_host(Arc::new(Simulated));
+    app.sources = request().sources;
+    app.applied = 1;
+    app.guess = Some(b);
+    assert!(!app.goal_ready());
+    let (settled, _) = parsed(&format!(r#"{{{parts},"open":[],"decisions":[]}}"#));
+    app.guess = Some(settled);
+    assert!(app.goal_ready());
+}
+#[test]
+fn a_decision_without_two_answers_or_a_known_part_is_ignored() {
+    let (b, changes) = parsed(
+        r#"{"parts":{"who":"I","outcome":"x","why":"y","done_when":"z"},"decisions":[{"part":"must","text":"One answer","answers":["only","only"]},{"part":"nonsense","text":"Bad part","answers":["a","b"]},"bare text"]}"#,
+    );
+    assert!(b.open.is_empty());
+    assert!(b.unresolved_notes.is_empty());
+    assert!(changes.iter().any(|c| c.contains("needs two answers")));
+    assert!(changes.iter().any(|c| c.contains("needs a known part")));
+    assert!(changes.iter().any(|c| c.contains("not an object")));
+}
+#[test]
+fn a_decision_review_is_asked_first_once_required_parts_are_present() {
+    let full = r#"{"parts":{"who":"I","outcome":"have a clean workspace","why":"I lost work","done_when":"merged branches are gone"},"open":["must"],"questions":[{"target":"must","text":"Anything that must stay?"}]}"#;
+    let review = r#"{"decisions":[{"part":"must_not","text":"Worktrees that still hold work","answers":["leave them","rescue then remove"],"question":"Should worktrees that still hold work be left alone?"}]}"#;
+    let mut changes = vec![];
+    let merged = board::with_review(full, review, &mut changes).unwrap();
+    let (b, _) = parsed(&merged);
+    assert_eq!(b.open, [Part::Must, Part::MustNot]);
+    assert_eq!(
+        b.questions[0].text,
+        "Should worktrees that still hold work be left alone?"
+    );
+    assert_eq!(
+        b.unresolved_notes,
+        ["Open decision: Worktrees that still hold work (leave them / rescue then remove)"]
+    );
+    // A missing required part is still asked before any review decision.
+    let partial = r#"{"parts":{"who":"I","outcome":"have a clean workspace"},"questions":[{"target":"why","text":"What prompted this?"}]}"#;
+    let (b, _) = parsed(&board::with_review(partial, review, &mut vec![]).unwrap());
+    assert_eq!(b.questions[0].text, "What prompted this?");
+    // An empty or unreadable review leaves the board as it was.
+    assert!(board::with_review(full, r#"{"decisions":[]}"#, &mut vec![]).is_none());
+    assert!(board::with_review(full, "not JSON", &mut changes).is_none());
+    assert!(
+        changes
+            .iter()
+            .any(|c| c.starts_with("Ignored decision review"))
+    );
+}

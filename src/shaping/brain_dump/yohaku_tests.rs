@@ -195,7 +195,11 @@ log.write_text(str(n+1))
 print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[dict(id='boundary',text='When should you taste the result?')] if not r['settled'] else [],alternatives=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(PiHost::new(program, "test/model".into(), skill).unwrap());
+    let host = Arc::new(
+        PiHost::new(program, "test/model".into(), skill)
+            .unwrap()
+            .with_background_audit(),
+    );
     let mut a = BrainDump::with_host(host.clone());
     a.paste("the restaurateur judges the result");
     a.submit();
@@ -280,6 +284,13 @@ assert '--thinking' not in sys.argv
 log=root/'calls.jsonl'
 previous=[json.loads(s) for s in log.read_text().splitlines()] if log.exists() else []
 with log.open('a') as f:f.write(json.dumps(dict(kind=kind,request=r))+'\n')
+if kind=='decision-review':
+ assert sorted(r)==['answers','draft','kind','words'] and r['words']==['the restaurateur judges the result']
+ p=sys.argv[sys.argv.index('--system-prompt')+1]
+ assert 'how an action is carried out' in p and 'edge cases and overlaps' in p
+ assert 'return none unless another decision is as costly' in p
+ (root/'review-ok').write_text('1')
+ print(json.dumps(dict(decisions=[])));sys.exit(0)
 if kind=='meaning-preservation':
  assert r['mode']=='log-only' and 'questions' in r['board'] and 'misfits' in r['board']
  if mode=='audit-syntax':print('not JSON');sys.exit(0)
@@ -296,13 +307,20 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
             .with_default_thinking();
         let result = pi.reshape(r.clone(), &AtomicBool::new(false));
         assert_eq!(result.is_ok(), success, "{mode}: {result:?}");
+        let calls = std::fs::read_to_string(dir.path().join("calls.jsonl")).unwrap();
+        let reviews = calls
+            .lines()
+            .filter(|l| l.contains("\"decision-review\""))
+            .count();
         assert_eq!(
-            std::fs::read_to_string(dir.path().join("calls.jsonl"))
-                .unwrap()
-                .lines()
-                .count(),
-            1
+            calls.lines().count() - reviews,
+            1,
+            "{mode}: one shaping call"
         );
+        // The decision review runs only on a readable board, once.
+        let readable = !matches!(mode, "syntax" | "transport");
+        assert_eq!(reviews, usize::from(readable), "{mode}: {calls}");
+        assert_eq!(dir.path().join("review-ok").exists(), readable, "{mode}");
         if let Ok(g) = result {
             let before = serde_json::to_value(&g).unwrap();
             let d = pi.advisory(r, g.clone(), &AtomicBool::new(false));
@@ -341,4 +359,42 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
             assert!(checks::why(&pi.diagnostics()).contains("Rejected attempt — not confirmable"));
         }
     }
+}
+#[cfg(unix)]
+#[test]
+fn a_send_costs_a_shaping_call_and_a_review_with_no_background_audit() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(
+        &skill,
+        "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
+    )
+    .unwrap();
+    let program = dir.path().join("pi");
+    std::fs::write(&program,r#"#!/usr/bin/env python3
+import json,sys,pathlib
+root=pathlib.Path(__file__).parent
+r=json.load(sys.stdin)
+kind=r.get('kind','shape')
+with (root/'calls').open('a') as f:f.write(kind+'\n')
+if kind=='decision-review':print(json.dumps(dict(decisions=[])));sys.exit(0)
+if kind=='meaning-preservation':print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)
+print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
+"#).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let host = Arc::new(PiHost::new(program, "test/model".into(), skill).unwrap());
+    let mut a = BrainDump::with_host(host);
+    a.paste("the restaurateur judges the result");
+    a.submit();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while a.running() && std::time::Instant::now() < deadline {
+        a.tick();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(a.guess.is_some() && a.audit_job.is_none());
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("calls")).unwrap(),
+        "shape\ndecision-review\n"
+    );
 }

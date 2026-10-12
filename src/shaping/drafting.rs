@@ -164,6 +164,7 @@ pub struct PiHost {
     instructions: String,
     timeout: Duration,
     pub(super) brain_history: std::sync::Mutex<Vec<String>>,
+    pub(super) background_audit: bool,
 }
 
 impl PiHost {
@@ -195,6 +196,7 @@ impl PiHost {
             instructions: instructions.into(),
             timeout: Duration::from_secs(90),
             brain_history: std::sync::Mutex::new(Vec::new()),
+            background_audit: false,
         })
     }
 
@@ -274,6 +276,12 @@ impl PiHost {
 
     pub fn with_default_thinking(mut self) -> Self {
         self.thinking.clear();
+        self
+    }
+    /// Tests only: the log-only meaning audit no longer runs after each reading.
+    #[cfg(test)]
+    pub fn with_background_audit(mut self) -> Self {
+        self.background_audit = true;
         self
     }
     pub(super) fn complete(

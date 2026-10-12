@@ -68,7 +68,7 @@ def journey(w,h):
     try:os.kill(pid,0)
     except ProcessLookupError:pass
     else:raise AssertionError('Owned audit survived exit')
-   print(json.dumps(dict(width=w,height=h,provider='stub',journey='one-frame uncertain reading/async audit/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore',confirmation=False)))
+   print(json.dumps(dict(width=w,height=h,provider='stub',journey='one-frame uncertain reading/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore',confirmation=False)))
   finally:
    if process.poll() is None:process.kill();process.wait()
    if (cwd/'audit.pid').exists():

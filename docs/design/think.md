@@ -9,17 +9,43 @@ and at most one question in focus sit on the right. No second reading.
 If interpretations compete, ask the question that decides between them.
 
 The reading uses the [goal block](goal-block.md), not dense template sentences.
-Ask about consequential missing intent, not facts an agent could discover. Answers
+Ask about consequential missing intent, not facts an agent could discover. Once the
+required parts are present, ask the most consequential open decision: a choice only
+the person can make whose answers would change a goal line (a boundary, a scope, what
+happens to protected things). The reading lists decisions as typed items (part, text,
+two or more answers). Each keeps its part open, so it blocks "Nothing I'm unsure
+about" until an answer settles it, and travels to review and the seed as an
+"Open decision" note. A decision without two answers or a known part is ignored.
+After each reading, a separate review call sees only the person's words, their
+answers and the draft parts (not the template) and names decisions the draft settled
+silently: a target or scope, a boundary on deleting, sending or overwriting, what
+happens to protected things, persistence, whose rules apply. Its decisions join the
+reading's, and once required parts are present its top question is asked first; a
+failed or unreadable review leaves the reading as it was. It stops once the target
+and any irreversible boundary are settled: no edge cases the person's rules already
+cover and no questions about how an action is carried out (a live trial asked
+"whole folders or just files?" after the real decision was answered). Each answer
+lands in the one part it answers rather than being repeated across parts.
+
+Known gap: the review can stop one question early when a line points at something
+by example ("like the eval stuff we just ran") that could mean two different
+sources or scopes. In a live trial it left that reading in place, and an agent would
+have built from the wrong source. The "anything to add or change?" box corrects it
+in one line. A candidate fix is a final check for such lines before "Nothing I'm
+unsure about"; it is not built or measured yet.
+Questions stop when no decision is left. Unresolved notes carry only open intent,
+never status disclaimers. Answers
 and added dumps remain distinct exact sources. Sending refines the reading;
 refining a ready reading does not start a new dump. Skipped questions stay skipped;
 Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other's
 constraints. Deferred items remain context for the seed.
 
 The original is plain ink by default. Exact cited spans are validated invisibly;
-uncited words are not implicitly rejected. A background meaning/continuity audit
-is log-only: it does not gate a valid reading, retry it, or show warning flags.
-In live mode a submitted reshape includes a shaping call and that audit, so budget
-for both. Practice and the documented suite use fakes.
+uncited words are not implicitly rejected. The decision review took the slot of
+the old log-only meaning/continuity audit, which no longer runs in live mode: in
+the v3 eval it cut silent guesses (14% to 6%) and the audit never changed a reading.
+In live mode a submitted reshape is a shaping call plus the decision review, so
+budget for two. Practice and the documented suite use fakes.
 
 When no question is in focus (none left, skipped, or a part asked twice), one
 muted line says which of three states holds:

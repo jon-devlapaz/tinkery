@@ -9,6 +9,8 @@ import json,sys
 r=json.load(sys.stdin)
 if r.get('kind') in ('meaning-preservation','question-continuity'):
  print(json.dumps(dict(missing=[],false_choice=False) if r['kind']=='meaning-preservation' else dict(repeated=[])));sys.exit(0)
+if r.get('kind')=='decision-review':
+ print(json.dumps(dict(decisions=[])));sys.exit(0)
 with open('requests.jsonl','a') as f: f.write(json.dumps(r)+'\\n')
 anchors=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']]
 print(json.dumps(dict(parts=dict(who='I',outcome='keep selection exact',why='Copies must match',done_when='bytes match'),open=['outcome'],supports=anchors,misfits=[],questions=[dict(id='q1',text='Which words matter?')],alternatives=[])))
