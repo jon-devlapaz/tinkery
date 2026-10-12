@@ -12,11 +12,11 @@ impl BrainDump {
         self.voice.as_ref().is_some_and(Voice::active)
     }
     pub(super) fn voice_allowed(&self) -> bool {
-        !self.quit
-            && !self.leave_prompt
-            && self.goal_review.is_none()
-            && self.receipt.is_none()
-            && self.handoff_job.is_none()
+        !self.quitting()
+            && !self.screen.leave_prompt
+            && self.handoff.review.is_none()
+            && self.handoff.receipt.is_none()
+            && self.handoff.job.is_none()
     }
     pub(super) fn voice_available(&self) -> bool {
         self.voice_allowed() && self.voice.is_some()
@@ -38,7 +38,7 @@ impl BrainDump {
                 _ => {}
             }
         }
-        if key.code == KeyCode::Esc && self.voice_active() && !self.leave_prompt {
+        if key.code == KeyCode::Esc && self.voice_active() && !self.screen.leave_prompt {
             self.voice.as_mut().unwrap().cancel();
             return true;
         }
@@ -63,9 +63,9 @@ impl BrainDump {
             // Dictation adds at the caret; it never deletes a selection.
             self.input.collapse();
             self.focus_writing();
-            self.help = false;
-            self.original = false;
-            self.details = false;
+            self.screen.help = false;
+            self.screen.original = false;
+            self.screen.details = false;
         }
         true
     }
@@ -90,7 +90,7 @@ impl BrainDump {
             return;
         }
         self.focus_writing();
-        self.changed_lines = None;
+        self.conversation.forget_changes();
         if result.send {
             self.submit();
         }
@@ -108,7 +108,7 @@ pub(super) fn input_text(
 ) -> (super::super::note::Wrapped, Text<'static>) {
     let partial = Note::sanitize(app.voice.as_ref().map_or("", Voice::partial));
     if partial.is_empty() {
-        let wrapped = app.input.wrap(app.input_area.width);
+        let wrapped = app.input.wrap(app.screen.input_area.width);
         let text = Text::styled(wrapped.lines.join("\n"), palette.ink);
         return (wrapped, text);
     }
@@ -127,7 +127,7 @@ pub(super) fn input_text(
         .take_while(|i| *i <= start)
         .last()
         .unwrap_or(0);
-    let wrapped = preview.wrap(app.input_area.width);
+    let wrapped = preview.wrap(app.screen.input_area.width);
     let mut scan = 0;
     let lines = wrapped
         .lines
@@ -157,13 +157,16 @@ pub(super) fn input_text(
 }
 
 pub(super) fn render_notice(frame: &mut Frame, app: &BrainDump, palette: Palette) {
-    if !app.voice_allowed() || app.area.width < MIN_WIDTH || app.area.height < MIN_HEIGHT {
+    if !app.voice_allowed()
+        || app.screen.area.width < MIN_WIDTH
+        || app.screen.area.height < MIN_HEIGHT
+    {
         return;
     }
     if let Some(voice) = &app.voice {
         frame.render_widget(
             Paragraph::new(voice.notice()).style(palette.muted),
-            Rect::new(2, app.area.height - 2, app.area.width - 4, 1),
+            Rect::new(2, app.screen.area.height - 2, app.screen.area.width - 4, 1),
         );
     }
 }

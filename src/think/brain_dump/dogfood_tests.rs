@@ -69,29 +69,31 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     a.paste("Books I've read this year.");
     a.submit();
     wait(&mut a);
-    let old = a.guess.clone().unwrap();
+    let old = a.conversation.board().cloned().unwrap();
     a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
     a.paste("Also fix a typo in the welcome email.");
     a.submit();
     assert!(!a.running());
     assert_eq!(host.requests.lock().unwrap().len(), 1);
     assert!(
-        a.focused_question()
+        a.conversation
+            .focused_question()
             .unwrap()
             .id
             .starts_with("scope-addition-")
     );
-    assert_eq!(a.source_view, 1);
+    assert_eq!(a.screen.source_view, 1);
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(view.contains("Also fix a typo"));
-    assert_eq!(a.guess.as_ref().unwrap().framings, old.framings);
+    assert_eq!(a.conversation.board().unwrap().framings, old.framings);
     assert!(a.misfit_text().contains("scope not answered"));
     assert!(a.misfit_text().contains("welcome email"));
     a.submit();
     assert_eq!(host.requests.lock().unwrap().len(), 1);
     a.review_goal();
     assert!(
-        a.goal_review
+        a.handoff
+            .review
             .as_ref()
             .unwrap()
             .affirmation
@@ -99,7 +101,7 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
             .iter()
             .any(|q| q.id == "scope-addition-2")
     );
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.job.is_none());
     key(&mut a, KeyCode::Esc);
     a.paste("keep it separate");
     a.submit();
@@ -113,10 +115,10 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     assert_eq!(requests[1].sources[2].text, "keep it separate");
     assert_eq!(requests[1].settled[0].question.id, "scope-addition-2");
     assert_eq!(requests[1].settled[0].source, 3);
-    assert!(a.scope_pending.is_none() && a.receipt.is_none());
+    assert!(a.conversation.scope_pending().is_none() && a.handoff.receipt.is_none());
     assert!(
-        a.guess
-            .as_ref()
+        a.conversation
+            .board()
             .unwrap()
             .misfits
             .iter()
@@ -134,7 +136,7 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
     a.paste("A welcome-email typo.");
     a.submit();
     key(&mut a, KeyCode::F(8));
-    assert_eq!(a.focused_question().unwrap().id, "books-note");
+    assert_eq!(a.conversation.focused_question().unwrap().id, "books-note");
     a.paste("A short note about each book.");
     a.submit();
     wait(&mut a);
@@ -150,11 +152,12 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
             .contains("welcome-email typo")
     );
     drop(requests);
-    assert_eq!(a.sources[1].text, "A welcome-email typo.");
-    assert!(a.scope_pending.is_some());
+    assert_eq!(a.conversation.sources()[1].text, "A welcome-email typo.");
+    assert!(a.conversation.scope_pending().is_some());
     a.review_goal();
     assert!(
-        a.goal_review
+        a.handoff
+            .review
             .as_ref()
             .unwrap()
             .affirmation
@@ -162,13 +165,16 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
             .iter()
             .any(|q| q.id == "scope-addition-2")
     );
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.job.is_none());
     key(&mut a, KeyCode::Esc);
     a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
-    assert_eq!(a.focused_question().unwrap().id, "scope-addition-2");
+    assert_eq!(
+        a.conversation.focused_question().unwrap().id,
+        "scope-addition-2"
+    );
     assert!(
-        a.guess
-            .as_ref()
+        a.conversation
+            .board()
             .unwrap()
             .questions
             .iter()
@@ -178,20 +184,20 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
 #[test]
 fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
     let mut a = board();
-    assert!(!a.board_focus);
+    assert!(!a.screen.board_focus);
     key(&mut a, KeyCode::F(6));
-    assert!(!a.board_focus, "F6 no longer switches focus");
-    let q = a.focused_question().unwrap().id.clone();
+    assert!(!a.screen.board_focus, "F6 no longer switches focus");
+    let q = a.conversation.focused_question().unwrap().id.clone();
     key(&mut a, KeyCode::F(8));
-    assert_eq!(a.skipped.len(), 1);
+    assert_eq!(a.conversation.skipped().len(), 1);
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
             .contains("Question skipped")
     );
     a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
-    assert_eq!(a.focused_question().unwrap().id, q);
-    assert!(a.skipped.is_empty());
+    assert_eq!(a.conversation.focused_question().unwrap().id, q);
+    assert!(a.conversation.skipped().is_empty());
     key(&mut a, KeyCode::F(9));
     assert!(a.take_copy_request().unwrap().contains("Tinkery"));
     a.copy_result(true);
@@ -201,15 +207,15 @@ fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
             .contains("Copy sent")
     );
     key(&mut a, KeyCode::F(4));
-    assert!(a.original);
+    assert!(a.screen.original);
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::F(5));
-    assert!(a.details);
+    assert!(a.screen.details);
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::F(3));
-    assert!(a.goal_review.is_some());
+    assert!(a.handoff.review.is_some());
     snapshot(100, 30, &mut a, false).unwrap();
-    let back = a.back_button;
+    let back = a.screen.back_button;
     assert!(back.width > 0);
     a.handle_mouse(
         MouseEvent {
@@ -218,42 +224,43 @@ fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
             row: back.y,
             modifiers: KeyModifiers::NONE,
         },
-        a.area,
+        a.screen.area,
     );
-    assert!(a.goal_review.is_none() && a.handoff_job.is_none());
+    assert!(a.handoff.review.is_none() && a.handoff.job.is_none());
     key(&mut a, KeyCode::F(10));
-    assert!(a.leave_prompt && !a.quit);
+    assert!(a.screen.leave_prompt && !a.quitting());
     key(&mut a, KeyCode::Esc);
-    assert!(!a.leave_prompt);
+    assert!(!a.screen.leave_prompt);
     key(&mut a, KeyCode::F(10));
     key(&mut a, KeyCode::F(10));
-    assert!(a.quit);
+    assert!(a.quitting());
 }
 #[test]
 fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() {
     let mut a = board();
-    let original = a.focused_question().unwrap().clone();
+    let original = a.conversation.focused_question().unwrap().clone();
     key(&mut a, KeyCode::F(8));
     a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
-    assert_eq!(a.focused_question().unwrap().id, original.id);
+    assert_eq!(a.conversation.focused_question().unwrap().id, original.id);
     let r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
-        previous: a.guess.as_ref().map(|g| g.wire()),
+        previous: a.conversation.board().map(|g| g.wire()),
         skipped: vec![],
         answered: vec![],
         settled: vec![],
         layout: vec![],
     };
-    let mut response = a.guess.as_ref().unwrap().wire();
+    let mut response = a.conversation.board().unwrap().wire();
     response.questions.clear();
     a.apply_result(r, Ok(response));
-    assert!(a.guess.as_ref().unwrap().questions.is_empty());
-    assert_eq!(a.focused_question().unwrap().id, original.id);
+    assert!(a.conversation.board().unwrap().questions.is_empty());
+    assert_eq!(a.conversation.focused_question().unwrap().id, original.id);
     a.review_goal();
     assert!(
-        a.goal_review
+        a.handoff
+            .review
             .as_ref()
             .unwrap()
             .affirmation
@@ -261,14 +268,14 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
             .iter()
             .any(|q| q.id == original.id)
     );
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.job.is_none());
 }
 #[test]
 fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();
         let with_bar = snapshot(w, h, &mut a, false).unwrap();
-        let rect = a.source_area;
+        let rect = a.screen.source_area;
         let bar = with_bar.lines().last().unwrap();
         assert!(bar.contains("2 send") && bar.contains("10 menu"), "{bar}");
         assert!(bar.contains("8 skip") && bar.contains("3 review"), "{bar}");
@@ -279,7 +286,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         key(&mut a, KeyCode::Char('b'));
         key(&mut a, KeyCode::Esc);
         let without = snapshot(w, h, &mut a, false).unwrap();
-        assert_eq!(rect, a.source_area);
+        assert_eq!(rect, a.screen.source_area);
         assert!(!without.lines().last().unwrap().contains("send"));
         assert_eq!(
             with_bar
@@ -288,7 +295,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
                 .collect::<Vec<_>>(),
             without.lines().take(usize::from(h - 1)).collect::<Vec<_>>()
         );
-        a.key_bar = true;
+        a.screen.key_bar = true;
         key(&mut a, KeyCode::F(3));
         let review = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&review, w).contains("type confirm to save."));
@@ -297,8 +304,8 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
             bar.contains("type confirm") && bar.contains("esc back"),
             "{bar}"
         );
-        a.goal_review = None;
-        a.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
+        a.handoff.review = None;
+        a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
         assert!(
             super::goal_tests::right_text(&receipt, w)
@@ -308,10 +315,10 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
             receipt.lines().last().unwrap().trim(),
             "c copy prompt   s open in shape   10 menu"
         );
-        assert_eq!(rect, a.source_area);
+        assert_eq!(rect, a.screen.source_area);
     }
     let mut empty = BrainDump::default();
-    assert!(empty.key_bar);
+    assert!(empty.screen.key_bar);
     let bar = snapshot(100, 30, &mut empty, false).unwrap();
     assert_eq!(bar.lines().last().unwrap().trim(), "2 send   10 menu");
 }
@@ -327,21 +334,22 @@ fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation(
     a.paste("Original kept.");
     a.submit();
     wait(&mut a);
-    assert!(a.guess.is_none());
+    assert!(a.conversation.board().is_none());
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(right_text(&view, 100).contains("The quoted line doesn't exist"));
     let help = yohaku::help_text(&a);
     assert!(help.starts_with("Right now\nThe reading failed"));
     assert!(!help.lines().nth(1).unwrap().contains("review"));
     key(&mut a, KeyCode::F(3));
-    assert!(a.goal_review.is_none());
-    assert_eq!(a.sources[0].text, "Original kept.");
+    assert!(a.handoff.review.is_none());
+    assert_eq!(a.conversation.sources()[0].text, "Original kept.");
 }
 #[test]
 fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overlap() {
     let mut a = board();
-    let mut g = a.guess.as_ref().unwrap().wire();
-    a.sources[0].text = "Learners feel dumb. Proposed AI tutor chat. Unverified question 4.".into();
+    let mut g = a.conversation.board().unwrap().wire();
+    a.conversation.sources_mut()[0].text =
+        "Learners feel dumb. Proposed AI tutor chat. Unverified question 4.".into();
     g.parts.outcome = Some("Learners leave a wrong answer feeling smarter.".into());
     g.outcome = g.framings[0].text.clone();
     g.framings[0].supports = vec![Anchor {
@@ -365,7 +373,7 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
     ];
     let r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
         previous: None,
         skipped: vec![],
@@ -381,19 +389,19 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
     );
     amend_board(&mut a, |current| *current = g);
     a.review_goal();
-    assert!(a.goal_review.is_some());
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.review.is_some());
+    assert!(a.handoff.job.is_none());
 }
 #[test]
 fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
     let host = Arc::new(Counting::default());
     let mut a = BrainDump::with_host(host.clone());
-    a.sources = vec![Source {
+    *a.conversation.sources_mut() = vec![Source {
         id: 1,
         text: "x".repeat(4000),
         in_reply_to: None,
     }];
-    a.fragments = (0..7)
+    *a.conversation.fragments_mut() = (0..7)
         .map(|i| Fragment {
             id: format!("f{i}"),
             source: 1,
@@ -409,12 +417,13 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
             .unwrap()
             .contains("/ 32768 bytes")
     );
-    a.fragments.push(a.fragments[0].clone());
-    let source = a.sources[0].text.clone();
+    let first = a.conversation.fragments()[0].clone();
+    a.conversation.fragments_mut().push(first);
+    let source = a.conversation.sources()[0].text.clone();
     a.submit();
     assert!(!a.running());
     assert!(host.requests.lock().unwrap().is_empty());
-    assert_eq!(a.sources[0].text, source);
+    assert_eq!(a.conversation.sources()[0].text, source);
     assert_eq!(a.input.text, "new words stay local");
     assert!(a.notice.contains("above 32 KiB"));
     assert_eq!(a.local_checks.last().unwrap().decision, "reject");
@@ -422,7 +431,7 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
 #[test]
 fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
     let mut a = board();
-    let g = a.guess.as_ref().unwrap();
+    let g = a.conversation.board().unwrap();
     let mut raw = serde_json::to_value(g).unwrap();
     raw["alternatives"][0]["precondition"] =
         serde_json::json!("An unverified capability is needed.");
@@ -441,13 +450,13 @@ fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
     assert!(why.contains("Rejected attempt — not confirmable"));
     assert!(why.contains(&g.framings[0].text));
     assert!(why.contains("precondition: An unverified capability is needed."));
-    a.guess = None;
-    a.last_failure = Some(d.reason.clone());
-    a.applied = 0;
+    a.conversation.set_board(None);
+    a.conversation.set_last_failure(Some(d.reason.clone()));
+    a.conversation.set_applied(0);
     a.review_goal();
-    assert!(a.goal_review.is_none());
+    assert!(a.handoff.review.is_none());
     assert_eq!(d.raw.as_ref().unwrap(), &text);
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.job.is_none());
 }
 #[test]
 fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_discard() {
@@ -456,16 +465,16 @@ fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_d
         "Intended meaning"
     );
     let mut a = board();
-    let original = a.sources[0].text.clone();
+    let original = a.conversation.sources()[0].text.clone();
     a.handle_key(KeyEvent::new(KeyCode::F(10), KeyModifiers::ALT));
-    assert!(!a.quit && !a.leave_prompt);
+    assert!(!a.quitting() && !a.screen.leave_prompt);
     a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::CONTROL));
-    assert!(a.skipped.is_empty());
+    assert!(a.conversation.skipped().is_empty());
     let mut repeated = KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE);
     repeated.kind = KeyEventKind::Repeat;
     a.handle_key(repeated);
-    assert!(a.skipped.is_empty());
-    assert_eq!(a.sources[0].text, original);
+    assert!(a.conversation.skipped().is_empty());
+    assert_eq!(a.conversation.sources()[0].text, original);
 }
 #[test]
 fn right_side_speaks_in_one_voice_with_one_reading() {
@@ -477,9 +486,9 @@ fn right_side_speaks_in_one_voice_with_one_reading() {
     assert!(!one.contains("Review goal") && !one.contains("or maybe"));
     let bar = snapshot(100, 30, &mut a, false).unwrap();
     assert!(!bar.lines().last().unwrap().contains('7'));
-    let before = a.reading;
+    let before = a.screen.reading;
     key(&mut a, KeyCode::F(7));
-    assert_eq!(a.reading, before, "F7 does nothing");
+    assert_eq!(a.screen.reading, before, "F7 does nothing");
     assert_eq!(agent_text("Possible goal: a reading."), "A reading.");
     assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
     assert_eq!(agent_text("PROVISIONAL goal: x"), "X");
@@ -493,26 +502,26 @@ fn left_label_names_what_you_wrote_and_hides_while_only_the_dump() {
     let mut a = board();
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     assert!(!screen.contains("Words") && !screen.contains("your dump"));
-    let q = a.focused_question().unwrap().clone();
+    let q = a.conversation.focused_question().unwrap().clone();
     a.paste("my answer");
     a.submit();
     wait(&mut a);
-    a.source_view = 1;
+    a.screen.source_view = 1;
     let label = a.source_label().unwrap();
     assert!(label.starts_with("your answer to: “"), "{label}");
     assert!(label.contains(&q.text.chars().take(20).collect::<String>()));
-    a.source_view = 0;
+    a.screen.source_view = 0;
     assert_eq!(a.source_label().unwrap(), "your dump");
 }
 #[test]
 fn answering_keeps_the_dump_in_view() {
     let mut a = board();
-    let dump = a.sources[0].text.clone();
+    let dump = a.conversation.sources()[0].text.clone();
     a.paste("my answer");
     a.submit();
     wait(&mut a);
-    assert!(a.sources.len() >= 2);
-    assert_eq!(a.source_view, 0);
+    assert!(a.conversation.sources().len() >= 2);
+    assert_eq!(a.screen.source_view, 0);
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     let first: String = dump
         .split_whitespace()

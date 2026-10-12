@@ -14,15 +14,15 @@ const HEAD: &str =
 fn app(raw: serde_json::Value) -> BrainDump {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
-    a.sources.push(Source {
+    a.conversation.sources_mut().push(Source {
         id: 1,
         text: SOURCE.into(),
         in_reply_to: None,
     });
-    a.applied = 1;
+    a.conversation.set_applied(1);
     let r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
         previous: None,
         skipped: vec![],
@@ -31,7 +31,8 @@ fn app(raw: serde_json::Value) -> BrainDump {
         layout: vec![],
     };
     let g = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();
-    a.guess = Some(board::Board::verify(g, &r).unwrap());
+    a.conversation
+        .set_board(Some(board::Board::verify(g, &r).unwrap()));
     a
 }
 pub(super) fn constraints(must: &[&str], must_not: &[&str]) -> BrainDump {
@@ -226,18 +227,21 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
     ];
     for (must, must_not, want_must, want_not, lines) in table {
         let mut a = constraints(must, must_not);
-        let parts = &a.guess.as_ref().unwrap().parts;
+        let parts = &a.conversation.board().unwrap().parts;
         assert_eq!(parts.must, *want_must, "{must:?} {must_not:?}");
         assert_eq!(parts.must_not, *want_not, "{must:?} {must_not:?}");
         let composed = format!("{HEAD}\n{lines}");
-        assert_eq!(a.guess.as_ref().unwrap().framings[0].text, composed);
+        assert_eq!(a.conversation.board().unwrap().framings[0].text, composed);
         a.review_goal();
-        let affirmation = &a.goal_review.as_ref().unwrap().affirmation;
+        let affirmation = &a.handoff.review.as_ref().unwrap().affirmation;
         assert_eq!(affirmation.goal, composed);
         assert_eq!(affirmation.parts.must, *want_must);
         assert_eq!(affirmation.parts.must_not, *want_not);
         assert_eq!(affirmation.sources[0].text.as_bytes(), SOURCE.as_bytes());
-        assert_eq!(a.sources[0].text.as_bytes(), SOURCE.as_bytes());
+        assert_eq!(
+            a.conversation.sources()[0].text.as_bytes(),
+            SOURCE.as_bytes()
+        );
     }
 }
 #[test]
@@ -272,7 +276,7 @@ fn ambiguous_or_quoted_negation_is_left_unchanged() {
         (&["must"], &["do not"]),
     ] {
         let a = constraints(must, must_not);
-        let parts = &a.guess.as_ref().unwrap().parts;
+        let parts = &a.conversation.board().unwrap().parts;
         assert_eq!(parts.must, must, "{must:?}");
         assert_eq!(parts.must_not, must_not, "{must_not:?}");
         let lines = must
@@ -282,10 +286,13 @@ fn ambiguous_or_quoted_negation_is_left_unchanged() {
             .collect::<Vec<_>>()
             .join("\n");
         assert_eq!(
-            a.guess.as_ref().unwrap().framings[0].text,
+            a.conversation.board().unwrap().framings[0].text,
             format!("{HEAD}\n{lines}")
         );
-        assert_eq!(a.sources[0].text.as_bytes(), SOURCE.as_bytes());
+        assert_eq!(
+            a.conversation.sources()[0].text.as_bytes(),
+            SOURCE.as_bytes()
+        );
     }
 }
 #[test]
@@ -305,7 +312,7 @@ fn combined_clauses_keep_names_acronyms_decimals_and_quotes() {
     );
     let a = constraints(&["must keep NASA terms; Priya signs off at 2.5 GB"], &[]);
     assert_eq!(
-        a.guess.as_ref().unwrap().parts.must,
+        a.conversation.board().unwrap().parts.must,
         ["keep NASA terms; Priya signs off at 2.5 GB"]
     );
 }
@@ -314,7 +321,7 @@ fn timing_is_emitted_once_beside_normalized_constraints() {
     let a = app(
         serde_json::json!({"parts":{"who":"My mom","outcome":"spots a fake text before tapping anything","when":"before tapping anything","must_not":["must not need an app"]}}),
     );
-    let text = &a.guess.as_ref().unwrap().framings[0].text;
+    let text = &a.conversation.board().unwrap().framings[0].text;
     assert_eq!(
         text,
         "My mom spots a fake text before tapping anything.\nMust not: need an app."
@@ -339,7 +346,7 @@ fn missing(part: Part) -> BrainDump {
     a.paste(SOURCE);
     a.submit();
     settle(&mut a);
-    assert!(a.focused_question().is_some());
+    assert!(a.conversation.focused_question().is_some());
     a
 }
 fn screens(a: &mut BrainDump) -> Vec<String> {
@@ -363,16 +370,16 @@ fn review_lists_and_saves(a: &mut BrainDump, open: &[&str]) {
     }
     a.paste("confirm");
     a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(a.handoff_job.is_some(), "readiness was required to save");
+    assert!(a.handoff.job.is_some(), "readiness was required to save");
     // The missing helper fails the save attempt; no session root is written.
     let end = std::time::Instant::now() + std::time::Duration::from_secs(3);
-    while a.handoff_job.is_some() && std::time::Instant::now() < end {
+    while a.handoff.job.is_some() && std::time::Instant::now() < end {
         a.goal_tick();
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     assert!(a.notice.contains("Handoff not complete"));
-    assert!(a.receipt.is_none());
-    assert!(a.goal_config.as_ref().unwrap().recovery_path().is_none());
+    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
 }
 #[test]
 fn ready_says_nothing_unsure() {
@@ -382,14 +389,14 @@ fn ready_says_nothing_unsure() {
         assert!(screen.contains("Nothing I'm unsure about. Review when you're ready."));
         assert!(!screen.contains("Still missing") && !screen.contains("remain open"));
     }
-    a.help = true;
+    a.screen.help = true;
     assert!(yohaku::help_text(&a).contains("Nothing I'm unsure about.\nF3 reviews the goal."));
 }
 #[test]
 fn skipped_why_names_only_the_missing_part() {
     let mut a = missing(Part::Why);
     a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
-    assert!(a.focused_question().is_none() && !a.goal_ready());
+    assert!(a.conversation.focused_question().is_none() && !a.goal_ready());
     for screen in screens(&mut a) {
         assert!(
             screen.contains("Still missing: Why. Review when you're ready."),
@@ -401,7 +408,10 @@ fn skipped_why_names_only_the_missing_part() {
         yohaku::help_text(&a).starts_with("Right now\nStill missing: Why.\nF3 reviews the goal.")
     );
     review_lists_and_saves(&mut a, &["Why — Which check 1?"]);
-    assert_eq!(a.sources[0].text.as_bytes(), SOURCE.as_bytes());
+    assert_eq!(
+        a.conversation.sources()[0].text.as_bytes(),
+        SOURCE.as_bytes()
+    );
 }
 #[test]
 fn done_when_after_skip_or_two_asks_is_named_missing_and_reviewable() {
@@ -413,12 +423,12 @@ fn done_when_after_skip_or_two_asks_is_named_missing_and_reviewable() {
         capped.submit();
         settle(&mut capped);
     }
-    assert_eq!(capped.ask_counts[&Part::DoneWhen], 2);
+    assert_eq!(capped.conversation.ask_counts()[&Part::DoneWhen], 2);
     for (a, open) in [
         (&mut skipped, "Done when — Which check 1?"),
         (&mut capped, "Done when — still open"),
     ] {
-        assert!(a.focused_question().is_none() && !a.goal_ready());
+        assert!(a.conversation.focused_question().is_none() && !a.goal_ready());
         for screen in screens(a) {
             assert!(
                 screen.contains("Still missing: Done when. Review when you're ready."),
@@ -436,7 +446,7 @@ fn present_but_open_and_deferred_context_is_not_called_missing() {
     let mut a = app(
         serde_json::json!({"parts":parts,"open":["why"],"deferred":["editing can wait"],"other_goals":["release builds"]}),
     );
-    assert!(a.focused_question().is_none() && !a.goal_ready());
+    assert!(a.conversation.focused_question().is_none() && !a.goal_ready());
     for screen in screens(&mut a) {
         assert!(
             screen.contains("Some parts remain open for the seed. Review when you're ready."),
@@ -459,7 +469,8 @@ fn present_but_open_and_deferred_context_is_not_called_missing() {
 #[test]
 fn no_composed_goal_names_who_without_offering_review() {
     let mut a = app(serde_json::json!({"parts":{}}));
-    a.skipped.push(a.focused_question().unwrap().clone());
+    let q = a.conversation.focused_question().unwrap().clone();
+    a.conversation.skipped_mut().push(q);
     for screen in screens(&mut a) {
         assert!(screen.contains("Still missing: Who."), "{screen}");
         assert!(!screen.contains("Review when you're ready"));
@@ -495,7 +506,7 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
     a.paste("also sync over wifi only");
     a.submit();
     settle(&mut a);
-    assert_ne!(a.applied, a.sources.len());
+    assert_ne!(a.conversation.applied(), a.conversation.sources().len());
     for screen in screens(&mut a) {
         assert!(!screen.contains("Nothing I'm unsure"), "{screen}");
         assert!(
@@ -508,13 +519,13 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
             .unwrap()
             .contains("Nothing I'm unsure")
     );
-    assert_eq!(a.sources[1].text, "also sync over wifi only");
+    assert_eq!(a.conversation.sources()[1].text, "also sync over wifi only");
 }
 #[test]
 fn a_skipped_question_without_a_target_keeps_the_goal_open() {
     let mut a = constraints(&["must work offline"], &[]);
     assert!(yohaku::open_intent(&a).unwrap().starts_with("Nothing"));
-    a.skipped.push(Question {
+    a.conversation.skipped_mut().push(Question {
         target: None,
         id: "priority".into(),
         text: "Which goal comes first?".into(),
@@ -587,12 +598,16 @@ fn clause_splitting_stays_linear_on_many_initials() {
 fn a_cancelled_first_reading_offers_f2_retry_not_more_typing() {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
-    a.sources.push(Source {
+    a.conversation.sources_mut().push(Source {
         id: 1,
         text: SOURCE.into(),
         in_reply_to: None,
     });
-    assert!(a.guess.is_none() && a.applied < a.sources.len() && !a.running());
+    assert!(
+        a.conversation.board().is_none()
+            && a.conversation.applied() < a.conversation.sources().len()
+            && !a.running()
+    );
     let help = yohaku::help_text(&a);
     assert!(
         help.contains("Your words haven't been read yet.\nF2 tries again."),
@@ -605,7 +620,7 @@ fn a_compound_item_is_noted_for_why_but_shown_whole() {
     let mut parts = head();
     let r = |a: &BrainDump| BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
         previous: None,
         skipped: vec![],

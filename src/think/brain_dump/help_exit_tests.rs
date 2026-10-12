@@ -18,11 +18,11 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
         now,
         "Right now\nType anything, in any order.\nF2 sends it.\n\nF1 every key · Esc close"
     );
-    a.help = true;
-    a.help_all = true;
+    a.screen.help = true;
+    a.screen.help_all = true;
     assert!(yohaku::help_text(&a).contains("practice reading; nothing leaves"));
     a = board();
-    a.help = true;
+    a.screen.help = true;
     assert!(yohaku::help_text(&a).starts_with("Right now\nType your answer"));
     assert!(
         yohaku::help_text(&a).lines().count() <= 5,
@@ -31,13 +31,13 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::F(1));
     assert!(
-        !a.help,
+        !a.screen.help,
         "F1 from closed opens layer 1; then layer 2; then closes"
     );
     key(&mut a, KeyCode::F(1));
-    assert!(a.help && !a.help_all);
+    assert!(a.screen.help && !a.screen.help_all);
     key(&mut a, KeyCode::F(1));
-    assert!(a.help && a.help_all);
+    assert!(a.screen.help && a.screen.help_all);
     let text = yohaku::help_text(&a);
     assert!(text.starts_with("Every key"));
     for heading in ["Write", "Look", "Finish", "Leave", "Words"] {
@@ -78,16 +78,16 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
         text.contains("reading   my guess") && text.contains("original  exactly what you typed")
     );
     key(&mut a, KeyCode::Esc);
-    assert!(!a.help && !a.help_all);
+    assert!(!a.screen.help && !a.screen.help_all);
     a.add_more = true;
     assert!(yohaku::help_text(&a).starts_with("Right now\nType a new dump"));
     a.add_more = false;
     a.review_goal();
     assert!(yohaku::help_text(&a).starts_with("Right now\nType confirm"));
-    let frozen = a.goal_review.as_ref().unwrap().affirmation.goal.clone();
+    let frozen = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::Char('h'));
-    assert!(a.how && a.help);
+    assert!(a.screen.how && a.screen.help);
     let how = yohaku::how_text(&a);
     for s in [
         "One shaping call and one decision review run before the reading is shown",
@@ -104,20 +104,20 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     assert!(screen.contains("How it works"));
     a.paste("confirm");
-    assert!(a.goal_review.as_ref().unwrap().input.is_empty());
+    assert!(a.handoff.review.as_ref().unwrap().input.is_empty());
     key(&mut a, KeyCode::Esc);
-    assert!(a.help && !a.how);
+    assert!(a.screen.help && !a.screen.how);
     key(&mut a, KeyCode::Esc);
-    assert!(!a.help);
+    assert!(!a.screen.help);
     a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
     let details = snapshot(100, 30, &mut a, false).unwrap();
     assert!(details.contains("h How it works"));
     key(&mut a, KeyCode::Char('h'));
-    assert!(a.how && a.help && !a.details);
+    assert!(a.screen.how && a.screen.help && !a.screen.details);
     key(&mut a, KeyCode::F(1));
-    assert_eq!(a.goal_review.as_ref().unwrap().affirmation.goal, frozen);
-    a.goal_review = None;
-    a.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
+    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, frozen);
+    a.handoff.review = None;
+    a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     let text = yohaku::help_text(&a);
     assert!(text.starts_with("Right now\nYour goal is saved"));
     assert!(text.contains("F10 back to the menu"));
@@ -138,15 +138,18 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
             a.paste("conf");
         }
         if state == 4 {
-            a.guess = None;
+            a.conversation.set_board(None);
         }
-        let source = a.sources.clone();
+        let source = a.conversation.sources().to_vec();
         let input = a.input.text.clone();
-        let review = a.goal_review.as_ref().map(|r| r.input.clone());
+        let review = a.handoff.review.as_ref().map(|r| r.input.clone());
         ctrl_c(&mut a);
-        assert!(!a.leave_prompt && !a.quit, "Ctrl-C never leaves");
+        assert!(
+            !a.screen.leave_prompt && !a.quitting(),
+            "Ctrl-C never leaves"
+        );
         leave(&mut a);
-        assert!(a.leave_prompt && !a.quit);
+        assert!(a.screen.leave_prompt && !a.quitting());
         let screen = snapshot(100, 30, &mut a, false).unwrap();
         assert_eq!(
             screen
@@ -162,67 +165,67 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
         repeated.kind = KeyEventKind::Repeat;
         a.handle_key(repeated);
         a.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::ALT));
-        assert!(!a.quit);
+        assert!(!a.quitting());
         key(&mut a, KeyCode::Char('n'));
-        assert!(!a.leave_prompt && !a.quit);
+        assert!(!a.screen.leave_prompt && !a.quitting());
         assert_eq!(
-            serde_json::to_value(&a.sources).unwrap(),
+            serde_json::to_value(a.conversation.sources()).unwrap(),
             serde_json::to_value(&source).unwrap()
         );
         assert_eq!(a.input.text, input);
-        assert_eq!(a.goal_review.as_ref().map(|r| r.input.clone()), review);
+        assert_eq!(a.handoff.review.as_ref().map(|r| r.input.clone()), review);
         assert!(!a.running());
         leave(&mut a);
         key(&mut a, KeyCode::Esc);
-        assert!(!a.leave_prompt);
+        assert!(!a.screen.leave_prompt);
         leave(&mut a);
         if state % 2 == 0 {
             key(&mut a, KeyCode::Char('y'));
         } else {
             leave(&mut a);
         }
-        assert!(a.quit);
-        assert!(a.receipt.is_none());
+        assert!(a.quitting());
+        assert!(a.handoff.receipt.is_none());
     }
 }
 #[test]
 fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     let mut a = BrainDump::default();
     leave(&mut a);
-    assert!(a.quit && !a.leave_prompt);
+    assert!(a.quitting() && !a.screen.leave_prompt);
     let mut a = board();
-    a.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
+    a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     leave(&mut a);
-    assert!(a.quit && !a.leave_prompt && a.receipt.is_some());
+    assert!(a.quitting() && !a.screen.leave_prompt && a.handoff.receipt.is_some());
     let mut a = board();
     a.review_goal();
     let (tx, rx) = std::sync::mpsc::channel();
-    a.handoff_job = Some(rx);
+    a.handoff.job = Some(rx);
     leave(&mut a);
-    assert!(!a.quit && a.exit_after_handoff && !a.leave_prompt);
+    assert!(!a.quitting() && a.handoff.exit_after && !a.screen.leave_prompt);
     assert!(a.notice.contains("durable goal read-back"));
     tx.send(Err("TEST missing helper".into())).unwrap();
     a.tick();
-    assert!(a.quit && a.notice.contains("TEST missing helper"));
+    assert!(a.quitting() && a.notice.contains("TEST missing helper"));
 }
 #[test]
 fn ctrl_c_copies_a_selection_cancels_sending_and_never_leaves() {
     let mut a = board();
     ctrl_c(&mut a);
-    assert!(!a.quit && !a.leave_prompt && a.take_copy_request().is_none());
-    let text = a.sources[0].text.clone();
-    a.board_focus = true;
-    a.selection = Some((0, 6));
+    assert!(!a.quitting() && !a.screen.leave_prompt && a.take_copy_request().is_none());
+    let text = a.conversation.sources()[0].text.clone();
+    a.screen.board_focus = true;
+    a.screen.selection = Some((0, 6));
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().unwrap(), text[..6]);
-    assert!(!a.quit && !a.leave_prompt);
-    a.selection = None;
+    assert!(!a.quitting() && !a.screen.leave_prompt);
+    a.screen.selection = None;
     a.submit();
     if a.running() {
         ctrl_c(&mut a);
         assert!(!a.running() && a.notice.starts_with("Cancelled"));
     }
-    assert!(!a.quit && !a.leave_prompt);
+    assert!(!a.quitting() && !a.screen.leave_prompt);
 }
 #[test]
 fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
@@ -232,12 +235,12 @@ fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
     );
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();
-        a.sources[0].text = text.clone();
+        a.conversation.sources_mut()[0].text = text.clone();
         amend_board(&mut a, |g| g.framings[0].supports.clear());
-        a.source_scroll = 7;
+        a.screen.source_scroll = 7;
         snapshot(w, h, &mut a, false).unwrap();
         a.review_goal();
-        assert_eq!(a.source_scroll, 0);
+        assert_eq!(a.screen.source_scroll, 0);
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
         for step in 0..5 {
@@ -249,9 +252,9 @@ fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
                         row: 5,
                         modifiers: KeyModifiers::NONE,
                     },
-                    a.area,
+                    a.screen.area,
                 );
-                assert!(a.source_scroll > 0);
+                assert!(a.screen.source_scroll > 0);
             }
             if step == 2 {
                 key(&mut a, KeyCode::F(1));
@@ -268,13 +271,13 @@ fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
             let b = terminal.backend().buffer();
             assert_eq!(b[(2, 1)].symbol(), "t");
             assert_eq!(b[(w - 3, 1)].symbol(), "?");
-            let wrapped = Note::new(&text).wrap(a.source_area.width);
+            let wrapped = Note::new(&text).wrap(a.screen.source_area.width);
             for (index, row, col) in &wrapped.positions {
-                let Some(row) = row.checked_sub(usize::from(a.source_scroll)) else {
+                let Some(row) = row.checked_sub(usize::from(a.screen.source_scroll)) else {
                     continue;
                 };
-                if row >= usize::from(a.source_area.height)
-                    || *col >= usize::from(a.source_area.width)
+                if row >= usize::from(a.screen.source_area.height)
+                    || *col >= usize::from(a.screen.source_area.width)
                 {
                     continue;
                 }
@@ -285,14 +288,18 @@ fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
                     continue;
                 }
                 assert_eq!(
-                    b[(a.source_area.x + *col as u16, a.source_area.y + row as u16)].symbol(),
+                    b[(
+                        a.screen.source_area.x + *col as u16,
+                        a.screen.source_area.y + row as u16
+                    )]
+                        .symbol(),
                     g,
                     "{w} step {step} byte {index}"
                 );
             }
         }
-        assert_eq!(a.sources[0].text, text);
-        assert!(!a.quit);
+        assert_eq!(a.conversation.sources()[0].text, text);
+        assert!(!a.quitting());
     }
 }
 

@@ -15,7 +15,7 @@ use tinkery::{
     Palette,
     menu::{self, Home},
     think::{
-        brain_dump::{self, BrainDump},
+        brain_dump::{self, BrainDump, Exit},
         drafting::PiHost,
     },
 };
@@ -182,7 +182,7 @@ impl Intake {
     fn quit(&self) -> bool {
         match self {
             Self::Home(a) => a.quit,
-            Self::Brain(a) => a.quit && a.receipt.is_none(),
+            Self::Brain(a) => *a.exit() == Exit::Menu && a.saved().is_none(),
         }
     }
     fn tick(&mut self) {
@@ -191,21 +191,16 @@ impl Intake {
             Self::Brain(a) => a.tick(),
         }
         if let Self::Brain(dump) = self {
-            let shape = dump.take_shape_request();
-            let session = shape.clone().or_else(|| {
-                dump.quit
-                    .then(|| dump.receipt.as_ref().map(|r| r.session.clone()))
-                    .flatten()
-            });
-            if let Some(session) = session {
+            let session = match dump.exit() {
+                Exit::Stay => None,
+                Exit::Menu => dump.saved().map(|r| (r.session.clone(), false)),
+                Exit::Shape(path) => Some((path.clone(), true)),
+            };
+            if let Some((session, open_shape)) = session {
                 let Self::Brain(dump) = std::mem::replace(self, Self::Brain(Box::default())) else {
                     unreachable!()
                 };
-                *self = Self::Home(Box::new(Home::from_receipt(
-                    *dump,
-                    &session,
-                    shape.is_some(),
-                )));
+                *self = Self::Home(Box::new(Home::from_receipt(*dump, &session, open_shape)));
             }
         }
     }

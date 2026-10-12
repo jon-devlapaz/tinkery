@@ -17,11 +17,11 @@ pub(super) fn right_text(screen: &str, width: u16) -> String {
 pub(super) fn board() -> BrainDump {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
-    a.sources.push(Source{id:1,text:"PR ready for human review; restaurateur, not cook; both harness and codebases compound.".into(),in_reply_to:None});
-    a.applied = 1;
+    a.conversation.sources_mut().push(Source{id:1,text:"PR ready for human review; restaurateur, not cook; both harness and codebases compound.".into(),in_reply_to:None});
+    a.conversation.set_applied(1);
     let r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
         previous: None,
         skipped: vec![],
@@ -33,7 +33,8 @@ pub(super) fn board() -> BrainDump {
         .reshape(r.clone(), &AtomicBool::new(false))
         .unwrap();
     guess.parts.outcome = Some("A PR ready for human review with you as restaurateur judging the result; harness and codebase both compound.".into());
-    a.guess = Some(board::Board::verify(guess, &r).unwrap());
+    a.conversation
+        .set_board(Some(board::Board::verify(guess, &r).unwrap()));
     a
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
@@ -44,16 +45,16 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();
         a.review_goal();
-        let frozen = a.goal_review.as_ref().unwrap().affirmation.goal.clone();
+        let frozen = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
         let mut receipt = seed_me::Receipt::test("/tmp/TEST-receipt/session".into());
         receipt.goal = frozen.clone();
         let (tx, rx) = std::sync::mpsc::channel();
-        a.handoff_job = Some(rx);
+        a.handoff.job = Some(rx);
         tx.send(Ok(receipt)).unwrap();
-        a.guess = None;
+        a.conversation.set_board(None);
         a.goal_tick();
-        assert!(a.goal_review.is_none());
-        assert_eq!(a.receipt.as_ref().unwrap().goal, frozen);
+        assert!(a.handoff.review.is_none());
+        assert_eq!(a.handoff.receipt.as_ref().unwrap().goal, frozen);
         let text = snapshot(w, h, &mut a, false).unwrap();
         let right = right_text(&text, w);
         assert!(
@@ -70,8 +71,8 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
             .draw(|f| super::render(f, &mut a, palette))
             .unwrap();
         let buffer = terminal.backend().buffer();
-        for y in a.agent_area.y..a.agent_area.bottom() {
-            for x in a.agent_area.x..a.agent_area.right() {
+        for y in a.screen.agent_area.y..a.screen.agent_area.bottom() {
+            for x in a.screen.agent_area.x..a.screen.agent_area.right() {
                 let cell = &buffer[(x, y)];
                 if cell.symbol() != " " {
                     assert_eq!(cell.fg, palette.ink.fg.unwrap());
@@ -94,18 +95,18 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
         for c in ['n', 'g', 'o', 'd', 'c'] {
             a.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL));
         }
-        assert!(!a.quit && !a.original && !a.details && !a.running());
-        assert!(a.handoff_job.is_none());
+        assert!(!a.quitting() && !a.screen.original && !a.screen.details && !a.running());
+        assert!(a.handoff.job.is_none());
         assert!(a.take_copy_request().is_none());
-        assert!(a.take_shape_request().is_none());
-        assert_eq!(a.receipt.as_ref().unwrap().goal, frozen);
+        assert_eq!(a.exit(), &Exit::Stay);
+        assert_eq!(a.handoff.receipt.as_ref().unwrap().goal, frozen);
     }
 }
 #[test]
-fn receipt_copy_is_exact_and_shape_is_an_explicit_one_shot_request() {
+fn receipt_copy_is_exact_and_shape_is_an_explicit_request() {
     let mut a = board();
-    a.receipt = Some(seed_me::Receipt::test("/tmp/TEST-receipt/session".into()));
-    a.key_bar = false;
+    a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/TEST-receipt/session".into()));
+    a.screen.key_bar = false;
     assert_eq!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
@@ -130,15 +131,11 @@ fn receipt_copy_is_exact_and_shape_is_an_explicit_one_shot_request() {
     let mut repeated = KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE);
     repeated.kind = KeyEventKind::Repeat;
     a.handle_key(repeated);
-    assert!(a.take_shape_request().is_none());
+    assert_eq!(a.exit(), &Exit::Stay);
     key(&mut a, KeyCode::Char('s'));
-    assert_eq!(
-        a.take_shape_request(),
-        Some("/tmp/TEST-receipt/session".into())
-    );
-    assert!(a.take_shape_request().is_none());
-    assert!(!a.quit && !a.running());
-    a.help_all = true;
+    assert_eq!(a.exit(), &Exit::Shape("/tmp/TEST-receipt/session".into()));
+    assert!(!a.quitting() && !a.running());
+    a.screen.help_all = true;
     let help = yohaku::help_text(&a);
     assert!(help.contains("s   open in shape"));
     assert!(!help.contains("send") && !help.contains("speak"));
@@ -148,7 +145,7 @@ fn receipt_copy_is_exact_and_shape_is_an_explicit_one_shot_request() {
 fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();
-        let q = a.focused_question().unwrap().text.clone();
+        let q = a.conversation.focused_question().unwrap().text.clone();
         a.review_goal();
         let text = snapshot(w, h, &mut a, false).unwrap();
         assert!(text.contains("type confirm"));
@@ -159,38 +156,38 @@ fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affi
         }
         let scrolled = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&scrolled, w).contains(&q));
-        assert!(a.handoff_job.is_none());
+        assert!(a.handoff.job.is_none());
         key(&mut a, KeyCode::Enter);
         key(&mut a, KeyCode::F(2));
         assert!(
-            a.handoff_job.is_none(),
+            a.handoff.job.is_none(),
             "Opening review/Enter/F2 affirmed implicitly"
         );
         a.paste("confirm\n");
-        assert!(a.goal_review.as_ref().unwrap().input.is_empty());
+        assert!(a.handoff.review.as_ref().unwrap().input.is_empty());
         key(&mut a, KeyCode::Esc);
-        assert!(a.goal_review.is_none());
-        assert!(a.receipt.is_none());
+        assert!(a.handoff.review.is_none());
+        assert!(a.handoff.receipt.is_none());
     }
 }
 #[test]
 fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
     let mut a = BrainDump::default();
     a.review_goal();
-    assert!(a.goal_review.is_none());
+    assert!(a.handoff.review.is_none());
     let mut a = board();
     a.paste("new local text");
     a.review_goal();
-    assert!(a.goal_review.is_none());
+    assert!(a.handoff.review.is_none());
     a.input = Note::new("");
-    a.applied = 0;
+    a.conversation.set_applied(0);
     a.review_goal();
-    assert!(a.goal_review.is_none());
-    a.applied = 1;
-    a.ready = Some((
+    assert!(a.handoff.review.is_none());
+    a.conversation.set_applied(1);
+    a.shaping.ready = Some((
         BoardRequest {
             ask_counts: Default::default(),
-            sources: a.sources.clone(),
+            sources: a.conversation.sources().to_vec(),
             fragments: vec![],
             previous: None,
             skipped: vec![],
@@ -201,7 +198,7 @@ fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
         Err("test".into()),
     ));
     a.review_goal();
-    assert!(a.goal_review.is_none());
+    assert!(a.handoff.review.is_none());
 }
 #[test]
 fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source() {
@@ -210,11 +207,11 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     let text = snapshot(100, 30, &mut a, false).unwrap();
     assert!(text.contains("Nothing I'm unsure about."));
     assert!(text.contains("3 review"));
-    assert!(a.receipt.is_none());
+    assert!(a.handoff.receipt.is_none());
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
-    let original = a.sources[0].text.clone();
-    let goal = a.goal_review.as_ref().unwrap().affirmation.goal.clone();
+    let original = a.conversation.sources()[0].text.clone();
+    let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
     for _ in 0..30 {
         key(&mut a, KeyCode::PageDown);
     }
@@ -226,18 +223,18 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     assert!(!a.running());
-    assert!(a.receipt.is_none());
+    assert!(a.handoff.receipt.is_none());
     assert!(a.notice.contains("Handoff not complete"));
-    assert_eq!(a.sources[0].text, original);
-    assert_eq!(a.goal_review.as_ref().unwrap().affirmation.goal, goal);
-    assert!(a.goal_config.as_ref().unwrap().recovery_path().is_none());
+    assert_eq!(a.conversation.sources()[0].text, original);
+    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+    assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
 }
 #[test]
 fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_options() {
     let a = board();
     let mut r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
         previous: None,
         skipped: vec![],
@@ -245,7 +242,7 @@ fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_option
         settled: vec![],
         layout: vec![],
     };
-    let mut g = a.guess.unwrap().wire();
+    let mut g = a.conversation.board().unwrap().wire();
     g.alternatives.clear();
     assert!(g.validate(&r).is_ok());
     r.settled.push(Settled {
@@ -286,15 +283,16 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
         id: "skipped-context".into(),
         text: "Which boundaries remain despite skipping this question?".into(),
     };
-    a.skipped.push(skipped.clone());
+    a.conversation.skipped_mut().push(skipped.clone());
     amend_board(&mut a, |g| {
         g.questions.extend((0..5).map(|i|Question{target: None,id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}))
     });
     a.review_goal();
     snapshot(80, 24, &mut a, false).unwrap();
-    assert!(a.goal_review.as_ref().unwrap().max > 0);
+    assert!(a.handoff.review.as_ref().unwrap().max > 0);
     assert!(
-        a.goal_review
+        a.handoff
+            .review
             .as_ref()
             .unwrap()
             .affirmation
@@ -304,7 +302,7 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
     );
     a.paste("confirm");
     key(&mut a, KeyCode::Enter);
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.job.is_none());
     assert!(a.notice.contains("Read the complete review"));
 }
 
@@ -316,21 +314,21 @@ fn lexical_coverage_never_vetoes_the_review() {
     });
     a.review_goal();
     assert!(
-        a.goal_review.is_some(),
+        a.handoff.review.is_some(),
         "Lexical coverage must not veto the person's review"
     );
-    assert!(a.handoff_job.is_none() && a.receipt.is_none());
+    assert!(a.handoff.job.is_none() && a.handoff.receipt.is_none());
 }
 #[test]
 fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates() {
     let mut a = board();
-    a.sources.push(Source {
+    a.conversation.sources_mut().push(Source {
         id: 2,
         text: "both".into(),
         in_reply_to: Some("compounding".into()),
     });
-    a.sources.push(Source{id:3,text:"judge the final result, with earlier taste checks on UI and consequential design choices.".into(),in_reply_to:None});
-    a.settled.push(Settled {
+    a.conversation.sources_mut().push(Source{id:3,text:"judge the final result, with earlier taste checks on UI and consequential design choices.".into(),in_reply_to:None});
+    a.conversation.settled_mut().push(Settled {
         question: Question {
             target: None,
             id: "compounding".into(),
@@ -338,12 +336,12 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
         },
         source: 2,
     });
-    a.applied = 3;
-    let mut g = a.guess.as_ref().unwrap().wire();
+    a.conversation.set_applied(3);
+    let mut g = a.conversation.board().unwrap().wire();
     g.parts.outcome = Some("A human-first meta harness and board carries the agentic software development lifecycle to a PR ready for human review. Both harness and codebase compound, preserving codebase health and easier future changes; you are the restaurateur judging the final result with earlier UI and consequential design taste checks.".into());
     g.framings[0].supports.push(Anchor {
         source: 3,
-        quote: a.sources[2].text.clone(),
+        quote: a.conversation.sources()[2].text.clone(),
         occurrence: 0,
     });
     g.outcome = "PR ready for human review with UI/design taste checks.".into();
@@ -351,7 +349,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     amend_board(&mut a, |current| *current = g);
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
-    let frozen = &a.goal_review.as_ref().unwrap().affirmation;
+    let frozen = &a.handoff.review.as_ref().unwrap().affirmation;
     for term in [
         "PR ready for human review",
         "restaurateur",
@@ -361,8 +359,8 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     ] {
         assert!(frozen.goal.contains(term));
     }
-    assert_eq!(frozen.sources[2].text, a.sources[2].text);
+    assert_eq!(frozen.sources[2].text, a.conversation.sources()[2].text);
     assert!(frozen.options.is_empty());
     assert_eq!(frozen.answered[0].source, 2);
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.job.is_none());
 }

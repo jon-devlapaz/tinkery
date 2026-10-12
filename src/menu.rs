@@ -12,7 +12,7 @@ use std::{
 use crate::{
     Palette, measure,
     shape::{self, Discovery, Shape, Source},
-    think::brain_dump::{self, BrainDump},
+    think::brain_dump::{self, BrainDump, Exit},
 };
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -125,7 +125,7 @@ impl Home {
             .unwrap_or(default_root);
         let mut home = Self::new(dump.fresh_factory(), root, substrate);
         home.key_bar = dump.key_bar_on();
-        home.seed_me = dump.receipt.as_ref().map(|r| r.skill.clone());
+        home.seed_me = dump.saved().map(|r| r.skill.clone());
         if let Some(receipt) = dump.finish_handoff() {
             home.receipts.push(receipt);
         }
@@ -161,11 +161,13 @@ impl Home {
         let mut shape_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
-            shape_request = dump.take_shape_request();
-            if let Some(receipt) = &dump.receipt {
+            if let Some(receipt) = dump.saved() {
                 self.seed_me = Some(receipt.skill.clone());
             }
-            if dump.quit || shape_request.is_some() {
+            if let Exit::Shape(path) = dump.exit() {
+                shape_request = Some(path.clone());
+            }
+            if *dump.exit() != Exit::Stay {
                 self.key_bar = dump.key_bar_on();
                 if let Some(receipt) = dump.finish_handoff() {
                     self.receipts.push(receipt);
@@ -661,7 +663,7 @@ mod tests {
         let mut h = home(tmp.path());
         h.open(0);
         if let View::Think(dump) = &mut h.view {
-            dump.quit = true;
+            dump.handle_key(key(KeyCode::F(10)));
         }
         h.tick();
         assert!(matches!(h.view, View::Menu));
@@ -733,7 +735,7 @@ mod tests {
         let View::Think(dump) = &mut h.view else {
             panic!()
         };
-        dump.receipt = Some(crate::seed_me::Receipt::test(path.clone()));
+        dump.set_saved(crate::seed_me::Receipt::test(path.clone()));
         h.handle_key(key(KeyCode::Char('s')));
         h.tick();
         settle(&mut h);

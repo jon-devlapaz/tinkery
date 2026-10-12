@@ -15,30 +15,32 @@ pub(super) fn parts() -> GoalParts {
 pub(super) fn app(raw: serde_json::Value) -> BrainDump {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
-    a.sources.push(Source {
+    a.conversation.sources_mut().push(Source {
         id: 1,
         text: "An intact original".into(),
         in_reply_to: None,
     });
-    a.applied = 1;
+    a.conversation.set_applied(1);
     let r = request(&a);
     let g = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();
-    a.guess = Some(board::Board::verify(g, &r).unwrap());
+    a.conversation
+        .set_board(Some(board::Board::verify(g, &r).unwrap()));
     a
 }
 fn request(a: &BrainDump) -> BoardRequest {
     BoardRequest {
-        ask_counts: a.ask_counts.clone(),
-        sources: a.sources.clone(),
+        ask_counts: a.conversation.ask_counts().clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
-        previous: a.guess.as_ref().map(|g| g.wire()),
-        skipped: a.skipped.clone(),
+        previous: a.conversation.board().map(|g| g.wire()),
+        skipped: a.conversation.skipped().to_vec(),
         answered: a
-            .sources
+            .conversation
+            .sources()
             .iter()
             .filter_map(|s| s.in_reply_to.clone())
             .collect(),
-        settled: a.settled.clone(),
+        settled: a.conversation.settled().to_vec(),
         layout: vec![],
     }
 }
@@ -147,7 +149,8 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
         vague.review_goal();
         assert!(
             vague
-                .goal_review
+                .handoff
+                .review
                 .as_ref()
                 .unwrap()
                 .affirmation
@@ -156,17 +159,17 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
                 .any(|s| s.contains(p.label()))
         );
     }
-    a.scope_pending = Some((
+    a.conversation.set_scope_pending(Some((
         1,
         Question {
             target: None,
             id: "scope-addition-1".into(),
             text: "Scope?".into(),
         },
-    ));
+    )));
     assert!(!a.goal_ready());
-    a.scope_pending = None;
-    a.skipped.push(Question {
+    a.conversation.set_scope_pending(None);
+    a.conversation.skipped_mut().push(Question {
         target: Some(Part::Must),
         id: "skip".into(),
         text: "Keep what?".into(),
@@ -179,22 +182,22 @@ fn coarse_criteria_are_present_and_empty_queue_is_not_completion() {
     assert!(a.goal_ready());
     a.review_goal();
     assert_eq!(
-        a.goal_review.as_ref().unwrap().affirmation.outcome,
+        a.handoff.review.as_ref().unwrap().affirmation.outcome,
         parts().done_when.unwrap()
     );
     let mut blank = app(serde_json::json!({"parts":{}}));
     assert!(!blank.goal_ready());
     blank.review_goal();
-    assert!(blank.goal_review.is_none());
+    assert!(blank.handoff.review.is_none());
 }
 #[test]
 fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = app(serde_json::json!({"parts":parts(),"open":["why"]}));
-        let reading = a.guess.as_ref().unwrap().framings[0].text.clone();
+        let reading = a.conversation.board().unwrap().framings[0].text.clone();
         assert!(a.paper().contains(&reading));
         a.review_goal();
-        let frozen = a.goal_review.as_ref().unwrap();
+        let frozen = a.handoff.review.as_ref().unwrap();
         assert_eq!(frozen.affirmation.goal, reading);
         assert_eq!(frozen.affirmation.parts, parts());
         assert_eq!(frozen.affirmation.outcome, parts().done_when.unwrap());
@@ -214,9 +217,12 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
         }
         assert!(!seen.contains("Not supplied") && !seen.contains("Doesn’t fit yet"));
         super::tests::amend_board(&mut a, |g| g.parts.outcome = Some("different".into()));
-        assert_eq!(a.goal_review.as_ref().unwrap().affirmation.goal, reading);
-        assert_eq!(a.goal_review.as_ref().unwrap().affirmation.parts, parts());
-        assert!(a.handoff_job.is_none());
+        assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, reading);
+        assert_eq!(
+            a.handoff.review.as_ref().unwrap().affirmation.parts,
+            parts()
+        );
+        assert!(a.handoff.job.is_none());
     }
     let mut partial = app(
         serde_json::json!({"parts":{"who":"Learners","outcome":"learn","must_not":"new targets"}}),
@@ -224,14 +230,16 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
     partial.review_goal();
     assert_eq!(
         partial
-            .goal_review
+            .handoff
+            .review
             .as_ref()
             .unwrap()
             .affirmation
             .unresolved_notes
             .len()
             + partial
-                .goal_review
+                .handoff
+                .review
                 .as_ref()
                 .unwrap()
                 .affirmation
@@ -252,18 +260,18 @@ fn at_most_two_asks_then_the_part_stays_open_for_seed() {
     a.paste("original");
     a.submit();
     settle(&mut a);
-    assert_eq!(a.ask_counts[&Part::DoneWhen], 1);
+    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 1);
     a.paste("first answer");
     a.submit();
     settle(&mut a);
-    assert_eq!(a.ask_counts[&Part::DoneWhen], 2);
+    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 2);
     a.paste("second answer");
     a.submit();
     settle(&mut a);
-    assert!(a.focused_question().is_none());
-    assert_eq!(a.ask_counts[&Part::DoneWhen], 2);
+    assert!(a.conversation.focused_question().is_none());
+    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 2);
     assert!(!a.goal_ready());
-    assert_eq!(a.open_parts(), [Part::DoneWhen]);
+    assert_eq!(a.conversation.open_parts(), [Part::DoneWhen]);
 }
 #[test]
 fn skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask() {
@@ -274,8 +282,8 @@ fn skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask() {
     a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
     assert!(!a.goal_ready());
     a.undo_skip();
-    assert!(a.focused_question().is_some());
-    assert_eq!(a.ask_counts[&Part::DoneWhen], 1);
+    assert!(a.conversation.focused_question().is_some());
+    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 1);
     a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
     let r = request(&a);
     let raw = serde_json::json!({"parts":parts(),"open":["done_when"],"questions":[{"target":"done_when","id":"renamed","text":"Reworded check?"}]});
@@ -283,7 +291,7 @@ fn skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask() {
     assert!(g.questions.is_empty());
     assert!(g.open.contains(&Part::DoneWhen));
     a.apply_result(r, Ok(g));
-    assert!(a.focused_question().is_none());
+    assert!(a.conversation.focused_question().is_none());
     assert!(!a.goal_ready());
 }
 #[test]
@@ -293,13 +301,13 @@ fn delayed_results_use_current_counts_and_skipped_targets() {
     let g = Repeated
         .reshape(r.clone(), &AtomicBool::new(false))
         .unwrap();
-    a.ask_counts.insert(Part::DoneWhen, 2);
+    a.conversation.ask_counts_mut().insert(Part::DoneWhen, 2);
     a.apply_result(r.clone(), Ok(g));
-    assert!(a.focused_question().is_none());
-    assert_eq!(a.ask_counts[&Part::DoneWhen], 2);
+    assert!(a.conversation.focused_question().is_none());
+    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 2);
     assert!(!a.goal_ready());
-    a.ask_counts.clear();
-    a.skipped.push(Question {
+    a.conversation.ask_counts_mut().clear();
+    a.conversation.skipped_mut().push(Question {
         target: Some(Part::DoneWhen),
         id: "local-skip".into(),
         text: "Skipped check".into(),
@@ -308,7 +316,7 @@ fn delayed_results_use_current_counts_and_skipped_targets() {
         .reshape(r.clone(), &AtomicBool::new(false))
         .unwrap();
     a.apply_result(r, Ok(g));
-    assert!(a.focused_question().is_none());
+    assert!(a.conversation.focused_question().is_none());
     assert!(!a.goal_ready());
 }
 #[test]
@@ -317,11 +325,11 @@ fn unsent_words_and_unknown_fields_never_grant_authority() {
         serde_json::json!({"parts":parts(),"confirmed":true,"settled":[{}],"open":["unknown"]}),
     );
     assert!(a.goal_ready());
-    assert!(a.settled.is_empty() && a.receipt.is_none());
+    assert!(a.conversation.settled().is_empty() && a.handoff.receipt.is_none());
     a.paste("new local words");
     assert!(!a.goal_ready());
     a.review_goal();
-    assert!(a.goal_review.is_none());
+    assert!(a.handoff.review.is_none());
 }
 #[test]
 fn trailing_commas_normalize_only_outside_strings_and_span_guards_remain() {
@@ -340,7 +348,7 @@ fn trailing_commas_normalize_only_outside_strings_and_span_guards_remain() {
     );
     assert!(changes.iter().any(|s| s.contains("trailing JSON")));
     a.apply_result(r.clone(), Ok(g));
-    assert!(a.guess.is_some());
+    assert!(a.conversation.board().is_some());
     for raw in [
         r#"{"parts":{"outcome":"a"} "open":[],}"#,
         r#"{"supports":[{"source":99,"quote":"An intact original",},],}"#,
@@ -375,29 +383,37 @@ fn typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2() {
     a.submit();
     settle(&mut a);
     assert_eq!(host.0.lock().unwrap().len(), 2);
-    assert!(a.scope_pending.is_none());
-    assert_eq!(a.sources[1].text, "better than my usual week. no targets");
+    assert!(a.conversation.scope_pending().is_none());
     assert_eq!(
-        a.sources[1].in_reply_to.as_deref(),
+        a.conversation.sources()[1].text,
+        "better than my usual week. no targets"
+    );
+    assert_eq!(
+        a.conversation.sources()[1].in_reply_to.as_deref(),
         Some("goal-refinement-2")
     );
-    assert_eq!(a.settled[0].question.id, "goal-refinement-2");
+    assert_eq!(a.conversation.settled()[0].question.id, "goal-refinement-2");
     assert!(a.goal_ready());
     assert!(
-        a.guess.as_ref().unwrap().framings[0]
+        a.conversation.board().unwrap().framings[0]
             .text
             .contains("usual week")
     );
-    assert!(a.receipt.is_none());
+    assert!(a.handoff.receipt.is_none());
 }
 #[test]
 fn open_without_question_refines_but_explicit_add_more_keeps_scope_question() {
     let mut a = app(serde_json::json!({"parts":parts(),"open":["why"]}));
     a.paste("new words");
     a.submit();
-    assert!(a.scope_pending.is_none());
+    assert!(a.conversation.scope_pending().is_none());
     assert_eq!(
-        a.sources.last().unwrap().in_reply_to.as_deref(),
+        a.conversation
+            .sources()
+            .last()
+            .unwrap()
+            .in_reply_to
+            .as_deref(),
         Some("goal-refinement-2")
     );
     settle(&mut a);
@@ -405,7 +421,7 @@ fn open_without_question_refines_but_explicit_add_more_keeps_scope_question() {
     a.add_more = true;
     a.paste("separate words");
     a.submit();
-    assert!(a.scope_pending.is_some());
+    assert!(a.conversation.scope_pending().is_some());
 }
 #[test]
 fn model_cannot_impersonate_owned_goal_refinement_history() {

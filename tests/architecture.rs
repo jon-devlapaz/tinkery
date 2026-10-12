@@ -12,10 +12,11 @@ use std::{
 
 use syn::{Attribute, Item, UseTree, spanned::Spanned, visit::Visit};
 
-/// Most fields `BrainDump` may have. Step #37 (a `Conversation` type) lowers it.
-const BRAIN_DUMP_FIELDS: usize = 55;
-/// Most `pub` fields `BrainDump` may have. The menu reads `quit` and `receipt` directly today.
-const BRAIN_DUMP_PUB_FIELDS: usize = 9;
+/// Most fields `BrainDump` may have. Since #37 it holds its parts (the conversation, screen,
+/// shaping call and handoff) rather than their fields.
+const BRAIN_DUMP_FIELDS: usize = 13;
+/// Most `pub` fields `BrainDump` may have. The menu reads `exit()` and `saved()` instead.
+const BRAIN_DUMP_PUB_FIELDS: usize = 0;
 /// Most non-test source lines longer than [`LONG_LINE`] characters, mainly the one-line prompts.
 /// Step #38 (prompts in their own files) lowers it.
 const LONG_LINES: usize = 21;
