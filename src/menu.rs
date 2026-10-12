@@ -5,14 +5,14 @@
 
 use std::{
     path::{Path, PathBuf},
-    process::Command,
     sync::Arc,
     time::{Duration, Instant},
 };
 
 use crate::{
-    Palette,
-    shaping::brain_dump::{self, BrainDump},
+    Palette, measure,
+    shape::{self, Discovery, Shape, Source},
+    think::brain_dump::{self, BrainDump},
 };
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -53,12 +53,6 @@ pub const PLACES: [(&str, &str, bool); 6] = [
         true,
     ),
 ];
-mod discovery;
-mod shape;
-use discovery::Discovery;
-pub use discovery::{Found, Outcome, Source, scan};
-use shape::Shape;
-pub use shape::{Session, Stage};
 
 const FIRST_ROW: u16 = 4;
 const ROW_GAP: u16 = 2;
@@ -108,7 +102,7 @@ impl Home {
             key_bar: true,
             receipts: Vec::new(),
             seed_me: None,
-            discovery: Discovery::new(Arc::new(scan)),
+            discovery: Discovery::new(Arc::new(shape::scan)),
         }
     }
 
@@ -284,7 +278,7 @@ impl Home {
                 View::Shape(Shape::new())
             }
             5 => View::Measure(Reading {
-                body: ledger_report(&self.substrate_dir),
+                body: measure::ledger_report(&self.substrate_dir),
                 scroll: 0,
             }),
             other => View::Soon(other),
@@ -456,34 +450,6 @@ impl Home {
     }
 }
 
-/// Seed Me sessions, newest first (blocking). Unreadable records are left out here;
-/// [`scan`] reports how many.
-pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
-    scan(root).map(|found| found.sessions)
-}
-
-/// The ledger's text report from the installed tink-substrate. Unknown stays unknown.
-pub fn ledger_report(substrate_dir: &Path) -> String {
-    match Command::new("python3")
-        .args(["-B", "-m", "tink_substrate", "ledger", "report"])
-        .current_dir(substrate_dir)
-        .output()
-    {
-        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).into_owned(),
-        Ok(out) => format!(
-            "Ledger unknown: {}",
-            String::from_utf8_lossy(&out.stderr)
-                .lines()
-                .last()
-                .unwrap_or("report failed")
-        ),
-        Err(error) => format!(
-            "Ledger unknown: cannot run tink-substrate in {} ({error})",
-            substrate_dir.display()
-        ),
-    }
-}
-
 pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
     if let View::Think(dump) = &mut home.view {
         brain_dump::render(frame, dump, palette);
@@ -616,6 +582,7 @@ mod menu_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shape::{Stage, load_sessions};
     use serde_json::Value;
     use std::fs;
 
@@ -766,7 +733,7 @@ mod tests {
         let View::Think(dump) = &mut h.view else {
             panic!()
         };
-        dump.receipt = Some(crate::shaping::brain_dump::handoff::Receipt::test(
+        dump.receipt = Some(crate::think::brain_dump::handoff::Receipt::test(
             path.clone(),
         ));
         h.handle_key(key(KeyCode::Char('s')));
@@ -1039,12 +1006,6 @@ mod tests {
             Stage::Unknown
         );
         assert!(!Stage::Unknown.can_copy());
-    }
-
-    #[test]
-    fn missing_ledger_is_unknown_not_empty() {
-        let tmp = tempfile::tempdir().unwrap();
-        assert!(ledger_report(&tmp.path().join("missing")).starts_with("Ledger unknown"));
     }
 
     #[test]

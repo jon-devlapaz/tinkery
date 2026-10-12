@@ -24,33 +24,58 @@ const LONG_LINE: usize = 200;
 
 /// Where a phase reaches into another phase today. Each entry names the step that removes it.
 /// An entry that no longer matches any code fails the check, so the list only shrinks.
-const EXCEPTIONS: &[(&str, &str, &str)] = &[
-    (
-        "shape",
-        "shaping::brain_dump::handoff::continuation_prompt",
-        "#36 moves the continuation prompt into one Seed Me module",
-    ),
-    (
-        "shape",
-        "shaping::confirmed_goal",
-        "#35 moves the goal block into a shared goal module",
-    ),
+const EXCEPTIONS: &[(&str, &str, &str)] = &[(
+    "shape",
+    "think::brain_dump::handoff::continuation_prompt",
+    "#36 moves the continuation prompt into one Seed Me module",
+)];
+
+/// Every top-level module and its area. Each phase has its own module; the menu (which also lists
+/// the unbuilt places) is the only one that knows every phase; `shared` is code any phase may use.
+/// A new module must be listed here, so a new phase can't count as shared code by default.
+const MODULES: &[(&str, &str)] = &[
+    ("goal", "shared"),
+    ("measure", "measure"),
+    ("menu", "menu"),
+    ("shape", "shape"),
+    ("think", "think"),
+    ("voice", "shared"),
 ];
 
-/// The area a module path (without `crate`) belongs to. Phases are think, shape and menu (which
-/// also holds measure and the unbuilt places today); `shared` is the crate root and voice.
-fn area(path: &[String]) -> &'static str {
-    match path
+#[test]
+fn every_top_level_module_has_an_area() {
+    let lib = syn::parse_file(&fs::read_to_string(root().join("src/lib.rs")).unwrap()).unwrap();
+    let declared: Vec<_> = lib
+        .items
         .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>()
-        .as_slice()
-    {
-        ["shaping", ..] => "think",
-        ["home", "shape" | "discovery", ..] => "shape",
-        ["home", ..] => "menu",
-        _ => "shared",
-    }
+        .filter_map(|item| match item {
+            Item::Mod(m) if !is_test(&m.attrs) => Some(m.ident.to_string()),
+            _ => None,
+        })
+        .collect();
+    let unlisted: Vec<_> = declared
+        .iter()
+        .filter(|d| !MODULES.iter().any(|(m, _)| m == d))
+        .collect();
+    assert!(
+        unlisted.is_empty(),
+        "src/lib.rs declares modules MODULES doesn't list; add each with its area: {unlisted:?}"
+    );
+    let missing: Vec<_> = MODULES
+        .iter()
+        .filter(|(m, _)| !declared.iter().any(|d| d == m))
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "MODULES lists modules src/lib.rs no longer declares: {missing:?}"
+    );
+}
+
+/// The area a module path (without `crate`) belongs to. Items at the crate root are shared.
+fn area(path: &[String]) -> &'static str {
+    path.first()
+        .and_then(|first| MODULES.iter().find(|(m, _)| m == first))
+        .map_or("shared", |(_, area)| area)
 }
 
 /// May code in area `from` name code in area `to`? Only the menu knows every phase; anything
@@ -102,7 +127,7 @@ fn phases_only_reach_each_other_through_listed_exceptions() {
 
 #[test]
 fn brain_dump_does_not_grow() {
-    let file = root().join("src/shaping/brain_dump.rs");
+    let file = root().join("src/think/brain_dump.rs");
     let parsed = syn::parse_file(&fs::read_to_string(&file).unwrap()).unwrap();
     let fields = parsed
         .items
@@ -111,7 +136,7 @@ fn brain_dump_does_not_grow() {
             Item::Struct(s) if s.ident == "BrainDump" => Some(&s.fields),
             _ => None,
         })
-        .expect("BrainDump is defined in src/shaping/brain_dump.rs");
+        .expect("BrainDump is defined in src/think/brain_dump.rs");
     let public = fields
         .iter()
         .filter(|f| matches!(f.vis, syn::Visibility::Public(_)))

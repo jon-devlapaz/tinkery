@@ -39,15 +39,16 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 | --- | --- | --- |
 | CLI, terminal loop, snapshots | `src/main.rs` | [principles](docs/design/principles.md) |
 | Module boundaries, design limits | `tests/architecture.rs` | [architecture](docs/design/architecture.md) |
-| Menu, ledger view | `src/home.rs` | [menu](docs/design/menu.md) |
-| Shape list/detail | `src/home/shape.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
-| Think state and views | `src/shaping/brain_dump.rs`, `src/shaping/brain_dump/` | [think](docs/design/think.md) |
-| Typed goal parts/composition | `src/shaping/brain_dump/goal.rs`, `board.rs` | [goal block](docs/design/goal-block.md) |
-| Shared review/receipt/detail goal rendering | `src/shaping/confirmed_goal.rs` | [goal block](docs/design/goal-block.md) |
-| Confirmation and continuation prompt | `src/shaping/brain_dump/goal_view.rs`, `handoff.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
-| Explicit Pi drafting boundary | `src/shaping/drafting.rs` | [think](docs/design/think.md) |
+| Menu | `src/menu.rs` | [menu](docs/design/menu.md) |
+| Ledger view (measure) | `src/measure.rs` | [menu](docs/design/menu.md) |
+| Shape list/detail, session discovery | `src/shape/` | [shape and handoff](docs/design/shape-and-handoff.md) |
+| Think state and views | `src/think/brain_dump.rs`, `src/think/brain_dump/` | [think](docs/design/think.md) |
+| Typed goal parts/composition | `src/goal/mod.rs`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
+| Shared review/receipt/detail goal rendering | `src/goal/confirmed.rs` | [goal block](docs/design/goal-block.md) |
+| Confirmation and continuation prompt | `src/think/brain_dump/goal_view.rs`, `handoff.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
+| Explicit Pi drafting boundary | `src/think/drafting.rs` | [think](docs/design/think.md) |
 | Voice host/process/protocol and owned setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
-| Extracted cards (canvas, notes) | `src/shaping/canvas.rs`, `note.rs` | [think](docs/design/think.md) |
+| Extracted cards (canvas, notes) | `src/think/canvas.rs`, `note.rs` | [think](docs/design/think.md) |
 | Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), `vendor/pinstar/API.md` |
 | Tests | inline Rust tests, `tests/`, `voice/*.test.mjs` | relevant tests; `tests/vt_screen.py` is a helper |
 

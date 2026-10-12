@@ -62,14 +62,14 @@ and joined with `;`. A clause ends at `;` or a sentence end outside quotes (`"�
 `“…”`, `'…'` or `‘…’`; a single quote opens after a space or punctuation and closes
 at the last single quote of its kind, so an apostrophe never ends it early). A period
 between digits, or after a lone letter or a common abbreviation (“U.S.”, “e.g.”,
-“Dr.”; the list is `ABBREVIATIONS` in `goal.rs`), is not a sentence end.
+“Dr.”; the list is `ABBREVIATIONS` in `src/goal/mod.rs`), is not a sentence end.
 
 When later clauses of why, done when, the goal line or `when` are joined with `;`,
 a clause keeps its case unless its first word is one of a short list of common
 words (`the`, `it`, `both`…) written in lower or title case. Names, acronyms
 (including “IT”), quotes and numbers keep their case.
 
-`GoalParts::compose` owns composition; `confirmed_goal::goal_block` and the shared
+`GoalParts::compose` owns composition; `goal::confirmed::goal_block` and the shared
 saved-goal renderer preserve line breaks across reading, review, receipt and shape
 detail. Confirmation freezes the **whole displayed block**, not just its headline.
 

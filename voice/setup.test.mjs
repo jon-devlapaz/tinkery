@@ -104,7 +104,7 @@ test('voice helper and voice-owned Rust have no former dependency strings or fil
     for (const text of forbidden) assert.ok(!source.includes(text), `${path} contains ${text}`);
   }
   for (const path of ['voice_input.rs', 'voice_tests.rs']) {
-    const source = await readFile(new URL('../src/shaping/brain_dump/' + path, import.meta.url), 'utf8');
+    const source = await readFile(new URL('../src/think/brain_dump/' + path, import.meta.url), 'utf8');
     for (const literal of source.match(/"(?:\\.|[^"\\])*"/g) ?? []) for (const text of forbidden) assert.ok(!literal.includes(text));
   }
 });

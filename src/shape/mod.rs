@@ -1,10 +1,10 @@
-use super::discovery::Outcome;
+pub mod discovery;
+pub use discovery::{Discovery, Found, Outcome, Source, scan};
+
 use crate::{
     Palette,
-    shaping::{
-        brain_dump::handoff::continuation_prompt,
-        confirmed_goal::{SavedGoal, render_saved_goal},
-    },
+    goal::confirmed::{SavedGoal, render_saved_goal},
+    think::brain_dump::handoff::continuation_prompt,
 };
 use ratatui::{
     Frame,
@@ -467,6 +467,12 @@ fn relative_time(updated: &str, now: u64) -> String {
     } else {
         format!("in {label}")
     }
+}
+
+/// Seed Me sessions, newest first (blocking). Unreadable records are left out here;
+/// [`scan`] reports how many.
+pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
+    scan(root).map(|found| found.sessions)
 }
 
 #[cfg(test)]

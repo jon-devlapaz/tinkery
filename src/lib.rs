@@ -1,7 +1,10 @@
 use ratatui::style::{Color, Modifier, Style};
 
-pub mod home;
-pub mod shaping;
+pub mod goal;
+pub mod measure;
+pub mod menu;
+pub mod shape;
+pub mod think;
 pub mod voice;
 
 pub const MIN_WIDTH: u16 = 80;
