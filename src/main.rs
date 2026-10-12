@@ -12,7 +12,7 @@ use crossterm::{
     terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate},
 };
 use tinkery::{
-    App, Palette,
+    Palette,
     home::{self, Home},
     shaping::{
         brain_dump::{self, BrainDump},
@@ -23,7 +23,6 @@ use tinkery::{
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut no_color = std::env::var_os("NO_COLOR").is_some();
     let mut snapshot = false;
-    let mut workbench = false;
     let mut full_redraw = false;
     let mut shape_pi = false;
     let mut model = None;
@@ -38,7 +37,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "--no-color" => no_color = true,
             "--home" => home_menu = true,
             "--snapshot" => snapshot = true,
-            "--workbench" => workbench = true,
             "--full-redraw" => full_redraw = true,
             "--shape-pi" => shape_pi = true,
             "--model" => model = Some(args.next().ok_or("--model needs provider/model-id")?),
@@ -61,18 +59,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery / seed shaping prototype\n\nUsage: tinkery [--workbench] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH [--pi-command PATH]\n\n--home opens the home menu (think, shape, approve, watch, taste, measure); the `tinkery` launcher passes it.\nDefault: one blank brain-dump box; no guess until F2 submit. Simulated unless explicitly enabled. Edits remain unsaved until explicit goal affirmation.\nReal mode sends submitted dumps and answers to the chosen model.\nBorrowed Seed Me working-draft guidance. Explicit goal affirmation creates an active Seed Me session; no confirmed seed or factory execution.\nPi runs without tools, extensions, project context, or saved sessions.\n\nBrain dump: type directly; Enter adds a line. F1 help (twice for every key), F2 send, F3 review goal, F4 originals, F5 why, F6 local voice (Ctrl+Alt+Z), F8 skip (Ctrl-Z undoes), F9 copy, F10 back to the menu (guarded). Ctrl-C copies a selection or cancels sending; it never leaves. Shift-F2 / Ctrl-N adds a separate dump; its words remain unresolved until scope is answered. Aliases: Ctrl-O, Ctrl-D, Ctrl-G. Mac keyboards may need fn. The muted key bar shows only what's possible now; on by default, b in help toggles it for the session. One shaping call precedes display; one background meaning/continuity audit is log-only, without automatic retry or flags. Review and typed confirm are separate; no seed or implementation approval. No browser is opened.\n\n--shape-pi   Enable real drafting through Pi; requests can incur provider charges\n--model      Explicit provider/model-id; no automatic model selection\n--thinking   Pi reasoning level (default: low); off|minimal|low|medium|high|xhigh|max\n--seed-me    Path to the actual Seed Me SKILL.md and its official helpers\n--seed-session-root Optional session location outside a repository (e.g. isolated tests)\n--pi-command Pi executable (default: pi)\n--workbench  Open the earlier read-only demo\n--full-redraw Repaint every intake frame (host rendering workaround; more output)\n--no-color   Use terminal colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view without terminal mode or model requests\nTINKERY_NODE Optional Node executable for local voice; otherwise PATH/login-shell Node. Voice owns its local engine and settings; installation and model downloads require confirmation."
+                    "Tinkery: a calm, keyboard-first terminal front door for agentic work\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH [--pi-command PATH]\n\n--home opens the home menu (think, shape, approve, watch, taste, measure); the `tinkery` launcher passes it.\nDefault: one blank brain-dump box; no guess until F2 submit. Simulated unless explicitly enabled. Edits remain unsaved until explicit goal affirmation.\nReal mode sends submitted dumps and answers to the chosen model.\nBorrowed Seed Me working-draft guidance. Explicit goal affirmation creates an active Seed Me session; no confirmed seed or factory execution.\nPi runs without tools, extensions, project context, or saved sessions.\n\nBrain dump: type directly; Enter adds a line. F1 help (twice for every key), F2 send, F3 review goal, F4 originals, F5 why, F6 local voice (Ctrl+Alt+Z), F8 skip (Ctrl-Z undoes), F9 copy, F10 back to the menu (guarded). Ctrl-C copies a selection or cancels sending; it never leaves. Shift-F2 / Ctrl-N adds a separate dump; its words remain unresolved until scope is answered. Aliases: Ctrl-O, Ctrl-D, Ctrl-G. Mac keyboards may need fn. The muted key bar shows only what's possible now; on by default, b in help toggles it for the session. One shaping call precedes display; one background meaning/continuity audit is log-only, without automatic retry or flags. Review and typed confirm are separate; no seed or implementation approval. No browser is opened.\n\n--shape-pi   Enable real drafting through Pi; requests can incur provider charges\n--model      Explicit provider/model-id; no automatic model selection\n--thinking   Pi reasoning level (default: low); off|minimal|low|medium|high|xhigh|max\n--seed-me    Path to the actual Seed Me SKILL.md and its official helpers\n--seed-session-root Optional session location outside a repository (e.g. isolated tests)\n--pi-command Pi executable (default: pi)\n--full-redraw Repaint every intake frame (host rendering workaround; more output)\n--no-color   Use terminal colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view without terminal mode or model requests\nTINKERY_NODE Optional Node executable for local voice; otherwise PATH/login-shell Node. Voice owns its local engine and settings; installation and model downloads require confirmation."
                 );
                 return Ok(());
             }
             _ => return Err(format!("unknown argument: {arg}; use --help").into()),
         }
-    }
-    if full_redraw && workbench {
-        return Err("--full-redraw is for intake, not --workbench".into());
-    }
-    if shape_pi && workbench {
-        return Err("--shape-pi is for think, not --workbench".into());
     }
     if !shape_pi
         && (model.is_some()
@@ -82,9 +74,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             || pi_command.is_some())
     {
         return Err("--model, --thinking, --seed-me and --pi-command require --shape-pi".into());
-    }
-    if home_menu && workbench {
-        return Err("--home opens the menu; --workbench is a separate entry point".into());
     }
     let goal_skill = seed_me.clone();
     if home_menu {
@@ -160,13 +149,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if snapshot {
         println!(
             "{}",
-            if workbench {
-                tinkery::snapshot(100, 30, &mut App::default(), no_color)?
-            } else {
-                match &mut app {
-                    Intake::Home(app) => home::snapshot(100, 30, app, no_color)?,
-                    Intake::Brain(app) => brain_dump::snapshot(100, 30, app, no_color)?,
-                }
+            match &mut app {
+                Intake::Home(app) => home::snapshot(100, 30, app, no_color)?,
+                Intake::Brain(app) => brain_dump::snapshot(100, 30, app, no_color)?,
             }
         );
         return Ok(());
@@ -174,36 +159,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         return Err("interactive mode needs a terminal; use --snapshot or --help".into());
     }
-    if !workbench {
-        app = match app {
-            Intake::Brain(dump) => Intake::Brain(Box::new(
-                (*dump).with_voice(Box::new(tinkery::voice::ProcessHost::new())),
-            )),
-            other => other,
-        };
-    }
-    let mut terminal = ratatui::try_init()?;
-    let result = if workbench {
-        run_workbench(&mut terminal, no_color).map(|_| None)
-    } else {
-        run_shape(&mut terminal, no_color, app, full_redraw)
+    app = match app {
+        Intake::Brain(dump) => Intake::Brain(Box::new(
+            (*dump).with_voice(Box::new(tinkery::voice::ProcessHost::new())),
+        )),
+        other => other,
     };
+    let mut terminal = ratatui::try_init()?;
+    let result = run_shape(&mut terminal, no_color, app, full_redraw);
     ratatui::restore();
     if let Some(receipt) = result? {
         println!("{receipt}");
-    }
-    Ok(())
-}
-
-fn run_workbench(terminal: &mut ratatui::DefaultTerminal, no_color: bool) -> io::Result<()> {
-    let mut app = App::default();
-    while !app.quit {
-        terminal.draw(|frame| tinkery::render(frame, &mut app, Palette::new(no_color)))?;
-        if event::poll(std::time::Duration::from_millis(100))?
-            && let Event::Key(key) = event::read()?
-        {
-            app.handle_key(key, terminal.size()?.into());
-        }
     }
     Ok(())
 }
