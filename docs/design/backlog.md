@@ -125,6 +125,9 @@ budget without approval, or touch operator installs/data.
 
 ## 6. Menu opens in under 100 ms
 
+**Shipped (issue #15):** discovery is off the paint and input path; see [menu](menu.md#session-discovery)
+and its measured scope. Kept here for the original acceptance wording.
+
 **Context:** Menu startup eagerly reads session/ledger sources. Speed must not come
 from dropping items, lying about counts, or showing a loading screen.
 
