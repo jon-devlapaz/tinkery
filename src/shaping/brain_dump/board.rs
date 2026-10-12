@@ -312,6 +312,7 @@ pub(super) fn parse(
             "unresolved_notes",
             "questions",
             "alternatives",
+            "decisions",
         ],
         "board",
         changes,
@@ -382,6 +383,51 @@ pub(super) fn parse(
         } else {
             changes.push(format!("Ignored unknown open part {value}"));
         }
+    }
+    // Typed decisions: a choice only the person can make, with answers that would change
+    // a goal line. Each keeps its part open (so it can be asked and blocks readiness) and
+    // travels to review and the seed as a note.
+    let mut decision_notes = vec![];
+    for (i, v) in items(obj.get("decisions"), "decisions", changes)
+        .iter()
+        .enumerate()
+    {
+        let Some(o) = v.as_object() else {
+            changes.push(format!("Ignored decision {i}: not an object"));
+            continue;
+        };
+        extras(
+            o,
+            &["part", "text", "answers"],
+            &format!("decision {i}"),
+            changes,
+        );
+        let part = o
+            .get("part")
+            .and_then(|v| serde_json::from_value::<Part>(v.clone()).ok());
+        let text = display(o.get("text"), &format!("decision {i}"), changes);
+        let mut answers: Vec<String> = vec![];
+        for a in items(o.get("answers"), &format!("decision {i} answers"), changes) {
+            if let Some(a) = display(Some(&a), &format!("decision {i} answer"), changes)
+                && !answers.contains(&a)
+            {
+                answers.push(a);
+            }
+        }
+        let (Some(part), Some(text)) = (part, text) else {
+            changes.push(format!("Ignored decision {i}: needs a known part and text"));
+            continue;
+        };
+        if answers.len() < 2 {
+            changes.push(format!(
+                "Ignored decision {i}: needs two answers that change the goal"
+            ));
+            continue;
+        }
+        if !open.contains(&part) {
+            open.push(part);
+        }
+        decision_notes.push(format!("Open decision: {text} ({})", answers.join(" / ")));
     }
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
@@ -608,6 +654,7 @@ pub(super) fn parse(
             ));
         }
     }
+    unresolved_notes.extend(decision_notes);
     let guess = Guess {
         parts,
         other_goals,

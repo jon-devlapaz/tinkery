@@ -10,10 +10,14 @@ If interpretations compete, ask the question that decides between them.
 
 The reading uses the [goal block](goal-block.md), not dense template sentences.
 Ask about consequential missing intent, not facts an agent could discover. Once the
-required parts are present, ask the open decision whose plausible answers would change
-a goal line (a boundary, a scope, what happens to protected things), rather than
-noting it for the seed. Questions stop when no plausible answer would change a line.
-Unresolved notes carry only open intent, never status disclaimers. Answers
+required parts are present, ask the most consequential open decision: a choice only
+the person can make whose answers would change a goal line (a boundary, a scope, what
+happens to protected things). The reading lists decisions as typed items (part, text,
+two or more answers). Each keeps its part open, so it blocks "Nothing I'm unsure
+about" until an answer settles it, and travels to review and the seed as an
+"Open decision" note. A decision without two answers or a known part is ignored.
+Questions stop when no decision is left. Unresolved notes carry only open intent,
+never status disclaimers. Answers
 and added dumps remain distinct exact sources. Sending refines the reading;
 refining a ready reading does not start a new dump. Skipped questions stay skipped;
 Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other's
