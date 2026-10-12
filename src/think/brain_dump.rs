@@ -160,6 +160,10 @@ struct Handoff {
     receipt: Option<seed_me::Receipt>,
     /// F10 during the save: leave once it reads back.
     exit_after: bool,
+    /// Where a confirmed session's think record goes; `None` writes none.
+    record_root: Option<std::path::PathBuf>,
+    /// The think record written with the save, or why it wasn't.
+    record: Option<Result<std::path::PathBuf, String>>,
 }
 
 impl Default for BrainDump {
@@ -1545,6 +1549,8 @@ mod host;
 #[cfg(test)]
 mod readiness_tests;
 mod reading;
+#[cfg(test)]
+mod record_tests;
 mod review;
 pub use conversation::Conversation;
 #[cfg(test)]

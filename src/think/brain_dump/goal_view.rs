@@ -1,12 +1,20 @@
 //! Review and receipt: freezing the displayed goal, the typed `confirm`, saving through Seed Me,
 //! and the receipt that follows a save that read back. Saving records the goal and the
-//! person's originals; it never approves a seed or any implementation.
+//! person's originals, then the think record when a record folder is set; it never approves a
+//! seed or any implementation. A record that fails to write leaves the saved goal standing.
 
 use super::*;
 use crate::goal::confirmed::{SavedGoal, goal_block, render_saved_goal};
 use crate::seed_me::{self, Config, Receipt};
+use crate::think::record;
 use serde_json::json;
-use std::{path::PathBuf, sync::mpsc};
+use std::{
+    path::{Path, PathBuf},
+    sync::mpsc,
+};
+
+/// How the receipt's notice begins when the goal saved but its think record didn't.
+const RECORD_FAILED: &str = "Saved, but the think record wasn't written:";
 
 /// The goal under review and everything think records with it.
 #[derive(Clone)]
@@ -77,6 +85,50 @@ impl BrainDump {
     pub fn with_seed_me(mut self, skill: PathBuf, root: Option<PathBuf>) -> Self {
         self.handoff.config = Some(Config::new(skill, root));
         self
+    }
+    /// Writes a think record into `root` with every confirmed save, and says so on the review
+    /// screen. Without this, confirming saves the goal only.
+    pub fn with_record_root(mut self, root: PathBuf) -> Self {
+        self.handoff.record_root = Some(root);
+        self
+    }
+    /// True when confirming also writes a think record.
+    pub(super) fn records(&self) -> bool {
+        self.handoff.record_root.is_some()
+    }
+    /// Where this visit's think record was written, or why it wasn't; `None` before a save or
+    /// when no record folder is set.
+    pub(super) fn record_line(&self) -> Option<String> {
+        self.handoff.record.as_ref().map(|r| match r {
+            Ok(path) => format!("Think record: {}", path.display()),
+            Err(e) => format!("Think record not written: {e}"),
+        })
+    }
+    /// Writes the think record for the session just saved in `receipt`: every turn, every
+    /// check, and the goal exactly as it was confirmed on the review screen.
+    fn write_record(&self, root: &Path, receipt: &Receipt) -> Result<PathBuf, String> {
+        let goal = self
+            .handoff
+            .review
+            .as_ref()
+            .map(|r| r.affirmation.goal.as_str())
+            .ok_or("No confirmed goal to record.")?;
+        let origin = self.host.origin();
+        record::write(
+            root,
+            &record::Session {
+                origin: &origin,
+                turns: self.conversation.turns(),
+                checks: self
+                    .diagnostics()
+                    .iter()
+                    .filter_map(|d| serde_json::from_str(d).ok())
+                    .collect(),
+                goal,
+                seed_me_session: &receipt.session,
+                confirmed: std::time::SystemTime::now(),
+            },
+        )
     }
     /// F3: opens review on the displayed goal, frozen as shown. Refused, with a notice, in
     /// practice, without Seed Me, during a take, or while words are unsent or a reading is
@@ -168,7 +220,15 @@ impl BrainDump {
             }
             match result {
                 Ok(receipt) => {
-                    self.notice = "Saved.".into();
+                    self.handoff.record = self
+                        .handoff
+                        .record_root
+                        .clone()
+                        .map(|root| self.write_record(&root, &receipt));
+                    self.notice = match &self.handoff.record {
+                        Some(Err(e)) => format!("{RECORD_FAILED} {e}"),
+                        _ => "Saved.".into(),
+                    };
                     self.handoff.review = None;
                     self.screen.paper_scroll = 0;
                     self.handoff.receipt = Some(receipt);
@@ -200,6 +260,9 @@ impl BrainDump {
                 "\nSession remains active. Saved ledger: {}",
                 receipt.saved_view().display()
             ));
+            if let Some(line) = self.record_line() {
+                text.push_str(&format!("\n{line}"));
+            }
             if let Err(e) = stopped {
                 text.push_str(&format!("\nViewer shutdown failed: {e}"));
             }
@@ -281,7 +344,10 @@ impl BrainDump {
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let inner = app.screen.agent_area;
     if let Some(receipt) = &app.handoff.receipt {
-        let notice = if app.notice == "Copied." || app.notice.starts_with("Clipboard") {
+        let notice = if app.notice == "Copied."
+            || app.notice.starts_with("Clipboard")
+            || app.notice.starts_with(RECORD_FAILED)
+        {
             app.notice.as_str()
         } else {
             ""
@@ -344,8 +410,14 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         ""
     };
     let prompt = format!(
-        "type confirm to save. You can't edit it after.\n{}{}",
-        review.input, saving
+        "type confirm to save{}. You can't edit it after.\n{}{}",
+        if app.handoff.record_root.is_some() {
+            " the goal and its record"
+        } else {
+            ""
+        },
+        review.input,
+        saving
     );
     frame.render_widget(
         Paragraph::new(prompt.clone())

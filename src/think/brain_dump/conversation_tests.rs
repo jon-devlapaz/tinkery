@@ -159,3 +159,51 @@ fn extracts_are_exact_unique_and_bounded() {
     assert_eq!(c.fragments().len(), 32);
     assert!(c.extract(1, 2, 6).unwrap_err().contains("32 cards"));
 }
+
+#[test]
+fn turns_keep_every_question_answer_and_scope_in_the_order_they_happened() {
+    use crate::think::record::Event;
+    let mut c = asking();
+    let staged = c
+        .stage("TEST: also the welcome email", true, false, vec![])
+        .unwrap();
+    c.commit(&staged);
+    let staged = c
+        .stage("TEST: keep it separate", false, false, vec![])
+        .unwrap();
+    c.commit(&staged);
+    let events: Vec<_> = c.turns().iter().map(|t| t.event.clone()).collect();
+    let asked = Event::Asked {
+        id: "check-1".into(),
+        part: Some(Part::DoneWhen),
+        question: "Which check 1?".into(),
+    };
+    let scope = c.settled().last().unwrap().question.clone();
+    assert_eq!(
+        events,
+        [
+            Event::Words {
+                source: 1,
+                text: DUMP.into()
+            },
+            asked.clone(),
+            Event::Words {
+                source: 2,
+                text: "TEST: also the welcome email".into()
+            },
+            Event::ScopeAsked {
+                id: scope.id.clone(),
+                question: scope.text.clone(),
+                source: 2
+            },
+            Event::ScopeAnswered {
+                id: scope.id,
+                question: scope.text,
+                source: 3,
+                answer: "TEST: keep it separate".into(),
+            },
+            asked,
+        ]
+    );
+    assert!(c.turns().windows(2).all(|w| w[0].at <= w[1].at));
+}

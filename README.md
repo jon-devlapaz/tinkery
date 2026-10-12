@@ -4,7 +4,8 @@ A human-first, calm, keyboard-first terminal front door for agentic work:
 **think → shape → approve → watch → taste → measure**.
 
 Today: think turns a messy dump into one goal block and one consequential question.
-Explicit confirmation saves that exact goal in a Seed Me session. The receipt and
+Explicit confirmation saves that exact goal in a Seed Me session, and a think
+record of the session (every turn, words verbatim) in `~/.local/share/tinkery/think/`. The receipt and
 shape detail offer a repeatable copyable continuation prompt; nothing launches an
 agent. Voice is local, editable dictation with its own consented setup, not a Pi
 Voice dependency. Measure reads a separately installed ledger (otherwise unknown).

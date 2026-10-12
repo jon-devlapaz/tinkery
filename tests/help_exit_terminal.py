@@ -13,7 +13,7 @@ def journey(w,h):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-help-exit-') as d:
   cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));original=termios.tcgetattr(slave);screen=Screen(w,h);raw=bytearray()
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--model','test/model','--seed-me',str(skill),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--seed-me',str(skill),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
   def await_condition(condition):
    deadline=time.monotonic()+5
    while time.monotonic()<deadline:

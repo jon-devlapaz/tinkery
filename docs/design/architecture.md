@@ -43,7 +43,7 @@ One sentence each: what it owns.
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and shape (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
-| `think/brain_dump/conversation.rs` | The conversation, turn by turn: words, extracts, reading, and the rules for questions, skips, scope and the next request. Fields are private; nothing about the screen or jobs. |
+| `think/brain_dump/conversation.rs` | The conversation, turn by turn: words, extracts, reading, the rules for questions, skips, scope and the next request, and the ordered turns the think record keeps. Fields are private; nothing about the screen or jobs. |
 | `think/brain_dump/reading.rs` | The reading's contract with the model: the request, the prompt, the reply's wire shape and its lenient decoder. |
 | `think/brain_dump/review.rs` | The decision review: its prompt, what it sees, and how its decisions join the reading's. |
 | `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
@@ -52,6 +52,7 @@ One sentence each: what it owns.
 | `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | Think's review screen, original pane, dictation input, and where everything goes on screen with its help, key bar and notices. |
 | `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request. |
+| `think/record.rs` | The think record's format and its one `write`: a confirmed session's turns, checks and goal in one file. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the text box with grapheme-safe selection. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 

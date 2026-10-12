@@ -1,6 +1,7 @@
 //! Who answers a reading request: [`BoardHost`] is the boundary, met by Pi (a shaping call, then
 //! the decision review) or by the practice simulation.
 use super::*;
+use crate::think::record;
 
 /// Answers a reading request. Runs off the paint thread; it must stop promptly once
 /// `cancelled` is set, and it returns a decoded but unverified [`Guess`] or one line saying
@@ -13,8 +14,24 @@ pub trait BoardHost: Send + Sync {
     fn diagnostics(&self) -> Vec<String> {
         Vec::new()
     }
+    /// Who this host is, for the think record. A host that names no model is `simulated`.
+    fn origin(&self) -> record::Origin {
+        record::Origin::simulated()
+    }
 }
 impl BoardHost for PiHost {
+    fn origin(&self) -> record::Origin {
+        record::Origin {
+            origin: "live".into(),
+            model: Some(self.model.clone()),
+            thinking: (!self.thinking.is_empty()).then(|| self.thinking.clone()),
+            prompt_hash: Some(record::hash(&format!(
+                "{}\n{}",
+                reading::prompt(self.working_instructions()),
+                reading::assemble(review::PROMPT)
+            ))),
+        }
+    }
     fn diagnostics(&self) -> Vec<String> {
         self.brain_history
             .try_lock()

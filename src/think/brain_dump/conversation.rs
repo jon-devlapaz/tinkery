@@ -1,11 +1,13 @@
 //! Think's conversation with the person, turn by turn.
 
 use super::*;
+use crate::think::record::{Event, Turn};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Everything think has heard and read so far: the person's words in order (sources), the
 /// excerpts they pulled out (fragments), the verified reading (board), and the question
-/// history (answers, skips, restores, asks per part). It owns think's rules about which
+/// history (answers, skips, restores, asks per part), and every turn in the order it happened,
+/// for the think record. It owns think's rules about which
 /// question is in focus, what is still open, how added words are scoped, and what the next
 /// request carries. It knows nothing about the screen, keys or running jobs, so every rule
 /// here can be tested without a terminal.
@@ -28,6 +30,11 @@ pub struct Conversation {
     changed_lines: Option<BTreeSet<String>>,
     /// Why the last reading could not be applied; cleared when one is.
     last_failure: Option<String>,
+    /// What happened, in order: the think record's turns.
+    turns: Vec<Turn>,
+    /// The id of the question last recorded as asked, so a question is recorded once per
+    /// time it comes into focus.
+    asked: Option<String>,
 }
 
 /// A send that has been prepared but not yet committed to the conversation.
@@ -85,6 +92,41 @@ impl Conversation {
     }
     pub(super) fn forget_changes(&mut self) {
         self.changed_lines = None;
+    }
+    /// Every turn so far, in the order it happened: words, questions asked, answers, skips,
+    /// restores and scope. Kept for the think record; no rule here reads it.
+    pub fn turns(&self) -> &[Turn] {
+        &self.turns
+    }
+    fn note(&mut self, event: Event) {
+        self.turns.push(Turn {
+            at: std::time::SystemTime::now(),
+            event,
+        });
+    }
+    /// Records the question in focus as asked when it is not the one last recorded.
+    fn note_focus(&mut self) {
+        let focused = self.focused_question().cloned();
+        if focused.as_ref().map(|q| &q.id) == self.asked.as_ref() {
+            return;
+        }
+        self.asked = focused.as_ref().map(|q| q.id.clone());
+        let Some(q) = focused else {
+            return;
+        };
+        let event = match &self.scope_pending {
+            Some((source, pending)) if pending.id == q.id => Event::ScopeAsked {
+                id: q.id,
+                question: q.text,
+                source: *source,
+            },
+            _ => Event::Asked {
+                id: q.id,
+                part: q.target,
+                question: q.text,
+            },
+        };
+        self.note(event);
     }
     /// Why the last reading couldn't be applied; cleared once one is.
     pub fn last_failure(&self) -> Option<&str> {
@@ -208,7 +250,13 @@ impl Conversation {
         let Some(q) = self.focused_question().cloned() else {
             return false;
         };
+        self.note(Event::Skipped {
+            id: q.id.clone(),
+            part: q.target,
+            question: q.text.clone(),
+        });
         self.skipped.push(q);
+        self.note_focus();
         true
     }
     /// Bring back the last skip. `None` when nothing was skipped; `Some(false)` when it has
@@ -229,8 +277,14 @@ impl Conversation {
             .is_none_or(|(_, pending)| pending.id != q.id)
             && !self.restored.iter().any(|old| same_question(old, &q))
         {
-            self.restored.insert(0, q);
+            self.restored.insert(0, q.clone());
         }
+        self.note(Event::Restored {
+            id: q.id,
+            part: q.target,
+            question: q.text,
+        });
+        self.note_focus();
         Some(true)
     }
 
@@ -422,6 +476,31 @@ impl Conversation {
     pub(super) fn commit(&mut self, staged: &Staged) {
         self.sources = staged.sources.clone();
         self.settled = staged.request.settled.clone();
+        if let Some(source) = self.sources.last().cloned() {
+            let question = self
+                .settled
+                .iter()
+                .find(|s| s.source == source.id)
+                .map(|s| s.question.clone());
+            self.note(match (source.in_reply_to, question) {
+                (Some(id), Some(q)) if staged.scope_answered => Event::ScopeAnswered {
+                    id,
+                    question: q.text,
+                    source: source.id,
+                    answer: source.text,
+                },
+                (Some(id), q) => Event::Answered {
+                    id,
+                    question: q.map(|q| q.text).unwrap_or_default(),
+                    source: source.id,
+                    answer: source.text,
+                },
+                (None, _) => Event::Words {
+                    source: source.id,
+                    text: source.text,
+                },
+            });
+        }
         if staged.addition {
             let sid = self.sources.len();
             self.scope_pending = Some((
@@ -438,6 +517,7 @@ impl Conversation {
         } else if staged.scope_answered {
             self.scope_pending = None;
         }
+        self.note_focus();
     }
     /// Bring a request up to date after a waiting reply was applied.
     pub(super) fn refresh(&self, request: &mut BoardRequest) {
@@ -506,6 +586,7 @@ impl Conversation {
                 self.last_failure = None;
                 self.board = Some(board);
                 self.applied = request.sources.iter().map(|s| s.id).max().unwrap_or(0);
+                self.note_focus();
                 Ok(())
             }
             Err(e) => {
