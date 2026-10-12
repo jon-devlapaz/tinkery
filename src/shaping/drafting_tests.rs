@@ -161,7 +161,7 @@ fn failures_timeout_overflow_and_cancellation_never_return_a_draft() {
             .contains("Encoded request exceeds 32 KiB")
     );
     let (_directory, host) = host("import time; time.sleep(10)");
-    let job = DraftJob::start(Arc::new(host), request());
+    let job = Job::launch(move |cancelled| host.draft(request(), cancelled));
     thread::sleep(Duration::from_millis(50));
     let started = Instant::now();
     drop(job);

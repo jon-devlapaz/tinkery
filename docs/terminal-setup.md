@@ -82,10 +82,9 @@ request below. A native selection copies terminal cells, boxes and wrapping incl
 
 Tinkery also asks the terminal to forward Shift-clicks
 ([XTSHIFTESCAPE](https://ghostty.org/docs/vt/csi/xtshiftescape)) and restores the
-default on exit. Hosts may ignore that request. Right-click and Shift-click
-forwarding are only used by the legacy `--scratchpad` prototype (note menu,
-right-drag, Shift-click to toggle notes); think does not need them. If a
-multiplexer consumes those clicks, scratchpad's **Ctrl-A** selects all notes instead.
+default on exit. Hosts may ignore that request. Only think's extracted cards
+(technical help) use Shift-click, to toggle a card. If a multiplexer consumes
+those clicks, **Ctrl-A** selects all cards instead.
 
 ## Clipboard (OSC 52)
 

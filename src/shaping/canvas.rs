@@ -3,7 +3,6 @@ use pinstar::{
     ActionCtx, PinstarAction, PinstarState, ThemeColors, apply_action,
     data::{CanvasData, CanvasNode, TextNode},
     draw_pinstar_view, handle_pinstar_mouse,
-    menu::{MenuItemSpec, PinstarContextMenu, render_context_menu},
 };
 use ratatui::{
     Frame, Terminal,
@@ -84,10 +83,6 @@ impl Canvas {
         if self.state.floating_editor.is_none() {
             self.state.toggle_editor();
         }
-    }
-
-    pub fn captured(&self) -> bool {
-        self.captured
     }
 
     pub fn finish_edit(&mut self) {
@@ -323,45 +318,6 @@ impl Canvas {
         self.state.context_menu = None;
         self.state.right_down_screen = None;
         self.state.marquee.clear();
-    }
-
-    pub fn menu_hit(&self, column: u16, row: u16) -> bool {
-        self.area.contains((column, row).into())
-            && self.state.context_menu.as_ref().is_some_and(|menu| {
-                let area = Rect::new(0, 0, self.area.width, self.area.height);
-                menu.row_at(menu.rect(area), column - self.area.x, row - self.area.y)
-                    .is_some()
-            })
-    }
-
-    pub fn draw_menu(&self, frame: &mut Frame, palette: Palette) {
-        let Some(menu) = &self.state.context_menu else {
-            return;
-        };
-        let menu = PinstarContextMenu {
-            x: menu.x.saturating_add(self.area.x),
-            y: menu.y.saturating_add(self.area.y),
-            selected: menu.selected,
-            menu_type: menu.menu_type,
-            items: menu
-                .items
-                .iter()
-                .map(|item| MenuItemSpec {
-                    label: if item.label == "Delete Node" {
-                        "Delete note"
-                    } else {
-                        item.label
-                    },
-                    shortcut: item.shortcut,
-                    color_hint: item.color_hint,
-                })
-                .collect(),
-        };
-        let mouse = self
-            .state
-            .mouse_pos
-            .map(|(x, y)| (x + self.area.x, y + self.area.y));
-        render_context_menu(frame, self.area, &menu, &theme(palette), mouse);
     }
 
     pub fn draw(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {

@@ -392,18 +392,10 @@ fn read_pipe(
     })
 }
 
-pub(super) type DraftJob = Job<WorkingDraft>;
-
 pub(super) struct Job<T> {
     cancelled: Arc<AtomicBool>,
     result: mpsc::Receiver<Result<T, String>>,
     worker: Option<JoinHandle<()>>,
-}
-
-impl Job<WorkingDraft> {
-    pub fn start(host: Arc<dyn DraftHost>, request: DraftRequest) -> Self {
-        Self::launch(move |cancelled| host.draft(request, cancelled))
-    }
 }
 
 impl<T: Send + 'static> Job<T> {
