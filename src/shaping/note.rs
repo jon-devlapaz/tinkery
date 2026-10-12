@@ -4,6 +4,19 @@ use unicode_width::UnicodeWidthStr;
 pub struct Note {
     pub text: String,
     pub cursor: usize,
+    /// Fixed end of a selection, as a logical byte offset on a grapheme boundary.
+    /// The moving end is `cursor`. Never stored equal to the cursor.
+    anchor: Option<usize>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Motion {
+    Left,
+    Right,
+    Up,
+    Down,
+    Home,
+    End,
 }
 
 impl Note {
@@ -11,18 +24,98 @@ impl Note {
         Self {
             text: text.to_owned(),
             cursor: text.len(),
+            anchor: None,
         }
+    }
+
+    /// The nonempty selection as ordered logical byte offsets, if any.
+    pub fn selection(&self) -> Option<(usize, usize)> {
+        let anchor = self.anchor.filter(|a| *a != self.cursor)?;
+        let (start, end) = (anchor.min(self.cursor), anchor.max(self.cursor));
+        (end <= self.text.len()).then_some((start, end))
+    }
+
+    pub fn selected_text(&self) -> Option<&str> {
+        let (start, end) = self.selection()?;
+        self.text.get(start..end)
+    }
+
+    pub fn select_all(&mut self) {
+        self.anchor = (!self.text.is_empty()).then_some(0);
+        self.cursor = self.text.len();
+    }
+
+    /// Drop the selection but keep the text and the caret where it is.
+    pub fn collapse(&mut self) {
+        self.anchor = None;
+    }
+
+    /// Select from the existing (or current) anchor to `index`, a grapheme boundary.
+    pub fn select_to(&mut self, anchor: usize, index: usize) {
+        self.cursor = index;
+        self.anchor = (anchor != index).then_some(anchor);
+    }
+
+    /// Move the caret. With `extend` the selection grows from its fixed end; without,
+    /// Left/Right collapse to the selection's edge and other motions just move.
+    pub fn navigate(&mut self, motion: Motion, extend: bool, width: u16) {
+        if !extend {
+            if let (Some((start, end)), Motion::Left | Motion::Right) = (self.selection(), motion) {
+                self.cursor = if motion == Motion::Left { start } else { end };
+                self.anchor = None;
+                return;
+            }
+            self.anchor = None;
+        }
+        let anchor = self.anchor.unwrap_or(self.cursor);
+        let before = self.cursor;
+        match motion {
+            Motion::Left => self.left(),
+            Motion::Right => self.right(),
+            Motion::Home => self.home(),
+            Motion::End => self.end(),
+            Motion::Up | Motion::Down => {
+                self.move_row(motion == Motion::Down, width);
+                // Selecting past the first or last row reaches the edge of the buffer.
+                if extend && self.cursor == before {
+                    self.cursor = if motion == Motion::Up {
+                        0
+                    } else {
+                        self.text.len()
+                    };
+                }
+            }
+        }
+        if extend {
+            self.anchor = (anchor != self.cursor).then_some(anchor);
+        }
+    }
+
+    /// Replace `start..end` (grapheme boundaries) with already-sanitized text.
+    /// The 4096-byte cap is checked on the proposed result before anything changes.
+    fn replace(&mut self, start: usize, end: usize, clean: &str) -> Result<(), &'static str> {
+        if self.text.len() - (end - start) + clean.len() > 4096 {
+            return Err("Card limit: 4096 bytes. Nothing inserted.");
+        }
+        self.text.replace_range(start..end, clean);
+        self.cursor = start + clean.len();
+        self.anchor = None;
+        self.realign_cursor_forward();
+        Ok(())
     }
 
     pub fn insert(&mut self, text: &str) -> Result<(), &'static str> {
         // Paste is data, not terminal control sequences. Keep line breaks, not escapes.
         let clean = Self::sanitize(text);
-        if self.text.len().saturating_add(clean.len()) > 4096 {
-            return Err("Card limit: 4096 bytes. Nothing inserted.");
+        if clean.is_empty() {
+            return Ok(());
         }
-        self.text.insert_str(self.cursor, &clean);
-        self.cursor += clean.len();
-        // Inserting before a combining mark may join it to the inserted grapheme.
+        let (start, end) = self.selection().unwrap_or((self.cursor, self.cursor));
+        self.replace(start, end, &clean)
+    }
+
+    /// Inserting before a combining mark may join it to the inserted grapheme.
+    fn realign_cursor_forward(&mut self) {
         while self.cursor < self.text.len()
             && !self
                 .text
@@ -31,7 +124,6 @@ impl Note {
         {
             self.cursor += self.text[self.cursor..].chars().next().unwrap().len_utf8();
         }
-        Ok(())
     }
 
     pub(crate) fn sanitize(text: &str) -> String {
@@ -59,7 +151,21 @@ impl Note {
         }
     }
 
+    fn delete_selection(&mut self) -> bool {
+        let Some((start, end)) = self.selection() else {
+            return false;
+        };
+        self.text.replace_range(start..end, "");
+        self.cursor = start;
+        self.anchor = None;
+        self.realign_cursor();
+        true
+    }
+
     pub fn backspace(&mut self) {
+        if self.delete_selection() {
+            return;
+        }
         let end = self.cursor;
         self.left();
         self.text.replace_range(self.cursor..end, "");
@@ -67,6 +173,9 @@ impl Note {
     }
 
     pub fn delete(&mut self) {
+        if self.delete_selection() {
+            return;
+        }
         let start = self.cursor;
         self.right();
         self.text.replace_range(start..self.cursor, "");

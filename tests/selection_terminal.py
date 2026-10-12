@@ -106,6 +106,26 @@ def journey(width, height):
             # Scrolling the original moves the screen, not the logical selection.
             os.write(master, f'\x1b[<65;{x + 1};{y + 1}M'.encode() * 4); pump(0.3)
             copy(HEAD)
+            # Writing: Tab back, Ctrl-A selects only the writing box, typing replaces it.
+            os.write(master, b'\t'); pump(0.2); no_copy()
+            os.write(master, b'\x01'); pump(0.2)
+            copy('qs?')
+            os.write(master, b'ab'); await_text('ab')
+            os.write(master, b'\x1b[1;2D'); pump(0.2)
+            copy('b')
+            # Bracketed paste replaces the selection and is sanitized like any paste.
+            os.write(master, b'\x1b[200~X\r\x1b[31my\x1b[201~'); pump(0.3)
+            os.write(master, b'\x01'); pump(0.2)
+            copy('aX\n[31my')
+            # Mouse drag across writing selects the same logical bytes.
+            os.write(master, b'\x1b[F'); pump(0.1)
+            x, y = locate('aX')
+            os.write(master, f'\x1b[<0;{x + 1};{y + 1}M\x1b[<32;{x + 2};{y + 1}M\x1b[<0;{x + 2};{y + 1}m'.encode()); pump(0.3)
+            copy('a')
+            # Backspace removes exactly the selection; the rest of the bytes remain.
+            os.write(master, b'\x7f'); pump(0.2)
+            os.write(master, b'\x01'); pump(0.2)
+            copy('X\n[31my')
             assert len(requests()) == sent, 'navigation/copy invoked the provider'
             assert {p.name for p in cwd.iterdir()} == {'pi', 'SKILL.md', 'requests.jsonl'}, 'Unexpected persistence'
             print(json.dumps(dict(width=width, height=height, journey='tab/shift-arrows/ctrl-c/mouse/resize', provider_calls=sent)))

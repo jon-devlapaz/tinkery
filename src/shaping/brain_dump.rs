@@ -1,5 +1,5 @@
 use super::{
-    Note,
+    Motion, Note,
     canvas::Canvas,
     drafting::{Approach, Job, PiHost},
 };
@@ -19,6 +19,7 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 pub mod board;
 pub mod goal;
 use goal::{GoalParts, Part};
@@ -418,6 +419,8 @@ pub struct BrainDump {
     source_cursor: usize,
     selection: Option<(usize, usize)>,
     drag_anchor: Option<usize>,
+    /// Fixed end of a mouse drag in the writing box (logical byte offset).
+    input_drag: Option<usize>,
     show_extractions: bool,
 }
 impl Default for BrainDump {
@@ -489,6 +492,7 @@ impl BrainDump {
             source_cursor: 0,
             selection: None,
             drag_anchor: None,
+            input_drag: None,
             show_extractions: false,
         }
     }
@@ -1475,12 +1479,24 @@ impl BrainDump {
                 self.focus_writing();
                 self.input.delete()
             }
-            KeyCode::Left => self.input.left(),
-            KeyCode::Right => self.input.right(),
-            KeyCode::Home => self.input.home(),
-            KeyCode::End => self.input.end(),
-            KeyCode::Up => self.input.move_row(false, self.input_area.width),
-            KeyCode::Down => self.input.move_row(true, self.input_area.width),
+            KeyCode::Left
+            | KeyCode::Right
+            | KeyCode::Up
+            | KeyCode::Down
+            | KeyCode::Home
+            | KeyCode::End => {
+                let motion = match key.code {
+                    KeyCode::Left => Motion::Left,
+                    KeyCode::Right => Motion::Right,
+                    KeyCode::Up => Motion::Up,
+                    KeyCode::Down => Motion::Down,
+                    KeyCode::Home => Motion::Home,
+                    _ => Motion::End,
+                };
+                let extend = key.modifiers.contains(KeyModifiers::SHIFT);
+                self.input.navigate(motion, extend, self.input_area.width);
+            }
+            KeyCode::Char('a') if ctrl => self.select_all(),
             KeyCode::Char('u') if ctrl => self.input = Note::new(""),
             _ => {}
         }
@@ -1529,6 +1545,8 @@ impl BrainDump {
             self.focus_writing();
         } else if !self.sources.is_empty() && self.goal_review.is_none() {
             self.board_focus = true;
+            self.input.collapse();
+            self.input_drag = None;
             self.selection = None;
             self.drag_anchor = None;
             self.canvas.cancel_gesture();
@@ -1541,10 +1559,29 @@ impl BrainDump {
         self.selection = None;
         self.drag_anchor = None;
     }
-    /// Exact text of the current selection in the original, if it is the active surface.
+    /// Ctrl-A selects everything in the active text surface only: the writing box, or the
+    /// one original in view. It never spans sources.
+    fn select_all(&mut self) {
+        if self.board_focus {
+            if let Some(source) = self.sources.get(self.source_view) {
+                self.selection = (!source.text.is_empty()).then_some((0, source.text.len()));
+                self.source_cursor = source.text.len();
+            }
+        } else {
+            self.input.select_all();
+        }
+    }
+    /// Exact text of the active surface's nonempty selection: the original while it has
+    /// focus, otherwise the writing box. Nothing is copied from a surface that is hidden.
     fn selected_text(&self) -> Option<String> {
-        if !self.board_focus || self.original || self.help || self.details {
+        if self.original || self.help || self.details {
             return None;
+        }
+        if !self.board_focus {
+            if self.goal_review.is_some() {
+                return None;
+            }
+            return self.input.selected_text().map(str::to_owned);
         }
         let (a, b) = self.selection?;
         let text = &self.sources.get(self.source_view)?.text;
@@ -1628,6 +1665,7 @@ impl BrainDump {
             return;
         }
         if self.help || self.original || self.details {
+            self.input_drag = None;
             match event.kind {
                 MouseEventKind::ScrollDown => {
                     self.original_scroll = self.original_scroll.saturating_add(3)
@@ -1640,6 +1678,7 @@ impl BrainDump {
             return;
         }
         if self.goal_review.is_some() || self.receipt.is_some() {
+            self.input_drag = None;
             if self.handoff_job.is_none()
                 && self.goal_review.is_some()
                 && event.kind == MouseEventKind::Down(MouseButton::Left)
@@ -1687,10 +1726,29 @@ impl BrainDump {
         {
             self.focus_writing();
             let wrapped = self.input.wrap(self.input_area.width);
-            self.input.cursor = wrapped.index_at(
+            let index = wrapped.index_at(
                 event.row - self.input_area.y + self.input_scroll,
                 event.column - self.input_area.x,
             );
+            self.input.select_to(index, index);
+            self.input_drag = Some(index);
+            return;
+        }
+        if let Some(anchor) = self.input_drag
+            && matches!(
+                event.kind,
+                MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
+            )
+        {
+            let area = self.input_area;
+            let row = event.row.clamp(area.y, area.bottom().saturating_sub(1)) - area.y
+                + self.input_scroll;
+            let column = event.column.clamp(area.x, area.right().saturating_sub(1)) - area.x;
+            let index = self.input.wrap(area.width).index_at(row, column);
+            self.input.select_to(anchor, index);
+            if matches!(event.kind, MouseEventKind::Up(_)) {
+                self.input_drag = None;
+            }
             return;
         }
         if self.agent_area.contains((event.column, event.row).into()) {
@@ -1886,6 +1944,31 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             .scroll((app.input_scroll, 0)),
         app.input_area,
     );
+    if let Some((start, end)) = app.input.selection()
+        && !voice_input::previewing(app)
+    {
+        let area = app.input_area;
+        for (index, row, column) in &wrapped.positions {
+            if *index < start || *index >= end {
+                continue;
+            }
+            let Some(row) = row.checked_sub(usize::from(app.input_scroll)) else {
+                continue;
+            };
+            let Some(grapheme) = app.input.text[*index..].graphemes(true).next() else {
+                continue;
+            };
+            if row >= usize::from(area.height) || grapheme == "\n" {
+                continue;
+            }
+            for offset in 0..grapheme.width().max(1) {
+                if column + offset < usize::from(area.width) {
+                    frame.buffer_mut()[(area.x + (column + offset) as u16, area.y + row as u16)]
+                        .set_style(palette.ink.add_modifier(ratatui::style::Modifier::REVERSED));
+                }
+            }
+        }
+    }
     if !app.board_focus
         && !app.original
         && !app.help

@@ -60,6 +60,8 @@ impl BrainDump {
         }
         if let Some(voice) = &mut self.voice {
             voice.toggle(Instant::now());
+            // Dictation adds at the caret; it never deletes a selection.
+            self.input.collapse();
             self.focus_writing();
             self.help = false;
             self.original = false;
@@ -79,6 +81,7 @@ impl BrainDump {
             self.voice.as_mut().unwrap().missed();
             return;
         }
+        self.input.collapse();
         if let Err(error) = self.input.insert(&text) {
             self.voice
                 .as_mut()
@@ -92,6 +95,11 @@ impl BrainDump {
             self.submit();
         }
     }
+}
+
+/// True while dictation shows a live preview in the writing box.
+pub(super) fn previewing(app: &BrainDump) -> bool {
+    !Note::sanitize(app.voice.as_ref().map_or("", Voice::partial)).is_empty()
 }
 
 pub(super) fn input_text(

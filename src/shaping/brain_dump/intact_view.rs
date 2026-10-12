@@ -200,6 +200,8 @@ impl BrainDump {
                         event.column - area.x,
                     );
                 self.board_focus = true;
+                self.input.collapse();
+                self.input_drag = None;
                 self.source_cursor = index;
                 self.selection = None;
                 self.drag_anchor = Some(index);

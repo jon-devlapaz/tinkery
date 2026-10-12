@@ -676,3 +676,31 @@ fn recording_does_not_change_what_the_goal_line_says_is_open() {
     a.help = true;
     assert!(yohaku::help_text(&a).contains("Nothing I'm unsure about."));
 }
+
+#[test]
+fn dictation_never_deletes_a_selection_and_inserts_at_the_caret() {
+    let (mut a, fake) = attach(BrainDump::default());
+    a.input = Note::new("keep these words");
+    a.input.cursor = 5;
+    for _ in 0..5 {
+        a.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    }
+    assert_eq!(a.input.selected_text(), Some("these"));
+    start(&mut a, &fake);
+    assert_eq!(a.input.selection(), None, "recording drops the highlight");
+    a.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT));
+    event(
+        &mut a,
+        &fake,
+        Event::Final {
+            take: 1,
+            text: "said".into(),
+        },
+    );
+    assert_eq!(a.input.selection(), None);
+    assert_eq!(
+        a.input.text.replacen("said", "", 1),
+        "keep these words",
+        "every original byte survives; dictation only adds"
+    );
+}

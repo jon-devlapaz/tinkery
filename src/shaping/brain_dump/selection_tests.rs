@@ -141,3 +141,200 @@ fn f6_is_not_a_focus_key() {
     key(&mut a, KeyCode::F(6));
     assert!(a.board_focus, "F6 without voice leaves focus alone");
 }
+
+fn writing(text: &str) -> BrainDump {
+    let mut a = ready();
+    a.input = Note::new(text);
+    snapshot(100, 30, &mut a, false).unwrap();
+    a
+}
+fn click(a: &mut BrainDump, kind: MouseEventKind, column: u16, row: u16) {
+    let area = a.area;
+    a.handle_mouse(
+        MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        },
+        area,
+    );
+}
+
+#[test]
+fn shift_arrows_select_in_writing_and_ctrl_c_copies_exact_bytes() {
+    let mut a = writing("héllo wörld");
+    a.input.cursor = 0;
+    for _ in 0..3 {
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    }
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().as_deref(), Some("hél"));
+    assert!(!a.quit && !a.leave_prompt);
+    key(&mut a, KeyCode::Right);
+    assert_eq!(a.input.selection(), None);
+    ctrl_c(&mut a);
+    assert!(a.take_copy_request().is_none(), "no selection: no copy");
+}
+
+#[test]
+fn ctrl_a_selects_only_the_active_surface() {
+    let mut a = writing("my words");
+    let original = a.sources[0].text.clone();
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    assert_eq!(a.input.selected_text(), Some("my words"));
+    assert_eq!(a.selection, None, "the original is untouched");
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().as_deref(), Some("my words"));
+    key(&mut a, KeyCode::Tab);
+    assert_eq!(
+        a.input.selection(),
+        None,
+        "writing selection does not linger"
+    );
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request(), Some(original.clone()));
+    assert_eq!(a.input.text, "my words");
+    // Read-only: typing leaves the original alone and goes to writing.
+    key(&mut a, KeyCode::Char('z'));
+    assert_eq!(a.sources[0].text, original);
+    assert_eq!(
+        a.input.text, "my wordsz",
+        "typing goes to writing at its caret"
+    );
+}
+
+#[test]
+fn ctrl_a_in_the_original_never_spans_sources() {
+    let mut a = ready();
+    a.sources.push(Source {
+        id: 2,
+        text: "second original".into(),
+        in_reply_to: Some("q1".into()),
+    });
+    a.source_view = 1;
+    key(&mut a, KeyCode::Tab);
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().as_deref(), Some("second original"));
+}
+
+#[test]
+fn typing_paste_enter_and_delete_replace_the_selection_atomically() {
+    let mut a = writing("keep SELECTED keep");
+    a.input.cursor = 5;
+    for _ in 0..8 {
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    }
+    key(&mut a, KeyCode::Char('q'));
+    assert_eq!(a.input.text, "keep q keep", "q is text, and replaces");
+    a.input.cursor = 5;
+    press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    a.paste("S\r\nx\u{1b}[0m");
+    assert_eq!(a.input.text, "keep S\nx[0m keep");
+    a.input.select_all();
+    key(&mut a, KeyCode::Enter);
+    assert_eq!(a.input.text, "\n");
+    a.input = Note::new("abcdef");
+    a.input.cursor = 1;
+    for _ in 0..3 {
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    }
+    key(&mut a, KeyCode::Backspace);
+    assert_eq!(a.input.text, "aef");
+    a.input.select_all();
+    key(&mut a, KeyCode::Delete);
+    assert_eq!(a.input.text, "");
+    for c in ['s', '?', 'q'] {
+        key(&mut a, KeyCode::Char(c));
+    }
+    assert_eq!(a.input.text, "s?q", "s, ? and q stay text in writing");
+}
+
+#[test]
+fn oversize_paste_over_a_selection_changes_nothing_and_says_why() {
+    let base = "a".repeat(4090) + "BCDEFG";
+    let mut a = writing(&base);
+    a.input.cursor = 4090;
+    for _ in 0..2 {
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    }
+    let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
+    a.paste(&"z".repeat(20));
+    assert_eq!(
+        (a.input.text.clone(), a.input.cursor, a.input.selection()),
+        before
+    );
+    assert!(a.notice.contains("4096"));
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().as_deref(), Some("BC"));
+}
+
+#[test]
+fn mouse_drag_in_writing_selects_the_same_logical_bytes() {
+    let mut a = writing("drag these words");
+    let (x, y) = (a.input_area.x, a.input_area.y);
+    click(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
+    click(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 4, y);
+    click(&mut a, MouseEventKind::Up(MouseButton::Left), x + 4, y);
+    assert_eq!(a.input.selected_text(), Some("drag"));
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().as_deref(), Some("drag"));
+    // Dragging backwards, beyond the box, still yields ordered logical bytes.
+    click(&mut a, MouseEventKind::Down(MouseButton::Left), x + 10, y);
+    click(
+        &mut a,
+        MouseEventKind::Drag(MouseButton::Left),
+        x + 5,
+        y + 20,
+    );
+    click(&mut a, MouseEventKind::Up(MouseButton::Left), x + 5, y + 20);
+    let picked = a.input.selected_text().unwrap().to_owned();
+    assert!("drag these words".contains(&picked) && !picked.is_empty());
+    // A plain click collapses.
+    click(&mut a, MouseEventKind::Down(MouseButton::Left), x + 2, y);
+    click(&mut a, MouseEventKind::Up(MouseButton::Left), x + 2, y);
+    assert_eq!(a.input.selection(), None);
+}
+
+#[test]
+fn selection_highlight_is_drawn_reversed_for_wide_and_combined_text() {
+    let mut a = writing("e\u{301}中 b");
+    a.input.cursor = 0;
+    for _ in 0..2 {
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    }
+    let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+    t.draw(|f| render(f, &mut a, Palette::new(true))).unwrap();
+    let b = t.backend().buffer();
+    let (x, y) = (a.input_area.x, a.input_area.y);
+    assert!(
+        b[(x, y)]
+            .modifier
+            .contains(ratatui::style::Modifier::REVERSED)
+    );
+    assert!(
+        b[(x + 1, y)]
+            .modifier
+            .contains(ratatui::style::Modifier::REVERSED)
+    );
+    assert!(
+        !b[(x + 3, y)]
+            .modifier
+            .contains(ratatui::style::Modifier::REVERSED)
+    );
+}
+
+#[test]
+fn a_selection_does_not_change_what_f10_guards() {
+    let mut a = writing("all of this");
+    a.input.cursor = 0;
+    for _ in 0..3 {
+        press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    }
+    assert_eq!(a.input.text, "all of this");
+    key(&mut a, KeyCode::F(10));
+    assert!(!a.quit, "unsent words still ask first");
+    assert!(a.leave_prompt || a.quit, "F10 keeps its guard");
+}
