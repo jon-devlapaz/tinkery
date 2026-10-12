@@ -53,6 +53,15 @@ contain that session and then opens its detail; a read that began before the sav
 not treated as “unavailable”. Measure's subprocess still runs only when measure is
 opened.
 
+Once a pending read has run 3 seconds, shape's line becomes “Still reading your
+sessions.” This is wording only, measured from when that read started: no new worker,
+spinner or timer, and Esc and navigation stay live.
+
+A read that never returns occupies the one worker for the rest of the session. Until it
+returns no new read starts, so the count stays hidden and switching to another sessions
+root does not read it. A timeout that started a replacement would leak stuck threads, so
+there is deliberately none.
+
 ## Measured scope
 
 `scripts/bench-menu.py` (not part of the zero-call suite) spawns the release binary in a

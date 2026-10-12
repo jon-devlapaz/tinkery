@@ -14,16 +14,24 @@ use ratatui::{
 };
 use std::{
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+
+/// How long a read may be pending before the quiet line says it is still going. A normal
+/// read takes milliseconds (about 70 ms for 5,000 sessions on the measured machine), so
+/// this only shows when something is actually slow, such as a cold or network disk.
+pub(super) const STILL_READING_AFTER: Duration = Duration::from_secs(3);
 
 pub(super) struct Shape {
     pub sessions: Vec<Session>,
     pub error: Option<String>,
     /// Nothing has landed yet: unknown, never "no sessions".
     pub pending: bool,
+    /// The read this view waits on has run past [`STILL_READING_AFTER`]. Only the pending
+    /// line reads it, and only its wording changes.
+    pub still_reading: bool,
     /// A saved session to open in detail once a read that can contain it lands.
     pub want: Option<(PathBuf, Option<PathBuf>)>,
     /// Records the last read could not parse; the list may be missing them.
@@ -44,6 +52,7 @@ impl Shape {
             sessions: vec![],
             error: None,
             pending: true,
+            still_reading: false,
             want: None,
             unreadable: 0,
             seen: 0,
@@ -55,6 +64,11 @@ impl Shape {
             notice: String::new(),
             copy: None,
         }
+    }
+    /// Note how long the read this view waits on has been running (`None`: no worker).
+    /// Wording only: it starts nothing and leaves every key as it was.
+    pub fn note_wait(&mut self, waited: Option<Duration>) {
+        self.still_reading = waited.is_some_and(|waited| waited >= STILL_READING_AFTER);
     }
     /// Take a landed read. Selection follows the session's path, not its position.
     /// A wanted session is opened only from a read that contains it (or that began
@@ -250,10 +264,12 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         ),
     );
     if shape.pending || shape.want.is_some() {
-        frame.render_widget(
-            Paragraph::new("Reading your sessions. Esc goes back.").style(palette.muted),
-            area,
-        );
+        let status = if shape.still_reading {
+            "Still reading your sessions. Esc goes back."
+        } else {
+            "Reading your sessions. Esc goes back."
+        };
+        frame.render_widget(Paragraph::new(status).style(palette.muted), area);
         return;
     }
     if shape.error.is_some() {

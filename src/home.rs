@@ -153,11 +153,17 @@ impl Home {
     }
 
     pub fn tick(&mut self) {
+        self.tick_at(Instant::now());
+    }
+
+    /// [`Home::tick`] with the clock as an input, so tests never sleep.
+    fn tick_at(&mut self, now: Instant) {
         if !self.discovery.requested() {
             self.discovery.request(&self.sessions_root);
         }
         self.discovery.poll();
         self.sync_shape();
+        self.update_stall(now);
         let mut shape_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
@@ -194,6 +200,18 @@ impl Home {
             return;
         }
         shape.apply(&landed.outcome, self.discovery.fresh(), version);
+    }
+
+    /// Let shape say when the read it waits on is taking a while. A check on the tick that
+    /// already runs: no timer, no new worker.
+    fn update_stall(&mut self, now: Instant) {
+        if let View::Shape(shape) = &mut self.view {
+            shape.note_wait(
+                self.discovery
+                    .running_since()
+                    .map(|since| now.saturating_duration_since(since)),
+            );
+        }
     }
 
     /// Read once and wait a bounded time, for the non-interactive `--snapshot` view only.

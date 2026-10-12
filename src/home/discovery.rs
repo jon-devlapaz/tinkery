@@ -12,6 +12,7 @@ use std::{
         Arc,
         mpsc::{self, Receiver, TryRecvError},
     },
+    time::Instant,
 };
 
 use serde_json::Value;
@@ -135,7 +136,7 @@ pub struct Discovery {
     source: Source,
     root: PathBuf,
     requested: u64,
-    running: Option<(u64, PathBuf, Receiver<Outcome>)>,
+    running: Option<(u64, PathBuf, Receiver<Outcome>, Instant)>,
     landed: Option<Landed>,
     version: u64,
 }
@@ -169,7 +170,7 @@ impl Discovery {
 
     /// Land a finished worker, if any. True when something new can be shown.
     pub fn poll(&mut self) -> bool {
-        let Some((epoch, root, rx)) = &self.running else {
+        let Some((epoch, root, rx, _)) = &self.running else {
             return false;
         };
         let (epoch, stale_root) = (*epoch, *root != self.root);
@@ -216,7 +217,7 @@ impl Discovery {
                 let _ = tx.send(source(&root));
             });
         match spawned {
-            Ok(_) => self.running = Some((self.requested, self.root.clone(), rx)),
+            Ok(_) => self.running = Some((self.requested, self.root.clone(), rx, Instant::now())),
             Err(error) => {
                 self.landed = Some(Landed {
                     outcome: Err(format!("Cannot read sessions: {error}")),
@@ -253,6 +254,11 @@ impl Discovery {
             .ok()
             .filter(|found| found.complete())
             .map(|_| landed.active)
+    }
+
+    /// When the running worker started: how long a pending read has been going.
+    pub fn running_since(&self) -> Option<Instant> {
+        self.running.as_ref().map(|(.., since)| *since)
     }
 
     /// Whether a worker is running (tests assert it stays bounded).

@@ -220,6 +220,121 @@ fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
 }
 
 #[test]
+fn a_slow_read_changes_one_quiet_line_and_starts_nothing() {
+    let gate = Gate::new(found(vec![sess(
+        "a",
+        Stage::GoalSaved,
+        "2026-10-09T10:00:00Z",
+    )]));
+    let mut h = home(gate.source());
+    h.tick();
+    wait_until("the worker to start", || gate.entered.load(SeqCst) == 1);
+    h.handle_key(key(KeyCode::Char('2')));
+    // The clock is an input of the real tick, so no test sleeps: the read's start plus a wait.
+    let since = h.discovery.running_since().expect("a read is pending");
+    let threshold = shape::STILL_READING_AFTER;
+    h.tick_at(since + threshold - Duration::from_millis(1));
+    let before = screen(&mut h);
+    assert!(
+        before.contains("Reading your sessions. Esc goes back."),
+        "{before}"
+    );
+    assert!(!before.contains("Still reading"), "{before}");
+    h.tick_at(since + threshold);
+    let after = screen(&mut h);
+    assert!(
+        after.contains("Still reading your sessions. Esc goes back."),
+        "{after}"
+    );
+    assert!(!after.contains("Reading your sessions"), "{after}");
+    // Only that line changed: no spinner, no loading screen.
+    assert_eq!(before.lines().count(), after.lines().count());
+    let changed = before.lines().zip(after.lines()).filter(|(a, b)| a != b);
+    assert_eq!(changed.count(), 1, "{before}\n{after}");
+    // Nothing started, and the view is as live as before.
+    assert_eq!(gate.entered.load(SeqCst), 1, "no replacement worker");
+    assert_eq!(gate.live.load(SeqCst), 1);
+    h.handle_key(key(KeyCode::Down));
+    h.handle_key(key(KeyCode::Enter));
+    let View::Shape(shape) = &h.view else {
+        panic!()
+    };
+    assert!(!shape.detail, "nothing to open yet");
+    h.handle_key(key(KeyCode::Esc));
+    assert!(matches!(h.view, View::Menu), "Esc still goes back");
+    // The wait belongs to the read, not the visit: reopening meets the same slow read.
+    h.open(1);
+    h.tick_at(since + threshold);
+    let reopened = screen(&mut h);
+    assert!(
+        reopened.contains("Still reading your sessions."),
+        "{reopened}"
+    );
+    assert_eq!(gate.entered.load(SeqCst), 1, "still one worker");
+    // When the read lands the line is gone, however late the clock says it is.
+    gate.release(8);
+    settle(&mut h);
+    h.tick_at(since + threshold * 10);
+    let landed = screen(&mut h);
+    assert!(landed.contains("goal a"), "{landed}");
+    assert!(!landed.to_lowercase().contains("reading"), "{landed}");
+}
+
+#[test]
+fn a_slow_read_behind_a_saved_session_says_so_too() {
+    let gate = Gate::new(found(vec![]));
+    let mut h = home(gate.source());
+    h.tick();
+    wait_until("the worker to start", || gate.entered.load(SeqCst) == 1);
+    h.open_shape_session(Path::new("/TEST/new"));
+    let since = h.discovery.running_since().expect("a read is pending");
+    h.tick_at(since + shape::STILL_READING_AFTER - Duration::from_millis(1));
+    assert!(screen(&mut h).contains("Reading your sessions. Esc goes back."));
+    h.tick_at(since + shape::STILL_READING_AFTER);
+    let frame = screen(&mut h);
+    assert!(frame.contains("Still reading your sessions."), "{frame}");
+    assert!(!frame.contains("unavailable"), "{frame}");
+    gate.set(found(vec![sess(
+        "new",
+        Stage::GoalSaved,
+        "2026-10-10T10:00:00Z",
+    )]));
+    gate.release(8);
+    settle(&mut h);
+    let View::Shape(shape) = &h.view else {
+        panic!()
+    };
+    assert!(shape.detail && shape.error.is_none());
+}
+
+#[test]
+fn a_slow_reread_leaves_a_list_already_on_screen_alone() {
+    let gate = Gate::new(found(vec![sess(
+        "a",
+        Stage::GoalSaved,
+        "2026-10-09T10:00:00Z",
+    )]));
+    gate.release(1);
+    let mut h = home(gate.source());
+    settle(&mut h);
+    // Reopening reads again, and this read gets no permit: the last result shows meanwhile.
+    h.open(1);
+    wait_until("the second read", || gate.entered.load(SeqCst) == 2);
+    let since = h
+        .discovery
+        .running_since()
+        .expect("the second read is running");
+    let before = screen(&mut h);
+    h.tick_at(since + shape::STILL_READING_AFTER * 10);
+    let after = screen(&mut h);
+    assert!(after.contains("goal a"), "{after}");
+    assert!(!after.to_lowercase().contains("reading"), "{after}");
+    assert_eq!(before, after, "a slow re-read changes nothing on screen");
+    gate.release(8);
+    settle(&mut h);
+}
+
+#[test]
 fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail() {
     let old = [
         sess("a", Stage::GoalSaved, "2026-10-09T10:00:00Z"),
