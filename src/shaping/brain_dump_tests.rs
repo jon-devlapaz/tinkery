@@ -362,6 +362,65 @@ fn simulated_is_explicit_and_never_an_automatic_real_failure_fallback() {
     assert!(a.guess.unwrap().framings[0].text.contains("Simulated"));
 }
 
+/// A screen point inside the first extracted card.
+fn first_card_point(a: &BrainDump) -> (u16, u16) {
+    let rect = a.canvas.area;
+    let (nx, ny) = a.canvas.state.data.nodes[0].pos();
+    let x = ((nx - a.canvas.state.viewport_x) * a.canvas.state.zoom + f64::from(rect.width) / 2.0)
+        as u16
+        + rect.x
+        + 4;
+    let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom + f64::from(rect.height) / 2.0)
+        as u16
+        + rect.y
+        + 2;
+    (x, y)
+}
+fn card_mouse(a: &mut BrainDump, kind: MouseEventKind, column: u16, row: u16) {
+    let area = a.area;
+    a.handle_mouse(
+        MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        },
+        area,
+    );
+}
+#[test]
+fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
+    let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.paste("Read comfortably. Hamster is unfamiliar.");
+    a.submit();
+    settle(&mut a);
+    a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
+    a.board_focus = !a.board_focus;
+    key(&mut a, KeyCode::F(7));
+    snapshot(100, 30, &mut a, false).unwrap();
+    let (x, y) = first_card_point(&a);
+    card_mouse(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
+    card_mouse(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 2, y);
+    // Hiding the cards ends the gesture; the button-up never reaches the canvas.
+    key(&mut a, KeyCode::F(7));
+    key(&mut a, KeyCode::F(7));
+    snapshot(100, 30, &mut a, false).unwrap();
+    let released = a.layout();
+    let view = (a.canvas.state.viewport_x, a.canvas.state.viewport_y);
+    card_mouse(
+        &mut a,
+        MouseEventKind::Drag(MouseButton::Left),
+        x + 12,
+        y + 4,
+    );
+    assert_eq!(a.layout(), released, "a stale drag moved a card");
+    assert_eq!(
+        (a.canvas.state.viewport_x, a.canvas.state.viewport_y),
+        view,
+        "a stale drag panned the cards"
+    );
+}
 #[test]
 fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     let host = Arc::new(Recording::default());
@@ -374,33 +433,14 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     a.board_focus = !a.board_focus;
     key(&mut a, KeyCode::F(7));
     snapshot(100, 30, &mut a, false).unwrap();
-    let area = a.area;
-    let rect = a.canvas.area;
-    let n = &a.canvas.state.data.nodes[0];
-    let (nx, ny) = n.pos();
-    let x = ((nx - a.canvas.state.viewport_x) * a.canvas.state.zoom + f64::from(rect.width) / 2.0)
-        as u16
-        + rect.x
-        + 4;
-    let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom + f64::from(rect.height) / 2.0)
-        as u16
-        + rect.y
-        + 2;
+    let (x, y) = first_card_point(&a);
     let before = a.layout();
     for (kind, dx, dy) in [
         (MouseEventKind::Down(MouseButton::Left), 0, 0),
         (MouseEventKind::Drag(MouseButton::Left), 4, 2),
         (MouseEventKind::Up(MouseButton::Left), 4, 2),
     ] {
-        a.handle_mouse(
-            MouseEvent {
-                kind,
-                column: x + dx,
-                row: y + dy,
-                modifiers: KeyModifiers::NONE,
-            },
-            area,
-        );
+        card_mouse(&mut a, kind, x + dx, y + dy);
     }
     assert_ne!(a.layout(), before, "Real mouse drag did not move a card");
     let moved = a.layout();
