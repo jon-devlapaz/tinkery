@@ -48,7 +48,7 @@ One sentence each: what it owns.
 | `shaping/brain_dump/handoff.rs` | Saving a confirmed goal into Seed Me and the continuation prompt. |
 | `shaping/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `yohaku.rs` | Think's review screen, original pane, dictation input, and help and key bar. |
 | `shaping/confirmed_goal.rs` | Rendering a confirmed goal the same way in review, receipt and shape. |
-| `shaping/drafting.rs` | The Pi call boundary: one bounded, cancellable request (plus an unused working-draft feature; see #34). |
+| `shaping/drafting.rs` | The Pi call boundary: one bounded, cancellable request. |
 | `shaping/canvas.rs`, `note.rs` | Extracted cards, and the text box with grapheme-safe selection. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 
@@ -59,7 +59,7 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 
 | # | Question | Today | What moves it |
 | --- | --- | --- | --- |
-| 1 | Can each module be described in one sentence? | No | #34, #37 |
+| 1 | Can each module be described in one sentence? | No: all but `BrainDump` | #37 |
 | 2 | Are interfaces simpler than implementations? | Yes, except `BrainDump` | #37 |
 | 3 | Can an implementation change without touching callers? | No: Seed Me's format and the model's JSON contract are each known in more than one place | #36, #38 |
 | 4 | Do interface comments describe the abstraction? | No | #39 |
@@ -68,15 +68,15 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 | 7 | Can a newcomer see the boundaries without reading code? | Yes | this page |
 | 8 | Is design improvement part of ordinary work? | Yes | |
 
-**Score: 5/10** (2026-10-12, main at 2d25a7c). The goal is at least 9/10; #33 tracks the steps.
+**Score: 5/10** (2026-10-12, re-scored after #34; first scored at 2d25a7c). The goal is at least 9/10; #33 tracks the steps.
 
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today | Lowered by |
 | --- | --- | --- |
 | Phase reaches across phases | 2 listed exceptions | #35, #36 |
-| `BrainDump` fields / `pub` fields | 56 / 9 | #37 |
-| Non-test source lines over 200 characters | 33 | #34, #38 |
+| `BrainDump` fields / `pub` fields | 55 / 9 | #37 |
+| Non-test source lines over 200 characters | 21 | #38 |
 
 A check fails when the code gets worse than its limit, and also when it gets better, so the PR that improves it
 lowers the limit too.

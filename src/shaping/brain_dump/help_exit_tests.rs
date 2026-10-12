@@ -90,12 +90,16 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert!(a.how && a.help);
     let how = yohaku::how_text(&a);
     for s in [
+        "One shaping call and one decision review run before the reading is shown",
         "at most two provider calls per send",
         "no automatic retry",
         "outcome/options remain proposals",
         "session stays active",
     ] {
         assert!(how.contains(s));
+    }
+    for gone in ["audit", "background", "log-only"] {
+        assert!(!how.contains(gone), "{gone}");
     }
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     assert!(screen.contains("How it works"));
@@ -219,73 +223,6 @@ fn ctrl_c_copies_a_selection_cancels_sending_and_never_leaves() {
         assert!(!a.running() && a.notice.starts_with("Cancelled"));
     }
     assert!(!a.quit && !a.leave_prompt);
-}
-#[cfg(unix)]
-#[test]
-fn concern_loss_is_logged_not_silently_repaired_or_declared_faithful() {
-    use std::os::unix::fs::PermissionsExt;
-    for faithful in [true, false] {
-        let dir = tempfile::tempdir().unwrap();
-        let skill = dir.path().join("SKILL.md");
-        std::fs::write(
-            &skill,
-            "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
-        )
-        .unwrap();
-        let program = dir.path().join("pi");
-        std::fs::write(&program,format!(r#"#!/usr/bin/env python3
-import json,sys,pathlib
-root=pathlib.Path(__file__).parent
-r=json.load(sys.stdin)
-p=sys.argv[sys.argv.index('--system-prompt')+1]
-worry='i am worried that this thing has been overengineered'
-if r.get('kind')=='meaning-preservation':
- assert 'Concerns and negative judgments are concrete content too' in p
- assert r['board']['framings']==r['reading'] and r['mode']=='log-only'
- print(json.dumps(dict(missing=[] if {faithful} else [dict(source=1,quote=worry,occurrence=0)],false_choice=False)));sys.exit(0)
-assert worry==r['sources'][0]['text']
-assert 'Worries stay worries, not diagnoses or aspirations' in p
-log=root/'shapes'
-n=int(log.read_text()) if log.exists() else 0
-assert n==0
-log.write_text(str(n+1))
-text='You worry this thing has been overengineered.' if {faithful} else 'Learn this system better, durable and robust.'
-print(json.dumps(dict(parts=dict(outcome=text),open=[],supports=[dict(source=1,quote=worry,occurrence=0)],misfits=[],questions=[],alternatives=[])))
-"#,faithful=if faithful{"True"}else{"False"})).unwrap();
-        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let host = Arc::new(
-            PiHost::new(program, "test/model".into(), skill)
-                .unwrap()
-                .with_background_audit(),
-        );
-        let mut a = BrainDump::with_host(host.clone());
-        a.paste("i am worried that this thing has been overengineered");
-        a.submit();
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        while (a.running() || a.audit_job.is_some()) && std::time::Instant::now() < deadline {
-            a.tick();
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
-        assert!(!a.running() && a.audit_job.is_none());
-        assert!(a.guess.is_some());
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join("shapes")).unwrap(),
-            "1"
-        );
-        assert_eq!(
-            a.sources[0].text,
-            "i am worried that this thing has been overengineered"
-        );
-        let d: checks::Decision = serde_json::from_str(host.diagnostics().last().unwrap()).unwrap();
-        assert_eq!(d.mode, "log-only");
-        assert_eq!(d.decision, if faithful { "pass" } else { "flag" });
-        assert!(
-            !snapshot(100, 30, &mut a, false)
-                .unwrap()
-                .contains("Possible whole-board loss")
-        );
-        assert!(a.receipt.is_none() && a.handoff_job.is_none());
-    }
 }
 #[test]
 fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {

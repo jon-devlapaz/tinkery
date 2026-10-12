@@ -8,10 +8,9 @@ import json,sys,pathlib,time,os
 root=pathlib.Path(__file__).parent
 r=json.load(sys.stdin)
 with (root/'calls.jsonl').open('a') as f:f.write(json.dumps(r)+'\\n')
-if r.get('kind')=='meaning-preservation':
- (root/'audit.pid').write_text(str(os.getpid()))
+if not r.get('kind') and r['sources'][0]['text'].startswith('Slow'):
+ (root/'shaping.pid').write_text(str(os.getpid()))
  time.sleep(15)
- print(json.dumps(dict(missing=[],false_choice=True)));sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='remember books and notes',why='I forget what I read',done_when='I can find a book and its note'),open=['outcome'],supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)],misfits=[],questions=[dict(id='book-notes',text='What would you want to remember about each book?')],alternatives=[])))
 '''
 def journey(w,h):
@@ -34,7 +33,6 @@ def journey(w,h):
    await_condition(lambda s:"What's on your mind?" in s)
    send(b'Books read this year.','Books read this year.')
    send(b'\x1bOQ','What would you want')
-   # Audit sleeps for 15s; review/display/help must remain available immediately.
    send(b'\x1bOR','type confirm');assert process.poll() is None
    send(b'\x1b','What would you want')
    os.write(master,b'\x1b[17~');time.sleep(.2);assert 'board controls' not in screen.text()
@@ -63,16 +61,39 @@ def journey(w,h):
    assert not (cwd/'TEST-sessions').exists(),'Implicit handoff'
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
-   if (cwd/'audit.pid').exists():
-    pid=int((cwd/'audit.pid').read_text())
-    try:os.kill(pid,0)
-    except ProcessLookupError:pass
-    else:raise AssertionError('Owned audit survived exit')
    print(json.dumps(dict(width=w,height=h,provider='stub',journey='one-frame uncertain reading/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore',confirmation=False)))
   finally:
    if process.poll() is None:process.kill();process.wait()
-   if (cwd/'audit.pid').exists():
-    try:os.kill(int((cwd/'audit.pid').read_text()),signal.SIGTERM)
+   os.close(master);os.close(slave)
+def exit_during_shaping(w,h):
+ # Leaving while a shaping call is in flight must stop the owned provider process.
+ with tempfile.TemporaryDirectory(prefix='tinkery-TEST-dogfood-') as d:
+  cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
+  master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));screen=Screen(w,h)
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--model','test/model','--seed-me',str(skill),'--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  pid=cwd/'shaping.pid'
+  def await_condition(check):
+   end=time.monotonic()+6
+   while time.monotonic()<end:
+    if select.select([master],[],[],.02)[0]:screen.feed(os.read(master,65536))
+    if check():return
+    if process.poll() is not None:break
+   raise AssertionError(screen.text())
+  try:
+   await_condition(lambda:"What's on your mind?" in screen.text())
+   os.write(master,b'Slow books read this year.');await_condition(lambda:'Slow books' in screen.text())
+   os.write(master,b'\x1bOQ');await_condition(pid.exists)
+   os.write(master,b'\x1b[21~');await_condition(lambda:'lose this draft?' in screen.text())
+   os.write(master,b'\x1b[21~');process.wait(timeout=5);assert process.returncode==0
+   try:os.kill(int(pid.read_text()),0)
+   except ProcessLookupError:pass
+   else:raise AssertionError('Owned shaping call survived exit')
+   print(json.dumps(dict(width=w,height=h,provider='stub',journey='exit during shaping stops the owned call',confirmation=False)))
+  finally:
+   if process.poll() is None:process.kill();process.wait()
+   if pid.exists():
+    try:os.kill(int(pid.read_text()),signal.SIGTERM)
     except ProcessLookupError:pass
    os.close(master);os.close(slave)
 for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size)
+exit_during_shaping(100,30)

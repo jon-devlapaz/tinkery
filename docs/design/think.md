@@ -41,11 +41,13 @@ Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other'
 constraints. Deferred items remain context for the seed.
 
 The original is plain ink by default. Exact cited spans are validated invisibly;
-uncited words are not implicitly rejected. The decision review took the slot of
-the old log-only meaning/continuity audit, which no longer runs in live mode: in
-the v3 eval it cut silent guesses (14% to 6%) and the audit never changed a reading.
-In live mode a submitted reshape is a shaping call plus the decision review, so
-budget for two. Practice and the documented suite use fakes.
+uncited words are not implicitly rejected. A send is one shaping call plus one
+decision review, both before the reading is shown, so budget for two; nothing runs
+after it appears. Practice and the documented suite use fakes. (History: the review
+replaced a log-only meaning audit that ran in the background and never changed a
+reading; #34 deleted it. In the v3 eval the review raised decisions asked from 23%
+to 40%, with questions on clear dumps staying within the 0.5-per-run target. Its
+silent-pick difference, 14% against 18%, is within noise.)
 
 When no question is in focus (none left, skipped, or a part asked twice), one
 muted line says which of three states holds:

@@ -309,41 +309,8 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
 }
 
 #[test]
-fn meaning_findings_are_log_only_and_bad_evidence_never_gains_authority() {
+fn lexical_coverage_never_vetoes_the_review() {
     let mut a = board();
-    let g = a.guess.as_ref().unwrap().wire();
-    let r = BoardRequest {
-        ask_counts: Default::default(),
-        sources: a.sources.clone(),
-        fragments: vec![],
-        previous: None,
-        skipped: vec![],
-        answered: vec![],
-        settled: vec![],
-        layout: vec![],
-    };
-    assert!(
-        meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":false}"#)
-            .unwrap()
-            .is_none()
-    );
-    assert!(meaning_check::verdict(&r,&g,r#"{"missing":[{"source":1,"quote":"PR ready for human review","occurrence":0}],"false_choice":false}"#).unwrap().unwrap().contains("PR ready for human review"));
-    assert!(
-        meaning_check::verdict(&r, &g, r#"{"missing":[],"false_choice":true}"#)
-            .unwrap()
-            .is_some()
-    );
-    for invalid in [
-        r#"{"missing":[{"source":1,"quote":"invented","occurrence":0}],"false_choice":false}"#,
-        r#"{"missing":[],"false_choice":false,"confirmed":true}"#,
-        r#"{"missing":[],"false_choice":"false"}"#,
-    ] {
-        assert!(meaning_check::verdict(&r, &g, invalid).is_err());
-    }
-    assert_eq!(
-        serde_json::to_value(&g).unwrap(),
-        serde_json::to_value(a.guess.as_ref().unwrap().wire()).unwrap()
-    );
     amend_board(&mut a, |g| {
         g.parts.outcome = Some("A software result for human review.".into());
     });
