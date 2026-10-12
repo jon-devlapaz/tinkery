@@ -434,10 +434,6 @@ impl BrainDump {
         Self::with_mode(host, true)
     }
     fn with_mode(host: Arc<dyn BoardHost>, real: bool) -> Self {
-        let mut canvas = Canvas::new("");
-        canvas.state.data.nodes.clear();
-        canvas.state.selection.clear();
-        canvas.spatial = true;
         Self {
             input: Note::new(""),
             quit: false,
@@ -455,7 +451,7 @@ impl BrainDump {
             back_button: Rect::default(),
             request: None,
             ready: None,
-            canvas,
+            canvas: Canvas::new(),
             applied: 0,
             skipped: vec![],
             restored_questions: vec![],
