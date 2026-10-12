@@ -255,6 +255,9 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         } else {
             "esc back   10 menu"
         }
+    } else if shape.sessions.is_empty() || shape.want.is_some() {
+        // Nothing on screen to move to or open: reading, unavailable or empty.
+        "esc back"
     } else {
         "↑↓ move   enter open   esc back"
     };

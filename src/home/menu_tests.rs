@@ -190,6 +190,10 @@ fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     );
     assert!(!frame.contains("No Seed Me sessions"), "{frame}");
     assert!(frame.to_lowercase().contains("esc back"));
+    assert!(
+        !frame.contains("move") && !frame.contains("enter open"),
+        "the key bar offers only what is possible now:\n{frame}"
+    );
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Enter));
     let View::Shape(shape) = &h.view else {
@@ -364,10 +368,12 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
         "{frame}"
     );
     assert!(!frame.contains("No Seed Me sessions"), "{frame}");
+    assert!(!frame.contains("enter open"), "{frame}");
     gate.release(8);
     settle(&mut h);
     let frame = screen(&mut h);
     assert!(frame.contains("goal a"), "{frame}");
+    assert!(frame.contains("↑↓ move   enter open   esc back"), "{frame}");
 }
 
 #[test]
