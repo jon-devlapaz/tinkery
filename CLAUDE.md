@@ -38,6 +38,7 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 | Work | Code | Read first |
 | --- | --- | --- |
 | CLI, terminal loop, snapshots | `src/main.rs` | [principles](docs/design/principles.md) |
+| Module boundaries, design limits | `tests/architecture.rs` | [architecture](docs/design/architecture.md) |
 | Menu, ledger view | `src/home.rs` | [menu](docs/design/menu.md) |
 | Shape list/detail | `src/home/shape.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Think state and views | `src/shaping/brain_dump.rs`, `src/shaping/brain_dump/` | [think](docs/design/think.md) |
