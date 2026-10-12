@@ -1,3 +1,4 @@
+use super::discovery::Outcome;
 use crate::{
     Palette,
     shaping::{
@@ -21,6 +22,14 @@ use unicode_width::UnicodeWidthStr;
 pub(super) struct Shape {
     pub sessions: Vec<Session>,
     pub error: Option<String>,
+    /// Nothing has landed yet: unknown, never "no sessions".
+    pub pending: bool,
+    /// A saved session to open in detail once a read that can contain it lands.
+    pub want: Option<(PathBuf, Option<PathBuf>)>,
+    /// Records the last read could not parse; the list may be missing them.
+    pub unreadable: usize,
+    /// The discovery version last applied.
+    pub seen: u64,
     pub selected: usize,
     pub detail: bool,
     pub scroll: u16,
@@ -30,14 +39,14 @@ pub(super) struct Shape {
     pub copy: Option<String>,
 }
 impl Shape {
-    pub fn new(sessions: Result<Vec<Session>, String>) -> Self {
-        let (sessions, error) = match sessions {
-            Ok(sessions) => (sessions, None),
-            Err(error) => (vec![], Some(error)),
-        };
+    pub fn new() -> Self {
         Self {
-            sessions,
-            error,
+            sessions: vec![],
+            error: None,
+            pending: true,
+            want: None,
+            unreadable: 0,
+            seen: 0,
             selected: 0,
             detail: false,
             scroll: 0,
@@ -45,6 +54,51 @@ impl Shape {
             help_scroll: 0,
             notice: String::new(),
             copy: None,
+        }
+    }
+    /// Take a landed read. Selection follows the session's path, not its position.
+    /// A wanted session is opened only from a read that contains it (or that began
+    /// after it was asked for); until then the view stays pending.
+    pub fn apply(&mut self, outcome: &Outcome, fresh: bool, version: u64) {
+        let wanted_at = match (&self.want, outcome) {
+            (Some((path, canonical)), Ok(found)) => found
+                .sessions
+                .iter()
+                .position(|s| s.path == *path || canonical.as_ref().is_some_and(|c| s.path == *c)),
+            _ => None,
+        };
+        if self.want.is_some() && wanted_at.is_none() && !fresh {
+            return;
+        }
+        self.seen = version;
+        self.pending = false;
+        match outcome {
+            Err(error) => {
+                self.error = Some(error.clone());
+                self.sessions.clear();
+                self.unreadable = 0;
+                self.want = None;
+            }
+            Ok(found) => {
+                let keep = self.current().map(|s| s.path.clone());
+                self.error = None;
+                self.unreadable = found.unreadable;
+                self.sessions = found.sessions.clone();
+                if let Some(index) = wanted_at {
+                    self.selected = index;
+                    self.detail = true;
+                    self.scroll = 0;
+                    self.want = None;
+                } else if let Some((path, _)) = self.want.take() {
+                    self.error = Some(format!("Saved session is unavailable: {}", path.display()));
+                    self.sessions.clear();
+                } else {
+                    self.selected = keep
+                        .and_then(|k| self.sessions.iter().position(|s| s.path == k))
+                        .unwrap_or(self.selected)
+                        .min(self.sessions.len().saturating_sub(1));
+                }
+            }
         }
     }
     pub fn current(&self) -> Option<&Session> {
@@ -195,6 +249,13 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
             1,
         ),
     );
+    if shape.pending || shape.want.is_some() {
+        frame.render_widget(
+            Paragraph::new("Reading your sessions. Esc goes back.").style(palette.muted),
+            area,
+        );
+        return;
+    }
     if shape.error.is_some() {
         frame.render_widget(
             Paragraph::new("Saved session unavailable. F1 then h for details.").style(palette.ink),
@@ -204,8 +265,15 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
     }
     if shape.sessions.is_empty() {
         frame.render_widget(
-            Paragraph::new("No Seed Me sessions yet. Confirm a goal in think to start one.")
-                .style(palette.muted),
+            Paragraph::new(if shape.unreadable > 0 {
+                format!(
+                    "{} couldn't be read, so nothing can be listed. Esc goes back.",
+                    records(shape.unreadable)
+                )
+            } else {
+                "No Seed Me sessions yet. Confirm a goal in think to start one.".into()
+            })
+            .style(palette.muted),
             area,
         );
         return;
@@ -249,13 +317,32 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
             ])
         })
         .collect();
+    let note = shape.unreadable > 0 && area.height > 1;
+    let list = Rect::new(area.x, area.y, area.width, area.height - u16::from(note));
     let skip = shape
         .selected
-        .saturating_sub(area.height.saturating_sub(1) as usize);
+        .saturating_sub(list.height.saturating_sub(1) as usize);
     frame.render_widget(
         Paragraph::new(Text::from(lines)).scroll((skip as u16, 0)),
-        area,
+        list,
     );
+    if note {
+        frame.render_widget(
+            Paragraph::new(format!(
+                "{} couldn't be read; this list may be missing sessions.",
+                records(shape.unreadable)
+            ))
+            .style(palette.muted),
+            Rect::new(area.x, area.bottom() - 1, area.width, 1),
+        );
+    }
+}
+fn records(n: usize) -> String {
+    if n == 1 {
+        "1 saved record".into()
+    } else {
+        format!("{n} saved records")
+    }
 }
 
 pub(super) fn timestamp(value: &str) -> Option<u64> {

@@ -4,11 +4,16 @@
 //! measure are built; the others say so plainly. Nothing here starts or steers an agent.
 
 use std::{
-    fs,
     path::{Path, PathBuf},
     process::Command,
+    sync::Arc,
+    time::{Duration, Instant},
 };
 
+use crate::{
+    Palette,
+    shaping::brain_dump::{self, BrainDump},
+};
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -17,12 +22,6 @@ use ratatui::{
     layout::Rect,
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
-};
-use serde_json::Value;
-
-use crate::{
-    Palette,
-    shaping::brain_dump::{self, BrainDump},
 };
 
 /// Name, one-line purpose, and whether the place exists yet.
@@ -54,7 +53,10 @@ pub const PLACES: [(&str, &str, bool); 6] = [
         true,
     ),
 ];
+mod discovery;
 mod shape;
+use discovery::Discovery;
+pub use discovery::{Found, Outcome, Source, scan};
 use shape::Shape;
 pub use shape::{Session, Stage};
 
@@ -73,6 +75,7 @@ pub struct Home {
     key_bar: bool,
     receipts: Vec<String>,
     seed_me: Option<PathBuf>,
+    discovery: Discovery,
 }
 
 enum View {
@@ -105,7 +108,14 @@ impl Home {
             key_bar: true,
             receipts: Vec::new(),
             seed_me: None,
+            discovery: Discovery::new(Arc::new(scan)),
         }
+    }
+
+    /// Replace the blocking read (tests hold it open to prove paint and input never wait).
+    pub fn with_discovery_source(mut self, source: Source) -> Self {
+        self.discovery = Discovery::new(source);
+        self
     }
 
     pub fn with_seed_me(mut self, skill: PathBuf) -> Self {
@@ -143,6 +153,11 @@ impl Home {
     }
 
     pub fn tick(&mut self) {
+        if !self.discovery.requested() {
+            self.discovery.request(&self.sessions_root);
+        }
+        self.discovery.poll();
+        self.sync_shape();
         let mut shape_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
@@ -156,6 +171,8 @@ impl Home {
                     self.receipts.push(receipt);
                 }
                 self.view = View::Menu;
+                // Back from think: a goal may have been saved, so read again.
+                self.discovery.request(&self.sessions_root);
             }
         }
         if let Some(path) = shape_request {
@@ -163,23 +180,39 @@ impl Home {
         }
     }
 
+    /// Show the newest landed read in shape. While a saved session's detail is open
+    /// nothing is replaced under the reader; the list catches up when they go back.
+    fn sync_shape(&mut self) {
+        let View::Shape(shape) = &mut self.view else {
+            return;
+        };
+        let Some(landed) = self.discovery.landed() else {
+            return;
+        };
+        let version = self.discovery.version();
+        if shape.seen == version || (shape.detail && shape.want.is_none()) {
+            return;
+        }
+        shape.apply(&landed.outcome, self.discovery.fresh(), version);
+    }
+
+    /// Read once and wait a bounded time, for the non-interactive `--snapshot` view only.
+    pub fn discover_for_snapshot(&mut self, wait: Duration) {
+        self.discovery.request(&self.sessions_root);
+        let deadline = Instant::now() + wait;
+        while !self.discovery.poll() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
     fn open_shape_session(&mut self, path: &Path) {
         self.open(1);
         if let View::Shape(shape) = &mut self.view {
-            let resolved = path.canonicalize().ok();
-            if let Some(index) = shape.sessions.iter().position(|s| {
-                s.path == path
-                    || resolved.as_ref().is_some_and(|p| {
-                        s.path.canonicalize().is_ok_and(|candidate| &candidate == p)
-                    })
-            }) {
-                shape.selected = index;
-                shape.detail = true;
-            } else if shape.error.is_none() {
-                shape.error = Some(format!("Saved session is unavailable: {}", path.display()));
-                shape.sessions.clear();
-            }
+            // One stat of a path the handoff just wrote; matching is otherwise by identity.
+            shape.want = Some((path.to_path_buf(), path.canonicalize().ok()));
+            shape.seen = 0;
         }
+        self.sync_shape();
     }
 
     /// Receipts from confirmed goals, printed after the terminal is restored.
@@ -226,13 +259,18 @@ impl Home {
         self.help = false;
         self.view = match index {
             0 => View::Think(Box::new((self.make_dump)().with_key_bar(self.key_bar))),
-            1 => View::Shape(Shape::new(load_sessions(&self.sessions_root))),
+            1 => {
+                // Deliberate reopening reads again; the last result shows meanwhile.
+                self.discovery.request(&self.sessions_root);
+                View::Shape(Shape::new())
+            }
             5 => View::Measure(Reading {
                 body: ledger_report(&self.substrate_dir),
                 scroll: 0,
             }),
             other => View::Soon(other),
         };
+        self.sync_shape();
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) {
@@ -386,74 +424,23 @@ impl Home {
         }
     }
 
+    /// Memory only: an exact count of active sessions once a complete, current read has
+    /// landed. Unknown, partial or failed reads show nothing, never zero.
     pub fn count(&self, index: usize) -> Option<String> {
         if index != 1 {
             return None;
         }
-        let active = load_sessions(&self.sessions_root)
-            .ok()?
-            .iter()
-            .filter(|s| s.stage != Stage::Ended)
-            .count();
-        (active > 0).then(|| active.to_string())
+        self.discovery
+            .exact_active()
+            .filter(|active| *active > 0)
+            .map(|active| active.to_string())
     }
 }
 
-/// Seed Me sessions, newest first. Stage comes from Seed Me's own files: the ledger's status and the seed contract's
-/// first line. Unreadable sessions are skipped, never guessed.
+/// Seed Me sessions, newest first (blocking). Unreadable records are left out here;
+/// [`scan`] reports how many.
 pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
-    let entries = match fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
-        Err(error) => return Err(format!("Cannot read {}: {error}", root.display())),
-    };
-    let mut sessions: Vec<Session> = entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let path = entry.path();
-            let ledger: Value =
-                serde_json::from_str(&fs::read_to_string(path.join("ledger.json")).ok()?).ok()?;
-            let status = ledger.get("status")?.as_str()?.to_string();
-            let goal = ledger
-                .get("goal")
-                .and_then(Value::as_str)
-                .unwrap_or("(no goal recorded)")
-                .to_string();
-            let updated = ledger
-                .get("updated_at")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string();
-            let stage = if ledger
-                .get("goal")
-                .and_then(Value::as_str)
-                .is_none_or(|goal| goal.trim().is_empty())
-                && status == "active"
-            {
-                Stage::Unknown
-            } else {
-                match fs::read_to_string(path.join("seed-contract.md")) {
-                    Ok(seed) => Stage::from_files(status.as_str(), Some(&seed)),
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                        Stage::from_files(status.as_str(), None)
-                    }
-                    Err(_) => Stage::Unknown,
-                }
-            };
-            Some(Session {
-                path: path.canonicalize().ok()?,
-                goal,
-                stage,
-                updated,
-            })
-        })
-        .collect();
-    sessions.sort_by(|a, b| {
-        shape::timestamp(&b.updated)
-            .cmp(&shape::timestamp(&a.updated))
-            .then_with(|| b.updated.cmp(&a.updated))
-    });
-    Ok(sessions)
+    scan(root).map(|found| found.sessions)
 }
 
 /// The ledger's text report from the installed tink-substrate. Unknown stays unknown.
@@ -606,8 +593,12 @@ pub fn snapshot(
 }
 
 #[cfg(test)]
+mod menu_tests;
+#[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
+    use std::fs;
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)
@@ -619,6 +610,19 @@ mod tests {
             root.to_path_buf(),
             root.join("no-substrate"),
         )
+    }
+
+    /// Tick until the read that was asked for has landed (bounded).
+    fn settle(h: &mut Home) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            h.tick();
+            if h.discovery.requested() && !h.discovery.running() && h.discovery.fresh() {
+                return;
+            }
+            assert!(Instant::now() < deadline, "discovery did not settle");
+            std::thread::sleep(Duration::from_millis(1));
+        }
     }
 
     fn session(root: &Path, id: &str, status: &str, updated: &str, seed: Option<&str>) {
@@ -639,6 +643,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         session(tmp.path(), "a", "active", "2026-10-09T10:00:00Z", None);
         let mut h = home(tmp.path());
+        settle(&mut h);
         let screen = snapshot(100, 30, &mut h, true).unwrap();
         for name in ["think", "shape", "approve", "watch", "taste", "measure"] {
             assert!(screen.contains(name), "{name} missing:\n{screen}");
@@ -747,6 +752,7 @@ mod tests {
         ));
         h.handle_key(key(KeyCode::Char('s')));
         h.tick();
+        settle(&mut h);
         let View::Shape(shape) = &h.view else {
             panic!()
         };
@@ -763,6 +769,7 @@ mod tests {
             std::os::unix::fs::symlink(tmp.path(), &alias).unwrap();
             h.sessions_root = alias;
             h.open_shape_session(&path.canonicalize().unwrap());
+            settle(&mut h);
             let View::Shape(shape) = &h.view else {
                 panic!()
             };
@@ -774,6 +781,7 @@ mod tests {
             h.sessions_root = tmp.path().to_path_buf();
         }
         h.open_shape_session(&tmp.path().join("missing"));
+        settle(&mut h);
         let View::Shape(shape) = &h.view else {
             panic!()
         };
@@ -788,10 +796,18 @@ mod tests {
         h.sessions_root = tmp.path().join("not-a-directory");
         fs::write(&h.sessions_root, "not a directory").unwrap();
         h.open_shape_session(&path);
+        settle(&mut h);
         let View::Shape(shape) = &h.view else {
             panic!()
         };
-        assert!(shape.error.is_some() && shape.sessions.is_empty());
+        assert!(
+            shape.error.is_some() && shape.sessions.is_empty(),
+            "{:?} {:?} {} {}",
+            shape.error,
+            shape.want,
+            shape.pending,
+            shape.sessions.len()
+        );
     }
 
     #[test]
@@ -841,6 +857,7 @@ mod tests {
         for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             let mut h = home(tmp.path());
             h.open(1);
+            settle(&mut h);
             let screen = snapshot(w, height, &mut h, false).unwrap();
             assert!(
                 !screen.contains("Why:") && !screen.contains("Done when:") && !screen.contains("/")
@@ -879,6 +896,7 @@ mod tests {
         for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             let mut h = home(tmp.path()).with_seed_me(receipt.skill.clone());
             h.open_shape_session(&path);
+            settle(&mut h);
             let screen = snapshot(w, height, &mut h, false).unwrap();
             let normalized = screen.split_whitespace().collect::<Vec<_>>().join(" ");
             for line in receipt.goal.lines() {
@@ -982,6 +1000,7 @@ mod tests {
             session(tmp.path(), id, status, "2026-10-11T00:00:00Z", seed);
             let mut h = home(tmp.path()).with_seed_me("/TEST/SKILL.md".into());
             h.open_shape_session(&tmp.path().join(id));
+            settle(&mut h);
             let screen = snapshot(100, 30, &mut h, false).unwrap();
             if let Some(next) = next {
                 assert!(screen.contains(next));
