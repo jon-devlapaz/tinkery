@@ -36,7 +36,7 @@ keeps an index; a rescan is a rescan.
 
 | Read | Meaning | Shown |
 | --- | --- | --- |
-| Not known | nothing landed yet, or a newer read is running | no count; shape says it is reading |
+| Not known | nothing landed yet, or a newer read is running | no count; shape says it is reading, unless it already shows a non-empty list |
 | Complete | every record was read (a missing root counts: nothing saved yet) | exact count of active sessions, if nonzero |
 | Incomplete | some records exist but could not be read | the valid sessions, a quiet “N saved records couldn't be read”, no count |
 | Failed | the root could not be listed | the unavailable message, no count |
@@ -44,7 +44,8 @@ keeps an index; a rescan is a rescan.
 Unknown, incomplete and failed are never shown as zero or “no sessions”. Directories
 without a `ledger.json` and stray files are not sessions and do not make a read
 incomplete. A count is also hidden while a newer read is running, so a stale number is
-not shown after saving a goal.
+not shown after saving a goal. For the same reason an empty list from an older read
+is not shown as “no sessions” while a newer read runs; shape says it is reading.
 
 In shape, a late read keeps the selected session by path, never by row, and cannot
 reopen an exited view. While a saved session's detail is open nothing is replaced under

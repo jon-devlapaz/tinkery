@@ -335,6 +335,42 @@ fn a_slow_reread_leaves_a_list_already_on_screen_alone() {
 }
 
 #[test]
+fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
+    let gate = Gate::new(found(vec![]));
+    gate.release(1);
+    let mut h = home(gate.source());
+    settle(&mut h);
+    // A goal was saved since the empty read; the read that would contain it is slow.
+    gate.set(found(vec![sess(
+        "a",
+        Stage::GoalSaved,
+        "2026-10-09T10:00:00Z",
+    )]));
+    h.open(1);
+    let frame = screen(&mut h);
+    assert!(
+        frame.contains("Reading your sessions. Esc goes back."),
+        "{frame}"
+    );
+    wait_until("the second read", || gate.entered.load(SeqCst) == 2);
+    let since = h
+        .discovery
+        .running_since()
+        .expect("the second read is running");
+    h.tick_at(since + shape::STILL_READING_AFTER * 10);
+    let frame = screen(&mut h);
+    assert!(
+        frame.contains("Still reading your sessions. Esc goes back."),
+        "{frame}"
+    );
+    assert!(!frame.contains("No Seed Me sessions"), "{frame}");
+    gate.release(8);
+    settle(&mut h);
+    let frame = screen(&mut h);
+    assert!(frame.contains("goal a"), "{frame}");
+}
+
+#[test]
 fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail() {
     let old = [
         sess("a", Stage::GoalSaved, "2026-10-09T10:00:00Z"),

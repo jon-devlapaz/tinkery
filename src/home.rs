@@ -192,6 +192,7 @@ impl Home {
         let View::Shape(shape) = &mut self.view else {
             return;
         };
+        shape.current = self.discovery.fresh();
         let Some(landed) = self.discovery.landed() else {
             return;
         };

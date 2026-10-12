@@ -32,6 +32,9 @@ pub(super) struct Shape {
     /// The read this view waits on has run past [`STILL_READING_AFTER`]. Only the pending
     /// line reads it, and only its wording changes.
     pub still_reading: bool,
+    /// The list shown reflects every read asked for. An older empty list is not proof
+    /// that nothing was saved since.
+    pub current: bool,
     /// A saved session to open in detail once a read that can contain it lands.
     pub want: Option<(PathBuf, Option<PathBuf>)>,
     /// Records the last read could not parse; the list may be missing them.
@@ -53,6 +56,7 @@ impl Shape {
             error: None,
             pending: true,
             still_reading: false,
+            current: false,
             want: None,
             unreadable: 0,
             seen: 0,
@@ -263,7 +267,11 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
             1,
         ),
     );
-    if shape.pending || shape.want.is_some() {
+    let stale_empty = shape.sessions.is_empty()
+        && shape.unreadable == 0
+        && shape.error.is_none()
+        && !shape.current;
+    if shape.pending || shape.want.is_some() || stale_empty {
         let status = if shape.still_reading {
             "Still reading your sessions. Esc goes back."
         } else {
