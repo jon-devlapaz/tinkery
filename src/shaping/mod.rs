@@ -5,6 +5,8 @@ mod canvas_tests;
 pub mod confirmed_goal;
 pub mod drafting;
 mod note;
+#[cfg(test)]
+mod note_tests;
 mod response;
 
 use std::time::Duration;
@@ -20,7 +22,7 @@ use ratatui::{
 };
 
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, markdown, render_scrolled};
-pub use note::Note;
+pub use note::{Motion, Note};
 
 const EXAMPLE: &str =
     "I keep losing track of why we made certain choices.\n\nI want those reasons near the work.";

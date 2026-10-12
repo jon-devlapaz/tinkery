@@ -58,7 +58,11 @@ PTYs cover small and wide sizes; revert the dump-retention protection to prove a
 organization, implement the scratch-space spike, call providers without budget,
 or persist to operator roots.
 
-## 3. Regular text-field selection, context menu and send aliases (C4–C6, C9)
+## 3. Context menu and send aliases (C4–C6, C9)
+
+**Shipped (issue #14):** writing selection (Shift-navigation, Ctrl-A, mouse drag,
+replace/delete/paste) and Tab between writing and the original. Only the context menu
+and modified-Enter send aliases below remain proposals.
 
 **Context:** Writing lacks regular field selection; originals/reading have partial
 selection support, and keyboard entry into the original needs restoring. Terminal

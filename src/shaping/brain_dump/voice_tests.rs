@@ -676,3 +676,71 @@ fn recording_does_not_change_what_the_goal_line_says_is_open() {
     a.help = true;
     assert!(yohaku::help_text(&a).contains("Nothing I'm unsure about."));
 }
+
+#[test]
+fn dictation_never_deletes_a_selection_and_inserts_at_the_caret() {
+    let (mut a, fake) = attach(BrainDump::default());
+    a.input = Note::new("keep these words");
+    a.input.cursor = 5;
+    for _ in 0..5 {
+        a.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    }
+    assert_eq!(a.input.selected_text(), Some("these"));
+    start(&mut a, &fake);
+    assert_eq!(a.input.selection(), None, "recording drops the highlight");
+    a.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT));
+    event(
+        &mut a,
+        &fake,
+        Event::Final {
+            take: 1,
+            text: "said".into(),
+        },
+    );
+    assert_eq!(a.input.selection(), None);
+    assert_eq!(
+        a.input.text.replacen("said", "", 1),
+        "keep these words",
+        "every original byte survives; dictation only adds"
+    );
+}
+
+#[test]
+fn a_voice_result_during_a_drag_ends_the_drag_and_release_cannot_replace_text() {
+    for spoken in ["é", "VOICE"] {
+        let (mut a, fake) = attach(BrainDump::default());
+        a.input = Note::new("abc.");
+        snapshot(100, 30, &mut a, false).unwrap();
+        let (x, y) = (a.input_area.x, a.input_area.y);
+        let mouse = |a: &mut BrainDump, kind, dx| {
+            let area = a.area;
+            a.handle_mouse(
+                MouseEvent {
+                    kind,
+                    column: x + dx,
+                    row: y,
+                    modifiers: KeyModifiers::NONE,
+                },
+                area,
+            )
+        };
+        mouse(&mut a, MouseEventKind::Down(MouseButton::Left), 2);
+        mouse(&mut a, MouseEventKind::Drag(MouseButton::Left), 1);
+        assert_eq!(a.input.selected_text(), Some("b"));
+        start(&mut a, &fake);
+        key(&mut a, KeyCode::F(6));
+        event(
+            &mut a,
+            &fake,
+            Event::Final {
+                take: 1,
+                text: spoken.into(),
+            },
+        );
+        assert_eq!(a.input.text, format!("a{spoken}bc."), "dictation only adds");
+        mouse(&mut a, MouseEventKind::Up(MouseButton::Left), 4);
+        assert_eq!(a.input.selection(), None);
+        key(&mut a, KeyCode::Char('x'));
+        assert_eq!(a.input.text, format!("a{spoken}xbc."), "{spoken}");
+    }
+}

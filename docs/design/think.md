@@ -45,8 +45,17 @@ to save, and saving is not seed or implementation approval.
 ## Interaction contracts
 
 - State-aware muted bar; two-layer F1 help, technical details only on demand.
-- Letters are text while writing. Ctrl-C copies an existing selection; otherwise
-  it cancels a running request or does nothing. It never leaves think.
+- Letters are text while writing. Tab or Shift-Tab moves between writing and the
+  left original once one exists; the same key returns, and anything typed returns
+  to writing and drops the original's selection. No letter is a command, with
+  either surface focused; skipping, copying and the cards use F8, F9 and F7 (Ctrl-X).
+  Cards that cover the original hide it: it holds no selection and cannot be copied. In writing, Shift with arrows,
+  Home or End and mouse drag select by logical position and whole graphemes;
+  Ctrl-A selects all of the active surface only; typing, Enter, Backspace, Delete
+  and paste replace it as one edit, refused whole past the 4,096-byte limit.
+  Dictation never deletes a selection. Ctrl-C copies the active
+  surface's nonempty selection; otherwise it cancels a running request or does
+  nothing. It never leaves think. F4 (the reader) and F6 (voice) are separate.
 - F10 is guarded when leaving loses unsaved work, and returns to the menu.
 - F4 originals and F5 why are help-only, not permanent bar clutter.
 - Local dictation inserts editable text, never auto-sends; see [voice](voice.md).
@@ -55,8 +64,8 @@ to save, and saving is not seed or implementation approval.
 
 ## Open work only
 
-[Drafts 1–4 and 7–9](backlog.md) cover goal polish, the notecard stack, regular
-text-field selection and right-click behavior, a keyboard route into the original,
+[Drafts 1–4 and 7–9](backlog.md) cover goal polish, the notecard stack, right-click
+behavior and send aliases (selection and the keyboard route into the original ship),
 per-sentence evidence on demand, multiple-choice answers, scratch-space research,
 and an operator-supplied eval harness. These are not shipped features.
 Existing extracted-card shortcuts remain in technical help. The earlier

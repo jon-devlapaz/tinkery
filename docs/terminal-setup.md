@@ -66,7 +66,17 @@ Ctrl aliases exist for hosts that capture function keys: **Ctrl-N** new dump
 (also Shift-F2), **Ctrl-G** review, **Ctrl-O** originals, **Ctrl-D** why. Local
 voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
 
-**Ctrl-C** copies a selection or cancels a running request; it never leaves think.
+**Tab** (or Shift-Tab) moves between writing and your original once one exists, and
+the same key returns. Shift with the arrow keys, Home or End selects in either one;
+**Ctrl-A** selects all of the one you are in. In writing, typing, Enter, Backspace,
+Delete and paste replace the selection; the original is read-only, and typing there
+returns to writing. A paste that would pass the 4,096-byte limit is refused whole.
+Extracted cards (Ctrl-E extracts a selection) show and hide with **F7** or **Ctrl-X**; while they
+cover the original it cannot be selected or copied. A paste or edit past the 4,096-byte
+limit is refused whole, with a one-line notice that clears on your next key.
+**Ctrl-C** copies the selection in the surface you are in, or cancels a running
+request; it never leaves think. Dictation adds text at the caret and never deletes
+a selection.
 F10 leaves think and asks first (`y` / `n`) when leaving would lose unsaved work.
 It returns to the menu, where `q` quits. The one exception: launched without
 `--home`, F10 before a goal is saved exits Tinkery; after saving, it opens the menu.
@@ -75,7 +85,8 @@ It returns to the menu, where `q` quits. The one exception: launched without
 
 Tinkery captures the mouse while it runs and releases it on exit. In think, the
 wheel scrolls the reading and the original, and dragging across your original
-selects text for Ctrl-C to copy. Because Tinkery captures the mouse, the host's own
+selects text for Ctrl-C to copy, in your original or your writing (Tab and Shift-arrows
+do the same without a mouse). Because Tinkery captures the mouse, the host's own
 click-to-select needs whatever bypass modifier the host offers (Option in many
 macOS terminals). Shift works only in hosts that ignore the Shift forwarding
 request below. A native selection copies terminal cells, boxes and wrapping included.

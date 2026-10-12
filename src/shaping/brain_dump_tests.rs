@@ -195,9 +195,9 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
         assert_eq!(host.requests.lock().unwrap().len(), 2);
         assert_eq!(host.requests.lock().unwrap()[1].layout[..old.len()], old);
         a.board_focus = !a.board_focus;
-        key(&mut a, KeyCode::Char('y'));
+        key(&mut a, KeyCode::F(9));
         assert_eq!(a.take_copy_request(), Some(a.paper()));
-        key(&mut a, KeyCode::Char('o'));
+        a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
         assert!(
             snapshot(w, h, &mut a, false)
                 .unwrap()
@@ -221,7 +221,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     settle(&mut a);
     let before = a.paper();
     a.board_focus = !a.board_focus;
-    key(&mut a, KeyCode::Char('s'));
+    key(&mut a, KeyCode::F(8));
     assert!(a.focused_question().is_none(), "only one model question");
     a.undo_skip();
     assert_eq!(a.focused_question().unwrap().id, "reader");
@@ -372,7 +372,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     settle(&mut a);
     a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
     a.board_focus = !a.board_focus;
-    key(&mut a, KeyCode::Char('e'));
+    key(&mut a, KeyCode::F(7));
     snapshot(100, 30, &mut a, false).unwrap();
     let area = a.area;
     let rect = a.canvas.area;
@@ -462,12 +462,12 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             assert_eq!(n.text(), f.text);
         }
         a.board_focus = true;
-        key(&mut a, KeyCode::Char('d'));
+        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         let detail = snapshot(w, h, &mut a, false).unwrap();
         assert!(detail.contains("Desired experience"));
         assert!(!detail.contains("PROVISIONAL:"));
         assert!(a.details_text().contains("A dashboard worries me."));
-        key(&mut a, KeyCode::Char('d'));
+        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         assert!(
             !snapshot(w, h, &mut a, true)
                 .unwrap()
@@ -530,7 +530,7 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     assert_eq!(a.input.text, input);
     key(&mut a, KeyCode::Esc);
     a.board_focus = !a.board_focus;
-    key(&mut a, KeyCode::Char('d'));
+    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
     assert!(a.details);
     key(&mut a, KeyCode::Esc);
     assert!(!a.details);
@@ -744,7 +744,7 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
     assert_eq!(host.requests.lock().unwrap().len(), 1);
     assert!(!a.running());
     assert_eq!(a.sources[0].text, text);
-    key(&mut a, KeyCode::Char('e'));
+    key(&mut a, KeyCode::F(7));
     let view = snapshot(100, 30, &mut a, false).unwrap();
     let (_, ny) = a.canvas.state.data.nodes[0].pos();
     let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom
