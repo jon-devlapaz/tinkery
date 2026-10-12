@@ -26,6 +26,13 @@ and any irreversible boundary are settled: no edge cases the person's rules alre
 cover and no questions about how an action is carried out (a live trial asked
 "whole folders or just files?" after the real decision was answered). Each answer
 lands in the one part it answers rather than being repeated across parts.
+
+Known gap: the review can stop one question early when a line points at something
+by example ("like the eval stuff we just ran") that could mean two different
+sources or scopes. In a live trial it left that reading in place, and an agent would
+have built from the wrong source. The "anything to add or change?" box corrects it
+in one line. A candidate fix is a final check for such lines before "Nothing I'm
+unsure about"; it is not built or measured yet.
 Questions stop when no decision is left. Unresolved notes carry only open intent,
 never status disclaimers. Answers
 and added dumps remain distinct exact sources. Sending refines the reading;
