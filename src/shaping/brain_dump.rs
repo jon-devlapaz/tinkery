@@ -337,8 +337,10 @@ For any claimed source span, use source/quote/occurrence: existing source ID, EX
         checks::log(self, &decision);
         result
     }
+    // The decision review inside `reshape` takes the background audit's slot, so a
+    // send costs two calls.
     fn has_advisory(&self) -> bool {
-        true
+        self.background_audit
     }
     fn advisory(
         &self,

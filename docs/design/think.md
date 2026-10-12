@@ -30,10 +30,11 @@ Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other'
 constraints. Deferred items remain context for the seed.
 
 The original is plain ink by default. Exact cited spans are validated invisibly;
-uncited words are not implicitly rejected. A background meaning/continuity audit
-is log-only: it does not gate a valid reading, retry it, or show warning flags.
-In live mode a submitted reshape includes a shaping call, the decision review and
-that audit, so budget for all three. Practice and the documented suite use fakes.
+uncited words are not implicitly rejected. The decision review took the slot of
+the old log-only meaning/continuity audit, which no longer runs in live mode: in
+the v3 eval it cut silent guesses (14% to 6%) and the audit never changed a reading.
+In live mode a submitted reshape is a shaping call plus the decision review, so
+budget for two. Practice and the documented suite use fakes.
 
 When no question is in focus (none left, skipped, or a part asked twice), one
 muted line says which of three states holds:
