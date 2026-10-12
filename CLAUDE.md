@@ -45,7 +45,8 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 | Think state and views | `src/think/brain_dump.rs`, `src/think/brain_dump/` | [think](docs/design/think.md) |
 | Typed goal parts/composition | `src/goal/mod.rs`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
 | Shared review/receipt/detail goal rendering | `src/goal/confirmed.rs` | [goal block](docs/design/goal-block.md) |
-| Confirmation and continuation prompt | `src/think/brain_dump/goal_view.rs`, `handoff.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
+| Confirmation review | `src/think/brain_dump/goal_view.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
+| Seed Me: saving, reading sessions, continuation prompt | `src/seed_me/` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Explicit Pi drafting boundary | `src/think/drafting.rs` | [think](docs/design/think.md) |
 | Voice host/process/protocol and owned setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
 | Extracted cards (canvas, notes) | `src/think/canvas.rs`, `note.rs` | [think](docs/design/think.md) |

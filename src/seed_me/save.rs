@@ -1,5 +1,5 @@
-use super::{Approach, GoalParts, Question, Settled, Source};
-use serde::Serialize;
+//! Saving a confirmed goal: helper calls, the origin payload, read-back checks and the viewer.
+
 use serde_json::{Value, json};
 use std::{
     io::{BufRead, BufReader, Read, Seek, SeekFrom},
@@ -9,26 +9,56 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+/// Where and how to save. Holds the session once one exists, so a retry after a failure
+/// continues that session instead of starting another.
 #[derive(Clone)]
 pub struct Config {
     skill: PathBuf,
     root: Option<PathBuf>,
     session: Arc<Mutex<Option<PathBuf>>>,
 }
-#[derive(Clone, Serialize)]
-pub struct Affirmation {
+/// A goal the operator explicitly affirmed, as Seed Me will record it.
+#[derive(Clone)]
+pub struct Affirmed {
     pub goal: String,
-    pub parts: GoalParts,
-    pub other_goals: Vec<String>,
-    pub deferred: Vec<String>,
     pub outcome: String,
-    pub options: Vec<Approach>,
-    pub sources: Vec<Source>,
-    pub answered: Vec<Settled>,
-    pub unresolved: Vec<Question>,
-    pub unresolved_notes: Vec<String>,
+    pub options: Vec<Choice>,
+    /// The operator's own words, recorded verbatim as evidence.
+    pub originals: Vec<Original>,
+    /// The caller's answered and open questions, recorded verbatim as evidence. Seed Me treats
+    /// it as provisional context, never as settled decisions.
+    pub context: String,
+    /// Who affirmed it and how.
     pub source: String,
 }
+/// One approach the reading proposed, kept as a proposal.
+#[derive(Clone)]
+pub struct Choice {
+    pub label: String,
+    pub benefit: String,
+    pub cost: String,
+    pub undo_cost: String,
+}
+/// One original dump or answer.
+#[derive(Clone)]
+pub struct Original {
+    pub id: usize,
+    pub in_reply_to: Option<String>,
+    pub text: String,
+}
+impl Original {
+    /// How the evidence names this original. Never changes its text.
+    pub fn label(&self) -> String {
+        format!(
+            "Tinkery original {}{}",
+            self.id,
+            self.in_reply_to
+                .as_ref()
+                .map_or(String::new(), |id| format!(" / reply to {id}"))
+        )
+    }
+}
+/// Proof of a saved goal: read back, with its view running or a saved snapshot shown instead.
 pub struct Receipt {
     pub session: PathBuf,
     pub goal: String,
@@ -49,9 +79,15 @@ impl Receipt {
             viewer: None,
         }
     }
+    /// The prompt to continue this session; see [`super::continuation_prompt`].
     pub fn continuation_prompt(&self) -> String {
-        continuation_prompt(&self.skill, &self.session)
+        super::continuation_prompt(&self.skill, &self.session)
     }
+    /// Seed Me's saved view of the ledger, which outlives the viewer.
+    pub fn saved_view(&self) -> PathBuf {
+        self.session.join("ledger-view.html")
+    }
+    /// The receipt printed after the terminal is restored.
     pub fn text(&self) -> String {
         format!(
             "Saved.\n{}\nNext: shape it into a seed with Seed Me.\nSession: {}\nLedger: {}{}",
@@ -63,6 +99,7 @@ impl Receipt {
                 .map_or(String::new(), |w| format!("\n{w}"))
         )
     }
+    /// Stop the viewer this receipt started, if it still runs. The session stays active.
     pub fn stop_viewer(&mut self) -> Result<(), String> {
         if let Some(child) = self.viewer.as_mut() {
             if child.try_wait().map_err(|e| e.to_string())?.is_none() {
@@ -78,13 +115,6 @@ impl Drop for Receipt {
     fn drop(&mut self) {
         let _ = self.stop_viewer();
     }
-}
-pub fn continuation_prompt(skill: &Path, session: &Path) -> String {
-    format!(
-        "Use the seed-me skill at \"{}\" to continue the existing Seed Me session at \"{}\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.",
-        skill.display(),
-        session.display()
-    )
 }
 fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String, String> {
     let mut child = Command::new("python3")
@@ -131,17 +161,9 @@ fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String, String> {
         None => Err("Seed Me helper timed out; durable writes may already exist. Inspect the session before retrying.".into()),
     }
 }
-pub(super) fn source_label(source: &Source) -> String {
-    format!(
-        "Tinkery original {}{}",
-        source.id,
-        source
-            .in_reply_to
-            .as_ref()
-            .map_or(String::new(), |id| format!(" / reply to {id}"))
-    )
-}
 impl Config {
+    /// Save through the skill at `skill`, in `root` when given (Seed Me's default otherwise).
+    /// Nothing is read or written until [`Config::confirm`].
     pub fn new(skill: PathBuf, root: Option<PathBuf>) -> Self {
         Self {
             skill,
@@ -149,13 +171,20 @@ impl Config {
             session: Arc::new(Mutex::new(None)),
         }
     }
+    /// The session a failed save left behind, for the operator to inspect.
     pub fn recovery_path(&self) -> Option<PathBuf> {
         self.session.lock().unwrap().clone()
     }
-    pub(super) fn fresh(&self) -> Self {
+    /// The same settings with no session yet, for a new dump.
+    pub fn fresh(&self) -> Self {
         Self::new(self.skill.clone(), self.root.clone())
     }
-    pub fn confirm(&self, a: Affirmation) -> Result<Receipt, String> {
+    /// Save `a` as the origin of an active human Seed Me session through the official helper,
+    /// then read it back. Promises `Ok` only when the read-back shows this exact goal, settled
+    /// by the user, with every original intact, no seed written yet, and a current view.
+    /// Refuses to replace another goal or touch a session that isn't active and human. Blocks
+    /// on helper calls; run it off the paint path. Writes that already happened stay.
+    pub fn confirm(&self, a: Affirmed) -> Result<Receipt, String> {
         let skill = self
             .skill
             .canonicalize()
@@ -206,7 +235,7 @@ impl Config {
                 return Err("Cannot timestamp goal affirmation".into());
             }
             let stamp = String::from_utf8(stamp.stdout).map_err(|e| e.to_string())?;
-            let evidence = a.sources.iter().map(|s| json!({"checked": source_label(s),"at":stamp.trim(),"observed":s.text})).chain(std::iter::once(json!({"checked":"Tinkery answer/question context; questions remain provisional, not settled Seed Me decisions","at":stamp.trim(),"observed":serde_json::to_string(&json!({"answered":a.answered,"unresolved":a.unresolved,"unresolved_notes":a.unresolved_notes,"goal_parts":a.parts,"success":a.parts.done_when,"constraints":{"must":a.parts.must,"must_not":a.parts.must_not},"other_goals":a.other_goals,"deferred":a.deferred,"problem":a.parts.why})).unwrap()}))).collect::<Vec<_>>();
+            let evidence = a.originals.iter().map(|s| json!({"checked": s.label(),"at":stamp.trim(),"observed":s.text})).chain(std::iter::once(json!({"checked":"Tinkery answer/question context; questions remain provisional, not settled Seed Me decisions","at":stamp.trim(),"observed":a.context}))).collect::<Vec<_>>();
             let payload = json!({"expected_version":current["version"],"reason":format!("Explicit Tinkery goal affirmation at unix {at}: {}",a.source),"state":{"status":"active","draft":{"goal":a.goal,"outcome":a.outcome,"options":a.options.iter().map(|o|format!("{} — benefit: {}; cost: {}; undo cost: {}",o.label,o.benefit,o.cost,o.undo_cost)).collect::<Vec<_>>()},"goal":a.goal,"origin":"goal","current_question":null,"nodes":[{"id":"goal","kind":"decision","status":"settled","prerequisites":[],"evidence":evidence,"owner":"User","gate":"Explicit affirmation of the complete displayed goal; not seed or implementation approval","answer":a.goal,"authority":"user","authority_source":a.source}]}});
             let mut input = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
             serde_json::to_writer(input.as_file_mut(), &payload).map_err(|e| e.to_string())?;
@@ -242,7 +271,7 @@ impl Config {
                 "A seed file now exists; goal-only handoff will not claim it is unwritten.".into(),
             );
         }
-        for original in &a.sources {
+        for original in &a.originals {
             if !origin["evidence"]
                 .as_array()
                 .is_some_and(|entries| entries.iter().any(|e| e["observed"] == original.text))

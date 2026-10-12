@@ -15,9 +15,8 @@ use std::{
     time::Instant,
 };
 
-use serde_json::Value;
-
 use super::{self as shape, Session, Stage};
+use crate::seed_me::{self, Record};
 
 /// What one scan found.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -38,14 +37,7 @@ pub type Outcome = Result<Found, String>;
 /// The blocking read. Injectable so tests can hold it open.
 pub type Source = Arc<dyn Fn(&Path) -> Outcome + Send + Sync>;
 
-enum Record {
-    Session(Session),
-    NotASession,
-    Unreadable,
-}
-
-/// Seed Me sessions, newest first. Stage comes from Seed Me's own files: the ledger's
-/// status and the seed contract's first line.
+/// Seed Me sessions, newest first. Each folder is read by [`seed_me::read`].
 pub fn scan(root: &Path) -> Outcome {
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,
@@ -60,7 +52,7 @@ pub fn scan(root: &Path) -> Outcome {
             found.unreadable += 1;
             continue;
         };
-        match read_record(&entry.path()) {
+        match seed_me::read(&entry.path()) {
             Record::Session(session) => found.sessions.push(session),
             Record::NotASession => {}
             Record::Unreadable => found.unreadable += 1,
@@ -72,56 +64,6 @@ pub fn scan(root: &Path) -> Outcome {
             .then_with(|| b.updated.cmp(&a.updated))
     });
     Ok(found)
-}
-
-fn read_record(path: &Path) -> Record {
-    use std::io::ErrorKind::{NotADirectory, NotFound};
-    let text = match fs::read_to_string(path.join("ledger.json")) {
-        Ok(text) => text,
-        Err(error) if matches!(error.kind(), NotFound | NotADirectory) => {
-            return Record::NotASession;
-        }
-        Err(_) => return Record::Unreadable,
-    };
-    let Ok(ledger) = serde_json::from_str::<Value>(&text) else {
-        return Record::Unreadable;
-    };
-    let Some(status) = ledger.get("status").and_then(Value::as_str) else {
-        return Record::Unreadable;
-    };
-    let goal = ledger
-        .get("goal")
-        .and_then(Value::as_str)
-        .unwrap_or("(no goal recorded)")
-        .to_string();
-    let updated = ledger
-        .get("updated_at")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    let stage = if ledger
-        .get("goal")
-        .and_then(Value::as_str)
-        .is_none_or(|goal| goal.trim().is_empty())
-        && status == "active"
-    {
-        Stage::Unknown
-    } else {
-        match fs::read_to_string(path.join("seed-contract.md")) {
-            Ok(seed) => Stage::from_files(status, Some(&seed)),
-            Err(error) if error.kind() == NotFound => Stage::from_files(status, None),
-            Err(_) => Stage::Unknown,
-        }
-    };
-    match path.canonicalize() {
-        Ok(path) => Record::Session(Session {
-            path,
-            goal,
-            stage,
-            updated,
-        }),
-        Err(_) => Record::Unreadable,
-    }
 }
 
 /// The last result that landed, with how many requests had been made when it started.

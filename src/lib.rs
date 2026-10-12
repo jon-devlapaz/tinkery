@@ -3,6 +3,7 @@ use ratatui::style::{Color, Modifier, Style};
 pub mod goal;
 pub mod measure;
 pub mod menu;
+pub mod seed_me;
 pub mod shape;
 pub mod think;
 pub mod voice;
