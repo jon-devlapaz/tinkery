@@ -704,3 +704,43 @@ fn dictation_never_deletes_a_selection_and_inserts_at_the_caret() {
         "every original byte survives; dictation only adds"
     );
 }
+
+#[test]
+fn a_voice_result_during_a_drag_ends_the_drag_and_release_cannot_replace_text() {
+    for spoken in ["é", "VOICE"] {
+        let (mut a, fake) = attach(BrainDump::default());
+        a.input = Note::new("abc.");
+        snapshot(100, 30, &mut a, false).unwrap();
+        let (x, y) = (a.input_area.x, a.input_area.y);
+        let mouse = |a: &mut BrainDump, kind, dx| {
+            let area = a.area;
+            a.handle_mouse(
+                MouseEvent {
+                    kind,
+                    column: x + dx,
+                    row: y,
+                    modifiers: KeyModifiers::NONE,
+                },
+                area,
+            )
+        };
+        mouse(&mut a, MouseEventKind::Down(MouseButton::Left), 2);
+        mouse(&mut a, MouseEventKind::Drag(MouseButton::Left), 1);
+        assert_eq!(a.input.selected_text(), Some("b"));
+        start(&mut a, &fake);
+        key(&mut a, KeyCode::F(6));
+        event(
+            &mut a,
+            &fake,
+            Event::Final {
+                take: 1,
+                text: spoken.into(),
+            },
+        );
+        assert_eq!(a.input.text, format!("a{spoken}bc."), "dictation only adds");
+        mouse(&mut a, MouseEventKind::Up(MouseButton::Left), 4);
+        assert_eq!(a.input.selection(), None);
+        key(&mut a, KeyCode::Char('x'));
+        assert_eq!(a.input.text, format!("a{spoken}xbc."), "{spoken}");
+    }
+}

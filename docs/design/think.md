@@ -47,7 +47,9 @@ to save, and saving is not seed or implementation approval.
 - State-aware muted bar; two-layer F1 help, technical details only on demand.
 - Letters are text while writing. Tab or Shift-Tab moves between writing and the
   left original once one exists; the same key returns, and anything typed returns
-  to writing and drops the original's selection. In writing, Shift with arrows,
+  to writing and drops the original's selection. No letter is a command, with
+  either surface focused; skipping, copying and the cards use F8, F9 and F7 (Ctrl-X).
+  Cards that cover the original hide it: it holds no selection and cannot be copied. In writing, Shift with arrows,
   Home or End and mouse drag select by logical position and whole graphemes;
   Ctrl-A selects all of the active surface only; typing, Enter, Backspace, Delete
   and paste replace it as one edit, refused whole past the 4,096-byte limit.

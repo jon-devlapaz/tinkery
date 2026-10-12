@@ -338,3 +338,231 @@ fn a_selection_does_not_change_what_f10_guards() {
     assert!(!a.quit, "unsent words still ask first");
     assert!(a.leave_prompt || a.quit, "F10 keeps its guard");
 }
+
+// ---- Repairs after dogfooding (#14): stale drags, board-focus letters, hidden originals, limit notice.
+
+fn drag_b(a: &mut BrainDump) {
+    let (x, y) = (a.input_area.x, a.input_area.y);
+    click(a, MouseEventKind::Down(MouseButton::Left), x + 2, y);
+    click(a, MouseEventKind::Drag(MouseButton::Left), x + 1, y);
+    assert_eq!(a.input.selected_text(), Some("b"));
+}
+fn release_at_end(a: &mut BrainDump) {
+    let (x, y) = (a.input_area.x, a.input_area.y);
+    click(a, MouseEventKind::Up(MouseButton::Left), x + 4, y);
+}
+
+#[test]
+fn an_edit_during_a_drag_ends_it_so_release_cannot_resurrect_a_stale_selection() {
+    // Multibyte replacement (used to panic) and ASCII replacement (used to lose text).
+    for (typed, expect) in [("é", "aéxc."), ("Z", "aZxc.")] {
+        let mut a = writing("abc.");
+        drag_b(&mut a);
+        for c in typed.chars() {
+            key(&mut a, KeyCode::Char(c));
+        }
+        assert_eq!(
+            a.input.cursor,
+            1 + typed.len(),
+            "caret just after the replacement"
+        );
+        release_at_end(&mut a);
+        assert_eq!(
+            a.input.selection(),
+            None,
+            "{typed}: release selects nothing"
+        );
+        key(&mut a, KeyCode::Char('x'));
+        assert_eq!(a.input.text, expect, "{typed}");
+    }
+}
+
+#[test]
+fn paste_delete_and_buffer_replacement_during_a_drag_end_it_too() {
+    let mut a = writing("abc.");
+    drag_b(&mut a);
+    a.paste("é");
+    release_at_end(&mut a);
+    key(&mut a, KeyCode::Char('x'));
+    assert_eq!(a.input.text, "aéxc.", "paste");
+    for code in [KeyCode::Backspace, KeyCode::Delete] {
+        let mut a = writing("abc.");
+        drag_b(&mut a);
+        key(&mut a, code);
+        assert_eq!(a.input.text, "ac.", "{code:?}");
+        release_at_end(&mut a);
+        key(&mut a, KeyCode::Char('x'));
+        assert_eq!(a.input.text, "axc.", "{code:?} then x");
+    }
+    let mut a = writing("abc.");
+    drag_b(&mut a);
+    press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    release_at_end(&mut a);
+    key(&mut a, KeyCode::Char('x'));
+    assert_eq!(a.input.text, "x", "Ctrl-U replaced the buffer");
+}
+
+#[test]
+fn a_rejected_oversize_edit_during_a_drag_changes_nothing_and_keeps_the_drag() {
+    let mut a = writing(&("a".repeat(4090) + "BCDEFG"));
+    let (x, y) = (a.input_area.x, a.input_area.y);
+    click(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
+    click(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 3, y);
+    let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
+    a.paste(&"z".repeat(5000));
+    assert_eq!(
+        (a.input.text.clone(), a.input.cursor, a.input.selection()),
+        before
+    );
+    click(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 5, y);
+    assert!(
+        a.input.selection().is_some(),
+        "an unchanged text keeps its drag"
+    );
+}
+
+fn with_card() -> BrainDump {
+    let mut a = ready();
+    a.extract_range(1, 0, 2).unwrap();
+    a
+}
+
+#[test]
+fn ordinary_letters_in_original_focus_return_to_writing_and_do_nothing_else() {
+    for c in ['s', 'y', 'o', 'd', 'u', '?', 'e', 'q'] {
+        let mut a = with_card();
+        let notice = a.notice.clone();
+        key(&mut a, KeyCode::Tab);
+        assert!(a.board_focus);
+        key(&mut a, KeyCode::Char(c));
+        assert_eq!(a.input.text, c.to_string(), "{c} is text");
+        assert!(!a.board_focus, "{c} returned focus to writing");
+        assert!(a.skipped.is_empty(), "{c} skipped nothing");
+        assert!(a.take_copy_request().is_none(), "{c} copied nothing");
+        assert!(
+            !a.original && !a.details && !a.help && !a.show_extractions,
+            "{c}"
+        );
+        assert_eq!(a.notice, notice, "{c} changed no state");
+    }
+}
+
+#[test]
+fn f8_f9_f7_and_modified_keys_still_work_from_either_focus() {
+    for focus in [false, true] {
+        let mut a = with_card();
+        if focus {
+            key(&mut a, KeyCode::Tab);
+        }
+        assert!(a.focused_question().is_some());
+        key(&mut a, KeyCode::F(9));
+        assert_eq!(a.take_copy_request(), Some(a.paper()), "F9 focus={focus}");
+        key(&mut a, KeyCode::F(8));
+        assert_eq!(a.skipped.len(), 1, "F8 focus={focus}");
+        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        assert!(a.skipped.is_empty(), "Ctrl-Z undoes the skip");
+        key(&mut a, KeyCode::F(7));
+        assert!(a.show_extractions, "F7 shows cards, focus={focus}");
+        press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+        assert!(!a.show_extractions, "Ctrl-X hides them");
+        press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+        assert!(a.show_extractions);
+        assert!(a.input.text.is_empty());
+    }
+    let mut a = with_card();
+    key(&mut a, KeyCode::Tab);
+    press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
+    assert!(
+        a.board_focus && a.input.text.is_empty(),
+        "Ctrl-F is not text"
+    );
+    let mut none = ready();
+    key(&mut none, KeyCode::F(7));
+    assert!(none.notice.contains("No extracted cards") && !none.show_extractions);
+}
+
+#[test]
+fn cards_covering_the_original_hide_its_selection_but_not_the_writing_box() {
+    // Tab -> Ctrl-A -> cards -> Ctrl-C: nothing from the hidden original is copied.
+    let mut a = with_card();
+    key(&mut a, KeyCode::Tab);
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    assert!(a.selection.is_some());
+    key(&mut a, KeyCode::F(7));
+    assert_eq!(a.selection, None, "cards clear the original's selection");
+    ctrl_c(&mut a);
+    assert!(a.take_copy_request().is_none());
+    // Selecting while cards are displayed is refused too.
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    ctrl_c(&mut a);
+    assert!(a.take_copy_request().is_none(), "no hidden select-all");
+    press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    ctrl_c(&mut a);
+    assert!(a.take_copy_request().is_none());
+    // The visible writing box still selects and copies once it has focus.
+    for c in "hello".chars() {
+        key(&mut a, KeyCode::Char(c));
+    }
+    assert!(a.show_extractions && !a.board_focus);
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().as_deref(), Some("hello"));
+    // Tab does not walk into the hidden original, and cards close back to a copyable original.
+    key(&mut a, KeyCode::Tab);
+    assert!(!a.board_focus);
+    key(&mut a, KeyCode::F(7));
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    ctrl_c(&mut a);
+    assert_eq!(
+        a.take_copy_request().as_deref(),
+        Some("hello"),
+        "the writing box stays selectable"
+    );
+}
+
+#[test]
+fn the_oversize_notice_is_rendered_cleared_by_the_next_input_and_beats_other_status_rows() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let mut a = writing(&("a".repeat(4090) + "BCDEFG"));
+        a.input.cursor = 4090;
+        for _ in 0..3 {
+            press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+        }
+        let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
+        a.paste(&"z".repeat(20));
+        assert_eq!(
+            (a.input.text.clone(), a.input.cursor, a.input.selection()),
+            before
+        );
+        let shown = snapshot(w, h, &mut a, false).unwrap();
+        assert!(
+            shown.contains("Over 4096 bytes; nothing changed."),
+            "{w}x{h}\n{shown}"
+        );
+        // Overlapping status: an unapplied reading would draw "Reading couldn't be updated."
+        a.applied = 0;
+        let shown = snapshot(w, h, &mut a, false).unwrap();
+        assert!(
+            shown.contains("Over 4096 bytes"),
+            "{w}x{h} with an unapplied reading\n{shown}"
+        );
+        // And a running request would draw "Thinking…" on the same row.
+        let (_tx, rx) = std::sync::mpsc::channel();
+        a.handoff_job = Some(rx);
+        let shown = snapshot(w, h, &mut a, false).unwrap();
+        assert!(
+            shown.contains("Over 4096 bytes") && !shown.contains("Thinking…"),
+            "{w}x{h} running\n{shown}"
+        );
+        a.handoff_job = None;
+        // The next input clears it: no permanent clutter.
+        key(&mut a, KeyCode::Left);
+        assert!(
+            !snapshot(w, h, &mut a, false)
+                .unwrap()
+                .contains("Over 4096 bytes"),
+            "{w}x{h}"
+        );
+        assert_eq!(a.input.text, before.0);
+    }
+}

@@ -61,7 +61,8 @@ impl BrainDump {
             return Err("That exact selection is already extracted.".into());
         }
         self.add_fragment(source, &text, start, end);
-        self.notice = "Extracted by you; original intact. e shows cards; nothing confirmed.".into();
+        self.notice =
+            "Extracted by you; original intact. F7 shows cards; nothing confirmed.".into();
         Ok(())
     }
     pub(super) fn handle_source_key(&mut self, key: KeyEvent) -> bool {
@@ -95,18 +96,12 @@ impl BrainDump {
             }
             return true;
         }
+        if ctrl && key.code == KeyCode::Char('x') {
+            self.toggle_cards();
+            return true;
+        }
         if !self.board_focus || self.sources.is_empty() {
             return false;
-        }
-        if key.code == KeyCode::Char('e') {
-            if self.fragments.is_empty() {
-                self.notice = "No extracted cards. Select source text, then Ctrl-E.".into();
-            } else {
-                self.show_extractions = !self.show_extractions;
-            }
-            self.canvas.cancel_gesture();
-            self.drag_anchor = None;
-            return true;
         }
         if self.show_extractions {
             if key.code == KeyCode::Enter {
@@ -201,7 +196,7 @@ impl BrainDump {
                     );
                 self.board_focus = true;
                 self.input.collapse();
-                self.input_drag = None;
+                self.input_drag = false;
                 self.source_cursor = index;
                 self.selection = None;
                 self.drag_anchor = Some(index);

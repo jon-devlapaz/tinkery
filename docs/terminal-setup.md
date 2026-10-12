@@ -71,6 +71,9 @@ the same key returns. Shift with the arrow keys, Home or End selects in either o
 **Ctrl-A** selects all of the one you are in. In writing, typing, Enter, Backspace,
 Delete and paste replace the selection; the original is read-only, and typing there
 returns to writing. A paste that would pass the 4,096-byte limit is refused whole.
+Extracted cards (Ctrl-E extracts a selection) show and hide with **F7** or **Ctrl-X**; while they
+cover the original it cannot be selected or copied. A paste or edit past the 4,096-byte
+limit is refused whole, with a one-line notice that clears on your next key.
 **Ctrl-C** copies the selection in the surface you are in, or cancels a running
 request; it never leaves think. Dictation adds text at the caret and never deletes
 a selection.

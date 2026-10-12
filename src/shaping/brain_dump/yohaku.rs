@@ -1,6 +1,23 @@
 use super::*;
 use ratatui::style::Modifier;
 
+/// The edit limit notice; the next input clears it, so it never lingers as clutter.
+/// Short enough for one row of the narrowest (80-column) right-hand pane.
+pub(super) const LIMIT_TEXT: &str = "Over 4096 bytes; nothing changed.";
+pub(super) const LIMIT_NOTICE: &str = "Over 4096 bytes";
+/// Notices drawn on the status row below the writing box. One list, so the later
+/// "reading couldn't be updated" line cannot overwrite a notice that is meant to show.
+const SHOWN_NOTICES: [&str; 8] = [
+    "Copy",
+    "Clipboard",
+    "Question skipped",
+    "Skip undone",
+    "Encoded",
+    "Updated encoded",
+    "Added words",
+    LIMIT_NOTICE,
+];
+
 pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let area = frame.area();
     app.area = area;
@@ -234,18 +251,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     app.input_area = input.inner(rows[2]);
     frame.render_widget(input, rows[2]);
     render_input(frame, app, palette);
-    if [
-        "Copy",
-        "Clipboard",
-        "Question skipped",
-        "Skip undone",
-        "Encoded",
-        "Updated encoded",
-        "Added words",
-    ]
-    .iter()
-    .any(|p| app.notice.starts_with(p))
-    {
+    if SHOWN_NOTICES.iter().any(|p| app.notice.starts_with(p)) {
         frame.render_widget(
             Paragraph::new(app.notice.as_str())
                 .style(palette.muted)
@@ -265,7 +271,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             ),
         );
     }
-    if app.running() && app.guess.is_some() {
+    if app.running() && app.guess.is_some() && !app.notice.starts_with(LIMIT_NOTICE) {
         frame.render_widget(
             Paragraph::new("Thinking…").style(palette.muted),
             Rect::new(rows[3].x, rows[3].y + 1, rows[3].width, 1),
@@ -275,9 +281,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         && app.applied != app.sources.len()
         && app.guess.is_some()
         && app.scope_pending.is_none()
-        && !["Copy", "Clipboard", "Question skipped", "Skip undone"]
-            .iter()
-            .any(|p| app.notice.starts_with(p))
+        && !SHOWN_NOTICES.iter().any(|p| app.notice.starts_with(p))
     {
         frame.render_widget(
             Paragraph::new(if app.ready.is_some() {
@@ -396,7 +400,7 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         );
     }
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; e shows cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call is on the display path. After valid output is displayed, one meaning/continuity audit runs in the background: at most two provider calls per send, no automatic retry. Meaning checks are log-only: no flags shown, no rejection, repair, question withholding or confirmation barrier. Exact spans/schema/history remain local blocking checks. Audit failure leaves the reading untouched. Calls remain bounded and cancellable; a newer send cancels the owned older audit. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; F7 or Ctrl-X shows or hides the cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call is on the display path. After valid output is displayed, one meaning/continuity audit runs in the background: at most two provider calls per send, no automatic retry. Meaning checks are log-only: no flags shown, no rejection, repair, question withholding or confirmation barrier. Exact spans/schema/history remain local blocking checks. Audit failure leaves the reading untouched. Calls remain bounded and cancellable; a newer send cancels the owned older audit. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
         if app.real {
             "Real provider mode."
         } else {

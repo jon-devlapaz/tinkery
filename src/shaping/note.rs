@@ -5,7 +5,8 @@ pub struct Note {
     pub text: String,
     pub cursor: usize,
     /// Fixed end of a selection, as a logical byte offset on a grapheme boundary.
-    /// The moving end is `cursor`. Never stored equal to the cursor.
+    /// The moving end is `cursor`. Any edit clears it, so it can never outlive the text
+    /// it indexes; an anchor equal to the cursor is an empty selection.
     anchor: Option<usize>,
 }
 
@@ -32,7 +33,32 @@ impl Note {
     pub fn selection(&self) -> Option<(usize, usize)> {
         let anchor = self.anchor.filter(|a| *a != self.cursor)?;
         let (start, end) = (anchor.min(self.cursor), anchor.max(self.cursor));
-        (end <= self.text.len()).then_some((start, end))
+        (self.boundary(start) && self.boundary(end)).then_some((start, end))
+    }
+
+    fn boundary(&self, index: usize) -> bool {
+        index == self.text.len()
+            || (index < self.text.len()
+                && self.text.grapheme_indices(true).any(|(i, _)| i == index))
+    }
+
+    /// Nearest grapheme boundary at or before `index` (clamped to the text).
+    fn floor(&self, index: usize) -> usize {
+        if index >= self.text.len() {
+            return self.text.len();
+        }
+        self.text
+            .grapheme_indices(true)
+            .take_while(|(i, _)| *i <= index)
+            .last()
+            .map_or(0, |(i, _)| i)
+    }
+
+    /// Keep the caret and anchor on grapheme boundaries before any edit or move, so a
+    /// stale offset can never slice inside a character.
+    fn settle(&mut self) {
+        self.cursor = self.floor(self.cursor);
+        self.anchor = self.anchor.map(|a| self.floor(a));
     }
 
     pub fn selected_text(&self) -> Option<&str> {
@@ -50,15 +76,28 @@ impl Note {
         self.anchor = None;
     }
 
-    /// Select from the existing (or current) anchor to `index`, a grapheme boundary.
-    pub fn select_to(&mut self, anchor: usize, index: usize) {
+    /// Start a mouse drag at `index` (a grapheme boundary).
+    pub fn begin_drag(&mut self, index: usize) {
         self.cursor = index;
-        self.anchor = (anchor != index).then_some(anchor);
+        self.anchor = Some(index);
+        self.settle();
+    }
+
+    /// Extend a drag started by [`begin_drag`]. False when an edit or a collapse has
+    /// since cleared the anchor: the drag is over and must not select anything.
+    pub fn drag_to(&mut self, index: usize) -> bool {
+        if self.anchor.is_none() {
+            return false;
+        }
+        self.cursor = index;
+        self.settle();
+        true
     }
 
     /// Move the caret. With `extend` the selection grows from its fixed end; without,
     /// Left/Right collapse to the selection's edge and other motions just move.
     pub fn navigate(&mut self, motion: Motion, extend: bool, width: u16) {
+        self.settle();
         if !extend {
             if let (Some((start, end)), Motion::Left | Motion::Right) = (self.selection(), motion) {
                 self.cursor = if motion == Motion::Left { start } else { end };
@@ -94,6 +133,7 @@ impl Note {
     /// Replace `start..end` (grapheme boundaries) with already-sanitized text.
     /// The 4096-byte cap is checked on the proposed result before anything changes.
     fn replace(&mut self, start: usize, end: usize, clean: &str) -> Result<(), &'static str> {
+        let (start, end) = (self.floor(start), self.floor(end).max(self.floor(start)));
         if self.text.len() - (end - start) + clean.len() > 4096 {
             return Err("Card limit: 4096 bytes. Nothing inserted.");
         }
@@ -110,6 +150,7 @@ impl Note {
         if clean.is_empty() {
             return Ok(());
         }
+        self.settle();
         let (start, end) = self.selection().unwrap_or((self.cursor, self.cursor));
         self.replace(start, end, &clean)
     }
@@ -152,6 +193,7 @@ impl Note {
     }
 
     fn delete_selection(&mut self) -> bool {
+        self.settle();
         let Some((start, end)) = self.selection() else {
             return false;
         };
@@ -166,6 +208,7 @@ impl Note {
         if self.delete_selection() {
             return;
         }
+        self.cursor = self.floor(self.cursor);
         let end = self.cursor;
         self.left();
         self.text.replace_range(self.cursor..end, "");
@@ -176,6 +219,7 @@ impl Note {
         if self.delete_selection() {
             return;
         }
+        self.cursor = self.floor(self.cursor);
         let start = self.cursor;
         self.right();
         self.text.replace_range(start..self.cursor, "");

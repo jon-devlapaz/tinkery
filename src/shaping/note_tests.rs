@@ -216,3 +216,24 @@ fn select_all_and_empty_cases() {
     note.insert("x").unwrap();
     assert_eq!(note.text, "x");
 }
+
+#[test]
+fn a_stale_caret_inside_a_character_edits_at_the_boundary_instead_of_panicking() {
+    let mut note = Note::new("aéc");
+    note.cursor = 2; // inside the two-byte é
+    note.insert("x").unwrap();
+    assert_eq!(note.text, "axéc");
+    assert!(boundary(&note.text, note.cursor));
+    let mut note = Note::new("aéc");
+    note.cursor = 2;
+    note.backspace();
+    assert_eq!(note.text, "éc");
+    let mut note = Note::new("aéc");
+    note.cursor = 2;
+    note.delete();
+    assert_eq!(note.text, "ac");
+    let mut note = Note::new("aéc");
+    note.cursor = 99;
+    note.insert("x").unwrap();
+    assert_eq!(note.text, "aécx");
+}

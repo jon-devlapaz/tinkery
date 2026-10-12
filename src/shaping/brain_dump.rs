@@ -419,8 +419,9 @@ pub struct BrainDump {
     source_cursor: usize,
     selection: Option<(usize, usize)>,
     drag_anchor: Option<usize>,
-    /// Fixed end of a mouse drag in the writing box (logical byte offset).
-    input_drag: Option<usize>,
+    /// A left-button drag that began in the writing box. The anchor lives in `Note`, so
+    /// any edit ends the drag without a stale offset surviving it.
+    input_drag: bool,
     show_extractions: bool,
 }
 impl Default for BrainDump {
@@ -492,7 +493,7 @@ impl BrainDump {
             source_cursor: 0,
             selection: None,
             drag_anchor: None,
-            input_drag: None,
+            input_drag: false,
             show_extractions: false,
         }
     }
@@ -1123,6 +1124,7 @@ impl BrainDump {
     }
     pub fn paste(&mut self, text: &str) {
         self.changed_lines = None;
+        self.clear_limit_notice();
         if self.leave_prompt || self.help || self.details || self.original {
             return;
         }
@@ -1132,9 +1134,9 @@ impl BrainDump {
         if !self.original
             && !self.help
             && !self.board_focus
-            && let Err(e) = self.input.insert(text)
+            && let Err(_) = self.input.insert(text)
         {
-            self.notice = e.into();
+            self.notice = yohaku::LIMIT_TEXT.into();
         }
     }
     pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {
@@ -1171,6 +1173,7 @@ impl BrainDump {
         if key.kind == KeyEventKind::Release {
             return;
         }
+        self.clear_limit_notice();
         let mut ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if matches!(key.code, KeyCode::F(2..=10))
             && (key.kind == KeyEventKind::Repeat
@@ -1273,14 +1276,21 @@ impl BrainDump {
                         && !self.details
                         && !self.original =>
                 {
-                    let code = match key.code {
-                        KeyCode::F(8) => 's',
-                        _ => 'y',
-                    };
-                    let focus = self.board_focus;
-                    self.board_focus = true;
-                    self.handle_key(KeyEvent::new(KeyCode::Char(code), KeyModifiers::NONE));
-                    self.board_focus = focus;
+                    if key.code == KeyCode::F(8) {
+                        self.skip_question();
+                    } else {
+                        self.copy_board();
+                    }
+                    return;
+                }
+                KeyCode::F(7)
+                    if self.goal_review.is_none()
+                        && self.receipt.is_none()
+                        && !self.help
+                        && !self.details
+                        && !self.original =>
+                {
+                    self.toggle_cards();
                     return;
                 }
                 KeyCode::F(6..=9) => return,
@@ -1315,13 +1325,7 @@ impl BrainDump {
             }
             return;
         }
-        if key.code == KeyCode::F(1)
-            || (self.board_focus
-                && !self.help
-                && !self.original
-                && self.goal_review.is_none()
-                && key.code == KeyCode::Char('?'))
-        {
+        if key.code == KeyCode::F(1) {
             // F1 cycles: what to do now → every action → closed.
             if self.help && !self.help_all && !self.how {
                 self.help_all = true;
@@ -1380,10 +1384,6 @@ impl BrainDump {
                 self.original_scroll = 0;
                 return;
             }
-            if self.details && self.board_focus && key.code == KeyCode::Char('d') {
-                self.details = false;
-                return;
-            }
             match key.code {
                 KeyCode::Esc if self.help && self.how => {
                     self.how = false;
@@ -1431,28 +1431,7 @@ impl BrainDump {
                 self.original = true;
                 self.original_scroll = 0;
             }
-            KeyCode::Char('o') if self.board_focus && !self.sources.is_empty() => {
-                self.original = true;
-                self.original_scroll = 0;
-            }
-            KeyCode::Char('?') if self.board_focus => self.help = true,
-            KeyCode::Char('d') if self.board_focus => self.toggle_details(),
-            KeyCode::Char('y') if self.board_focus => {
-                let text = self.paper();
-                if text.len() > 128 * 1024 {
-                    self.notice = "Copy exceeds 128 KiB; not sent.".into();
-                } else {
-                    self.copy = Some(text);
-                }
-            }
-            KeyCode::Char('u') if self.board_focus && !ctrl => self.undo_skip(),
             KeyCode::Char('z') if ctrl => self.undo_skip(),
-            KeyCode::Char('s') if self.board_focus => {
-                if let Some(q) = self.focused_question().cloned() {
-                    self.skipped.push(q);
-                    self.notice = "Question skipped. Ctrl-Z brings it back.".into();
-                }
-            }
             KeyCode::PageDown => self.paper_scroll = self.paper_scroll.saturating_add(5),
             KeyCode::PageUp => self.paper_scroll = self.paper_scroll.saturating_sub(5),
             KeyCode::Char('f') if self.board_focus && ctrl => {
@@ -1461,14 +1440,14 @@ impl BrainDump {
             KeyCode::Char(c) if !ctrl => {
                 // Typing always writes; the app returns focus to the writing box itself.
                 self.focus_writing();
-                if let Err(e) = self.input.insert(&c.to_string()) {
-                    self.notice = e.into();
+                if self.input.insert(&c.to_string()).is_err() {
+                    self.notice = yohaku::LIMIT_TEXT.into();
                 }
             }
             KeyCode::Enter => {
                 self.focus_writing();
-                if let Err(e) = self.input.insert("\n") {
-                    self.notice = e.into();
+                if self.input.insert("\n").is_err() {
+                    self.notice = yohaku::LIMIT_TEXT.into();
                 }
             }
             KeyCode::Backspace => {
@@ -1500,6 +1479,49 @@ impl BrainDump {
             KeyCode::Char('u') if ctrl => self.input = Note::new(""),
             _ => {}
         }
+    }
+    fn clear_limit_notice(&mut self) {
+        if self.notice.starts_with(yohaku::LIMIT_NOTICE) {
+            self.notice.clear();
+        }
+    }
+    /// F8: skip the question in focus. Ctrl-Z brings it back.
+    fn skip_question(&mut self) {
+        if let Some(q) = self.focused_question().cloned() {
+            self.skipped.push(q);
+            self.notice = "Question skipped. Ctrl-Z brings it back.".into();
+        }
+    }
+    /// F9: copy the reading.
+    fn copy_board(&mut self) {
+        let text = self.paper();
+        if text.len() > 128 * 1024 {
+            self.notice = "Copy exceeds 128 KiB; not sent.".into();
+        } else {
+            self.copy = Some(text);
+        }
+    }
+    /// F7 / Ctrl-X: show or hide the extracted cards that replace the original. While
+    /// they cover it the original is hidden, so it holds no selection and no focus.
+    pub(super) fn toggle_cards(&mut self) {
+        if self.sources.is_empty() {
+            return;
+        }
+        if self.fragments.is_empty() {
+            self.notice = "No extracted cards. Select source text, then Ctrl-E.".into();
+        } else {
+            self.show_extractions = !self.show_extractions;
+            if self.show_extractions {
+                // Cards take the focus the original had (Enter on a card returns to its
+                // source); the hidden original keeps no selection to copy.
+                self.board_focus = true;
+                self.input.collapse();
+                self.input_drag = false;
+                self.selection = None;
+            }
+        }
+        self.canvas.cancel_gesture();
+        self.drag_anchor = None;
     }
     fn undo_skip(&mut self) {
         if let Some(q) = self.skipped.pop() {
@@ -1543,10 +1565,10 @@ impl BrainDump {
     fn toggle_original_focus(&mut self) {
         if self.board_focus {
             self.focus_writing();
-        } else if !self.sources.is_empty() && self.goal_review.is_none() {
+        } else if !self.sources.is_empty() && self.goal_review.is_none() && !self.show_extractions {
             self.board_focus = true;
             self.input.collapse();
-            self.input_drag = None;
+            self.input_drag = false;
             self.selection = None;
             self.drag_anchor = None;
             self.canvas.cancel_gesture();
@@ -1563,6 +1585,9 @@ impl BrainDump {
     /// one original in view. It never spans sources.
     fn select_all(&mut self) {
         if self.board_focus {
+            if self.show_extractions {
+                return; // the original is covered by cards: nothing to select
+            }
             if let Some(source) = self.sources.get(self.source_view) {
                 self.selection = (!source.text.is_empty()).then_some((0, source.text.len()));
                 self.source_cursor = source.text.len();
@@ -1582,6 +1607,9 @@ impl BrainDump {
                 return None;
             }
             return self.input.selected_text().map(str::to_owned);
+        }
+        if self.show_extractions {
+            return None; // cards cover the original: never copy text that isn't on screen
         }
         let (a, b) = self.selection?;
         let text = &self.sources.get(self.source_view)?.text;
@@ -1665,7 +1693,7 @@ impl BrainDump {
             return;
         }
         if self.help || self.original || self.details {
-            self.input_drag = None;
+            self.input_drag = false;
             match event.kind {
                 MouseEventKind::ScrollDown => {
                     self.original_scroll = self.original_scroll.saturating_add(3)
@@ -1678,7 +1706,7 @@ impl BrainDump {
             return;
         }
         if self.goal_review.is_some() || self.receipt.is_some() {
-            self.input_drag = None;
+            self.input_drag = false;
             if self.handoff_job.is_none()
                 && self.goal_review.is_some()
                 && event.kind == MouseEventKind::Down(MouseButton::Left)
@@ -1730,11 +1758,11 @@ impl BrainDump {
                 event.row - self.input_area.y + self.input_scroll,
                 event.column - self.input_area.x,
             );
-            self.input.select_to(index, index);
-            self.input_drag = Some(index);
+            self.input.begin_drag(index);
+            self.input_drag = true;
             return;
         }
-        if let Some(anchor) = self.input_drag
+        if self.input_drag
             && matches!(
                 event.kind,
                 MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
@@ -1745,9 +1773,9 @@ impl BrainDump {
                 + self.input_scroll;
             let column = event.column.clamp(area.x, area.right().saturating_sub(1)) - area.x;
             let index = self.input.wrap(area.width).index_at(row, column);
-            self.input.select_to(anchor, index);
-            if matches!(event.kind, MouseEventKind::Up(_)) {
-                self.input_drag = None;
+            // False once an edit has ended the drag: release then selects nothing.
+            if !self.input.drag_to(index) || matches!(event.kind, MouseEventKind::Up(_)) {
+                self.input_drag = false;
             }
             return;
         }
