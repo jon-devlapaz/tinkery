@@ -1,4 +1,4 @@
-# Backlog — remaining proposals and completed issues
+# Backlog — remaining proposals, loose ends and completed issues
 
 The eight proposals below describe remaining work, not published issues or
 implementation permission. Some earlier portions have shipped; their completed
@@ -8,6 +8,29 @@ approved, work on one branch/PR per bounded slice and link the published issue.
 All acceptance work follows `CLAUDE.md`: temporary TEST roots, fake providers/voice,
 zero calls unless the operator gives a budget, regression tests and important
 reversion probes.
+
+## Loose ends
+
+Known gaps found while building, smaller than a proposal. Each still needs an
+approved issue before work starts.
+
+- **"Like X" lines stop think early.** The review can leave a line that points at
+  something by example as its first reading. See the
+  known gap under [shipped experience](think.md#shipped-experience).
+- **`src/think/brain_dump.rs` is about 1,500 lines.** Split it further without
+  loosening the limits in [architecture](architecture.md#limits-enforced-by-testsarchitecturers).
+- **The review merges by top-level keys.** `review::merge` writes its decisions and
+  questions into the raw reading by key, the residue named in
+  [architecture](architecture.md) diagnostic 3.
+- **Think records keep raw model replies.** Each check's `raw` reply goes into the
+  [think record](think.md#think-record), so records from long sessions get large.
+  Decide what a record needs from the reply.
+- **An unset `HOME` writes records to a relative path.** Without `HOME` or
+  `--record-root`, records land under `.local/share/tinkery/think` in the current
+  folder. Refuse or say where instead.
+- **Gaps across think records aren't flagged yet.** The rest of the record slice:
+  the eval harness writes records with origin `eval`, and a separate script reads
+  them and flags gaps.
 
 ## Previously published, completed issues
 
