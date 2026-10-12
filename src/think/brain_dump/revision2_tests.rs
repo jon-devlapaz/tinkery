@@ -19,15 +19,18 @@ fn repeated_check_is_missing_and_required_question_precedes_vague_outcome() {
     let a = app(
         serde_json::json!({"parts":{"who":"My mom","outcome":"spots a fake text before tapping anything","why":"scam texts arrive","done_when":"My mom spots a fake text before tapping anything"},"open":["outcome"],"questions":[{"target":"outcome","text":"Did I get it?"}]}),
     );
-    let g = a.guess.unwrap();
+    let g = a.conversation.board().unwrap();
     assert!(g.parts.done_when.is_none());
     assert_eq!(g.questions[0].target, Some(Part::DoneWhen));
     assert!(!g.questions[0].text.contains("Did I get it"));
     let a = app(
         serde_json::json!({"parts":{"who":"New users","outcome":"return","why":"return"},"questions":[{"target":"outcome","text":"Should this be the goal?"}]}),
     );
-    assert!(a.guess.as_ref().unwrap().parts.why.is_none());
-    assert_eq!(a.focused_question().unwrap().target, Some(Part::Why));
+    assert!(a.conversation.board().unwrap().parts.why.is_none());
+    assert_eq!(
+        a.conversation.focused_question().unwrap().target,
+        Some(Part::Why)
+    );
 }
 #[test]
 fn timing_and_capacity_are_not_duplicated_and_constraints_each_get_a_line() {
@@ -55,7 +58,7 @@ fn repeated_subjects_and_uncited_supports_are_not_fabricated_citations() {
     let a = app(
         serde_json::json!({"parts":parts(),"supports":["A possible explanation",{"option":"Try a mechanism"}],"open":["A report remains unverified"]}),
     );
-    let g = a.guess.unwrap();
+    let g = a.conversation.board().unwrap();
     assert!(g.framings[0].supports.is_empty());
     assert!(
         g.unresolved_notes
@@ -66,7 +69,7 @@ fn repeated_subjects_and_uncited_supports_are_not_fabricated_citations() {
     let a = app(serde_json::json!({"parts":parts()}));
     let r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
         previous: None,
         skipped: vec![],
@@ -88,7 +91,7 @@ fn fact_and_owned_history_guards_run_before_question_priority_filtering() {
     let a = app(serde_json::json!({"parts":parts()}));
     let r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
+        sources: a.conversation.sources().to_vec(),
         fragments: vec![],
         previous: None,
         skipped: vec![],
@@ -115,7 +118,7 @@ fn quiet_asides_survive_paper_review_and_are_not_constraints() {
         serde_json::json!({"parts":parts(),"other_goals":["renaming a tab","release builds"],"deferred":["editing can wait"]}),
     );
     assert!(a.goal_ready());
-    let reading = a.guess.as_ref().unwrap().framings[0].text.clone();
+    let reading = a.conversation.board().unwrap().framings[0].text.clone();
     assert!(!reading.contains("renaming") && !reading.contains("editing"));
     let paper = a.paper();
     assert!(paper.contains("also in your dump: renaming a tab; release builds"));
@@ -123,7 +126,7 @@ fn quiet_asides_survive_paper_review_and_are_not_constraints() {
     let text = snapshot(160, 40, &mut a, false).unwrap();
     assert!(text.contains("anything to add or change?"));
     a.review_goal();
-    let review = a.goal_review.as_ref().unwrap();
+    let review = a.handoff.review.as_ref().unwrap();
     assert_eq!(
         review.affirmation.other_goals,
         ["renaming a tab", "release builds"]
@@ -170,17 +173,17 @@ fn changed_lines_ink_unchanged_muted_until_any_keystroke_paste_or_send() {
     a.paste("original");
     a.submit();
     settle(&mut a);
-    assert!(a.changed_lines.is_none());
+    assert!(a.conversation.changed_lines().is_none());
     a.paste("answer");
     a.submit();
     settle(&mut a);
     assert!(
-        a.changed_lines
-            .as_ref()
+        a.conversation
+            .changed_lines()
             .unwrap()
             .contains("Why: a different problem.")
     );
-    let unchanged = a.guess.as_ref().unwrap().framings[0]
+    let unchanged = a.conversation.board().unwrap().framings[0]
         .text
         .lines()
         .next()
@@ -197,8 +200,8 @@ fn changed_lines_ink_unchanged_muted_until_any_keystroke_paste_or_send() {
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(320, 40)).unwrap();
         terminal.draw(|f| render(f, &mut a, palette)).unwrap();
         let buffer = terminal.backend().buffer();
-        let unchanged_cell = &buffer[(a.agent_area.x, a.agent_area.y + 1)];
-        let changed_cell = &buffer[(a.agent_area.x, a.agent_area.y + 2)];
+        let unchanged_cell = &buffer[(a.screen.agent_area.x, a.screen.agent_area.y + 1)];
+        let changed_cell = &buffer[(a.screen.agent_area.x, a.screen.agent_area.y + 2)];
         if mono {
             assert!(
                 unchanged_cell
@@ -216,13 +219,13 @@ fn changed_lines_ink_unchanged_muted_until_any_keystroke_paste_or_send() {
         }
     }
     a.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::NONE));
-    assert!(a.changed_lines.is_none());
-    a.changed_lines = Some(Default::default());
+    assert!(a.conversation.changed_lines().is_none());
+    a.conversation.set_changed_lines(Some(Default::default()));
     a.paste("more");
-    assert!(a.changed_lines.is_none());
-    a.changed_lines = Some(Default::default());
+    assert!(a.conversation.changed_lines().is_none());
+    a.conversation.set_changed_lines(Some(Default::default()));
     a.submit();
-    assert!(a.changed_lines.is_none());
+    assert!(a.conversation.changed_lines().is_none());
     settle(&mut a);
 }
 #[test]
@@ -234,10 +237,10 @@ fn unchanged_answer_never_mutes_the_whole_block() {
     a.paste("answer");
     a.submit();
     settle(&mut a);
-    assert!(a.changed_lines.is_none());
+    assert!(a.conversation.changed_lines().is_none());
     let palette = Palette::new(true);
     assert_eq!(
-        a.reading_line_style(&a.guess.as_ref().unwrap().framings[0].text, palette),
+        a.reading_line_style(&a.conversation.board().unwrap().framings[0].text, palette),
         palette.ink
     );
 }

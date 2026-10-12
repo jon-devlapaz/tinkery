@@ -18,12 +18,12 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         assert!(!screen.contains("F2"));
         let mut a = board();
         let before = snapshot(w, h, &mut a, false).unwrap();
-        let source_area = a.source_area;
-        a.details = true;
+        let source_area = a.screen.source_area;
+        a.screen.details = true;
         a.review_goal();
-        assert!(!a.details);
+        assert!(!a.screen.details);
         let review = snapshot(w, h, &mut a, false).unwrap();
-        assert_eq!(a.source_area, source_area);
+        assert_eq!(a.screen.source_area, source_area);
         // The key bar (last row) follows the state; everything above it stays put.
         let (mut l1, mut l2) = (left(&before, w), left(&review, w));
         l1.pop();
@@ -41,12 +41,12 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         l2.pop();
         assert_eq!(l1, l2);
         key(&mut a, KeyCode::Esc);
-        a.goal_review = None;
-        a.receipt = Some(seed_me::Receipt::test(
+        a.handoff.review = None;
+        a.handoff.receipt = Some(seed_me::Receipt::test(
             "/tmp/Tinkery-TEST/session-id".into(),
         ));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
-        assert_eq!(a.source_area, source_area);
+        assert_eq!(a.screen.source_area, source_area);
         let (mut l1, mut l2) = (left(&before, w), left(&receipt, w));
         l1.pop();
         l2.pop();
@@ -71,10 +71,10 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         }
         key(&mut a, KeyCode::F(1));
         snapshot(w, h, &mut a, false).unwrap();
-        assert!(a.help);
+        assert!(a.screen.help);
         key(&mut a, KeyCode::Esc);
-        assert!(!a.quit && !a.help);
-        assert!(a.receipt.is_some());
+        assert!(!a.quitting() && !a.screen.help);
+        assert!(a.handoff.receipt.is_some());
     }
 }
 #[test]
@@ -83,7 +83,7 @@ fn literal_question_mark_and_corner_help_preserve_local_typing_and_review() {
     a.paste("A literal");
     key(&mut a, KeyCode::Char('?'));
     assert_eq!(a.input.text, "A literal?");
-    assert!(!a.help);
+    assert!(!a.screen.help);
     let saved = (a.input.text.clone(), a.input.cursor);
     snapshot(100, 30, &mut a, false).unwrap();
     a.handle_mouse(
@@ -93,9 +93,9 @@ fn literal_question_mark_and_corner_help_preserve_local_typing_and_review() {
             row: 1,
             modifiers: KeyModifiers::NONE,
         },
-        a.area,
+        a.screen.area,
     );
-    assert!(a.help);
+    assert!(a.screen.help);
     snapshot(100, 30, &mut a, false).unwrap();
     key(&mut a, KeyCode::Esc);
     assert_eq!(a.input.text, saved.0);
@@ -111,9 +111,9 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
     );
     let mut receipt = seed_me::Receipt::test(path.clone().into());
     receipt.goal = format!("{}\nEND-GOAL", "Long confirmed goal line.\n".repeat(80));
-    a.receipt = Some(receipt);
+    a.handoff.receipt = Some(receipt);
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
-        a.paper_scroll = 0;
+        a.screen.paper_scroll = 0;
         let first = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&first, w).contains("Next: shape it into a seed with Seed Me."));
         assert!(!first.contains("Tinkery-TEST"));
@@ -125,22 +125,30 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
         assert!(right_text(&last, w).contains("Next: shape it into a seed with Seed Me."));
         assert!(!last.contains("END-SESSION-ID"));
         assert!(yohaku::how_text(&a).contains(&path));
-        assert_eq!(a.receipt.as_ref().unwrap().session.to_string_lossy(), path);
+        assert_eq!(
+            a.handoff
+                .receipt
+                .as_ref()
+                .unwrap()
+                .session
+                .to_string_lossy(),
+            path
+        );
     }
 }
 #[test]
 fn full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading() {
     let mut a = board();
-    let old = a.guess.clone().unwrap();
+    let old = a.conversation.board().cloned().unwrap();
     a.notice = format!(
         "Reshape failed: {} Or the final concrete referent was erased. Originals retained.",
         "source-grounded rejection explanation ".repeat(50)
     );
-    a.applied = 0;
+    a.conversation.set_applied(0);
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     assert!(screen.contains("Reading couldn't be updated."));
     assert_eq!(
-        a.guess.as_ref().unwrap().framings[0].text,
+        a.conversation.board().unwrap().framings[0].text,
         old.framings[0].text
     );
     key(&mut a, KeyCode::F(1));
@@ -274,7 +282,7 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
         a.tick();
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    assert!(a.guess.is_some() && !a.running());
+    assert!(a.conversation.board().is_some() && !a.running());
     // Nothing starts after the reading is shown: keep ticking, and no further call arrives.
     let settle = std::time::Instant::now() + std::time::Duration::from_millis(800);
     while std::time::Instant::now() < settle {

@@ -10,7 +10,7 @@ use tinkery::think::{
 const DUMP: &str = "I keep losing track of which Tinkery checks used a real model and which just used a stub.\nI want a small receipt in the PR thread so the next person can see what's actually been checked before they dogfood it.\nBut I don't want to fill another form with every tiny edit.\nI also want to be able to say 'that question wasn't useful' and not get it again.";
 fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
     let paper = app.paper();
-    std::fs::write(dir.join(format!("{name}-state.json")),serde_json::to_string_pretty(&serde_json::json!({"sources":app.sources,"settled":app.settled,"changed_lines":app.changed_lines,"notice":app.notice})).unwrap()+"\n").unwrap();
+    std::fs::write(dir.join(format!("{name}-state.json")),serde_json::to_string_pretty(&serde_json::json!({"sources":app.conversation().sources(),"settled":app.conversation().settled(),"changed_lines":app.conversation().changed_lines(),"notice":app.notice()})).unwrap()+"\n").unwrap();
     std::fs::write(
         dir.join(format!("{name}-paper.json")),
         serde_json::to_string_pretty(&serde_json::json!({"paper":paper})).unwrap() + "\n",
@@ -28,7 +28,7 @@ fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
             + "\n",
     )
     .unwrap();
-    if let Some(g) = &app.guess {
+    if let Some(g) = app.conversation().board() {
         std::fs::write(
             dir.join(format!("{name}-guess.json")),
             serde_json::to_string_pretty(g).unwrap() + "\n",
@@ -38,14 +38,14 @@ fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
         for (reading, framing) in g.framings.iter().enumerate() {
             for anchor in framing.supports.iter() {
                 let range = anchor
-                    .range(&app.sources)
+                    .range(app.conversation().sources())
                     .expect("Accepted anchor must match original");
                 anchors.push(serde_json::json!({"role":"support","reading":reading+1,"anchor":anchor,"start":range.start,"end":range.end}));
             }
         }
         for anchor in &g.misfits {
             let range = anchor
-                .range(&app.sources)
+                .range(app.conversation().sources())
                 .expect("Accepted anchor must match original");
             anchors.push(serde_json::json!({"role":"unresolved","anchor":anchor,"start":range.start,"end":range.end}));
         }
@@ -98,7 +98,7 @@ fn main() {
         app = app.with_seed_me(PathBuf::from(&skill), Some(root.into()));
     }
     capture(&mut app, &dir, "00-entry");
-    assert!(app.guess.is_none());
+    assert!(app.conversation().board().is_none());
     let dark = std::env::var_os("TINKERY_LIVE_DARK_MODE").is_some();
     let supplied = std::env::var_os("TINKERY_LIVE_DUMP_FILE");
     let dump = if let Some(path) = &supplied {
@@ -110,18 +110,24 @@ fn main() {
     };
     app.paste(&dump);
     capture(&mut app, &dir, "00-typing");
-    assert!(app.guess.is_none());
+    assert!(app.conversation().board().is_none());
     app.submit();
     settle(&mut app);
     capture(&mut app, &dir, "01-first");
-    assert!(app.guess.is_some(), "{}", app.notice);
+    assert!(app.conversation().board().is_some(), "{}", app.notice());
     let layout = app.layout();
-    let first = app.focused_question().map(|q| q.text.clone());
+    let first = app
+        .conversation()
+        .focused_question()
+        .map(|q| q.text.clone());
     println!("FIRST QUESTION: {first:?}");
     if std::env::var_os("TINKERY_LIVE_FIRST_ONLY").is_some() {
-        assert_eq!(app.sources.len(), 1);
-        assert_eq!(app.sources[0].text, dump);
-        assert!(app.fragments.is_empty(), "Automatic extraction occurred");
+        assert_eq!(app.conversation().sources().len(), 1);
+        assert_eq!(app.conversation().sources()[0].text, dump);
+        assert!(
+            app.conversation().fragments().is_empty(),
+            "Automatic extraction occurred"
+        );
         app.handle_key(crossterm::event::KeyEvent::new(
             crossterm::event::KeyCode::Char('o'),
             crossterm::event::KeyModifiers::CONTROL,
@@ -143,14 +149,14 @@ fn main() {
     app.submit();
     settle(&mut app);
     capture(&mut app, &dir, "02-answer");
-    assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
+    assert!(app.notice().starts_with("Reshaped"), "{}", app.notice());
     assert_eq!(&app.layout()[..layout.len()], layout.as_slice());
     println!(
         "NEXT QUESTION: {:?}",
-        app.focused_question().map(|q| &q.text)
+        app.conversation().focused_question().map(|q| &q.text)
     );
-    assert_eq!(app.sources[0].text, dump);
-    assert_eq!(app.sources[1].text, answer);
+    assert_eq!(app.conversation().sources()[0].text, dump);
+    assert_eq!(app.conversation().sources()[1].text, answer);
     if std::env::var_os("TINKERY_LIVE_GOAL_TEST_ROOT").is_some() {
         if let Some(path) = std::env::var_os("TINKERY_LIVE_GOAL_CONTEXT_FILE") {
             let context =
@@ -163,7 +169,7 @@ fn main() {
             app.submit();
             settle(&mut app);
             capture(&mut app, &dir, "03-relayed-context");
-            assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
+            assert!(app.notice().starts_with("Reshaped"), "{}", app.notice());
         }
         app.review_goal();
         capture(&mut app, &dir, "03-goal-review");
@@ -180,7 +186,7 @@ fn main() {
         ));
         settle(&mut app);
         capture(&mut app, &dir, "04-test-goal-confirmed");
-        let receipt = app.receipt.as_ref().expect(&app.notice);
+        let receipt = app.saved().unwrap_or_else(|| panic!("{}", app.notice()));
         std::fs::write(
             dir.join("test-session-path.txt"),
             receipt.session.display().to_string(),
@@ -205,6 +211,7 @@ fn main() {
         let second =
             std::fs::read_to_string(&path).expect("Second-answer fixture within bounded window");
         let second_question = app
+            .conversation()
             .focused_question()
             .expect("A second question must exist for this journey")
             .id
@@ -213,22 +220,23 @@ fn main() {
         app.submit();
         settle(&mut app);
         capture(&mut app, &dir, "03-second-answer");
-        assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
-        assert_eq!(app.sources[2].text, second);
+        assert!(app.notice().starts_with("Reshaped"), "{}", app.notice());
+        assert_eq!(app.conversation().sources()[2].text, second);
         assert_eq!(
-            app.sources[2].in_reply_to.as_deref(),
+            app.conversation().sources()[2].in_reply_to.as_deref(),
             Some(second_question.as_str())
         );
         assert!(
-            app.focused_question()
+            app.conversation()
+                .focused_question()
                 .is_none_or(|q| q.id != second_question)
         );
         println!(
             "AFTER SECOND ANSWER: {:?}",
-            app.focused_question().map(|q| &q.text)
+            app.conversation().focused_question().map(|q| &q.text)
         );
-        assert_eq!(app.sources[0].text, dump);
-        assert_eq!(app.sources[1].text, answer);
+        assert_eq!(app.conversation().sources()[0].text, dump);
+        assert_eq!(app.conversation().sources()[1].text, answer);
         println!(
             "PASS: exact dump + operator first answer + test-authored second answer; human recognition still pending."
         );
@@ -239,7 +247,7 @@ fn main() {
         return;
     }
     if dark {
-        assert_eq!(app.sources[0].text, dump);
+        assert_eq!(app.conversation().sources()[0].text, dump);
         println!(
             "PASS: dark-mode regression captured; judge mechanism/media and alternatives manually"
         );
@@ -253,15 +261,18 @@ fn main() {
     app.submit();
     settle(&mut app);
     capture(&mut app, &dir, "03-added-dump");
-    assert!(app.notice.starts_with("Reshaped"), "{}", app.notice);
+    assert!(app.notice().starts_with("Reshaped"), "{}", app.notice());
     assert_eq!(&app.layout()[..layout.len()], layout.as_slice());
-    for f in &app.fragments {
-        assert_eq!(&app.sources[f.source - 1].text[f.start..f.end], f.text);
+    for f in app.conversation().fragments() {
+        assert_eq!(
+            app.conversation().sources()[f.source - 1].text[f.start..f.end],
+            f.text
+        );
     }
-    assert_eq!(app.sources[0].text, DUMP);
+    assert_eq!(app.conversation().sources()[0].text, DUMP);
     println!(
         "FINAL QUESTION: {:?}",
-        app.focused_question().map(|q| &q.text)
+        app.conversation().focused_question().map(|q| &q.text)
     );
     println!(
         "PASS: actual {model}; source fidelity, submitted reshapes, and positions; NOT operator recognition"

@@ -23,18 +23,18 @@ fn ready() -> BrainDump {
 #[test]
 fn tab_and_shift_tab_move_between_writing_and_the_original_and_back() {
     let mut a = ready();
-    assert!(!a.board_focus);
+    assert!(!a.screen.board_focus);
     key(&mut a, KeyCode::Tab);
-    assert!(a.board_focus, "Tab enters the original");
+    assert!(a.screen.board_focus, "Tab enters the original");
     key(&mut a, KeyCode::Tab);
-    assert!(!a.board_focus, "Tab returns to writing");
+    assert!(!a.screen.board_focus, "Tab returns to writing");
     key(&mut a, KeyCode::Tab);
     press(&mut a, KeyCode::BackTab, KeyModifiers::SHIFT);
-    assert!(!a.board_focus, "Shift-Tab is the reverse route back");
+    assert!(!a.screen.board_focus, "Shift-Tab is the reverse route back");
     press(&mut a, KeyCode::BackTab, KeyModifiers::SHIFT);
-    assert!(a.board_focus, "Shift-Tab also enters the original");
+    assert!(a.screen.board_focus, "Shift-Tab also enters the original");
     assert!(
-        a.sources[0].text.starts_with("PR ready"),
+        a.conversation.sources()[0].text.starts_with("PR ready"),
         "originals untouched"
     );
 }
@@ -43,29 +43,35 @@ fn tab_and_shift_tab_move_between_writing_and_the_original_and_back() {
 fn tab_does_nothing_without_an_original_or_inside_modal_views() {
     let mut empty = BrainDump::default();
     key(&mut empty, KeyCode::Tab);
-    assert!(!empty.board_focus && empty.input.text.is_empty());
+    assert!(!empty.screen.board_focus && empty.input.text.is_empty());
     let mut a = ready();
     key(&mut a, KeyCode::F(4));
-    assert!(a.original);
+    assert!(a.screen.original);
     key(&mut a, KeyCode::Tab);
-    assert!(!a.board_focus, "the F4 reader keeps its own contract");
+    assert!(
+        !a.screen.board_focus,
+        "the F4 reader keeps its own contract"
+    );
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::Tab);
-    assert!(!a.board_focus, "help is not a focus surface");
+    assert!(!a.screen.board_focus, "help is not a focus surface");
 }
 
 #[test]
 fn keyboard_only_selection_copies_exact_bytes_and_returns_to_writing() {
     let mut a = ready();
-    let text = a.sources[0].text.clone();
+    let text = a.conversation.sources()[0].text.clone();
     key(&mut a, KeyCode::Tab);
     shift_right(&mut a, 8);
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().as_deref(), Some(&text[..8]));
-    assert!(!a.quit && !a.leave_prompt);
+    assert!(!a.quitting() && !a.screen.leave_prompt);
     key(&mut a, KeyCode::Tab);
-    assert!(!a.board_focus && a.selection.is_none(), "leaving drops it");
+    assert!(
+        !a.screen.board_focus && a.screen.selection.is_none(),
+        "leaving drops it"
+    );
     ctrl_c(&mut a);
     assert!(
         a.take_copy_request().is_none(),
@@ -73,7 +79,7 @@ fn keyboard_only_selection_copies_exact_bytes_and_returns_to_writing() {
     );
     key(&mut a, KeyCode::Char('x'));
     assert_eq!(a.input.text, "x", "ordinary typing reaches writing");
-    assert_eq!(a.sources[0].text, text);
+    assert_eq!(a.conversation.sources()[0].text, text);
 }
 
 #[test]
@@ -81,9 +87,9 @@ fn a_stale_original_selection_is_never_copied_after_any_focus_change() {
     let mut a = ready();
     key(&mut a, KeyCode::Tab);
     shift_right(&mut a, 5);
-    assert!(a.selection.is_some());
+    assert!(a.screen.selection.is_some());
     key(&mut a, KeyCode::Char('q'));
-    assert!(!a.board_focus && a.selection.is_none());
+    assert!(!a.screen.board_focus && a.screen.selection.is_none());
     assert_eq!(
         a.input.text, "q",
         "letters including q return to writing as text"
@@ -95,15 +101,18 @@ fn a_stale_original_selection_is_never_copied_after_any_focus_change() {
         key(&mut a, KeyCode::Tab);
         shift_right(&mut a, 3);
         key(&mut a, code);
-        assert!(!a.board_focus && a.selection.is_none(), "{code:?}");
+        assert!(
+            !a.screen.board_focus && a.screen.selection.is_none(),
+            "{code:?}"
+        );
         ctrl_c(&mut a);
         assert!(a.take_copy_request().is_none(), "{code:?}");
     }
     // Clicking back into the writing box.
     key(&mut a, KeyCode::Tab);
     shift_right(&mut a, 3);
-    let (x, y) = (a.input_area.x, a.input_area.y);
-    let area = a.area;
+    let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
+    let area = a.screen.area;
     a.handle_mouse(
         MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
@@ -113,7 +122,7 @@ fn a_stale_original_selection_is_never_copied_after_any_focus_change() {
         },
         area,
     );
-    assert!(!a.board_focus && a.selection.is_none());
+    assert!(!a.screen.board_focus && a.screen.selection.is_none());
     ctrl_c(&mut a);
     assert!(a.take_copy_request().is_none());
     // A selection hidden behind the F4 reader is not the active surface either.
@@ -129,17 +138,17 @@ fn ctrl_c_without_a_selection_keeps_cancel_and_never_leaves() {
     let mut a = ready();
     key(&mut a, KeyCode::Tab);
     ctrl_c(&mut a);
-    assert!(a.take_copy_request().is_none() && !a.quit && !a.leave_prompt);
+    assert!(a.take_copy_request().is_none() && !a.quitting() && !a.screen.leave_prompt);
 }
 
 #[test]
 fn f6_is_not_a_focus_key() {
     let mut a = ready();
     key(&mut a, KeyCode::F(6));
-    assert!(!a.board_focus);
+    assert!(!a.screen.board_focus);
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::F(6));
-    assert!(a.board_focus, "F6 without voice leaves focus alone");
+    assert!(a.screen.board_focus, "F6 without voice leaves focus alone");
 }
 
 fn writing(text: &str) -> BrainDump {
@@ -149,7 +158,7 @@ fn writing(text: &str) -> BrainDump {
     a
 }
 fn click(a: &mut BrainDump, kind: MouseEventKind, column: u16, row: u16) {
-    let area = a.area;
+    let area = a.screen.area;
     a.handle_mouse(
         MouseEvent {
             kind,
@@ -170,7 +179,7 @@ fn shift_arrows_select_in_writing_and_ctrl_c_copies_exact_bytes() {
     }
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().as_deref(), Some("hél"));
-    assert!(!a.quit && !a.leave_prompt);
+    assert!(!a.quitting() && !a.screen.leave_prompt);
     key(&mut a, KeyCode::Right);
     assert_eq!(a.input.selection(), None);
     ctrl_c(&mut a);
@@ -180,10 +189,10 @@ fn shift_arrows_select_in_writing_and_ctrl_c_copies_exact_bytes() {
 #[test]
 fn ctrl_a_selects_only_the_active_surface() {
     let mut a = writing("my words");
-    let original = a.sources[0].text.clone();
+    let original = a.conversation.sources()[0].text.clone();
     press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
     assert_eq!(a.input.selected_text(), Some("my words"));
-    assert_eq!(a.selection, None, "the original is untouched");
+    assert_eq!(a.screen.selection, None, "the original is untouched");
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().as_deref(), Some("my words"));
     key(&mut a, KeyCode::Tab);
@@ -198,7 +207,7 @@ fn ctrl_a_selects_only_the_active_surface() {
     assert_eq!(a.input.text, "my words");
     // Read-only: typing leaves the original alone and goes to writing.
     key(&mut a, KeyCode::Char('z'));
-    assert_eq!(a.sources[0].text, original);
+    assert_eq!(a.conversation.sources()[0].text, original);
     assert_eq!(
         a.input.text, "my wordsz",
         "typing goes to writing at its caret"
@@ -208,12 +217,12 @@ fn ctrl_a_selects_only_the_active_surface() {
 #[test]
 fn ctrl_a_in_the_original_never_spans_sources() {
     let mut a = ready();
-    a.sources.push(Source {
+    a.conversation.sources_mut().push(Source {
         id: 2,
         text: "second original".into(),
         in_reply_to: Some("q1".into()),
     });
-    a.source_view = 1;
+    a.screen.source_view = 1;
     key(&mut a, KeyCode::Tab);
     press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
     ctrl_c(&mut a);
@@ -274,7 +283,7 @@ fn oversize_paste_over_a_selection_changes_nothing_and_says_why() {
 #[test]
 fn mouse_drag_in_writing_selects_the_same_logical_bytes() {
     let mut a = writing("drag these words");
-    let (x, y) = (a.input_area.x, a.input_area.y);
+    let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
     click(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
     click(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 4, y);
     click(&mut a, MouseEventKind::Up(MouseButton::Left), x + 4, y);
@@ -308,7 +317,7 @@ fn selection_highlight_is_drawn_reversed_for_wide_and_combined_text() {
     let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
     t.draw(|f| render(f, &mut a, Palette::new(true))).unwrap();
     let b = t.backend().buffer();
-    let (x, y) = (a.input_area.x, a.input_area.y);
+    let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
     assert!(
         b[(x, y)]
             .modifier
@@ -335,20 +344,20 @@ fn a_selection_does_not_change_what_f10_guards() {
     }
     assert_eq!(a.input.text, "all of this");
     key(&mut a, KeyCode::F(10));
-    assert!(!a.quit, "unsent words still ask first");
-    assert!(a.leave_prompt || a.quit, "F10 keeps its guard");
+    assert!(!a.quitting(), "unsent words still ask first");
+    assert!(a.screen.leave_prompt || a.quitting(), "F10 keeps its guard");
 }
 
 // ---- Repairs after dogfooding (#14): stale drags, board-focus letters, hidden originals, limit notice.
 
 fn drag_b(a: &mut BrainDump) {
-    let (x, y) = (a.input_area.x, a.input_area.y);
+    let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
     click(a, MouseEventKind::Down(MouseButton::Left), x + 2, y);
     click(a, MouseEventKind::Drag(MouseButton::Left), x + 1, y);
     assert_eq!(a.input.selected_text(), Some("b"));
 }
 fn release_at_end(a: &mut BrainDump) {
-    let (x, y) = (a.input_area.x, a.input_area.y);
+    let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
     click(a, MouseEventKind::Up(MouseButton::Left), x + 4, y);
 }
 
@@ -405,7 +414,7 @@ fn paste_delete_and_buffer_replacement_during_a_drag_end_it_too() {
 #[test]
 fn a_rejected_oversize_edit_during_a_drag_changes_nothing_and_keeps_the_drag() {
     let mut a = writing(&("a".repeat(4090) + "BCDEFG"));
-    let (x, y) = (a.input_area.x, a.input_area.y);
+    let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
     click(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
     click(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 3, y);
     let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
@@ -433,14 +442,14 @@ fn ordinary_letters_in_original_focus_return_to_writing_and_do_nothing_else() {
         let mut a = with_card();
         let notice = a.notice.clone();
         key(&mut a, KeyCode::Tab);
-        assert!(a.board_focus);
+        assert!(a.screen.board_focus);
         key(&mut a, KeyCode::Char(c));
         assert_eq!(a.input.text, c.to_string(), "{c} is text");
-        assert!(!a.board_focus, "{c} returned focus to writing");
-        assert!(a.skipped.is_empty(), "{c} skipped nothing");
+        assert!(!a.screen.board_focus, "{c} returned focus to writing");
+        assert!(a.conversation.skipped().is_empty(), "{c} skipped nothing");
         assert!(a.take_copy_request().is_none(), "{c} copied nothing");
         assert!(
-            !a.original && !a.details && !a.help && !a.show_extractions,
+            !a.screen.original && !a.screen.details && !a.screen.help && !a.screen.show_extractions,
             "{c}"
         );
         assert_eq!(a.notice, notice, "{c} changed no state");
@@ -454,31 +463,34 @@ fn f8_f9_f7_and_modified_keys_still_work_from_either_focus() {
         if focus {
             key(&mut a, KeyCode::Tab);
         }
-        assert!(a.focused_question().is_some());
+        assert!(a.conversation.focused_question().is_some());
         key(&mut a, KeyCode::F(9));
         assert_eq!(a.take_copy_request(), Some(a.paper()), "F9 focus={focus}");
         key(&mut a, KeyCode::F(8));
-        assert_eq!(a.skipped.len(), 1, "F8 focus={focus}");
+        assert_eq!(a.conversation.skipped().len(), 1, "F8 focus={focus}");
         press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
-        assert!(a.skipped.is_empty(), "Ctrl-Z undoes the skip");
+        assert!(
+            a.conversation.skipped().is_empty(),
+            "Ctrl-Z undoes the skip"
+        );
         key(&mut a, KeyCode::F(7));
-        assert!(a.show_extractions, "F7 shows cards, focus={focus}");
+        assert!(a.screen.show_extractions, "F7 shows cards, focus={focus}");
         press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
-        assert!(!a.show_extractions, "Ctrl-X hides them");
+        assert!(!a.screen.show_extractions, "Ctrl-X hides them");
         press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
-        assert!(a.show_extractions);
+        assert!(a.screen.show_extractions);
         assert!(a.input.text.is_empty());
     }
     let mut a = with_card();
     key(&mut a, KeyCode::Tab);
     press(&mut a, KeyCode::Char('f'), KeyModifiers::CONTROL);
     assert!(
-        a.board_focus && a.input.text.is_empty(),
+        a.screen.board_focus && a.input.text.is_empty(),
         "Ctrl-F is not text"
     );
     let mut none = ready();
     key(&mut none, KeyCode::F(7));
-    assert!(none.notice.contains("No extracted cards") && !none.show_extractions);
+    assert!(none.notice.contains("No extracted cards") && !none.screen.show_extractions);
 }
 
 #[test]
@@ -487,9 +499,12 @@ fn cards_covering_the_original_hide_its_selection_but_not_the_writing_box() {
     let mut a = with_card();
     key(&mut a, KeyCode::Tab);
     press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
-    assert!(a.selection.is_some());
+    assert!(a.screen.selection.is_some());
     key(&mut a, KeyCode::F(7));
-    assert_eq!(a.selection, None, "cards clear the original's selection");
+    assert_eq!(
+        a.screen.selection, None,
+        "cards clear the original's selection"
+    );
     ctrl_c(&mut a);
     assert!(a.take_copy_request().is_none());
     // Selecting while cards are displayed is refused too.
@@ -503,13 +518,13 @@ fn cards_covering_the_original_hide_its_selection_but_not_the_writing_box() {
     for c in "hello".chars() {
         key(&mut a, KeyCode::Char(c));
     }
-    assert!(a.show_extractions && !a.board_focus);
+    assert!(a.screen.show_extractions && !a.screen.board_focus);
     press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().as_deref(), Some("hello"));
     // Tab does not walk into the hidden original, and cards close back to a copyable original.
     key(&mut a, KeyCode::Tab);
-    assert!(!a.board_focus);
+    assert!(!a.screen.board_focus);
     key(&mut a, KeyCode::F(7));
     press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
     ctrl_c(&mut a);
@@ -540,7 +555,7 @@ fn the_oversize_notice_is_rendered_cleared_by_the_next_input_and_beats_other_sta
             "{w}x{h}\n{shown}"
         );
         // Overlapping status: an unapplied reading would draw "Reading couldn't be updated."
-        a.applied = 0;
+        a.conversation.set_applied(0);
         let shown = snapshot(w, h, &mut a, false).unwrap();
         assert!(
             shown.contains("Over 4096 bytes"),
@@ -548,13 +563,13 @@ fn the_oversize_notice_is_rendered_cleared_by_the_next_input_and_beats_other_sta
         );
         // And a running request would draw "Thinking…" on the same row.
         let (_tx, rx) = std::sync::mpsc::channel();
-        a.handoff_job = Some(rx);
+        a.handoff.job = Some(rx);
         let shown = snapshot(w, h, &mut a, false).unwrap();
         assert!(
             shown.contains("Over 4096 bytes") && !shown.contains("Thinking…"),
             "{w}x{h} running\n{shown}"
         );
-        a.handoff_job = None;
+        a.handoff.job = None;
         // The next input clears it: no permanent clutter.
         key(&mut a, KeyCode::Left);
         assert!(
@@ -571,7 +586,7 @@ fn the_oversize_notice_is_rendered_cleared_by_the_next_input_and_beats_other_sta
 fn backspace_or_delete_without_a_selection_ends_a_held_drag() {
     for (code, expect) in [(KeyCode::Backspace, "axc."), (KeyCode::Delete, "abx.")] {
         let mut a = writing("abc.");
-        let (x, y) = (a.input_area.x, a.input_area.y);
+        let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
         click(&mut a, MouseEventKind::Down(MouseButton::Left), x + 2, y);
         key(&mut a, code);
         release_at_end(&mut a);

@@ -361,56 +361,63 @@ impl BoardHost for Simulated {
     }
 }
 
+/// Think: one place where the person writes, reads the reading, answers one question at a
+/// time, and confirms a goal. It routes keys, mouse and ticks to its parts: the
+/// [`Conversation`] (what was said and read), the [`Screen`] (what is shown where), the
+/// [`Shaping`] call and the [`Handoff`] that saves a goal. Whoever opened think reads
+/// [`BrainDump::exit`] after each tick.
 pub struct BrainDump {
-    pub input: Note,
-    pub quit: bool,
-    pub sources: Vec<Source>,
-    pub fragments: Vec<Fragment>,
-    pub guess: Option<board::Board>,
+    /// The writing box: words not yet sent.
+    input: Note,
+    /// The writing box holds a new dump, not an answer to the focused question.
+    add_more: bool,
+    conversation: Conversation,
+    screen: Screen,
+    shaping: Shaping,
+    handoff: Handoff,
     host: Arc<dyn BoardHost>,
     voice: Option<crate::voice::Voice>,
-    job: Option<Job<Guess>>,
-    last_failure: Option<String>,
+    /// Real provider mode, not practice.
+    real: bool,
+    notice: String,
+    /// Local checks on each send, shown in F5 "why".
     local_checks: Vec<checks::Decision>,
-    scope_pending: Option<(usize, Question)>,
+    /// Text waiting to be copied by the terminal host.
+    copy: Option<String>,
+    exit: Exit,
+}
+
+/// What think asks of whoever opened it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Exit {
+    /// Keep thinking.
+    Stay,
+    /// Back to the menu, or out when think was opened on its own.
+    Menu,
+    /// Open this saved Seed Me session in shape.
+    Shape(std::path::PathBuf),
+}
+
+/// What is shown where: rectangles from the last paint, scrolls, focus, overlays and
+/// selection. Nothing here is part of the conversation.
+struct Screen {
     key_bar: bool,
-    back_button: Rect,
-    request: Option<BoardRequest>,
-    ready: Option<(BoardRequest, Result<Guess, String>)>,
-    canvas: Canvas,
-    applied: usize,
-    skipped: Vec<Question>,
-    restored_questions: Vec<Question>,
-    pub settled: Vec<Settled>,
-    ask_counts: std::collections::BTreeMap<Part, u8>,
-    pub changed_lines: Option<std::collections::BTreeSet<String>>,
-    board_focus: bool,
-    add_more: bool,
-    original: bool,
+    /// Help (F1), the originals (F4) and why (F5) cover the right side.
     help: bool,
     /// Help layer 2: every action, one key each.
     help_all: bool,
     how: bool,
+    original: bool,
+    details: bool,
     leave_prompt: bool,
+    /// Focus is on the original (or its cards), not the writing box.
+    board_focus: bool,
+    show_extractions: bool,
+    /// Which framing of the reading is presented.
+    reading: usize,
     original_scroll: u16,
     input_scroll: u16,
     paper_scroll: u16,
-    details: bool,
-    reading: usize,
-    real: bool,
-    pub notice: String,
-    goal_config: Option<seed_me::Config>,
-    goal_review: Option<goal_view::Review>,
-    handoff_job: Option<std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>>,
-    pub receipt: Option<seed_me::Receipt>,
-    shape_request: Option<std::path::PathBuf>,
-    exit_after_handoff: bool,
-    goal_button: Rect,
-    copy: Option<String>,
-    area: Rect,
-    input_area: Rect,
-    agent_area: Rect,
-    source_area: Rect,
     source_view: usize,
     source_scroll: u16,
     source_cursor: usize,
@@ -419,8 +426,67 @@ pub struct BrainDump {
     /// A left-button drag that began in the writing box. The anchor lives in `Note`, so
     /// any edit ends the drag without a stale offset surviving it.
     input_drag: bool,
-    show_extractions: bool,
+    /// The extracted cards and their positions.
+    canvas: Canvas,
+    area: Rect,
+    input_area: Rect,
+    agent_area: Rect,
+    source_area: Rect,
+    goal_button: Rect,
+    back_button: Rect,
 }
+impl Default for Screen {
+    fn default() -> Self {
+        Self {
+            key_bar: true,
+            help: false,
+            help_all: false,
+            how: false,
+            original: false,
+            details: false,
+            leave_prompt: false,
+            board_focus: false,
+            show_extractions: false,
+            reading: 0,
+            original_scroll: 0,
+            input_scroll: 0,
+            paper_scroll: 0,
+            source_view: 0,
+            source_scroll: 0,
+            source_cursor: 0,
+            selection: None,
+            drag_anchor: None,
+            input_drag: false,
+            canvas: Canvas::new(),
+            area: Rect::default(),
+            input_area: Rect::default(),
+            agent_area: Rect::default(),
+            source_area: Rect::default(),
+            goal_button: Rect::default(),
+            back_button: Rect::default(),
+        }
+    }
+}
+
+/// The shaping call in flight, or its reply waiting while the person types.
+#[derive(Default)]
+struct Shaping {
+    job: Option<Job<Guess>>,
+    request: Option<BoardRequest>,
+    ready: Option<(BoardRequest, Result<Guess, String>)>,
+}
+
+/// Saving a confirmed goal through Seed Me: the review, the save in flight, and its receipt.
+#[derive(Default)]
+struct Handoff {
+    config: Option<seed_me::Config>,
+    review: Option<goal_view::Review>,
+    job: Option<std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>>,
+    receipt: Option<seed_me::Receipt>,
+    /// F10 during the save: leave once it reads back.
+    exit_after: bool,
+}
+
 impl Default for BrainDump {
     fn default() -> Self {
         Self::with_mode(Arc::new(Simulated), false)
@@ -433,100 +499,57 @@ impl BrainDump {
     fn with_mode(host: Arc<dyn BoardHost>, real: bool) -> Self {
         Self {
             input: Note::new(""),
-            quit: false,
-            sources: vec![],
-            fragments: vec![],
-            guess: None,
+            add_more: false,
+            conversation: Conversation::default(),
+            screen: Screen::default(),
+            shaping: Shaping::default(),
+            handoff: Handoff::default(),
             host,
             voice: None,
-            job: None,
-            last_failure: None,
-            local_checks: vec![],
-            scope_pending: None,
-            key_bar: true,
-            back_button: Rect::default(),
-            request: None,
-            ready: None,
-            canvas: Canvas::new(),
-            applied: 0,
-            skipped: vec![],
-            restored_questions: vec![],
-            settled: vec![],
-            ask_counts: Default::default(),
-            changed_lines: None,
-            board_focus: false,
-            add_more: false,
-            original: false,
-            help: false,
-            help_all: false,
-            how: false,
-            leave_prompt: false,
-            original_scroll: 0,
-            input_scroll: 0,
-            paper_scroll: 0,
-            details: false,
-            reading: 0,
             real,
             notice: "Nothing saved. Submit when ready; no guess before then.".into(),
-            goal_config: None,
-            goal_review: None,
-            handoff_job: None,
-            receipt: None,
-            shape_request: None,
-            exit_after_handoff: false,
-            goal_button: Rect::default(),
+            local_checks: vec![],
             copy: None,
-            area: Rect::default(),
-            input_area: Rect::default(),
-            agent_area: Rect::default(),
-            source_area: Rect::default(),
-            source_view: 0,
-            source_scroll: 0,
-            source_cursor: 0,
-            selection: None,
-            drag_anchor: None,
-            input_drag: false,
-            show_extractions: false,
+            exit: Exit::Stay,
         }
     }
+    /// What think asks of whoever opened it, read after each tick.
+    pub fn exit(&self) -> &Exit {
+        &self.exit
+    }
+    /// What has been said and read so far.
+    pub fn conversation(&self) -> &Conversation {
+        &self.conversation
+    }
+    /// The status line: what just happened, in plain words.
+    pub fn notice(&self) -> &str {
+        &self.notice
+    }
+    /// The goal saved in this visit, if any.
+    pub fn saved(&self) -> Option<&seed_me::Receipt> {
+        self.handoff.receipt.as_ref()
+    }
+    /// Ask to go back. Never replaces a request to open shape.
+    fn leave(&mut self) {
+        if self.exit == Exit::Stay {
+            self.exit = Exit::Menu;
+        }
+    }
+    /// Stand in for a saved goal, as if the handoff had read back.
+    #[cfg(test)]
+    pub(crate) fn set_saved(&mut self, receipt: seed_me::Receipt) {
+        self.handoff.receipt = Some(receipt);
+    }
+    fn quitting(&self) -> bool {
+        self.exit == Exit::Menu
+    }
     pub fn running(&self) -> bool {
-        self.job.is_some() || self.handoff_job.is_some()
-    }
-    pub fn focused_question(&self) -> Option<&Question> {
-        self.scope_pending
-            .as_ref()
-            .filter(|(_, q)| self.available(q))
-            .map(|(_, q)| q)
-            .or_else(|| {
-                self.restored_questions
-                    .iter()
-                    .find(|q| self.available(q))
-                    .or_else(|| {
-                        self.guess
-                            .as_ref()?
-                            .questions
-                            .iter()
-                            .find(|q| self.available(q))
-                    })
-            })
-    }
-    fn available(&self, q: &Question) -> bool {
-        !q.target
-            .is_some_and(|target| self.skipped.iter().any(|s| s.target == Some(target)))
-            && !self
-                .skipped
-                .iter()
-                .any(|s| s.id == q.id || s.text.trim().eq_ignore_ascii_case(q.text.trim()))
-            && !self.settled.iter().any(|s| same_question(&s.question, q))
-            && !self
-                .sources
-                .iter()
-                .any(|s| s.in_reply_to.as_deref() == Some(q.id.as_str()))
+        self.shaping.job.is_some() || self.handoff.job.is_some()
     }
     fn reading_line_style(&self, line: &str, palette: Palette) -> ratatui::style::Style {
         if self
-            .changed_lines
-            .as_ref()
+            .conversation
+            .changed_lines()
             .is_some_and(|changed| !changed.contains(line))
         {
             palette.muted
@@ -534,38 +557,18 @@ impl BrainDump {
             palette.ink
         }
     }
-    pub fn open_parts(&self) -> Vec<Part> {
-        let mut open = self
-            .guess
-            .as_ref()
-            .map_or_else(Vec::new, |g| g.open.clone());
-        if let Some(g) = &self.guess {
-            open.extend(g.parts.missing());
-        }
-        open.extend(self.skipped.iter().filter_map(|q| q.target));
-        open.sort();
-        open.dedup();
-        open
-    }
     pub fn goal_ready(&self) -> bool {
         self.input.text.is_empty() && self.goal_ready_without_local_text()
     }
     fn goal_ready_without_local_text(&self) -> bool {
-        self.guess.as_ref().is_some_and(|g| !g.framings.is_empty())
-            && self.applied == self.sources.len()
-            && self.open_parts().is_empty()
-            && self
-                .guess
-                .as_ref()
-                .is_some_and(|g| g.unresolved_notes.is_empty() && g.misfits.is_empty())
-            && self.scope_pending.is_none()
-            && self.focused_question().is_none()
+        self.conversation.nothing_open()
             && !self.running()
-            && self.ready.is_none()
+            && self.shaping.ready.is_none()
             && !self.voice_active()
     }
     pub fn layout(&self) -> Vec<(String, f64, f64)> {
-        self.canvas
+        self.screen
+            .canvas
             .state
             .data
             .nodes
@@ -577,7 +580,8 @@ impl BrainDump {
             .collect()
     }
     pub fn originals(&self) -> String {
-        self.sources
+        self.conversation
+            .sources()
             .iter()
             .map(|s| {
                 format!(
@@ -592,7 +596,7 @@ impl BrainDump {
     }
     pub fn paper(&self) -> String {
         let mut text = "# Tinkery / provisional board\n\nNothing confirmed. Unsaved.\n".to_owned();
-        if let Some(g) = &self.guess {
+        if let Some(g) = self.conversation.board() {
             for f in g.framings.iter() {
                 text.push_str(&format!(
                     "\n## I think this is about… / guess\n\n{}\n\nSupporting words:\n\n{}\n",
@@ -618,14 +622,17 @@ impl BrainDump {
                 agent_text(g.outcome.as_deref().unwrap_or("")),
                 self.misfit_text()
             ));
-            if let Some(q) = self.focused_question() {
+            if let Some(q) = self.conversation.focused_question() {
                 text.push_str(&format!(
                     "\n## One question in focus\n\n{}\n",
                     agent_text(&q.text)
                 ));
             }
             for q in g.questions.iter().filter(|q| {
-                self.focused_question().is_none_or(|f| f.id != q.id) && self.available(q)
+                self.conversation
+                    .focused_question()
+                    .is_none_or(|f| f.id != q.id)
+                    && self.conversation.available(q)
             }) {
                 text.push_str(&format!("\nQueued: {}\n", agent_text(&q.text)));
             }
@@ -634,14 +641,14 @@ impl BrainDump {
                 text.push_str(&format!("\n### {} / candidate\n", a.text()));
             }
         }
-        if !self.settled.is_empty() {
+        if !self.conversation.settled().is_empty() {
             text.push_str(&format!(
                 "\n## Settled questions / answered, not confirmation\n\n{}\n",
                 self.settled_text()
             ));
         }
         text.push_str("\n## Your deliberate extractions / exact excerpts\n");
-        for f in &self.fragments {
+        for f in self.conversation.fragments() {
             text.push_str(&format!(
                 "\n### {} / original {} bytes {}..{}\n\n{}\n",
                 f.id, f.source, f.start, f.end, f.text
@@ -651,21 +658,22 @@ impl BrainDump {
         text
     }
     fn settled_text(&self) -> String {
-        self.settled
+        self.conversation
+            .settled()
             .iter()
             .map(|s| {
                 format!(
                     "{}\nAnswer / original {}: {}",
                     s.question.text,
                     s.source,
-                    self.sources[s.source - 1].text
+                    self.conversation.sources()[s.source - 1].text
                 )
             })
             .collect::<Vec<_>>()
             .join("\n\n")
     }
     fn details_text(&self) -> String {
-        let settled = if self.settled.is_empty() {
+        let settled = if self.conversation.settled().is_empty() {
             String::new()
         } else {
             format!(
@@ -673,16 +681,17 @@ impl BrainDump {
                 self.settled_text()
             )
         };
-        let open = self.guess.as_ref().map_or(String::new(), |g| {
+        let open = self.conversation.board().map_or(String::new(), |g| {
             g.questions
                 .iter()
-                .filter(|q| self.available(q))
+                .filter(|q| self.conversation.available(q))
                 .map(|q| q.text.as_str())
                 .collect::<Vec<_>>()
                 .join("\n")
         });
         let skipped = self
-            .skipped
+            .conversation
+            .skipped()
             .iter()
             .map(|q| q.text.as_str())
             .collect::<Vec<_>>()
@@ -700,12 +709,12 @@ impl BrainDump {
                 format!("Skipped, not resolved\n{skipped}\n\n")
             }
         );
-        context+&self.guess.as_ref().map_or_else(|| "No reading yet.".into(), |g| format!("{}Desired experience\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", if g.framings.len()>2 {format!("All readings / provisional\n{}\n\n",g.framings.iter().enumerate().map(|(i,r)|format!("{}. {}",i+1,agent_text(&r.text))).collect::<Vec<_>>().join("\n\n"))}else{String::new()}, agent_text(g.outcome.as_deref().unwrap_or("Not supplied")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
+        context+&self.conversation.board().map_or_else(|| "No reading yet.".into(), |g| format!("{}Desired experience\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", if g.framings.len()>2 {format!("All readings / provisional\n{}\n\n",g.framings.iter().enumerate().map(|(i,r)|format!("{}. {}",i+1,agent_text(&r.text))).collect::<Vec<_>>().join("\n\n"))}else{String::new()}, agent_text(g.outcome.as_deref().unwrap_or("Not supplied")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
     }
     fn misfit_text(&self) -> String {
         let mut unresolved = self
-            .guess
-            .as_ref()
+            .conversation
+            .board()
             .map(|g| {
                 g.misfits
                     .iter()
@@ -713,11 +722,11 @@ impl BrainDump {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        if let Some(g) = &self.guess {
+        if let Some(g) = self.conversation.board() {
             unresolved.extend(g.unresolved_notes.iter().cloned());
         }
-        if let Some((id, _)) = &self.scope_pending
-            && let Some(source) = self.sources.iter().find(|s| s.id == *id)
+        if let Some((id, _)) = self.conversation.scope_pending()
+            && let Some(source) = self.conversation.sources().iter().find(|s| s.id == *id)
         {
             unresolved.push(format!("Added words — scope not answered\n{}", source.text));
         }
@@ -728,52 +737,8 @@ impl BrainDump {
         }
     }
     fn encoded_bytes(&self) -> Option<usize> {
-        let mut sources = self.sources.clone();
-        let mut settled = self.settled.clone();
-        if !self.input.text.trim().is_empty() {
-            let sid = sources.len() + 1;
-            let q = self.focused_question().filter(|_| !self.add_more).cloned();
-            if let Some(q) = &q {
-                settled.push(Settled {
-                    question: q.clone(),
-                    source: sid,
-                });
-            }
-            sources.push(Source {
-                id: sid,
-                text: self.input.text.clone(),
-                in_reply_to: q.map(|q| q.id),
-            });
-        }
-        let mut r = BoardRequest {
-            ask_counts: self.ask_counts.clone(),
-            answered: sources
-                .iter()
-                .filter_map(|s| s.in_reply_to.clone())
-                .collect(),
-            sources,
-            settled,
-            previous: self.guess.as_ref().map(|g| g.wire()),
-            fragments: self.fragments.clone(),
-            skipped: self.skipped.clone(),
-            layout: self.layout(),
-        };
-        let answering_scope = !self.add_more
-            && !self.input.text.trim().is_empty()
-            && self
-                .scope_pending
-                .as_ref()
-                .is_some_and(|(_, q)| self.focused_question().is_some_and(|f| f.id == q.id));
-        if !answering_scope && let Some((id, _)) = &self.scope_pending {
-            r.sources.retain(|s| s.id != *id);
-            r.fragments.retain(|f| f.source != *id);
-            r.answered = r
-                .sources
-                .iter()
-                .filter_map(|s| s.in_reply_to.clone())
-                .collect();
-        }
-        serde_json::to_vec(&r).ok().map(|b| b.len())
+        self.conversation
+            .encoded_bytes(&self.input.text, self.add_more, self.layout())
     }
     fn diagnostics(&self) -> Vec<String> {
         let mut logs = self
@@ -785,8 +750,11 @@ impl BrainDump {
         logs
     }
     pub fn submit(&mut self) {
-        self.changed_lines = None;
-        if self.receipt.is_some() || self.goal_review.is_some() || self.handoff_job.is_some() {
+        self.conversation.forget_changes();
+        if self.handoff.receipt.is_some()
+            || self.handoff.review.is_some()
+            || self.handoff.job.is_some()
+        {
             return;
         }
         if self.voice_active() {
@@ -800,84 +768,21 @@ impl BrainDump {
             self.notice = "Still thinking; new typing is kept for your next submit.".into();
             return;
         }
-        if self.add_more && self.scope_pending.is_some() {
+        if self.add_more && self.conversation.scope_pending().is_some() {
             self.notice =
                 "Answer the added-words scope question first; your draft stays local.".into();
             return;
         }
-        let mut sources = self.sources.clone();
-        let mut settled = self.settled.clone();
-        let fresh = self.applied == self.sources.len() && self.ready.is_none();
-        let scope_answered = !self.input.text.trim().is_empty()
-            && !self.add_more
-            && self
-                .scope_pending
-                .as_ref()
-                .is_some_and(|(_, q)| self.focused_question().is_some_and(|f| f.id == q.id));
-        let refinement = !self.add_more
-            && self.focused_question().is_none()
-            && self.scope_pending.is_none()
-            && fresh
-            && self
-                .guess
-                .as_ref()
-                .is_some_and(|g| g.parts.compose().is_some());
-        let addition = (self.add_more || (self.focused_question().is_none() && !refinement))
-            && self.guess.is_some()
-            && !self.input.text.trim().is_empty();
-        if addition && self.scope_pending.is_some() {
+        let Ok(staged) = self.conversation.stage(
+            &self.input.text,
+            self.add_more,
+            self.shaping.ready.is_some(),
+            self.layout(),
+        ) else {
             self.notice="An earlier addition is still unresolved; undo its skip to answer scope. New words stay local.".into();
             return;
-        }
-        if !self.input.text.trim().is_empty() {
-            let sid = sources.len() + 1;
-            let question = self
-                .focused_question()
-                .filter(|_| !self.add_more)
-                .cloned()
-                .or_else(|| {
-                    refinement.then(|| Question {
-                        target: None,
-                        id: format!("goal-refinement-{sid}"),
-                        text: "What should change about this goal?".into(),
-                    })
-                });
-            if let Some(q) = &question {
-                settled.push(Settled {
-                    question: q.clone(),
-                    source: sid,
-                });
-            }
-            sources.push(Source {
-                id: sid,
-                text: self.input.text.clone(),
-                in_reply_to: question.map(|q| q.id),
-            });
-        }
-        let mut request = BoardRequest {
-            ask_counts: self.ask_counts.clone(),
-            answered: sources
-                .iter()
-                .filter_map(|s| s.in_reply_to.clone())
-                .collect(),
-            sources,
-            fragments: self.fragments.clone(),
-            previous: self.guess.as_ref().map(|g| g.wire()),
-            skipped: self.skipped.clone(),
-            settled,
-            layout: self.layout(),
         };
-        let staged_sources = request.sources.clone();
-        if !scope_answered && let Some((id, _)) = &self.scope_pending {
-            request.sources.retain(|s| s.id != *id);
-            request.fragments.retain(|f| f.source != *id);
-        }
-        request.answered = request
-            .sources
-            .iter()
-            .filter_map(|s| s.in_reply_to.clone())
-            .collect();
-        let bytes = match serde_json::to_vec(&request) {
+        let bytes = match serde_json::to_vec(&staged.request) {
             Ok(b) => b.len(),
             Err(e) => {
                 self.notice = format!("Cannot encode request: {e}. Words retained.");
@@ -891,7 +796,7 @@ impl BrainDump {
             format!("Encoded request: {bytes} / 32768 bytes; no truncation or dropped originals."),
             std::time::Instant::now(),
         );
-        cap.request_key = checks::request_key(&request);
+        cap.request_key = checks::request_key(&staged.request);
         self.local_checks.push(cap);
         if bytes > 32768 {
             self.notice = format!(
@@ -899,197 +804,112 @@ impl BrainDump {
             );
             return;
         }
-        if staged_sources.len() > self.sources.len() {
-            self.sources = staged_sources;
-            self.settled = request.settled.clone();
+        if staged.adds_words(&self.conversation) {
+            self.conversation.commit(&staged);
             // Answers keep the dump in view (reachable with Ctrl-PgUp/PgDn). Added words are
             // unresolved and asked about, so they come into view.
-            if addition {
-                self.source_view = self.sources.len() - 1;
-                self.source_scroll = 0;
-                self.source_cursor = 0;
+            if staged.addition {
+                self.screen.source_view = self.conversation.sources().len() - 1;
+                self.screen.source_scroll = 0;
+                self.screen.source_cursor = 0;
             }
-            self.selection = None;
-            self.drag_anchor = None;
+            self.screen.selection = None;
+            self.screen.drag_anchor = None;
             self.input = Note::new("");
-            self.input_scroll = 0;
+            self.screen.input_scroll = 0;
             self.add_more = false;
-            if addition {
-                let sid = self.sources.len();
-                self.scope_pending = Some((
-                    sid,
-                    Question {
-                        target: None,
-                        id: format!("scope-addition-{sid}"),
-                        text: "Should these added words be part of this goal, or stay separate?"
-                            .into(),
-                    },
-                ));
-                if fresh {
-                    self.applied = self.sources.len();
-                }
+            if staged.addition {
                 self.notice="Added words kept unresolved, outside the reading, until you answer their scope question.".into();
                 return;
             }
-            if scope_answered {
-                self.scope_pending = None;
-            }
         }
-        if self
-            .scope_pending
-            .as_ref()
-            .is_some_and(|(_, q)| self.available(q))
-        {
+        let mut request = staged.request;
+        if self.conversation.awaiting_scope() {
             self.notice =
                 "Added words remain unresolved; answer their scope question before reshaping."
                     .into();
             return;
         }
-        if self.sources.len() == self.applied {
+        if self.conversation.caught_up() {
             self.notice = "Write something before submitting; no request sent.".into();
             return;
         }
-        if let Some((r, result)) = self.ready.take() {
+        if let Some((r, result)) = self.shaping.ready.take() {
             self.apply_result(r, result);
-            request.previous = self.guess.as_ref().map(|g| g.wire());
-            request.ask_counts = self.ask_counts.clone();
+            self.conversation.refresh(&mut request);
         }
         if serde_json::to_vec(&request).map_or(true, |b| b.len() > 32768) {
             self.notice="Updated encoded request exceeds 32 KiB; your words remain in originals. No request sent.".into();
             return;
         }
-        self.changed_lines = None;
+        self.conversation.forget_changes();
         let host = self.host.clone();
         let worker_request = request.clone();
-        self.job = Some(Job::launch(move |cancelled| {
+        self.shaping.job = Some(Job::launch(move |cancelled| {
             host.reshape(worker_request, cancelled)
         }));
-        self.request = Some(request);
-        self.canvas.cancel_gesture();
-        self.drag_anchor = None;
+        self.shaping.request = Some(request);
+        self.screen.canvas.cancel_gesture();
+        self.screen.drag_anchor = None;
         self.notice = "Thinking after submit… Esc cancels. New typing stays local.".into();
     }
-    fn add_fragment(&mut self, source: usize, text: &str, start: usize, end: usize) {
-        let excerpt = &text[start..end];
-        if excerpt.is_empty() {
+    /// Place a card for the newest fragment on the canvas, clear of the others.
+    fn place_card(&mut self) {
+        let Some(fragment) = self.conversation.fragments().last() else {
             return;
-        }
-        let i = self.fragments.len();
+        };
+        let canvas = &mut self.screen.canvas;
+        let i = self.conversation.fragments().len() - 1;
         if i == 0 {
-            self.canvas.state.zoom = 0.1;
-            self.canvas.state.viewport_x = (f64::from(self.canvas.area.width) / 2.0 - 1.0) / 0.1;
-            self.canvas.state.viewport_y = (f64::from(self.canvas.area.height) / 2.0 - 1.0) / 0.1;
+            canvas.state.zoom = 0.1;
+            canvas.state.viewport_x = (f64::from(canvas.area.width) / 2.0 - 1.0) / 0.1;
+            canvas.state.viewport_y = (f64::from(canvas.area.height) / 2.0 - 1.0) / 0.1;
         }
-        let id = format!("f{}", i + 1);
         let x = (i % 2) as f64 * 200.0;
         let mut y = (i / 2) as f64 * 80.0;
-        while self.canvas.state.data.nodes.iter().any(|n| {
+        while canvas.state.data.nodes.iter().any(|n| {
             let (nx, ny) = n.pos();
             let (w, h) = n.size();
             x < nx + w && x + 190.0 > nx && y < ny + h && y + 70.0 > ny
         }) {
             y += 80.0;
         }
-        self.fragments.push(Fragment {
-            id: id.clone(),
-            source,
-            start,
-            end,
-            text: excerpt.to_owned(),
-        });
-        self.canvas
-            .state
-            .data
-            .nodes
-            .push(CanvasNode::Text(TextNode {
-                id: id.clone(),
-                title: Some(intact_view::title(excerpt)),
-                text: excerpt.to_owned(),
-                x,
-                y,
-                width: 190.0,
-                height: 70.0,
-                color: None,
-                shape: Default::default(),
-            }));
+        canvas.state.data.nodes.push(CanvasNode::Text(TextNode {
+            id: fragment.id.clone(),
+            title: Some(intact_view::title(&fragment.text)),
+            text: fragment.text.clone(),
+            x,
+            y,
+            width: 190.0,
+            height: 70.0,
+            color: None,
+            shape: Default::default(),
+        }));
     }
     pub fn tick(&mut self) {
         self.voice_tick();
         self.goal_tick();
-        if let Some(result) = self.job.as_ref().and_then(Job::poll) {
-            self.job.take();
-            let request = self.request.take().unwrap();
+        if let Some(result) = self.shaping.job.as_ref().and_then(Job::poll) {
+            self.shaping.job.take();
+            let request = self.shaping.request.take().unwrap();
             if self.input.text.is_empty() && !self.voice_active() {
                 self.apply_result(request, result);
             } else {
-                self.ready = Some((request, result));
+                self.shaping.ready = Some((request, result));
                 self.notice =
                     "Reply ready; no interruption while typing. F2 submits when ready.".into();
             }
         }
     }
-    fn apply_result(&mut self, mut request: BoardRequest, result: Result<Guess, String>) {
-        request.ask_counts = self.ask_counts.clone();
-        request.skipped = self.skipped.clone();
-        request.settled = self
-            .settled
-            .iter()
-            .filter(|s| request.sources.iter().any(|source| source.id == s.source))
-            .cloned()
-            .collect();
-        request.answered = self
-            .sources
-            .iter()
-            .filter_map(|s| s.in_reply_to.clone())
-            .collect();
-        match result.and_then(|mut g| {
-            g.questions.retain(|q| {
-                !request.answered.contains(&q.id)
-                    && !request.skipped.iter().any(|s| same_question(s, q))
-                    && !request
-                        .settled
-                        .iter()
-                        .any(|s| same_question(&s.question, q))
-            });
-            board::Board::verify(g, &request)
-        }) {
-            Ok(board) => {
-                self.changed_lines = self.guess.as_ref().and_then(|old| {
-                    if !request
-                        .sources
-                        .iter()
-                        .any(|s| s.id > self.applied && s.in_reply_to.is_some())
-                    {
-                        return None;
-                    }
-                    let previous = old.parts.compose().unwrap_or_default();
-                    let current = board.parts.compose().unwrap_or_default();
-                    let changed = current
-                        .lines()
-                        .filter(|line| !previous.lines().any(|old| old == *line))
-                        .map(str::to_owned)
-                        .collect::<std::collections::BTreeSet<_>>();
-                    (current != previous).then_some(changed)
-                });
-                if let Some(q) = board.questions.front()
-                    && let Some(target) = q.target
-                    && !self
-                        .guess
-                        .as_ref()
-                        .is_some_and(|old| old.questions.iter().any(|old| same_question(old, q)))
-                {
-                    *self.ask_counts.entry(target).or_default() += 1;
-                }
-                self.last_failure = None;
-                self.guess = Some(board);
-                self.applied = request.sources.iter().map(|s| s.id).max().unwrap_or(0);
-                self.paper_scroll = 0;
-                self.reading = 0;
+    fn apply_result(&mut self, request: BoardRequest, result: Result<Guess, String>) {
+        match self.conversation.apply(request, result) {
+            Ok(()) => {
+                self.screen.paper_scroll = 0;
+                self.screen.reading = 0;
                 self.notice =
                     "Reshaped after submit. Your positions kept; nothing confirmed.".into();
             }
             Err(e) => {
-                self.last_failure = Some(e.clone());
                 self.notice = format!(
                     "Reshape failed: {e} Original and previous board retained; F2 retries."
                 );
@@ -1097,17 +917,21 @@ impl BrainDump {
         }
     }
     pub fn paste(&mut self, text: &str) {
-        self.changed_lines = None;
+        self.conversation.forget_changes();
         self.clear_limit_notice();
-        if self.leave_prompt || self.help || self.details || self.original {
+        if self.screen.leave_prompt
+            || self.screen.help
+            || self.screen.details
+            || self.screen.original
+        {
             return;
         }
         if self.goal_paste(text) {
             return;
         }
-        if !self.original
-            && !self.help
-            && !self.board_focus
+        if !self.screen.original
+            && !self.screen.help
+            && !self.screen.board_focus
             && let Err(_) = self.input.insert(text)
         {
             self.notice = yohaku::LIMIT_TEXT.into();
@@ -1116,25 +940,22 @@ impl BrainDump {
     pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {
         let host = self.host.clone();
         let real = self.real;
-        let config = self.goal_config.clone();
+        let config = self.handoff.config.clone();
         let voice = self.voice.is_some();
         Box::new(move || {
             let mut dump = Self::with_mode(host.clone(), real);
-            dump.goal_config = config.as_ref().map(seed_me::Config::fresh);
+            dump.handoff.config = config.as_ref().map(seed_me::Config::fresh);
             if voice {
                 dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
             }
             dump
         })
     }
-    pub fn take_shape_request(&mut self) -> Option<std::path::PathBuf> {
-        self.shape_request.take()
-    }
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()
     }
     pub fn copy_result(&mut self, sent: bool) {
-        self.notice = match (sent, self.receipt.is_some()) {
+        self.notice = match (sent, self.handoff.receipt.is_some()) {
             (true, true) => "Copied.",
             (true, false) => "Copy sent; host may require clipboard permission.",
             (false, true) => "Clipboard send failed; goal retained.",
@@ -1143,7 +964,7 @@ impl BrainDump {
         .into();
     }
     pub fn handle_key(&mut self, mut key: KeyEvent) {
-        self.changed_lines = None;
+        self.conversation.forget_changes();
         if key.kind == KeyEventKind::Release {
             return;
         }
@@ -1164,11 +985,11 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::F(10) {
-            if self.handoff_job.is_some() {
+            if self.handoff.job.is_some() {
                 if let Some(voice) = &mut self.voice {
                     voice.close();
                 }
-                self.exit_after_handoff = true;
+                self.handoff.exit_after = true;
                 self.notice =
                     "Waiting for durable goal read-back before returning to the menu.".into();
             } else {
@@ -1176,38 +997,38 @@ impl BrainDump {
             }
             return;
         }
-        if self.receipt.is_some() {
+        if self.handoff.receipt.is_some() {
             if key.kind == KeyEventKind::Repeat || !key.modifiers.is_empty() {
                 return;
             }
             if key.code == KeyCode::F(1) {
-                if self.help && !self.help_all && !self.how {
-                    self.help_all = true;
+                if self.screen.help && !self.screen.help_all && !self.screen.how {
+                    self.screen.help_all = true;
                 } else {
-                    self.help = !self.help;
-                    self.help_all = false;
+                    self.screen.help = !self.screen.help;
+                    self.screen.help_all = false;
                 }
-                self.how = false;
-                self.original_scroll = 0;
-            } else if self.help {
+                self.screen.how = false;
+                self.screen.original_scroll = 0;
+            } else if self.screen.help {
                 match key.code {
                     KeyCode::Char('h') => {
-                        self.how = !self.how;
-                        self.original_scroll = 0;
+                        self.screen.how = !self.screen.how;
+                        self.screen.original_scroll = 0;
                     }
-                    KeyCode::Esc if self.how => {
-                        self.how = false;
-                        self.original_scroll = 0;
+                    KeyCode::Esc if self.screen.how => {
+                        self.screen.how = false;
+                        self.screen.original_scroll = 0;
                     }
                     KeyCode::Esc => {
-                        self.help = false;
-                        self.help_all = false;
+                        self.screen.help = false;
+                        self.screen.help_all = false;
                     }
                     KeyCode::PageDown | KeyCode::Down => {
-                        self.original_scroll = self.original_scroll.saturating_add(5)
+                        self.screen.original_scroll = self.screen.original_scroll.saturating_add(5)
                     }
                     KeyCode::PageUp | KeyCode::Up => {
-                        self.original_scroll = self.original_scroll.saturating_sub(5)
+                        self.screen.original_scroll = self.screen.original_scroll.saturating_sub(5)
                     }
                     _ => {}
                 }
@@ -1219,7 +1040,7 @@ impl BrainDump {
         if self.voice_key(key) {
             return;
         }
-        if !self.leave_prompt && matches!(key.code, KeyCode::F(2..=9)) {
+        if !self.screen.leave_prompt && matches!(key.code, KeyCode::F(2..=9)) {
             match key.code {
                 KeyCode::F(2) if key.modifiers.contains(KeyModifiers::SHIFT) => {
                     key.code = KeyCode::Char('n');
@@ -1231,11 +1052,11 @@ impl BrainDump {
                     return;
                 }
                 KeyCode::F(4) => {
-                    if !self.sources.is_empty() {
-                        self.original = true;
-                        self.help = false;
-                        self.details = false;
-                        self.original_scroll = 0;
+                    if !self.conversation.sources().is_empty() {
+                        self.screen.original = true;
+                        self.screen.help = false;
+                        self.screen.details = false;
+                        self.screen.original_scroll = 0;
                     }
                     return;
                 }
@@ -1244,11 +1065,11 @@ impl BrainDump {
                     return;
                 }
                 KeyCode::F(8..=9)
-                    if self.goal_review.is_none()
-                        && self.receipt.is_none()
-                        && !self.help
-                        && !self.details
-                        && !self.original =>
+                    if self.handoff.review.is_none()
+                        && self.handoff.receipt.is_none()
+                        && !self.screen.help
+                        && !self.screen.details
+                        && !self.screen.original =>
                 {
                     if key.code == KeyCode::F(8) {
                         self.skip_question();
@@ -1258,11 +1079,11 @@ impl BrainDump {
                     return;
                 }
                 KeyCode::F(7)
-                    if self.goal_review.is_none()
-                        && self.receipt.is_none()
-                        && !self.help
-                        && !self.details
-                        && !self.original =>
+                    if self.handoff.review.is_none()
+                        && self.handoff.receipt.is_none()
+                        && !self.screen.help
+                        && !self.screen.details
+                        && !self.screen.original =>
                 {
                     self.toggle_cards();
                     return;
@@ -1271,63 +1092,64 @@ impl BrainDump {
                 _ => {}
             }
         }
-        if self.leave_prompt && key.kind == KeyEventKind::Repeat {
+        if self.screen.leave_prompt && key.kind == KeyEventKind::Repeat {
             return;
         }
         // Ctrl-C never leaves: it copies a selection, or cancels a running request.
         if ctrl && key.code == KeyCode::Char('c') {
             if let Some(text) = self.selected_text() {
                 self.copy = Some(text);
-            } else if self.running() && !self.leave_prompt {
-                self.job.take();
-                self.request = None;
+            } else if self.running() && !self.screen.leave_prompt {
+                self.shaping.job.take();
+                self.shaping.request = None;
                 self.notice = "Cancelled; original and previous board retained. F2 retries.".into();
             }
             return;
         }
-        if self.leave_prompt {
+        if self.screen.leave_prompt {
             match key.code {
                 KeyCode::Char('y' | 'Y')
                     if !key.modifiers.intersects(
                         KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
                     ) =>
                 {
-                    self.quit = true
+                    self.leave()
                 }
-                KeyCode::Char('n' | 'N') | KeyCode::Esc => self.leave_prompt = false,
+                KeyCode::Char('n' | 'N') | KeyCode::Esc => self.screen.leave_prompt = false,
                 _ => {}
             }
             return;
         }
         if key.code == KeyCode::F(1) {
             // F1 cycles: what to do now → every action → closed.
-            if self.help && !self.help_all && !self.how {
-                self.help_all = true;
+            if self.screen.help && !self.screen.help_all && !self.screen.how {
+                self.screen.help_all = true;
             } else {
-                self.help = !self.help;
-                self.help_all = false;
+                self.screen.help = !self.screen.help;
+                self.screen.help_all = false;
             }
-            self.how = false;
-            self.original = false;
-            self.details = false;
-            self.original_scroll = 0;
+            self.screen.how = false;
+            self.screen.original = false;
+            self.screen.details = false;
+            self.screen.original_scroll = 0;
             return;
         }
         if ctrl && key.code == KeyCode::Char('d') {
             self.toggle_details();
             return;
         }
-        if self.goal_review.is_some()
-            && !self.help
-            && !self.details
-            && !self.original
+        if self.handoff.review.is_some()
+            && !self.screen.help
+            && !self.screen.details
+            && !self.screen.original
             && ctrl
             && matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
         {
             self.handle_source_key(key);
             return;
         }
-        if !self.original && !self.help && !self.details && self.goal_key(key) {
+        if !self.screen.original && !self.screen.help && !self.screen.details && self.goal_key(key)
+        {
             return;
         }
         if ctrl && key.code == KeyCode::Char('g') {
@@ -1336,44 +1158,44 @@ impl BrainDump {
         }
         if key.code == KeyCode::Esc
             && self.running()
-            && !self.original
-            && !self.help
-            && !self.details
+            && !self.screen.original
+            && !self.screen.help
+            && !self.screen.details
         {
-            self.job.take();
-            self.request = None;
+            self.shaping.job.take();
+            self.shaping.request = None;
             self.notice = "Cancelled; original and previous board retained. F2 retries.".into();
             return;
         }
-        if self.original || self.help || self.details {
-            if self.help && !ctrl && key.code == KeyCode::Char('b') {
-                self.key_bar = !self.key_bar;
+        if self.screen.original || self.screen.help || self.screen.details {
+            if self.screen.help && !ctrl && key.code == KeyCode::Char('b') {
+                self.screen.key_bar = !self.screen.key_bar;
                 return;
             }
             if key.code == KeyCode::Char('h') && !ctrl {
-                self.help = true;
-                self.original = false;
-                self.details = false;
-                self.how = !self.how;
-                self.original_scroll = 0;
+                self.screen.help = true;
+                self.screen.original = false;
+                self.screen.details = false;
+                self.screen.how = !self.screen.how;
+                self.screen.original_scroll = 0;
                 return;
             }
             match key.code {
-                KeyCode::Esc if self.help && self.how => {
-                    self.how = false;
-                    self.original_scroll = 0;
+                KeyCode::Esc if self.screen.help && self.screen.how => {
+                    self.screen.how = false;
+                    self.screen.original_scroll = 0;
                 }
                 KeyCode::Esc => {
-                    self.original = false;
-                    self.help = false;
-                    self.help_all = false;
-                    self.details = false;
+                    self.screen.original = false;
+                    self.screen.help = false;
+                    self.screen.help_all = false;
+                    self.screen.details = false;
                 }
                 KeyCode::PageDown | KeyCode::Down => {
-                    self.original_scroll = self.original_scroll.saturating_add(5)
+                    self.screen.original_scroll = self.screen.original_scroll.saturating_add(5)
                 }
                 KeyCode::PageUp | KeyCode::Up => {
-                    self.original_scroll = self.original_scroll.saturating_sub(5)
+                    self.screen.original_scroll = self.screen.original_scroll.saturating_sub(5)
                 }
                 _ => {}
             }
@@ -1401,16 +1223,22 @@ impl BrainDump {
                 }
                 .into();
             }
-            KeyCode::Char('o') if ctrl && !self.sources.is_empty() => {
-                self.original = true;
-                self.original_scroll = 0;
+            KeyCode::Char('o') if ctrl && !self.conversation.sources().is_empty() => {
+                self.screen.original = true;
+                self.screen.original_scroll = 0;
             }
             KeyCode::Char('z') if ctrl => self.undo_skip(),
-            KeyCode::PageDown => self.paper_scroll = self.paper_scroll.saturating_add(5),
-            KeyCode::PageUp => self.paper_scroll = self.paper_scroll.saturating_sub(5),
-            KeyCode::Char('f') if self.board_focus && ctrl => {
-                self.canvas.state.fit_to_view(self.canvas.area)
+            KeyCode::PageDown => {
+                self.screen.paper_scroll = self.screen.paper_scroll.saturating_add(5)
             }
+            KeyCode::PageUp => {
+                self.screen.paper_scroll = self.screen.paper_scroll.saturating_sub(5)
+            }
+            KeyCode::Char('f') if self.screen.board_focus && ctrl => self
+                .screen
+                .canvas
+                .state
+                .fit_to_view(self.screen.canvas.area),
             KeyCode::Char(c) if !ctrl => {
                 // Typing always writes; the app returns focus to the writing box itself.
                 self.focus_writing();
@@ -1447,7 +1275,8 @@ impl BrainDump {
                     _ => Motion::End,
                 };
                 let extend = key.modifiers.contains(KeyModifiers::SHIFT);
-                self.input.navigate(motion, extend, self.input_area.width);
+                self.input
+                    .navigate(motion, extend, self.screen.input_area.width);
             }
             KeyCode::Char('a') if ctrl => self.select_all(),
             KeyCode::Char('u') if ctrl => self.input = Note::new(""),
@@ -1461,8 +1290,7 @@ impl BrainDump {
     }
     /// F8: skip the question in focus. Ctrl-Z brings it back.
     fn skip_question(&mut self) {
-        if let Some(q) = self.focused_question().cloned() {
-            self.skipped.push(q);
+        if self.conversation.skip_focused() {
             self.notice = "Question skipped. Ctrl-Z brings it back.".into();
         }
     }
@@ -1478,93 +1306,80 @@ impl BrainDump {
     /// F7 / Ctrl-X: show or hide the extracted cards that replace the original. While
     /// they cover it the original is hidden, so it holds no selection and no focus.
     pub(super) fn toggle_cards(&mut self) {
-        if self.sources.is_empty() {
+        if self.conversation.sources().is_empty() {
             return;
         }
-        if self.fragments.is_empty() {
+        if self.conversation.fragments().is_empty() {
             self.notice = "No extracted cards. Select source text, then Ctrl-E.".into();
         } else {
-            self.show_extractions = !self.show_extractions;
-            if self.show_extractions {
+            self.screen.show_extractions = !self.screen.show_extractions;
+            if self.screen.show_extractions {
                 // Cards take the focus the original had (Enter on a card returns to its
                 // source); the hidden original keeps no selection to copy.
-                self.board_focus = true;
+                self.screen.board_focus = true;
                 self.input.collapse();
-                self.input_drag = false;
-                self.selection = None;
+                self.screen.input_drag = false;
+                self.screen.selection = None;
             }
         }
-        self.canvas.cancel_gesture();
-        self.drag_anchor = None;
+        self.screen.canvas.cancel_gesture();
+        self.screen.drag_anchor = None;
     }
     fn undo_skip(&mut self) {
-        if let Some(q) = self.skipped.pop() {
-            if !self.settled.iter().any(|s| same_question(&s.question, &q))
-                && !self
-                    .sources
-                    .iter()
-                    .any(|s| s.in_reply_to.as_ref() == Some(&q.id))
-            {
-                if self
-                    .scope_pending
-                    .as_ref()
-                    .is_none_or(|(_, pending)| pending.id != q.id)
-                    && !self
-                        .restored_questions
-                        .iter()
-                        .any(|old| same_question(old, &q))
-                {
-                    self.restored_questions.insert(0, q);
-                }
-                self.notice = "Skip undone; question restored.".into();
-            } else {
-                self.notice = "That question has since been answered; it wasn't reopened.".into();
+        match self.conversation.undo_skip() {
+            Some(true) => self.notice = "Skip undone; question restored.".into(),
+            Some(false) => {
+                self.notice = "That question has since been answered; it wasn't reopened.".into()
             }
+            None => {}
         }
     }
     fn toggle_details(&mut self) {
-        if self.sources.is_empty() {
+        if self.conversation.sources().is_empty() {
             self.notice = "No details before a submit; no request sent.".into();
             return;
         }
-        let was_modal = self.original || self.help;
-        self.drag_anchor = None;
-        self.original = false;
-        self.help = false;
-        self.details = was_modal || !self.details;
-        self.paper_scroll = 0;
+        let was_modal = self.screen.original || self.screen.help;
+        self.screen.drag_anchor = None;
+        self.screen.original = false;
+        self.screen.help = false;
+        self.screen.details = was_modal || !self.screen.details;
+        self.screen.paper_scroll = 0;
     }
     /// Tab / Shift-Tab: the one route between writing and the left original.
     /// Either key toggles, so the way back is always the same key. Needs a source.
     fn toggle_original_focus(&mut self) {
-        if self.board_focus {
+        if self.screen.board_focus {
             self.focus_writing();
-        } else if !self.sources.is_empty() && self.goal_review.is_none() && !self.show_extractions {
-            self.board_focus = true;
+        } else if !self.conversation.sources().is_empty()
+            && self.handoff.review.is_none()
+            && !self.screen.show_extractions
+        {
+            self.screen.board_focus = true;
             self.input.collapse();
-            self.input_drag = false;
-            self.selection = None;
-            self.drag_anchor = None;
-            self.canvas.cancel_gesture();
+            self.screen.input_drag = false;
+            self.screen.selection = None;
+            self.screen.drag_anchor = None;
+            self.screen.canvas.cancel_gesture();
         }
     }
     /// Return to the writing box. A selection in the original belongs to that focus
     /// and is dropped here, so a later Ctrl-C can never copy it by accident.
     pub(super) fn focus_writing(&mut self) {
-        self.board_focus = false;
-        self.selection = None;
-        self.drag_anchor = None;
+        self.screen.board_focus = false;
+        self.screen.selection = None;
+        self.screen.drag_anchor = None;
     }
     /// Ctrl-A selects everything in the active text surface only: the writing box, or the
     /// one original in view. It never spans sources.
     fn select_all(&mut self) {
-        if self.board_focus {
-            if self.show_extractions {
+        if self.screen.board_focus {
+            if self.screen.show_extractions {
                 return; // the original is covered by cards: nothing to select
             }
-            if let Some(source) = self.sources.get(self.source_view) {
-                self.selection = (!source.text.is_empty()).then_some((0, source.text.len()));
-                self.source_cursor = source.text.len();
+            if let Some(source) = self.conversation.sources().get(self.screen.source_view) {
+                self.screen.selection = (!source.text.is_empty()).then_some((0, source.text.len()));
+                self.screen.source_cursor = source.text.len();
             }
         } else {
             self.input.select_all();
@@ -1573,20 +1388,24 @@ impl BrainDump {
     /// Exact text of the active surface's nonempty selection: the original while it has
     /// focus, otherwise the writing box. Nothing is copied from a surface that is hidden.
     fn selected_text(&self) -> Option<String> {
-        if self.original || self.help || self.details {
+        if self.screen.original || self.screen.help || self.screen.details {
             return None;
         }
-        if !self.board_focus {
-            if self.goal_review.is_some() {
+        if !self.screen.board_focus {
+            if self.handoff.review.is_some() {
                 return None;
             }
             return self.input.selected_text().map(str::to_owned);
         }
-        if self.show_extractions {
+        if self.screen.show_extractions {
             return None; // cards cover the original: never copy text that isn't on screen
         }
-        let (a, b) = self.selection?;
-        let text = &self.sources.get(self.source_view)?.text;
+        let (a, b) = self.screen.selection?;
+        let text = &self
+            .conversation
+            .sources()
+            .get(self.screen.source_view)?
+            .text;
         let (start, end) = (a.min(b), a.max(b));
         text.get(start..end)
             .filter(|t| !t.is_empty())
@@ -1594,13 +1413,13 @@ impl BrainDump {
     }
     /// What the left side is showing, in plain words; none while there's only the dump.
     pub(super) fn source_label(&self) -> Option<String> {
-        if self.sources.len() < 2 {
+        if self.conversation.sources().len() < 2 {
             return None;
         }
-        let source = self.sources.get(self.source_view)?;
+        let source = self.conversation.sources().get(self.screen.source_view)?;
         let Some(id) = &source.in_reply_to else {
             return Some(
-                if self.source_view == 0 {
+                if self.screen.source_view == 0 {
                     "your dump"
                 } else {
                     "added later"
@@ -1608,14 +1427,7 @@ impl BrainDump {
                 .into(),
             );
         };
-        let question = self
-            .settled
-            .iter()
-            .map(|s| &s.question)
-            .chain(self.skipped.iter())
-            .chain(self.guess.iter().flat_map(|g| g.questions.iter()))
-            .find(|q| &q.id == id)
-            .map(|q| q.text.clone());
+        let question = self.conversation.question(id).map(|q| q.text.clone());
         Some(match question {
             Some(q) => {
                 let short: String = q.chars().take(48).collect();
@@ -1626,96 +1438,106 @@ impl BrainDump {
         })
     }
     pub fn key_bar_on(&self) -> bool {
-        self.key_bar
+        self.screen.key_bar
     }
     pub fn with_key_bar(mut self, on: bool) -> Self {
-        self.key_bar = on;
+        self.screen.key_bar = on;
         self
     }
     fn request_leave(&mut self) {
         if let Some(voice) = &mut self.voice {
             voice.close();
         }
-        if self.leave_prompt
-            || self.receipt.is_some()
-            || (self.input.text.is_empty()
-                && self.sources.is_empty()
-                && self.guess.is_none()
-                && !self.running())
+        if self.screen.leave_prompt
+            || self.handoff.receipt.is_some()
+            || (self.input.text.is_empty() && self.conversation.is_empty() && !self.running())
         {
-            self.quit = true;
+            self.leave();
         } else {
-            self.leave_prompt = true;
+            self.screen.leave_prompt = true;
         }
     }
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
-        if self.leave_prompt {
+        if self.screen.leave_prompt {
             return;
         }
-        if area != self.area {
+        if area != self.screen.area {
             return;
         }
         if event.kind == MouseEventKind::Down(MouseButton::Left)
             && event.row == 1
             && event.column == area.width.saturating_sub(3)
         {
-            self.help = !self.help;
-            self.how = false;
-            self.original = false;
-            self.details = false;
-            self.original_scroll = 0;
+            self.screen.help = !self.screen.help;
+            self.screen.how = false;
+            self.screen.original = false;
+            self.screen.details = false;
+            self.screen.original_scroll = 0;
             return;
         }
-        if self.help || self.original || self.details {
-            self.input_drag = false;
+        if self.screen.help || self.screen.original || self.screen.details {
+            self.screen.input_drag = false;
             match event.kind {
                 MouseEventKind::ScrollDown => {
-                    self.original_scroll = self.original_scroll.saturating_add(3)
+                    self.screen.original_scroll = self.screen.original_scroll.saturating_add(3)
                 }
                 MouseEventKind::ScrollUp => {
-                    self.original_scroll = self.original_scroll.saturating_sub(3)
+                    self.screen.original_scroll = self.screen.original_scroll.saturating_sub(3)
                 }
                 _ => {}
             }
             return;
         }
-        if self.goal_review.is_some() || self.receipt.is_some() {
-            self.input_drag = false;
-            if self.handoff_job.is_none()
-                && self.goal_review.is_some()
+        if self.handoff.review.is_some() || self.handoff.receipt.is_some() {
+            self.screen.input_drag = false;
+            if self.handoff.job.is_none()
+                && self.handoff.review.is_some()
                 && event.kind == MouseEventKind::Down(MouseButton::Left)
-                && self.back_button.contains((event.column, event.row).into())
+                && self
+                    .screen
+                    .back_button
+                    .contains((event.column, event.row).into())
             {
-                self.goal_review = None;
+                self.handoff.review = None;
                 self.notice = "Review closed; nothing confirmed.".into();
                 return;
             }
             if matches!(
                 event.kind,
                 MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
-            ) && self.source_area.contains((event.column, event.row).into())
+            ) && self
+                .screen
+                .source_area
+                .contains((event.column, event.row).into())
             {
                 self.handle_source_mouse(event);
             }
-            if self.receipt.is_some() && self.agent_area.contains((event.column, event.row).into())
+            if self.handoff.receipt.is_some()
+                && self
+                    .screen
+                    .agent_area
+                    .contains((event.column, event.row).into())
             {
                 match event.kind {
                     MouseEventKind::ScrollDown => {
-                        self.paper_scroll = self.paper_scroll.saturating_add(3)
+                        self.screen.paper_scroll = self.screen.paper_scroll.saturating_add(3)
                     }
                     MouseEventKind::ScrollUp => {
-                        self.paper_scroll = self.paper_scroll.saturating_sub(3)
+                        self.screen.paper_scroll = self.screen.paper_scroll.saturating_sub(3)
                     }
                     _ => {}
                 }
             }
             return;
         }
-        if self.handoff_job.is_some() {
+        if self.handoff.job.is_some() {
             return;
         }
         if event.kind == MouseEventKind::Down(MouseButton::Left)
-            && self.goal_button.contains((event.column, event.row).into())
+            && self
+                .screen
+                .goal_button
+                .contains((event.column, event.row).into())
         {
             self.review_goal();
             return;
@@ -1723,47 +1545,56 @@ impl BrainDump {
         if self.handle_source_mouse(event) {
             return;
         }
-        if self.input_area.contains((event.column, event.row).into())
+        if self
+            .screen
+            .input_area
+            .contains((event.column, event.row).into())
             && event.kind == MouseEventKind::Down(MouseButton::Left)
         {
             self.focus_writing();
-            let wrapped = self.input.wrap(self.input_area.width);
+            let wrapped = self.input.wrap(self.screen.input_area.width);
             let index = wrapped.index_at(
-                event.row - self.input_area.y + self.input_scroll,
-                event.column - self.input_area.x,
+                event.row - self.screen.input_area.y + self.screen.input_scroll,
+                event.column - self.screen.input_area.x,
             );
             self.input.begin_drag(index);
-            self.input_drag = true;
+            self.screen.input_drag = true;
             return;
         }
-        if self.input_drag
+        if self.screen.input_drag
             && matches!(
                 event.kind,
                 MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
             )
         {
-            let area = self.input_area;
+            let area = self.screen.input_area;
             let row = event.row.clamp(area.y, area.bottom().saturating_sub(1)) - area.y
-                + self.input_scroll;
+                + self.screen.input_scroll;
             let column = event.column.clamp(area.x, area.right().saturating_sub(1)) - area.x;
             let index = self.input.wrap(area.width).index_at(row, column);
             // False once an edit has ended the drag: release then selects nothing.
             if !self.input.drag_to(index) || matches!(event.kind, MouseEventKind::Up(_)) {
-                self.input_drag = false;
+                self.screen.input_drag = false;
             }
             return;
         }
-        if self.agent_area.contains((event.column, event.row).into()) {
+        if self
+            .screen
+            .agent_area
+            .contains((event.column, event.row).into())
+        {
             match event.kind {
                 MouseEventKind::ScrollDown => {
-                    self.paper_scroll = self.paper_scroll.saturating_add(3)
+                    self.screen.paper_scroll = self.screen.paper_scroll.saturating_add(3)
                 }
-                MouseEventKind::ScrollUp => self.paper_scroll = self.paper_scroll.saturating_sub(3),
+                MouseEventKind::ScrollUp => {
+                    self.screen.paper_scroll = self.screen.paper_scroll.saturating_sub(3)
+                }
                 _ => {}
             }
             return;
         }
-        if self.show_extractions
+        if self.screen.show_extractions
             && !matches!(
                 event.kind,
                 MouseEventKind::Down(MouseButton::Right)
@@ -1771,9 +1602,9 @@ impl BrainDump {
                     | MouseEventKind::Up(MouseButton::Right)
             )
         {
-            self.canvas.mouse(event);
-            if self.canvas.state.floating_editor.is_some() {
-                self.canvas.finish_edit();
+            self.screen.canvas.mouse(event);
+            if self.screen.canvas.state.floating_editor.is_some() {
+                self.screen.canvas.finish_edit();
             }
         }
     }
@@ -1817,13 +1648,14 @@ fn agent_text(text: &str) -> String {
 }
 
 fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palette) {
-    for node in &app.canvas.state.data.nodes {
+    for node in &app.screen.canvas.state.data.nodes {
         let (x, y) = node.pos();
         let (w, h) = node.size();
-        let z = app.canvas.state.zoom;
-        let x =
-            (x - app.canvas.state.viewport_x) * z + f64::from(area.x) + f64::from(area.width) / 2.0;
-        let y = (y - app.canvas.state.viewport_y) * z
+        let z = app.screen.canvas.state.zoom;
+        let x = (x - app.screen.canvas.state.viewport_x) * z
+            + f64::from(area.x)
+            + f64::from(area.width) / 2.0;
+        let y = (y - app.screen.canvas.state.viewport_y) * z
             + f64::from(area.y)
             + f64::from(area.height) / 2.0;
         let right = x + w * z;
@@ -1846,31 +1678,33 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
             continue;
         }
         let supported = app
-            .guess
-            .as_ref()
-            .and_then(|g| g.framings.get(app.reading))
+            .conversation
+            .board()
+            .and_then(|g| g.framings.get(app.screen.reading))
             .is_some_and(|f| {
-                app.fragments
+                app.conversation
+                    .fragments()
                     .iter()
                     .find(|fragment| fragment.id == node.id())
                     .is_some_and(|fragment| {
                         f.supports.iter().any(|anchor| {
                             anchor.source == fragment.source
                                 && anchor
-                                    .range(&app.sources)
+                                    .range(app.conversation.sources())
                                     .is_ok_and(|r| r.start < fragment.end && fragment.start < r.end)
                         })
                     })
             });
-        let misfit = app.guess.as_ref().is_some_and(|g| {
-            app.fragments
+        let misfit = app.conversation.board().is_some_and(|g| {
+            app.conversation
+                .fragments()
                 .iter()
                 .find(|fragment| fragment.id == node.id())
                 .is_some_and(|fragment| {
                     g.misfits.iter().any(|anchor| {
                         anchor.source == fragment.source
                             && anchor
-                                .range(&app.sources)
+                                .range(app.conversation.sources())
                                 .is_ok_and(|r| r.start < fragment.end && fragment.start < r.end)
                     })
                 })
@@ -1889,6 +1723,7 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
                 ratatui::widgets::BorderType::Plain
             });
         if app
+            .screen
             .canvas
             .state
             .selection
@@ -1931,30 +1766,30 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
 }
 fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let (wrapped, text) = voice_input::input_text(app, palette);
-    if wrapped.cursor.0 < app.input_scroll {
-        app.input_scroll = wrapped.cursor.0;
+    if wrapped.cursor.0 < app.screen.input_scroll {
+        app.screen.input_scroll = wrapped.cursor.0;
     }
-    if wrapped.cursor.0 >= app.input_scroll + app.input_area.height {
-        app.input_scroll = wrapped
+    if wrapped.cursor.0 >= app.screen.input_scroll + app.screen.input_area.height {
+        app.screen.input_scroll = wrapped
             .cursor
             .0
-            .saturating_sub(app.input_area.height.saturating_sub(1));
+            .saturating_sub(app.screen.input_area.height.saturating_sub(1));
     }
     frame.render_widget(
         Paragraph::new(text)
             .style(palette.ink)
-            .scroll((app.input_scroll, 0)),
-        app.input_area,
+            .scroll((app.screen.input_scroll, 0)),
+        app.screen.input_area,
     );
     if let Some((start, end)) = app.input.selection()
         && !voice_input::previewing(app)
     {
-        let area = app.input_area;
+        let area = app.screen.input_area;
         for (index, row, column) in &wrapped.positions {
             if *index < start || *index >= end {
                 continue;
             }
-            let Some(row) = row.checked_sub(usize::from(app.input_scroll)) else {
+            let Some(row) = row.checked_sub(usize::from(app.screen.input_scroll)) else {
                 continue;
             };
             let Some(grapheme) = app.input.text[*index..].graphemes(true).next() else {
@@ -1971,15 +1806,19 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             }
         }
     }
-    if !app.board_focus
-        && !app.original
-        && !app.help
-        && app.goal_review.is_none()
-        && app.receipt.is_none()
+    if !app.screen.board_focus
+        && !app.screen.original
+        && !app.screen.help
+        && app.handoff.review.is_none()
+        && app.handoff.receipt.is_none()
     {
         frame.set_cursor_position((
-            app.input_area.x + wrapped.cursor.1.min(app.input_area.width.saturating_sub(1)),
-            app.input_area.y + wrapped.cursor.0.saturating_sub(app.input_scroll),
+            app.screen.input_area.x
+                + wrapped
+                    .cursor
+                    .1
+                    .min(app.screen.input_area.width.saturating_sub(1)),
+            app.screen.input_area.y + wrapped.cursor.0.saturating_sub(app.screen.input_scroll),
         ));
     }
 }
@@ -2003,6 +1842,8 @@ mod board_tests;
 #[cfg(test)]
 mod c16_tests;
 pub mod checks;
+mod conversation;
+pub use conversation::Conversation;
 #[cfg(test)]
 mod dogfood_tests;
 #[cfg(test)]

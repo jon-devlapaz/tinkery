@@ -20,11 +20,11 @@ const SHOWN_NOTICES: [&str; 8] = [
 
 pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let area = frame.area();
-    app.area = area;
+    app.screen.area = area;
     frame.render_widget(Block::default().style(palette.ink), area);
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         frame.render_widget(
-            Paragraph::new(if app.help {
+            Paragraph::new(if app.screen.help {
                 "Help\nF1 or Esc returns. F10 back to the menu.\nResize to 80×24. Words retained."
             } else {
                 "Need 80×24. Words retained."
@@ -34,11 +34,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
         return;
     }
-    app.goal_button = Rect::default();
-    app.back_button = Rect::default();
-    if app.sources.is_empty() {
+    app.screen.goal_button = Rect::default();
+    app.screen.back_button = Rect::default();
+    if app.conversation.sources().is_empty() {
         // Before the first send, help sits beside the draft; the draft never leaves view.
-        let width = if app.help {
+        let width = if app.screen.help {
             area.width * 48 / 100 - 4
         } else {
             area.width - 8
@@ -47,7 +47,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             Paragraph::new("What's on your mind?").style(palette.muted),
             Rect::new(4, 5, width, 1),
         );
-        app.input_area = Rect::new(4, 8, width, area.height - 12);
+        app.screen.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
         if app.notice.starts_with(LIMIT_NOTICE) {
             // The only status the first screen shows: an edit past the limit was refused.
@@ -56,14 +56,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 Rect::new(4, area.height - 3, width, 1),
             );
         }
-        if app.help {
+        if app.screen.help {
             let right = Rect::new(
                 area.width * 48 / 100 + 2,
                 4,
                 area.width - area.width * 48 / 100 - 4,
                 area.height - 6,
             );
-            let text = if app.how {
+            let text = if app.screen.how {
                 how_text(app)
             } else {
                 help_text(app)
@@ -74,8 +74,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             let max = p
                 .line_count(right.width)
                 .saturating_sub(right.height as usize) as u16;
-            app.original_scroll = app.original_scroll.min(max);
-            frame.render_widget(p.scroll((app.original_scroll, 0)), right);
+            app.screen.original_scroll = app.screen.original_scroll.min(max);
+            frame.render_widget(p.scroll((app.screen.original_scroll, 0)), right);
         }
         return;
     }
@@ -86,9 +86,9 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         area.width - area.width * 48 / 100 - 4,
         area.height - 6,
     );
-    app.agent_area = right;
-    app.canvas.area = left;
-    if app.show_extractions {
+    app.screen.agent_area = right;
+    app.screen.canvas.area = left;
+    if app.screen.show_extractions {
         draw_fragments(frame, app, left, palette);
     } else {
         if let Some(label) = app.source_label() {
@@ -99,14 +99,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
         intact_view::render_source(frame, app, left, palette);
     }
-    if app.help || app.original || app.details {
-        let text = if app.help {
-            if app.how {
+    if app.screen.help || app.screen.original || app.screen.details {
+        let text = if app.screen.help {
+            if app.screen.how {
                 how_text(app)
             } else {
                 help_text(app)
             }
-        } else if app.original {
+        } else if app.screen.original {
             app.originals()
         } else {
             format!(
@@ -116,7 +116,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 checks::why(&app.diagnostics())
             )
         };
-        let text = if app.help {
+        let text = if app.screen.help {
             styled_help(text, palette)
         } else {
             ratatui::text::Text::styled(text, palette.ink)
@@ -127,11 +127,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         let max = p
             .line_count(right.width)
             .saturating_sub(right.height as usize) as u16;
-        app.original_scroll = app.original_scroll.min(max);
-        frame.render_widget(p.scroll((app.original_scroll, 0)), right);
+        app.screen.original_scroll = app.screen.original_scroll.min(max);
+        frame.render_widget(p.scroll((app.screen.original_scroll, 0)), right);
         return;
     }
-    if app.goal_review.is_some() || app.receipt.is_some() {
+    if app.handoff.review.is_some() || app.handoff.receipt.is_some() {
         goal_view::render_goal(frame, app, palette);
         return;
     }
@@ -142,14 +142,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         Constraint::Length(2),
     ])
     .split(right);
-    app.agent_area = rows[0];
-    let failure = app.last_failure.as_ref().filter(|_| !app.running());
+    app.screen.agent_area = rows[0];
+    let failure = app.conversation.last_failure().filter(|_| !app.running());
     let content = if let Some(error) = failure {
         let retained = app
-            .guess
-            .as_ref()
+            .conversation
+            .board()
             .map(|g| {
-                g.presented(app.reading)
+                g.presented(app.screen.reading)
                     .iter()
                     .map(|f| agent_text(&f.text))
                     .collect::<Vec<_>>()
@@ -159,19 +159,19 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         format!(
             "Reading failed: {error}\n\nOriginals retained. Retry, inspect Why, or add clarification.\n\n{retained}"
         )
-    } else if app.guess.is_some() {
+    } else if app.conversation.board().is_some() {
         String::new()
     } else if app.running() {
         "Thinking…".into()
-    } else if app.ready.is_some() {
+    } else if app.shaping.ready.is_some() {
         "Reply ready.".into()
-    } else if app.sources.len() != app.applied {
+    } else if !app.conversation.caught_up() {
         "I couldn't form a faithful reading.".into()
     } else {
         String::new()
     };
     let mut text = ratatui::text::Text::from(content);
-    if let (Some(g), None) = (&app.guess, failure) {
+    if let (Some(g), None) = (app.conversation.board(), failure) {
         // One voice, one reading: "I think you mean…".
         let mut lines = vec![];
         lines.push(ratatui::text::Line::styled(
@@ -206,8 +206,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         text = ratatui::text::Text::from(lines);
     }
     if failure.is_some() {
-        let retained_lines = app.guess.as_ref().map_or(0, |g| {
-            g.presented(app.reading)
+        let retained_lines = app.conversation.board().map_or(0, |g| {
+            g.presented(app.screen.reading)
                 .iter()
                 .map(|f| agent_text(&f.text))
                 .collect::<Vec<_>>()
@@ -226,14 +226,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let max = p
         .line_count(rows[0].width)
         .saturating_sub(rows[0].height as usize) as u16;
-    app.paper_scroll = app.paper_scroll.min(max);
-    frame.render_widget(p.scroll((app.paper_scroll, 0)), rows[0]);
-    let question = match app.focused_question() {
+    app.screen.paper_scroll = app.screen.paper_scroll.min(max);
+    frame.render_widget(p.scroll((app.screen.paper_scroll, 0)), rows[0]);
+    let question = match app.conversation.focused_question() {
         Some(q) => ratatui::text::Text::from(vec![
             ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
             ratatui::text::Line::styled(q.text.clone(), palette.jade),
         ]),
-        None => match (open_intent(app), &app.guess) {
+        None => match (open_intent(app), app.conversation.board()) {
             (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
                 if g.framings.is_empty() {
                     line
@@ -249,13 +249,15 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let input = Block::default()
         .title(if app.add_more {
             "add more"
-        } else if app.focused_question().is_none() && app.guess.is_some() {
+        } else if app.conversation.focused_question().is_none()
+            && app.conversation.board().is_some()
+        {
             "anything to add or change?"
         } else {
             "your answer"
         })
         .style(palette.ink);
-    app.input_area = input.inner(rows[2]);
+    app.screen.input_area = input.inner(rows[2]);
     frame.render_widget(input, rows[2]);
     render_input(frame, app, palette);
     if SHOWN_NOTICES.iter().any(|p| app.notice.starts_with(p)) {
@@ -267,7 +269,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
     }
     if let Some(bytes) = app.encoded_bytes().filter(|b| *b >= 28 * 1024) {
-        let offset = if app.goal_button.width > 0 { 14 } else { 0 };
+        let offset = if app.screen.goal_button.width > 0 {
+            14
+        } else {
+            0
+        };
         frame.render_widget(
             Paragraph::new(format!("{bytes} / 32768 bytes")).style(palette.muted),
             Rect::new(
@@ -278,20 +284,21 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             ),
         );
     }
-    if app.running() && app.guess.is_some() && !app.notice.starts_with(LIMIT_NOTICE) {
+    if app.running() && app.conversation.board().is_some() && !app.notice.starts_with(LIMIT_NOTICE)
+    {
         frame.render_widget(
             Paragraph::new("Thinking…").style(palette.muted),
             Rect::new(rows[3].x, rows[3].y + 1, rows[3].width, 1),
         );
     }
     if !app.running()
-        && app.applied != app.sources.len()
-        && app.guess.is_some()
-        && app.scope_pending.is_none()
+        && !app.conversation.caught_up()
+        && app.conversation.board().is_some()
+        && app.conversation.scope_pending().is_none()
         && !SHOWN_NOTICES.iter().any(|p| app.notice.starts_with(p))
     {
         frame.render_widget(
-            Paragraph::new(if app.ready.is_some() {
+            Paragraph::new(if app.shaping.ready.is_some() {
                 "Reply ready."
             } else {
                 "Reading couldn't be updated."
@@ -306,19 +313,21 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
 /// states such as voice or unsent text do not.
 /// Review lists everything still open; this names one thing.
 pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
-    let g = app.guess.as_ref()?;
+    let g = app.conversation.board()?;
     Some(if let Some(part) = g.parts.missing().next() {
         format!("Still missing: {}.", part.label())
-    } else if app.open_parts().is_empty()
-        && app.applied == app.sources.len()
-        && app.ready.is_none()
-        && app
-            .skipped
-            .iter()
-            .all(|q| app.settled.iter().any(|s| same_question(&s.question, q)))
+    } else if app.conversation.open_parts().is_empty()
+        && app.conversation.caught_up()
+        && app.shaping.ready.is_none()
+        && app.conversation.skipped().iter().all(|q| {
+            app.conversation
+                .settled()
+                .iter()
+                .any(|s| same_question(&s.question, q))
+        })
         && g.unresolved_notes.is_empty()
         && g.misfits.is_empty()
-        && app.scope_pending.is_none()
+        && app.conversation.scope_pending().is_none()
     {
         "Nothing I'm unsure about.".into()
     } else {
@@ -326,38 +335,43 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
     })
 }
 pub(super) fn help_text(app: &BrainDump) -> String {
-    if app.receipt.is_some() {
-        return if app.help_all {
+    if app.handoff.receipt.is_some() {
+        return if app.screen.help_all {
             "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nc   copy prompt to continue in Claude, Codex or Pi\ns   open in shape with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
         } else {
             "Right now\nYour goal is saved. Next: shape it into a seed with Seed Me.\nc copy prompt · s open in shape · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
         };
     }
     let open_now;
-    let now = if app.handoff_job.is_some() {
+    let now = if app.handoff.job.is_some() {
         "Saving your goal. Wait a moment."
-    } else if app.goal_review.is_some() {
+    } else if app.handoff.review.is_some() {
         "Type confirm, then Enter, to save this goal.\nEsc goes back without saving."
     } else if app.running() {
         "Reading your words. Keep writing if you like.\nEsc cancels."
-    } else if app.sources.is_empty() {
+    } else if app.conversation.sources().is_empty() {
         "Type anything, in any order.\nF2 sends it."
-    } else if app.ready.is_some() {
+    } else if app.shaping.ready.is_some() {
         "A new reading is ready.\nF2 when you want it."
     } else if app
-        .scope_pending
-        .as_ref()
-        .is_some_and(|(_, q)| app.available(q))
+        .conversation
+        .scope_pending()
+        .is_some_and(|(_, q)| app.conversation.available(q))
     {
         "Answer the question about your added words.\nF2 sends."
-    } else if app.last_failure.is_some() {
+    } else if app.conversation.last_failure().is_some() {
         "The reading failed; your words are safe.\nF2 tries again · F5 why."
     } else if app.add_more {
         "Type a new dump.\nF2 sends it."
-    } else if app.guess.is_none() && app.applied < app.sources.len() {
+    } else if app.conversation.board().is_none()
+        && app.conversation.applied() < app.conversation.sources().len()
+    {
         "Your words haven't been read yet.\nF2 tries again."
-    } else if app.focused_question().is_none() {
-        let composed = app.guess.as_ref().is_some_and(|g| !g.framings.is_empty());
+    } else if app.conversation.focused_question().is_none() {
+        let composed = app
+            .conversation
+            .board()
+            .is_some_and(|g| !g.framings.is_empty());
         open_now = format!(
             "{}\n{}",
             open_intent(app).unwrap_or_else(|| "No question left.".into()),
@@ -371,7 +385,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         "Type your answer.\nF2 sends · F8 skips · F3 reviews the goal."
     };
-    if !app.help_all {
+    if !app.screen.help_all {
         return format!("Right now\n{now}\n\nF1 every key · Esc close");
     }
     let send = if app.real {
@@ -384,13 +398,13 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         ""
     };
-    let finish = if !app.real || app.goal_config.is_none() {
+    let finish = if !app.real || app.handoff.config.is_none() {
         "Saving a goal needs real mode and Seed Me."
     } else {
         "! F3   review the goal; typing confirm saves it for good"
     };
     let leave = "! F10  back to the menu; asks before losing your draft";
-    let select = if app.sources.is_empty() {
+    let select = if app.conversation.sources().is_empty() {
         ""
     } else {
         "Tab  switch between writing and your original (the original is read-only)\n"
@@ -400,7 +414,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
-    if let Some(receipt) = &app.receipt {
+    if let Some(receipt) = &app.handoff.receipt {
         return format!(
             "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}\n\nCopying sends the continuation prompt through OSC 52; your terminal may require clipboard permission. Paste it into Claude, Codex or Pi yourself. Opening shape only selects this saved session. No agent, harness or browser starts.\n\nThe session stays active. Only Tinkery's owned viewer stops when you leave. Goal confirmation is not seed or implementation approval.",
             receipt.text()
@@ -414,17 +428,20 @@ pub(super) fn how_text(app: &BrainDump) -> String {
             "Simulated practice; no real session."
         },
         app.diagnostics().join("\n\n"),
-        app.receipt.as_ref().map_or(String::new(), |r| r.text()),
+        app.handoff
+            .receipt
+            .as_ref()
+            .map_or(String::new(), |r| r.text()),
         app.notice
     )
 }
 /// Only what's possible right now (C1): key in ink, word muted.
 pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)> {
-    if app.leave_prompt || app.handoff_job.is_some() {
+    if app.screen.leave_prompt || app.handoff.job.is_some() {
         vec![]
-    } else if app.receipt.is_some() {
+    } else if app.handoff.receipt.is_some() {
         vec![("c", "copy prompt"), ("s", "open in shape"), ("10", "menu")]
-    } else if app.goal_review.is_some() {
+    } else if app.handoff.review.is_some() {
         vec![("type confirm", "save"), ("esc", "back")]
     } else if app.voice_active() {
         vec![
@@ -439,10 +456,10 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         items
     } else {
         let mut items = vec![("2", "send")];
-        if app.guess.is_some() {
+        if app.conversation.board().is_some() {
             items.push(("3", "review"));
         }
-        if app.focused_question().is_some() {
+        if app.conversation.focused_question().is_some() {
             items.push(("8", "skip"));
         }
         if app.voice_available() {
@@ -454,7 +471,9 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
 }
 pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let area = frame.area();
-    if (!app.key_bar && app.receipt.is_none()) || area.width < MIN_WIDTH || area.height < MIN_HEIGHT
+    if (!app.screen.key_bar && app.handoff.receipt.is_none())
+        || area.width < MIN_WIDTH
+        || area.height < MIN_HEIGHT
     {
         return;
     }
@@ -508,7 +527,7 @@ pub(super) fn render_header(frame: &mut Frame, palette: Palette) {
     );
 }
 pub(super) fn render_leave_prompt(frame: &mut Frame, app: &BrainDump, palette: Palette) {
-    if !app.leave_prompt {
+    if !app.screen.leave_prompt {
         return;
     }
     let area = frame.area();

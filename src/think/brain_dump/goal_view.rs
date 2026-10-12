@@ -69,7 +69,7 @@ pub(super) struct Review {
 }
 impl BrainDump {
     pub fn with_seed_me(mut self, skill: PathBuf, root: Option<PathBuf>) -> Self {
-        self.goal_config = Some(Config::new(skill, root));
+        self.handoff.config = Some(Config::new(skill, root));
         self
     }
     pub fn review_goal(&mut self) {
@@ -77,23 +77,23 @@ impl BrainDump {
             self.notice = "Stop or cancel voice before reviewing a goal.".into();
             return;
         }
-        if self.receipt.is_some() || self.handoff_job.is_some() {
+        if self.handoff.receipt.is_some() || self.handoff.job.is_some() {
             return;
         }
-        if !self.real || self.goal_config.is_none() {
+        if !self.real || self.handoff.config.is_none() {
             self.notice = "Goal confirmation needs real mode and --seed-me; practice does not create a session.".into();
             return;
         }
         if self.running()
-            || self.ready.is_some()
+            || self.shaping.ready.is_some()
             || !self.input.text.is_empty()
-            || self.applied != self.sources.len()
+            || !self.conversation.caught_up()
         {
             self.notice =
                 "Submit or clear local text and wait for reshaping before reviewing a goal.".into();
             return;
         }
-        let Some(g) = &self.guess else {
+        let Some(g) = self.conversation.board() else {
             self.notice = "No displayed reading to confirm.".into();
             return;
         };
@@ -101,37 +101,15 @@ impl BrainDump {
             self.notice = "No composed goal to confirm; parts remain open.".into();
             return;
         };
-        let open_parts = self.open_parts();
-        let mut unresolved = g
-            .questions
-            .iter()
-            .filter(|q| self.available(q))
-            .cloned()
-            .collect::<Vec<_>>();
-        if let Some((_, q)) = &self.scope_pending
-            && !unresolved.iter().any(|old| same_question(old, q))
-        {
-            unresolved.push(q.clone());
-        }
-        for q in &self.restored_questions {
-            if self.available(q) && !unresolved.iter().any(|old| same_question(old, q)) {
-                unresolved.push(q.clone());
-            }
-        }
-        for q in &self.skipped {
-            if !self.settled.iter().any(|s| same_question(&s.question, q))
-                && !unresolved.iter().any(|u| same_question(u, q))
-            {
-                unresolved.push(q.clone());
-            }
-        }
-        self.original = false;
-        self.help = false;
-        self.details = false;
-        self.source_scroll = 0;
-        self.source_cursor = 0;
-        self.selection = None;
-        self.drag_anchor = None;
+        let open_parts = self.conversation.open_parts();
+        let unresolved = self.conversation.unresolved();
+        self.screen.original = false;
+        self.screen.help = false;
+        self.screen.details = false;
+        self.screen.source_scroll = 0;
+        self.screen.source_cursor = 0;
+        self.screen.selection = None;
+        self.screen.drag_anchor = None;
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
         let missing = open_parts
@@ -139,7 +117,7 @@ impl BrainDump {
             .filter(|p| !unresolved.iter().any(|q| q.target == Some(*p)))
             .map(|p| format!("{} — still open", p.label()))
             .collect::<Vec<_>>();
-        self.goal_review = Some(Review {
+        self.handoff.review = Some(Review {
             affirmation: Affirmation {
                 goal,
                 parts: g.parts.clone(),
@@ -147,8 +125,8 @@ impl BrainDump {
                 deferred: g.deferred.clone(),
                 outcome: g.parts.done_when.clone().unwrap_or_default(),
                 options: g.alternatives.iter().map(board::Candidate::wire).collect(),
-                sources: self.sources.clone(),
-                answered: self.settled.clone(),
+                sources: self.conversation.sources().to_vec(),
+                answered: self.conversation.settled().to_vec(),
                 unresolved,
                 unresolved_notes: missing.into_iter()
                     .chain(g.unresolved_notes.iter().cloned())
@@ -163,7 +141,8 @@ impl BrainDump {
     }
     pub(super) fn goal_tick(&mut self) {
         let result = self
-            .handoff_job
+            .handoff
+            .job
             .as_ref()
             .and_then(|rx| match rx.try_recv() {
                 Ok(r) => Some(r),
@@ -174,21 +153,22 @@ impl BrainDump {
                 )),
             });
         if let Some(result) = result {
-            self.handoff_job = None;
-            if self.exit_after_handoff {
-                self.quit = true;
+            self.handoff.job = None;
+            if self.handoff.exit_after {
+                self.leave();
             }
             match result {
                 Ok(receipt) => {
                     self.notice = "Saved.".into();
-                    self.goal_review = None;
-                    self.paper_scroll = 0;
-                    self.receipt = Some(receipt);
+                    self.handoff.review = None;
+                    self.screen.paper_scroll = 0;
+                    self.handoff.receipt = Some(receipt);
                 }
                 Err(error) => {
                     self.notice = format!(
                         "Handoff not complete: {error}{}",
-                        self.goal_config
+                        self.handoff
+                            .config
                             .as_ref()
                             .and_then(Config::recovery_path)
                             .map_or(String::new(), |p| format!(
@@ -201,7 +181,7 @@ impl BrainDump {
         }
     }
     pub fn finish_handoff(&mut self) -> Option<String> {
-        if let Some(receipt) = self.receipt.as_mut() {
+        if let Some(receipt) = self.handoff.receipt.as_mut() {
             let stopped = receipt.stop_viewer();
             let mut text = receipt.text();
             text.push_str(&format!(
@@ -213,7 +193,8 @@ impl BrainDump {
             }
             return Some(text);
         }
-        self.goal_config
+        self.handoff
+            .config
             .as_ref()
             .and_then(Config::recovery_path)
             .map(|p| {
@@ -224,42 +205,48 @@ impl BrainDump {
             })
     }
     pub(super) fn goal_key(&mut self, key: KeyEvent) -> bool {
-        if self.handoff_job.is_some() {
+        if self.handoff.job.is_some() {
             self.notice="Saving the affirmed goal; wait for read-back. Durable writes cannot be undone by Esc.".into();
             return true;
         }
-        if self.receipt.is_some() {
+        if self.handoff.receipt.is_some() {
             match key.code {
                 KeyCode::Char('c') if key.modifiers.is_empty() => {
-                    self.copy = self.receipt.as_ref().map(Receipt::continuation_prompt);
+                    self.copy = self
+                        .handoff
+                        .receipt
+                        .as_ref()
+                        .map(Receipt::continuation_prompt);
                 }
                 KeyCode::Char('s') if key.modifiers.is_empty() => {
-                    self.shape_request = self.receipt.as_ref().map(|r| r.session.clone());
+                    if let Some(receipt) = &self.handoff.receipt {
+                        self.exit = Exit::Shape(receipt.session.clone());
+                    }
                 }
                 KeyCode::PageDown | KeyCode::Down => {
-                    self.paper_scroll = self.paper_scroll.saturating_add(5)
+                    self.screen.paper_scroll = self.screen.paper_scroll.saturating_add(5)
                 }
                 KeyCode::PageUp | KeyCode::Up => {
-                    self.paper_scroll = self.paper_scroll.saturating_sub(5)
+                    self.screen.paper_scroll = self.screen.paper_scroll.saturating_sub(5)
                 }
                 _ => {}
             }
             return true;
         }
-        let Some(review) = self.goal_review.as_mut() else {
+        let Some(review) = self.handoff.review.as_mut() else {
             return false;
         };
         match key.code {
-            KeyCode::Esc=>self.goal_review=None,
+            KeyCode::Esc=>self.handoff.review=None,
             KeyCode::PageDown|KeyCode::Down=>review.scroll=review.scroll.saturating_add(5).min(review.max),
             KeyCode::PageUp|KeyCode::Up=>review.scroll=review.scroll.saturating_sub(5),
             KeyCode::Backspace=>{review.input.pop();},
             KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) && review.input.len()<32=>review.input.push(c),
             KeyCode::Enter if review.input=="confirm" && review.scroll>=review.max=>{
-                let config=self.goal_config.clone().unwrap();let affirmation=review.affirmation.affirmed();
+                let config=self.handoff.config.clone().unwrap();let affirmation=review.affirmation.affirmed();
                 let (tx,rx)=mpsc::channel();
                 std::thread::spawn(move||{let _=tx.send(config.confirm(affirmation));});
-                self.handoff_job=Some(rx);self.notice="Saving the explicitly affirmed goal through Seed Me…".into();
+                self.handoff.job=Some(rx);self.notice="Saving the explicitly affirmed goal through Seed Me…".into();
             }
             KeyCode::Enter=>self.notice="Read the complete review (PgDn if needed), then type confirm and press Enter. Nothing saved.".into(),
             _=>{}
@@ -267,10 +254,10 @@ impl BrainDump {
         true
     }
     pub(super) fn goal_paste(&mut self, text: &str) -> bool {
-        if self.handoff_job.is_some() || self.receipt.is_some() {
+        if self.handoff.job.is_some() || self.handoff.receipt.is_some() {
             return true;
         }
-        if let Some(review) = self.goal_review.as_mut() {
+        if let Some(review) = self.handoff.review.as_mut() {
             if text.chars().all(|c| !c.is_control()) && review.input.len() + text.len() <= 32 {
                 review.input.push_str(text);
             }
@@ -280,8 +267,8 @@ impl BrainDump {
     }
 }
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
-    let inner = app.agent_area;
-    if let Some(receipt) = &app.receipt {
+    let inner = app.screen.agent_area;
+    if let Some(receipt) = &app.handoff.receipt {
         let notice = if app.notice == "Copied." || app.notice.starts_with("Clipboard") {
             app.notice.as_str()
         } else {
@@ -289,7 +276,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         };
         render_saved_goal(
             frame,
-            &mut app.paper_scroll,
+            &mut app.screen.paper_scroll,
             inner,
             palette,
             SavedGoal {
@@ -301,7 +288,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         );
         return;
     }
-    let Some(review) = app.goal_review.as_mut() else {
+    let Some(review) = app.handoff.review.as_mut() else {
         return;
     };
     let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(4)]).split(inner);
@@ -337,7 +324,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         .saturating_sub(rows[0].height as usize) as u16;
     review.scroll = review.scroll.min(review.max);
     frame.render_widget(p.scroll((review.scroll, 0)), rows[0]);
-    let saving = if app.handoff_job.is_some() {
+    let saving = if app.handoff.job.is_some() {
         "\nSaving…"
     } else if app.notice.starts_with("Handoff not complete") {
         "\nHandoff not complete."
@@ -354,9 +341,12 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
             .style(palette.jade),
         rows[1],
     );
-    if app.handoff_job.is_none() {
-        app.back_button = Rect::new(rows[1].x, rows[1].bottom() - 1, 4, 1);
-        frame.render_widget(Paragraph::new("Back").style(palette.muted), app.back_button);
+    if app.handoff.job.is_none() {
+        app.screen.back_button = Rect::new(rows[1].x, rows[1].bottom() - 1, 4, 1);
+        frame.render_widget(
+            Paragraph::new("Back").style(palette.muted),
+            app.screen.back_button,
+        );
         let mut note = Note::new(&prompt);
         note.cursor = prompt.len();
         let wrapped = note.wrap(rows[1].width);

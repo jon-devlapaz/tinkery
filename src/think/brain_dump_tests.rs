@@ -103,23 +103,25 @@ impl BoardHost for Recording {
     }
 }
 pub(super) fn amend_board(a: &mut BrainDump, edit: impl FnOnce(&mut Guess)) {
-    let mut g = a.guess.as_ref().unwrap().wire();
+    let mut g = a.conversation.board().unwrap().wire();
     edit(&mut g);
     let r = BoardRequest {
         ask_counts: Default::default(),
-        sources: a.sources.clone(),
-        fragments: a.fragments.clone(),
+        sources: a.conversation.sources().to_vec(),
+        fragments: a.conversation.fragments().to_vec(),
         previous: None,
-        skipped: a.skipped.clone(),
+        skipped: a.conversation.skipped().to_vec(),
         answered: a
-            .sources
+            .conversation
+            .sources()
             .iter()
             .filter_map(|s| s.in_reply_to.clone())
             .collect(),
-        settled: a.settled.clone(),
+        settled: a.conversation.settled().to_vec(),
         layout: vec![],
     };
-    a.guess = Some(board::Board::verify(g, &r).unwrap());
+    a.conversation
+        .set_board(Some(board::Board::verify(g, &r).unwrap()));
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
@@ -140,14 +142,14 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
         let first = snapshot(w, h, &mut a, false).unwrap();
         assert!(first.contains("What's on your mind?"));
         assert!(!first.contains("I think this is about"));
-        assert!(a.fragments.is_empty());
+        assert!(a.conversation.fragments().is_empty());
         let dump = "  I want a toggle.\nHamster is unfamiliar. Café 👩‍💻 matters!  ";
         a.paste(dump);
         a.tick();
         assert!(host.requests.lock().unwrap().is_empty());
         key(&mut a, KeyCode::F(2));
         settle(&mut a);
-        assert_eq!(a.sources[0].text, dump);
+        assert_eq!(a.conversation.sources()[0].text, dump);
         assert!(
             snapshot(w, h, &mut a, false)
                 .unwrap()
@@ -161,11 +163,11 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
             "Focused live question clipped at supported size"
         );
         assert!(
-            a.fragments.is_empty(),
+            a.conversation.fragments().is_empty(),
             "Sentence punctuation automatically created cards"
         );
         a.extract_range(1, 0, dump.find('\n').unwrap()).unwrap();
-        for f in &a.fragments {
+        for f in a.conversation.fragments() {
             assert_eq!(&dump[f.start..f.end], f.text);
         }
         assert!(a.paper().contains("Hamster"));
@@ -173,7 +175,7 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
             a.paper()
                 .contains("One question in focus\n\nShould scratch thinking")
         );
-        if let CanvasNode::Text(n) = &mut a.canvas.state.data.nodes[0] {
+        if let CanvasNode::Text(n) = &mut a.screen.canvas.state.data.nodes[0] {
             n.x = 1234.;
             n.y = -456.;
         }
@@ -182,19 +184,22 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
         key(&mut a, KeyCode::F(2));
         settle(&mut a);
         assert_eq!(&a.layout()[..old.len()], old.as_slice());
-        assert_eq!(a.focused_question().unwrap().id, "rss-control");
+        assert_eq!(a.conversation.focused_question().unwrap().id, "rss-control");
         let updated = snapshot(w, h, &mut a, false).unwrap();
         assert!(
             updated.contains("Model reading 2 originals"),
             "Answer did not visibly update centre"
         );
         assert!(!updated.contains("Model reading 1 originals"));
-        assert_eq!(a.sources[1].in_reply_to.as_deref(), Some("reader"));
-        assert_eq!(a.sources[0].text, dump);
+        assert_eq!(
+            a.conversation.sources()[1].in_reply_to.as_deref(),
+            Some("reader")
+        );
+        assert_eq!(a.conversation.sources()[0].text, dump);
         assert!(a.paper().contains("Hamster is my RSS reader"));
         assert_eq!(host.requests.lock().unwrap().len(), 2);
         assert_eq!(host.requests.lock().unwrap()[1].layout[..old.len()], old);
-        a.board_focus = !a.board_focus;
+        a.screen.board_focus = !a.screen.board_focus;
         key(&mut a, KeyCode::F(9));
         assert_eq!(a.take_copy_request(), Some(a.paper()));
         a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
@@ -204,7 +209,7 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
                 .contains("Original 1")
         );
         key(&mut a, KeyCode::Esc);
-        assert!(!a.original);
+        assert!(!a.screen.original);
     }
 }
 #[test]
@@ -220,20 +225,23 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     a.submit();
     settle(&mut a);
     let before = a.paper();
-    a.board_focus = !a.board_focus;
+    a.screen.board_focus = !a.screen.board_focus;
     key(&mut a, KeyCode::F(8));
-    assert!(a.focused_question().is_none(), "only one model question");
+    assert!(
+        a.conversation.focused_question().is_none(),
+        "only one model question"
+    );
     a.undo_skip();
-    assert_eq!(a.focused_question().unwrap().id, "reader");
-    a.board_focus = !a.board_focus;
+    assert_eq!(a.conversation.focused_question().unwrap().id, "reader");
+    a.screen.board_focus = !a.screen.board_focus;
     host.fail.store(true, Ordering::Relaxed);
     a.paste("A second dump.");
     a.submit();
     settle(&mut a);
     assert!(a.notice.contains("injected failure"));
-    assert_eq!(a.sources.len(), 2);
+    assert_eq!(a.conversation.sources().len(), 2);
     assert_eq!(
-        a.guess.as_ref().unwrap().outcome.as_deref().unwrap(),
+        a.conversation.board().unwrap().outcome.as_deref().unwrap(),
         "reading is comfortable"
     );
     assert!(a.originals().contains("A second dump."));
@@ -242,8 +250,8 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     host.fail.store(false, Ordering::Relaxed);
     a.submit();
     settle(&mut a);
-    assert_eq!(a.sources.len(), 2);
-    assert_eq!(a.focused_question().unwrap().id, "rss-control");
+    assert_eq!(a.conversation.sources().len(), 2);
+    assert_eq!(a.conversation.focused_question().unwrap().id, "rss-control");
     assert!(
         host.requests
             .lock()
@@ -329,7 +337,7 @@ fn boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings
         serde_json::to_value(ignored).unwrap(),
         serde_json::to_value(board::parse(&json, &r, &mut vec![]).unwrap()).unwrap()
     );
-    assert!(a.receipt.is_none());
+    assert!(a.handoff.receipt.is_none());
 }
 #[test]
 fn typing_during_request_is_never_replaced_by_the_result() {
@@ -341,16 +349,16 @@ fn typing_during_request_is_never_replaced_by_the_result() {
     a.paste("Local text while thinking.");
     settle(&mut a);
     assert_eq!(a.input.text, "Local text while thinking.");
-    assert_eq!(a.sources.len(), 1);
+    assert_eq!(a.conversation.sources().len(), 1);
     assert!(
-        a.guess.is_none(),
+        a.conversation.board().is_none(),
         "Agent interrupted new typing with a framing"
     );
-    assert!(a.ready.is_some());
+    assert!(a.shaping.ready.is_some());
     a.submit();
     settle(&mut a);
-    assert!(a.guess.is_some());
-    assert_eq!(a.sources.len(), 2);
+    assert!(a.conversation.board().is_some());
+    assert_eq!(a.conversation.sources().len(), 2);
 }
 #[test]
 fn simulated_is_explicit_and_never_an_automatic_real_failure_fallback() {
@@ -359,25 +367,29 @@ fn simulated_is_explicit_and_never_an_automatic_real_failure_fallback() {
     a.paste("My own thought.");
     a.submit();
     settle(&mut a);
-    assert!(a.guess.unwrap().framings[0].text.contains("Simulated"));
+    assert!(
+        a.conversation.board().unwrap().framings[0]
+            .text
+            .contains("Simulated")
+    );
 }
 
 /// A screen point inside the first extracted card.
 fn first_card_point(a: &BrainDump) -> (u16, u16) {
-    let rect = a.canvas.area;
-    let (nx, ny) = a.canvas.state.data.nodes[0].pos();
-    let x = ((nx - a.canvas.state.viewport_x) * a.canvas.state.zoom + f64::from(rect.width) / 2.0)
-        as u16
+    let rect = a.screen.canvas.area;
+    let (nx, ny) = a.screen.canvas.state.data.nodes[0].pos();
+    let x = ((nx - a.screen.canvas.state.viewport_x) * a.screen.canvas.state.zoom
+        + f64::from(rect.width) / 2.0) as u16
         + rect.x
         + 4;
-    let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom + f64::from(rect.height) / 2.0)
-        as u16
+    let y = ((ny - a.screen.canvas.state.viewport_y) * a.screen.canvas.state.zoom
+        + f64::from(rect.height) / 2.0) as u16
         + rect.y
         + 2;
     (x, y)
 }
 fn card_mouse(a: &mut BrainDump, kind: MouseEventKind, column: u16, row: u16) {
-    let area = a.area;
+    let area = a.screen.area;
     a.handle_mouse(
         MouseEvent {
             kind,
@@ -396,7 +408,7 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
     a.submit();
     settle(&mut a);
     a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
-    a.board_focus = !a.board_focus;
+    a.screen.board_focus = !a.screen.board_focus;
     key(&mut a, KeyCode::F(7));
     snapshot(100, 30, &mut a, false).unwrap();
     let (x, y) = first_card_point(&a);
@@ -407,7 +419,10 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
     key(&mut a, KeyCode::F(7));
     snapshot(100, 30, &mut a, false).unwrap();
     let released = a.layout();
-    let view = (a.canvas.state.viewport_x, a.canvas.state.viewport_y);
+    let view = (
+        a.screen.canvas.state.viewport_x,
+        a.screen.canvas.state.viewport_y,
+    );
     card_mouse(
         &mut a,
         MouseEventKind::Drag(MouseButton::Left),
@@ -416,7 +431,10 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
     );
     assert_eq!(a.layout(), released, "a stale drag moved a card");
     assert_eq!(
-        (a.canvas.state.viewport_x, a.canvas.state.viewport_y),
+        (
+            a.screen.canvas.state.viewport_x,
+            a.screen.canvas.state.viewport_y
+        ),
         view,
         "a stale drag panned the cards"
     );
@@ -430,7 +448,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     a.submit();
     settle(&mut a);
     a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
-    a.board_focus = !a.board_focus;
+    a.screen.board_focus = !a.screen.board_focus;
     key(&mut a, KeyCode::F(7));
     snapshot(100, 30, &mut a, false).unwrap();
     let (x, y) = first_card_point(&a);
@@ -444,11 +462,19 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     }
     assert_ne!(a.layout(), before, "Real mouse drag did not move a card");
     let moved = a.layout();
-    assert!(a.canvas.state.floating_editor.is_none());
-    for (n, f) in a.canvas.state.data.nodes.iter().zip(&a.fragments) {
+    assert!(a.screen.canvas.state.floating_editor.is_none());
+    for (n, f) in a
+        .screen
+        .canvas
+        .state
+        .data
+        .nodes
+        .iter()
+        .zip(a.conversation.fragments())
+    {
         assert_eq!(n.text(), f.text);
     }
-    a.board_focus = !a.board_focus;
+    a.screen.board_focus = !a.screen.board_focus;
     a.paste("It is an RSS reader.");
     a.submit();
     settle(&mut a);
@@ -463,8 +489,8 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         a.submit();
         settle(&mut a);
         let layout = a.layout();
-        let fragments = a.fragments.clone();
-        let mut g = a.guess.as_ref().unwrap().wire();
+        let fragments = a.conversation.fragments().to_vec();
+        let mut g = a.conversation.board().unwrap().wire();
         g.uncertain = true;
         g.framings = vec![
             Framing {
@@ -491,17 +517,21 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         }
         assert!(!ordinary.contains("doesn’t fit yet"));
         assert!(a.details_text().contains("Doesn’t fit yet"));
-        assert!(a.canvas.state.data.nodes.iter().all(|n| match n {
+        assert!(a.screen.canvas.state.data.nodes.iter().all(|n| match n {
             CanvasNode::Text(n) => n.title.is_none(),
             _ => false,
         }));
         assert_eq!(a.layout(), layout);
         assert!(!a.running(), "Highlighting sent a model request");
-        assert_eq!(a.sources.len(), 1, "Highlighting was recorded as an answer");
-        for (n, f) in a.canvas.state.data.nodes.iter().zip(&fragments) {
+        assert_eq!(
+            a.conversation.sources().len(),
+            1,
+            "Highlighting was recorded as an answer"
+        );
+        for (n, f) in a.screen.canvas.state.data.nodes.iter().zip(&fragments) {
             assert_eq!(n.text(), f.text);
         }
-        a.board_focus = true;
+        a.screen.board_focus = true;
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         let detail = snapshot(w, h, &mut a, false).unwrap();
         assert!(detail.contains("Desired experience"));
@@ -529,34 +559,34 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     let input = a.input.text.clone();
     key(&mut a, KeyCode::Char('d'));
     assert_eq!(a.input.text, input + "d");
-    assert!(!a.details);
+    assert!(!a.screen.details);
     let input = a.input.text.clone();
     for mode in 0..4 {
-        a.board_focus = mode == 1;
-        a.original = mode == 2;
-        a.help = mode == 3;
+        a.screen.board_focus = mode == 1;
+        a.screen.original = mode == 2;
+        a.screen.help = mode == 3;
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
-        assert!(a.details);
-        assert!(!a.original && !a.help);
-        assert_eq!(a.board_focus, mode == 1);
+        assert!(a.screen.details);
+        assert!(!a.screen.original && !a.screen.help);
+        assert_eq!(a.screen.board_focus, mode == 1);
         let frame = snapshot(100, 30, &mut a, false).unwrap();
         assert!(!frame.contains("provisional"));
         assert!(frame.contains("Desired experience"));
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
-        assert!(!a.details);
+        assert!(!a.screen.details);
         assert_eq!(a.input.text, input);
         assert!(!a.running());
     }
-    a.details = true;
-    a.original = true;
+    a.screen.details = true;
+    a.screen.original = true;
     a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
     assert!(
-        a.details && !a.original,
+        a.screen.details && !a.screen.original,
         "Hidden details incorrectly toggled off"
     );
-    a.details = false;
-    a.original = true;
-    let area = a.area;
+    a.screen.details = false;
+    a.screen.original = true;
+    let area = a.screen.area;
     a.handle_mouse(
         MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
@@ -566,14 +596,14 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
         },
         area,
     );
-    assert!(a.help && !a.original);
+    assert!(a.screen.help && !a.screen.original);
     assert_eq!(a.input.text, input);
     key(&mut a, KeyCode::Esc);
-    a.board_focus = !a.board_focus;
+    a.screen.board_focus = !a.screen.board_focus;
     a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
-    assert!(a.details);
+    assert!(a.screen.details);
     key(&mut a, KeyCode::Esc);
-    assert!(!a.details);
+    assert!(!a.screen.details);
 }
 #[test]
 fn clipping_is_visible_and_original_is_one_action_away() {
@@ -588,14 +618,14 @@ fn clipping_is_visible_and_original_is_one_action_away() {
     assert!(view.contains("more"), "No source scrolling cue");
     assert!(
         view.lines()
-            .nth(usize::from(a.source_area.y))
+            .nth(usize::from(a.screen.source_area.y))
             .unwrap()
             .contains("Management"),
         "Source title was replaced with a clipping hint"
     );
     assert!(!view.contains("… Ctrl-O"));
-    assert_eq!(a.sources[0].text, source);
-    assert!(a.fragments.is_empty());
+    assert_eq!(a.conversation.sources()[0].text, source);
+    assert!(a.conversation.fragments().is_empty());
     a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
     let original = snapshot(80, 24, &mut a, false).unwrap();
     assert!(original.contains("surveillance."));
@@ -711,8 +741,8 @@ fn original_stays_plain_ink_even_with_cited_and_unplaced_words() {
                 quote: "Café 👩‍💻".into(),
                 occurrence: 1,
             };
-            let supported = support.range(&a.sources).unwrap();
-            let unresolved = anchor("End.").range(&a.sources).unwrap();
+            let supported = support.range(a.conversation.sources()).unwrap();
+            let unresolved = anchor("End.").range(a.conversation.sources()).unwrap();
             amend_board(&mut a, |g| {
                 g.framings[0].supports = vec![support];
                 g.misfits = vec![anchor("End.")];
@@ -722,7 +752,7 @@ fn original_stays_plain_ink_even_with_cited_and_unplaced_words() {
             terminal
                 .draw(|f| render(f, &mut a, Palette::new(mono)))
                 .unwrap();
-            let area = a.source_area;
+            let area = a.screen.source_area;
             let wrapped = Note::new(original).wrap(area.width);
             for (i, g) in original
                 .grapheme_indices(true)
@@ -754,8 +784,8 @@ fn original_stays_plain_ink_even_with_cited_and_unplaced_words() {
                     );
                 }
             }
-            assert_eq!(a.sources[0].text, original);
-            assert!(a.fragments.is_empty());
+            assert_eq!(a.conversation.sources()[0].text, original);
+            assert!(a.conversation.fragments().is_empty());
         }
     }
 }
@@ -769,27 +799,27 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
     a.submit();
     settle(&mut a);
     snapshot(100, 30, &mut a, false).unwrap();
-    assert!(a.fragments.is_empty());
-    a.board_focus = !a.board_focus;
+    assert!(a.conversation.fragments().is_empty());
+    a.screen.board_focus = !a.screen.board_focus;
     for _ in "Café 👩‍💻".graphemes(true) {
         a.handle_key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
     }
     a.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
-    assert_eq!(a.fragments.len(), 1);
-    let f = &a.fragments[0];
+    assert_eq!(a.conversation.fragments().len(), 1);
+    let f = &a.conversation.fragments()[0];
     assert_eq!(f.source, 1);
     assert_eq!(f.start, 0);
     assert_eq!(f.end, "Café 👩‍💻".len());
     assert_eq!(f.text, "Café 👩‍💻");
     assert_eq!(host.requests.lock().unwrap().len(), 1);
     assert!(!a.running());
-    assert_eq!(a.sources[0].text, text);
+    assert_eq!(a.conversation.sources()[0].text, text);
     key(&mut a, KeyCode::F(7));
     let view = snapshot(100, 30, &mut a, false).unwrap();
-    let (_, ny) = a.canvas.state.data.nodes[0].pos();
-    let y = ((ny - a.canvas.state.viewport_y) * a.canvas.state.zoom
-        + f64::from(a.canvas.area.y)
-        + f64::from(a.canvas.area.height) / 2.0)
+    let (_, ny) = a.screen.canvas.state.data.nodes[0].pos();
+    let y = ((ny - a.screen.canvas.state.viewport_y) * a.screen.canvas.state.zoom
+        + f64::from(a.screen.canvas.area.y)
+        + f64::from(a.screen.canvas.area.height) / 2.0)
         .round() as usize;
     assert!(
         view.lines().nth(y).unwrap().contains("Café"),
@@ -797,10 +827,10 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
     );
     assert!(!view.contains("Enter: source"));
     assert!(!view.contains("… Ctrl-O"));
-    a.canvas.state.selection.select_only("f1".into());
+    a.screen.canvas.state.selection.select_only("f1".into());
     key(&mut a, KeyCode::Enter);
-    assert!(!a.show_extractions);
-    assert_eq!(a.selection, Some((0, "Café 👩‍💻".len())));
+    assert!(!a.screen.show_extractions);
+    assert_eq!(a.screen.selection, Some((0, "Café 👩‍💻".len())));
     assert!(a.extract_range(1, 0, 4).is_err(), "UTF-8 cut accepted");
     let emoji = text.find('👩').unwrap();
     assert!(
@@ -809,7 +839,7 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
     );
     assert!(a.extract_range(99, 0, 4).is_err());
     assert!(a.extract_range(1, 0, "Café 👩‍💻".len()).is_err());
-    assert_eq!(a.fragments.len(), 1);
+    assert_eq!(a.conversation.fragments().len(), 1);
 }
 
 #[test]
@@ -826,8 +856,11 @@ fn bad_span_keeps_the_previous_reading_and_originals_without_fallback() {
     a.apply_result(request, Ok(bad));
     assert!(a.notice.contains("exact source substring"));
     assert_eq!(a.paper(), paper);
-    assert!(a.fragments.is_empty());
-    assert_eq!(a.sources[0].text, "An intact goal. That is my true goal.");
+    assert!(a.conversation.fragments().is_empty());
+    assert_eq!(
+        a.conversation.sources()[0].text,
+        "An intact goal. That is my true goal."
+    );
 }
 
 #[test]
@@ -840,7 +873,7 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
             .contains("originals")
     );
     a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
-    assert!(!a.original);
+    assert!(!a.screen.original);
     a.paste("Meaning. Unmarked words are not misfits.");
     a.submit();
     settle(&mut a);
@@ -857,12 +890,12 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
             .contains("Ctrl-O originals")
     );
     a.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
-    assert!(a.help && !a.details);
+    assert!(a.screen.help && !a.screen.details);
     snapshot(80, 24, &mut a, false).unwrap();
     key(&mut a, KeyCode::Esc);
     a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
-    assert!(a.original && !a.details);
-    assert!(a.fragments.is_empty());
+    assert!(a.screen.original && !a.screen.details);
+    assert!(a.conversation.fragments().is_empty());
 }
 
 #[test]
@@ -873,7 +906,7 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
         a.paste("An intact system goal.");
         a.submit();
         settle(&mut a);
-        let question = a.focused_question().unwrap().text.clone();
+        let question = a.conversation.focused_question().unwrap().text.clone();
         a.paste("both");
         a.submit();
         settle(&mut a);
@@ -905,23 +938,26 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
         terminal
             .draw(|f| render(f, &mut a, Palette::new(false)))
             .unwrap();
-        assert!(a.changed_lines.is_some());
+        assert!(a.conversation.changed_lines().is_some());
         a.paste("new local typing");
         a.tick();
-        assert!(a.changed_lines.is_none());
+        assert!(a.conversation.changed_lines().is_none());
         assert_eq!(a.input.text, "new local typing");
         a.input = Note::new("Only final judgment.");
         a.submit();
         settle(&mut a);
-        assert_eq!(a.settled.len(), 2);
-        assert_eq!(a.settled[1].question.id, "rss-control");
-        assert!(a.focused_question().is_none());
+        assert_eq!(a.conversation.settled().len(), 2);
+        assert_eq!(a.conversation.settled()[1].question.id, "rss-control");
+        assert!(a.conversation.focused_question().is_none());
         assert!(
             snapshot(w, h, &mut a, false)
                 .unwrap()
                 .contains("I think you mean…")
         );
-        assert_eq!(a.sources[2].in_reply_to.as_deref(), Some("rss-control"));
+        assert_eq!(
+            a.conversation.sources()[2].in_reply_to.as_deref(),
+            Some("rss-control")
+        );
     }
 }
 
@@ -946,7 +982,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
         },
     );
     a.apply_result(r.clone(), Ok(g));
-    assert_eq!(a.focused_question().unwrap().id, "rss-control");
+    assert_eq!(a.conversation.focused_question().unwrap().id, "rss-control");
     let mut g = guess(&r);
     g.questions = vec![Question {
         target: None,
@@ -954,14 +990,14 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
         text: "What is Hamster?".into(),
     }];
     a.apply_result(r, Ok(g));
-    assert!(a.focused_question().is_none());
+    assert!(a.conversation.focused_question().is_none());
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
             .contains("Nothing I'm unsure about")
     );
-    assert_eq!(a.settled.len(), 1);
-    assert_eq!(a.sources[1].text, "both");
+    assert_eq!(a.conversation.settled().len(), 1);
+    assert_eq!(a.conversation.sources()[1].text, "both");
 }
 
 #[test]
@@ -997,14 +1033,14 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     a.paste("both");
     a.submit();
     settle(&mut a);
-    assert!(a.sources[1].in_reply_to.is_some());
+    assert!(a.conversation.sources()[1].in_reply_to.is_some());
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     a.paste("Separate new dump.");
     a.submit();
     settle(&mut a);
-    assert!(a.sources[2].in_reply_to.is_none());
-    assert_eq!(a.settled.len(), 1);
-    a.guess = None;
+    assert!(a.conversation.sources()[2].in_reply_to.is_none());
+    assert_eq!(a.conversation.settled().len(), 1);
+    a.conversation.set_board(None);
     assert!(
         !snapshot(100, 30, &mut a, false)
             .unwrap()
@@ -1022,9 +1058,9 @@ fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
     a.submit();
     settle(&mut a);
     assert!(
-        a.changed_lines.is_none(),
+        a.conversation.changed_lines().is_none(),
         "No muting when the block did not change"
     );
-    assert!(a.focused_question().is_none());
-    assert_eq!(a.settled.len(), 1);
+    assert!(a.conversation.focused_question().is_none());
+    assert_eq!(a.conversation.settled().len(), 1);
 }

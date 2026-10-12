@@ -604,7 +604,7 @@ fn returning_from_think_and_reopening_shape_read_again_and_hide_a_stale_count() 
     h.open(0);
     write_session(tmp.path(), "saved-in-think", "2026-10-10T10:00:00Z");
     if let View::Think(dump) = &mut h.view {
-        dump.quit = true;
+        dump.handle_key(key(KeyCode::F(10)));
     }
     h.tick();
     assert!(matches!(h.view, View::Menu));

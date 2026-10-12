@@ -43,6 +43,7 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 | Ledger view (measure) | `src/measure.rs` | [menu](docs/design/menu.md) |
 | Shape list/detail, session discovery | `src/shape/` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Think state and views | `src/think/brain_dump.rs`, `src/think/brain_dump/` | [think](docs/design/think.md) |
+| Think's conversation rules (questions, skips, scope) | `src/think/brain_dump/conversation.rs` | [think](docs/design/think.md) |
 | Typed goal parts/composition | `src/goal/mod.rs`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
 | Shared review/receipt/detail goal rendering | `src/goal/confirmed.rs` | [goal block](docs/design/goal-block.md) |
 | Confirmation review | `src/think/brain_dump/goal_view.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |

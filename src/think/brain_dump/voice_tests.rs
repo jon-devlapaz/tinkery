@@ -70,8 +70,8 @@ fn partial_and_final_follow_current_cursor_not_a_captured_anchor() {
     let (_, preview) = voice_input::input_text(&a, Palette::new(false));
     assert_eq!(preview.to_string(), "A🙂Typed ghostZ");
     assert!(!a.paper().contains("ghost"));
-    assert!(a.sources.is_empty());
-    assert!(a.fragments.is_empty());
+    assert!(a.conversation.sources().is_empty());
+    assert!(a.conversation.fragments().is_empty());
     event(
         &mut a,
         &fake,
@@ -82,8 +82,8 @@ fn partial_and_final_follow_current_cursor_not_a_captured_anchor() {
     );
     assert_eq!(a.input.text, "A🙂Typed saidZ");
     assert_eq!(a.input.cursor, "A🙂Typed said".len());
-    assert!(a.sources.is_empty());
-    assert!(a.guess.is_none());
+    assert!(a.conversation.sources().is_empty());
+    assert!(a.conversation.board().is_none());
     assert!(!a.running());
 }
 #[test]
@@ -220,13 +220,13 @@ fn aliases_never_undo_skip_or_insert_omega_and_repeats_do_not_toggle() {
         ),
     ] {
         let (mut a, fake) = attach(BrainDump::default());
-        a.skipped.push(Question {
+        a.conversation.skipped_mut().push(Question {
             target: None,
             id: "keep".into(),
             text: "Keep this skipped?".into(),
         });
         a.handle_key(KeyEvent::new(code, mods));
-        assert_eq!(a.skipped.len(), 1);
+        assert_eq!(a.conversation.skipped().len(), 1);
         assert!(a.input.text.is_empty());
         assert_eq!(fake.borrow().commands, vec![Command::Start { take: 1 }]);
         let mut repeat = KeyEvent::new(code, mods);
@@ -234,7 +234,7 @@ fn aliases_never_undo_skip_or_insert_omega_and_repeats_do_not_toggle() {
         a.handle_key(repeat);
         assert_eq!(fake.borrow().commands.len(), 1);
         a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
-        assert!(a.skipped.is_empty());
+        assert!(a.conversation.skipped().is_empty());
         assert!(a.voice_active());
     }
 }
@@ -254,7 +254,7 @@ fn esc_cancels_voice_before_shaping_and_drops_all_late_callbacks() {
         },
     );
     assert_eq!(a.input.text, "typed");
-    assert!(a.sources.is_empty());
+    assert!(a.conversation.sources().is_empty());
     assert!(!a.running());
     assert_eq!(
         fake.borrow().commands,
@@ -272,7 +272,7 @@ fn f2_waits_for_final_then_submits_exactly_once_with_intact_source() {
     key(&mut a, KeyCode::F(6));
     key(&mut a, KeyCode::F(2));
     key(&mut a, KeyCode::F(2));
-    assert!(a.sources.is_empty());
+    assert!(a.conversation.sources().is_empty());
     assert!(!a.running());
     event(&mut a, &fake, Event::Listening { take: 1 });
     event(
@@ -291,10 +291,10 @@ fn f2_waits_for_final_then_submits_exactly_once_with_intact_source() {
             text: "spoken".into(),
         },
     );
-    assert_eq!(a.sources.len(), 1);
-    assert_eq!(a.sources[0].id, 1);
-    assert_eq!(a.sources[0].text, "typed spoken");
-    assert!(a.sources[0].in_reply_to.is_none());
+    assert_eq!(a.conversation.sources().len(), 1);
+    assert_eq!(a.conversation.sources()[0].id, 1);
+    assert_eq!(a.conversation.sources()[0].text, "typed spoken");
+    assert!(a.conversation.sources()[0].in_reply_to.is_none());
     event(
         &mut a,
         &fake,
@@ -303,21 +303,21 @@ fn f2_waits_for_final_then_submits_exactly_once_with_intact_source() {
             text: "duplicate".into(),
         },
     );
-    assert_eq!(a.sources.len(), 1);
+    assert_eq!(a.conversation.sources().len(), 1);
     assert!(a.input.text.is_empty());
     assert_eq!(
         fake.borrow().commands,
         vec![Command::Start { take: 1 }, Command::Stop { take: 1 }]
     );
-    assert!(a.receipt.is_none());
-    assert!(a.goal_review.is_none());
+    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.review.is_none());
 }
 #[test]
 fn direct_submit_uses_the_same_wait_for_final_contract() {
     let (mut a, fake) = attach(BrainDump::default());
     start(&mut a, &fake);
     a.submit();
-    assert!(a.sources.is_empty());
+    assert!(a.conversation.sources().is_empty());
     event(
         &mut a,
         &fake,
@@ -326,7 +326,7 @@ fn direct_submit_uses_the_same_wait_for_final_contract() {
             text: "spoken".into(),
         },
     );
-    assert_eq!(a.sources[0].text, "spoken");
+    assert_eq!(a.conversation.sources()[0].text, "spoken");
 }
 #[test]
 fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
@@ -364,7 +364,7 @@ fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
         assert!(b[(2, 28)].modifier.contains(ratatui::style::Modifier::DIM));
         assert_eq!(a.voice.as_ref().unwrap().failure().unwrap().kind, kind);
         assert_eq!(a.input.text, "typed");
-        assert!(a.sources.is_empty());
+        assert!(a.conversation.sources().is_empty());
         event(
             &mut a,
             &fake,
@@ -374,7 +374,7 @@ fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
             },
         );
         assert_eq!(a.input.text, "typed");
-        assert!(a.sources.is_empty());
+        assert!(a.conversation.sources().is_empty());
     }
 }
 #[test]
@@ -400,7 +400,7 @@ fn empty_fillers_and_insert_overflow_never_send_or_overwrite() {
             },
         );
         assert_eq!(a.input.text, "typed");
-        assert!(a.sources.is_empty());
+        assert!(a.conversation.sources().is_empty());
         assert!(!a.running());
         let notice = a.voice.as_ref().unwrap().notice();
         assert!(notice == "Didn't catch that." || notice.contains("4096"));
@@ -419,9 +419,9 @@ fn final_uses_existing_paste_sanitation_and_does_not_grant_confirmation() {
         },
     );
     assert_eq!(a.input.text, "a\nbconfirm");
-    assert!(a.sources.is_empty());
-    assert!(a.receipt.is_none());
-    assert!(a.goal_review.is_none());
+    assert!(a.conversation.sources().is_empty());
+    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.review.is_none());
 }
 #[test]
 fn f10_closes_helper_preserves_unsaved_guard_and_can_reload_after_n() {
@@ -429,8 +429,8 @@ fn f10_closes_helper_preserves_unsaved_guard_and_can_reload_after_n() {
     a.paste("typed");
     start(&mut a, &fake);
     key(&mut a, KeyCode::F(10));
-    assert!(a.leave_prompt);
-    assert!(!a.quit);
+    assert!(a.screen.leave_prompt);
+    assert!(!a.quitting());
     assert!(fake.borrow().closed > 0);
     assert!(!a.voice_active());
     event(
@@ -458,7 +458,7 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
         serde_json::json!({"parts": super::c16_tests::parts()}),
     ));
     a.review_goal();
-    assert!(a.goal_review.is_some());
+    assert!(a.handoff.review.is_some());
     for code in [KeyCode::F(6), KeyCode::Char('Ω')] {
         key(&mut a, code);
     }
@@ -471,12 +471,12 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
         },
     );
     assert!(fake.borrow().commands.is_empty());
-    assert!(a.goal_review.as_ref().unwrap().input.is_empty());
-    assert!(a.handoff_job.is_none());
+    assert!(a.handoff.review.as_ref().unwrap().input.is_empty());
+    assert!(a.handoff.job.is_none());
     assert!(a.input.text.is_empty());
     assert!(!a.voice_available());
-    a.goal_review = None;
-    a.receipt = Some(seed_me::Receipt::test("/TEST/voice-receipt".into()));
+    a.handoff.review = None;
+    a.handoff.receipt = Some(seed_me::Receipt::test("/TEST/voice-receipt".into()));
     key(&mut a, KeyCode::F(6));
     assert!(fake.borrow().commands.is_empty());
     assert!(!yohaku::help_text(&a).contains("speak"));
@@ -494,17 +494,15 @@ fn active_voice_blocks_readiness_and_review_even_without_typed_text() {
     start(&mut a, &fake);
     assert!(!a.goal_ready());
     a.review_goal();
-    assert!(a.goal_review.is_none());
+    assert!(a.handoff.review.is_none());
     assert!(a.notice.contains("Stop or cancel voice"));
     key(&mut a, KeyCode::Esc);
     assert!(a.goal_ready());
 }
 #[test]
 fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
-    let mut a = BrainDump {
-        help_all: true,
-        ..Default::default()
-    };
+    let mut a = BrainDump::default();
+    a.screen.help_all = true;
     assert!(!yohaku::help_text(&a).contains("speak"));
     assert!(
         !snapshot(100, 30, &mut a, false)
@@ -544,14 +542,14 @@ fn shaping_results_defer_while_voice_is_active_even_with_empty_input() {
     start(&mut a, &fake);
     for _ in 0..100 {
         a.tick();
-        if a.ready.is_some() {
+        if a.shaping.ready.is_some() {
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(2));
     }
-    assert!(a.ready.is_some());
-    assert!(a.guess.is_none());
-    assert_eq!(a.sources[0].text, "ordinary original");
+    assert!(a.shaping.ready.is_some());
+    assert!(a.conversation.board().is_none());
+    assert_eq!(a.conversation.sources()[0].text, "ordinary original");
     assert!(!a.goal_ready());
 }
 
@@ -595,7 +593,7 @@ fn first_use_key_bar_and_muted_prompt_preserve_input_and_require_explicit_yes() 
         event(&mut a, &fake, Event::Loading);
         event(&mut a, &fake, Event::Ready { version: 1 });
         assert!(!a.voice_active());
-        assert!(a.sources.is_empty());
+        assert!(a.conversation.sources().is_empty());
         assert_eq!(a.input.text, "typed");
     }
 }
@@ -673,7 +671,7 @@ fn recording_does_not_change_what_the_goal_line_says_is_open() {
     let screen = right(&mut a);
     assert!(screen.contains(ready), "{screen}");
     assert!(!screen.contains("remain open"));
-    a.help = true;
+    a.screen.help = true;
     assert!(yohaku::help_text(&a).contains("Nothing I'm unsure about."));
 }
 
@@ -711,9 +709,9 @@ fn a_voice_result_during_a_drag_ends_the_drag_and_release_cannot_replace_text() 
         let (mut a, fake) = attach(BrainDump::default());
         a.input = Note::new("abc.");
         snapshot(100, 30, &mut a, false).unwrap();
-        let (x, y) = (a.input_area.x, a.input_area.y);
+        let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
         let mouse = |a: &mut BrainDump, kind, dx| {
-            let area = a.area;
+            let area = a.screen.area;
             a.handle_mouse(
                 MouseEvent {
                     kind,

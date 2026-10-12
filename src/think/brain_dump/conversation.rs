@@ -1,0 +1,549 @@
+//! Think's conversation with the person, turn by turn.
+
+use super::*;
+use std::collections::{BTreeMap, BTreeSet};
+
+/// Everything think has heard and read so far: the person's words in order (sources), the
+/// excerpts they pulled out (fragments), the verified reading (board), and the question
+/// history (answers, skips, restores, asks per part). It owns think's rules about which
+/// question is in focus, what is still open, how added words are scoped, and what the next
+/// request carries. It knows nothing about the screen, keys or running jobs, so every rule
+/// here can be tested without a terminal.
+#[derive(Default)]
+pub struct Conversation {
+    sources: Vec<Source>,
+    fragments: Vec<Fragment>,
+    board: Option<board::Board>,
+    /// The highest source id the board has read.
+    applied: usize,
+    settled: Vec<Settled>,
+    skipped: Vec<Question>,
+    /// Skipped questions brought back with Ctrl-Z, newest first.
+    restored: Vec<Question>,
+    ask_counts: BTreeMap<Part, u8>,
+    /// Words added outside an answer, with the question about their scope. They stay out of
+    /// the reading until that question is answered.
+    scope_pending: Option<(usize, Question)>,
+    /// Goal lines the last answer changed, so the reading can point them out.
+    changed_lines: Option<BTreeSet<String>>,
+    /// Why the last reading could not be applied; cleared when one is.
+    last_failure: Option<String>,
+}
+
+/// A send that has been prepared but not yet committed to the conversation.
+pub(super) struct Staged {
+    /// What goes to the model. Added words whose scope is unanswered are left out.
+    pub(super) request: BoardRequest,
+    /// Every source, including the new words.
+    sources: Vec<Source>,
+    /// The new words are an addition, not an answer, so their scope must be asked.
+    pub(super) addition: bool,
+    scope_answered: bool,
+    /// The board had read everything before this send.
+    fresh: bool,
+}
+impl Staged {
+    /// True when the send carries new words.
+    pub(super) fn adds_words(&self, conversation: &Conversation) -> bool {
+        self.sources.len() > conversation.sources.len()
+    }
+}
+
+impl Conversation {
+    pub fn sources(&self) -> &[Source] {
+        &self.sources
+    }
+    pub fn fragments(&self) -> &[Fragment] {
+        &self.fragments
+    }
+    pub fn board(&self) -> Option<&board::Board> {
+        self.board.as_ref()
+    }
+    pub fn settled(&self) -> &[Settled] {
+        &self.settled
+    }
+    pub fn skipped(&self) -> &[Question] {
+        &self.skipped
+    }
+    pub fn applied(&self) -> usize {
+        self.applied
+    }
+    pub fn scope_pending(&self) -> Option<&(usize, Question)> {
+        self.scope_pending.as_ref()
+    }
+    pub fn changed_lines(&self) -> Option<&BTreeSet<String>> {
+        self.changed_lines.as_ref()
+    }
+    pub(super) fn forget_changes(&mut self) {
+        self.changed_lines = None;
+    }
+    pub fn last_failure(&self) -> Option<&str> {
+        self.last_failure.as_deref()
+    }
+    /// Nothing written and nothing read yet.
+    pub fn is_empty(&self) -> bool {
+        self.sources.is_empty() && self.board.is_none()
+    }
+    /// The board has read every source.
+    pub fn caught_up(&self) -> bool {
+        self.applied == self.sources.len()
+    }
+
+    /// A question may be asked: not skipped (nor its part), not settled, not already answered.
+    pub fn available(&self, q: &Question) -> bool {
+        !q.target
+            .is_some_and(|target| self.skipped.iter().any(|s| s.target == Some(target)))
+            && !self
+                .skipped
+                .iter()
+                .any(|s| s.id == q.id || s.text.trim().eq_ignore_ascii_case(q.text.trim()))
+            && !self.settled.iter().any(|s| same_question(&s.question, q))
+            && !self
+                .sources
+                .iter()
+                .any(|s| s.in_reply_to.as_deref() == Some(q.id.as_str()))
+    }
+    /// The one question in focus: added words' scope first, then a restored skip, then the
+    /// board's queue.
+    pub fn focused_question(&self) -> Option<&Question> {
+        self.scope_pending
+            .as_ref()
+            .filter(|(_, q)| self.available(q))
+            .map(|(_, q)| q)
+            .or_else(|| {
+                self.restored
+                    .iter()
+                    .find(|q| self.available(q))
+                    .or_else(|| {
+                        self.board
+                            .as_ref()?
+                            .questions
+                            .iter()
+                            .find(|q| self.available(q))
+                    })
+            })
+    }
+    /// Added words are still waiting for their scope question to be answered.
+    pub fn awaiting_scope(&self) -> bool {
+        self.scope_pending
+            .as_ref()
+            .is_some_and(|(_, q)| self.available(q))
+    }
+    /// Any question with this id the conversation has seen: settled, skipped or queued.
+    pub fn question(&self, id: &str) -> Option<&Question> {
+        self.settled
+            .iter()
+            .map(|s| &s.question)
+            .chain(self.skipped.iter())
+            .chain(self.board.iter().flat_map(|g| g.questions.iter()))
+            .find(|q| q.id == id)
+    }
+    /// Goal parts still unclear: open on the board, missing, or skipped.
+    pub fn open_parts(&self) -> Vec<Part> {
+        let mut open = self
+            .board
+            .as_ref()
+            .map_or_else(Vec::new, |g| g.open.clone());
+        if let Some(g) = &self.board {
+            open.extend(g.parts.missing());
+        }
+        open.extend(self.skipped.iter().filter_map(|q| q.target));
+        open.sort();
+        open.dedup();
+        open
+    }
+    /// The reading covers every word and leaves nothing open, unplaced or unasked.
+    pub fn nothing_open(&self) -> bool {
+        self.board.as_ref().is_some_and(|g| !g.framings.is_empty())
+            && self.caught_up()
+            && self.open_parts().is_empty()
+            && self
+                .board
+                .as_ref()
+                .is_some_and(|g| g.unresolved_notes.is_empty() && g.misfits.is_empty())
+            && self.scope_pending.is_none()
+            && self.focused_question().is_none()
+    }
+    /// Questions a confirmed goal leaves open: queued, scope, restored, and skips never settled.
+    pub fn unresolved(&self) -> Vec<Question> {
+        let mut unresolved = self
+            .board
+            .iter()
+            .flat_map(|g| g.questions.iter())
+            .filter(|q| self.available(q))
+            .cloned()
+            .collect::<Vec<_>>();
+        if let Some((_, q)) = &self.scope_pending
+            && !unresolved.iter().any(|old| same_question(old, q))
+        {
+            unresolved.push(q.clone());
+        }
+        for q in &self.restored {
+            if self.available(q) && !unresolved.iter().any(|old| same_question(old, q)) {
+                unresolved.push(q.clone());
+            }
+        }
+        for q in &self.skipped {
+            if !self.settled.iter().any(|s| same_question(&s.question, q))
+                && !unresolved.iter().any(|u| same_question(u, q))
+            {
+                unresolved.push(q.clone());
+            }
+        }
+        unresolved
+    }
+
+    /// Skip the question in focus. False when there is none.
+    pub(super) fn skip_focused(&mut self) -> bool {
+        let Some(q) = self.focused_question().cloned() else {
+            return false;
+        };
+        self.skipped.push(q);
+        true
+    }
+    /// Bring back the last skip. `None` when nothing was skipped; `Some(false)` when it has
+    /// since been answered, so it stays closed.
+    pub(super) fn undo_skip(&mut self) -> Option<bool> {
+        let q = self.skipped.pop()?;
+        if self.settled.iter().any(|s| same_question(&s.question, &q))
+            || self
+                .sources
+                .iter()
+                .any(|s| s.in_reply_to.as_ref() == Some(&q.id))
+        {
+            return Some(false);
+        }
+        if self
+            .scope_pending
+            .as_ref()
+            .is_none_or(|(_, pending)| pending.id != q.id)
+            && !self.restored.iter().any(|old| same_question(old, &q))
+        {
+            self.restored.insert(0, q);
+        }
+        Some(true)
+    }
+
+    /// Keep an exact excerpt of one source as a fragment. At most 32, never a duplicate.
+    pub(super) fn extract(
+        &mut self,
+        source: usize,
+        start: usize,
+        end: usize,
+    ) -> Result<&Fragment, String> {
+        if self.fragments.len() >= 32 {
+            return Err("Extraction limit: 32 cards. Nothing extracted.".into());
+        }
+        let text = &self
+            .sources
+            .iter()
+            .find(|s| s.id == source)
+            .ok_or("Unknown original")?
+            .text;
+        if !grapheme_boundary(text, start) || !grapheme_boundary(text, end) {
+            return Err("Selection cuts a grapheme; nothing extracted".into());
+        }
+        let excerpt = text
+            .get(start..end)
+            .filter(|s| !s.trim().is_empty())
+            .ok_or("Select a nonempty exact source range first")?;
+        if self
+            .fragments
+            .iter()
+            .any(|f| f.source == source && f.start == start && f.end == end)
+        {
+            return Err("That exact selection is already extracted.".into());
+        }
+        let fragment = Fragment {
+            id: format!("f{}", self.fragments.len() + 1),
+            source,
+            start,
+            end,
+            text: excerpt.to_owned(),
+        };
+        self.fragments.push(fragment);
+        Ok(self.fragments.last().unwrap())
+    }
+
+    /// The size of the request the draft would make now, shown as the 32 KiB cap nears.
+    pub(super) fn encoded_bytes(
+        &self,
+        words: &str,
+        add_more: bool,
+        layout: Vec<(String, f64, f64)>,
+    ) -> Option<usize> {
+        let mut sources = self.sources.clone();
+        let mut settled = self.settled.clone();
+        if !words.trim().is_empty() {
+            let sid = sources.len() + 1;
+            let q = self.focused_question().filter(|_| !add_more).cloned();
+            if let Some(q) = &q {
+                settled.push(Settled {
+                    question: q.clone(),
+                    source: sid,
+                });
+            }
+            sources.push(Source {
+                id: sid,
+                text: words.to_owned(),
+                in_reply_to: q.map(|q| q.id),
+            });
+        }
+        let mut r = BoardRequest {
+            ask_counts: self.ask_counts.clone(),
+            answered: sources
+                .iter()
+                .filter_map(|s| s.in_reply_to.clone())
+                .collect(),
+            sources,
+            settled,
+            previous: self.board.as_ref().map(|g| g.wire()),
+            fragments: self.fragments.clone(),
+            skipped: self.skipped.clone(),
+            layout,
+        };
+        let answering_scope = !add_more
+            && !words.trim().is_empty()
+            && self
+                .scope_pending
+                .as_ref()
+                .is_some_and(|(_, q)| self.focused_question().is_some_and(|f| f.id == q.id));
+        if !answering_scope && let Some((id, _)) = &self.scope_pending {
+            r.sources.retain(|s| s.id != *id);
+            r.fragments.retain(|f| f.source != *id);
+            r.answered = r
+                .sources
+                .iter()
+                .filter_map(|s| s.in_reply_to.clone())
+                .collect();
+        }
+        serde_json::to_vec(&r).ok().map(|b| b.len())
+    }
+
+    /// Prepare a send of `words`. With no question in focus, words after a composed goal
+    /// refine it; otherwise they are an addition (always, with `add_more`). `ready` says a
+    /// reply is waiting to be applied. Errors when an earlier addition is still unscoped.
+    pub(super) fn stage(
+        &self,
+        words: &str,
+        add_more: bool,
+        ready: bool,
+        layout: Vec<(String, f64, f64)>,
+    ) -> Result<Staged, ()> {
+        let mut sources = self.sources.clone();
+        let mut settled = self.settled.clone();
+        let fresh = self.caught_up() && !ready;
+        let has_words = !words.trim().is_empty();
+        let scope_answered = has_words
+            && !add_more
+            && self
+                .scope_pending
+                .as_ref()
+                .is_some_and(|(_, q)| self.focused_question().is_some_and(|f| f.id == q.id));
+        let refinement = !add_more
+            && self.focused_question().is_none()
+            && self.scope_pending.is_none()
+            && fresh
+            && self
+                .board
+                .as_ref()
+                .is_some_and(|g| g.parts.compose().is_some());
+        let addition = (add_more || (self.focused_question().is_none() && !refinement))
+            && self.board.is_some()
+            && has_words;
+        if addition && self.scope_pending.is_some() {
+            return Err(());
+        }
+        if has_words {
+            let sid = sources.len() + 1;
+            let question = self
+                .focused_question()
+                .filter(|_| !add_more)
+                .cloned()
+                .or_else(|| {
+                    refinement.then(|| Question {
+                        target: None,
+                        id: format!("goal-refinement-{sid}"),
+                        text: "What should change about this goal?".into(),
+                    })
+                });
+            if let Some(q) = &question {
+                settled.push(Settled {
+                    question: q.clone(),
+                    source: sid,
+                });
+            }
+            sources.push(Source {
+                id: sid,
+                text: words.to_owned(),
+                in_reply_to: question.map(|q| q.id),
+            });
+        }
+        let mut request = BoardRequest {
+            ask_counts: self.ask_counts.clone(),
+            answered: vec![],
+            sources,
+            fragments: self.fragments.clone(),
+            previous: self.board.as_ref().map(|g| g.wire()),
+            skipped: self.skipped.clone(),
+            settled,
+            layout,
+        };
+        let staged = request.sources.clone();
+        if !scope_answered && let Some((id, _)) = &self.scope_pending {
+            request.sources.retain(|s| s.id != *id);
+            request.fragments.retain(|f| f.source != *id);
+        }
+        request.answered = request
+            .sources
+            .iter()
+            .filter_map(|s| s.in_reply_to.clone())
+            .collect();
+        Ok(Staged {
+            request,
+            sources: staged,
+            addition,
+            scope_answered,
+            fresh,
+        })
+    }
+    /// Record a staged send's words. Added words get a scope question and stay out of the
+    /// reading; an answer to that question brings them in.
+    pub(super) fn commit(&mut self, staged: &Staged) {
+        self.sources = staged.sources.clone();
+        self.settled = staged.request.settled.clone();
+        if staged.addition {
+            let sid = self.sources.len();
+            self.scope_pending = Some((
+                sid,
+                Question {
+                    target: None,
+                    id: format!("scope-addition-{sid}"),
+                    text: "Should these added words be part of this goal, or stay separate?".into(),
+                },
+            ));
+            if staged.fresh {
+                self.applied = self.sources.len();
+            }
+        } else if staged.scope_answered {
+            self.scope_pending = None;
+        }
+    }
+    /// Bring a request up to date after a waiting reply was applied.
+    pub(super) fn refresh(&self, request: &mut BoardRequest) {
+        request.previous = self.board.as_ref().map(|g| g.wire());
+        request.ask_counts = self.ask_counts.clone();
+    }
+
+    /// Apply the model's reply to `request`. Questions already answered, skipped or settled
+    /// are dropped before the board is verified. A failure keeps the previous board.
+    pub(super) fn apply(
+        &mut self,
+        mut request: BoardRequest,
+        result: Result<Guess, String>,
+    ) -> Result<(), String> {
+        request.ask_counts = self.ask_counts.clone();
+        request.skipped = self.skipped.clone();
+        request.settled = self
+            .settled
+            .iter()
+            .filter(|s| request.sources.iter().any(|source| source.id == s.source))
+            .cloned()
+            .collect();
+        request.answered = self
+            .sources
+            .iter()
+            .filter_map(|s| s.in_reply_to.clone())
+            .collect();
+        match result.and_then(|mut g| {
+            g.questions.retain(|q| {
+                !request.answered.contains(&q.id)
+                    && !request.skipped.iter().any(|s| same_question(s, q))
+                    && !request
+                        .settled
+                        .iter()
+                        .any(|s| same_question(&s.question, q))
+            });
+            board::Board::verify(g, &request)
+        }) {
+            Ok(board) => {
+                self.changed_lines = self.board.as_ref().and_then(|old| {
+                    if !request
+                        .sources
+                        .iter()
+                        .any(|s| s.id > self.applied && s.in_reply_to.is_some())
+                    {
+                        return None;
+                    }
+                    let previous = old.parts.compose().unwrap_or_default();
+                    let current = board.parts.compose().unwrap_or_default();
+                    let changed = current
+                        .lines()
+                        .filter(|line| !previous.lines().any(|old| old == *line))
+                        .map(str::to_owned)
+                        .collect::<BTreeSet<_>>();
+                    (current != previous).then_some(changed)
+                });
+                if let Some(q) = board.questions.front()
+                    && let Some(target) = q.target
+                    && !self
+                        .board
+                        .as_ref()
+                        .is_some_and(|old| old.questions.iter().any(|old| same_question(old, q)))
+                {
+                    *self.ask_counts.entry(target).or_default() += 1;
+                }
+                self.last_failure = None;
+                self.board = Some(board);
+                self.applied = request.sources.iter().map(|s| s.id).max().unwrap_or(0);
+                Ok(())
+            }
+            Err(e) => {
+                self.last_failure = Some(e.clone());
+                Err(e)
+            }
+        }
+    }
+}
+
+/// Direct access for tests that set up a conversation mid-way.
+#[cfg(test)]
+impl Conversation {
+    pub(super) fn sources_mut(&mut self) -> &mut Vec<Source> {
+        &mut self.sources
+    }
+    pub(super) fn fragments_mut(&mut self) -> &mut Vec<Fragment> {
+        &mut self.fragments
+    }
+    pub(super) fn settled_mut(&mut self) -> &mut Vec<Settled> {
+        &mut self.settled
+    }
+    pub(super) fn set_last_failure(&mut self, failure: Option<String>) {
+        self.last_failure = failure;
+    }
+    pub(super) fn set_changed_lines(&mut self, changed: Option<BTreeSet<String>>) {
+        self.changed_lines = changed;
+    }
+    pub(super) fn set_board(&mut self, board: Option<board::Board>) {
+        self.board = board;
+    }
+    pub(super) fn set_applied(&mut self, applied: usize) {
+        self.applied = applied;
+    }
+    pub(super) fn skipped_mut(&mut self) -> &mut Vec<Question> {
+        &mut self.skipped
+    }
+    pub(super) fn set_scope_pending(&mut self, pending: Option<(usize, Question)>) {
+        self.scope_pending = pending;
+    }
+    pub(super) fn ask_counts(&self) -> &BTreeMap<Part, u8> {
+        &self.ask_counts
+    }
+    pub(super) fn ask_counts_mut(&mut self) -> &mut BTreeMap<Part, u8> {
+        &mut self.ask_counts
+    }
+}
+
+#[cfg(test)]
+#[path = "conversation_tests.rs"]
+mod tests;

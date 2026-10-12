@@ -63,12 +63,10 @@ fn malformed_json_fails_but_empty_partial_parts_display_without_fabrication() {
         let (b, _) = parsed(raw);
         assert!(b.framings.is_empty());
         assert_eq!(b.parts.missing().count(), 4);
-        let mut app = BrainDump {
-            sources: request().sources,
-            applied: 1,
-            guess: Some(b),
-            ..Default::default()
-        };
+        let mut app = BrainDump::default();
+        *app.conversation.sources_mut() = request().sources;
+        app.conversation.set_applied(1);
+        app.conversation.set_board(Some(b));
         for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             let screen = snapshot(w, h, &mut app, false).unwrap();
             assert!(!screen.contains("Nothing I'm unsure about"));
@@ -180,17 +178,15 @@ fn historical_raw_captures_display_without_inferred_parts_or_provider_helpers() 
             assert_eq!(b.parts, GoalParts::default());
             assert!(b.framings.is_empty());
             assert!(!changes.is_empty());
-            let mut app = BrainDump {
-                sources: r.sources,
-                applied: 1,
-                guess: Some(b),
-                ..Default::default()
-            };
+            let mut app = BrainDump::default();
+            *app.conversation.sources_mut() = r.sources;
+            app.conversation.set_applied(1);
+            app.conversation.set_board(Some(b));
             for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
                 snapshot(w, h, &mut app, false).unwrap();
             }
             assert!(!app.goal_ready());
-            assert!(app.receipt.is_none());
+            assert!(app.handoff.receipt.is_none());
         }
     }
 }
@@ -204,11 +200,11 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     assert_eq!(b.unresolved_notes, ["Unresolved note"]);
     let mut app =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
-    app.sources = request().sources;
-    app.applied = 1;
-    app.guess = Some(b);
+    *app.conversation.sources_mut() = request().sources;
+    app.conversation.set_applied(1);
+    app.conversation.set_board(Some(b));
     app.review_goal();
-    let frozen = app.goal_review.unwrap();
+    let frozen = app.handoff.review.unwrap();
     assert_eq!(frozen.affirmation.goal, "Must not: no dashboard.");
     assert!(
         frozen
@@ -217,7 +213,7 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
             .iter()
             .any(|s| s == "Unresolved note")
     );
-    assert!(app.receipt.is_none());
+    assert!(app.handoff.receipt.is_none());
 }
 #[test]
 fn a_typed_decision_keeps_its_part_open_and_can_be_asked_after_required_parts() {
@@ -234,12 +230,12 @@ fn a_typed_decision_keeps_its_part_open_and_can_be_asked_after_required_parts() 
         ]
     );
     let mut app = BrainDump::with_host(Arc::new(Simulated));
-    app.sources = request().sources;
-    app.applied = 1;
-    app.guess = Some(b);
+    *app.conversation.sources_mut() = request().sources;
+    app.conversation.set_applied(1);
+    app.conversation.set_board(Some(b));
     assert!(!app.goal_ready());
     let (settled, _) = parsed(&format!(r#"{{{parts},"open":[],"decisions":[]}}"#));
-    app.guess = Some(settled);
+    app.conversation.set_board(Some(settled));
     assert!(app.goal_ready());
 }
 #[test]
