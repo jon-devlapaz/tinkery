@@ -83,7 +83,7 @@ pub(super) fn request_key(request: &BoardRequest) -> String {
 pub(super) fn coverage(request: &BoardRequest, g: &Guess) -> Vec<Coverage> {
     coverage_board(request, &serde_json::to_value(g).expect("guess serializes"))
 }
-pub(super) fn coverage_board(request: &BoardRequest, g: &serde_json::Value) -> Vec<Coverage> {
+fn coverage_board(request: &BoardRequest, g: &serde_json::Value) -> Vec<Coverage> {
     let mut terms = HashSet::new();
     for s in &request.sources {
         for word in s.text.split_whitespace() {

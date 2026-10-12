@@ -171,84 +171,11 @@ fn full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading() {
 }
 #[cfg(unix)]
 #[test]
-fn background_advice_does_not_delay_display_help_or_local_typing_and_is_owned() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(
-        &skill,
-        "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
-    )
-    .unwrap();
-    let program = dir.path().join("pi");
-    std::fs::write(&program,r#"#!/usr/bin/env python3
-import json,sys,pathlib,time
-root=pathlib.Path(__file__).parent
-r=json.load(sys.stdin)
-if r.get('kind')=='meaning-preservation':
- (root/'audit-active').write_text('ready')
- time.sleep(30)
- print(json.dumps(dict(missing=[],false_choice=True)));sys.exit(0)
-log=root/'shapes'
-n=int(log.read_text()) if log.exists() else 0
-log.write_text(str(n+1))
-print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[dict(id='boundary',text='When should you taste the result?')] if not r['settled'] else [],alternatives=[])))
-"#).unwrap();
-    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(
-        PiHost::new(program, "test/model".into(), skill)
-            .unwrap()
-            .with_background_audit(),
-    );
-    let mut a = BrainDump::with_host(host.clone());
-    a.paste("the restaurateur judges the result");
-    a.submit();
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    while !dir.path().join("audit-active").exists() && std::time::Instant::now() < deadline {
-        a.tick();
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
-    assert!(dir.path().join("audit-active").exists());
-    assert!(a.guess.is_some() && !a.running() && a.audit_job.is_some());
-    a.paste("before final judgment");
-    key(&mut a, KeyCode::F(1));
-    let start = std::time::Instant::now();
-    snapshot(100, 30, &mut a, false).unwrap();
-    assert!(start.elapsed() < std::time::Duration::from_secs(1));
-    key(&mut a, KeyCode::Esc);
-    assert_eq!(a.input.text, "before final judgment");
-    a.submit();
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while !host
-        .diagnostics()
-        .iter()
-        .any(|s| s.contains("Request cancelled"))
-        && std::time::Instant::now() < deadline
-    {
-        a.tick();
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
-    assert!(
-        host.diagnostics()
-            .iter()
-            .any(|s| s.contains("Request cancelled"))
-    );
-    assert_eq!(a.sources[0].text, "the restaurateur judges the result");
-    assert_eq!(a.sources[1].text, "before final judgment");
-    assert!(a.receipt.is_none());
-    a.audit_job = None;
-}
-#[cfg(unix)]
-#[test]
-fn one_shape_then_one_log_only_audit_never_auto_repairs_or_withholds() {
+fn one_shape_then_one_review_never_auto_repairs_or_withholds() {
     use std::os::unix::fs::PermissionsExt;
     for (mode, success) in [
         ("pass", true),
-        ("flag", true),
         ("syntax", false),
-        ("audit-syntax", true),
-        ("audit-anchor", true),
-        ("continuity", true),
         ("invalid", false),
         ("transport", false),
     ] {
@@ -291,15 +218,10 @@ if kind=='decision-review':
  assert 'return none unless another decision is as costly' in p
  (root/'review-ok').write_text('1')
  print(json.dumps(dict(decisions=[])));sys.exit(0)
-if kind=='meaning-preservation':
- assert r['mode']=='log-only' and 'questions' in r['board'] and 'misfits' in r['board']
- if mode=='audit-syntax':print('not JSON');sys.exit(0)
- if mode=='audit-anchor':print(json.dumps(dict(missing=[dict(source=1,quote='invented',occurrence=0)],false_choice=False)));sys.exit(0)
- print(json.dumps(dict(missing=[dict(source=1,quote='restaurateur',occurrence=0)] if mode=='flag' else [],false_choice=False,repeated=['new'] if mode=='continuity' else [])));sys.exit(0)
 assert not previous
 if mode=='transport':sys.exit(2)
 if mode=='syntax':print('not JSON');sys.exit(0)
-print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote='invented' if mode=='invalid' else r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[dict(id='new',text='Which boundary matters?')] if mode=='continuity' else [],alternatives=[])))
+print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote='invented' if mode=='invalid' else r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#)).unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
         let pi = PiHost::new(program, "test/model".into(), skill)
@@ -317,40 +239,16 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
             1,
             "{mode}: one shaping call"
         );
+        assert!(
+            calls
+                .lines()
+                .all(|l| l.contains("\"shape\"") || l.contains("\"decision-review\"")),
+            "{mode}: only shaping and review calls: {calls}"
+        );
         // The decision review runs only on a readable board, once.
         let readable = !matches!(mode, "syntax" | "transport");
         assert_eq!(reviews, usize::from(readable), "{mode}: {calls}");
         assert_eq!(dir.path().join("review-ok").exists(), readable, "{mode}");
-        if let Ok(g) = result {
-            let before = serde_json::to_value(&g).unwrap();
-            let d = pi.advisory(r, g.clone(), &AtomicBool::new(false));
-            assert_eq!(d.mode, "log-only");
-            assert_eq!(
-                d.decision,
-                match mode {
-                    "flag" | "continuity" => "flag",
-                    "audit-syntax" | "audit-anchor" => "error",
-                    _ => "pass",
-                }
-            );
-            assert_eq!(before, serde_json::to_value(&g).unwrap());
-            if mode == "continuity" {
-                assert_eq!(g.questions.len(), 1);
-            }
-        }
-        let calls = std::fs::read_to_string(dir.path().join("calls.jsonl"))
-            .unwrap()
-            .lines()
-            .map(|s| serde_json::from_str::<serde_json::Value>(s).unwrap())
-            .collect::<Vec<_>>();
-        assert_eq!(calls.iter().filter(|c| c["kind"] == "shape").count(), 1);
-        assert_eq!(
-            calls
-                .iter()
-                .filter(|c| c["kind"] == "meaning-preservation")
-                .count(),
-            usize::from(success)
-        );
         for log in pi.diagnostics() {
             let d: checks::Decision = serde_json::from_str(&log).unwrap();
             assert!(!d.request_key.is_empty());
@@ -362,7 +260,7 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
 }
 #[cfg(unix)]
 #[test]
-fn a_send_costs_a_shaping_call_and_a_review_with_no_background_audit() {
+fn a_send_costs_a_shaping_call_and_a_review_and_nothing_runs_after_display() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let skill = dir.path().join("SKILL.md");
@@ -379,7 +277,6 @@ r=json.load(sys.stdin)
 kind=r.get('kind','shape')
 with (root/'calls').open('a') as f:f.write(kind+'\n')
 if kind=='decision-review':print(json.dumps(dict(decisions=[])));sys.exit(0)
-if kind=='meaning-preservation':print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)
 print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -392,7 +289,14 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
         a.tick();
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    assert!(a.guess.is_some() && a.audit_job.is_none());
+    assert!(a.guess.is_some() && !a.running());
+    // Nothing starts after the reading is shown: keep ticking, and no further call arrives.
+    let settle = std::time::Instant::now() + std::time::Duration::from_millis(800);
+    while std::time::Instant::now() < settle {
+        a.tick();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    drop(a);
     assert_eq!(
         std::fs::read_to_string(dir.path().join("calls")).unwrap(),
         "shape\ndecision-review\n"

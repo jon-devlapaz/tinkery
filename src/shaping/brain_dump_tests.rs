@@ -280,7 +280,7 @@ fn boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings
     bad.uncertain = true;
     assert!(
         bad.validate(&r).is_ok(),
-        "Uncertainty is advisory, not a reason to force an invented second reading"
+        "Uncertainty is a hint, not a reason to force an invented second reading"
     );
     bad.framings.push(Framing {
         text: "Another possible meaning".into(),
@@ -1027,63 +1027,4 @@ fn unchanged_reading_records_the_answer_without_claiming_a_wording_change() {
     );
     assert!(a.focused_question().is_none());
     assert_eq!(a.settled.len(), 1);
-}
-
-#[test]
-fn paraphrase_advice_is_logged_without_withholding_or_authorizing() {
-    let r = BoardRequest {
-        ask_counts: Default::default(),
-        sources: vec![Source {
-            id: 1,
-            text: "both".into(),
-            in_reply_to: None,
-        }],
-        fragments: vec![],
-        previous: None,
-        skipped: vec![],
-        answered: vec![],
-        settled: vec![Settled {
-            question: Question {
-                target: None,
-                id: "answered".into(),
-                text: "Harness, codebase, or both?".into(),
-            },
-            source: 1,
-        }],
-        layout: vec![],
-    };
-    let mut g = guess(&r);
-    g.questions = vec![
-        Question {
-            target: None,
-            id: "renamed-topic".into(),
-            text: "Harness, codebase, or both?".into(),
-        },
-        Question {
-            target: None,
-            id: "boundary".into(),
-            text: "When should you taste the result?".into(),
-        },
-    ];
-    let before = serde_json::to_value(&g).unwrap();
-    assert!(
-        meaning_check::verdict(
-            &r,
-            &g,
-            r#"{"missing":[],"false_choice":false,"repeated":["renamed-topic"]}"#
-        )
-        .unwrap()
-        .unwrap()
-        .contains("renamed-topic")
-    );
-    for invalid in [
-        "not JSON",
-        r#"{"missing":[],"false_choice":false,"repeated":["invented"]}"#,
-        r#"{"missing":[],"false_choice":false,"repeated":["boundary","boundary"]}"#,
-        r#"{"missing":[],"false_choice":false,"confirmed":true}"#,
-    ] {
-        assert!(meaning_check::verdict(&r, &g, invalid).is_err());
-    }
-    assert_eq!(before, serde_json::to_value(&g).unwrap());
-    assert_eq!(g.questions.len(), 2);
 }

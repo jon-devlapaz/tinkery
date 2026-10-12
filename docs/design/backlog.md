@@ -106,8 +106,7 @@ mouse agree; NO_COLOR cues remain. Revert exact-span validation to prove the tes
 **Read:** [think](think.md), [principles](principles.md).
 
 **Don't:** Restore permanent green, rewrite originals, imply unused words are
-rejected, expose log-only audits as warnings, use providers without budget,
-or write operator sessions.
+rejected, use providers without budget, or write operator sessions.
 
 ## 5. A calm dark theme
 
@@ -191,7 +190,7 @@ confirmation/handoff and operator recognition separately from automated checks.
 calls; exhaustion stops before another request. Fake tests prove limits and error
 handling. Record before/after evidence reproducibly without copying private dumps
 into the repository or declaring stub quality results to be human recognition.
-Operator review owns the quality verdict; counts include background audits.
+Operator review owns the quality verdict; counts include each send's decision review.
 
 **Read:** [think](think.md), [goal block](goal-block.md), [shape and handoff](shape-and-handoff.md).
 

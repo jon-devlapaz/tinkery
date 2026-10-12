@@ -139,9 +139,8 @@ cargo +stable run --locked -- --shape-pi \
 only when you mean to save real sessions. `--thinking` sets Pi's reasoning level
 (default `low`).
 
-A send makes at most two provider calls: one shaping call and, once a valid
-reading is shown, one log-only background audit, with no automatic retry. Some
-sends make none, such as a new dump that first asks how its words fit.
+A send makes at most two provider calls: one shaping call and one decision review,
+both before the reading is shown, with no automatic retry. Some sends make none, such as a new dump that first asks how its words fit.
 F3 opens the review. Scroll to its end (PgDn), then type `confirm` and Enter to
 save the goal to a new Seed Me session. Saving a goal is not seed confirmation or permission to implement, and
 nothing launches an agent. See [think](design/think.md) and
