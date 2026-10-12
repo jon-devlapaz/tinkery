@@ -154,11 +154,11 @@ fn historical_raw_captures_display_without_inferred_parts_or_provider_helpers() 
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     for (folder, names) in [
         (
-            "docs/evidence/2026-10-09-log-only/initial-eval",
+            "tests/fixtures/historical-captures/log-only",
             vec!["onboarding-emails", "trap"],
         ),
         (
-            "docs/evidence/2026-10-09-subtraction/live-eval",
+            "tests/fixtures/historical-captures/subtraction",
             vec!["books", "onboarding-emails", "trap"],
         ),
     ] {

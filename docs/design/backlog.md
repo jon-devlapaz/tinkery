@@ -1,6 +1,6 @@
 # Draft backlog — not published issues
 
-These nine self-contained chunks await planning review and operator approval.
+These eight self-contained chunks await planning review and operator approval.
 No GitHub issue has been created; none is implementation permission. When approved,
 work on one branch/PR per bounded slice and link the published issue. All acceptance
 work follows `CLAUDE.md`: temporary TEST roots, fake providers/voice, zero calls
@@ -8,29 +8,20 @@ unless the operator gives a budget, regression tests and important reversion pro
 
 ## 1. Goal-block polish
 
-**Context:** The short goal block is built, but dogfood still found generic
-Done-when questions, awkward constraint wording, repeated/invented timing and an
-injected instruction appearing as another goal. The review's “Some parts remain
-open for the seed” message also needs to agree with readiness rather than sound
-like a contradictory disclaimer.
+**Context:** Constraint prefixes, clause casing, the three-state no-question line and
+one line per constraint shipped in issues #13 and #19 ([goal block](goal-block.md#constraint-syntax)).
+Dogfood still found generic Done-when questions, repeated or invented timing, and an
+injected instruction appearing as another goal.
 
-**Shipped for issues #13 and #19:** explicit leading constraint prefixes, clause casing,
-the three-state no-question line, and one line per constraint item with no re-splitting
-([goal block](goal-block.md#constraint-syntax), [think](think.md)). Concrete questions, injected-topic exclusion and operator
-dogfood remain open here.
+**Build:** Ask concrete, dump-specific success questions. Avoid repeating `when` or
+turning remembered timing into a deadline. Keep injected instructions out of “also in
+your dump”.
 
-**Build:** Ask concrete, dump-specific success questions. File “Must: …must not…”
-and other negatives under Must not; strip redundant leading “must (not)” wording.
-Avoid repeating `when` or turning remembered timing into a deadline. Keep injected
-instructions out of “also in your dump”. Review the open-parts message against
-required missing lines versus legitimately deferred seed questions.
-
-**Acceptance:** Fixture tests cover negative filing, “don't care”, redundant must,
-repeated/false deadlines, casing, concrete questions and injected-topic exclusion.
-Messages distinguish ready-to-review from missing required intent, and neither
-hide unresolved questions nor invent a new consent gate. The frozen reviewed block
-remains identical in receipt, stored origin and detail. Test the protection reverted;
-operator recognition needs separately approved dogfood, not a claim from stubs.
+**Acceptance:** Fixture tests cover repeated/false deadlines, concrete questions and
+injected-topic exclusion, without hiding unresolved questions or inventing a new
+consent gate. The frozen reviewed block remains identical in receipt, stored origin
+and detail. Test the protection reverted; operator recognition needs separately
+approved dogfood, not a claim from stubs.
 
 **Read:** [goal block](goal-block.md), [think](think.md), [shape and handoff](shape-and-handoff.md).
 
@@ -60,25 +51,17 @@ or persist to operator roots.
 
 ## 3. Context menu and send aliases (C4–C6, C9)
 
-**Shipped (issue #14):** writing selection (Shift-navigation, Ctrl-A, mouse drag,
-replace/delete/paste) and Tab between writing and the original. Only the context menu
-and modified-Enter send aliases below remain proposals.
+**Context:** Writing selection and Tab into the original shipped in issue #14
+([think](think.md#interaction-contracts)). There is still no right-click menu or
+modified-Enter send. Terminal hosts report modified keys and right clicks differently.
 
-**Context:** Writing lacks regular field selection; originals/reading have partial
-selection support, and keyboard entry into the original needs restoring. Terminal
-hosts report modified keys and right clicks differently.
+**Build:** Right-click offers Copy/Cut/Paste/Select all where meaningful, Copy/Skip
+question on a question, and closes on Esc/click-away. Cmd/Ctrl+Enter sends only when
+distinctly reported; F2 remains reliable and visible.
 
-**Build:** Shift/arrows and mouse-drag selection, select all, replace/delete a
-selection and paste in writing; sentence selection and OSC 52 copy in reading/original.
-Add a keyboard route into the original. Right-click offers Copy/Cut/Paste/Select all
-where meaningful, Copy/Skip question on a question, and closes on Esc/click-away.
-Cmd/Ctrl+Enter sends only when distinctly reported; F2 remains reliable and visible.
-
-**Acceptance:** Unicode/multiline selection, replacement, deletion, bracketed paste,
-copy bytes and context-specific menus pass tests. Ctrl-C copies selection, otherwise
-cancels/no-ops, never leaves. Plain Enter remains a newline; letters remain text.
-A no-mouse journey reaches/selects the original. Document/test host forwarding and
-unsupported shortcuts honestly; no fabricated clipboard success.
+**Acceptance:** Context-specific menus pass tests at keyboard and mouse. Plain Enter
+remains a newline; letters remain text. Document/test host forwarding and unsupported
+shortcuts honestly; no fabricated clipboard success.
 
 **Read:** [think](think.md), [principles](principles.md), `docs/terminal-setup.md`.
 
@@ -127,31 +110,7 @@ Changing appearance must preserve input, navigation and the confirmed goal.
 change terminal/macOS preferences, break NO_COLOR, record audio, spend provider
 budget without approval, or touch operator installs/data.
 
-## 6. Menu opens in under 100 ms
-
-**Shipped (issue #15):** discovery is off the paint and input path; see [menu](menu.md#session-discovery)
-and its measured scope. Kept here for the original acceptance wording.
-
-**Context:** Menu startup eagerly reads session/ledger sources. Speed must not come
-from dropping items, lying about counts, or showing a loading screen.
-
-**Build:** Decouple the first usable menu frame from expensive source discovery.
-Keep all six places and every saved session reachable; update evidence without
-blocking input or converting missing sources into zero. Define timing at launch
-to first usable frame, not just constructor duration.
-
-**Acceptance:** Measure release-binary startup under 100 ms on a declared test
-machine with cold temporary roots and large/slow fixture sources. Report samples
-and timing method. Tests retain every valid session in large fixture sets, stable
-navigation and exact counts when known. No loading screen/spinner, hidden item loss or false
-empty success. Prove a slow-source regression with a deterministic fake.
-
-**Read:** [menu](menu.md), [shape and handoff](shape-and-handoff.md), [principles](principles.md).
-
-**Don't:** Drop records, fake evidence, silently skip expensive correctness checks,
-add an agent launch path, call providers without budget, or change operator installs/sessions.
-
-## 7. Multiple-choice answers
+## 6. Multiple-choice answers
 
 **Context:** Some focused questions naturally offer alternatives, but guesses can
 anchor the operator. Free text is currently the answer route.
@@ -172,7 +131,7 @@ only under a separately approved budget/dump set.
 **Don't:** Force choices, turn guesses into facts, trade meaning for speed,
 rewrite original answers, call providers without budget, or write operator sessions.
 
-## 8. Scratch-space spike — design only
+## 7. Scratch-space spike — design only
 
 **Context:** The old `--scratchpad` canvas was removed (issue #21); extracted cards
 remain, hidden in technical help. Stickies-first made people organize too early. A scratch space
@@ -196,7 +155,7 @@ a later build needs a separate approved slice.
 anything, mix guesses with verbatim cards, persist canvases, invent operator dumps,
 or touch operator data/settings. Research model calls need explicit budget.
 
-## 9. Operator-supplied real-dump eval harness
+## 8. Operator-supplied real-dump eval harness
 
 **Context:** Stub tests prove mechanics, not whether a messy human dump becomes a
 goal they recognize. Historical dogfood exposed actor, constraints, timing and

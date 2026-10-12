@@ -70,7 +70,7 @@ voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
 the same key returns. Shift with the arrow keys, Home or End selects in either one;
 **Ctrl-A** selects all of the one you are in. In writing, typing, Enter, Backspace,
 Delete and paste replace the selection; the original is read-only, and typing there
-returns to writing. A paste that would pass the 4,096-byte limit is refused whole.
+returns to writing.
 Extracted cards (Ctrl-E extracts a selection) show and hide with **F7** or **Ctrl-X**; while they
 cover the original it cannot be selected or copied. A paste or edit past the 4,096-byte
 limit is refused whole, with a one-line notice that clears on your next key.
