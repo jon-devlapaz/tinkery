@@ -29,7 +29,8 @@ muted; the distinction clears on typing or sending. No extra banner or model cal
 [Think](think.md) is intake; [goal block](goal-block.md) defines its output;
 [shape and handoff](shape-and-handoff.md) defines persistence and continuation;
 [voice](voice.md) defines local dictation; [menu](menu.md) distinguishes built views
-from future ones. [Backlog](backlog.md) contains proposals, not permission.
+from future ones. [Architecture](architecture.md) maps code to phases and
+holds the design score. [Backlog](backlog.md) contains proposals, not permission.
 
 ## Why these choices
 
