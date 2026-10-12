@@ -29,7 +29,10 @@ Old unstructured goals use their first line too. No preview lines, divider or co
 | Ended session | ended | None; copying is unavailable |
 
 Unknown and practice states are distinct, never mislabeled ready. Unreadable
-ledger records are currently skipped rather than shown as ready.
+ledger records are skipped rather than shown as ready, and the list says how many
+couldn't be read. Sessions come from the menu's [background read](menu.md#session-discovery):
+until it lands, shape says it is reading and Esc/F10 still leave; it never says
+“no sessions” for an unknown or failed read.
 Enter opens the stored block line by line using the receipt's shared component,
 without `Saved.`. `c` copies the same continuation prompt again. Arrows / `j k`
 move in the list; Esc goes detail → list → menu; F10 goes to menu. F1 helps.

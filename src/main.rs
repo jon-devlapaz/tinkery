@@ -121,6 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             menu = menu.with_seed_me(skill.canonicalize()?);
         }
         if snapshot {
+            menu.discover_for_snapshot(std::time::Duration::from_secs(5));
             println!("{}", home::snapshot(100, 30, &mut menu, no_color)?);
             return Ok(());
         }
