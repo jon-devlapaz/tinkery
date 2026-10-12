@@ -77,9 +77,32 @@ goal; [the receipt](shape-and-handoff.md) follows only successful saving. Review
 carry remaining questions and missing parts into the seed: readiness is not needed
 to save, and saving is not seed or implementation approval.
 
+## Think record
+
+The same typed `confirm` also writes a **think record**: one pretty-printed JSON file
+per confirmed session in `~/.local/share/tinkery/think/` (`--record-root` overrides it),
+named `<UTC confirm time>_<Seed Me session id>.json`. The review prompt and key bar say
+so (`type confirm` → `save goal and record`), so the write rides a labelled action
+(Yohaku article 4). Sessions that end without confirming (Esc, F10, quit, crash) leave
+no record; that was the operator's call on 2026-10-12, to revisit after reading a few.
+
+A record holds `schema` (1), the tinkery version, `origin` (`live` for Pi,
+`simulated` otherwise), model, thinking level and a hash of both system prompts, the
+start (first turn) and confirm times, the Seed Me session id, every `turn` in the order
+it happened (`words`, `asked`, `answered`, `skipped`, `restored`, `scope_asked`,
+`scope_answered`, each with its time and the person's words verbatim), every F5 check
+as it already serializes, and the goal block exactly as confirmed.
+
+`src/think/record.rs` owns the format; `Conversation` keeps the turns. The record is
+written after Seed Me's save reads back, so a failed save writes none. If the record
+can't be written the goal stays saved and the receipt says the record wasn't written.
+Think never reads a record back. The record is not a ledger: that word is Seed Me's
+`ledger.json`. Gap flags and the eval harness reading records are separate slices.
+
 ## Interaction contracts
 
 - State-aware muted bar; two-layer F1 help, technical details only on demand.
+  On review the bar reads `type confirm save goal and record` when a record will be written.
 - Letters are text while writing. Tab or Shift-Tab moves between writing and the
   left original once one exists; the same key returns, and anything typed returns
   to writing and drops the original's selection. No letter is a command, with

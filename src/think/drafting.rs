@@ -41,8 +41,8 @@ pub struct Approach {
 /// working-draft section of the Seed Me skill as standing instructions.
 pub struct PiHost {
     program: PathBuf,
-    model: String,
-    thinking: String,
+    pub(super) model: String,
+    pub(super) thinking: String,
     instructions: String,
     timeout: Duration,
     pub(super) brain_history: std::sync::Mutex<Vec<String>>,

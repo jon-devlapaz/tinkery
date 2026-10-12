@@ -33,7 +33,7 @@ def journey(width, height):
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
         raw = bytearray()
-        process = subprocess.Popen([str(REPO/'target/debug/tinkery'), '--home', '--shape-pi',
+        process = subprocess.Popen([str(REPO/'target/debug/tinkery'), '--home', '--shape-pi', '--record-root', str(root / 'TEST-records'),
             '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
             '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=root,
             env={**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'})

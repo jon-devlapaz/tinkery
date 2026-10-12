@@ -349,6 +349,8 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     let open_now;
     let now = if app.handoff.job.is_some() {
         "Saving your goal. Wait a moment."
+    } else if app.handoff.review.is_some() && app.records() {
+        "Type confirm, then Enter, to save this goal and its think record.\nEsc goes back without saving."
     } else if app.handoff.review.is_some() {
         "Type confirm, then Enter, to save this goal.\nEsc goes back without saving."
     } else if app.running() {
@@ -404,6 +406,8 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     };
     let finish = if !app.real || app.handoff.config.is_none() {
         "Saving a goal needs real mode and Seed Me."
+    } else if app.records() {
+        "! F3   review the goal; typing confirm saves it and its think record for good"
     } else {
         "! F3   review the goal; typing confirm saves it for good"
     };
@@ -420,12 +424,14 @@ pub(super) fn help_text(app: &BrainDump) -> String {
 pub(super) fn how_text(app: &BrainDump) -> String {
     if let Some(receipt) = &app.handoff.receipt {
         return format!(
-            "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}\n\nCopying sends the continuation prompt through OSC 52; your terminal may require clipboard permission. Paste it into Claude, Codex or Pi yourself. Opening shape only selects this saved session. No agent, harness or browser starts.\n\nThe session stays active. Only Tinkery's owned viewer stops when you leave. Goal confirmation is not seed or implementation approval.",
-            receipt.text()
+            "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}{}\n\nCopying sends the continuation prompt through OSC 52; your terminal may require clipboard permission. Paste it into Claude, Codex or Pi yourself. Opening shape only selects this saved session. No agent, harness or browser starts.\n\nThe session stays active. Only Tinkery's owned viewer stops when you leave. Goal confirmation is not seed or implementation approval.",
+            receipt.text(),
+            app.record_line()
+                .map_or(String::new(), |line| format!("\n{line}"))
         );
     }
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; F7 or Ctrl-X shows or hides the cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call and one decision review run before the reading is shown: at most two provider calls per send, no automatic retry. Nothing runs after the reading appears. Exact spans/schema/history remain local blocking checks. Calls remain bounded and cancellable; Ctrl-C cancels sending. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; F7 or Ctrl-X shows or hides the cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call and one decision review run before the reading is shown: at most two provider calls per send, no automatic retry. Nothing runs after the reading appears. Exact spans/schema/history remain local blocking checks. Calls remain bounded and cancellable; Ctrl-C cancels sending. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness. The same confirmation writes a think record (every turn and check, your words verbatim) into Tinkery's own folder; F1 then h shows where after saving. Sessions that end without confirming leave no record.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
         if app.real {
             "Real provider mode."
         } else {
@@ -446,7 +452,12 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     } else if app.handoff.receipt.is_some() {
         vec![("c", "copy prompt"), ("s", "open in shape"), ("10", "menu")]
     } else if app.handoff.review.is_some() {
-        vec![("type confirm", "save"), ("esc", "back")]
+        let save = if app.records() {
+            "save goal and record"
+        } else {
+            "save"
+        };
+        vec![("type confirm", save), ("esc", "back")]
     } else if app.voice_active() {
         vec![
             (crate::voice::key_label(std::env::consts::OS), "stop"),

@@ -17,7 +17,7 @@ def journey(w,h):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-dogfood-') as d:
   cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));original=termios.tcgetattr(slave);screen=Screen(w,h);raw=bytearray()
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--model','test/model','--seed-me',str(skill),'--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--seed-me',str(skill),'--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
   def await_condition(check):
    end=time.monotonic()+6
    while time.monotonic()<end:
@@ -70,7 +70,7 @@ def exit_during_shaping(w,h):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-dogfood-') as d:
   cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));screen=Screen(w,h)
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--model','test/model','--seed-me',str(skill),'--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--seed-me',str(skill),'--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
   pid=cwd/'shaping.pid'
   def await_condition(check):
    end=time.monotonic()+6

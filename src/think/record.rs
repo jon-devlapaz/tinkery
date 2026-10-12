@@ -1,0 +1,329 @@
+//! The think record: one plain JSON file per confirmed think session, saying what happened in
+//! the order it happened.
+//!
+//! It is written once, by the same typed `confirm` that saves the goal, and never before: a
+//! session that ends without confirming leaves no record. The person's words are kept verbatim
+//! and the goal exactly as confirmed. Think never reads a record back, so a record can't steer a
+//! later reading. The format is this module's alone; [`SCHEMA`] changes when it does.
+
+use crate::goal::Part;
+use serde::Serialize;
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+/// The record format's version. Renaming or removing a field changes it.
+pub const SCHEMA: u8 = 1;
+
+/// Where records go for a user whose home is `home`. Only a default: the operator may point
+/// Tinkery elsewhere with `--record-root`, and nothing here creates the folder.
+pub fn default_root(home: &Path) -> PathBuf {
+    home.join(".local/share/tinkery/think")
+}
+
+/// One thing that happened in a think session, and when.
+#[derive(Clone, Debug)]
+pub struct Turn {
+    /// When it happened, by the wall clock.
+    pub at: SystemTime,
+    /// What happened.
+    pub event: Event,
+}
+
+/// What happened in one turn. Words and answers carry the person's text verbatim.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Event {
+    /// Words sent that answer no question: a dump or an addition.
+    Words {
+        /// The original's number in the conversation, from 1.
+        source: usize,
+        /// The words exactly as sent.
+        text: String,
+    },
+    /// A question came into focus.
+    Asked {
+        /// The question's id.
+        id: String,
+        /// The goal part an answer would change, if any.
+        part: Option<Part>,
+        /// The question as shown.
+        question: String,
+    },
+    /// Words sent as the answer to a question.
+    Answered {
+        /// The question's id.
+        id: String,
+        /// The question as shown.
+        question: String,
+        /// The answer's number in the conversation.
+        source: usize,
+        /// The answer exactly as sent.
+        answer: String,
+    },
+    /// The question in focus was skipped.
+    Skipped {
+        /// The question's id.
+        id: String,
+        /// The goal part it was about, if any.
+        part: Option<Part>,
+        /// The question as shown.
+        question: String,
+    },
+    /// The last skip was brought back.
+    Restored {
+        /// The question's id.
+        id: String,
+        /// The goal part it was about, if any.
+        part: Option<Part>,
+        /// The question as shown.
+        question: String,
+    },
+    /// Added words came in, and think asked whether they belong to this goal.
+    ScopeAsked {
+        /// The question's id.
+        id: String,
+        /// The question as shown.
+        question: String,
+        /// The added words' number in the conversation.
+        source: usize,
+    },
+    /// The scope of added words was answered.
+    ScopeAnswered {
+        /// The question's id.
+        id: String,
+        /// The question as shown.
+        question: String,
+        /// The answer's number in the conversation.
+        source: usize,
+        /// The answer exactly as sent.
+        answer: String,
+    },
+}
+
+/// Who produced the readings: Pi with a named model, or the practice simulation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Origin {
+    /// `live` for Pi, `simulated` for practice or a stand-in host.
+    pub origin: String,
+    /// The model, as `provider/model-id`, when there was one.
+    pub model: Option<String>,
+    /// Pi's thinking level, when set.
+    pub thinking: Option<String>,
+    /// [`hash`] of the system prompts the readings used, when known.
+    pub prompt_hash: Option<String>,
+}
+impl Origin {
+    /// No model: practice or a stand-in host.
+    pub fn simulated() -> Self {
+        Self {
+            origin: "simulated".into(),
+            model: None,
+            thinking: None,
+            prompt_hash: None,
+        }
+    }
+}
+
+/// Everything a record holds, borrowed from the session that was just confirmed.
+pub struct Session<'a> {
+    /// Who produced the readings.
+    pub origin: &'a Origin,
+    /// Every turn, in order.
+    pub turns: &'a [Turn],
+    /// Each check's decision, as it already serializes for F5 "why".
+    pub checks: Vec<serde_json::Value>,
+    /// The goal block exactly as confirmed.
+    pub goal: &'a str,
+    /// The Seed Me session folder the goal was saved in.
+    pub seed_me_session: &'a Path,
+    /// When the save read back.
+    pub confirmed: SystemTime,
+}
+
+/// A stable, short fingerprint of `text` (64-bit FNV-1a), so two records can say whether they
+/// used the same prompt without carrying it.
+pub fn hash(text: &str) -> String {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in text.bytes() {
+        h ^= u64::from(byte);
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("fnv1a64:{h:016x}")
+}
+
+/// Writes one record for `session` into `root` (created if missing) and returns its path. The
+/// file is named by confirm time and Seed Me session, written whole, and never replaces another
+/// file: a clash is an error, not an overwrite.
+pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
+    #[derive(Serialize)]
+    struct TurnOut<'a> {
+        at: String,
+        #[serde(flatten)]
+        event: &'a Event,
+    }
+    let id = session_id(session.seed_me_session);
+    let started = session.turns.first().map_or(session.confirmed, |t| t.at);
+    let record = serde_json::json!({
+        "schema": SCHEMA,
+        "tinkery": env!("CARGO_PKG_VERSION"),
+        "origin": session.origin.origin,
+        "model": session.origin.model,
+        "thinking": session.origin.thinking,
+        "prompt_hash": session.origin.prompt_hash,
+        "started": utc(started, ':'),
+        "confirmed": utc(session.confirmed, ':'),
+        "seed_me_session": id,
+        "turns": session.turns.iter().map(|t| TurnOut { at: utc(t.at, ':'), event: &t.event }).collect::<Vec<_>>(),
+        "checks": session.checks,
+        "goal": session.goal,
+    });
+    let mut text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
+    text.push('\n');
+    std::fs::create_dir_all(root).map_err(|e| format!("{}: {e}", root.display()))?;
+    let path = root.join(format!("{}_{id}.json", utc(session.confirmed, '-')));
+    let mut file =
+        tempfile::NamedTempFile::new_in(root).map_err(|e| format!("{}: {e}", root.display()))?;
+    file.write_all(text.as_bytes())
+        .and_then(|()| file.as_file().sync_all())
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    file.persist_noclobber(&path)
+        .map_err(|e| format!("{}: {}", path.display(), e.error))?;
+    Ok(path)
+}
+
+/// The Seed Me session's folder name, kept to characters that are safe in a file name.
+fn session_id(session: &Path) -> String {
+    let name = session
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let safe: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if safe.is_empty() {
+        "unknown".into()
+    } else {
+        safe
+    }
+}
+
+/// `t` in UTC as `2026-10-12T22:40:00.123Z`, with `sep` between hours, minutes and seconds
+/// (`-` keeps it safe in a file name).
+fn utc(t: SystemTime, sep: char) -> String {
+    let d = t.duration_since(UNIX_EPOCH).unwrap_or_default();
+    let secs = d.as_secs();
+    let (y, m, day) = civil((secs / 86_400) as i64);
+    let rem = secs % 86_400;
+    format!(
+        "{y:04}-{m:02}-{day:02}T{:02}{sep}{:02}{sep}{:02}.{:03}Z",
+        rem / 3600,
+        rem / 60 % 60,
+        rem % 60,
+        d.subsec_millis()
+    )
+}
+
+/// Year, month and day for a count of days since 1970-01-01 (Howard Hinnant's algorithm).
+fn civil(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    (era * 400 + yoe + i64::from(month <= 2), month, day)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn at(secs: u64) -> SystemTime {
+        UNIX_EPOCH + Duration::from_millis(secs * 1000 + 7)
+    }
+
+    #[test]
+    fn utc_matches_known_dates() {
+        assert_eq!(utc(at(0), ':'), "1970-01-01T00:00:00.007Z");
+        assert_eq!(utc(at(951_782_400), ':'), "2000-02-29T00:00:00.007Z");
+        assert_eq!(utc(at(1_791_844_800), '-'), "2026-10-12T22-40-00.007Z");
+    }
+
+    #[test]
+    fn hash_is_stable() {
+        assert_eq!(hash(""), "fnv1a64:cbf29ce484222325");
+        assert_eq!(hash("a"), "fnv1a64:af63dc4c8601ec8c");
+    }
+
+    #[test]
+    fn writes_one_whole_file_with_originals_verbatim_and_never_overwrites() {
+        let root = tempfile::tempdir().unwrap();
+        let root = root.path().join("TEST-records");
+        let words = "  Café 👩‍💻\n\"quoted\"\ttab  ";
+        let turns = vec![
+            Turn {
+                at: at(1_791_844_000),
+                event: Event::Words {
+                    source: 1,
+                    text: words.into(),
+                },
+            },
+            Turn {
+                at: at(1_791_844_010),
+                event: Event::Asked {
+                    id: "q".into(),
+                    part: Some(Part::Why),
+                    question: "Why?".into(),
+                },
+            },
+        ];
+        let origin = Origin::simulated();
+        let session = Session {
+            origin: &origin,
+            turns: &turns,
+            checks: vec![serde_json::json!({"check": "TEST"})],
+            goal: "I TEST.\nWhy: because.",
+            seed_me_session: Path::new("/TEST/sessions/20261012-abc def"),
+            confirmed: at(1_791_844_800),
+        };
+        let path = write(&root, &session).unwrap();
+        assert_eq!(
+            path.file_name().unwrap(),
+            "2026-10-12T22-40-00.007Z_20261012-abc_def.json"
+        );
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+        let record: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(record["schema"], 1);
+        assert_eq!(record["origin"], "simulated");
+        assert_eq!(record["started"], "2026-10-12T22:26:40.007Z");
+        assert_eq!(record["confirmed"], "2026-10-12T22:40:00.007Z");
+        assert_eq!(record["seed_me_session"], "20261012-abc_def");
+        assert_eq!(record["goal"], "I TEST.\nWhy: because.");
+        assert_eq!(record["turns"][0]["kind"], "words");
+        assert_eq!(record["turns"][0]["text"], words);
+        assert_eq!(record["turns"][1]["kind"], "asked");
+        assert_eq!(record["turns"][1]["part"], "why");
+        assert_eq!(record["checks"][0]["check"], "TEST");
+        let clash = write(&root, &session).unwrap_err();
+        assert!(clash.contains("_20261012-abc_def.json"), "{clash}");
+        assert_eq!(
+            std::fs::read_dir(&root).unwrap().count(),
+            1,
+            "no temp file left behind"
+        );
+    }
+}

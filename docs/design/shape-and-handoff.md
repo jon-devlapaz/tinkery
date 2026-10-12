@@ -12,7 +12,9 @@ one next step: `Next: shape it into a seed with Seed Me.`
 
 Nothing launches, opens a browser, pastes into a harness or starts implementation.
 Raw storage paths live only in deliberate technical help (F1, then `h`), not the
-ordinary receipt/detail body. A plain-text terminal exit receipt can include
+ordinary receipt/detail body. That help shows the [think record](think.md#think-record)'s
+path under Seed Me's, or says plainly that the record wasn't written; the receipt's one
+muted notice says so too, and the goal stays saved either way. A plain-text terminal exit receipt can include
 recovery/session locations; that is separate from the calm interactive view.
 
 ## Shape list and detail

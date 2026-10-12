@@ -53,6 +53,7 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 | Confirmation review | `src/think/brain_dump/goal_view.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Seed Me: saving, reading sessions, continuation prompt | `src/seed_me/` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Explicit Pi drafting boundary | `src/think/drafting.rs` | [think](docs/design/think.md) |
+| Think record written on confirm | `src/think/record.rs` | [think](docs/design/think.md#think-record) |
 | Voice host/process/protocol and owned setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
 | Extracted cards (canvas, notes) | `src/think/canvas.rs`, `note.rs` | [think](docs/design/think.md) |
 | Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), `vendor/pinstar/API.md` |
