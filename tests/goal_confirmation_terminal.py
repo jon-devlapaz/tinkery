@@ -120,8 +120,15 @@ def journey(width,height,home=False,menu_only=False):
    for line in ledger['goal'].splitlines(): assert line in first_goal or line in right(),(line,first_goal,screen.text())
    send(b'\x1bOP','Right now');send(b'h','How it works')
    os.write(master,b'\x1b[6~');await_text('Session:')
-   os.write(master,b'\x1b[6~'*5);await_text('Think record:')
-   assert written[0].name in ''.join(right().split()),screen.text()
+   # Page down one step at a time: the record path follows Seed Me's, and its length varies by platform.
+   seen=[right()]
+   for _ in range(12):
+    if 'Think record:' in seen[-1]:break
+    os.write(master,b'\x1b[6~');deadline=time.monotonic()+.5
+    while time.monotonic()<deadline:
+     if select.select([master],[],[],.02)[0]:feed()
+    seen.append(right())
+   assert 'Think record:' in seen[-1],screen.text()
    os.write(master,b'\x1b');await_text('Right now');send(b'\x1bOP','Every key')
    assert 'send' not in right() and 'speak' not in right()
    os.write(master,b'\x1b');await_text('Saved.')
@@ -162,6 +169,10 @@ def journey(width,height,home=False,menu_only=False):
    while process.poll() is None and time.monotonic()<deadline:
     if select.select([master],[],[],.02)[0]:feed()
    assert process.poll()==0,screen.text()
+   while select.select([master],[],[],.05)[0]:
+    try:feed()
+    except OSError:break
+   assert ('Think record: '+str(written[0])).encode() in bytes(raw),bytes(raw)[-2000:]
    assert helper('status',session)['viewer']=='started earlier, not running now'
    assert helper('read',session)['status']=='active';assert not (session/'seed-contract.md').exists()
    print(json.dumps(dict(width=width,height=height,provider='stub',helper='official',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['c','s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_stopped=True,session_root='isolated temporary directory')))
