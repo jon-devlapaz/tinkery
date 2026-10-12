@@ -66,7 +66,10 @@ Ctrl aliases exist for hosts that capture function keys: **Ctrl-N** new dump
 (also Shift-F2), **Ctrl-G** review, **Ctrl-O** originals, **Ctrl-D** why. Local
 voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
 
-**Ctrl-C** copies a selection or cancels a running request; it never leaves think.
+**Tab** (or Shift-Tab) moves between writing and your original once one exists, and
+the same key returns. In the original, Shift with the arrow keys selects; any other
+typing returns to writing. **Ctrl-C** copies the selection in your original, or cancels
+a running request; it never leaves think.
 F10 leaves think and asks first (`y` / `n`) when leaving would lose unsaved work.
 It returns to the menu, where `q` quits. The one exception: launched without
 `--home`, F10 before a goal is saved exits Tinkery; after saving, it opens the menu.
@@ -75,7 +78,7 @@ It returns to the menu, where `q` quits. The one exception: launched without
 
 Tinkery captures the mouse while it runs and releases it on exit. In think, the
 wheel scrolls the reading and the original, and dragging across your original
-selects text for Ctrl-C to copy. Because Tinkery captures the mouse, the host's own
+selects text for Ctrl-C to copy (Tab and Shift-arrows do the same without a mouse). Because Tinkery captures the mouse, the host's own
 click-to-select needs whatever bypass modifier the host offers (Option in many
 macOS terminals). Shift works only in hosts that ignore the Shift forwarding
 request below. A native selection copies terminal cells, boxes and wrapping included.

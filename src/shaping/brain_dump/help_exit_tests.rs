@@ -52,7 +52,6 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     }
     for gone in [
         "F6",
-        "Tab",
         "board",
         "source",
         "extract",
@@ -208,6 +207,7 @@ fn ctrl_c_copies_a_selection_cancels_sending_and_never_leaves() {
     ctrl_c(&mut a);
     assert!(!a.quit && !a.leave_prompt && a.take_copy_request().is_none());
     let text = a.sources[0].text.clone();
+    a.board_focus = true;
     a.selection = Some((0, 6));
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().unwrap(), text[..6]);

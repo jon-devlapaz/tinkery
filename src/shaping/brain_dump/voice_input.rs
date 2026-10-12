@@ -60,7 +60,7 @@ impl BrainDump {
         }
         if let Some(voice) = &mut self.voice {
             voice.toggle(Instant::now());
-            self.board_focus = false;
+            self.focus_writing();
             self.help = false;
             self.original = false;
             self.details = false;
@@ -86,7 +86,7 @@ impl BrainDump {
                 .reject(Failure::new("capture", error));
             return;
         }
-        self.board_focus = false;
+        self.focus_writing();
         self.changed_lines = None;
         if result.send {
             self.submit();

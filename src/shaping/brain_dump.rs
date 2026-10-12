@@ -1406,9 +1406,16 @@ impl BrainDump {
         }
         match key.code {
             KeyCode::F(2) => self.submit(),
+            KeyCode::Tab | KeyCode::BackTab
+                if !key
+                    .modifiers
+                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+            {
+                self.toggle_original_focus()
+            }
             KeyCode::Char('n') if ctrl => {
                 self.add_more = !self.add_more;
-                self.board_focus = false;
+                self.focus_writing();
                 self.notice = if self.add_more {
                     "New dump, not an answer. Ctrl-N returns to answering; F2 submits."
                 } else {
@@ -1449,18 +1456,25 @@ impl BrainDump {
             }
             KeyCode::Char(c) if !ctrl => {
                 // Typing always writes; the app returns focus to the writing box itself.
-                self.board_focus = false;
+                self.focus_writing();
                 if let Err(e) = self.input.insert(&c.to_string()) {
                     self.notice = e.into();
                 }
             }
             KeyCode::Enter => {
+                self.focus_writing();
                 if let Err(e) = self.input.insert("\n") {
                     self.notice = e.into();
                 }
             }
-            KeyCode::Backspace => self.input.backspace(),
-            KeyCode::Delete => self.input.delete(),
+            KeyCode::Backspace => {
+                self.focus_writing();
+                self.input.backspace()
+            }
+            KeyCode::Delete => {
+                self.focus_writing();
+                self.input.delete()
+            }
             KeyCode::Left => self.input.left(),
             KeyCode::Right => self.input.right(),
             KeyCode::Home => self.input.home(),
@@ -1508,8 +1522,30 @@ impl BrainDump {
         self.details = was_modal || !self.details;
         self.paper_scroll = 0;
     }
-    /// Exact text of the current selection in the original, if any.
+    /// Tab / Shift-Tab: the one route between writing and the left original.
+    /// Either key toggles, so the way back is always the same key. Needs a source.
+    fn toggle_original_focus(&mut self) {
+        if self.board_focus {
+            self.focus_writing();
+        } else if !self.sources.is_empty() && self.goal_review.is_none() {
+            self.board_focus = true;
+            self.selection = None;
+            self.drag_anchor = None;
+            self.canvas.cancel_gesture();
+        }
+    }
+    /// Return to the writing box. A selection in the original belongs to that focus
+    /// and is dropped here, so a later Ctrl-C can never copy it by accident.
+    pub(super) fn focus_writing(&mut self) {
+        self.board_focus = false;
+        self.selection = None;
+        self.drag_anchor = None;
+    }
+    /// Exact text of the current selection in the original, if it is the active surface.
     fn selected_text(&self) -> Option<String> {
+        if !self.board_focus || self.original || self.help || self.details {
+            return None;
+        }
         let (a, b) = self.selection?;
         let text = &self.sources.get(self.source_view)?.text;
         let (start, end) = (a.min(b), a.max(b));
@@ -1649,7 +1685,7 @@ impl BrainDump {
         if self.input_area.contains((event.column, event.row).into())
             && event.kind == MouseEventKind::Down(MouseButton::Left)
         {
-            self.board_focus = false;
+            self.focus_writing();
             let wrapped = self.input.wrap(self.input_area.width);
             self.input.cursor = wrapped.index_at(
                 event.row - self.input_area.y + self.input_scroll,
@@ -1897,6 +1933,8 @@ mod meaning_check;
 mod question_continuity;
 #[cfg(test)]
 mod revision2_tests;
+#[cfg(test)]
+mod selection_tests;
 mod voice_input;
 #[cfg(test)]
 mod voice_tests;

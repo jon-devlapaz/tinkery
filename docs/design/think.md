@@ -45,8 +45,11 @@ to save, and saving is not seed or implementation approval.
 ## Interaction contracts
 
 - State-aware muted bar; two-layer F1 help, technical details only on demand.
-- Letters are text while writing. Ctrl-C copies an existing selection; otherwise
-  it cancels a running request or does nothing. It never leaves think.
+- Letters are text while writing. Tab or Shift-Tab moves between writing and the
+  left original once one exists; the same key returns, and anything typed returns
+  to writing and drops the original's selection. Ctrl-C copies the active
+  surface's nonempty selection; otherwise it cancels a running request or does
+  nothing. It never leaves think. F4 (the reader) and F6 (voice) are separate.
 - F10 is guarded when leaving loses unsaved work, and returns to the menu.
 - F4 originals and F5 why are help-only, not permanent bar clutter.
 - Local dictation inserts editable text, never auto-sends; see [voice](voice.md).
