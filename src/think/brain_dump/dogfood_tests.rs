@@ -298,7 +298,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
             "{bar}"
         );
         a.goal_review = None;
-        a.receipt = Some(handoff::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
+        a.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
         assert!(
             super::goal_tests::right_text(&receipt, w)

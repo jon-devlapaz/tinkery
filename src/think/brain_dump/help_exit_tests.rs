@@ -117,7 +117,7 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     key(&mut a, KeyCode::F(1));
     assert_eq!(a.goal_review.as_ref().unwrap().affirmation.goal, frozen);
     a.goal_review = None;
-    a.receipt = Some(handoff::Receipt::test("/tmp/Tinkery-TEST/session".into()));
+    a.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     let text = yohaku::help_text(&a);
     assert!(text.starts_with("Right now\nYour goal is saved"));
     assert!(text.contains("F10 back to the menu"));
@@ -191,7 +191,7 @@ fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     leave(&mut a);
     assert!(a.quit && !a.leave_prompt);
     let mut a = board();
-    a.receipt = Some(handoff::Receipt::test("/tmp/Tinkery-TEST/session".into()));
+    a.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     leave(&mut a);
     assert!(a.quit && !a.leave_prompt && a.receipt.is_some());
     let mut a = board();

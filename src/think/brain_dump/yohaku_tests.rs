@@ -3,21 +3,6 @@ use super::*;
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
 }
-#[test]
-fn evidence_labels_are_plain_and_leave_source_bytes_untouched() {
-    let mut source = Source {
-        id: 2,
-        text: "  both\n".into(),
-        in_reply_to: Some("compounding-referent".into()),
-    };
-    assert_eq!(
-        handoff::source_label(&source),
-        "Tinkery original 2 / reply to compounding-referent"
-    );
-    assert_eq!(source.text, "  both\n");
-    source.in_reply_to = None;
-    assert_eq!(handoff::source_label(&source), "Tinkery original 2");
-}
 fn left(screen: &str, w: u16) -> Vec<String> {
     screen
         .lines()
@@ -57,7 +42,7 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         assert_eq!(l1, l2);
         key(&mut a, KeyCode::Esc);
         a.goal_review = None;
-        a.receipt = Some(handoff::Receipt::test(
+        a.receipt = Some(seed_me::Receipt::test(
             "/tmp/Tinkery-TEST/session-id".into(),
         ));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
@@ -124,7 +109,7 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
         "/tmp/Tinkery-TEST/{}/END-SESSION-ID",
         "long-path-component/".repeat(35)
     );
-    let mut receipt = handoff::Receipt::test(path.clone().into());
+    let mut receipt = seed_me::Receipt::test(path.clone().into());
     receipt.goal = format!("{}\nEND-GOAL", "Long confirmed goal line.\n".repeat(80));
     a.receipt = Some(receipt);
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {

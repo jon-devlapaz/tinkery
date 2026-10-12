@@ -6,7 +6,6 @@
 //! skipped.
 
 use std::{
-    collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -22,14 +21,6 @@ const BRAIN_DUMP_PUB_FIELDS: usize = 9;
 const LONG_LINES: usize = 21;
 const LONG_LINE: usize = 200;
 
-/// Where a phase reaches into another phase today. Each entry names the step that removes it.
-/// An entry that no longer matches any code fails the check, so the list only shrinks.
-const EXCEPTIONS: &[(&str, &str, &str)] = &[(
-    "shape",
-    "think::brain_dump::handoff::continuation_prompt",
-    "#36 moves the continuation prompt into one Seed Me module",
-)];
-
 /// Every top-level module and its area. Each phase has its own module; the menu (which also lists
 /// the unbuilt places) is the only one that knows every phase; `shared` is code any phase may use.
 /// A new module must be listed here, so a new phase can't count as shared code by default.
@@ -37,6 +28,7 @@ const MODULES: &[(&str, &str)] = &[
     ("goal", "shared"),
     ("measure", "measure"),
     ("menu", "menu"),
+    ("seed_me", "shared"),
     ("shape", "shape"),
     ("think", "think"),
     ("voice", "shared"),
@@ -85,43 +77,25 @@ fn allowed(from: &str, to: &str) -> bool {
 }
 
 #[test]
-fn phases_only_reach_each_other_through_listed_exceptions() {
+fn phases_never_reach_each_other() {
     let mut violations = vec![];
-    let mut used = BTreeSet::new();
     for (file, module) in production_files() {
         let from = area(&module);
         for target in references(&file, &module) {
             let to = area(&target);
-            if allowed(from, to) {
-                continue;
-            }
-            let joined = target.join("::");
-            match EXCEPTIONS
-                .iter()
-                .position(|(f, prefix, _)| *f == from && starts_with_segments(&joined, prefix))
-            {
-                Some(i) => {
-                    used.insert(i);
-                }
-                None => violations.push(format!("{} ({from}) uses {joined} ({to})", rel(&file))),
+            if !allowed(from, to) {
+                violations.push(format!(
+                    "{} ({from}) uses {} ({to})",
+                    rel(&file),
+                    target.join("::")
+                ));
             }
         }
     }
-    let stale: Vec<_> = EXCEPTIONS
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| !used.contains(i))
-        .map(|(_, (from, prefix, _))| format!("{from} -> {prefix}"))
-        .collect();
     assert!(
         violations.is_empty(),
         "A phase reaches into another phase. Go through shared code or the menu instead:\n{}",
         violations.join("\n")
-    );
-    assert!(
-        stale.is_empty(),
-        "These exceptions are no longer used; delete them from EXCEPTIONS:\n{}",
-        stale.join("\n")
     );
 }
 
@@ -179,10 +153,6 @@ fn at_limit(what: &str, actual: usize, limit: usize) {
         actual == limit,
         "{what}: {actual}, better than the limit of {limit}. Lower the limit to {actual} in tests/architecture.rs."
     );
-}
-
-fn starts_with_segments(path: &str, prefix: &str) -> bool {
-    path == prefix || path.starts_with(&format!("{prefix}::"))
 }
 
 fn root() -> PathBuf {

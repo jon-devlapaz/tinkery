@@ -1,7 +1,65 @@
 use super::*;
 use crate::goal::confirmed::{SavedGoal, goal_block, render_saved_goal};
-use handoff::{Affirmation, Config, Receipt};
+use crate::seed_me::{self, Config, Receipt};
+use serde_json::json;
 use std::{path::PathBuf, sync::mpsc};
+
+/// The goal under review and everything think records with it.
+#[derive(Clone)]
+pub struct Affirmation {
+    pub goal: String,
+    pub parts: GoalParts,
+    pub other_goals: Vec<String>,
+    pub deferred: Vec<String>,
+    pub outcome: String,
+    pub options: Vec<Approach>,
+    pub sources: Vec<Source>,
+    pub answered: Vec<Settled>,
+    pub unresolved: Vec<Question>,
+    pub unresolved_notes: Vec<String>,
+    pub source: String,
+}
+impl Affirmation {
+    /// What Seed Me records: the originals verbatim, and think's questions as provisional context.
+    pub(super) fn affirmed(&self) -> seed_me::Affirmed {
+        let context = json!({
+            "answered": self.answered,
+            "unresolved": self.unresolved,
+            "unresolved_notes": self.unresolved_notes,
+            "goal_parts": self.parts,
+            "success": self.parts.done_when,
+            "constraints": {"must": self.parts.must, "must_not": self.parts.must_not},
+            "other_goals": self.other_goals,
+            "deferred": self.deferred,
+            "problem": self.parts.why,
+        });
+        seed_me::Affirmed {
+            goal: self.goal.clone(),
+            outcome: self.outcome.clone(),
+            options: self
+                .options
+                .iter()
+                .map(|o| seed_me::Choice {
+                    label: o.label.clone(),
+                    benefit: o.benefit.clone(),
+                    cost: o.cost.clone(),
+                    undo_cost: o.undo_cost.clone(),
+                })
+                .collect(),
+            originals: self
+                .sources
+                .iter()
+                .map(|s| seed_me::Original {
+                    id: s.id,
+                    in_reply_to: s.in_reply_to.clone(),
+                    text: s.text.clone(),
+                })
+                .collect(),
+            context: context.to_string(),
+            source: self.source.clone(),
+        }
+    }
+}
 
 pub(super) struct Review {
     pub affirmation: Affirmation,
@@ -148,7 +206,7 @@ impl BrainDump {
             let mut text = receipt.text();
             text.push_str(&format!(
                 "\nSession remains active. Saved ledger: {}",
-                receipt.session.join("ledger-view.html").display()
+                receipt.saved_view().display()
             ));
             if let Err(e) = stopped {
                 text.push_str(&format!("\nViewer shutdown failed: {e}"));
@@ -198,7 +256,7 @@ impl BrainDump {
             KeyCode::Backspace=>{review.input.pop();},
             KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) && review.input.len()<32=>review.input.push(c),
             KeyCode::Enter if review.input=="confirm" && review.scroll>=review.max=>{
-                let config=self.goal_config.clone().unwrap();let affirmation=review.affirmation.clone();
+                let config=self.goal_config.clone().unwrap();let affirmation=review.affirmation.affirmed();
                 let (tx,rx)=mpsc::channel();
                 std::thread::spawn(move||{let _=tx.send(config.confirm(affirmation));});
                 self.handoff_job=Some(rx);self.notice="Saving the explicitly affirmed goal through Seed Me…".into();

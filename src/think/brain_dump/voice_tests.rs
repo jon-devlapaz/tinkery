@@ -476,7 +476,7 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
     assert!(a.input.text.is_empty());
     assert!(!a.voice_available());
     a.goal_review = None;
-    a.receipt = Some(handoff::Receipt::test("/TEST/voice-receipt".into()));
+    a.receipt = Some(seed_me::Receipt::test("/TEST/voice-receipt".into()));
     key(&mut a, KeyCode::F(6));
     assert!(fake.borrow().commands.is_empty());
     assert!(!yohaku::help_text(&a).contains("speak"));

@@ -3,7 +3,7 @@ use super::{
     canvas::Canvas,
     drafting::{Approach, Job, PiHost},
 };
-use crate::{MIN_HEIGHT, MIN_WIDTH, Palette};
+use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -399,10 +399,10 @@ pub struct BrainDump {
     reading: usize,
     real: bool,
     pub notice: String,
-    goal_config: Option<handoff::Config>,
+    goal_config: Option<seed_me::Config>,
     goal_review: Option<goal_view::Review>,
-    handoff_job: Option<std::sync::mpsc::Receiver<Result<handoff::Receipt, String>>>,
-    pub receipt: Option<handoff::Receipt>,
+    handoff_job: Option<std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>>,
+    pub receipt: Option<seed_me::Receipt>,
     shape_request: Option<std::path::PathBuf>,
     exit_after_handoff: bool,
     goal_button: Rect,
@@ -1120,7 +1120,7 @@ impl BrainDump {
         let voice = self.voice.is_some();
         Box::new(move || {
             let mut dump = Self::with_mode(host.clone(), real);
-            dump.goal_config = config.as_ref().map(handoff::Config::fresh);
+            dump.goal_config = config.as_ref().map(seed_me::Config::fresh);
             if voice {
                 dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
             }
@@ -2008,7 +2008,6 @@ mod dogfood_tests;
 #[cfg(test)]
 mod goal_tests;
 mod goal_view;
-pub mod handoff;
 #[cfg(test)]
 mod help_exit_tests;
 mod intact_view;

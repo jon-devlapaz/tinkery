@@ -45,7 +45,7 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
         let mut a = board();
         a.review_goal();
         let frozen = a.goal_review.as_ref().unwrap().affirmation.goal.clone();
-        let mut receipt = handoff::Receipt::test("/tmp/TEST-receipt/session".into());
+        let mut receipt = seed_me::Receipt::test("/tmp/TEST-receipt/session".into());
         receipt.goal = frozen.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         a.handoff_job = Some(rx);
@@ -104,7 +104,7 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
 #[test]
 fn receipt_copy_is_exact_and_shape_is_an_explicit_one_shot_request() {
     let mut a = board();
-    a.receipt = Some(handoff::Receipt::test("/tmp/TEST-receipt/session".into()));
+    a.receipt = Some(seed_me::Receipt::test("/tmp/TEST-receipt/session".into()));
     a.key_bar = false;
     assert_eq!(
         snapshot(100, 30, &mut a, false)

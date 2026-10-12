@@ -1,10 +1,11 @@
 pub mod discovery;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
+pub use crate::seed_me::{Session, Stage};
 use crate::{
     Palette,
     goal::confirmed::{SavedGoal, render_saved_goal},
-    think::brain_dump::handoff::continuation_prompt,
+    seed_me::continuation_prompt,
 };
 use ratatui::{
     Frame,
@@ -161,56 +162,6 @@ impl Shape {
             copy
         )
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Stage {
-    GoalSaved,
-    SeedDrafted,
-    SeedReady,
-    Ended,
-    Unknown,
-    Simulated,
-}
-impl Stage {
-    pub fn from_files(status: &str, seed: Option<&str>) -> Self {
-        match (status, seed.and_then(|s| s.lines().next())) {
-            ("completed" | "stopped", _) => Self::Ended,
-            ("active", None) => Self::GoalSaved,
-            ("active", Some("status: draft")) => Self::SeedDrafted,
-            ("active", Some("status: confirmed for intake")) => Self::SeedReady,
-            ("active", Some("status: simulated")) => Self::Simulated,
-            _ => Self::Unknown,
-        }
-    }
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::GoalSaved => "goal saved",
-            Self::SeedDrafted => "seed drafted",
-            Self::SeedReady => "seed ready",
-            Self::Ended => "ended",
-            Self::Unknown => "status unknown",
-            Self::Simulated => "practice seed",
-        }
-    }
-    pub fn can_copy(self) -> bool {
-        matches!(self, Self::GoalSaved | Self::SeedDrafted | Self::SeedReady)
-    }
-    pub fn next(self) -> Option<&'static str> {
-        match self {
-            Self::GoalSaved => Some("Next: shape it into a seed with Seed Me."),
-            Self::SeedDrafted => Some("Next: confirm the seed draft with Seed Me."),
-            Self::SeedReady => Some("Next: the seed is ready for intake."),
-            _ => None,
-        }
-    }
-}
-#[derive(Debug, Clone, PartialEq)]
-pub struct Session {
-    pub path: PathBuf,
-    pub goal: String,
-    pub stage: Stage,
-    pub updated: String,
 }
 
 fn clipped(text: &str, width: usize) -> String {

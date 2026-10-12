@@ -143,7 +143,7 @@ impl Home {
         let substrate = std::env::var_os("TINK_SUBSTRATE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| home.join(".claude/skills/tink-substrate"));
-        (home.join(".local/share/seed-me/sessions"), substrate)
+        (crate::seed_me::default_root(&home), substrate)
     }
 
     pub fn tick(&mut self) {
@@ -733,9 +733,7 @@ mod tests {
         let View::Think(dump) = &mut h.view else {
             panic!()
         };
-        dump.receipt = Some(crate::think::brain_dump::handoff::Receipt::test(
-            path.clone(),
-        ));
+        dump.receipt = Some(crate::seed_me::Receipt::test(path.clone()));
         h.handle_key(key(KeyCode::Char('s')));
         h.tick();
         settle(&mut h);
@@ -877,7 +875,7 @@ mod tests {
         ledger["goal"] = goal.into();
         fs::write(path.join("ledger.json"), ledger.to_string()).unwrap();
         let before = fs::read(path.join("ledger.json")).unwrap();
-        let mut receipt = brain_dump::handoff::Receipt::test(path.clone());
+        let mut receipt = crate::seed_me::Receipt::test(path.clone());
         receipt.goal = goal.into();
         for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             let mut h = home(tmp.path()).with_seed_me(receipt.skill.clone());
