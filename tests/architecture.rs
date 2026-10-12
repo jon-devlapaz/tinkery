@@ -101,6 +101,57 @@ fn phases_never_reach_each_other() {
     );
 }
 
+/// Lints `src/lib.rs` must deny for the whole library. `missing_docs` makes every reachable item
+/// carry an interface comment; `unreachable_pub` makes an item that isn't reachable say so with
+/// `pub(super)` or `pub(crate)` instead of `pub`. Together: every `pub` item is documented.
+const DENIED_LINTS: &[&str] = &["missing_docs", "unreachable_pub"];
+
+#[test]
+fn every_public_item_has_an_interface_comment() {
+    let lib = syn::parse_file(&fs::read_to_string(root().join("src/lib.rs")).unwrap()).unwrap();
+    let denied: Vec<String> = lib
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident("deny"))
+        .filter_map(|a| a.meta.require_list().ok())
+        .flat_map(|l| {
+            l.tokens
+                .to_string()
+                .split(',')
+                .map(|lint| lint.trim().to_owned())
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let missing: Vec<_> = DENIED_LINTS
+        .iter()
+        .filter(|lint| !denied.iter().any(|d| d == *lint))
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "src/lib.rs must keep `#![deny({})]`; missing: {missing:?}",
+        DENIED_LINTS.join(", ")
+    );
+}
+
+#[test]
+fn every_module_says_what_it_hides() {
+    let mut files: Vec<_> = production_files().into_iter().map(|(f, _)| f).collect();
+    files.push(root().join("src/main.rs"));
+    let silent: Vec<_> = files
+        .iter()
+        .filter(|file| {
+            let parsed = syn::parse_file(&fs::read_to_string(file).unwrap()).unwrap();
+            !parsed.attrs.iter().any(|a| a.path().is_ident("doc"))
+        })
+        .map(|file| rel(file))
+        .collect();
+    assert!(
+        silent.is_empty(),
+        "Each module opens with a `//!` comment saying what it owns and what it promises. \
+         Missing in: {silent:?}"
+    );
+}
+
 #[test]
 fn brain_dump_does_not_grow() {
     let file = root().join("src/think/brain_dump.rs");

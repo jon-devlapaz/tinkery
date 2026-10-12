@@ -1,3 +1,7 @@
+//! The `tinkery` command: reads options, picks the real or practice host, and runs the terminal
+//! loop (or prints one `--snapshot`). Everything the screens do lives in the library; this file
+//! owns only the terminal: raw mode, events, the clipboard, and restoring it on the way out.
+
 use std::io::{self, IsTerminal};
 use std::{path::PathBuf, sync::Arc};
 

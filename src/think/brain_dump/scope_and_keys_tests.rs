@@ -337,7 +337,7 @@ fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation(
     assert!(a.conversation.board().is_none());
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(right_text(&view, 100).contains("The quoted line doesn't exist"));
-    let help = yohaku::help_text(&a);
+    let help = layout::help_text(&a);
     assert!(help.starts_with("Right now\nThe reading failed"));
     assert!(!help.lines().nth(1).unwrap().contains("review"));
     key(&mut a, KeyCode::F(3));

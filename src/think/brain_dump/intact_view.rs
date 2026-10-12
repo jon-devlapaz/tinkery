@@ -1,3 +1,6 @@
+//! The original pane: the person's words exactly as sent, one original at a time, with caret,
+//! selection and extraction into cards. Read-only: nothing here edits a source.
+
 use super::*;
 use ratatui::style::Modifier;
 use unicode_segmentation::UnicodeSegmentation;
@@ -37,6 +40,8 @@ pub(super) fn short_title(text: &str, width: u16) -> String {
 }
 
 impl BrainDump {
+    /// Pulls `start..end` of source `source` out into a card; the original is untouched.
+    /// Refused when the range is blank or cuts a character, or after 32 cards.
     pub fn extract_range(&mut self, source: usize, start: usize, end: usize) -> Result<(), String> {
         self.conversation.extract(source, start, end)?;
         self.place_card();

@@ -68,28 +68,46 @@ pub(super) const QUESTION: &[&str] = &["id", "text", "target"];
 /// The fields of a claimed source span.
 pub(super) const ANCHOR: &[&str] = &["source", "quote", "occurrence"];
 
+/// One thing the person sent: a dump, added words or an answer. Kept exactly as sent; nothing
+/// rewrites a source.
 #[derive(Clone, Debug, Serialize)]
 pub struct Source {
+    /// Its number in the conversation, from 1.
     pub id: usize,
+    /// The words exactly as sent.
     pub text: String,
+    /// The id of the question it answers, when it is an answer.
     pub in_reply_to: Option<String>,
 }
+/// An excerpt the person pulled out of a source into a card (Ctrl-E). Theirs, not the model's.
 #[derive(Clone, Debug, Serialize)]
 pub struct Fragment {
+    /// The card's id.
     pub id: String,
+    /// The source it came from.
     pub source: usize,
+    /// Byte offset where it starts in that source.
     pub start: usize,
+    /// Byte offset where it ends.
     pub end: usize,
+    /// The excerpt, verbatim.
     pub text: String,
 }
+/// A span of the person's words the model claims to cite. It counts only if it is an exact
+/// substring, so the model can point at words but never put words in the person's mouth.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Anchor {
+    /// The source's id.
     pub source: usize,
+    /// The exact words, character for character.
     pub quote: String,
+    /// Which occurrence of `quote` in that source, from 0.
     pub occurrence: usize,
 }
 impl Anchor {
+    /// Where the quote sits in its source, or why it isn't there exactly: an unknown source,
+    /// an empty or inexact quote, or a span that would cut a character.
     pub fn range(&self, sources: &[Source]) -> Result<std::ops::Range<usize>, String> {
         let source = sources
             .iter()
@@ -111,54 +129,91 @@ impl Anchor {
         Ok(start..end)
     }
 }
+/// The reading's text with the spans it cites.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Framing {
+    /// The reading, as shown under "I think you mean…".
     pub text: String,
+    /// The person's words it rests on; may be empty.
     pub supports: Vec<Anchor>,
 }
+/// A question for the person about one part of the goal.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Question {
+    /// The part an answer would change; `None` for a question about scope.
     #[serde(default)]
     pub target: Option<Part>,
+    /// Identifies the question across turns, so an answered or skipped one isn't asked again.
     pub id: String,
+    /// The question as shown.
     pub text: String,
 }
+/// One reading as decoded from the model's reply: unverified, so nothing shows it or trusts it
+/// until [`Board::verify`](super::board::Board::verify) accepts it. The fields follow the
+/// prompt's schema; see `prompts/reading.txt` for what each asks of the model.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Guess {
+    /// The goal's parts as read.
     #[serde(default)]
     pub parts: GoalParts,
+    /// Separate goals noticed in the dump, kept aside, never folded into this one.
     #[serde(default)]
     pub other_goals: Vec<String>,
+    /// Things the person explicitly put off; carried to the seed.
     #[serde(default)]
     pub deferred: Vec<String>,
+    /// Parts still consequentially unclear.
     #[serde(default)]
     pub open: Vec<Part>,
+    /// Open intent that can't become a question this turn.
     #[serde(default)]
     pub unresolved_notes: Vec<String>,
+    /// Always false: an older reply's flag is noted and ignored, since every reading is
+    /// provisional anyway.
     pub uncertain: bool,
+    /// One reading, composed from the parts with every citation the reply made. Free text
+    /// the model writes as a reading is ignored, so the goal comes only from its parts.
     pub framings: Vec<Framing>,
+    /// The done-when part again, under the name Seed Me's draft uses.
     pub outcome: String,
+    /// The person's words that don't fit the reading, kept visible as open.
     pub misfits: Vec<Anchor>,
+    /// Questions in priority order; at most one is shown.
     pub questions: Vec<Question>,
+    /// Approaches the model proposes; proposals only.
     pub alternatives: Vec<Approach>,
 }
+/// A question the person answered, and the source holding their answer.
 #[derive(Clone, Debug, Serialize)]
 pub struct Settled {
+    /// The question as it was asked.
     pub question: Question,
+    /// The answer's source id.
     pub source: usize,
 }
+/// Everything one shaping call sends. Think owns the history here (answers, skips, ask counts),
+/// so the model can't rewrite what was asked or answered; [`Guess::validate`] checks a reply
+/// against it.
 #[derive(Clone, Serialize)]
 pub struct BoardRequest {
+    /// How often each part has been asked about; a part asked twice is left open.
     pub ask_counts: std::collections::BTreeMap<Part, u8>,
+    /// Every source sent so far, verbatim.
     pub sources: Vec<Source>,
+    /// The person's extracted cards.
     pub fragments: Vec<Fragment>,
+    /// The last verified reading, to refine rather than start over.
     pub previous: Option<Guess>,
+    /// Questions the person skipped; their targets aren't asked again.
     pub skipped: Vec<Question>,
+    /// Ids of questions already answered.
     pub answered: Vec<String>,
+    /// The answered questions with their answers.
     pub settled: Vec<Settled>,
+    /// Each card's id and position on the canvas.
     pub layout: Vec<(String, f64, f64)>,
 }
 
@@ -178,6 +233,8 @@ fn safe(text: &str) -> bool {
     !text.trim().is_empty() && text.chars().all(|c| c == '\n' || !c.is_control())
 }
 impl Guess {
+    /// Reads a reply leniently: tolerated slips (a code fence, a trailing comma, unknown fields)
+    /// are fixed and noted in `normalizations`; anything that would change meaning is refused.
     pub fn decode(
         raw: &str,
         request: &BoardRequest,
@@ -185,6 +242,9 @@ impl Guess {
     ) -> Result<Self, String> {
         parse(raw, request, normalizations)
     }
+    /// Refuses a reading that could mislead: control characters in shown text, a cited span
+    /// that isn't exact, or a question that reuses an answered, skipped or application-owned
+    /// identity.
     pub fn validate(&self, request: &BoardRequest) -> Result<(), String> {
         if self
             .parts
@@ -611,7 +671,7 @@ pub(super) fn read(raw: &str, changes: &mut Vec<String>) -> Result<serde_json::V
         })
         .map_err(|e| format!("Unreadable board response: {e}"))
 }
-// A separate review call sees only the person's words, their answers and the draft
+/// `text` without commas that close a JSON array or object; commas inside strings stay.
 fn without_trailing_commas(text: &str) -> String {
     let bytes = text.as_bytes();
     let mut quoted = false;

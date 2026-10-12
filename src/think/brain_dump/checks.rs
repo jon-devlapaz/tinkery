@@ -1,24 +1,46 @@
+//! The record each send leaves, shown by F5 "why" and written to the log: which check ran, what
+//! it decided and why, and where the person's words landed. It records; it never changes a
+//! reading or a decision. A check that rejects keeps the model's raw reply so the failure can
+//! be read in full.
+
 use super::*;
 use std::time::Instant;
 
+/// Where one of the person's words appears in the reading.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Coverage {
+    /// The word, as the person wrote it.
     pub term: String,
+    /// The reading's fields it appears in; empty when it appears nowhere. Not appearing is
+    /// recorded, not treated as a failure.
     pub locations: Vec<String>,
 }
+/// One check's verdict on one send. The fields are the log's format, so renaming one breaks
+/// readers of older logs; `version` changes when the format does.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Decision {
+    /// The record format's version.
     pub version: u8,
+    /// What decoding or the review adjusted in the reply on the way in, one line each.
     #[serde(default)]
     pub normalizations: Vec<String>,
+    /// A hash of the request, tying the decisions about one send together.
     pub request_key: String,
+    /// Which check ran, such as `encoded-request-cap`.
     pub check: String,
+    /// `blocking` when a rejection stops the reading from being shown.
     pub mode: String,
+    /// `pass` or `reject`.
     pub decision: String,
+    /// Why, in plain words.
     pub reason: String,
+    /// How long the check took, including the model call.
     pub elapsed_ms: u64,
+    /// Where each of the person's words landed.
     pub coverage: Vec<Coverage>,
+    /// The model's reply as received, when there was one.
     pub raw: Option<String>,
+    /// The decoded reading, when decoding succeeded.
     pub candidate: Option<Guess>,
 }
 impl Decision {
@@ -43,6 +65,7 @@ impl Decision {
             candidate: None,
         }
     }
+    /// The record as F5 shows it.
     pub fn text(&self) -> String {
         format!(
             "{} · {} · {} · {} ms · request {}\n{}{}",

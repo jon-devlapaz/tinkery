@@ -170,20 +170,20 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
         for f in a.conversation.fragments() {
             assert_eq!(&dump[f.start..f.end], f.text);
         }
-        assert!(a.paper().contains("Hamster"));
+        assert!(a.copy_text().contains("Hamster"));
         assert!(
-            a.paper()
+            a.copy_text()
                 .contains("One question in focus\n\nShould scratch thinking")
         );
         if let CanvasNode::Text(n) = &mut a.screen.canvas.state.data.nodes[0] {
             n.x = 1234.;
             n.y = -456.;
         }
-        let old = a.layout();
+        let old = a.card_positions();
         a.paste("Hamster is my RSS reader; following the system setting is fine.");
         key(&mut a, KeyCode::F(2));
         settle(&mut a);
-        assert_eq!(&a.layout()[..old.len()], old.as_slice());
+        assert_eq!(&a.card_positions()[..old.len()], old.as_slice());
         assert_eq!(a.conversation.focused_question().unwrap().id, "rss-control");
         let updated = snapshot(w, h, &mut a, false).unwrap();
         assert!(
@@ -196,12 +196,12 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
             Some("reader")
         );
         assert_eq!(a.conversation.sources()[0].text, dump);
-        assert!(a.paper().contains("Hamster is my RSS reader"));
+        assert!(a.copy_text().contains("Hamster is my RSS reader"));
         assert_eq!(host.requests.lock().unwrap().len(), 2);
         assert_eq!(host.requests.lock().unwrap()[1].layout[..old.len()], old);
         a.screen.board_focus = !a.screen.board_focus;
         key(&mut a, KeyCode::F(9));
-        assert_eq!(a.take_copy_request(), Some(a.paper()));
+        assert_eq!(a.take_copy_request(), Some(a.copy_text()));
         a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
         assert!(
             snapshot(w, h, &mut a, false)
@@ -224,7 +224,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     assert_eq!(a.input.text, "ne");
     a.submit();
     settle(&mut a);
-    let before = a.paper();
+    let before = a.copy_text();
     a.screen.board_focus = !a.screen.board_focus;
     key(&mut a, KeyCode::F(8));
     assert!(
@@ -245,8 +245,8 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
         "reading is comfortable"
     );
     assert!(a.originals().contains("A second dump."));
-    assert!(a.paper().contains("Nothing confirmed"));
-    assert_ne!(a.paper(), before);
+    assert!(a.copy_text().contains("Nothing confirmed"));
+    assert_ne!(a.copy_text(), before);
     host.fail.store(false, Ordering::Relaxed);
     a.submit();
     settle(&mut a);
@@ -418,7 +418,7 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
     key(&mut a, KeyCode::F(7));
     key(&mut a, KeyCode::F(7));
     snapshot(100, 30, &mut a, false).unwrap();
-    let released = a.layout();
+    let released = a.card_positions();
     let view = (
         a.screen.canvas.state.viewport_x,
         a.screen.canvas.state.viewport_y,
@@ -429,7 +429,7 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
         x + 12,
         y + 4,
     );
-    assert_eq!(a.layout(), released, "a stale drag moved a card");
+    assert_eq!(a.card_positions(), released, "a stale drag moved a card");
     assert_eq!(
         (
             a.screen.canvas.state.viewport_x,
@@ -452,7 +452,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     key(&mut a, KeyCode::F(7));
     snapshot(100, 30, &mut a, false).unwrap();
     let (x, y) = first_card_point(&a);
-    let before = a.layout();
+    let before = a.card_positions();
     for (kind, dx, dy) in [
         (MouseEventKind::Down(MouseButton::Left), 0, 0),
         (MouseEventKind::Drag(MouseButton::Left), 4, 2),
@@ -460,8 +460,12 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     ] {
         card_mouse(&mut a, kind, x + dx, y + dy);
     }
-    assert_ne!(a.layout(), before, "Real mouse drag did not move a card");
-    let moved = a.layout();
+    assert_ne!(
+        a.card_positions(),
+        before,
+        "Real mouse drag did not move a card"
+    );
+    let moved = a.card_positions();
     assert!(a.screen.canvas.state.floating_editor.is_none());
     for (n, f) in a
         .screen
@@ -478,7 +482,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     a.paste("It is an RSS reader.");
     a.submit();
     settle(&mut a);
-    assert_eq!(&a.layout()[..moved.len()], moved.as_slice());
+    assert_eq!(&a.card_positions()[..moved.len()], moved.as_slice());
 }
 #[test]
 fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words() {
@@ -488,7 +492,7 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         a.paste("My week has no clear priority. Meetings are too long. A dashboard worries me.");
         a.submit();
         settle(&mut a);
-        let layout = a.layout();
+        let layout = a.card_positions();
         let fragments = a.conversation.fragments().to_vec();
         let mut g = a.conversation.board().unwrap().wire();
         g.uncertain = true;
@@ -521,7 +525,7 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             CanvasNode::Text(n) => n.title.is_none(),
             _ => false,
         }));
-        assert_eq!(a.layout(), layout);
+        assert_eq!(a.card_positions(), layout);
         assert!(!a.running(), "Highlighting sent a model request");
         assert_eq!(
             a.conversation.sources().len(),
@@ -850,12 +854,12 @@ fn bad_span_keeps_the_previous_reading_and_originals_without_fallback() {
     a.submit();
     settle(&mut a);
     let request = host.requests.lock().unwrap()[0].clone();
-    let paper = a.paper();
+    let paper = a.copy_text();
     let mut bad = guess(&request);
     bad.framings[0].supports = vec![anchor("A paraphrased goal.")];
     a.apply_result(request, Ok(bad));
     assert!(a.notice.contains("exact source substring"));
-    assert_eq!(a.paper(), paper);
+    assert_eq!(a.copy_text(), paper);
     assert!(a.conversation.fragments().is_empty());
     assert_eq!(
         a.conversation.sources()[0].text,
@@ -932,7 +936,7 @@ fn both_is_an_answer_with_a_visible_update_and_full_settled_question() {
                 .all(|l| l.contains("your answer to:"))
         );
         assert!(a.details_text().contains(&question));
-        assert!(a.paper().contains("Answer / original 2: both"));
+        assert!(a.copy_text().contains("Answer / original 2: both"));
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
         terminal

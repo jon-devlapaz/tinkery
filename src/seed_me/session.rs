@@ -12,11 +12,17 @@ use serde_json::Value;
 /// How far a session has come, from Seed Me's own files.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
+    /// Active, with a confirmed goal and no seed contract yet.
     GoalSaved,
+    /// Active, with a seed contract still in draft.
     SeedDrafted,
+    /// Active, with a seed contract confirmed for intake.
     SeedReady,
+    /// Completed or stopped; nothing to continue.
     Ended,
+    /// The files say something this module doesn't recognise. Never guessed.
     Unknown,
+    /// A practice session's seed, not a real one.
     Simulated,
 }
 impl Stage {
@@ -61,14 +67,19 @@ impl Stage {
 /// One readable session.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Session {
+    /// The session folder, canonicalised.
     pub path: PathBuf,
+    /// The confirmed goal as recorded, or a plain placeholder when none is.
     pub goal: String,
+    /// How far it has come.
     pub stage: Stage,
+    /// The ledger's last update time as Seed Me wrote it; empty when absent.
     pub updated: String,
 }
 
 /// What one folder holds.
 pub enum Record {
+    /// A session that could be read.
     Session(Session),
     /// No ledger: some other folder, not counted.
     NotASession,

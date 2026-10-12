@@ -195,7 +195,7 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = app(serde_json::json!({"parts":parts(),"open":["why"]}));
         let reading = a.conversation.board().unwrap().framings[0].text.clone();
-        assert!(a.paper().contains(&reading));
+        assert!(a.copy_text().contains(&reading));
         a.review_goal();
         let frozen = a.handoff.review.as_ref().unwrap();
         assert_eq!(frozen.affirmation.goal, reading);

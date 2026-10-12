@@ -1,8 +1,17 @@
+//! A text box's contents and caret: editing, selection and word wrap, measured in graphemes so
+//! no edit, motion or selection ever splits a character. It holds no screen position and
+//! draws nothing; views lay it out with [`Note::wrap`].
+
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+/// Editable text with a caret and an optional selection. Paste is treated as data: control
+/// characters are dropped and line breaks kept. One box holds at most 4096 bytes; an edit
+/// that would pass that changes nothing.
 pub struct Note {
+    /// The text, exactly as typed or pasted (after control characters are dropped).
     pub text: String,
+    /// The caret, as a byte offset on a grapheme boundary.
     pub cursor: usize,
     /// Fixed end of a selection, as a logical byte offset on a grapheme boundary.
     /// The moving end is `cursor`. Any edit clears it, so it can never outlive the text
@@ -10,17 +19,25 @@ pub struct Note {
     anchor: Option<usize>,
 }
 
+/// A caret movement, from an arrow, Home or End key.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Motion {
+    /// One grapheme back.
     Left,
+    /// One grapheme forward.
     Right,
+    /// One wrapped row up, keeping the column as near as possible.
     Up,
+    /// One wrapped row down, keeping the column as near as possible.
     Down,
+    /// The start of the line.
     Home,
+    /// The end of the line.
     End,
 }
 
 impl Note {
+    /// A box holding `text` as given, caret at the end, nothing selected.
     pub fn new(text: &str) -> Self {
         Self {
             text: text.to_owned(),
@@ -61,11 +78,13 @@ impl Note {
         self.anchor = self.anchor.map(|a| self.floor(a));
     }
 
+    /// The selected text, if anything is selected.
     pub fn selected_text(&self) -> Option<&str> {
         let (start, end) = self.selection()?;
         self.text.get(start..end)
     }
 
+    /// Selects everything, caret at the end.
     pub fn select_all(&mut self) {
         self.anchor = (!self.text.is_empty()).then_some(0);
         self.cursor = self.text.len();
@@ -144,6 +163,8 @@ impl Note {
         Ok(())
     }
 
+    /// Types or pastes `text` at the caret, replacing any selection. Over the 4096-byte cap
+    /// it changes nothing and says why.
     pub fn insert(&mut self, text: &str) -> Result<(), &'static str> {
         // Paste is data, not terminal control sequences. Keep line breaks, not escapes.
         let clean = Self::sanitize(text);
@@ -175,6 +196,7 @@ impl Note {
             .collect()
     }
 
+    /// Caret one grapheme back, without touching the selection.
     pub fn left(&mut self) {
         self.cursor = self.text[..self.cursor]
             .grapheme_indices(true)
@@ -182,6 +204,7 @@ impl Note {
             .map_or(0, |(i, _)| i);
     }
 
+    /// Caret one grapheme forward, without touching the selection.
     pub fn right(&mut self) {
         if self.cursor < self.text.len() {
             self.cursor += self.text[self.cursor..]
@@ -204,6 +227,7 @@ impl Note {
         true
     }
 
+    /// Deletes the selection, or the grapheme before the caret.
     pub fn backspace(&mut self) {
         if self.delete_selection() {
             return;
@@ -216,6 +240,7 @@ impl Note {
         self.realign_cursor();
     }
 
+    /// Deletes the selection, or the grapheme after the caret.
     pub fn delete(&mut self) {
         if self.delete_selection() {
             return;
@@ -240,18 +265,22 @@ impl Note {
         }
     }
 
+    /// Caret to the start of its line (after the last line break, not the wrapped row).
     pub fn home(&mut self) {
         self.cursor = self.text[..self.cursor]
             .rfind('\n')
             .map_or(0, |index| index + 1);
     }
 
+    /// Caret to the end of its line (before the next line break).
     pub fn end(&mut self) {
         self.cursor += self.text[self.cursor..]
             .find('\n')
             .unwrap_or(self.text.len() - self.cursor);
     }
 
+    /// Caret one wrapped row up or down at `width`, to the nearest column. At the first or
+    /// last row it stays put.
     pub fn move_row(&mut self, down: bool, width: u16) {
         let wrapped = self.wrap(width);
         let current = wrapped
@@ -274,6 +303,8 @@ impl Note {
         }
     }
 
+    /// The text laid out in `width` columns: words move whole to the next row when they fit
+    /// on one, longer ones break. Every view uses this, so the caret drawn is the caret edited.
     pub fn wrap(&self, width: u16) -> Wrapped {
         let width = usize::from(width.max(2));
         let graphemes: Vec<_> = self.text.grapheme_indices(true).collect();
@@ -332,13 +363,17 @@ impl Note {
     }
 }
 
+/// A [`Note`] laid out at one width.
 pub struct Wrapped {
+    /// The rows to draw.
     pub lines: Vec<String>,
+    /// The caret's row and column.
     pub cursor: (u16, u16),
     pub(super) positions: Vec<(usize, usize, usize)>,
 }
 
 impl Wrapped {
+    /// The text offset nearest a row and column, for mouse clicks and drags.
     pub fn index_at(&self, row: u16, column: u16) -> usize {
         self.positions
             .iter()

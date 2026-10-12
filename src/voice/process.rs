@@ -1,3 +1,7 @@
+//! Running the voice helper: finding Node, starting the embedded helper script, and moving
+//! commands and events across its pipes on a worker thread, with bounded queues and line
+//! lengths. Think sees none of this; it talks to [`VoiceHost`].
+
 use super::{Command, Event, Failure, VoiceHost, protocol::MAX_LINE};
 use std::{
     io::{BufRead, BufReader, Read, Write},
@@ -20,6 +24,8 @@ struct Node {
 }
 static NODE: OnceLock<Result<Node, Failure>> = OnceLock::new();
 
+/// The real [`VoiceHost`]: the embedded Node helper, run and read on its own thread so think
+/// never waits on it. Without Node 22 or later, voice says how to point it at one instead.
 pub struct ProcessHost {
     commands: Option<SyncSender<Command>>,
     events: Receiver<Event>,
@@ -33,6 +39,7 @@ impl Default for ProcessHost {
     }
 }
 impl ProcessHost {
+    /// Starts the worker thread; the helper itself starts on the worker.
     pub fn new() -> Self {
         let (commands, input) = mpsc::sync_channel(32);
         let (output, events) = mpsc::sync_channel(64);

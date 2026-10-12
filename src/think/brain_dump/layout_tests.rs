@@ -124,7 +124,7 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
         assert!(right_text(&last, w).contains("END-GOAL"));
         assert!(right_text(&last, w).contains("Next: shape it into a seed with Seed Me."));
         assert!(!last.contains("END-SESSION-ID"));
-        assert!(yohaku::how_text(&a).contains(&path));
+        assert!(layout::how_text(&a).contains(&path));
         assert_eq!(
             a.handoff
                 .receipt

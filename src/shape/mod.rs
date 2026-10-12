@@ -1,3 +1,9 @@
+//! Shape: the saved goals list and one goal's detail, read from Seed Me sessions.
+//!
+//! Shape only reads. It shows what discovery has landed, says plainly when that is unknown,
+//! incomplete or failed, and offers the continuation prompt to copy; it never edits a session,
+//! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
+
 pub mod discovery;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
@@ -51,7 +57,7 @@ pub(super) struct Shape {
     pub copy: Option<String>,
 }
 impl Shape {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             sessions: vec![],
             error: None,
@@ -72,13 +78,13 @@ impl Shape {
     }
     /// Note how long the read this view waits on has been running (`None`: no worker).
     /// Wording only: it starts nothing and leaves every key as it was.
-    pub fn note_wait(&mut self, waited: Option<Duration>) {
+    pub(super) fn note_wait(&mut self, waited: Option<Duration>) {
         self.still_reading = waited.is_some_and(|waited| waited >= STILL_READING_AFTER);
     }
     /// Take a landed read. Selection follows the session's path, not its position.
     /// A wanted session is opened only from a read that contains it (or that began
     /// after it was asked for); until then the view stays pending.
-    pub fn apply(&mut self, outcome: &Outcome, fresh: bool, version: u64) {
+    pub(super) fn apply(&mut self, outcome: &Outcome, fresh: bool, version: u64) {
         let wanted_at = match (&self.want, outcome) {
             (Some((path, canonical)), Ok(found)) => found
                 .sessions
@@ -120,10 +126,10 @@ impl Shape {
             }
         }
     }
-    pub fn current(&self) -> Option<&Session> {
+    pub(super) fn current(&self) -> Option<&Session> {
         self.sessions.get(self.selected)
     }
-    pub fn copy_prompt(&mut self, skill: Option<&Path>) {
+    pub(super) fn copy_prompt(&mut self, skill: Option<&Path>) {
         if let Some(session) = self.current().filter(|s| s.stage.can_copy()) {
             if let Some(skill) = skill {
                 self.copy = Some(continuation_prompt(skill, &session.path));
@@ -132,7 +138,7 @@ impl Shape {
             }
         }
     }
-    pub fn help_text(&self, skill: Option<&Path>) -> String {
+    pub(super) fn help_text(&self, skill: Option<&Path>) -> String {
         if self.how {
             let session = self.current().map_or(String::new(), |s| {
                 format!(

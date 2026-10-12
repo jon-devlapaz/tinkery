@@ -1,3 +1,7 @@
+//! The extracted cards, on a pinstar canvas: the cards' positions and the mouse gestures that
+//! move and select them. Cards are the person's own excerpts; nothing here reads or changes
+//! the reading.
+
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use pinstar::{PinstarState, data::CanvasData, handle_pinstar_mouse};
 use ratatui::layout::Rect;
@@ -10,7 +14,7 @@ pub(super) struct Canvas {
 }
 
 impl Canvas {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         let mut state = PinstarState::in_memory(CanvasData {
             nodes: vec![],
             edges: vec![],
@@ -26,11 +30,11 @@ impl Canvas {
         }
     }
 
-    pub fn selected_id(&self) -> Option<&str> {
+    pub(super) fn selected_id(&self) -> Option<&str> {
         self.state.selection.primary.as_deref()
     }
 
-    pub fn finish_edit(&mut self) {
+    pub(super) fn finish_edit(&mut self) {
         self.cancel_gesture();
         if self.state.floating_editor.is_some() {
             self.state.toggle_editor();
@@ -39,7 +43,7 @@ impl Canvas {
         self.captured = false;
     }
 
-    pub fn mouse(&mut self, mut event: MouseEvent) {
+    pub(super) fn mouse(&mut self, mut event: MouseEvent) {
         let inside = self.area.contains((event.column, event.row).into());
         if !inside && !self.captured {
             return;
@@ -117,7 +121,7 @@ impl Canvas {
         }
     }
 
-    pub fn cancel_gesture(&mut self) {
+    pub(super) fn cancel_gesture(&mut self) {
         if self.captured {
             let primary = self.state.selection.primary.clone();
             let selected = self.state.selection.extra.clone();

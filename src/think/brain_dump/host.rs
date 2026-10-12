@@ -2,8 +2,14 @@
 //! the decision review) or by the practice simulation.
 use super::*;
 
+/// Answers a reading request. Runs off the paint thread; it must stop promptly once
+/// `cancelled` is set, and it returns a decoded but unverified [`Guess`] or one line saying
+/// why there isn't one.
 pub trait BoardHost: Send + Sync {
+    /// Reads `request` into a guess. A real host may make provider calls; the practice host
+    /// makes none.
     fn reshape(&self, request: BoardRequest, cancelled: &AtomicBool) -> Result<Guess, String>;
+    /// The host's own log lines for F5 "why"; none by default.
     fn diagnostics(&self) -> Vec<String> {
         Vec::new()
     }

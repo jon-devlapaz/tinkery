@@ -11,6 +11,9 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 ## Guardrails
 
 - Yohaku: show only what is needed now. Say each thing once, in plain words.
+- Structure: does this make the code simpler to change? State which design diagnostics in
+  [architecture](docs/design/architecture.md) it moves. Interface comments say what a module
+  or `pub` item promises and refuses, not how it works; the build refuses a `pub` item without one.
 - The operator's words are authoritative. Preserve originals verbatim; a reading
   is a guess. The displayed, confirmed goal stays unchanged through saving and handoff.
 - Nothing runs by itself: navigation and copying never launch agents. Explicit goal
