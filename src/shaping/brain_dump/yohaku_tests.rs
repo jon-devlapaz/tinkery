@@ -280,6 +280,9 @@ assert '--thinking' not in sys.argv
 log=root/'calls.jsonl'
 previous=[json.loads(s) for s in log.read_text().splitlines()] if log.exists() else []
 with log.open('a') as f:f.write(json.dumps(dict(kind=kind,request=r))+'\n')
+if kind=='decision-review':
+ assert sorted(r)==['answers','draft','kind','words'] and r['words']==['the restaurateur judges the result']
+ print(json.dumps(dict(decisions=[])));sys.exit(0)
 if kind=='meaning-preservation':
  assert r['mode']=='log-only' and 'questions' in r['board'] and 'misfits' in r['board']
  if mode=='audit-syntax':print('not JSON');sys.exit(0)
@@ -296,13 +299,19 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
             .with_default_thinking();
         let result = pi.reshape(r.clone(), &AtomicBool::new(false));
         assert_eq!(result.is_ok(), success, "{mode}: {result:?}");
+        let calls = std::fs::read_to_string(dir.path().join("calls.jsonl")).unwrap();
+        let reviews = calls
+            .lines()
+            .filter(|l| l.contains("\"decision-review\""))
+            .count();
         assert_eq!(
-            std::fs::read_to_string(dir.path().join("calls.jsonl"))
-                .unwrap()
-                .lines()
-                .count(),
-            1
+            calls.lines().count() - reviews,
+            1,
+            "{mode}: one shaping call"
         );
+        // The decision review runs only on a readable board, once.
+        let readable = !matches!(mode, "syntax" | "transport");
+        assert_eq!(reviews, usize::from(readable), "{mode}: {calls}");
         if let Ok(g) = result {
             let before = serde_json::to_value(&g).unwrap();
             let d = pi.advisory(r, g.clone(), &AtomicBool::new(false));

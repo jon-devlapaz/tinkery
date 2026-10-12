@@ -253,3 +253,32 @@ fn a_decision_without_two_answers_or_a_known_part_is_ignored() {
     assert!(changes.iter().any(|c| c.contains("needs a known part")));
     assert!(changes.iter().any(|c| c.contains("not an object")));
 }
+#[test]
+fn a_decision_review_is_asked_first_once_required_parts_are_present() {
+    let full = r#"{"parts":{"who":"I","outcome":"have a clean workspace","why":"I lost work","done_when":"merged branches are gone"},"open":["must"],"questions":[{"target":"must","text":"Anything that must stay?"}]}"#;
+    let review = r#"{"decisions":[{"part":"must_not","text":"Worktrees that still hold work","answers":["leave them","rescue then remove"],"question":"Should worktrees that still hold work be left alone?"}]}"#;
+    let mut changes = vec![];
+    let merged = board::with_review(full, review, &mut changes).unwrap();
+    let (b, _) = parsed(&merged);
+    assert_eq!(b.open, [Part::Must, Part::MustNot]);
+    assert_eq!(
+        b.questions[0].text,
+        "Should worktrees that still hold work be left alone?"
+    );
+    assert_eq!(
+        b.unresolved_notes,
+        ["Open decision: Worktrees that still hold work (leave them / rescue then remove)"]
+    );
+    // A missing required part is still asked before any review decision.
+    let partial = r#"{"parts":{"who":"I","outcome":"have a clean workspace"},"questions":[{"target":"why","text":"What prompted this?"}]}"#;
+    let (b, _) = parsed(&board::with_review(partial, review, &mut vec![]).unwrap());
+    assert_eq!(b.questions[0].text, "What prompted this?");
+    // An empty or unreadable review leaves the board as it was.
+    assert!(board::with_review(full, r#"{"decisions":[]}"#, &mut vec![]).is_none());
+    assert!(board::with_review(full, "not JSON", &mut changes).is_none());
+    assert!(
+        changes
+            .iter()
+            .any(|c| c.starts_with("Ignored decision review"))
+    );
+}

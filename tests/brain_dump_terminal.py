@@ -11,6 +11,8 @@ if r.get('kind')=='meaning-preservation':
  print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)
 if r.get('kind')=='question-continuity':
  print(json.dumps(dict(repeated=[])));sys.exit(0)
+if r.get('kind')=='decision-review':
+ print(json.dumps(dict(decisions=[])));sys.exit(0)
 with open('requests.jsonl','a') as f: f.write(json.dumps(r)+'\\n')
 if 'FAIL' in r['sources'][-1]['text']: print('bad JSON');sys.exit(0)
 if any('WAIT' in s['text'] for s in r['sources']): time.sleep(10)

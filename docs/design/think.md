@@ -16,6 +16,12 @@ happens to protected things). The reading lists decisions as typed items (part, 
 two or more answers). Each keeps its part open, so it blocks "Nothing I'm unsure
 about" until an answer settles it, and travels to review and the seed as an
 "Open decision" note. A decision without two answers or a known part is ignored.
+After each reading, a separate review call sees only the person's words, their
+answers and the draft parts (not the template) and names decisions the draft settled
+silently: a target or scope, a boundary on deleting, sending or overwriting, what
+happens to protected things, persistence, whose rules apply. Its decisions join the
+reading's, and once required parts are present its top question is asked first; a
+failed or unreadable review leaves the reading as it was.
 Questions stop when no decision is left. Unresolved notes carry only open intent,
 never status disclaimers. Answers
 and added dumps remain distinct exact sources. Sending refines the reading;
@@ -26,8 +32,8 @@ constraints. Deferred items remain context for the seed.
 The original is plain ink by default. Exact cited spans are validated invisibly;
 uncited words are not implicitly rejected. A background meaning/continuity audit
 is log-only: it does not gate a valid reading, retry it, or show warning flags.
-In live mode a submitted reshape includes a shaping call and that audit, so budget
-for both. Practice and the documented suite use fakes.
+In live mode a submitted reshape includes a shaping call, the decision review and
+that audit, so budget for all three. Practice and the documented suite use fakes.
 
 When no question is in focus (none left, skipped, or a part asked twice), one
 muted line says which of three states holds:
