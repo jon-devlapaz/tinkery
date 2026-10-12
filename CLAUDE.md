@@ -46,7 +46,7 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 | Confirmation and continuation prompt | `src/shaping/brain_dump/goal_view.rs`, `handoff.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Explicit Pi drafting boundary | `src/shaping/drafting.rs` | [think](docs/design/think.md) |
 | Voice host/process/protocol and owned setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
-| Earlier sticky prototype | `src/shaping/scratchpad.rs`, `canvas.rs`, `note.rs` | [scratch-space draft](docs/design/backlog.md#8-scratch-space-spike-design-only) |
+| Extracted cards (canvas, notes) | `src/shaping/canvas.rs`, `note.rs` | [scratch-space draft](docs/design/backlog.md#8-scratch-space-spike-design-only) |
 | Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), `vendor/pinstar/API.md` |
 | Tests | inline Rust tests, `tests/`, `voice/*.test.mjs` | relevant tests; `tests/vt_screen.py` is a helper |
 

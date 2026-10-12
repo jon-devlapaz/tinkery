@@ -167,8 +167,8 @@ rewrite original answers, call providers without budget, or write operator sessi
 
 ## 8. Scratch-space spike — design only
 
-**Context:** The old `--scratchpad` canvas still exists; extracted cards are hidden
-in technical help. Stickies-first made people organize too early. A scratch space
+**Context:** The old `--scratchpad` canvas was removed (issue #21); extracted cards
+remain, hidden in technical help. Stickies-first made people organize too early. A scratch space
 needs to earn its place after the dump, not become an orphan mode.
 
 **Produce:** Research spatial sensemaking and deliberate grouping; discuss usefulness,

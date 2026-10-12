@@ -59,5 +59,5 @@ to save, and saving is not seed or implementation approval.
 text-field selection and right-click behavior, a keyboard route into the original,
 per-sentence evidence on demand, multiple-choice answers, scratch-space research,
 and an operator-supplied eval harness. These are not shipped features.
-Existing extracted-card shortcuts remain in technical help; the earlier
-`--scratchpad` prototype is neither the default nor a menu destination.
+Existing extracted-card shortcuts remain in technical help. The earlier
+`--scratchpad` prototype was removed in issue #21.

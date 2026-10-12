@@ -6,7 +6,6 @@ pub mod confirmed_goal;
 pub mod drafting;
 mod note;
 mod response;
-pub mod scratchpad;
 
 use std::time::Duration;
 
