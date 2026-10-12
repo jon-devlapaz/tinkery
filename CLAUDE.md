@@ -46,7 +46,7 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
 | Confirmation and continuation prompt | `src/shaping/brain_dump/goal_view.rs`, `handoff.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Explicit Pi drafting boundary | `src/shaping/drafting.rs` | [think](docs/design/think.md) |
 | Voice host/process/protocol and owned setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
-| Extracted cards (canvas, notes) | `src/shaping/canvas.rs`, `note.rs` | [scratch-space draft](docs/design/backlog.md#8-scratch-space-spike-design-only) |
+| Extracted cards (canvas, notes) | `src/shaping/canvas.rs`, `note.rs` | [think](docs/design/think.md) |
 | Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), `vendor/pinstar/API.md` |
 | Tests | inline Rust tests, `tests/`, `voice/*.test.mjs` | relevant tests; `tests/vt_screen.py` is a helper |
 
@@ -122,7 +122,7 @@ non-color cues. Use `--help` for CLI options; real drafting requires explicit
 
 ## Work intake
 
-[Backlog](docs/design/backlog.md) contains nine **drafts**, not published issues.
+[Backlog](docs/design/backlog.md) contains eight **drafts**, not published issues.
 They must be reviewed with the operator before anyone creates them. For an approved
 issue, keep the slice bounded, follow its acceptance checks and don't-list, and
 report observed Rust/Node test counts and PTY journeys/sizes separately from any

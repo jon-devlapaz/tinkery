@@ -3,8 +3,7 @@
 ## Ownership and consent
 
 Tinkery owns its voice engine, settings and install. It does **not** read Pi Voice,
-Pi settings or agent directories and has no Pi fallback. The older reuse-Pi design
-was superseded in PR #9.
+Pi settings or agent directories and has no Pi fallback.
 
 `voice/setup.mjs` owns discovery/install paths and settings. Engine dependencies
 are pinned to `transcribe-cpp@0.2.2` and `@picovoice/pvrecorder-node@1.2.9` in the

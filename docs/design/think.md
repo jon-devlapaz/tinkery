@@ -5,7 +5,7 @@
 A blank box asks what's on your mind. Type or paste without choosing fields,
 kinds or cards. Nothing interprets the text until F2. Enter stays a newline.
 The original remains intact on the left; one reading, titled “I think you mean…”,
-and at most one question in focus sit on the right. No second reading or F7 toggle.
+and at most one question in focus sit on the right. No second reading.
 If interpretations compete, ask the question that decides between them.
 
 The reading uses the [goal block](goal-block.md), not dense template sentences.
@@ -64,9 +64,7 @@ to save, and saving is not seed or implementation approval.
 
 ## Open work only
 
-[Drafts 1–4 and 7–9](backlog.md) cover goal polish, the notecard stack, right-click
-behavior and send aliases (selection and the keyboard route into the original ship),
-per-sentence evidence on demand, multiple-choice answers, scratch-space research,
-and an operator-supplied eval harness. These are not shipped features.
-Existing extracted-card shortcuts remain in technical help. The earlier
-`--scratchpad` prototype was removed in issue #21.
+[Drafts 1–4 and 6–8](backlog.md) cover goal polish, the notecard stack, right-click
+and send aliases, per-sentence evidence on demand, multiple-choice answers,
+scratch-space research and an operator-supplied eval harness. None is shipped.
+Extracted-card shortcuts remain in technical help.

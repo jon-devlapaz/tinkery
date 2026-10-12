@@ -87,7 +87,6 @@ Intent formats converge on situation, outcome, motivation, evidence and boundari
 SMART's specificity helps, but invented numbers and proxy targets do not. Job
 stories preserve situation/motivation; Shape Up contributes no-gos. The short
 rule/why/test pattern makes these scannable without forcing one actor or “I can”.
-The older two-sentence and Keep/Avoid designs were superseded in PR #8.
 
 Remaining composer and question problems are explicit in
 [goal-block polish](backlog.md#1-goal-block-polish); this contract is the target,
