@@ -286,6 +286,10 @@ previous=[json.loads(s) for s in log.read_text().splitlines()] if log.exists() e
 with log.open('a') as f:f.write(json.dumps(dict(kind=kind,request=r))+'\n')
 if kind=='decision-review':
  assert sorted(r)==['answers','draft','kind','words'] and r['words']==['the restaurateur judges the result']
+ p=sys.argv[sys.argv.index('--system-prompt')+1]
+ assert 'how an action is carried out' in p and 'edge cases and overlaps' in p
+ assert 'return none unless another decision is as costly' in p
+ (root/'review-ok').write_text('1')
  print(json.dumps(dict(decisions=[])));sys.exit(0)
 if kind=='meaning-preservation':
  assert r['mode']=='log-only' and 'questions' in r['board'] and 'misfits' in r['board']
@@ -316,6 +320,7 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
         // The decision review runs only on a readable board, once.
         let readable = !matches!(mode, "syntax" | "transport");
         assert_eq!(reviews, usize::from(readable), "{mode}: {calls}");
+        assert_eq!(dir.path().join("review-ok").exists(), readable, "{mode}");
         if let Ok(g) = result {
             let before = serde_json::to_value(&g).unwrap();
             let d = pi.advisory(r, g.clone(), &AtomicBool::new(false));

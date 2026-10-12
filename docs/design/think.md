@@ -21,7 +21,11 @@ answers and the draft parts (not the template) and names decisions the draft set
 silently: a target or scope, a boundary on deleting, sending or overwriting, what
 happens to protected things, persistence, whose rules apply. Its decisions join the
 reading's, and once required parts are present its top question is asked first; a
-failed or unreadable review leaves the reading as it was.
+failed or unreadable review leaves the reading as it was. It stops once the target
+and any irreversible boundary are settled: no edge cases the person's rules already
+cover and no questions about how an action is carried out (a live trial asked
+"whole folders or just files?" after the real decision was answered). Each answer
+lands in the one part it answers rather than being repeated across parts.
 Questions stop when no decision is left. Unresolved notes carry only open intent,
 never status disclaimers. Answers
 and added dumps remain distinct exact sources. Sending refines the reading;
