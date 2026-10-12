@@ -1,10 +1,30 @@
-# Draft backlog — not published issues
+# Backlog — remaining proposals and completed issues
 
-These eight self-contained chunks await planning review and operator approval.
-No GitHub issue has been created; none is implementation permission. When approved,
-work on one branch/PR per bounded slice and link the published issue. All acceptance
-work follows `CLAUDE.md`: temporary TEST roots, fake providers/voice, zero calls
-unless the operator gives a budget, regression tests and important reversion probes.
+The eight proposals below describe remaining work, not published issues or
+implementation permission. Some earlier portions have shipped; their completed
+issues are listed separately below and noted in each proposal's context.
+Review the remaining scope with the operator before publishing a new issue. When
+approved, work on one branch/PR per bounded slice and link the published issue.
+All acceptance work follows `CLAUDE.md`: temporary TEST roots, fake providers/voice,
+zero calls unless the operator gives a budget, regression tests and important
+reversion probes.
+
+## Previously published, completed issues
+
+These issues are closed and their implementation PRs are merged. They are history,
+not remaining work or evidence that an entire related proposal is complete.
+
+| Issue | Completed scope | Merged PR |
+| --- | --- | --- |
+| [#13](https://github.com/jon-devlapaz/tinkery/issues/13) | Explicit goal-prefix normalization and accurate open-intent wording | [#18](https://github.com/jon-devlapaz/tinkery/pull/18) |
+| [#14](https://github.com/jon-devlapaz/tinkery/issues/14) | Grapheme-safe writing selection and keyboard access to the original | [#23](https://github.com/jon-devlapaz/tinkery/pull/23) |
+| [#15](https://github.com/jon-devlapaz/tinkery/issues/15) | Nonblocking menu session discovery | [#24](https://github.com/jon-devlapaz/tinkery/pull/24) |
+| [#16](https://github.com/jon-devlapaz/tinkery/issues/16) | Current terminal-setup documentation | [#17](https://github.com/jon-devlapaz/tinkery/pull/17) |
+| [#19](https://github.com/jon-devlapaz/tinkery/issues/19) | One line per constraint item, without re-splitting | [#20](https://github.com/jon-devlapaz/tinkery/pull/20) |
+| [#21](https://github.com/jon-devlapaz/tinkery/issues/21) | Legacy scratchpad removal | [#22](https://github.com/jon-devlapaz/tinkery/pull/22) |
+| [#25](https://github.com/jon-devlapaz/tinkery/issues/25) | Stale documentation and dated evidence pruning | [#26](https://github.com/jon-devlapaz/tinkery/pull/26) |
+| [#27](https://github.com/jon-devlapaz/tinkery/issues/27) | Legacy workbench demo removal | [#28](https://github.com/jon-devlapaz/tinkery/pull/28) |
+| [#29](https://github.com/jon-devlapaz/tinkery/issues/29) | Unreachable note-card prototype removal | [#30](https://github.com/jon-devlapaz/tinkery/pull/30) |
 
 ## 1. Goal-block polish
 
