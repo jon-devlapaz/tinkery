@@ -209,6 +209,7 @@ impl Note {
             return;
         }
         self.cursor = self.floor(self.cursor);
+        self.anchor = None; // an edit (or a no-op at the edge) ends any drag
         let end = self.cursor;
         self.left();
         self.text.replace_range(self.cursor..end, "");
@@ -220,6 +221,7 @@ impl Note {
             return;
         }
         self.cursor = self.floor(self.cursor);
+        self.anchor = None; // an edit (or a no-op at the edge) ends any drag
         let start = self.cursor;
         self.right();
         self.text.replace_range(start..self.cursor, "");

@@ -566,3 +566,41 @@ fn the_oversize_notice_is_rendered_cleared_by_the_next_input_and_beats_other_sta
         assert_eq!(a.input.text, before.0);
     }
 }
+
+#[test]
+fn backspace_or_delete_without_a_selection_ends_a_held_drag() {
+    for (code, expect) in [(KeyCode::Backspace, "axc."), (KeyCode::Delete, "abx.")] {
+        let mut a = writing("abc.");
+        let (x, y) = (a.input_area.x, a.input_area.y);
+        click(&mut a, MouseEventKind::Down(MouseButton::Left), x + 2, y);
+        key(&mut a, code);
+        release_at_end(&mut a);
+        assert_eq!(
+            a.input.selection(),
+            None,
+            "{code:?}: release selects nothing"
+        );
+        key(&mut a, KeyCode::Char('x'));
+        assert_eq!(a.input.text, expect, "{code:?}");
+    }
+}
+
+#[test]
+fn the_limit_notice_shows_on_the_first_screen_before_any_send() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let mut a = BrainDump::default();
+        snapshot(w, h, &mut a, false).unwrap();
+        a.paste(&"a".repeat(5000));
+        assert!(a.input.text.is_empty(), "nothing inserted");
+        let shown = snapshot(w, h, &mut a, false).unwrap();
+        assert!(
+            shown.contains("Over 4096 bytes; nothing changed."),
+            "{w}x{h}\n{shown}"
+        );
+        key(&mut a, KeyCode::Char('q'));
+        assert!(
+            !snapshot(w, h, &mut a, false).unwrap().contains("Over 4096"),
+            "cleared"
+        );
+    }
+}

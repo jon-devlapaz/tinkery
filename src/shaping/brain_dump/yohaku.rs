@@ -49,6 +49,13 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
         app.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
+        if app.notice.starts_with(LIMIT_NOTICE) {
+            // The only status the first screen shows: an edit past the limit was refused.
+            frame.render_widget(
+                Paragraph::new(app.notice.as_str()).style(palette.muted),
+                Rect::new(4, area.height - 3, width, 1),
+            );
+        }
         if app.help {
             let right = Rect::new(
                 area.width * 48 / 100 + 2,
