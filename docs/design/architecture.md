@@ -42,9 +42,13 @@ One sentence each: what it owns.
 | `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, and the continuation prompt (shared). |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and shape (shared). |
-| `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts and reports one `Exit` to the menu. The file also still holds the reading's types and the Pi reading prompts (#38 moves them). |
+| `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
 | `think/brain_dump/conversation.rs` | The conversation, turn by turn: words, extracts, reading, and the rules for questions, skips, scope and the next request. Fields are private; nothing about the screen or jobs. |
-| `think/brain_dump/board.rs` | Decoding and verifying a model's reading; a `Board` only exists once verified. |
+| `think/brain_dump/reading.rs` | The reading's contract with the model: the request, the prompt, the reply's wire shape and its lenient decoder. |
+| `think/brain_dump/review.rs` | The decision review: its prompt, what it sees, and how its decisions join the reading's. |
+| `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
+| `think/brain_dump/host.rs` | Who answers a reading request: Pi (a shaping call, then the review) or the practice simulation. |
+| `think/brain_dump/board.rs` | Verifying a decoded reading; a `Board` only exists once verified. |
 | `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `yohaku.rs` | Think's review screen, original pane, dictation input, and help and key bar. |
 | `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request. |
@@ -58,16 +62,16 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 
 | # | Question | Today | What moves it |
 | --- | --- | --- | --- |
-| 1 | Can each module be described in one sentence? | No: `brain_dump.rs` holds `BrainDump` plus the reading's types and prompts | #38 |
+| 1 | Can each module be described in one sentence? | Yes: the reading's types, prompt and decoder moved to `reading.rs` (#38); see the table above | |
 | 2 | Are interfaces simpler than implementations? | Yes | |
-| 3 | Can an implementation change without touching callers? | No: the model's JSON contract is known in more than one place (Seed Me's format now lives only in `seed_me/`) | #38 |
+| 3 | Can an implementation change without touching callers? | Yes: each model contract is written once, next to its decoder, and a test holds each prompt's field names equal to the decoder's. Seed Me's format lives only in `seed_me/`. One residue: the review merges into the raw reading by its top-level keys | |
 | 4 | Do interface comments describe the abstraction? | No | #39 |
 | 5 | Is design discussion part of review? | Yes | #39 adds a structural question |
 | 6 | Does each module hide an important decision? | Yes: `Conversation` hides think's question, skip and scope rules behind methods | |
 | 7 | Can a newcomer see the boundaries without reading code? | Yes | this page |
 | 8 | Is design improvement part of ordinary work? | Yes | |
 
-**Score: 6.25/10** (2026-10-12, re-scored after #37; first scored at 2d25a7c). The goal is at least 9/10; #33 tracks the steps.
+**Score: 8.75/10** (2026-10-12, re-scored after #38; first scored at 2d25a7c). The goal is at least 9/10; #33 tracks the steps.
 
 ## Limits enforced by `tests/architecture.rs`
 
@@ -75,7 +79,7 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 | --- | --- | --- |
 | Phase reaches across phases | none allowed | done in #36 |
 | `BrainDump` fields / `pub` fields | 13 / 0 | done in #37 |
-| Non-test source lines over 200 characters | 21 | #38 |
+| Non-test source lines over 200 characters | 13 | done in #38 (the prompts moved to text files) |
 
 A check fails when the code gets worse than its limit, and also when it gets better, so the PR that improves it
 lowers the limit too.
