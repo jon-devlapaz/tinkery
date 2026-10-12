@@ -45,9 +45,16 @@ uncited words are not implicitly rejected. A send is one shaping call plus one
 decision review, both before the reading is shown, so budget for two; nothing runs
 after it appears. Practice and the documented suite use fakes. (History: the review
 replaced a log-only meaning audit that ran in the background and never changed a
-reading; #34 deleted it. In the v3 eval the review raised decisions asked from 23%
-to 40%, with questions on clear dumps staying within the 0.5-per-run target. Its
-silent-pick difference, 14% against 18%, is within noise.)
+reading; #34 deleted it. In the v3 eval the review roughly doubled the decisions
+asked, from 23% to 40%, with questions on clear dumps staying within the
+0.5-per-run target. A drop in silent guesses, 18% to 14%, is likely but unproven:
+the difference is within noise.)
+
+Both prompts live in `src/think/brain_dump/prompts/`, one rule per line, with a note
+naming the eval or live-trial finding behind each tuned rule; notes never reach the
+model. A test holds the bytes sent to Pi equal to a recorded copy, and another holds
+each prompt's field names equal to its decoder's, so a wording change is deliberate
+and needs an eval and the operator's budget.
 
 When no question is in focus (none left, skipped, or a part asked twice), one
 muted line says which of three states holds:

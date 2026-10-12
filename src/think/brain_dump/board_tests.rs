@@ -18,7 +18,7 @@ fn request() -> BoardRequest {
 fn parsed(raw: &str) -> (board::Board, Vec<String>) {
     let r = request();
     let mut changes = vec![];
-    let g = board::parse(raw, &r, &mut changes).unwrap();
+    let g = reading::parse(raw, &r, &mut changes).unwrap();
     (board::Board::verify(g, &r).unwrap(), changes)
 }
 #[test]
@@ -53,7 +53,7 @@ fn lengths_and_optional_types_are_not_boundary_rules_and_one_question_is_present
 #[test]
 fn malformed_json_fails_but_empty_partial_parts_display_without_fabrication() {
     for raw in ["not JSON", "[]"] {
-        assert!(board::parse(raw, &request(), &mut vec![]).is_err());
+        assert!(reading::parse(raw, &request(), &mut vec![]).is_err());
     }
     for raw in [
         r#"{}"#,
@@ -90,7 +90,7 @@ fn claimed_citations_remain_exact_and_grapheme_safe_even_without_parts() {
             serde_json::json!({"misfits":[span]}),
         ] {
             assert!(
-                board::parse(&raw.to_string(), &request(), &mut vec![]).is_err(),
+                reading::parse(&raw.to_string(), &request(), &mut vec![]).is_err(),
                 "{raw}"
             );
         }
@@ -117,13 +117,13 @@ fn local_history_and_scope_identity_cannot_be_replaced_by_model_output() {
         text: "Leave this aside".into(),
     });
     let mut changes = vec![];
-    let g=board::parse(r#"{"questions":[{"id":"done","text":"Again"},{"id":"new","text":"Leave this aside"},{"id":"fresh","text":"A real uncertainty"},{"id":"other","text":"A real uncertainty"}]}"#,&r,&mut changes).unwrap();
+    let g=reading::parse(r#"{"questions":[{"id":"done","text":"Again"},{"id":"new","text":"Leave this aside"},{"id":"fresh","text":"A real uncertainty"},{"id":"other","text":"A real uncertainty"}]}"#,&r,&mut changes).unwrap();
     assert_eq!(g.questions.len(), 1);
     assert_eq!(g.questions[0].id, "fresh");
     assert_eq!(r.answered, ["done"]);
     assert_eq!(r.skipped.len(), 1);
     assert!(
-        board::parse(
+        reading::parse(
             r#"{"questions":[{"id":"scope-addition-99","text":"Take over scope"}]}"#,
             &r,
             &mut vec![]
@@ -254,7 +254,7 @@ fn a_decision_review_is_asked_first_once_required_parts_are_present() {
     let full = r#"{"parts":{"who":"I","outcome":"have a clean workspace","why":"I lost work","done_when":"merged branches are gone"},"open":["must"],"questions":[{"target":"must","text":"Anything that must stay?"}]}"#;
     let review = r#"{"decisions":[{"part":"must_not","text":"Worktrees that still hold work","answers":["leave them","rescue then remove"],"question":"Should worktrees that still hold work be left alone?"}]}"#;
     let mut changes = vec![];
-    let merged = board::with_review(full, review, &mut changes).unwrap();
+    let merged = review::merge(full, review, &mut changes).unwrap();
     let (b, _) = parsed(&merged);
     assert_eq!(b.open, [Part::Must, Part::MustNot]);
     assert_eq!(
@@ -267,14 +267,22 @@ fn a_decision_review_is_asked_first_once_required_parts_are_present() {
     );
     // A missing required part is still asked before any review decision.
     let partial = r#"{"parts":{"who":"I","outcome":"have a clean workspace"},"questions":[{"target":"why","text":"What prompted this?"}]}"#;
-    let (b, _) = parsed(&board::with_review(partial, review, &mut vec![]).unwrap());
+    let (b, _) = parsed(&review::merge(partial, review, &mut vec![]).unwrap());
     assert_eq!(b.questions[0].text, "What prompted this?");
     // An empty or unreadable review leaves the board as it was.
-    assert!(board::with_review(full, r#"{"decisions":[]}"#, &mut vec![]).is_none());
-    assert!(board::with_review(full, "not JSON", &mut changes).is_none());
+    assert!(review::merge(full, r#"{"decisions":[]}"#, &mut vec![]).is_none());
+    assert!(review::merge(full, "not JSON", &mut changes).is_none());
     assert!(
         changes
             .iter()
             .any(|c| c.starts_with("Ignored decision review"))
     );
+}
+#[test]
+fn the_review_change_note_counts_only_the_decisions_it_added() {
+    let board = r#"{"parts":{"who":"I"},"decisions":[{"part":"must","text":"Keep drafts","answers":["yes","no"]}]}"#;
+    let review = r#"{"decisions":[{"part":"must_not","text":"Delete drafts","answers":["yes","no"],"question":"May drafts be deleted?"}]}"#;
+    let mut changes = vec![];
+    review::merge(board, review, &mut changes).unwrap();
+    assert_eq!(changes, ["Decision review added 1 decision(s)"]);
 }
