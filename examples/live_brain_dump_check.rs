@@ -9,7 +9,7 @@ use tinkery::think::{
 };
 const DUMP: &str = "I keep losing track of which Tinkery checks used a real model and which just used a stub.\nI want a small receipt in the PR thread so the next person can see what's actually been checked before they dogfood it.\nBut I don't want to fill another form with every tiny edit.\nI also want to be able to say 'that question wasn't useful' and not get it again.";
 fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
-    let paper = app.paper();
+    let paper = app.copy_text();
     std::fs::write(dir.join(format!("{name}-state.json")),serde_json::to_string_pretty(&serde_json::json!({"sources":app.conversation().sources(),"settled":app.conversation().settled(),"changed_lines":app.conversation().changed_lines(),"notice":app.notice()})).unwrap()+"\n").unwrap();
     std::fs::write(
         dir.join(format!("{name}-paper.json")),
@@ -115,7 +115,7 @@ fn main() {
     settle(&mut app);
     capture(&mut app, &dir, "01-first");
     assert!(app.conversation().board().is_some(), "{}", app.notice());
-    let layout = app.layout();
+    let layout = app.card_positions();
     let first = app
         .conversation()
         .focused_question()
@@ -150,7 +150,7 @@ fn main() {
     settle(&mut app);
     capture(&mut app, &dir, "02-answer");
     assert!(app.notice().starts_with("Reshaped"), "{}", app.notice());
-    assert_eq!(&app.layout()[..layout.len()], layout.as_slice());
+    assert_eq!(&app.card_positions()[..layout.len()], layout.as_slice());
     println!(
         "NEXT QUESTION: {:?}",
         app.conversation().focused_question().map(|q| &q.text)
@@ -262,7 +262,7 @@ fn main() {
     settle(&mut app);
     capture(&mut app, &dir, "03-added-dump");
     assert!(app.notice().starts_with("Reshaped"), "{}", app.notice());
-    assert_eq!(&app.layout()[..layout.len()], layout.as_slice());
+    assert_eq!(&app.card_positions()[..layout.len()], layout.as_slice());
     for f in app.conversation().fragments() {
         assert_eq!(
             app.conversation().sources()[f.source - 1].text[f.start..f.end],

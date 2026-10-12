@@ -1,3 +1,7 @@
+//! One rendering of a confirmed goal, shared by think's review and receipt and shape's detail,
+//! so the person sees the same words, wrapping and scroll behaviour in each place. It draws only;
+//! saving and reading are elsewhere.
+
 use crate::Palette;
 use ratatui::{
     Frame,
@@ -5,19 +9,28 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 
+/// The goal block as a wrapped paragraph, line breaks kept, in ink.
 pub fn goal_block(body: String, palette: Palette) -> Paragraph<'static> {
     Paragraph::new(body)
         .wrap(Wrap { trim: false })
         .style(palette.ink)
 }
 
+/// What a saved-goal view shows; the caller owns the state, this only borrows it to draw.
 pub struct SavedGoal<'a> {
+    /// The composed goal block, exactly as saved.
     pub goal: &'a str,
+    /// What to do next (copying the continuation prompt), pinned under the goal.
     pub next: Option<&'a str>,
+    /// A one-line muted notice on the last row, or empty.
     pub notice: &'a str,
+    /// Show "Saved." above the goal: true on think's receipt, false in review and shape.
     pub saved: bool,
 }
 
+/// Draws `view` in `area`. The goal scrolls when it doesn't fit, and `scroll` is clamped to
+/// the last useful row, so a resize never leaves the goal scrolled out of sight. `next` and
+/// the notice never scroll away.
 pub fn render_saved_goal(
     frame: &mut Frame,
     scroll: &mut u16,

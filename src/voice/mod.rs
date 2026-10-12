@@ -1,3 +1,11 @@
+//! Local dictation, owned end to end: consent, setup, takes and their text.
+//!
+//! Think sees only [`Voice`]: start or stop a take, read its live partial text, and receive one
+//! [`Final`] per take. Behind [`VoiceHost`] sit the helper process, its JSON-lines protocol and
+//! the engine install, so think never handles a process, a microphone or a download. Nothing
+//! records until the operator starts a take, nothing installs without a yes, no audio is kept,
+//! and no text leaves the machine from here. `docs/design/voice.md` has the lifecycle.
+
 mod process;
 mod protocol;
 mod setup;
@@ -7,13 +15,22 @@ pub use process::ProcessHost;
 pub use protocol::{Command, Event, Failure};
 use std::time::{Duration, Instant};
 
+/// Where takes actually run. [`ProcessHost`] runs the Node helper; tests use fakes, so no test
+/// needs a microphone or a native engine.
 pub trait VoiceHost {
+    /// The consent record answers are kept in. A host that shares one across visits makes a
+    /// "no" stick for the whole run; the default forgets it with the host.
     fn setup_session(&self) -> std::sync::Arc<std::sync::Mutex<Consent>> {
         Default::default()
     }
+    /// Hands one command to the helper without waiting for its answer. An error means the
+    /// helper can't be reached, and voice closes.
     fn send(&mut self, command: Command) -> Result<(), Failure>;
+    /// The next event the helper sent, if any. Never blocks.
     fn poll(&mut self) -> Option<Event>;
+    /// Stops the helper and releases the microphone.
     fn shutdown(&mut self);
+    /// Starts a fresh helper after a shutdown or failure.
     fn restart(&mut self);
 }
 
@@ -29,11 +46,17 @@ enum Phase {
     Closed,
 }
 
+/// The finished text of one take.
 pub struct Final {
+    /// What was heard, to insert at the cursor. Still editable; it is never sent by itself.
     pub text: String,
+    /// The operator asked to send during the take, so the caller sends once this is inserted.
     pub send: bool,
 }
 
+/// One think visit's dictation: whether voice is ready, the current take, and the one line that
+/// says what's wrong when something is. Take ids keep a late event from an old take out of a
+/// new one, and every wait has a deadline, so voice can fail but never hang think.
 pub struct Voice {
     host: Box<dyn VoiceHost>,
     phase: Phase,
@@ -49,6 +72,7 @@ pub struct Voice {
 }
 
 impl Voice {
+    /// Voice on `host`, loading. It reports ready, or what it needs, through [`Voice::tick`].
     pub fn new(host: Box<dyn VoiceHost>) -> Self {
         let setup = setup::Setup {
             session: host.setup_session(),
@@ -68,12 +92,16 @@ impl Voice {
             failure: None,
         }
     }
+    /// Ready to start a take.
     pub fn available(&self) -> bool {
         self.available
     }
+    /// Waiting on a yes or no to an install or model download.
     pub fn setup_prompt(&self) -> bool {
         self.setup.prompt
     }
+    /// The operator's answer to the setup prompt. Yes starts the install; no is remembered
+    /// for the rest of the run, so the prompt doesn't come back.
     pub fn answer_setup(&mut self, yes: bool, now: Instant) {
         if let Some(command) = self.setup.answer(yes) {
             self.begin_setup(command, now);
@@ -98,15 +126,19 @@ impl Voice {
             self.notice.clear();
         }
     }
+    /// A take is running or finishing.
     pub fn active(&self) -> bool {
         self.take.is_some()
     }
+    /// The running take's text so far, shown muted; empty when there is none.
     pub fn partial(&self) -> &str {
         &self.partial
     }
+    /// The one line to show about voice now, or empty.
     pub fn notice(&self) -> &str {
         &self.notice
     }
+    /// The last failure, kept until voice next works.
     pub fn failure(&self) -> Option<&Failure> {
         self.failure.as_ref()
     }
@@ -117,6 +149,7 @@ impl Voice {
         self.deadline = None;
         self.phase = Phase::Idle;
     }
+    /// Ends any take and shows `failure` as one plain line.
     pub fn reject(&mut self, failure: Failure) {
         self.cancel();
         self.notice = failure
@@ -138,6 +171,8 @@ impl Voice {
             self.phase = Phase::Closed;
         }
     }
+    /// The voice key: starts a take, or stops the running one. When voice isn't ready it says
+    /// why, or asks to set up, instead.
     pub fn toggle(&mut self, now: Instant) {
         if self.active() {
             self.stop(false, now);
@@ -173,6 +208,8 @@ impl Voice {
             take: self.next_take,
         });
     }
+    /// Stops the take and waits for its final text. `send` asks for that text to be sent once it
+    /// arrives (F2 during a take).
     pub fn stop(&mut self, send: bool, now: Instant) {
         let Some(take) = self.take else {
             return;
@@ -184,6 +221,7 @@ impl Voice {
             self.command(Command::Stop { take });
         }
     }
+    /// Discards the take; no text arrives from it.
     pub fn cancel(&mut self) {
         let take = self.take;
         self.clear_take();
@@ -191,6 +229,7 @@ impl Voice {
             self.command(Command::Cancel { take });
         }
     }
+    /// Ends voice for this visit: cancels the take and stops the helper. Also runs on drop.
     pub fn close(&mut self) {
         self.cancel();
         self.host.shutdown();
@@ -200,6 +239,8 @@ impl Voice {
         self.notice.clear();
         self.failure = None;
     }
+    /// Reads what the helper sent and enforces deadlines. Returns the take's text once it
+    /// is final.
     pub fn tick(&mut self, now: Instant) -> Option<Final> {
         if self.deadline.is_some_and(|end| now >= end) {
             self.close();
@@ -307,6 +348,7 @@ impl Voice {
         }
         None
     }
+    /// Says a take heard nothing worth inserting.
     pub fn missed(&mut self) {
         self.notice = "Didn't catch that.".into();
     }
@@ -317,6 +359,8 @@ impl Drop for Voice {
     }
 }
 
+/// Text speech engines produce from silence ("Thank you.", "you"). Inserting it would put
+/// words in the operator's mouth, so it is treated as nothing heard.
 pub fn silence_filler(text: &str) -> bool {
     matches!(
         text.trim()

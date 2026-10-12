@@ -20,8 +20,11 @@ pub struct Config {
 /// A goal the operator explicitly affirmed, as Seed Me will record it.
 #[derive(Clone)]
 pub struct Affirmed {
+    /// The composed goal block exactly as displayed and confirmed. Saved unchanged.
     pub goal: String,
+    /// Seed Me's draft outcome: the goal's done-when check.
     pub outcome: String,
+    /// Approaches the reading proposed, recorded as options, not choices.
     pub options: Vec<Choice>,
     /// The operator's own words, recorded verbatim as evidence.
     pub originals: Vec<Original>,
@@ -34,16 +37,23 @@ pub struct Affirmed {
 /// One approach the reading proposed, kept as a proposal.
 #[derive(Clone)]
 pub struct Choice {
+    /// The approach in a few words.
     pub label: String,
+    /// What it gains.
     pub benefit: String,
+    /// What it costs to do.
     pub cost: String,
+    /// What it costs to back out of later.
     pub undo_cost: String,
 }
 /// One original dump or answer.
 #[derive(Clone)]
 pub struct Original {
+    /// The original's number in the conversation, from 1.
     pub id: usize,
+    /// The question it answered, if it was an answer.
     pub in_reply_to: Option<String>,
+    /// The words exactly as typed or dictated.
     pub text: String,
 }
 impl Original {
@@ -60,10 +70,16 @@ impl Original {
 }
 /// Proof of a saved goal: read back, with its view running or a saved snapshot shown instead.
 pub struct Receipt {
+    /// The session folder the goal was saved in.
     pub session: PathBuf,
+    /// The goal as read back from Seed Me, which matched what was confirmed.
     pub goal: String,
+    /// The Seed Me skill that saved it, for the continuation prompt.
     pub skill: PathBuf,
+    /// Where to see the ledger: the live viewer's address, or the saved view when the viewer
+    /// couldn't start.
     pub ledger: String,
+    /// Why the live viewer isn't running, when it isn't. The goal is saved either way.
     pub warning: Option<String>,
     viewer: Option<Child>,
 }

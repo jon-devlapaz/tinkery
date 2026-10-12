@@ -1,9 +1,14 @@
+//! Dictation inside think: the voice key, the take's muted text at the caret, inserting final
+//! text, and the one voice notice. Voice text lands in the writing box and is sent only by F2,
+//! like typed words.
+
 use super::*;
 use crate::voice::{Failure, Voice, VoiceHost, silence_filler};
 use ratatui::text::{Line, Span, Text};
 use std::time::Instant;
 
 impl BrainDump {
+    /// Enables dictation through `host`. Without it voice is never offered.
     pub fn with_voice(mut self, host: Box<dyn VoiceHost>) -> Self {
         self.voice = Some(Voice::new(host));
         self

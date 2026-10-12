@@ -1,3 +1,11 @@
+//! Think's screen: the writing box, the original, the reading and its one question, review and
+//! the receipt, wired to the conversation, the model and Seed Me.
+//!
+//! The rules live in the parts: [`Conversation`] decides what is asked and sent, `reading` and
+//! `review` own the model's contracts, [`board`] verifies a reply, and `seed_me` saves. This
+//! file routes input to them and paints the result. Nothing is sent without F2, and nothing is
+//! saved without a typed `confirm`.
+
 use super::{
     Motion, Note,
     canvas::Canvas,
@@ -160,6 +168,8 @@ impl Default for BrainDump {
     }
 }
 impl BrainDump {
+    /// Think that reads with `host`. [`BrainDump::default`] is practice: a simulated reading
+    /// and nothing leaves the machine.
     pub fn with_host(host: Arc<dyn BoardHost>) -> Self {
         Self::with_mode(host, true)
     }
@@ -210,6 +220,7 @@ impl BrainDump {
     fn quitting(&self) -> bool {
         self.exit == Exit::Menu
     }
+    /// A model call or a save is in flight.
     pub fn running(&self) -> bool {
         self.shaping.job.is_some() || self.handoff.job.is_some()
     }
@@ -224,6 +235,8 @@ impl BrainDump {
             palette.ink
         }
     }
+    /// Nothing is left to ask and nothing is in flight or unsent: "Nothing I'm unsure about."
+    /// Ready is not required to save, and saving still needs confirmation.
     pub fn goal_ready(&self) -> bool {
         self.input.text.is_empty() && self.goal_ready_without_local_text()
     }
@@ -233,7 +246,8 @@ impl BrainDump {
             && self.shaping.ready.is_none()
             && !self.voice_active()
     }
-    pub fn layout(&self) -> Vec<(String, f64, f64)> {
+    /// Each extracted card's id and position, as the next request carries them.
+    pub fn card_positions(&self) -> Vec<(String, f64, f64)> {
         self.screen
             .canvas
             .state
@@ -246,6 +260,7 @@ impl BrainDump {
             })
             .collect()
     }
+    /// Every original dump and answer, verbatim and labelled, as Markdown.
     pub fn originals(&self) -> String {
         self.conversation
             .sources()
@@ -261,7 +276,9 @@ impl BrainDump {
             .collect::<Vec<_>>()
             .join("\n\n")
     }
-    pub fn paper(&self) -> String {
+    /// What F9 copies: the reading, its questions, settled answers, extractions and originals,
+    /// each marked provisional. Copying confirms nothing.
+    pub fn copy_text(&self) -> String {
         let mut text = "# Tinkery / provisional board\n\nNothing confirmed. Unsaved.\n".to_owned();
         if let Some(g) = self.conversation.board() {
             for f in g.framings.iter() {
@@ -405,7 +422,7 @@ impl BrainDump {
     }
     fn encoded_bytes(&self) -> Option<usize> {
         self.conversation
-            .encoded_bytes(&self.input.text, self.add_more, self.layout())
+            .encoded_bytes(&self.input.text, self.add_more, self.card_positions())
     }
     fn diagnostics(&self) -> Vec<String> {
         let mut logs = self
@@ -416,6 +433,9 @@ impl BrainDump {
         logs.extend(self.host.diagnostics());
         logs
     }
+    /// F2: sends the writing box as an answer or added words. Refuses, with a notice, while a
+    /// call is running, during review, or before an addition's scope is answered; during a
+    /// take it stops the take and sends its text once.
     pub fn submit(&mut self) {
         self.conversation.forget_changes();
         if self.handoff.receipt.is_some()
@@ -444,7 +464,7 @@ impl BrainDump {
             &self.input.text,
             self.add_more,
             self.shaping.ready.is_some(),
-            self.layout(),
+            self.card_positions(),
         ) else {
             self.notice="An earlier addition is still unresolved; undo its skip to answer scope. New words stay local.".into();
             return;
@@ -553,6 +573,7 @@ impl BrainDump {
             shape: Default::default(),
         }));
     }
+    /// Advances time: lands a finished reading or save and reads voice events. Never blocks.
     pub fn tick(&mut self) {
         self.voice_tick();
         self.goal_tick();
@@ -583,6 +604,7 @@ impl BrainDump {
             }
         }
     }
+    /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
         self.conversation.forget_changes();
         self.clear_limit_notice();
@@ -601,9 +623,11 @@ impl BrainDump {
             && !self.screen.board_focus
             && let Err(_) = self.input.insert(text)
         {
-            self.notice = yohaku::LIMIT_TEXT.into();
+            self.notice = layout::LIMIT_TEXT.into();
         }
     }
+    /// Makes a blank think with this one's host, Seed Me and voice settings, for the next visit
+    /// from the menu. Nothing from this visit's conversation carries over.
     pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {
         let host = self.host.clone();
         let real = self.real;
@@ -618,9 +642,11 @@ impl BrainDump {
             dump
         })
     }
+    /// Text think asked to copy, taken once; see [`BrainDump::copy_result`].
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()
     }
+    /// Whether the copy reached the terminal's clipboard, so the notice can say so.
     pub fn copy_result(&mut self, sent: bool) {
         self.notice = match (sent, self.handoff.receipt.is_some()) {
             (true, true) => "Copied.",
@@ -630,6 +656,7 @@ impl BrainDump {
         }
         .into();
     }
+    /// One key press. Releases are ignored; navigation and copying never send or save.
     pub fn handle_key(&mut self, mut key: KeyEvent) {
         self.conversation.forget_changes();
         if key.kind == KeyEventKind::Release {
@@ -910,13 +937,13 @@ impl BrainDump {
                 // Typing always writes; the app returns focus to the writing box itself.
                 self.focus_writing();
                 if self.input.insert(&c.to_string()).is_err() {
-                    self.notice = yohaku::LIMIT_TEXT.into();
+                    self.notice = layout::LIMIT_TEXT.into();
                 }
             }
             KeyCode::Enter => {
                 self.focus_writing();
                 if self.input.insert("\n").is_err() {
-                    self.notice = yohaku::LIMIT_TEXT.into();
+                    self.notice = layout::LIMIT_TEXT.into();
                 }
             }
             KeyCode::Backspace => {
@@ -951,7 +978,7 @@ impl BrainDump {
         }
     }
     fn clear_limit_notice(&mut self) {
-        if self.notice.starts_with(yohaku::LIMIT_NOTICE) {
+        if self.notice.starts_with(layout::LIMIT_NOTICE) {
             self.notice.clear();
         }
     }
@@ -963,7 +990,7 @@ impl BrainDump {
     }
     /// F9: copy the reading.
     fn copy_board(&mut self) {
-        let text = self.paper();
+        let text = self.copy_text();
         if text.len() > 128 * 1024 {
             self.notice = "Copy exceeds 128 KiB; not sent.".into();
         } else {
@@ -1104,9 +1131,11 @@ impl BrainDump {
             None => "your answer".into(),
         })
     }
+    /// Whether the muted key bar is showing.
     pub fn key_bar_on(&self) -> bool {
         self.screen.key_bar
     }
+    /// Starts with the key bar shown or hidden, so the preference outlives one visit.
     pub fn with_key_bar(mut self, on: bool) -> Self {
         self.screen.key_bar = on;
         self
@@ -1124,6 +1153,8 @@ impl BrainDump {
             self.screen.leave_prompt = true;
         }
     }
+    /// One mouse event in a terminal of size `area`. Ignored while asking whether to leave, or
+    /// when the terminal has been resized since the last paint.
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
         if self.screen.leave_prompt {
             return;
@@ -1277,12 +1308,13 @@ impl BrainDump {
     }
 }
 
+/// Paints think, remembering where things went so the mouse lands where it was drawn.
 pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
-    yohaku::render(frame, app, palette);
-    yohaku::render_header(frame, palette);
-    yohaku::render_key_bar(frame, app, palette);
+    layout::render(frame, app, palette);
+    layout::render_header(frame, palette);
+    layout::render_key_bar(frame, app, palette);
     voice_input::render_notice(frame, app, palette);
-    yohaku::render_leave_prompt(frame, app, palette);
+    layout::render_leave_prompt(frame, app, palette);
 }
 fn agent_text(text: &str) -> String {
     text.lines()
@@ -1489,6 +1521,7 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         ));
     }
 }
+/// Think as plain text at `width`×`height`, for `--snapshot` and tests.
 pub fn snapshot(
     width: u16,
     height: u16,
@@ -1506,16 +1539,16 @@ pub fn snapshot(
 
 #[cfg(test)]
 mod board_tests;
-#[cfg(test)]
-mod c16_tests;
 pub mod checks;
 mod conversation;
 mod host;
+#[cfg(test)]
+mod readiness_tests;
 mod reading;
 mod review;
 pub use conversation::Conversation;
 #[cfg(test)]
-mod dogfood_tests;
+mod goal_lines_tests;
 #[cfg(test)]
 mod goal_tests;
 mod goal_view;
@@ -1524,18 +1557,18 @@ mod help_exit_tests;
 mod intact_view;
 #[cfg(test)]
 mod intent_tests;
+mod layout;
+#[cfg(test)]
+mod layout_tests;
 #[cfg(test)]
 mod prompt_tests;
 #[cfg(test)]
-mod revision2_tests;
+mod scope_and_keys_tests;
 #[cfg(test)]
 mod selection_tests;
 mod voice_input;
 #[cfg(test)]
 mod voice_tests;
-mod yohaku;
-#[cfg(test)]
-mod yohaku_tests;
 
 #[cfg(test)]
 #[path = "brain_dump_tests.rs"]

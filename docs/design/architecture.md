@@ -50,7 +50,7 @@ One sentence each: what it owns.
 | `think/brain_dump/host.rs` | Who answers a reading request: Pi (a shaping call, then the review) or the practice simulation. |
 | `think/brain_dump/board.rs` | Verifying a decoded reading; a `Board` only exists once verified. |
 | `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
-| `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `yohaku.rs` | Think's review screen, original pane, dictation input, and help and key bar. |
+| `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | Think's review screen, original pane, dictation input, and where everything goes on screen with its help, key bar and notices. |
 | `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the text box with grapheme-safe selection. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
@@ -65,13 +65,15 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 | 1 | Can each module be described in one sentence? | Yes: the reading's types, prompt and decoder moved to `reading.rs` (#38); see the table above | |
 | 2 | Are interfaces simpler than implementations? | Yes | |
 | 3 | Can an implementation change without touching callers? | Yes: each model contract is written once, next to its decoder, and a test holds each prompt's field names equal to the decoder's. Seed Me's format lives only in `seed_me/`. One residue: the review merges into the raw reading by its top-level keys | |
-| 4 | Do interface comments describe the abstraction? | No | #39 |
-| 5 | Is design discussion part of review? | Yes | #39 adds a structural question |
+| 4 | Do interface comments describe the abstraction? | Yes: every module opens with what it owns and promises, and every `pub` item has a comment; the build denies `missing_docs` and `unreachable_pub` (#39) | |
+| 5 | Is design discussion part of review? | Yes: CLAUDE.md's guardrails ask whether a change makes the code simpler to change and which rows it moves (#39) | |
 | 6 | Does each module hide an important decision? | Yes: `Conversation` hides think's question, skip and scope rules behind methods | |
 | 7 | Can a newcomer see the boundaries without reading code? | Yes | this page |
 | 8 | Is design improvement part of ordinary work? | Yes | |
 
-**Score: 8.75/10** (2026-10-12, re-scored after #38; first scored at 2d25a7c). The goal is at least 9/10; #33 tracks the steps.
+**Score: 10/10** (2026-10-12, re-scored after #39; first scored at 2d25a7c, 5/10). Every row passes. What a
+pass doesn't hide: row 3's residue above, and `brain_dump.rs` is still the largest file (about 1,500 lines), with
+a narrow interface over a lot of routing.
 
 ## Limits enforced by `tests/architecture.rs`
 
@@ -80,6 +82,7 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 | Phase reaches across phases | none allowed | done in #36 |
 | `BrainDump` fields / `pub` fields | 13 / 0 | done in #37 |
 | Non-test source lines over 200 characters | 13 | done in #38 (the prompts moved to text files) |
+| Library files without a `//!` comment, `pub` items without a doc comment | none allowed | done in #39 |
 
 A check fails when the code gets worse than its limit, and also when it gets better, so the PR that improves it
 lowers the limit too.

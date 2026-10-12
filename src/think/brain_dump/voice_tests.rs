@@ -69,7 +69,7 @@ fn partial_and_final_follow_current_cursor_not_a_captured_anchor() {
     );
     let (_, preview) = voice_input::input_text(&a, Palette::new(false));
     assert_eq!(preview.to_string(), "A🙂Typed ghostZ");
-    assert!(!a.paper().contains("ghost"));
+    assert!(!a.copy_text().contains("ghost"));
     assert!(a.conversation.sources().is_empty());
     assert!(a.conversation.fragments().is_empty());
     event(
@@ -454,8 +454,8 @@ fn f10_closes_helper_preserves_unsaved_guard_and_can_reload_after_n() {
 }
 #[test]
 fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
-    let (mut a, fake) = attach(super::c16_tests::app(
-        serde_json::json!({"parts": super::c16_tests::parts()}),
+    let (mut a, fake) = attach(super::readiness_tests::app(
+        serde_json::json!({"parts": super::readiness_tests::parts()}),
     ));
     a.review_goal();
     assert!(a.handoff.review.is_some());
@@ -479,16 +479,16 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
     a.handoff.receipt = Some(seed_me::Receipt::test("/TEST/voice-receipt".into()));
     key(&mut a, KeyCode::F(6));
     assert!(fake.borrow().commands.is_empty());
-    assert!(!yohaku::help_text(&a).contains("speak"));
+    assert!(!layout::help_text(&a).contains("speak"));
     assert_eq!(
-        yohaku::key_bar_items(&a),
+        layout::key_bar_items(&a),
         vec![("c", "copy prompt"), ("s", "open in shape"), ("10", "menu")]
     );
 }
 #[test]
 fn active_voice_blocks_readiness_and_review_even_without_typed_text() {
-    let (mut a, fake) = attach(super::c16_tests::app(
-        serde_json::json!({"parts": super::c16_tests::parts()}),
+    let (mut a, fake) = attach(super::readiness_tests::app(
+        serde_json::json!({"parts": super::readiness_tests::parts()}),
     ));
     assert!(a.goal_ready());
     start(&mut a, &fake);
@@ -503,21 +503,21 @@ fn active_voice_blocks_readiness_and_review_even_without_typed_text() {
 fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
     let mut a = BrainDump::default();
     a.screen.help_all = true;
-    assert!(!yohaku::help_text(&a).contains("speak"));
+    assert!(!layout::help_text(&a).contains("speak"));
     assert!(
         !snapshot(100, 30, &mut a, false)
             .unwrap()
             .contains("6 speak")
     );
     let (mut a, fake) = attach(a);
-    assert!(yohaku::help_text(&a).contains("F6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"));
+    assert!(layout::help_text(&a).contains("F6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"));
     assert!(
-        yohaku::key_bar_items(&a)
+        layout::key_bar_items(&a)
             .contains(&(crate::voice::key_label(std::env::consts::OS), "speak"))
     );
     start(&mut a, &fake);
     assert_eq!(
-        yohaku::key_bar_items(&a),
+        layout::key_bar_items(&a),
         vec![
             (crate::voice::key_label(std::env::consts::OS), "stop"),
             ("esc", "cancel")
@@ -532,7 +532,7 @@ fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
             message: "Set TINKERY_NODE.".into(),
         },
     );
-    assert!(yohaku::help_text(&a).contains("speak"));
+    assert!(layout::help_text(&a).contains("speak"));
 }
 #[test]
 fn shaping_results_defer_while_voice_is_active_even_with_empty_input() {
@@ -560,7 +560,7 @@ fn first_use_key_bar_and_muted_prompt_preserve_input_and_require_explicit_yes() 
         let mut a = BrainDump::default().with_voice(Box::new(fake.clone()));
         a.paste("typed");
         assert!(
-            yohaku::key_bar_items(&a)
+            layout::key_bar_items(&a)
                 .contains(&(crate::voice::key_label(std::env::consts::OS), "speak"))
         );
         event(
@@ -672,7 +672,7 @@ fn recording_does_not_change_what_the_goal_line_says_is_open() {
     assert!(screen.contains(ready), "{screen}");
     assert!(!screen.contains("remain open"));
     a.screen.help = true;
-    assert!(yohaku::help_text(&a).contains("Nothing I'm unsure about."));
+    assert!(layout::help_text(&a).contains("Nothing I'm unsure about."));
 }
 
 #[test]

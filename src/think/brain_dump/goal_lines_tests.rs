@@ -1,4 +1,4 @@
-use super::c16_tests::{app, parts};
+use super::readiness_tests::{app, parts};
 use super::tests::settle;
 use super::*;
 
@@ -120,7 +120,7 @@ fn quiet_asides_survive_paper_review_and_are_not_constraints() {
     assert!(a.goal_ready());
     let reading = a.conversation.board().unwrap().framings[0].text.clone();
     assert!(!reading.contains("renaming") && !reading.contains("editing"));
-    let paper = a.paper();
+    let paper = a.copy_text();
     assert!(paper.contains("also in your dump: renaming a tab; release builds"));
     assert!(paper.contains("for the seed: editing can wait"));
     let text = snapshot(160, 40, &mut a, false).unwrap();

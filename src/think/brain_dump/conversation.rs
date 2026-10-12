@@ -50,33 +50,43 @@ impl Staged {
 }
 
 impl Conversation {
+    /// Everything the person has sent, in order and verbatim.
     pub fn sources(&self) -> &[Source] {
         &self.sources
     }
+    /// The excerpts the person pulled out.
     pub fn fragments(&self) -> &[Fragment] {
         &self.fragments
     }
+    /// The current verified reading, if one has been applied.
     pub fn board(&self) -> Option<&board::Board> {
         self.board.as_ref()
     }
+    /// Questions answered, with their answers.
     pub fn settled(&self) -> &[Settled] {
         &self.settled
     }
+    /// Questions skipped and not brought back.
     pub fn skipped(&self) -> &[Question] {
         &self.skipped
     }
+    /// The highest source id the reading has taken in.
     pub fn applied(&self) -> usize {
         self.applied
     }
+    /// Added words waiting on their scope question: the source id and the question. Until it's
+    /// answered those words stay out of every request.
     pub fn scope_pending(&self) -> Option<&(usize, Question)> {
         self.scope_pending.as_ref()
     }
+    /// Goal lines the last answer changed, so they can be pointed out until the next input.
     pub fn changed_lines(&self) -> Option<&BTreeSet<String>> {
         self.changed_lines.as_ref()
     }
     pub(super) fn forget_changes(&mut self) {
         self.changed_lines = None;
     }
+    /// Why the last reading couldn't be applied; cleared once one is.
     pub fn last_failure(&self) -> Option<&str> {
         self.last_failure.as_deref()
     }

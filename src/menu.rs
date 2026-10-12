@@ -57,7 +57,11 @@ pub const PLACES: [(&str, &str, bool); 6] = [
 const FIRST_ROW: u16 = 4;
 const ROW_GAP: u16 = 2;
 
+/// The menu and whichever place is open in it. It routes input to the open place and owns what
+/// outlives a visit: the key bar preference, receipts to print on exit, and the one session
+/// scan shape reads from. A place returns here by its own exit; nothing opens by itself.
 pub struct Home {
+    /// The operator chose to leave Tinkery; the terminal loop stops after this tick.
     pub quit: bool,
     make_dump: Box<dyn Fn() -> BrainDump>,
     sessions_root: PathBuf,
@@ -86,6 +90,8 @@ struct Reading {
 }
 
 impl Home {
+    /// A menu on its first row. `make_dump` makes a fresh think each time think is opened;
+    /// shape reads sessions under `sessions_root`, and measure reports from `substrate_dir`.
     pub fn new(
         make_dump: Box<dyn Fn() -> BrainDump>,
         sessions_root: PathBuf,
@@ -112,11 +118,14 @@ impl Home {
         self
     }
 
+    /// The Seed Me skill shape's continuation prompt names.
     pub fn with_seed_me(mut self, skill: PathBuf) -> Self {
         self.seed_me = Some(skill);
         self
     }
 
+    /// The menu think returns to after saving a goal when it was launched on its own. The
+    /// receipt carries over, and `open_shape` opens shape on the saved session.
     pub fn from_receipt(mut dump: BrainDump, session: &Path, open_shape: bool) -> Self {
         let (default_root, substrate) = Self::default_paths();
         let root = session
@@ -146,6 +155,8 @@ impl Home {
         (crate::seed_me::default_root(&home), substrate)
     }
 
+    /// Advances time: keeps the session scan moving and shape's wait notice current. Never
+    /// blocks; a slow scan shows as waiting, not as a frozen screen.
     pub fn tick(&mut self) {
         self.tick_at(Instant::now());
     }
@@ -240,12 +251,15 @@ impl Home {
         (!self.receipts.is_empty()).then(|| self.receipts.join("\n"))
     }
 
+    /// Bracketed paste. Only think takes text; elsewhere a paste does nothing.
     pub fn paste(&mut self, text: &str) {
         if let View::Think(dump) = &mut self.view {
             dump.paste(text);
         }
     }
 
+    /// Text the open place asked to copy, taken once. The terminal loop does the copying and
+    /// reports back through [`Home::copy_result`].
     pub fn take_copy_request(&mut self) -> Option<String> {
         match &mut self.view {
             View::Think(dump) => dump.take_copy_request(),
@@ -254,6 +268,7 @@ impl Home {
         }
     }
 
+    /// Whether the last copy reached the clipboard, so the place can say so.
     pub fn copy_result(&mut self, sent: bool) {
         match &mut self.view {
             View::Think(dump) => dump.copy_result(sent),
@@ -269,6 +284,8 @@ impl Home {
         }
     }
 
+    /// Opens the place at `index` in [`PLACES`]. Opening shape asks for a fresh scan; an
+    /// unbuilt place says so. Opening never starts an agent.
     pub fn open(&mut self, index: usize) {
         self.selected = index;
         self.help = false;
@@ -288,6 +305,7 @@ impl Home {
         self.sync_shape();
     }
 
+    /// One key press, routed to the open place or the menu. Releases are ignored.
     pub fn handle_key(&mut self, key: KeyEvent) {
         if key.kind == KeyEventKind::Release {
             return;
@@ -419,6 +437,7 @@ impl Home {
         }
     }
 
+    /// One mouse event in a terminal of size `area`. The menu takes left clicks on a place.
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
         if let View::Think(dump) = &mut self.view {
             dump.handle_mouse(event, area);
@@ -452,6 +471,7 @@ impl Home {
     }
 }
 
+/// Paints the menu or the open place. Painting never waits on the session scan.
 pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
     if let View::Think(dump) = &mut home.view {
         brain_dump::render(frame, dump, palette);
@@ -557,6 +577,8 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
     }
 }
 
+/// The screen as plain text at `width`×`height`, for `--snapshot` and tests. No terminal mode,
+/// no provider calls.
 pub fn snapshot(
     width: u16,
     height: u16,

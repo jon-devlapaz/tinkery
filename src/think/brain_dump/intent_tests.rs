@@ -390,7 +390,7 @@ fn ready_says_nothing_unsure() {
         assert!(!screen.contains("Still missing") && !screen.contains("remain open"));
     }
     a.screen.help = true;
-    assert!(yohaku::help_text(&a).contains("Nothing I'm unsure about.\nF3 reviews the goal."));
+    assert!(layout::help_text(&a).contains("Nothing I'm unsure about.\nF3 reviews the goal."));
 }
 #[test]
 fn skipped_why_names_only_the_missing_part() {
@@ -405,7 +405,7 @@ fn skipped_why_names_only_the_missing_part() {
         assert!(!screen.contains("Nothing I'm unsure") && !screen.contains("remain open"));
     }
     assert!(
-        yohaku::help_text(&a).starts_with("Right now\nStill missing: Why.\nF3 reviews the goal.")
+        layout::help_text(&a).starts_with("Right now\nStill missing: Why.\nF3 reviews the goal.")
     );
     review_lists_and_saves(&mut a, &["Why — Which check 1?"]);
     assert_eq!(
@@ -454,7 +454,7 @@ fn present_but_open_and_deferred_context_is_not_called_missing() {
         );
         assert!(!screen.contains("Still missing") && !screen.contains("Nothing I'm unsure"));
     }
-    let paper = a.paper();
+    let paper = a.copy_text();
     assert!(paper.contains("for the seed: editing can wait"));
     assert!(paper.contains("also in your dump: release builds"));
     review_lists_and_saves(
@@ -475,7 +475,7 @@ fn no_composed_goal_names_who_without_offering_review() {
         assert!(screen.contains("Still missing: Who."), "{screen}");
         assert!(!screen.contains("Review when you're ready"));
     }
-    let help = yohaku::help_text(&a);
+    let help = layout::help_text(&a);
     assert!(
         help.contains("Still missing: Who.\nType it, then F2 sends."),
         "{help}"
@@ -515,7 +515,7 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
         );
     }
     assert!(
-        !yohaku::open_intent(&a)
+        !layout::open_intent(&a)
             .unwrap()
             .contains("Nothing I'm unsure")
     );
@@ -524,7 +524,7 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
 #[test]
 fn a_skipped_question_without_a_target_keeps_the_goal_open() {
     let mut a = constraints(&["must work offline"], &[]);
-    assert!(yohaku::open_intent(&a).unwrap().starts_with("Nothing"));
+    assert!(layout::open_intent(&a).unwrap().starts_with("Nothing"));
     a.conversation.skipped_mut().push(Question {
         target: None,
         id: "priority".into(),
@@ -608,7 +608,7 @@ fn a_cancelled_first_reading_offers_f2_retry_not_more_typing() {
             && a.conversation.applied() < a.conversation.sources().len()
             && !a.running()
     );
-    let help = yohaku::help_text(&a);
+    let help = layout::help_text(&a);
     assert!(
         help.contains("Your words haven't been read yet.\nF2 tries again."),
         "{help}"

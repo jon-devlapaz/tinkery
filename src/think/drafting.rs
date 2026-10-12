@@ -1,3 +1,10 @@
+//! The only place think calls a model: one Pi process per request, bounded and cancellable.
+//!
+//! A request runs Pi with no tools, session, extensions or context files, so the model sees
+//! only the prompt and the words sent. Input and output are capped at 32 KiB, each call times
+//! out after 90 seconds, and nothing retries on its own. Callers never touch a process: they
+//! get text back, or one line saying why not.
+
 use std::{
     io::{Read, Write},
     path::PathBuf,
@@ -17,13 +24,21 @@ const LIMIT: usize = 32 * 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
+/// One way to reach the goal, as the reading proposes it. A proposal only: saving records it as
+/// an option, never as a choice.
 pub struct Approach {
+    /// The approach in a few words.
     pub label: String,
+    /// What it gains.
     pub benefit: String,
+    /// What it costs to do.
     pub cost: String,
+    /// What it costs to back out of later.
     pub undo_cost: String,
 }
 
+/// Pi, configured for think's shaping calls: an explicit model, a thinking level, and the
+/// working-draft section of the Seed Me skill as standing instructions.
 pub struct PiHost {
     program: PathBuf,
     model: String,
@@ -34,6 +49,9 @@ pub struct PiHost {
 }
 
 impl PiHost {
+    /// Pi at `program` with `model` (`provider/model-id`, no default) and the Seed Me skill at
+    /// `skill`. Refuses a vague model or a skill whose working-draft section it can't find,
+    /// rather than shaping with the wrong instructions. Starts nothing.
     pub fn new(program: PathBuf, model: String, skill: PathBuf) -> Result<Self, String> {
         if !model.split_once('/').is_some_and(|(provider, id)| {
             !provider.is_empty() && !id.is_empty() && !model.chars().any(char::is_whitespace)
@@ -65,6 +83,7 @@ impl PiHost {
         })
     }
 
+    /// Sets Pi's thinking level; refuses a level Pi doesn't name. The default is `low`.
     pub fn with_thinking(mut self, level: &str) -> Result<Self, String> {
         if !matches!(
             level,
@@ -83,6 +102,7 @@ impl PiHost {
             .1
     }
 
+    /// Leaves the thinking level to Pi's own default.
     pub fn with_default_thinking(mut self) -> Self {
         self.thinking.clear();
         self
@@ -211,7 +231,9 @@ pub(super) struct Job<T> {
 }
 
 impl<T: Send + 'static> Job<T> {
-    pub fn launch(work: impl FnOnce(&AtomicBool) -> Result<T, String> + Send + 'static) -> Self {
+    pub(super) fn launch(
+        work: impl FnOnce(&AtomicBool) -> Result<T, String> + Send + 'static,
+    ) -> Self {
         let cancelled = Arc::new(AtomicBool::new(false));
         let worker_cancel = cancelled.clone();
         let (sender, result) = mpsc::channel();
@@ -225,7 +247,7 @@ impl<T: Send + 'static> Job<T> {
         }
     }
 
-    pub fn poll(&self) -> Option<Result<T, String>> {
+    pub(super) fn poll(&self) -> Option<Result<T, String>> {
         match self.result.try_recv() {
             Ok(result) => Some(result),
             Err(mpsc::TryRecvError::Empty) => None,

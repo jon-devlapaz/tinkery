@@ -136,10 +136,10 @@ fn receipt_copy_is_exact_and_shape_is_an_explicit_request() {
     assert_eq!(a.exit(), &Exit::Shape("/tmp/TEST-receipt/session".into()));
     assert!(!a.quitting() && !a.running());
     a.screen.help_all = true;
-    let help = yohaku::help_text(&a);
+    let help = layout::help_text(&a);
     assert!(help.contains("s   open in shape"));
     assert!(!help.contains("send") && !help.contains("speak"));
-    assert!(yohaku::how_text(&a).contains("/tmp/TEST-receipt/session"));
+    assert!(layout::how_text(&a).contains("/tmp/TEST-receipt/session"));
 }
 #[test]
 fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation() {

@@ -5,7 +5,7 @@ use std::{collections::VecDeque, ops::Deref};
 
 /// Nonempty collections can only be made by the verified board constructor.
 /// ```compile_fail
-/// use tinkery::shaping::brain_dump::board::{NonEmpty, Reading};
+/// use tinkery::think::brain_dump::board::{NonEmpty, Reading};
 /// let empty = NonEmpty::<Reading>(vec![]);
 /// ```
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -16,6 +16,7 @@ impl<T> Deref for NonEmpty<T> {
         &self.0
     }
 }
+/// An [`Anchor`] checked against the sources when the board was made.
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct VerifiedAnchor {
     #[serde(flatten)]
@@ -30,6 +31,8 @@ impl Deref for VerifiedAnchor {
     }
 }
 impl VerifiedAnchor {
+    /// The span to highlight, refused if `sources` no longer hold the words it was checked
+    /// against.
     pub fn range(&self, sources: &[Source]) -> Result<std::ops::Range<usize>, String> {
         if self.anchor.range(sources)? != self.range {
             return Err("Verified source changed".into());
@@ -37,9 +40,13 @@ impl VerifiedAnchor {
         Ok(self.range.clone())
     }
 }
+/// Whether a reading cites the person's words. Uncited is allowed and shown plainly; it is
+/// not a failure.
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub enum Grounding {
+    /// No citations.
     Uncited,
+    /// At least one exact, verified span.
     Cited(NonEmpty<VerifiedAnchor>),
 }
 impl Deref for Grounding {
@@ -51,19 +58,28 @@ impl Deref for Grounding {
         }
     }
 }
+/// The reading as shown: the composed goal block and what it cites.
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct Reading {
+    /// The goal block.
     pub text: String,
+    /// The person's words it rests on.
     pub supports: Grounding,
 }
+/// A proposed approach; an empty benefit or cost is `None` rather than shown blank.
 #[derive(Clone, Debug, Serialize)]
 pub struct Candidate {
+    /// The approach in a few words.
     pub label: String,
+    /// What it gains.
     pub benefit: Option<String>,
+    /// What it costs to do.
     pub cost: Option<String>,
+    /// What it costs to back out of later.
     pub undo_cost: Option<String>,
 }
 impl Candidate {
+    /// The approach in the model's wire shape, for the next request.
     pub fn wire(&self) -> Approach {
         Approach {
             label: self.label.clone(),
@@ -72,6 +88,7 @@ impl Candidate {
             undo_cost: self.undo_cost.clone().unwrap_or_default(),
         }
     }
+    /// The approach as shown: label, then each known benefit and cost on its own line.
     pub fn text(&self) -> String {
         let mut text = agent_text(&self.label);
         for (label, value) in [
@@ -86,22 +103,34 @@ impl Candidate {
         text
     }
 }
+/// What a verified board holds, readable through [`Board`] but never writable. The fields mean
+/// what [`Guess`]'s do, after verification.
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardData {
+    /// The goal's parts, cleaned and with constraints normalised.
     pub parts: GoalParts,
+    /// Separate goals, kept aside.
     pub other_goals: Vec<String>,
+    /// Things explicitly put off.
     pub deferred: Vec<String>,
+    /// Parts still open, including every part a question targets.
     pub open: Vec<Part>,
+    /// The reading; at most one.
     pub framings: Vec<Reading>,
+    /// The done-when part, if any.
     pub outcome: Option<String>,
+    /// The one question to ask, if any.
     pub questions: VecDeque<Question>,
+    /// Proposed approaches.
     pub alternatives: Vec<Candidate>,
+    /// The person's words that don't fit the reading.
     pub misfits: Vec<VerifiedAnchor>,
+    /// Open intent that isn't a question yet.
     pub unresolved_notes: Vec<String>,
 }
 /// Constructed only from checked input; no mutable access or model authority fields.
 /// ```compile_fail
-/// use tinkery::shaping::brain_dump::board::Board;
+/// use tinkery::think::brain_dump::board::Board;
 /// fn replace_history(board: &mut Board) {
 ///     board.questions.clear();
 /// }
@@ -116,6 +145,11 @@ impl Deref for Board {
     }
 }
 impl Board {
+    /// The only way to make a board. Refuses a guess that fails [`Guess::validate`]; otherwise
+    /// strips the model's self-labels, normalises constraints, drops a why or done-when that
+    /// only repeats the outcome, and keeps one question. While a required part is missing,
+    /// that question is about the first missing part. A part skipped or already asked twice
+    /// isn't asked again.
     pub fn verify(mut g: Guess, request: &BoardRequest) -> Result<Self, String> {
         g.validate(request)?;
         for value in [
@@ -244,9 +278,12 @@ impl Board {
             unresolved_notes: g.unresolved_notes,
         }))
     }
+    /// The readings to show. There is only ever one, whichever is selected.
     pub fn presented(&self, _selected: usize) -> &[Reading] {
         &self.framings
     }
+    /// The board in the model's wire shape, sent back as `previous` so the next reading
+    /// refines this one.
     pub fn wire(&self) -> Guess {
         Guess {
             parts: self.parts.clone(),

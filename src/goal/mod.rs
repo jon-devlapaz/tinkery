@@ -1,19 +1,36 @@
+//! The goal block: seven typed parts and the one way they compose into text.
+//!
+//! Think fills [`GoalParts`]; review, receipt, shape and Seed Me all show the text
+//! [`GoalParts::compose`] makes, so a goal reads the same everywhere it appears. Composition
+//! rewrites only what `docs/design/goal-block.md` allows (a leading `must`/`must not` prefix,
+//! clause joins); it never invents a part, and the person's original words live elsewhere,
+//! untouched.
+
 use serde::{Deserialize, Serialize};
 
 pub mod confirmed;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
+/// One slot of the goal block. Its serde name is the field name the model's contract uses.
 pub enum Part {
+    /// Who benefits; "I" only for the operator's own goal.
     Who,
+    /// What is true for them when it works, not how it gets built.
     Outcome,
+    /// The situation it applies in, when that matters. Never a made-up deadline.
     When,
+    /// What changes, or what is wrong now.
     Why,
+    /// A check distinct from the outcome, in the person's words.
     DoneWhen,
+    /// Positive constraints, one per item.
     Must,
+    /// Exclusions and negative constraints, one per item.
     MustNot,
 }
 impl Part {
+    /// Every part, in the order the block shows them.
     pub const ALL: [Self; 7] = [
         Self::Who,
         Self::Outcome,
@@ -23,7 +40,10 @@ impl Part {
         Self::Must,
         Self::MustNot,
     ];
+    /// The parts a goal needs before it's ready. When and the constraints are optional and are
+    /// never filled just to complete a form.
     pub const REQUIRED: [Self; 4] = [Self::Who, Self::Outcome, Self::Why, Self::DoneWhen];
+    /// The part's wire name, as the model and saved files spell it.
     pub fn name(self) -> &'static str {
         match self {
             Self::Who => "who",
@@ -35,6 +55,7 @@ impl Part {
             Self::MustNot => "must_not",
         }
     }
+    /// The part's label for people, as the goal block and questions show it.
     pub fn label(self) -> &'static str {
         match self {
             Self::Who => "Who",
@@ -230,19 +251,31 @@ fn constraint_syntax(clause: &str, negative: bool) -> Option<(bool, &str)> {
         })
         .map(|rest| (false, rest))
 }
+/// A goal as seven typed parts, each in the model's words for the person's intent. A missing
+/// part is `None` (or empty), never a placeholder, so "still open" can't be mistaken for an
+/// answer. Each field is the [`Part`] of the same name.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GoalParts {
+    /// See [`Part::Who`].
     pub who: Option<String>,
+    /// See [`Part::Outcome`].
     pub outcome: Option<String>,
+    /// See [`Part::When`].
     pub when: Option<String>,
+    /// See [`Part::Why`].
     pub why: Option<String>,
+    /// See [`Part::DoneWhen`].
     pub done_when: Option<String>,
+    /// See [`Part::Must`]. Each item is shown as one line, never split.
     #[serde(default)]
     pub must: Vec<String>,
+    /// See [`Part::MustNot`]. Each item is shown as one line, never split.
     #[serde(default)]
     pub must_not: Vec<String>,
 }
 impl GoalParts {
+    /// The part's text, trimmed; `None` when it is missing or blank. A constraint list answers
+    /// with its first item, which is enough to tell whether it is filled.
     pub fn get(&self, part: Part) -> Option<&str> {
         let value = match part {
             Part::Who => self.who.as_ref(),
@@ -258,11 +291,15 @@ impl GoalParts {
             .map(str::trim)
             .filter(|s| !s.is_empty())
     }
+    /// The required parts still missing, in block order.
     pub fn missing(&self) -> impl Iterator<Item = Part> + '_ {
         Part::REQUIRED
             .into_iter()
             .filter(|p| self.get(*p).is_none())
     }
+    /// The block's first line, "Who outcome, when", without its final period. `None` until
+    /// who and outcome both exist. A who repeated at the start of the outcome, or a `when`
+    /// the line already says, isn't said twice.
     pub fn goal_line(&self) -> Option<String> {
         let (who, outcome) = (self.get(Part::Who)?, self.get(Part::Outcome)?);
         let raw_who = prose(who);
@@ -338,6 +375,8 @@ impl GoalParts {
             self.done_when = None;
         }
     }
+    /// The whole goal block as people see and save it: the goal line, then Why, Done when,
+    /// and one line per distinct constraint. `None` when there is nothing to show yet.
     pub fn compose(&self) -> Option<String> {
         let finish = |s: String| {
             if s.ends_with(['.', '!', '?']) {

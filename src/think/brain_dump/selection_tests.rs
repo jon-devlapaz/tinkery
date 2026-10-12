@@ -465,7 +465,11 @@ fn f8_f9_f7_and_modified_keys_still_work_from_either_focus() {
         }
         assert!(a.conversation.focused_question().is_some());
         key(&mut a, KeyCode::F(9));
-        assert_eq!(a.take_copy_request(), Some(a.paper()), "F9 focus={focus}");
+        assert_eq!(
+            a.take_copy_request(),
+            Some(a.copy_text()),
+            "F9 focus={focus}"
+        );
         key(&mut a, KeyCode::F(8));
         assert_eq!(a.conversation.skipped().len(), 1, "F8 focus={focus}");
         press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);

@@ -1,3 +1,11 @@
+//! Tinkery: a calm, keyboard-first front door for agentic work.
+//!
+//! Each place in the menu is a phase with its own module (`think`, `shape`, `measure`); the menu
+//! is the only module that knows them all. Phases never use each other: anything two of them
+//! share (`goal`, `seed_me`, `voice`, and the palette and sizes below) is shared code that names
+//! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
+#![deny(missing_docs, unreachable_pub)]
+
 use ratatui::style::{Color, Modifier, Style};
 
 pub mod goal;
@@ -8,9 +16,15 @@ pub mod shape;
 pub mod think;
 pub mod voice;
 
+/// The narrowest terminal any screen draws for. Below it, a screen says what size it needs and
+/// keeps every word; nothing is laid out half-visible.
 pub const MIN_WIDTH: u16 = 80;
+/// The shortest terminal any screen draws for; see [`MIN_WIDTH`].
 pub const MIN_HEIGHT: u16 = 24;
 
+/// The four styles every screen draws with, one job each: ink for words, jade for the one thing to
+/// act on, muted for what can wait, rust for consequences. With no colour each keeps its meaning
+/// through weight, dimming or underline, so no cue depends on colour alone.
 #[derive(Clone, Copy)]
 pub struct Palette {
     ink: Style,
@@ -21,6 +35,7 @@ pub struct Palette {
 }
 
 impl Palette {
+    /// The palette for this terminal; `no_color` honours `NO_COLOR` and `--no-color`.
     pub fn new(no_color: bool) -> Self {
         let base = if no_color {
             Style::default()

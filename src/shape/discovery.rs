@@ -27,6 +27,7 @@ pub struct Found {
     pub unreadable: usize,
 }
 impl Found {
+    /// Every record was read, so the list is the whole truth.
     pub fn complete(&self) -> bool {
         self.unreadable == 0
     }
@@ -68,6 +69,7 @@ pub fn scan(root: &Path) -> Outcome {
 
 /// The last result that landed, with how many requests had been made when it started.
 pub struct Landed {
+    /// What the read found, or why the root couldn't be read.
     pub outcome: Outcome,
     epoch: u64,
     active: usize,
@@ -84,6 +86,7 @@ pub struct Discovery {
 }
 
 impl Discovery {
+    /// No read yet; nothing runs until the first [`Discovery::request`].
     pub fn new(source: Source) -> Self {
         Self {
             source,
@@ -106,6 +109,7 @@ impl Discovery {
         self.start_if_idle();
     }
 
+    /// Whether any read has been asked for.
     pub fn requested(&self) -> bool {
         self.requested > 0
     }
@@ -171,6 +175,7 @@ impl Discovery {
         }
     }
 
+    /// Goes up each time a result lands, so a view can tell whether it has applied the latest.
     pub fn version(&self) -> u64 {
         self.version
     }

@@ -13,19 +13,19 @@ fn leave(a: &mut BrainDump) {
 #[test]
 fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     let mut a = BrainDump::default();
-    let now = yohaku::help_text(&a);
+    let now = layout::help_text(&a);
     assert_eq!(
         now,
         "Right now\nType anything, in any order.\nF2 sends it.\n\nF1 every key · Esc close"
     );
     a.screen.help = true;
     a.screen.help_all = true;
-    assert!(yohaku::help_text(&a).contains("practice reading; nothing leaves"));
+    assert!(layout::help_text(&a).contains("practice reading; nothing leaves"));
     a = board();
     a.screen.help = true;
-    assert!(yohaku::help_text(&a).starts_with("Right now\nType your answer"));
+    assert!(layout::help_text(&a).starts_with("Right now\nType your answer"));
     assert!(
-        yohaku::help_text(&a).lines().count() <= 5,
+        layout::help_text(&a).lines().count() <= 5,
         "layer 1 stays short"
     );
     key(&mut a, KeyCode::F(1));
@@ -38,7 +38,7 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert!(a.screen.help && !a.screen.help_all);
     key(&mut a, KeyCode::F(1));
     assert!(a.screen.help && a.screen.help_all);
-    let text = yohaku::help_text(&a);
+    let text = layout::help_text(&a);
     assert!(text.starts_with("Every key"));
     for heading in ["Write", "Look", "Finish", "Leave", "Words"] {
         assert!(text.contains(&format!("\n{heading}\n")));
@@ -80,15 +80,15 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     key(&mut a, KeyCode::Esc);
     assert!(!a.screen.help && !a.screen.help_all);
     a.add_more = true;
-    assert!(yohaku::help_text(&a).starts_with("Right now\nType a new dump"));
+    assert!(layout::help_text(&a).starts_with("Right now\nType a new dump"));
     a.add_more = false;
     a.review_goal();
-    assert!(yohaku::help_text(&a).starts_with("Right now\nType confirm"));
+    assert!(layout::help_text(&a).starts_with("Right now\nType confirm"));
     let frozen = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::Char('h'));
     assert!(a.screen.how && a.screen.help);
-    let how = yohaku::how_text(&a);
+    let how = layout::how_text(&a);
     for s in [
         "One shaping call and one decision review run before the reading is shown",
         "at most two provider calls per send",
@@ -118,7 +118,7 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, frozen);
     a.handoff.review = None;
     a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
-    let text = yohaku::help_text(&a);
+    let text = layout::help_text(&a);
     assert!(text.starts_with("Right now\nYour goal is saved"));
     assert!(text.contains("F10 back to the menu"));
 }

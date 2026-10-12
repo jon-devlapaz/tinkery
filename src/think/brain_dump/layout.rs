@@ -1,3 +1,7 @@
+//! Where things go on think's screen, and the words around them: the panes, header, help and
+//! "how it works", the key bar, the leave prompt and the status notices. It draws what the
+//! conversation and screen state say; it decides nothing about the goal.
+
 use super::*;
 use ratatui::style::Modifier;
 

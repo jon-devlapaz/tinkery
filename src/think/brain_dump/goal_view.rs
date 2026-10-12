@@ -1,3 +1,7 @@
+//! Review and receipt: freezing the displayed goal, the typed `confirm`, saving through Seed Me,
+//! and the receipt that follows a save that read back. Saving records the goal and the
+//! person's originals; it never approves a seed or any implementation.
+
 use super::*;
 use crate::goal::confirmed::{SavedGoal, goal_block, render_saved_goal};
 use crate::seed_me::{self, Config, Receipt};
@@ -6,7 +10,7 @@ use std::{path::PathBuf, sync::mpsc};
 
 /// The goal under review and everything think records with it.
 #[derive(Clone)]
-pub struct Affirmation {
+pub(super) struct Affirmation {
     pub goal: String,
     pub parts: GoalParts,
     pub other_goals: Vec<String>,
@@ -68,10 +72,15 @@ pub(super) struct Review {
     pub(super) max: u16,
 }
 impl BrainDump {
+    /// Saves confirmed goals with the Seed Me skill at `skill`, under `root` or Seed Me's own
+    /// default. Without this, review explains that saving needs it.
     pub fn with_seed_me(mut self, skill: PathBuf, root: Option<PathBuf>) -> Self {
         self.handoff.config = Some(Config::new(skill, root));
         self
     }
+    /// F3: opens review on the displayed goal, frozen as shown. Refused, with a notice, in
+    /// practice, without Seed Me, during a take, or while words are unsent or a reading is
+    /// still coming, so what is confirmed is exactly what was read.
     pub fn review_goal(&mut self) {
         if self.voice_active() {
             self.notice = "Stop or cancel voice before reviewing a goal.".into();
@@ -180,6 +189,9 @@ impl BrainDump {
             }
         }
     }
+    /// The text to print after the terminal is restored: the receipt (stopping the viewer this
+    /// visit started; the session stays active), or where to look after a save that didn't
+    /// finish. `None` when nothing was saved or attempted.
     pub fn finish_handoff(&mut self) -> Option<String> {
         if let Some(receipt) = self.handoff.receipt.as_mut() {
             let stopped = receipt.stop_viewer();
