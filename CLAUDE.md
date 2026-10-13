@@ -32,6 +32,8 @@ This is the working guide, subordinate to the constitution. Read
 - When refining agent-facing docs, use `writing-for-agents` if available: subtract
   first, keep one authoritative home per rule, and link task-specific detail.
   Preserve safeguards and runnable commands; brevity is not permission to weaken them.
+  `tests/test_documentation.py` fails when a link, heading, repository path or
+  documented option no longer exists, or a page can't be reached from `AGENTS.md`.
 - Leave the repository at rest ("git equanimity"): on `main`, matching `origin/main`
   after a fetch, clean, with no stashes, extra worktrees or leftover branches.
   While a PR is open, say so instead of cleaning it up. Delete only merged
@@ -49,6 +51,7 @@ maps individual modules to their responsibilities.
 | Module boundaries, design limits | `tests/architecture.rs` | [architecture](docs/design/architecture.md) |
 | Menu, session discovery, measure | `src/menu.rs`, `src/shape/discovery.rs`, `src/measure.rs` | [menu](docs/design/menu.md) |
 | Think: conversation, prompts, views, drafting, records, cards | `src/think/` | [think](docs/design/think.md) |
+| Think evaluation runner | `examples/think_eval.rs` | [think evaluation](docs/design/think-evaluation.md) |
 | Goal composition, validation, shared rendering | `src/goal/`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
 | Review, saving, shape, continuation | `src/think/brain_dump/goal_view.rs`, `src/shape/`, `src/seed_me/` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Local voice and setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |

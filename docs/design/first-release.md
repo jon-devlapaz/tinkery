@@ -7,8 +7,8 @@ goal, passes its required checks and is accepted by the operator.
 
 The operator requested this plan and its [ten tasks](first-release-issues.md).
 R1 ([#62](https://github.com/jon-devlapaz/tinkery/issues/62)) and R2
-([#63](https://github.com/jon-devlapaz/tinkery/issues/63)) are done. R3 is
-[#96](https://github.com/jon-devlapaz/tinkery/issues/96). R4–R10 remain unpublished drafts. No private data use, provider budget or merge is authorized.
+([#63](https://github.com/jon-devlapaz/tinkery/issues/63)) and R3
+([#96](https://github.com/jon-devlapaz/tinkery/issues/96)) are done. R4–R10 remain unpublished drafts. No private data use, provider budget or merge is authorized.
 
 ## Starting point
 
@@ -95,10 +95,10 @@ wait for every branch; milestone numbering is not a reason to serialize them all
 
 ## What agents can start next
 
-R1 and R2 are done. The other tasks remain drafts; finishing one does not
+R1, R2 and R3 are done. The other tasks remain drafts; finishing one does not
 authorize the next.
 
-An agent can implement and fake-test R3 without spending a live budget. R5 waits
+R5 waits
 for the operator to accept R2's [proposed design](job-records.md); then an agent
 can build it while live evaluation awaits the operator. R4 needs supplied
 examples, explicit permission to use them, an approved provider/model budget and

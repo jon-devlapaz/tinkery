@@ -15,13 +15,13 @@ Each built [place](menu.md) is a **phase**, with its own compartment:
 Each top-level module belongs to one area, listed in `MODULES` in the check. A new module must be listed
 there, so a new phase can't count as shared code by default.
 
-| Area | Code |
-| --- | --- |
-| menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` |
-| think | `src/think/` |
-| shape | `src/shape/` |
-| measure | `src/measure.rs` |
-| shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` |
+| Area | Code | Backlog |
+| --- | --- | --- |
+| menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [menu](../research/menu/backlog.md) |
+| think | `src/think/` | [think](../research/think/backlog.md) |
+| shape | `src/shape/` | none |
+| measure | `src/measure.rs` | [measure](../research/measure/backlog.md) |
+| shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
 Approve, watch and taste get their own modules when built. There are no exceptions
 to the dependency rule: think hands a saved goal to shape only through `seed_me`.
