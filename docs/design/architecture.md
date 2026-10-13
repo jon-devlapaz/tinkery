@@ -74,10 +74,6 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 This is a dated assessment, not a fresh measurement. Remaining debt: row 3's merge
 and `brain_dump.rs`'s narrow interface over a large amount of routing.
 
-The fix for #79 strengthens diagnostic 3: review and decoding share the reading's
-goal-part cleanup when deciding whether a required part is missing. Raw-key merging
-remains; this does not resolve the broader residue above.
-
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today | Lowered by |
@@ -89,8 +85,3 @@ remains; this does not resolve the broader residue above.
 
 A check fails when the code gets worse than its limit, and also when it gets better, so the PR that improves it
 lowers the limit too.
-
-The goal-history/review fix (#64) keeps diagnostics 3 and 6 true: hosts own their
-per-goal state, and the reading contract retains decision/question relationships.
-Review coverage is explicit metadata, not a text-similarity rule in a renderer.
-The raw-key merge residue in diagnostic 3 remains; this slice does not re-score it.

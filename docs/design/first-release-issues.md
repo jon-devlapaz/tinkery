@@ -1,8 +1,7 @@
 # First-release tasks
 
-These ten tasks implement the [first-release plan](first-release.md). The operator
-has approved R1 and R2 for parallel work and PRs, with no merging. R3–R10 remain
-unpublished drafts without implementation permission. R1–R10 are stable local
+These ten tasks implement the [first-release plan](first-release.md). R1 and R2
+are done. R3–R10 remain unpublished drafts without implementation permission. R1–R10 are stable local
 labels. Review each remaining draft with the operator before publishing it and
 keep dependencies current.
 
@@ -26,73 +25,16 @@ keep dependencies current.
 <a id="r1"></a>
 ## R1 — Make Think evaluation repeatable without live calls
 
-**Approved issue:** [#62](https://github.com/jon-devlapaz/tinkery/issues/62).
-
-**Milestone:** M1. **Depends on:** #58 finished as defined in the release plan.
-**Parallel work:** R2. **Owner:** one evaluation builder.
-
-**Problem:** Existing stub journeys prove mechanics, while
-`examples/live_brain_dump_check.rs` already captures readings and screens but is
-not the operator-supplied, budgeted quality runner proposed in backlog item 8.
-
-**Scope:** Reuse the useful evaluation/capture code. Add an explicit-input fake
-runner, a small invariant report and a baseline form. Keep the production Think
-experience unchanged. This is the first slice of [backlog item 8](backlog.md#8-operator-supplied-real-dump-eval-harness).
-
-**Completion checks:**
-
-- [ ] No supplied dataset means an actionable refusal; no built-in example is
-  silently substituted. Fake fixtures are clearly identified as test data.
-- [ ] Reports identify input provenance, source/prompt revision and fake execution.
-  They cover actor/outcome, constraints, unresolved/deferred topics, injection
-  handling and exact confirmation/handoff; unsupported judgments remain unknown.
-- [ ] Fake requests count shaping and decision review separately, including
-  failures and retries. Exhaustion refuses the next request before invoking the
-  fake provider. Reverting this check makes a regression test fail.
-- [ ] No option in this slice can invoke a real provider. Existing live examples
-  remain outside the default test suite.
-- [ ] Where evaluation records are written, reuse the Think record format with
-  evaluation provenance and an explicit temporary output root; do not confirm
-  an operator session merely to obtain a record.
-- [ ] The baseline form separates human recognition, active attention, waiting,
-  corrections and cost from automated check results. Missing values are unknown.
-
-**Leave out:** New prompts, broad Think fixes, real data collection, live-provider
-support, automated claims about human recognition or a second record format.
+**Done:** [#62](https://github.com/jon-devlapaz/tinkery/issues/62), merged in
+[PR #67](https://github.com/jon-devlapaz/tinkery/pull/67). See
+[Think evaluation](think-evaluation.md). The issue keeps the completion checks.
 
 <a id="r2"></a>
 ## R2 — Map one job through the existing tools
 
-**Approved issue:** [#63](https://github.com/jon-devlapaz/tinkery/issues/63).
-
-**Milestone:** M2. **Depends on:** #58 finished. **Parallel work:** R1/R3/R4.
-**Owner:** a read-only source investigator. **Deliverable:** design and fixtures.
-
-**Problem:** Tinkery does not yet connect a goal to the authoritative seed,
-decisions, external run, checks and result. The exact upstream fields and helpers
-must be inspected before promising a reader or approval action.
-
-**Scope:** Inspect the relevant Seed Me, SDLC, Substrate and GitHub formats using
-source and permitted test records. Propose the smallest connection for one job.
-
-**Completion checks:**
-
-- [ ] A source table names the owner, format/version, identity and revision fields,
-  read path/helper, freshness rule and failure meaning for each stage.
-- [ ] Trace goal → seed → separate decisions → run → checks → result. Cite actual
-  source/tests and pin the inspected revisions; unsupported links are named gaps.
-- [ ] Document how a changed plan/result invalidates earlier approval/checks,
-  how an interrupted job is found again, and which operations would write or run.
-- [ ] Provide small non-private fixtures for current, missing, unreadable,
-  outdated, failed and interrupted records. Fake fixtures are never real outcomes.
-- [ ] Identify available attention/cost data and missing measurements. Explain why
-  elapsed timestamps and `origin: live` cannot establish attention or real calls.
-- [ ] Recommend one read-only design for R5 and one explicit external approval
-  handoff for R6. The operator accepts the design before R5 starts. Any missing
-  upstream capability becomes a separately reviewed dependency, not invented data.
-
-**Leave out:** Production readers, new upstream schemas, launchers, writes to
-operator records, broad factory audits and a second workflow or ledger.
+**Done:** [#63](https://github.com/jon-devlapaz/tinkery/issues/63), merged in
+[PR #65](https://github.com/jon-devlapaz/tinkery/pull/65). The
+[proposed design](job-records.md) awaits the operator's acceptance before R5.
 
 <a id="r3"></a>
 ## R3 — Add an explicitly budgeted live evaluation mode
