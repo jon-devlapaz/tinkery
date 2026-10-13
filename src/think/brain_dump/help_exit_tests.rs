@@ -93,7 +93,7 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
         "One shaping call and one decision review run before the reading is shown",
         "at most two provider calls per send",
         "no automatic retry",
-        "outcome/options remain proposals",
+        "It doesn't approve a seed or start any work.",
         "session stays active",
     ] {
         assert!(how.contains(s));

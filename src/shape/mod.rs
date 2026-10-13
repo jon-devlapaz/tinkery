@@ -149,7 +149,7 @@ impl Shape {
             });
             let skill = skill.map_or("\nSeed Me skill is not configured. Start Tinkery with --shape-pi, --model and --seed-me to copy a continuation prompt.".into(), |s| format!("\nSeed Me skill: {}", s.display()));
             return format!(
-                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n\nTinkery reads the saved session files. Copy uses OSC 52; your terminal may require clipboard permission. Paste the prompt yourself. No agent, harness or browser starts. Ended sessions are read-only and have no continuation action.",
+                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n\nTinkery only reads the saved session files. Copy puts the prompt on your clipboard (OSC 52; your terminal may ask permission). Paste it yourself; nothing starts on its own. Ended sessions can't be continued.",
                 self.error.as_deref().unwrap_or("")
             );
         }

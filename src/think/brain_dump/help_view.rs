@@ -188,12 +188,11 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
                 | "Finish"
                 | "Leave"
                 | "Words"
-                | "Other keys"
-                | "Sending and checks"
-                | "Goal and authority"
-                | "Originals and viewing"
+                | "Sending"
+                | "Saving"
                 | "After saving"
-                | "Leaving"
+                | "Your words"
+                | "Other keys"
                 | "Last result"
         ) {
             lines.push(Line::styled(line.to_owned(), palette.ink.bold()));
