@@ -342,7 +342,7 @@ fn boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings
 #[test]
 fn typing_during_request_is_never_replaced_by_the_result() {
     let host = Arc::new(Recording::default());
-    let mut a = BrainDump::with_host(host);
+    let mut a = BrainDump::with_host(host.clone());
     snapshot(100, 30, &mut a, false).unwrap();
     a.paste("First dump.");
     a.submit();
@@ -359,6 +359,59 @@ fn typing_during_request_is_never_replaced_by_the_result() {
     settle(&mut a);
     assert!(a.conversation.board().is_some());
     assert_eq!(a.conversation.sources().len(), 2);
+    let requests = host.requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    assert_eq!(requests[1].sources[1].text, "Local text while thinking.");
+    assert!(requests[1].previous.is_some());
+}
+#[test]
+fn applying_a_held_reply_with_cleared_input_does_not_send_again() {
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("First dump.");
+    key(&mut a, KeyCode::F(2));
+    a.paste("Local text while thinking.");
+    settle(&mut a);
+    assert!(a.shaping.ready.is_some());
+    assert!(a.conversation.board().is_none());
+
+    a.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+    key(&mut a, KeyCode::F(2));
+    assert!(a.conversation.board().is_some());
+    assert!(a.conversation.caught_up());
+    assert!(a.shaping.ready.is_none());
+    assert!(!a.running(), "applying the reply started another request");
+    assert_eq!(a.conversation.sources().len(), 1);
+    assert_eq!(a.conversation.sources()[0].text, "First dump.");
+    key(&mut a, KeyCode::F(2));
+    assert!(!a.running());
+    assert_eq!(host.requests.lock().unwrap().len(), 1);
+}
+#[test]
+fn a_failed_held_reply_with_cleared_input_still_retries() {
+    let host = Arc::new(Recording::default());
+    host.fail.store(true, Ordering::Relaxed);
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("First dump.");
+    key(&mut a, KeyCode::F(2));
+    a.paste("Local text while thinking.");
+    settle(&mut a);
+    assert!(a.shaping.ready.as_ref().unwrap().1.is_err());
+
+    a.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+    host.fail.store(false, Ordering::Relaxed);
+    key(&mut a, KeyCode::F(2));
+    settle(&mut a);
+    assert!(a.conversation.board().is_some());
+    assert!(a.conversation.caught_up());
+    assert!(a.conversation.last_failure().is_none());
+    assert!(a.shaping.ready.is_none());
+    let requests = host.requests.lock().unwrap();
+    assert_eq!(requests.len(), 2);
+    for request in requests.iter() {
+        assert_eq!(request.sources.len(), 1);
+        assert_eq!(request.sources[0].text, "First dump.");
+    }
 }
 #[test]
 fn simulated_is_explicit_and_never_an_automatic_real_failure_fallback() {

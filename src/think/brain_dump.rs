@@ -527,6 +527,9 @@ impl BrainDump {
         }
         if let Some((r, result)) = self.shaping.ready.take() {
             self.apply_result(r, result);
+            if self.conversation.caught_up() {
+                return;
+            }
             self.conversation.refresh(&mut request);
         }
         if serde_json::to_vec(&request).map_or(true, |b| b.len() > 32768) {
