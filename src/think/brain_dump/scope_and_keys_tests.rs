@@ -277,8 +277,11 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         let with_bar = snapshot(w, h, &mut a, false).unwrap();
         let rect = a.screen.source_area;
         let bar = with_bar.lines().last().unwrap();
-        assert!(bar.contains("2 send") && bar.contains("10 menu"), "{bar}");
-        assert!(bar.contains("8 skip") && bar.contains("3 review"), "{bar}");
+        assert!(bar.contains("F2 send") && bar.contains("F10 menu"), "{bar}");
+        assert!(
+            bar.contains("F8 skip") && bar.contains("F3 review"),
+            "{bar}"
+        );
         for gone in ["switch", "originals", "why", "copy", "exit", "1 help"] {
             assert!(!bar.contains(gone), "{gone} in {bar}");
         }
@@ -313,14 +316,14 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         );
         assert_eq!(
             receipt.lines().last().unwrap().trim(),
-            "c copy prompt   s open in shape   10 menu"
+            "c copy prompt   s open in shape   F10 menu"
         );
         assert_eq!(rect, a.screen.source_area);
     }
     let mut empty = BrainDump::default();
     assert!(empty.screen.key_bar);
     let bar = snapshot(100, 30, &mut empty, false).unwrap();
-    assert_eq!(bar.lines().last().unwrap().trim(), "2 send   10 menu");
+    assert_eq!(bar.lines().last().unwrap().trim(), "F2 send   F10 menu");
 }
 #[test]
 fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation() {

@@ -1024,7 +1024,8 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
         assert!(!view.contains(clutter), "{clutter} in sparse view");
     }
     assert!(view.contains("your answer"));
-    assert!(!view.contains("F2"));
+    assert!(view.lines().rev().skip(1).all(|line| !line.contains("F2")));
+    assert!(view.lines().last().unwrap().contains("F2 send"));
     assert!(!view.contains("Highlighted words support"));
     a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
     assert!(a.notice.contains("not an answer"));

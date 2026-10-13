@@ -60,27 +60,6 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 Rect::new(4, area.height - 3, width, 1),
             );
         }
-        if app.screen.help {
-            let right = Rect::new(
-                area.width * 48 / 100 + 2,
-                4,
-                area.width - area.width * 48 / 100 - 4,
-                area.height - 6,
-            );
-            let text = if app.screen.how {
-                how_text(app)
-            } else {
-                help_text(app)
-            };
-            let p = Paragraph::new(styled_help(text, palette))
-                .style(palette.ink)
-                .wrap(Wrap { trim: false });
-            let max = p
-                .line_count(right.width)
-                .saturating_sub(right.height as usize) as u16;
-            app.screen.original_scroll = app.screen.original_scroll.min(max);
-            frame.render_widget(p.scroll((app.screen.original_scroll, 0)), right);
-        }
         return;
     }
     let left = Rect::new(2, 4, area.width * 48 / 100 - 4, area.height - 6);
@@ -103,14 +82,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
         intact_view::render_source(frame, app, left, palette);
     }
-    if app.screen.help || app.screen.original || app.screen.details {
-        let text = if app.screen.help {
-            if app.screen.how {
-                how_text(app)
-            } else {
-                help_text(app)
-            }
-        } else if app.screen.original {
+    if app.screen.original || app.screen.details {
+        let text = if app.screen.original {
             app.originals()
         } else {
             format!(
@@ -120,11 +93,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 checks::why(&app.diagnostics())
             )
         };
-        let text = if app.screen.help {
-            styled_help(text, palette)
-        } else {
-            ratatui::text::Text::styled(text, palette.ink)
-        };
+        let text = ratatui::text::Text::styled(text, palette.ink);
         let p = Paragraph::new(text)
             .style(palette.ink)
             .wrap(Wrap { trim: false });
@@ -356,7 +325,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else if app.running() {
         "Reading your words. Keep writing if you like.\nEsc cancels."
     } else if app.conversation.sources().is_empty() {
-        "Type anything, in any order.\nF2 sends it."
+        "Type, then F2 sends it."
     } else if app.shaping.ready.is_some() {
         "A new reading is ready.\nF2 when you want it."
     } else if app
@@ -430,18 +399,19 @@ pub(super) fn how_text(app: &BrainDump) -> String {
                 .map_or(String::new(), |line| format!("\n{line}"))
         );
     }
+    let diagnostics = app.diagnostics().join("\n\n");
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; F7 or Ctrl-X shows or hides the cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call and one decision review run before the reading is shown: at most two provider calls per send, no automatic retry. Nothing runs after the reading appears. Exact spans/schema/history remain local blocking checks. Calls remain bounded and cancellable; Ctrl-C cancels sending. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness. The same confirmation writes a think record (every turn and check, your words verbatim) into Tinkery's own folder; F1 then h shows where after saving. Sessions that end without confirming leave no record.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.\n\n{}\n\n{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; F7 or Ctrl-X shows or hides the cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call and one decision review run before the reading is shown: at most two provider calls per send, no automatic retry. Nothing runs after the reading appears. Exact spans/schema/history remain local blocking checks. Calls remain bounded and cancellable; Ctrl-C cancels sending. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness. The same confirmation writes a think record (every turn and check, your words verbatim) into Tinkery's own folder; F1 then h shows where after saving. Sessions that end without confirming leave no record.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.{}\n\nLast result\n{}",
         if app.real {
             "Real provider mode."
         } else {
             "Simulated practice; no real session."
         },
-        app.diagnostics().join("\n\n"),
-        app.handoff
-            .receipt
-            .as_ref()
-            .map_or(String::new(), |r| r.text()),
+        if diagnostics.is_empty() {
+            String::new()
+        } else {
+            format!("\n\n{diagnostics}")
+        },
         app.notice
     )
 }
@@ -450,7 +420,11 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     if app.screen.leave_prompt || app.handoff.job.is_some() {
         vec![]
     } else if app.handoff.receipt.is_some() {
-        vec![("c", "copy prompt"), ("s", "open in shape"), ("10", "menu")]
+        vec![
+            ("c", "copy prompt"),
+            ("s", "open in shape"),
+            ("F10", "menu"),
+        ]
     } else if app.handoff.review.is_some() {
         let save = if app.records() {
             "save goal and record"
@@ -464,29 +438,30 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
             ("esc", "cancel"),
         ]
     } else if app.running() {
-        let mut items = vec![("esc", "cancel"), ("10", "menu")];
+        let mut items = vec![("esc", "cancel"), ("F10", "menu")];
         if app.voice_available() {
             items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
         }
         items
     } else {
-        let mut items = vec![("2", "send")];
+        let mut items = vec![("F2", "send")];
         if app.conversation.board().is_some() {
-            items.push(("3", "review"));
+            items.push(("F3", "review"));
         }
         if app.conversation.focused_question().is_some() {
-            items.push(("8", "skip"));
+            items.push(("F8", "skip"));
         }
         if app.voice_available() {
             items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
         }
-        items.push(("10", "menu"));
+        items.push(("F10", "menu"));
         items
     }
 }
 pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let area = frame.area();
-    if (!app.screen.key_bar && app.handoff.receipt.is_none())
+    if app.screen.help
+        || (!app.screen.key_bar && app.handoff.receipt.is_none())
         || area.width < MIN_WIDTH
         || area.height < MIN_HEIGHT
     {
@@ -507,28 +482,6 @@ pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palett
         Paragraph::new(ratatui::text::Line::from(spans)).style(palette.ink),
         Rect::new(2, area.height - 1, area.width - 4, 1),
     );
-}
-/// Help text with `!` in rust (never alone: the words say what's lost) and headings in bold.
-pub(super) fn styled_help(text: String, palette: Palette) -> ratatui::text::Text<'static> {
-    let mut prev_blank = true;
-    let lines = text
-        .lines()
-        .map(|line| {
-            let heading = prev_blank && !line.is_empty() && line.len() < 24 && !line.contains('·');
-            prev_blank = line.is_empty();
-            if let Some(rest) = line.strip_prefix("! ") {
-                ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled("! ", palette.rust),
-                    ratatui::text::Span::styled(rest.to_owned(), palette.ink),
-                ])
-            } else if heading {
-                ratatui::text::Line::styled(line.to_owned(), palette.ink.bold())
-            } else {
-                ratatui::text::Line::styled(line.to_owned(), palette.ink)
-            }
-        })
-        .collect::<Vec<_>>();
-    ratatui::text::Text::from(lines)
 }
 pub(super) fn render_header(frame: &mut Frame, palette: Palette) {
     let area = frame.area();

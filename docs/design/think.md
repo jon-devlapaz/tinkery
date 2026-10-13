@@ -101,7 +101,22 @@ Think never reads a record back. The record is not a ledger: that word is Seed M
 
 ## Interaction contracts
 
-- State-aware muted bar; two-layer F1 help, technical details only on demand.
+- State-aware muted bar uses F2, F3, F8 and F10 labels to agree with help.
+  Empty-box help says “Type, then F2 sends it.”
+  F1 opens a bounded help overlay on the reading side;
+  originals and drafts stay intact. Right now leads with the current state, F1
+  opens Every key, and `h` opens How it works. Technical details stay on demand.
+  Jade names the layer; headings and keys are bold ink, labels and the thin border
+  muted. Short help fits its content. Long pages scroll with their title and
+  close/back/scroll keys fixed, with Scroll shown only when the body overflows.
+  Empty technical sections add no spacing before Last result.
+  Esc first cancels an active voice take, otherwise
+  closes or returns from How it works. A reading's Esc cancellation remains
+  available after closing help.
+  While help is open, typing, paste and hidden send/review/voice actions do nothing.
+  F10 keeps the unsaved-loss guard, Ctrl-C keeps cancellation, Ctrl-D keeps its
+  explicit Why route, and `b` changes the key-bar preference without exposing the
+  ordinary bar beneath help. Literal `?` remains text while writing.
   On review the bar reads `type confirm save goal and record` when a record will be written.
 - Letters are text while writing. Tab or Shift-Tab moves between writing and the
   left original once one exists; the same key returns, and anything typed returns

@@ -15,7 +15,14 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         let mut empty = BrainDump::default();
         let screen = snapshot(w, h, &mut empty, false).unwrap();
         assert_eq!(screen.lines().nth(1).unwrap().matches('?').count(), 1);
-        assert!(!screen.contains("F2"));
+        assert!(
+            screen
+                .lines()
+                .rev()
+                .skip(1)
+                .all(|line| !line.contains("F2"))
+        );
+        assert!(screen.lines().last().unwrap().contains("F2 send"));
         let mut a = board();
         let before = snapshot(w, h, &mut a, false).unwrap();
         let source_area = a.screen.source_area;
@@ -58,7 +65,6 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         for s in [&before, &review, &receipt] {
             for clutter in [
                 "Ctrl-",
-                "F2",
                 "Tab",
                 "real Pi",
                 "/ provisional",
@@ -67,6 +73,7 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
             ] {
                 assert!(!s.contains(clutter), "{clutter}");
             }
+            assert!(s.lines().rev().skip(1).all(|line| !line.contains("F2")));
             assert_eq!(s.lines().nth(1).unwrap().matches('?').count(), 1);
         }
         key(&mut a, KeyCode::F(1));
@@ -157,10 +164,13 @@ fn full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading() {
         key(&mut a, KeyCode::PageDown);
     }
     let last = snapshot(100, 30, &mut a, false).unwrap();
-    assert!(
-        right_text(&last, 100)
-            .contains("Or the final concrete referent was erased. Originals retained.")
-    );
+    // Ignore the overlay frame between wrapped rows, not any words of the reason.
+    let visible = right_text(&last, 100)
+        .replace('│', " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(visible.contains("Or the final concrete referent was erased. Originals retained."));
 }
 #[cfg(unix)]
 #[test]
