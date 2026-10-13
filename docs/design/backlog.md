@@ -20,6 +20,11 @@ proposals remain optional unless the release trial demonstrates a blocker.
 Known gaps found while building, smaller than a proposal. Each still needs an
 approved issue before work starts.
 
+- **Two dogfood findings wait on a call budget.** [#74](https://github.com/jon-devlapaz/tinkery/issues/74)
+  (settled context under "Still open") and [#75](https://github.com/jon-devlapaz/tinkery/issues/75)
+  ("Must not: No sending") come from the model's wording, so code can't fix them safely.
+  Each needs a live recheck on current main (about 2 calls for #74, 3 to 6 for #75)
+  and likely a reading-prompt rule; both need the operator's explicit budget.
 - **"Like X" lines stop think early.** The review can leave an ambiguous source or
   scope in place. See think's [known gap](think.md#open-work-only).
 - **Think's routing remains large.** Split `src/think/brain_dump.rs` further without
@@ -46,6 +51,11 @@ Closed issues with merged PRs: history, not proof that a whole proposal is compl
 | [#25](https://github.com/jon-devlapaz/tinkery/issues/25) | Stale documentation and dated evidence pruning | [#26](https://github.com/jon-devlapaz/tinkery/pull/26) |
 | [#27](https://github.com/jon-devlapaz/tinkery/issues/27) | Legacy workbench demo removal | [#28](https://github.com/jon-devlapaz/tinkery/pull/28) |
 | [#29](https://github.com/jon-devlapaz/tinkery/issues/29) | Unreachable note-card prototype removal | [#30](https://github.com/jon-devlapaz/tinkery/pull/30) |
+| [#70](https://github.com/jon-devlapaz/tinkery/issues/70), [#71](https://github.com/jon-devlapaz/tinkery/issues/71) | Blocked keys say why they did nothing | [#92](https://github.com/jon-devlapaz/tinkery/pull/92) |
+| [#72](https://github.com/jon-devlapaz/tinkery/issues/72), [#73](https://github.com/jon-devlapaz/tinkery/issues/73) | Save errors stay whole and clear of Back | [#93](https://github.com/jon-devlapaz/tinkery/pull/93) |
+| [#76](https://github.com/jon-devlapaz/tinkery/issues/76) | One owner for the displayed goal block | [#94](https://github.com/jon-devlapaz/tinkery/pull/94) |
+| [#88](https://github.com/jon-devlapaz/tinkery/issues/88) | Records keep only rejected replies; an unset HOME is refused | [#90](https://github.com/jon-devlapaz/tinkery/pull/90) |
+| [#89](https://github.com/jon-devlapaz/tinkery/issues/89) | Approaches keyed `option` are kept; the review joins as typed decisions | [#91](https://github.com/jon-devlapaz/tinkery/pull/91) |
 
 ## 1. Goal-block polish
 
