@@ -28,7 +28,9 @@ reading's. For the same choice, the review explicitly names the shaping decision
 indices it covers; only valid references to the same part replace those entries.
 Uncovered choices remain, including different choices about the same part. No
 text-similarity or same-part rule guesses that two decisions are the same. Once
-required parts are present its top question is asked first; a
+required parts are present after the reading's cleanup, its top question is asked first.
+A Why or Done-when removed as a duplicate still needs its specific missing-part
+question before a review decision. A
 failed or unreadable review leaves the reading as it was. It stops once the target
 and any irreversible boundary are settled: no edge cases the person's rules already
 cover and no questions about how an action is carried out (a live trial asked

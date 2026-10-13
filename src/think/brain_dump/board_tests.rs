@@ -288,6 +288,45 @@ fn the_review_change_note_counts_only_the_decisions_it_added() {
 }
 
 #[test]
+fn review_preserves_specific_questions_for_normalized_missing_parts() {
+    let review = r#"{"decisions":[{"part":"must_not","text":"Worktrees that still hold work","answers":["leave them","rescue then remove"],"question":"Should worktrees that still hold work be left alone?"}]}"#;
+    for (part, duplicate, question) in [
+        (
+            Part::Why,
+            "have a clean workspace",
+            "What is getting lost in this workspace?",
+        ),
+        (
+            Part::DoneWhen,
+            "have a clean workspace",
+            "Which remaining branches would show the cleanup is unfinished?",
+        ),
+        (
+            Part::DoneWhen,
+            "I have a clean workspace",
+            "Which remaining branches would show the cleanup is unfinished?",
+        ),
+    ] {
+        let mut raw = serde_json::json!({
+            "parts": {"who": "I", "outcome": "have a clean workspace", "why": "I lost work", "done_when": "merged branches are gone"},
+            "questions": [{"target": part, "text": question}]
+        });
+        raw["parts"][serde_json::to_value(part).unwrap().as_str().unwrap()] = duplicate.into();
+        let raw = raw.to_string();
+        let (before, _) = parsed(&raw);
+        let merged = review::merge(&raw, review, &mut vec![]).unwrap();
+        let (after, _) = parsed(&merged);
+        assert_eq!(before.questions[0].text, question);
+        assert_eq!(after.questions[0].text, question);
+        assert_eq!(after.questions[0].target, Some(part));
+        assert_eq!(
+            after.unresolved_notes,
+            ["Open decision: Worktrees that still hold work (leave them / rescue then remove)"]
+        );
+    }
+}
+
+#[test]
 fn review_shows_a_linked_decision_once_and_keeps_other_choices_on_the_same_part() {
     let shape = serde_json::json!({"parts":{"who":"Tinkery users","outcome":"understand refused sends","why":"empty sends look like nothing happened","done_when":"tests show the reason"},"decisions":[{"part":"must_not","text":"Whether refusal messages may include private text","answers":["may include private text","must omit private text"]},{"part":"must_not","text":"Whether drafts may leave this machine","answers":["local only","may upload"]}],"questions":[{"target":"must_not","text":"May refusals show private text?"}]}).to_string();
     let review = r#"{"decisions":[{"part":"must_not","text":"Whether refusal messages may include private text","answers":["omit private text","may include private text"],"question":"May refusals show private text?","covers":[0]}]}"#;

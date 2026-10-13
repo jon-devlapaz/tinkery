@@ -74,6 +74,10 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 This is a dated assessment, not a fresh measurement. Remaining debt: row 3's merge
 and `brain_dump.rs`'s narrow interface over a large amount of routing.
 
+The fix for #79 strengthens diagnostic 3: review and decoding share the reading's
+goal-part cleanup when deciding whether a required part is missing. Raw-key merging
+remains; this does not resolve the broader residue above.
+
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today | Lowered by |
