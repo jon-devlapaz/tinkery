@@ -189,8 +189,8 @@ the goal, seed, stages and release approved together.
 It accepts no expected digest for the documents the operator previously saw.
 Inputs can change between a copied handoff, rereading and that command. External
 human rereview is available; guaranteed approval of the same displayed revision
-is not. If R6 requires that guarantee, an upstream command that rejects a changed
-expected input digest is a separately approved dependency. A refresh before or
+is not. R6's same-revision completion check therefore needs an upstream command
+that rejects a changed expected input digest, as a separately approved dependency. A refresh before or
 after `decide` cannot supply that missing guarantee. [Decision writer][D-writer]
 
 Source operations that would write or run are outside this reader: Seed Me
