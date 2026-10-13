@@ -94,6 +94,7 @@ def journey(width,height,home=False,menu_only=False):
    assert [t['kind'] for t in record['turns']]==['words','asked'],record['turns']
    assert record['turns'][0]['text']==dump and record['turns'][1]['id']=='open'
    assert record['checks'] and all(c['decision']=='pass' for c in record['checks'])
+   assert all(c['raw'] is None for c in record['checks']),'a passing check kept the model reply'
    failed=subprocess.run(['python3',str(HELPER),'end',str(session),'--status','completed','--reason','TEST must refuse incomplete seed'],capture_output=True,text=True)
    assert failed.returncode!=0 and 'seed-contract.md' in failed.stderr
    assert helper('read',session)['status']=='active'

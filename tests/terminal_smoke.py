@@ -1,5 +1,6 @@
 """Run after cargo build: python3 tests/terminal_smoke.py (POSIX)."""
 from pathlib import Path
+import os
 import subprocess
 
 BINARY = Path(__file__).resolve().parents[1] / "target/debug/tinkery"
@@ -30,4 +31,14 @@ for arguments, error in [
     result = subprocess.run([str(BINARY), *arguments], capture_output=True)
     assert result.returncode != 0 and error in result.stderr, (arguments, result.stderr)
     assert b"\x1b" not in result.stdout, "Invalid configuration entered terminal mode"
-print("PASS: noninteractive modes, removed entry points and explicit CLI errors")
+# No HOME means no default record folder: refuse rather than write under the current folder.
+pi = ["--shape-pi", "--model", "test/model", "--seed-me", "/nonexistent/TEST-SKILL.md"]
+no_home = {k: v for k, v in os.environ.items() if k != "HOME"}
+for env in (no_home, {**no_home, "HOME": ""}, {**no_home, "HOME": "TEST-relative"}):
+    result = subprocess.run([str(BINARY), *pi], capture_output=True, env=env)
+    assert result.returncode != 0 and b"pass --record-root PATH" in result.stderr, (env.get("HOME"), result.stderr)
+result = subprocess.run([str(BINARY), *pi, "--record-root", "/tmp/tinkery-TEST-records"], capture_output=True, env=no_home)
+assert result.returncode != 0 and b"HOME" not in result.stderr, result.stderr
+for arguments in (["--snapshot"], ["--home", "--snapshot"]):
+    subprocess.run([str(BINARY), *arguments], capture_output=True, check=True, env=no_home)
+print("PASS: noninteractive modes, removed entry points, explicit CLI errors and the HOME refusal")
