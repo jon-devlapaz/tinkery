@@ -13,8 +13,13 @@ use std::{
     sync::mpsc,
 };
 
-/// How the receipt's notice begins when the goal saved but its think record didn't.
-const RECORD_FAILED: &str = "Saved, but the think record wasn't written:";
+/// The receipt's notice when the goal saved but its think record didn't; the reason and path
+/// stay in How it works.
+const RECORD_FAILED: &str = "The think record wasn't written; F1 then h shows why.";
+/// How the notice begins when a save didn't finish; the rest is the reason, for How it works.
+const HANDOFF_FAILED: &str = "Handoff not complete:";
+/// What review shows for a save that didn't finish, short enough for the narrowest pane.
+const HANDOFF_FAILED_TEXT: &str = "Handoff not complete. F1 then h shows why; Enter retries.";
 
 /// The goal under review and everything think records with it.
 #[derive(Clone)]
@@ -247,7 +252,7 @@ impl BrainDump {
                         .clone()
                         .map(|root| self.write_record(&root, &receipt));
                     self.notice = match &self.handoff.record {
-                        Some(Err(e)) => format!("{RECORD_FAILED} {e}"),
+                        Some(Err(_)) => RECORD_FAILED.into(),
                         _ => "Saved.".into(),
                     };
                     self.handoff.review = None;
@@ -256,7 +261,7 @@ impl BrainDump {
                 }
                 Err(error) => {
                     self.notice = format!(
-                        "Handoff not complete: {error}{}",
+                        "{HANDOFF_FAILED} {error}{}",
                         self.handoff
                             .config
                             .as_ref()
@@ -382,7 +387,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     if let Some(receipt) = &app.handoff.receipt {
         let notice = if app.notice == "Copied."
             || app.notice.starts_with("Clipboard")
-            || app.notice.starts_with(RECORD_FAILED)
+            || app.notice == RECORD_FAILED
         {
             app.notice.as_str()
         } else {
@@ -405,7 +410,30 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     let Some(review) = app.handoff.review.as_mut() else {
         return;
     };
-    let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(4)]).split(inner);
+    // One message row group (a refusal, the save in progress, a failed save, else the
+    // instruction), the typed word, then Back on a row of its own, so nothing paints over it.
+    let message = if app.screen.refused {
+        app.notice.clone()
+    } else if app.handoff.job.is_some() {
+        "Saving…".into()
+    } else if app.notice.starts_with(HANDOFF_FAILED) {
+        HANDOFF_FAILED_TEXT.into()
+    } else {
+        format!(
+            "type confirm to save{}. You can't edit it after.",
+            if app.handoff.record_root.is_some() {
+                " the goal and its record"
+            } else {
+                ""
+            }
+        )
+    };
+    let prompt = format!("{message}\n{}", review.input);
+    let prompt_rows = Paragraph::new(prompt.as_str())
+        .wrap(Wrap { trim: false })
+        .line_count(inner.width) as u16;
+    let rows =
+        Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
     let mut body = format!("You are confirming\n{}", review.affirmation.goal);
     if !review.affirmation.other_goals.is_empty() {
         body.push_str(&format!(
@@ -438,27 +466,6 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         .saturating_sub(rows[0].height as usize) as u16;
     review.scroll = review.scroll.min(review.max);
     frame.render_widget(p.scroll((review.scroll, 0)), rows[0]);
-    let saving = if app.handoff.job.is_some() {
-        "\nSaving…"
-    } else if app.notice.starts_with("Handoff not complete") {
-        "\nHandoff not complete."
-    } else {
-        ""
-    };
-    // A refused Enter says why in the instruction's place, until the next key.
-    let instruction = if app.screen.refused {
-        app.notice.clone()
-    } else {
-        format!(
-            "type confirm to save{}. You can't edit it after.",
-            if app.handoff.record_root.is_some() {
-                " the goal and its record"
-            } else {
-                ""
-            }
-        )
-    };
-    let prompt = format!("{instruction}\n{}{}", review.input, saving);
     frame.render_widget(
         Paragraph::new(prompt.clone())
             .wrap(Wrap { trim: false })

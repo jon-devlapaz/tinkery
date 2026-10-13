@@ -115,7 +115,8 @@ preserved when standalone Think returns to the menu and opens another goal.
 
 `src/think/record.rs` owns the format; `Conversation` keeps the turns. The record is
 written after Seed Me's save reads back, so a failed save writes none. If the record
-can't be written the goal stays saved and the receipt says the record wasn't written.
+can't be written the goal stays saved and the receipt says the record wasn't written;
+the reason and path stay in How it works.
 Think never reads a record back. The record is not a ledger: that word is Seed Me's
 `ledger.json`. Gap flags and the eval harness reading records are separate slices.
 
@@ -170,6 +171,9 @@ Literal `?` remains text while writing. On review the bar reads
   stays as Last result in How it works. Review names its own blocker (unsent
   words, a waiting reply, a reading still coming), and Enter on an unread review
   says to scroll with PgDn; confirm still saves only from the end.
+- **A save that didn't finish** shows “Handoff not complete. F1 then h shows
+  why; Enter retries.” in the same place; the reason stays as Last result. The
+  review's message rows grow to fit, so Back always keeps a row of its own.
 - F10 guards unsaved work. With `--home` it returns to the menu; standalone think
   exits before a goal is saved and opens the menu after saving.
 - F4 originals and F5 why are help-only, not permanent bar clutter.

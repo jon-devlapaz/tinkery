@@ -15,7 +15,8 @@ Nothing launches, opens a browser, pastes into a harness or starts implementatio
 Storage paths live in technical help (F1, then `h`), not the ordinary receipt or
 detail. Help shows the [think record](think.md#think-record)'s path under Seed Me's.
 If the record wasn't written, help and the receipt's muted notice say so; the goal
-stays saved. The plain-text terminal exit receipt may include recovery locations.
+stays saved. A notice wraps whole rather than clipping, in the receipt and shape's
+detail. The plain-text terminal exit receipt may include recovery locations.
 
 ## Shape list and detail
 

@@ -22,7 +22,7 @@ pub struct SavedGoal<'a> {
     pub goal: &'a str,
     /// What to do next (copying the continuation prompt), pinned under the goal.
     pub next: Option<&'a str>,
-    /// A one-line muted notice on the last row, or empty.
+    /// A muted notice at the bottom, wrapped whole so it is never clipped, or empty.
     pub notice: &'a str,
     /// Show "Saved." above the goal: true on think's receipt, false in review and shape.
     pub saved: bool,
@@ -41,15 +41,17 @@ pub fn render_saved_goal(
     if area.width == 0 || area.height == 0 {
         return;
     }
-    let next_rows = view.next.map_or(0, |next| {
-        Paragraph::new(next)
+    let wrapped = |text: &str| {
+        Paragraph::new(text)
             .wrap(Wrap { trim: false })
             .line_count(area.width) as u16
-    });
+    };
+    let next_rows = view.next.map_or(0, wrapped);
+    let notice_rows = wrapped(view.notice).max(1);
     let rows = Layout::vertical([
         Constraint::Length(if view.saved { 2 } else { 0 }),
         Constraint::Min(1),
-        Constraint::Length(next_rows + 2),
+        Constraint::Length(next_rows + 1 + notice_rows),
     ])
     .split(area);
     if view.saved {
@@ -71,12 +73,14 @@ pub fn render_saved_goal(
     }
     if !view.notice.is_empty() {
         frame.render_widget(
-            Paragraph::new(view.notice).style(palette.muted),
+            Paragraph::new(view.notice)
+                .wrap(Wrap { trim: false })
+                .style(palette.muted),
             Rect::new(
                 rows[2].x,
-                rows[2].bottom().saturating_sub(1),
+                rows[2].bottom().saturating_sub(notice_rows),
                 rows[2].width,
-                1,
+                notice_rows.min(rows[2].height),
             ),
         );
     }
