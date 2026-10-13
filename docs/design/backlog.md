@@ -9,6 +9,11 @@ All acceptance work follows `CLAUDE.md`: temporary TEST roots, fake providers/vo
 zero calls unless the operator gives a budget, regression tests and important
 reversion probes.
 
+The [first-release plan](first-release.md) selects a complete six-stage journey.
+Its [issue drafts](first-release-issues.md) split the release work into bounded
+tasks; R1, R3 and R4 take the evaluation work in proposal 8 below. The other
+proposals remain optional unless the release trial demonstrates a blocker.
+
 ## Loose ends
 
 Known gaps found while building, smaller than a proposal. Each still needs an
