@@ -162,6 +162,14 @@ Literal `?` remains text while writing. On review the bar reads
   sends it.” on the normal screen, both before a first reading and while refining
   one. It sends no request and saves nothing. The next input clears the notice;
   the empty screen has no permanent warning.
+- **Refusals:** a key that does nothing says why, and what to do instead, where
+  the person is looking: on the status row under the writing box, or in place of
+  the confirm instruction on review. Every refusal goes through one route
+  (`refuse`), fits two rows of the narrowest pane, and wins the status row over
+  “Thinking…” and receipts. The next key or paste clears it from the screen; it
+  stays as Last result in How it works. Review names its own blocker (unsent
+  words, a waiting reply, a reading still coming), and Enter on an unread review
+  says to scroll with PgDn; confirm still saves only from the end.
 - F10 guards unsaved work. With `--home` it returns to the menu; standalone think
   exits before a goal is saved and opens the menu after saving.
 - F4 originals and F5 why are help-only, not permanent bar clutter.

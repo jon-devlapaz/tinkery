@@ -129,36 +129,44 @@ impl BrainDump {
             },
         )
     }
-    /// F3: opens review on the displayed goal, frozen as shown. Refused, with a notice, in
+    /// F3: opens review on the displayed goal, frozen as shown. Refused, with a visible reason, in
     /// practice, without Seed Me, during a take, or while words are unsent or a reading is
     /// still coming, so what is confirmed is exactly what was read.
     pub fn review_goal(&mut self) {
         if self.voice_active() {
-            self.notice = "Stop or cancel voice before reviewing a goal.".into();
+            self.refuse("Stop or cancel voice before reviewing a goal.");
             return;
         }
         if self.handoff.receipt.is_some() || self.handoff.job.is_some() {
             return;
         }
         if !self.real || self.handoff.config.is_none() {
-            self.notice = "Goal confirmation needs real mode and --seed-me; practice does not create a session.".into();
+            self.refuse("Saving a goal needs real mode and Seed Me.");
             return;
         }
-        if self.running()
-            || self.shaping.ready.is_some()
-            || !self.input.text.is_empty()
-            || !self.conversation.caught_up()
-        {
-            self.notice =
-                "Submit or clear local text and wait for reshaping before reviewing a goal.".into();
+        // Each blocker names itself, so the person knows which one to clear.
+        if self.running() {
+            self.refuse("Still thinking; review once the reading is back.");
+            return;
+        }
+        if !self.input.text.is_empty() {
+            self.refuse("Send (F2) or clear your unsent words, then review.");
+            return;
+        }
+        if self.shaping.ready.is_some() {
+            self.refuse("A reply is waiting; F2 applies it, then review.");
+            return;
+        }
+        if !self.conversation.caught_up() {
+            self.refuse("The reading is behind your words; F2 retries, then review.");
             return;
         }
         let Some(g) = self.conversation.board() else {
-            self.notice = "No displayed reading to confirm.".into();
+            self.refuse("No reading to review yet; F2 sends your words.");
             return;
         };
         let Some(goal) = g.parts.compose() else {
-            self.notice = "No composed goal to confirm; parts remain open.".into();
+            self.refuse("No goal to review yet; parts remain open.");
             return;
         };
         let open_parts = self.conversation.open_parts();
@@ -325,19 +333,34 @@ impl BrainDump {
             return false;
         };
         match key.code {
-            KeyCode::Esc=>self.handoff.review=None,
-            KeyCode::PageDown|KeyCode::Down=>review.scroll=review.scroll.saturating_add(5).min(review.max),
-            KeyCode::PageUp|KeyCode::Up=>review.scroll=review.scroll.saturating_sub(5),
-            KeyCode::Backspace=>{review.input.pop();},
-            KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) && review.input.len()<32=>review.input.push(c),
-            KeyCode::Enter if review.input=="confirm" && review.scroll>=review.max=>{
-                let config=self.handoff.config.clone().unwrap();let affirmation=review.affirmation.affirmed();
-                let (tx,rx)=mpsc::channel();
-                std::thread::spawn(move||{let _=tx.send(config.confirm(affirmation));});
-                self.handoff.job=Some(rx);self.notice="Saving the explicitly affirmed goal through Seed Me…".into();
+            KeyCode::Esc => self.handoff.review = None,
+            KeyCode::PageDown | KeyCode::Down => {
+                review.scroll = review.scroll.saturating_add(5).min(review.max)
             }
-            KeyCode::Enter=>self.notice="Read the complete review (PgDn if needed), then type confirm and press Enter. Nothing saved.".into(),
-            _=>{}
+            KeyCode::PageUp | KeyCode::Up => review.scroll = review.scroll.saturating_sub(5),
+            KeyCode::Backspace => {
+                review.input.pop();
+            }
+            KeyCode::Char(c)
+                if !key.modifiers.contains(KeyModifiers::CONTROL) && review.input.len() < 32 =>
+            {
+                review.input.push(c)
+            }
+            KeyCode::Enter if review.input == "confirm" && review.scroll >= review.max => {
+                let config = self.handoff.config.clone().unwrap();
+                let affirmation = review.affirmation.affirmed();
+                let (tx, rx) = mpsc::channel();
+                std::thread::spawn(move || {
+                    let _ = tx.send(config.confirm(affirmation));
+                });
+                self.handoff.job = Some(rx);
+                self.notice = "Saving the explicitly affirmed goal through Seed Me…".into();
+            }
+            KeyCode::Enter if review.scroll < review.max => {
+                self.refuse("Read to the end first: PgDn scrolls. Then type confirm and Enter.")
+            }
+            KeyCode::Enter => self.refuse("Type confirm, then Enter. Nothing saved."),
+            _ => {}
         }
         true
     }
@@ -422,16 +445,20 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     } else {
         ""
     };
-    let prompt = format!(
-        "type confirm to save{}. You can't edit it after.\n{}{}",
-        if app.handoff.record_root.is_some() {
-            " the goal and its record"
-        } else {
-            ""
-        },
-        review.input,
-        saving
-    );
+    // A refused Enter says why in the instruction's place, until the next key.
+    let instruction = if app.screen.refused {
+        app.notice.clone()
+    } else {
+        format!(
+            "type confirm to save{}. You can't edit it after.",
+            if app.handoff.record_root.is_some() {
+                " the goal and its record"
+            } else {
+                ""
+            }
+        )
+    };
+    let prompt = format!("{instruction}\n{}{}", review.input, saving);
     frame.render_widget(
         Paragraph::new(prompt.clone())
             .wrap(Wrap { trim: false })
