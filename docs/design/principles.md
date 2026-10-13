@@ -16,7 +16,7 @@ amends it. These notes explain design application, not a second constitution.
 
 Use the constitution's [colour roles](../yohaku.md#colour-has-one-job-each),
 including its non-colour cues. The shipped paper palette is light;
-[dark mode](backlog.md#5-a-calm-dark-theme) is not built.
+[dark mode](backlog.md#4-a-calm-dark-theme) is not built.
 After an answer, changed goal lines stay in full ink and unchanged lines rest
 muted; the distinction clears on typing or sending. No extra banner or model call.
 
