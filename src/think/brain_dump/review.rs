@@ -19,7 +19,12 @@ impl PiHost {
         changes: &mut Vec<String>,
     ) -> Option<Review> {
         let input = input(request, raw)?;
-        match self.complete(input, reading::assemble(PROMPT), cancelled) {
+        match self.complete(
+            Request::DecisionReview,
+            input,
+            reading::assemble(PROMPT),
+            cancelled,
+        ) {
             Ok(review) => Review::decode(&review, changes),
             Err(e) => {
                 changes.push(format!("Decision review skipped: {e}"));

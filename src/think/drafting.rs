@@ -3,7 +3,8 @@
 //! A request runs Pi with no tools, session, extensions or context files, so the model sees
 //! only the prompt and the words sent. Input and output are capped at 32 KiB, each call times
 //! out after 90 seconds, and nothing retries on its own. Callers never touch a process: they
-//! get text back, or one line saying why not.
+//! get text back, or one line saying why not. An evaluation can give Pi a [`CallBudget`]; then
+//! no request starts once its limit is reached.
 
 use std::{
     io::{Read, Write},
@@ -37,6 +38,93 @@ pub struct Approach {
     pub undo_cost: String,
 }
 
+/// Which of think's two requests a call is: the reading, or the decision review after it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Request {
+    /// The shaping call that reads the person's words.
+    Shaping,
+    /// The review that names decisions the reading settled silently.
+    DecisionReview,
+}
+
+/// One request a [`CallBudget`] saw: started (then `reply` or `failure`) or refused unstarted.
+#[derive(Clone, Debug, Serialize)]
+pub struct Attempt {
+    /// Which request it was.
+    pub kind: Request,
+    /// `started`, `reply`, `failure` or `refused`.
+    pub outcome: &'static str,
+    /// Why it failed or was refused.
+    pub error: Option<String>,
+}
+
+/// A hard limit on provider requests, shared by every host that holds it. A request is counted
+/// before anything starts, whatever happens after; once the limit is reached the next request is
+/// refused unstarted. The count never resets, so a new session on the same budget can't spend
+/// it twice.
+#[derive(Debug)]
+pub struct CallBudget {
+    limit: usize,
+    attempts: std::sync::Mutex<Vec<Attempt>>,
+}
+
+impl CallBudget {
+    /// A budget allowing at most `limit` requests. Zero refuses every request.
+    pub fn new(limit: usize) -> Arc<Self> {
+        Arc::new(Self {
+            limit,
+            attempts: Default::default(),
+        })
+    }
+    /// The configured limit.
+    pub fn limit(&self) -> usize {
+        self.limit
+    }
+    /// Every request seen so far, in order, refusals included.
+    pub fn attempts(&self) -> Vec<Attempt> {
+        self.attempts.lock().unwrap().clone()
+    }
+    /// Requests that counted against the limit.
+    pub fn used(&self) -> usize {
+        self.attempts()
+            .iter()
+            .filter(|a| a.outcome != "refused")
+            .count()
+    }
+    /// Counts one `kind` request, or refuses it when the limit is reached. Returns the slot that
+    /// [`CallBudget::finish`] fills in.
+    pub fn reserve(&self, kind: Request) -> Result<usize, String> {
+        let mut attempts = self.attempts.lock().unwrap();
+        let used = attempts.iter().filter(|a| a.outcome != "refused").count();
+        if used >= self.limit {
+            let error = format!(
+                "Call limit of {} reached; the next request was refused before it started.",
+                self.limit
+            );
+            attempts.push(Attempt {
+                kind,
+                outcome: "refused",
+                error: Some(error.clone()),
+            });
+            return Err(error);
+        }
+        attempts.push(Attempt {
+            kind,
+            outcome: "started",
+            error: None,
+        });
+        Ok(attempts.len() - 1)
+    }
+    /// Records how a reserved request ended.
+    pub fn finish<T>(&self, slot: usize, result: &Result<T, String>) {
+        if let Some(attempt) = self.attempts.lock().unwrap().get_mut(slot) {
+            attempt.outcome = if result.is_ok() { "reply" } else { "failure" };
+            attempt.error = result.as_ref().err().cloned();
+        }
+    }
+}
+
 /// Pi, configured for think's shaping calls: an explicit model, a thinking level, and the
 /// working-draft section of the Seed Me skill as standing instructions.
 pub struct PiHost {
@@ -45,6 +133,7 @@ pub struct PiHost {
     pub(super) thinking: String,
     instructions: String,
     timeout: Duration,
+    budget: Option<Arc<CallBudget>>,
     pub(super) brain_history: std::sync::Mutex<Vec<String>>,
 }
 
@@ -79,12 +168,14 @@ impl PiHost {
             thinking: "low".into(),
             instructions: instructions.into(),
             timeout: Duration::from_secs(90),
+            budget: None,
             brain_history: std::sync::Mutex::new(Vec::new()),
         })
     }
 
-    /// Reuses the configuration for a separate goal, with an empty check history. No process,
-    /// provider request or file read occurs; an older goal's running job keeps its own history.
+    /// Reuses the configuration for a separate goal, with an empty check history and the same
+    /// budget. No process, provider request or file read occurs; an older goal's running job keeps
+    /// its own history.
     pub fn new_session(&self) -> Self {
         Self {
             program: self.program.clone(),
@@ -92,6 +183,7 @@ impl PiHost {
             thinking: self.thinking.clone(),
             instructions: self.instructions.clone(),
             timeout: self.timeout,
+            budget: self.budget.clone(),
             brain_history: std::sync::Mutex::new(Vec::new()),
         }
     }
@@ -115,6 +207,13 @@ impl PiHost {
             .1
     }
 
+    /// Counts every request against `budget`, refusing any past its limit before Pi starts.
+    /// Without one, as in the app, requests are unlimited.
+    pub fn with_budget(mut self, budget: Arc<CallBudget>) -> Self {
+        self.budget = Some(budget);
+        self
+    }
+
     /// Leaves the thinking level to Pi's own default.
     pub fn with_default_thinking(mut self) -> Self {
         self.thinking.clear();
@@ -123,6 +222,7 @@ impl PiHost {
 
     pub(super) fn complete(
         &self,
+        kind: Request,
         input: Vec<u8>,
         prompt: String,
         cancelled: &AtomicBool,
@@ -135,6 +235,21 @@ impl PiHost {
         if cancelled.load(Ordering::Relaxed) {
             return Err("Request cancelled.".into());
         }
+        let Some(budget) = &self.budget else {
+            return self.run(input, prompt, cancelled);
+        };
+        let slot = budget.reserve(kind)?;
+        let result = self.run(input, prompt, cancelled);
+        budget.finish(slot, &result);
+        result
+    }
+
+    fn run(
+        &self,
+        input: Vec<u8>,
+        prompt: String,
+        cancelled: &AtomicBool,
+    ) -> Result<String, String> {
         let mut command = Command::new(&self.program);
         command.args([
             "--print",

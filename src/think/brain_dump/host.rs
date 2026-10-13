@@ -60,7 +60,7 @@ impl BoardHost for PiHost {
         decision.request_key = checks::request_key(&request);
         let result: Result<Guess, String> = (|| {
             let input = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
-            let text = self.complete(input, prompt, cancelled)?;
+            let text = self.complete(Request::Shaping, input, prompt, cancelled)?;
             let review =
                 self.review_decisions(&request, &text, cancelled, &mut decision.normalizations);
             decision.raw = Some(text.clone());

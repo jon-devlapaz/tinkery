@@ -1,7 +1,8 @@
 # First-release tasks
 
 These ten tasks implement the [first-release plan](first-release.md). R1 and R2
-are done. R3–R10 remain unpublished drafts without implementation permission. R1–R10 are stable local
+are done. R3 is published as [#96](https://github.com/jon-devlapaz/tinkery/issues/96).
+R4–R10 remain unpublished drafts without implementation permission. R1–R10 are stable local
 labels. Review each remaining draft with the operator before publishing it and
 keep dependencies current.
 
@@ -39,6 +40,8 @@ keep dependencies current.
 <a id="r3"></a>
 ## R3 — Add an explicitly budgeted live evaluation mode
 
+**Published:** [#96](https://github.com/jon-devlapaz/tinkery/issues/96); see
+[live runs](think-evaluation.md#live-runs).
 **Milestone:** M1. **Depends on:** R1. **Parallel work:** R2/R5.
 **Owner:** the evaluation builder. Building and testing this slice needs no live calls.
 

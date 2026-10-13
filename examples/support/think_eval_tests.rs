@@ -22,20 +22,45 @@ fn evaluate(data: Value, cap: usize) -> (tempfile::TempDir, Value) {
         .unwrap();
     let path = root.path().join("dataset.json");
     std::fs::write(&path, data.to_string()).unwrap();
-    let report = run(&path, &root.path().join("output"), cap).unwrap();
+    let report = run(&Options {
+        dataset: path,
+        output: root.path().join("output"),
+        cap,
+        live: None,
+    })
+    .unwrap();
     (root, report)
 }
 
 #[test]
-fn explicit_input_and_fake_only_options_are_required() {
+fn explicit_input_is_required_and_pi_options_need_live() {
     assert!(
         options(std::iter::empty())
             .unwrap_err()
             .contains("Supply --dataset")
     );
-    for option in ["--model", "--provider", "--pi-command", "--live"] {
-        assert!(options([option.into(), "anything".into()].into_iter()).is_err());
+    let base = [
+        "--dataset",
+        "d.json",
+        "--output",
+        "/tmp/o",
+        "--max-requests",
+        "2",
+    ];
+    let parse = |extra: &[&str]| options(base.iter().chain(extra).map(|s| s.to_string()));
+    assert!(parse(&[]).unwrap().live.is_none(), "scripted by default");
+    for extra in [
+        &["--model", "a/b"][..],
+        &["--provider", "pi"],
+        &["--pi-command", "pi"],
+        &["--live"],
+        &["--live", "--model", "a/b"],
+        &["--live", "--seed-me", "S.md"],
+    ] {
+        assert!(parse(extra).is_err(), "{extra:?}");
     }
+    let live = parse(&["--live", "--model", "a/b", "--seed-me", "S.md"]).unwrap();
+    assert_eq!(live.live.unwrap().pi_command, PathBuf::from("pi"));
     let mut data = dataset();
     data["provider"] = json!("real");
     assert!(serde_json::from_value::<Dataset>(data).is_err());
@@ -71,7 +96,7 @@ fn failures_and_explicit_retries_consume_the_same_cap() {
     let (_, report) = evaluate(data, 2);
     assert_eq!(report["requests"]["shaping"], 2);
     assert_eq!(report["requests"]["calls"][0]["outcome"], "failure");
-    assert_eq!(report["requests"]["calls"][1]["send"], 2);
+    assert_eq!(report["requests"]["calls"][1]["kind"], "shaping");
     assert_eq!(report["requests"]["decision_review"], 0);
     assert_eq!(report["requests"]["unused_replies"], 1);
     assert_eq!(report["steps"][0]["failure"], "TEST failure");
@@ -231,13 +256,14 @@ fn report_keeps_exact_words_and_human_judgments_unknown_without_confirming() {
 fn output_requires_a_fresh_temporary_directory_and_valid_provenance() {
     let data: Dataset = serde_json::from_value(dataset()).unwrap();
     let root = tempfile::tempdir().unwrap();
-    assert!(validate(&data, root.path()).is_err());
-    assert!(validate(&data, Path::new("relative-output")).is_err());
-    assert!(validate(&data, Path::new("/Users/TEST-eval-output")).is_err());
-    assert!(validate(&data, &root.path().join("TEST-output")).is_ok());
+    let check = |data: &Dataset, output: &Path| validate(data, output, 2, false);
+    assert!(check(&data, root.path()).is_err());
+    assert!(check(&data, Path::new("relative-output")).is_err());
+    assert!(check(&data, Path::new("/Users/TEST-eval-output")).is_err());
+    assert!(check(&data, &root.path().join("TEST-output")).is_ok());
     let mut data = data;
     data.provenance.description.clear();
-    assert!(validate(&data, &root.path().join("TEST-output")).is_err());
+    assert!(check(&data, &root.path().join("TEST-output")).is_err());
 }
 
 #[test]
@@ -304,4 +330,134 @@ fn a_local_request_size_refusal_cannot_pass_against_the_old_reading() {
         report["automated_checks"]["actor_outcome"]["status"],
         "unknown"
     );
+}
+
+/// A fake Pi on disk: leaves one file per start in `starts`, answers a review prompt with no
+/// decisions and anything else with `reading()`.
+#[cfg(unix)]
+struct FakePi {
+    root: tempfile::TempDir,
+}
+#[cfg(unix)]
+impl FakePi {
+    fn new() -> Self {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile::Builder::new()
+            .prefix("tinkery-TEST-live-eval-")
+            .tempdir()
+            .unwrap();
+        std::fs::create_dir(root.path().join("starts")).unwrap();
+        let program = root.path().join("pi");
+        std::fs::write(
+            &program,
+            format!(
+                "#!/usr/bin/env python3\nimport os, sys, uuid\nopen(os.path.join({:?}, uuid.uuid4().hex), 'w').close()\nsys.stdin.read()\nprompt = sys.argv[sys.argv.index('--system-prompt') + 1]\nprint({:?} if '{{\"decisions\"' in prompt else {:?})\n",
+                root.path().join("starts").display().to_string(),
+                json!({"decisions": []}).to_string(),
+                reading().to_string(),
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(
+            root.path().join("SKILL.md"),
+            "# Seed Me\n\n### Shape the working draft\nTEST DRAFT INSTRUCTIONS\n\n### Size gate\nNOT USED\n",
+        )
+        .unwrap();
+        Self { root }
+    }
+    fn starts(&self) -> usize {
+        std::fs::read_dir(self.root.path().join("starts"))
+            .unwrap()
+            .count()
+    }
+    fn options(&self, data: Value, cap: usize) -> Options {
+        let dataset = self.root.path().join("dataset.json");
+        std::fs::write(&dataset, data.to_string()).unwrap();
+        Options {
+            dataset,
+            output: self.root.path().join("output"),
+            cap,
+            live: Some(Live {
+                pi_command: self.root.path().join("pi"),
+                model: "test/fake-model".into(),
+                seed_me: self.root.path().join("SKILL.md"),
+                thinking: "low".into(),
+            }),
+        }
+    }
+}
+#[cfg(unix)]
+fn operator_dataset() -> Value {
+    let mut data = dataset();
+    data["provenance"]["kind"] = json!("operator_supplied");
+    data["permission"] = json!("TEST: jondev allowed these words to reach the test provider");
+    data.as_object_mut().unwrap().remove("replies");
+    data
+}
+
+#[cfg(unix)]
+#[test]
+fn live_runs_refuse_before_pi_without_operator_data_permission_or_a_positive_limit() {
+    let mut synthetic = operator_dataset();
+    synthetic["provenance"]["kind"] = json!("synthetic_test_data");
+    let mut unpermitted = operator_dataset();
+    unpermitted.as_object_mut().unwrap().remove("permission");
+    let mut blank = operator_dataset();
+    blank["permission"] = json!("  ");
+    let mut scripted = operator_dataset();
+    scripted["replies"] = dataset()["replies"].clone();
+    for (data, cap, why) in [
+        (synthetic, 2, "operator_supplied"),
+        (unpermitted, 2, "permission"),
+        (blank, 2, "permission"),
+        (scripted, 2, "no scripted replies"),
+        (operator_dataset(), 0, "positive --max-requests"),
+    ] {
+        let pi = FakePi::new();
+        let error = run(&pi.options(data, cap)).unwrap_err();
+        assert!(error.contains(why), "{error}");
+        assert_eq!(pi.starts(), 0, "{why}: Pi started");
+        assert!(!pi.root.path().join("output").exists());
+    }
+    let pi = FakePi::new();
+    let mut inside = pi.options(operator_dataset(), 2);
+    inside.output = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/TEST-live-output");
+    assert!(run(&inside).unwrap_err().contains("outside the repository"));
+    assert_eq!(pi.starts(), 0);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_live_limit_counts_both_calls_of_a_send_and_records_the_run() {
+    for (cap, started, review) in [(1, 1, 0), (2, 2, 1)] {
+        let pi = FakePi::new();
+        let report = run(&pi.options(operator_dataset(), cap)).unwrap();
+        assert_eq!(pi.starts(), started, "limit {cap}");
+        assert_eq!(report["execution"], "live");
+        assert_eq!(report["requests"]["used"], started);
+        assert_eq!(report["requests"]["decision_review"], review);
+        assert_eq!(
+            report["requests"]["refused_before_invocation"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2 - started,
+            "the review past the limit is refused, not started"
+        );
+        assert_eq!(report["provider"]["origin"]["model"], "test/fake-model");
+        assert!(report["provider"]["origin"]["prompt_hash"].is_string());
+        assert_eq!(report["revision"]["prompts_executed"], true);
+        assert_eq!(report["provider_cost"]["real_calls"], started);
+        assert!(report["provider_cost"]["amount"].is_null());
+        assert!(
+            report["input"]["permission"]
+                .as_str()
+                .unwrap()
+                .contains("TEST")
+        );
+        assert_eq!(report["automated_checks"]["constraints"]["status"], "pass");
+        assert!(report["human_baseline"]["recognition"].is_null());
+        assert_eq!(report["session_confirmed"], false);
+    }
 }
