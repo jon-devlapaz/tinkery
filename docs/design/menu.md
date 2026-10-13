@@ -38,6 +38,21 @@ near its name. Empty space separates purpose from controls; help and open places
 do not show the menu bar. Digits and other existing aliases remain
 available without adding them to the bar.
 
+Menu help is a compact upper-right overlay (38 columns × 13 rows), not a replacement
+screen. The six choices and selected-place description stay visible at every supported
+size. One thin muted border separates the panel. The Help title uses jade to mark
+the active panel; headings and shortcut keys use bold ink, while action labels stay
+muted. One blank row beneath the title gives the movement heading room. Aligned
+key/action columns show movement and quitting without an ambiguous Leave heading;
+`Esc Close help` stays separate at the bottom. No new colours or backgrounds;
+no-colour mode retains the hierarchy. The ordinary menu key bar is hidden while
+help is open, so instructions are not repeated.
+
+While menu help is open, digits, Enter, movement and menu-row clicks cannot act
+underneath it. Paste still does nothing. Esc closes; ?/F1 and the corner help click
+toggle it; q, Ctrl-C and F10 retain their explicit quit routes. Closing restores the
+same selection. Help in other places is unchanged by this menu-only prototype.
+
 Digits or arrows plus Enter open a place. Help is deliberate. F10 leaves think for
 the menu, guarded for unsaved work; home `q` quits. The binary needs `--home`;
 without it, it opens think. The separate installed launcher passes `--home`.
