@@ -171,6 +171,74 @@ fn review_says_confirm_also_saves_the_record_only_when_one_will_be_written() {
     assert!(!screen.contains("record"), "{screen}");
 }
 
+/// How many shaping calls a record's checks describe.
+fn shaping_checks(record: &serde_json::Value) -> usize {
+    record["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["check"] == "structure-spans-history")
+        .count()
+}
+
+#[cfg(unix)]
+#[test]
+fn records_keep_the_model_reply_only_for_rejected_checks() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(
+        &skill,
+        "# Seed Me\n### Shape the working draft\nTEST\n### Size gate\n",
+    )
+    .unwrap();
+    let program = dir.path().join("pi");
+    std::fs::write(&program, r#"#!/usr/bin/env python3
+import json,sys
+r=json.load(sys.stdin)
+if r.get('kind')=='decision-review':print('{"decisions":[]}');sys.exit(0)
+marker=r['sources'][-1]['text']
+if marker=='TEST-BAD':print('TEST not a reading');sys.exit(0)
+print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='the work is stuck',done_when='tests pass'),questions=[])))
+"#).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let host = Arc::new(PiHost::new(program, "test/model".into(), skill.clone()).unwrap());
+    let root = dir.path().join("TEST-records");
+    let mut a = BrainDump::with_host(host)
+        .with_seed_me(skill, None)
+        .with_record_root(root.clone());
+    a.paste("TEST-BAD");
+    a.submit();
+    settle(&mut a);
+    a.paste("TEST-GOOD");
+    a.submit();
+    settle(&mut a);
+    a.review_goal();
+    let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    save(&mut a, Ok(receipt(&goal)));
+    let file = records(&root).pop().unwrap();
+    let record: serde_json::Value = serde_json::from_slice(&std::fs::read(file).unwrap()).unwrap();
+    let checks: Vec<_> = record["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["check"] == "structure-spans-history")
+        .collect();
+    assert_eq!(checks.len(), 2, "{record:#}");
+    assert_eq!(checks[0]["decision"], "reject");
+    assert_eq!(checks[0]["raw"], "TEST not a reading\n");
+    assert_eq!(checks[1]["decision"], "pass");
+    assert!(checks[1]["raw"].is_null(), "passing reply kept: {record:#}");
+    assert!(
+        checks[1]["candidate"]
+            .to_string()
+            .contains("TEST-GOOD-REPLY"),
+        "the decoded reading stays: {record:#}"
+    );
+    // F5 still has every reply this session.
+    assert!(a.diagnostics().join("\n").contains("TEST-GOOD-REPLY"));
+}
+
 #[cfg(unix)]
 #[test]
 fn new_goals_keep_their_own_checks_and_the_standalone_record_setting() {
@@ -215,15 +283,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
     let alpha_file = records(&root).pop().unwrap();
     let alpha_bytes = std::fs::read(&alpha_file).unwrap();
     let alpha: serde_json::Value = serde_json::from_slice(&alpha_bytes).unwrap();
-    assert_eq!(
-        alpha["checks"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|c| c["raw"].is_string())
-            .count(),
-        2
-    );
+    assert_eq!(shaping_checks(&alpha), 2);
 
     // Home passes its configured prototype again; standalone uses fresh_factory.
     for (name, mut next) in [
@@ -267,15 +327,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
         let text = std::fs::read_to_string(file).unwrap();
         assert!(!text.contains("ALPHA"));
         let record: serde_json::Value = serde_json::from_str(&text).unwrap();
-        assert_eq!(
-            record["checks"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter(|c| c["raw"].is_string())
-                .count(),
-            1
-        );
+        assert_eq!(shaping_checks(&record), 1);
         assert_eq!(record["turns"][0]["text"], name);
     }
     assert_eq!(std::fs::read(alpha_file).unwrap(), alpha_bytes);

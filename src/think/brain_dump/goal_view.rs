@@ -107,7 +107,8 @@ impl BrainDump {
         })
     }
     /// Writes the think record for the session just saved in `receipt`: every turn, every
-    /// check, and the goal exactly as it was confirmed on the review screen.
+    /// check (with the model's reply only where it rejected), and the goal exactly as it was
+    /// confirmed on the review screen.
     fn write_record(&self, root: &Path, receipt: &Receipt) -> Result<PathBuf, String> {
         let goal = self
             .handoff
@@ -121,11 +122,7 @@ impl BrainDump {
             &record::Session {
                 origin: &origin,
                 turns: self.conversation.turns(),
-                checks: self
-                    .diagnostics()
-                    .iter()
-                    .filter_map(|d| serde_json::from_str(d).ok())
-                    .collect(),
+                checks: checks::recorded(&self.diagnostics()),
                 goal,
                 seed_me_session: &receipt.session,
                 confirmed: std::time::SystemTime::now(),
