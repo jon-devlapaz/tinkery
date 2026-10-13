@@ -1,9 +1,10 @@
-# First-release issue drafts
+# First-release tasks
 
-These ten drafts implement the [first-release plan](first-release.md). None is a
-published GitHub issue or implementation permission. R1–R10 are stable local
-labels. Review a draft with the operator before publishing it; then replace or
-supplement its local ID with the real issue link and keep dependencies current.
+These ten tasks implement the [first-release plan](first-release.md). The operator
+has approved R1 and R2 for parallel work and PRs, with no merging. R3–R10 remain
+unpublished drafts without implementation permission. R1–R10 are stable local
+labels. Review each remaining draft with the operator before publishing it and
+keep dependencies current.
 
 ## Rules shared by every draft
 
@@ -24,6 +25,8 @@ supplement its local ID with the real issue link and keep dependencies current.
 
 <a id="r1"></a>
 ## R1 — Make Think evaluation repeatable without live calls
+
+**Approved issue:** [#62](https://github.com/jon-devlapaz/tinkery/issues/62).
 
 **Milestone:** M1. **Depends on:** #58 finished as defined in the release plan.
 **Parallel work:** R2. **Owner:** one evaluation builder.
@@ -59,6 +62,8 @@ support, automated claims about human recognition or a second record format.
 
 <a id="r2"></a>
 ## R2 — Map one job through the existing tools
+
+**Approved issue:** [#63](https://github.com/jon-devlapaz/tinkery/issues/63).
 
 **Milestone:** M2. **Depends on:** #58 finished. **Parallel work:** R1/R3/R4.
 **Owner:** a read-only source investigator. **Deliverable:** design and fixtures.

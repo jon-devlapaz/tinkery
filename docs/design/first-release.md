@@ -5,9 +5,11 @@ taste → measure**. The north star is **useful, verified changes per operator
 hour**, from [the constitution](../yohaku.md). A useful result meets the original
 goal, passes its required checks and is accepted by the operator.
 
-This plan and its [ten draft issues](first-release-issues.md) were requested by
-the operator. Saving them does not authorize their implementation, publish issues,
-approve private data use or grant a provider budget. The approved task for this
+This plan and its [ten tasks](first-release-issues.md) were requested by the
+operator. R1 and R2 are now explicitly approved for parallel work and published
+as [#62](https://github.com/jon-devlapaz/tinkery/issues/62) and
+[#63](https://github.com/jon-devlapaz/tinkery/issues/63). R3–R10 remain unpublished
+drafts. No private data use, provider budget or merge is authorized. The approved task for this
 documentation change is: “Save this release plan in the repo and turn the
 milestones into draft issues with clear completion checks and dependencies. Show
 me what agents can start after #58 is finished.”
@@ -31,7 +33,7 @@ macOS and cold-clone PR checks passed, and
 [main CI at `4f520b2`](https://github.com/jon-devlapaz/tinkery/actions/runs/38344917007)
 passed. In this plan, **#58 finished** means its PR has been reviewed and merged
 through the operator's process and checks for the resulting main revision pass.
-That prerequisite is met; R1 and R2 are ready for draft review. Recheck the current
+That prerequisite is met; R1 and R2 are approved and assigned. Recheck the current
 main revision when starting approved implementation.
 
 Sources: [current scope](../../README.md), [menu](menu.md),
@@ -101,8 +103,8 @@ wait for every branch; milestone numbering is not a reason to serialize them all
 
 ## What agents can start after #58
 
-These are the first drafts to review and publish. They are **ready to propose**,
-not permission to begin implementation merely because #58 closes.
+The operator has approved and published R1 and R2 for parallel work. The other
+tasks remain drafts; completing #58 does not authorize them automatically.
 
 | Role | First assignment | Can work alongside | Stop condition |
 | --- | --- | --- | --- |
