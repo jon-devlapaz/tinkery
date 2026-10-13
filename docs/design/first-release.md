@@ -5,14 +5,10 @@ taste → measure**. The north star is **useful, verified changes per operator
 hour**, from [the constitution](../yohaku.md). A useful result meets the original
 goal, passes its required checks and is accepted by the operator.
 
-This plan and its [ten tasks](first-release-issues.md) were requested by the
-operator. R1 and R2 are now explicitly approved for parallel work and published
-as [#62](https://github.com/jon-devlapaz/tinkery/issues/62) and
-[#63](https://github.com/jon-devlapaz/tinkery/issues/63). R3–R10 remain unpublished
-drafts. No private data use, provider budget or merge is authorized. The approved task for this
-documentation change is: “Save this release plan in the repo and turn the
-milestones into draft issues with clear completion checks and dependencies. Show
-me what agents can start after #58 is finished.”
+The operator requested this plan and its [ten tasks](first-release-issues.md).
+R1 ([#62](https://github.com/jon-devlapaz/tinkery/issues/62)) and R2
+([#63](https://github.com/jon-devlapaz/tinkery/issues/63)) are done. R3–R10 remain
+unpublished drafts. No private data use, provider budget or merge is authorized.
 
 ## Starting point
 
@@ -27,14 +23,10 @@ Checked on October 12, 2026 against main at `4f520b2`, including #58:
 | Taste | Placeholder | Compare a result and its checks with the original goal |
 | Measure | Display a separately installed ledger report, or unknown | Report accepted results and recorded human effort honestly |
 
-[#58](https://github.com/jon-devlapaz/tinkery/issues/58) is closed and
-[PR #59](https://github.com/jon-devlapaz/tinkery/pull/59) is merged. Its Ubuntu,
-macOS and cold-clone PR checks passed, and
+[#58](https://github.com/jon-devlapaz/tinkery/issues/58) is finished:
+[PR #59](https://github.com/jon-devlapaz/tinkery/pull/59) is merged and
 [main CI at `4f520b2`](https://github.com/jon-devlapaz/tinkery/actions/runs/38344917007)
-passed. In this plan, **#58 finished** means its PR has been reviewed and merged
-through the operator's process and checks for the resulting main revision pass.
-That prerequisite is met; R1 and R2 are approved and assigned. Recheck the current
-main revision when starting approved implementation.
+passed. Recheck the current main revision when starting approved implementation.
 
 Sources: [current scope](../../README.md), [menu](menu.md),
 [handoff](shape-and-handoff.md), [Think records](think.md#think-record).
@@ -101,22 +93,16 @@ the zero-call source survey or record readers. Approve, Watch and Taste can be
 built separately after R5 settles their shared input. The complete journey must
 wait for every branch; milestone numbering is not a reason to serialize them all.
 
-## What agents can start after #58
+## What agents can start next
 
-The operator has approved and published R1 and R2 for parallel work. The other
-tasks remain drafts; completing #58 does not authorize them automatically.
+R1 and R2 are done. The other tasks remain drafts; finishing one does not
+authorize the next.
 
-| Role | First assignment | Can work alongside | Stop condition |
-| --- | --- | --- | --- |
-| Builder | R1: reuse existing evaluation code for an explicit-input, fake-only runner | R2 source survey | Tested fake report and reviewable PR; no live calls |
-| Source investigator | R2: inspect existing records and propose the smallest connection | R1 | Evidence table, fixtures and one design recommendation; no production reader yet |
-| Independent checker | Challenge R1's call accounting and R2's missing/outdated-record cases; review completed changes independently | Both | Reproducible defects or a bounded review result |
-| Coordinator | Own dependencies, shared-file changes and the next human decision | All | One concise handoff stating evidence, uncertainty and the decision needed |
-
-After R1, an agent can implement and fake-test R3 without spending a live budget.
-After R2's design is accepted, an agent can build R5 while live evaluation awaits
-the operator. R4 needs supplied examples, explicit permission to use them, an
-approved provider/model budget and human participation. Only the operator can
+An agent can implement and fake-test R3 without spending a live budget. R5 waits
+for the operator to accept R2's [proposed design](job-records.md); then an agent
+can build it while live evaluation awaits the operator. R4 needs supplied
+examples, explicit permission to use them, an approved provider/model budget and
+human participation. Only the operator can
 say that the goal is right or that the result is useful.
 
 Measure's field survey belongs in R2. R9 can proceed once the reader and measurement
