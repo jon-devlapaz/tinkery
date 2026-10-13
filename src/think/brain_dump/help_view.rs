@@ -191,7 +191,6 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
                 | "Sending"
                 | "Saving"
                 | "After saving"
-                | "Your words"
                 | "Other keys"
                 | "Last result"
         ) {

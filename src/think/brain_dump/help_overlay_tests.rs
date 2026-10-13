@@ -209,7 +209,7 @@ fn empty_technical_sections_leave_one_blank_row_before_last_result() {
     let before = text.split("Last result\n").next().unwrap();
     assert!(before.ends_with("\n\n"));
     assert!(!before.ends_with("\n\n\n"));
-    assert!(text.contains("On a Mac the F-keys may need fn.\n\nLast result"));
+    assert!(text.contains("Mac F-keys may need fn.\n\nLast result"));
 }
 
 #[test]
@@ -270,7 +270,7 @@ fn how_it_works_says_what_leaves_the_machine_in_plain_words() {
     assert!(layout::how_text(&app).contains("nothing leaves your machine"));
     app.real = true;
     let text = layout::how_text(&app);
-    assert!(text.contains("your dumps and answers go to the model you chose"));
+    assert!(text.contains("your words go to the model you chose"));
     assert!(text.contains("may cost money"));
     for jargon in [
         "schema",

@@ -392,7 +392,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
 pub(super) fn how_text(app: &BrainDump) -> String {
     if let Some(receipt) = &app.handoff.receipt {
         return format!(
-            "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}{}\n\nCopy puts the continuation prompt on your clipboard (OSC 52; your terminal may ask permission). Paste it into Claude, Codex or Pi yourself. Nothing starts on its own.\n\nThe Seed Me session stays active after you leave. Saving the goal doesn't approve a seed or start any work.",
+            "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it into Claude, Codex or Pi yourself. Nothing starts on its own.",
             receipt.text(),
             app.record_line()
                 .map_or(String::new(), |line| format!("\n{line}"))
@@ -400,9 +400,9 @@ pub(super) fn how_text(app: &BrainDump) -> String {
     }
     let diagnostics = app.diagnostics().join("\n\n");
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nOne shaping call and one decision review run before the reading is shown: at most two provider calls per send, no automatic retry. Nothing runs after the reading appears. Ctrl-C cancels sending. F5 shows each check and why it passed or failed.\nThe reading is a guess. A model's judgment is not proof it understood you.\n\nSaving\nOnly typing confirm on the review saves. Answers, skips and opening the review save nothing, and you can review with questions still open.\nConfirm saves your goal as an active Seed Me session and writes a think record (every turn, your words exactly) to Tinkery's own folder; this page shows where afterwards. It doesn't approve a seed or start any work.\nLeaving without confirming saves nothing and leaves no record.\n\nAfter saving\nTinkery is read-only. Continue in Seed Me; the session stays active. Saved writes can't be undone. F10 waits until the save is read back before returning.\n\nYour words\nYour dumps and answers are kept exactly as typed. In the review, the wheel scrolls your original and Ctrl-PgUp/PgDn switches between originals.\n\nOther keys\nCtrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; F7 or Ctrl-X shows or hides the cards. Ctrl-L repaints. On a Mac the F-keys may need fn.{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\nOnly typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept.\n\nAfter saving\nContinue in Seed Me.\n\nOther keys\nCtrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why, Ctrl-E extract, Ctrl-X cards, Ctrl-L repaint, Ctrl-PgUp/PgDn switch originals. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {
-            "Real: your dumps and answers go to the model you chose. Requests may cost money."
+            "Real: your words go to the model you chose and may cost money."
         } else {
             "Practice: replies are simulated and nothing leaves your machine."
         },

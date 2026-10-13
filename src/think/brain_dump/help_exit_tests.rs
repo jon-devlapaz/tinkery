@@ -90,15 +90,21 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert!(a.screen.how && a.screen.help);
     let how = layout::how_text(&a);
     for s in [
-        "One shaping call and one decision review run before the reading is shown",
-        "at most two provider calls per send",
-        "no automatic retry",
-        "It doesn't approve a seed or start any work.",
-        "session stays active",
+        "Nothing runs on its own and nothing retries.",
+        "Only typing confirm saves",
+        "starts no work",
     ] {
         assert!(how.contains(s));
     }
-    for gone in ["audit", "background", "log-only"] {
+    for gone in [
+        "audit",
+        "background",
+        "log-only",
+        "provider",
+        "shaping",
+        "decision review",
+        "Seed Me session",
+    ] {
         assert!(!how.contains(gone), "{gone}");
     }
     let screen = snapshot(100, 30, &mut a, false).unwrap();
