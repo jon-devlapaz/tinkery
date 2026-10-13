@@ -696,8 +696,7 @@ impl BrainDump {
                     voice.close();
                 }
                 self.handoff.exit_after = true;
-                self.notice =
-                    "Waiting for durable goal read-back before returning to the menu.".into();
+                self.notice = "Saving your goal; back to the menu once it's saved.".into();
             } else {
                 self.request_leave();
             }

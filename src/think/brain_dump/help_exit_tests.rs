@@ -209,7 +209,7 @@ fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     a.handoff.job = Some(rx);
     leave(&mut a);
     assert!(!a.quitting() && a.handoff.exit_after && !a.screen.leave_prompt);
-    assert!(a.notice.contains("durable goal read-back"));
+    assert!(a.notice.contains("back to the menu once it's saved"));
     tx.send(Err("TEST missing helper".into())).unwrap();
     a.tick();
     assert!(a.quitting() && a.notice.contains("TEST missing helper"));
