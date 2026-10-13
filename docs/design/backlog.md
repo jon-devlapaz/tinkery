@@ -25,6 +25,17 @@ approved issue before work starts.
   ("Must not: No sending") come from the model's wording, so code can't fix them safely.
   Each needs a live recheck on current main (about 2 calls for #74, 3 to 6 for #75)
   and likely a reading-prompt rule; both need the operator's explicit budget.
+- **Four screen words don't match what's true** (Yohaku Art 2, 6, 7). Practice mode's
+  key bar offers `F3 review`, which practice always refuses (`src/think/brain_dump/layout.rs`,
+  `key_bar_items`). The voice key reads `6 speak` off macOS (`src/voice/setup.rs`, `key_label`)
+  where every other key reads `F2`. `--help` says `--no-color` means "Use terminal colors"
+  (`src/main.rs`). Every-key help calls the reading "grey"; it is italic. One small slice.
+- **Measure strands the operator when the ledger fails** (Art 6, 7). The error shows a raw
+  path, unwrapped, with no "Esc back" on screen, and the report runs on the UI thread
+  (`src/measure.rs`, `src/menu.rs`).
+- **The reading's wire shape keeps data the board drops.** `Guess.outcome` repeats done-when
+  and the composed framing text is ignored; the board uses `parts` and framing `supports` only
+  (`src/think/brain_dump/reading.rs`, `board.rs`). Two owners for one value.
 - **"Like X" lines stop think early.** The review can leave an ambiguous source or
   scope in place. See think's [known gap](think.md#open-work-only).
 - **Think's routing remains large.** Split `src/think/brain_dump.rs` further without
