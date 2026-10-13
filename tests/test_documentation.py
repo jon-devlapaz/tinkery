@@ -22,10 +22,10 @@ def tracked_files():
 
 TRACKED = tracked_files()
 TRACKED_DIRS = {str(parent) for path in TRACKED for parent in Path(path).parents} - {"."}
-# Vendored upstream docs and test fixtures are not ours to steer agents with;
-# CLAUDE.md only imports the entry point.
+# Vendored upstream docs, upstream skills and test fixtures are not ours to steer
+# agents with; CLAUDE.md only imports the entry point.
 DOCS = sorted(path for path in TRACKED if path.endswith(".md") and path != "CLAUDE.md"
-              and not path.startswith(("vendor/", "tests/fixtures/")))
+              and not path.startswith(("vendor/", ".agents/skills/", "tests/fixtures/")))
 FENCE = re.compile(r"^(```|~~~).*?^\1", re.M | re.S)
 LINK = re.compile(r"\]\(([^)\s]+)\)|^\[[^\]]+\]:\s*(\S+)", re.M)
 
