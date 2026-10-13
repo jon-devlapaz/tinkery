@@ -37,6 +37,9 @@ approved issue before work starts.
 - **An unset `HOME` writes records to a relative path.** Without `HOME` or
   `--record-root`, records land under `.local/share/tinkery/think` in the current
   folder. Refuse or say where instead.
+- **Possible approaches can vanish.** The reading prompt names `alternatives` without
+  their shape. In #86's live recheck the model keyed each one `option`; `reading.rs`
+  reads only `label`, so all three were dropped and the section was empty.
 - **Gaps across think records aren't flagged yet.** The rest of the record slice:
   the eval harness writes records with origin `eval`, and a separate script reads
   them and flags gaps.
@@ -59,25 +62,11 @@ Closed issues with merged PRs: history, not proof that a whole proposal is compl
 
 ## 1. Goal-block polish
 
-**Context:** Constraint prefixes, clause casing, the three-state no-question line and
-one line per constraint shipped in issues #13 and #19 ([goal block](goal-block.md#constraint-syntax)).
-Dogfood still found generic Done-when questions, repeated or invented timing, and an
-injected instruction appearing as another goal.
-
-**Build:** Ask concrete, dump-specific success questions. Avoid repeating `when` or
-turning remembered timing into a deadline. Keep injected instructions out of “also in
-your dump”.
-
-**Acceptance:** Fixture tests cover repeated/false deadlines, concrete questions and
-injected-topic exclusion, without hiding unresolved questions or inventing a new
-consent gate. The frozen reviewed block remains identical in receipt, stored origin
-and detail. Test the protection reverted; operator recognition needs separately
-approved dogfood, not a claim from stubs.
-
-**Read:** [goal block](goal-block.md), [think](think.md), [shape and handoff](shape-and-handoff.md).
-
-**Don't:** Rewrite originals, force “can”, invent numbers/deadlines, lose deferred
-work, change Seed Me, spend provider budget without approval, or write operator sessions.
+**Done:** [#86](https://github.com/jon-devlapaz/tinkery/issues/86). A live baseline at
+fadab4c (6 calls, the Oct 9 dogfood dumps) no longer invented deadlines or asked
+generic Done-when questions. It still turned an injected instruction into an
+"also in your dump" goal; one reading-prompt rule fixed that in a 2-call recheck.
+One run per dump is a small sample, not operator recognition.
 
 ## 2. The notecard stack (D4)
 

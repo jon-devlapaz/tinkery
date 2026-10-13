@@ -93,6 +93,6 @@ SMART's specificity helps, but invented numbers and proxy targets do not. Job
 stories preserve situation/motivation; Shape Up contributes no-gos. The short
 rule/why/test pattern makes these scannable without forcing one actor or “I can”.
 
-Remaining composer and question problems are explicit in
-[goal-block polish](backlog.md#1-goal-block-polish); this contract is the target,
-not a claim that every model-generated block is already good.
+[Goal-block polish](backlog.md#1-goal-block-polish) records the last live check of
+these rules; this contract is the target, not a claim that every model-generated
+block is already good.
