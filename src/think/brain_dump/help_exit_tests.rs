@@ -90,15 +90,21 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert!(a.screen.how && a.screen.help);
     let how = layout::how_text(&a);
     for s in [
-        "One shaping call and one decision review run before the reading is shown",
-        "at most two provider calls per send",
-        "no automatic retry",
-        "outcome/options remain proposals",
-        "session stays active",
+        "Nothing runs on its own and nothing retries.",
+        "Only typing confirm saves",
+        "starts no work",
     ] {
         assert!(how.contains(s));
     }
-    for gone in ["audit", "background", "log-only"] {
+    for gone in [
+        "audit",
+        "background",
+        "log-only",
+        "provider",
+        "shaping",
+        "decision review",
+        "Seed Me session",
+    ] {
         assert!(!how.contains(gone), "{gone}");
     }
     let screen = snapshot(100, 30, &mut a, false).unwrap();
@@ -203,7 +209,7 @@ fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     a.handoff.job = Some(rx);
     leave(&mut a);
     assert!(!a.quitting() && a.handoff.exit_after && !a.screen.leave_prompt);
-    assert!(a.notice.contains("durable goal read-back"));
+    assert!(a.notice.contains("back to the menu once it's saved"));
     tx.send(Err("TEST missing helper".into())).unwrap();
     a.tick();
     assert!(a.quitting() && a.notice.contains("TEST missing helper"));

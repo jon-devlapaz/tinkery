@@ -312,7 +312,7 @@ impl BrainDump {
     }
     pub(super) fn goal_key(&mut self, key: KeyEvent) -> bool {
         if self.handoff.job.is_some() {
-            self.notice="Saving the affirmed goal; wait for read-back. Durable writes cannot be undone by Esc.".into();
+            self.notice = "Saving your goal; this can't be undone. One moment.".into();
             return true;
         }
         if self.handoff.receipt.is_some() {
@@ -364,7 +364,7 @@ impl BrainDump {
                     let _ = tx.send(config.confirm(affirmation));
                 });
                 self.handoff.job = Some(rx);
-                self.notice = "Saving the explicitly affirmed goal through Seed Me…".into();
+                self.notice = "Saving your goal…".into();
             }
             KeyCode::Enter if review.scroll < review.max => {
                 self.refuse("Read to the end first: PgDn scrolls. Then type confirm and Enter.")
