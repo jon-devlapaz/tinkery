@@ -303,7 +303,7 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
     a.paste("confirm");
     key(&mut a, KeyCode::Enter);
     assert!(a.handoff.job.is_none());
-    assert!(a.notice.contains("Read the complete review"));
+    assert!(a.notice.contains("Read to the end first"));
 }
 
 #[test]

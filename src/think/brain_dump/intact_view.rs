@@ -78,7 +78,7 @@ impl BrainDump {
                 Err("Select text on the intact dump, then Ctrl-E extracts it.".into())
             };
             if let Err(error) = result {
-                self.notice = error;
+                self.refuse(error);
             }
             return true;
         }

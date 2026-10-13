@@ -20,10 +20,6 @@ proposals remain optional unless the release trial demonstrates a blocker.
 Known gaps found while building, smaller than a proposal. Each still needs an
 approved issue before work starts.
 
-- **Some think refusals are hidden.** Messages outside the shown-notice list in
-  `src/think/brain_dump/layout.rs` only appear under How it works → Last result.
-  Give those refusals an appropriate visible route in a separately approved slice;
-  this is outside #56's help-overlay scope.
 - **"Like X" lines stop think early.** The review can leave an ambiguous source or
   scope in place. See think's [known gap](think.md#open-work-only).
 - **Think's routing remains large.** Split `src/think/brain_dump.rs` further without

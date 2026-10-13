@@ -88,6 +88,8 @@ struct Screen {
     original: bool,
     details: bool,
     leave_prompt: bool,
+    /// The notice says why the last action did nothing; drawn until the next input.
+    refused: bool,
     /// Focus is on the original (or its cards), not the writing box.
     board_focus: bool,
     show_extractions: bool,
@@ -123,6 +125,7 @@ impl Default for Screen {
             original: false,
             details: false,
             leave_prompt: false,
+            refused: false,
             board_focus: false,
             show_extractions: false,
             reading: 0,
@@ -460,12 +463,11 @@ impl BrainDump {
             return;
         }
         if self.running() {
-            self.notice = "Still thinking; new typing is kept for your next submit.".into();
+            self.refuse("Still thinking; new typing is kept for your next submit.");
             return;
         }
         if self.add_more && self.conversation.scope_pending().is_some() {
-            self.notice =
-                "Answer the added-words scope question first; your draft stays local.".into();
+            self.refuse("Answer the added-words scope question first; your draft stays local.");
             return;
         }
         let Ok(staged) = self.conversation.stage(
@@ -474,13 +476,13 @@ impl BrainDump {
             self.shaping.ready.is_some(),
             self.card_positions(),
         ) else {
-            self.notice="An earlier addition is still unresolved; undo its skip to answer scope. New words stay local.".into();
+            self.refuse("Answer the skipped scope question first: Ctrl-Z brings it back.");
             return;
         };
         let bytes = match serde_json::to_vec(&staged.request) {
             Ok(b) => b.len(),
             Err(e) => {
-                self.notice = format!("Cannot encode request: {e}. Words retained.");
+                self.refuse(format!("Cannot encode request: {e}. Words retained."));
                 return;
             }
         };
@@ -494,9 +496,9 @@ impl BrainDump {
         cap.request_key = checks::request_key(&staged.request);
         self.local_checks.push(cap);
         if bytes > 32768 {
-            self.notice = format!(
-                "Encoded request is {bytes} bytes, above 32 KiB. No request sent; new words stay local."
-            );
+            self.refuse(format!(
+                "Request is {bytes} bytes, above 32 KiB; nothing sent. Words kept."
+            ));
             return;
         }
         if staged.adds_words(&self.conversation) {
@@ -520,13 +522,13 @@ impl BrainDump {
         }
         let mut request = staged.request;
         if self.conversation.awaiting_scope() {
-            self.notice =
-                "Added words remain unresolved; answer their scope question before reshaping."
-                    .into();
+            self.refuse(
+                "Added words remain unresolved; answer their scope question before reshaping.",
+            );
             return;
         }
         if self.conversation.caught_up() {
-            self.notice = layout::EMPTY_SEND_TEXT.into();
+            self.refuse(layout::EMPTY_SEND_TEXT);
             return;
         }
         if let Some((r, result)) = self.shaping.ready.take() {
@@ -537,7 +539,7 @@ impl BrainDump {
             self.conversation.refresh(&mut request);
         }
         if serde_json::to_vec(&request).map_or(true, |b| b.len() > 32768) {
-            self.notice="Updated encoded request exceeds 32 KiB; your words remain in originals. No request sent.".into();
+            self.refuse("With the waiting reply this is above 32 KiB; nothing sent.");
             return;
         }
         self.conversation.forget_changes();
@@ -618,7 +620,7 @@ impl BrainDump {
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
         self.conversation.forget_changes();
-        self.clear_edit_notice();
+        self.screen.refused = false;
         if self.screen.leave_prompt
             || self.screen.help
             || self.screen.details
@@ -634,7 +636,7 @@ impl BrainDump {
             && !self.screen.board_focus
             && let Err(_) = self.input.insert(text)
         {
-            self.notice = layout::LIMIT_TEXT.into();
+            self.refuse(layout::LIMIT_TEXT);
         }
     }
     /// Makes a blank think with this one's host, Seed Me and voice settings, for the next visit
@@ -675,7 +677,7 @@ impl BrainDump {
         if key.kind == KeyEventKind::Release {
             return;
         }
-        self.clear_edit_notice();
+        self.screen.refused = false;
         let mut ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if matches!(key.code, KeyCode::F(2..=10))
             && (key.kind == KeyEventKind::Repeat
@@ -914,13 +916,13 @@ impl BrainDump {
                 // Typing always writes; the app returns focus to the writing box itself.
                 self.focus_writing();
                 if self.input.insert(&c.to_string()).is_err() {
-                    self.notice = layout::LIMIT_TEXT.into();
+                    self.refuse(layout::LIMIT_TEXT);
                 }
             }
             KeyCode::Enter => {
                 self.focus_writing();
                 if self.input.insert("\n").is_err() {
-                    self.notice = layout::LIMIT_TEXT.into();
+                    self.refuse(layout::LIMIT_TEXT);
                 }
             }
             KeyCode::Backspace => {
@@ -954,10 +956,11 @@ impl BrainDump {
             _ => {}
         }
     }
-    fn clear_edit_notice(&mut self) {
-        if self.notice.starts_with(layout::LIMIT_NOTICE) || self.notice == layout::EMPTY_SEND_TEXT {
-            self.notice.clear();
-        }
+    /// Says why an action did nothing. The reason shows where the person is looking until
+    /// their next key or paste, then stays only as the last result in How it works.
+    fn refuse(&mut self, why: impl Into<String>) {
+        self.notice = why.into();
+        self.screen.refused = true;
     }
     /// F8: skip the question in focus. Ctrl-Z brings it back.
     fn skip_question(&mut self) {
@@ -969,7 +972,7 @@ impl BrainDump {
     fn copy_board(&mut self) {
         let text = self.copy_text();
         if text.len() > 128 * 1024 {
-            self.notice = "Copy exceeds 128 KiB; not sent.".into();
+            self.refuse("Copy exceeds 128 KiB; not sent.");
         } else {
             self.copy = Some(text);
         }
@@ -981,7 +984,7 @@ impl BrainDump {
             return;
         }
         if self.conversation.fragments().is_empty() {
-            self.notice = "No extracted cards. Select source text, then Ctrl-E.".into();
+            self.refuse("No extracted cards. Select source text, then Ctrl-E.");
         } else {
             self.screen.show_extractions = !self.screen.show_extractions;
             if self.screen.show_extractions {
@@ -1000,14 +1003,14 @@ impl BrainDump {
         match self.conversation.undo_skip() {
             Some(true) => self.notice = "Skip undone; question restored.".into(),
             Some(false) => {
-                self.notice = "That question has since been answered; it wasn't reopened.".into()
+                self.refuse("That question has since been answered; it wasn't reopened.")
             }
             None => {}
         }
     }
     fn toggle_details(&mut self) {
         if self.conversation.sources().is_empty() {
-            self.notice = "No details before a submit; no request sent.".into();
+            self.refuse("No details before a submit; no request sent.");
             return;
         }
         let was_modal = self.screen.original || self.screen.help;
@@ -1545,6 +1548,8 @@ mod layout;
 mod layout_tests;
 #[cfg(test)]
 mod prompt_tests;
+#[cfg(test)]
+mod refusal_tests;
 #[cfg(test)]
 mod scope_and_keys_tests;
 #[cfg(test)]

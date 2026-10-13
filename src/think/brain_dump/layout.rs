@@ -5,25 +5,47 @@
 use super::*;
 use ratatui::style::Modifier;
 
-/// The edit limit notice; the next input clears it, so it never lingers as clutter.
-/// Short enough for one row of the narrowest (80-column) right-hand pane.
+/// The refused edit. Short enough for one row of the narrowest (80-column) right-hand pane.
 pub(super) const LIMIT_TEXT: &str = "Over 4096 bytes; nothing changed.";
-pub(super) const LIMIT_NOTICE: &str = "Over 4096 bytes";
 /// Empty sends need one next step, without a permanent warning on the blank screen.
 pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then F2 sends it.";
-/// Notices drawn on the status row below the writing box. One list, so the later
-/// "reading couldn't be updated" line cannot overwrite a notice that is meant to show.
-const SHOWN_NOTICES: [&str; 9] = [
+/// Notices that report a finished action and stay on the status row until replaced. Other
+/// notices that are not refusals live only under How it works, Last result.
+const RECEIPTS: [&str; 5] = [
     "Copy",
     "Clipboard",
     "Question skipped",
     "Skip undone",
-    "Encoded",
-    "Updated encoded",
     "Added words",
-    LIMIT_NOTICE,
-    EMPTY_SEND_TEXT,
 ];
+/// Rows a refusal may take: every fixed refusal fits in two at the narrowest pane.
+pub(super) const STATUS_ROWS: u16 = 2;
+
+/// The one status line under the writing box: why the last action did nothing, else whether
+/// a reading is coming, else what the last action did. A refusal always wins, so a blocked
+/// key is never silent.
+fn status(app: &BrainDump) -> Option<&str> {
+    let board = app.conversation.board().is_some();
+    if app.screen.refused {
+        Some(&app.notice)
+    } else if app.running() && board {
+        Some("Thinking…")
+    } else if RECEIPTS.iter().any(|p| app.notice.starts_with(p)) {
+        Some(&app.notice)
+    } else if !app.running()
+        && !app.conversation.caught_up()
+        && board
+        && app.conversation.scope_pending().is_none()
+    {
+        Some(if app.shaping.ready.is_some() {
+            "Reply ready."
+        } else {
+            "Reading couldn't be updated."
+        })
+    } else {
+        None
+    }
+}
 
 pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let area = frame.area();
@@ -56,8 +78,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
         app.screen.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
-        if app.notice.starts_with(LIMIT_NOTICE) || app.notice == EMPTY_SEND_TEXT {
-            // Show only a refused edit/send, never the initial status as permanent clutter.
+        if app.screen.refused {
+            // Show only a refusal, never the initial status as permanent clutter.
             frame.render_widget(
                 Paragraph::new(app.notice.as_str()).style(palette.muted),
                 Rect::new(4, area.height - 3, width, 1),
@@ -236,15 +258,18 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     app.screen.input_area = input.inner(rows[2]);
     frame.render_widget(input, rows[2]);
     render_input(frame, app, palette);
-    if SHOWN_NOTICES.iter().any(|p| app.notice.starts_with(p)) {
-        frame.render_widget(
-            Paragraph::new(app.notice.as_str())
-                .style(palette.muted)
-                .wrap(Wrap { trim: false }),
-            Rect::new(rows[3].x, rows[3].y + 1, rows[3].width, 1),
-        );
-    }
-    if let Some(bytes) = app.encoded_bytes().filter(|b| *b >= 28 * 1024) {
+    // A one-row status keeps its old row; a longer refusal takes both rows of the status area.
+    let status = status(app).map(|text| {
+        let p = Paragraph::new(text)
+            .style(palette.muted)
+            .wrap(Wrap { trim: false });
+        let lines = (p.line_count(rows[3].width) as u16).clamp(1, STATUS_ROWS);
+        (p, lines)
+    });
+    if let Some(bytes) = app
+        .encoded_bytes()
+        .filter(|b| *b >= 28 * 1024 && status.as_ref().is_none_or(|(_, n)| *n < STATUS_ROWS))
+    {
         let offset = if app.screen.goal_button.width > 0 {
             14
         } else {
@@ -260,27 +285,10 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             ),
         );
     }
-    if app.running() && app.conversation.board().is_some() && !app.notice.starts_with(LIMIT_NOTICE)
-    {
+    if let Some((p, lines)) = status {
         frame.render_widget(
-            Paragraph::new("Thinking…").style(palette.muted),
-            Rect::new(rows[3].x, rows[3].y + 1, rows[3].width, 1),
-        );
-    }
-    if !app.running()
-        && !app.conversation.caught_up()
-        && app.conversation.board().is_some()
-        && app.conversation.scope_pending().is_none()
-        && !SHOWN_NOTICES.iter().any(|p| app.notice.starts_with(p))
-    {
-        frame.render_widget(
-            Paragraph::new(if app.shaping.ready.is_some() {
-                "Reply ready."
-            } else {
-                "Reading couldn't be updated."
-            })
-            .style(palette.muted),
-            Rect::new(rows[3].x, rows[3].y + 1, rows[3].width, 1),
+            p,
+            Rect::new(rows[3].x, rows[3].bottom() - lines, rows[3].width, lines),
         );
     }
 }
