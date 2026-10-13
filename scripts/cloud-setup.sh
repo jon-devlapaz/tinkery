@@ -2,7 +2,7 @@
 set -euo pipefail
 
 fail() { printf 'cloud setup: %s\n' "$*" >&2; exit 1; }
-[[ $(uname -s) == Linux ]] || fail 'Linux only; provision macOS prerequisites manually (see CLAUDE.md).'
+[[ $(uname -s) == Linux ]] || fail 'Linux only; provision macOS prerequisites manually (see AGENTS.md).'
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 fixture="$repo/.ci-seed-me"
 remote=https://github.com/jon-devlapaz/seed-me.git
@@ -80,7 +80,7 @@ if '__pycache__/' not in path.read_text().splitlines():
         file.write('\n__pycache__/\n')
 PY
 
-printf '\nSetup complete. Set these in your current shell, then run the CLAUDE.md verification block:\n'
+printf '\nSetup complete. Set these in your current shell, then run the AGENTS.md verification block:\n'
 printf 'export PATH=%q:"$PATH"\n' "${CARGO_HOME:-$HOME/.cargo}/bin:$tools/node/bin"
 printf 'export SEED_ME_TEST_SKILL=%q\n' "$fixture/skills/seed-me/SKILL.md"
 printf 'export TINKERY_NODE=/tinkery-TEST-no-node\n'

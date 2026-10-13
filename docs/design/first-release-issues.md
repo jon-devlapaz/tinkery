@@ -7,8 +7,8 @@ keep dependencies current.
 
 ## Rules shared by every draft
 
-Every draft inherits the [guardrails](../../CLAUDE.md#guardrails) and
-[work intake](../../CLAUDE.md#work-intake). In addition:
+Every draft inherits the [guardrails](../../AGENTS.md#guardrails) and
+[work intake](../../AGENTS.md#work-intake). In addition:
 
 - Start from the verified dependency revision, and name the issue and its
   dependencies in the PR.

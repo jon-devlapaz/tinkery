@@ -22,8 +22,9 @@ def tracked_files():
 
 TRACKED = tracked_files()
 TRACKED_DIRS = {str(parent) for path in TRACKED for parent in Path(path).parents} - {"."}
-# Vendored upstream docs and test fixtures are not ours to steer agents with.
-DOCS = sorted(path for path in TRACKED if path.endswith(".md")
+# Vendored upstream docs and test fixtures are not ours to steer agents with;
+# CLAUDE.md only imports the entry point.
+DOCS = sorted(path for path in TRACKED if path.endswith(".md") and path != "CLAUDE.md"
               and not path.startswith(("vendor/", "tests/fixtures/")))
 FENCE = re.compile(r"^(```|~~~).*?^\1", re.M | re.S)
 LINK = re.compile(r"\]\(([^)\s]+)\)|^\[[^\]]+\]:\s*(\S+)", re.M)
@@ -57,6 +58,10 @@ def relative_links(path):
 
 class DocumentationLintTests(unittest.TestCase):
     """Deterministic checks that every agent-facing page points at things that exist."""
+
+    def test_one_guide_serves_every_harness(self):
+        self.assertEqual("@AGENTS.md\n", (REPO / "CLAUDE.md").read_text(),
+                         f"Agent guidance lives in {ENTRY}; CLAUDE.md only imports it")
 
     def test_links_reach_tracked_files_and_headings(self):
         problems = []
@@ -111,7 +116,7 @@ class DocumentationLintTests(unittest.TestCase):
 
 class DocumentationTests(unittest.TestCase):
     def test_ci_can_extract_one_valid_verification_block(self):
-        source = (REPO / "CLAUDE.md").read_text()
+        source = (REPO / "AGENTS.md").read_text()
         for marker in ("<!-- full-check:start -->", "<!-- full-check:end -->"):
             self.assertEqual(source.count(marker), 1)
         section = source.split("<!-- full-check:start -->", 1)[1].split(
