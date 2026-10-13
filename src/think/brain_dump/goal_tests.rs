@@ -114,7 +114,7 @@ fn receipt_copy_is_exact_and_shape_is_an_explicit_request() {
             .last()
             .unwrap()
             .trim(),
-        "c copy prompt   s open in shape   10 menu"
+        "c copy prompt   s open in shape   F10 menu"
     );
     let expected = "Use the seed-me skill at \"/TEST/seed-me/SKILL.md\" to continue the existing Seed Me session at \"/tmp/TEST-receipt/session\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.";
     key(&mut a, KeyCode::Char('c'));
@@ -206,7 +206,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     amend_board(&mut a, |g| g.questions.clear());
     let text = snapshot(100, 30, &mut a, false).unwrap();
     assert!(text.contains("Nothing I'm unsure about."));
-    assert!(text.contains("3 review"));
+    assert!(text.contains("F3 review"));
     assert!(a.handoff.receipt.is_none());
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();

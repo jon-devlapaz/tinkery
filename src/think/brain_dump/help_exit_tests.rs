@@ -16,7 +16,7 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     let now = layout::help_text(&a);
     assert_eq!(
         now,
-        "Right now\nType anything, in any order.\nF2 sends it.\n\nF1 every key · Esc close"
+        "Right now\nType, then F2 sends it.\n\nF1 every key · Esc close"
     );
     a.screen.help = true;
     a.screen.help_all = true;

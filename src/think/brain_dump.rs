@@ -695,41 +695,18 @@ impl BrainDump {
             }
             return;
         }
+        if help_view::handle_key(self, key) {
+            return;
+        }
         if self.handoff.receipt.is_some() {
             if key.kind == KeyEventKind::Repeat || !key.modifiers.is_empty() {
                 return;
             }
             if key.code == KeyCode::F(1) {
-                if self.screen.help && !self.screen.help_all && !self.screen.how {
-                    self.screen.help_all = true;
-                } else {
-                    self.screen.help = !self.screen.help;
-                    self.screen.help_all = false;
-                }
+                self.screen.help = true;
+                self.screen.help_all = false;
                 self.screen.how = false;
                 self.screen.original_scroll = 0;
-            } else if self.screen.help {
-                match key.code {
-                    KeyCode::Char('h') => {
-                        self.screen.how = !self.screen.how;
-                        self.screen.original_scroll = 0;
-                    }
-                    KeyCode::Esc if self.screen.how => {
-                        self.screen.how = false;
-                        self.screen.original_scroll = 0;
-                    }
-                    KeyCode::Esc => {
-                        self.screen.help = false;
-                        self.screen.help_all = false;
-                    }
-                    KeyCode::PageDown | KeyCode::Down => {
-                        self.screen.original_scroll = self.screen.original_scroll.saturating_add(5)
-                    }
-                    KeyCode::PageUp | KeyCode::Up => {
-                        self.screen.original_scroll = self.screen.original_scroll.saturating_sub(5)
-                    }
-                    _ => {}
-                }
             } else {
                 self.goal_key(key);
             }
@@ -819,13 +796,8 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::F(1) {
-            // F1 cycles: what to do now → every action → closed.
-            if self.screen.help && !self.screen.help_all && !self.screen.how {
-                self.screen.help_all = true;
-            } else {
-                self.screen.help = !self.screen.help;
-                self.screen.help_all = false;
-            }
+            self.screen.help = true;
+            self.screen.help_all = false;
             self.screen.how = false;
             self.screen.original = false;
             self.screen.details = false;
@@ -865,11 +837,7 @@ impl BrainDump {
             self.notice = "Cancelled; original and previous board retained. F2 retries.".into();
             return;
         }
-        if self.screen.original || self.screen.help || self.screen.details {
-            if self.screen.help && !ctrl && key.code == KeyCode::Char('b') {
-                self.screen.key_bar = !self.screen.key_bar;
-                return;
-            }
+        if self.screen.original || self.screen.details {
             if key.code == KeyCode::Char('h') && !ctrl {
                 self.screen.help = true;
                 self.screen.original = false;
@@ -879,10 +847,6 @@ impl BrainDump {
                 return;
             }
             match key.code {
-                KeyCode::Esc if self.screen.help && self.screen.how => {
-                    self.screen.how = false;
-                    self.screen.original_scroll = 0;
-                }
                 KeyCode::Esc => {
                     self.screen.original = false;
                     self.screen.help = false;
@@ -1318,6 +1282,7 @@ pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     layout::render_header(frame, palette);
     layout::render_key_bar(frame, app, palette);
     voice_input::render_notice(frame, app, palette);
+    help_view::render(frame, app, palette);
     layout::render_leave_prompt(frame, app, palette);
 }
 fn agent_text(text: &str) -> String {
@@ -1560,6 +1525,9 @@ mod goal_tests;
 mod goal_view;
 #[cfg(test)]
 mod help_exit_tests;
+#[cfg(test)]
+mod help_overlay_tests;
+mod help_view;
 mod intact_view;
 #[cfg(test)]
 mod intent_tests;

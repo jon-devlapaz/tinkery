@@ -27,7 +27,11 @@ def journey(w,h):
   def wait(text):await_condition(lambda s:text in s)
   def send(data,text):os.write(master,data);wait(text)
   try:
-   wait("What's on your mind?");send(b'\x1bOP','Type anything');send(b'h','How it works');send(b'\x1bOP',"What's on your mind?")
+   wait("What's on your mind?");send(b'\x1bOP','Type, then F2 sends it.')
+   assert '┌ Right now ' in screen.text() and 'Close help' in screen.text(),screen.text()
+   send(b'\x1bOP','Every key');send(b'\x1b[6~'*30,'key bar')
+   assert '┌ Every key ' in screen.text() and 'Close help' in screen.text() and 'Scroll' in screen.text(),screen.text()
+   send(b'h','How it works');send(b'\x1bOP',"What's on your mind?")
    dump='i am worried that this thing has been overengineered\n'+''.join(f'line-{i:02d} preserves an exact concern and its context.\n' for i in range(36))+'LAST-ORIGINAL-LINE'
    send(b'\x1b[200~'+dump.encode()+b'\x1b[201~','LAST-ORIGINAL-LINE')
    send(b'\x1b[21~','Back to menu and lose this draft? y / n');assert process.poll() is None

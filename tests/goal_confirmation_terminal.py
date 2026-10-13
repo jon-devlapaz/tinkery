@@ -69,7 +69,7 @@ def journey(width,height,home=False,menu_only=False):
    os.write(master,b'\x1b[6~'*30);await_text('remain unresolved?')
    send(b'confirm\r','Saved.');await_text('Next:')
    assert 'Next: shape it into a seed with Seed Me.' in right(),screen.text()
-   assert screen.text().splitlines()[-1].strip()=='c copy prompt   s open in shape   10 menu'
+   assert screen.text().splitlines()[-1].strip()=='c copy prompt   s open in shape   F10 menu'
    assert str(root) not in screen.text() and 'seed not written yet' not in screen.text()
    first_goal=right()
    sessions=list(root.iterdir());assert len(sessions)==1

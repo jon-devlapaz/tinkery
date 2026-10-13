@@ -482,7 +482,11 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
     assert!(!layout::help_text(&a).contains("speak"));
     assert_eq!(
         layout::key_bar_items(&a),
-        vec![("c", "copy prompt"), ("s", "open in shape"), ("10", "menu")]
+        vec![
+            ("c", "copy prompt"),
+            ("s", "open in shape"),
+            ("F10", "menu")
+        ]
     );
 }
 #[test]
@@ -499,6 +503,39 @@ fn active_voice_blocks_readiness_and_review_even_without_typed_text() {
     key(&mut a, KeyCode::Esc);
     assert!(a.goal_ready());
 }
+#[test]
+fn voice_help_keeps_the_alias_and_local_label_visible_and_escape_cancellation() {
+    let (mut a, fake) = attach(BrainDump::default());
+    a.paste("my local draft");
+    key(&mut a, KeyCode::F(1));
+    key(&mut a, KeyCode::F(1));
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        for mono in [false, true] {
+            a.screen.original_scroll = 0;
+            let view = snapshot(w, h, &mut a, mono).unwrap();
+            assert!(
+                view.contains("Ctrl+Alt+Z") && view.contains("speak (local)"),
+                "{view}"
+            );
+        }
+    }
+    key(&mut a, KeyCode::F(6));
+    assert!(fake.borrow().commands.is_empty());
+    key(&mut a, KeyCode::Esc);
+    start(&mut a, &fake);
+    key(&mut a, KeyCode::F(1));
+    assert!(
+        snapshot(80, 24, &mut a, true)
+            .unwrap()
+            .contains("Cancel voice")
+    );
+    key(&mut a, KeyCode::Esc);
+    assert!(!a.voice_active() && a.screen.help && !a.running());
+    assert_eq!(a.input.text, "my local draft");
+    key(&mut a, KeyCode::Esc);
+    assert!(!a.screen.help);
+}
+
 #[test]
 fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
     let mut a = BrainDump::default();

@@ -14,6 +14,10 @@ reversion probes.
 Known gaps found while building, smaller than a proposal. Each still needs an
 approved issue before work starts.
 
+- **Some think refusals are hidden.** Messages outside the shown-notice list in
+  `src/think/brain_dump/layout.rs` only appear under How it works → Last result.
+  Give those refusals an appropriate visible route in a separately approved slice;
+  this is outside #56's help-overlay scope.
 - **"Like X" lines stop think early.** The review can leave a line that points at
   something by example as its first reading. See the
   known gap under [shipped experience](think.md#shipped-experience).
