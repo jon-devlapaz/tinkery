@@ -18,34 +18,7 @@ impl PiHost {
         cancelled: &AtomicBool,
         changes: &mut Vec<String>,
     ) -> Option<String> {
-        let reading = reading::read(raw, &mut vec![]).ok()?;
-        let draft = reading.get("parts").cloned().unwrap_or_default();
-        let decisions = reading
-            .get("decisions")
-            .cloned()
-            .unwrap_or_else(|| serde_json::json!([]));
-        let text_of = |id: usize| {
-            request
-                .sources
-                .iter()
-                .find(|s| s.id == id)
-                .map(|s| s.text.clone())
-        };
-        let answered: Vec<_> = request
-            .settled
-            .iter()
-            .map(|s| serde_json::json!({"question": s.question.text, "answer": text_of(s.source)}))
-            .collect();
-        let words: Vec<_> = request
-            .sources
-            .iter()
-            .filter(|s| !request.settled.iter().any(|a| a.source == s.id))
-            .map(|s| s.text.clone())
-            .collect();
-        let input = serde_json::to_vec(&serde_json::json!({
-            "kind": "decision-review", "words": words, "answers": answered, "draft": draft, "decisions": decisions
-        }))
-        .ok()?;
+        let input = input(request, raw)?;
         match self.complete(input, reading::assemble(PROMPT), cancelled) {
             Ok(review) => merge(raw, &review, changes),
             Err(e) => {
@@ -56,12 +29,46 @@ impl PiHost {
     }
 }
 
+/// Prepares the decision review's input from a readable shaping reply, before board validation.
+/// Unreadable JSON yields no review; a readable but invalid board is still reviewed.
+/// Contains original words, settled answers, draft parts and shaping decisions, never standing instructions.
+pub fn input(request: &BoardRequest, raw: &str) -> Option<Vec<u8>> {
+    let reading = reading::read(raw, &mut vec![]).ok()?;
+    let draft = reading.get("parts").cloned().unwrap_or_default();
+    let decisions = reading
+        .get("decisions")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    let text_of = |id: usize| {
+        request
+            .sources
+            .iter()
+            .find(|s| s.id == id)
+            .map(|s| s.text.clone())
+    };
+    let answered: Vec<_> = request
+        .settled
+        .iter()
+        .map(|s| serde_json::json!({"question": s.question.text, "answer": text_of(s.source)}))
+        .collect();
+    let words: Vec<_> = request
+        .sources
+        .iter()
+        .filter(|s| !request.settled.iter().any(|a| a.source == s.id))
+        .map(|s| s.text.clone())
+        .collect();
+    serde_json::to_vec(&serde_json::json!({
+        "kind": "decision-review", "words": words, "answers": answered, "draft": draft, "decisions": decisions
+    }))
+    .ok()
+}
+
 /// Merges a review into a reading's raw reply. Only explicitly covered shaping choices are
 /// replaced; all others remain, including different choices about the same goal part. Once
 /// required parts are present, its top question is asked first. Board validation still applies
 /// (ask counts, skips, duplicates), so a dropped review question falls back to the reading's own.
 /// An empty or unreadable review returns `None`, leaving the reading as it was.
-pub(super) fn merge(raw: &str, review: &str, changes: &mut Vec<String>) -> Option<String> {
+pub fn merge(raw: &str, review: &str, changes: &mut Vec<String>) -> Option<String> {
     let mut board = reading::read(raw, &mut vec![]).ok()?;
     let review = match reading::read(review, &mut vec![]) {
         Ok(v) => v,

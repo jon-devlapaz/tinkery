@@ -23,3 +23,7 @@ syn = { version = "2", features = ["full", "visit"] }
 members = ["vendor/pinstar"]
 default-members = ["."]
 resolver = "3"
+
+[[example]]
+name = "fake_think_eval"
+test = true

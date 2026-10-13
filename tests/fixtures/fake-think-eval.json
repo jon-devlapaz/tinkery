@@ -1,0 +1,39 @@
+{
+  "provenance": {
+    "kind": "synthetic_test_data",
+    "description": "TEST fixture authored for #62; not operator words or a model-quality result."
+  },
+  "steps": [
+    {
+      "action": "send",
+      "text": "TEST readers want to find saved notes because notes get lost. Done means a reader retrieves a saved note. Keep original words. Never delete notes. Leave tags for later."
+    }
+  ],
+  "replies": [
+    {
+      "kind": "shaping",
+      "text": "{\"parts\":{\"who\":\"TEST readers\",\"outcome\":\"find saved notes\",\"why\":\"notes get lost\",\"done_when\":\"a reader retrieves a saved note\",\"must\":[\"keep original words\"],\"must_not\":[\"delete notes\"]},\"deferred\":[\"TEST tags later\"]}"
+    },
+    {
+      "kind": "decision_review",
+      "text": "{\"decisions\":[]}"
+    }
+  ],
+  "expected": {
+    "actor_outcome": {
+      "who": "TEST readers",
+      "outcome": "find saved notes"
+    },
+    "constraints": {
+      "must": ["keep original words"],
+      "must_not": ["delete notes"]
+    },
+    "unresolved_deferred": {
+      "open": [],
+      "questions": [],
+      "notes": [],
+      "deferred": ["TEST tags later"],
+      "other_goals": []
+    }
+  }
+}
