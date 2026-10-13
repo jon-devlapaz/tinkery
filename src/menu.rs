@@ -26,30 +26,26 @@ use ratatui::{
 
 /// Name, one-line purpose, and whether the place exists yet.
 pub const PLACES: [(&str, &str, bool); 6] = [
-    (
-        "think",
-        "Brain-dump something and shape it into a goal you can confirm.",
-        true,
-    ),
+    ("think", "Make your intention a clear goal.", true),
     (
         "shape",
-        "Your Seed Me sessions: confirmed goals and seeds in progress.",
+        "Choose a saved goal and copy a prompt to continue.",
         true,
     ),
     (
         "approve",
-        "Approve a sequence of slices once. Not built yet.",
+        "Decide whether the plan is ready. Not built yet.",
         false,
     ),
-    ("watch", "What is running now. Not built yet.", false),
+    ("watch", "Follow the work’s progress. Not built yet.", false),
     (
         "taste",
-        "What is waiting for your review. Not built yet.",
+        "Decide whether the result meets your goal. Not built yet.",
         false,
     ),
     (
         "measure",
-        "The ledger: useful changes per hour of your attention.",
+        "See recorded work and attention, when available.",
         true,
     ),
 ];
@@ -537,10 +533,10 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                 } else {
                     palette.muted
                 };
-                let mut spans = vec![Span::styled(format!("     {}  {name}", i + 1), style)];
+                let mut spans = vec![Span::styled(format!("{}  {name}", i + 1), style)];
                 if let Some(count) = home.count(i) {
                     spans.push(Span::styled(
-                        format!("{:>width$}", count, width = 30 - name.len()),
+                        format!("{:>width$}", count, width = 15 - name.len()),
                         palette.muted,
                     ));
                 }
@@ -555,10 +551,22 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                 .map(|r| r.lines().next().unwrap_or("").to_string());
             let line = note.unwrap_or_else(|| PLACES[home.selected].1.to_string());
             frame.render_widget(
-                Paragraph::new(line)
-                    .style(palette.muted)
-                    .alignment(ratatui::layout::Alignment::Center),
-                Rect::new(0, area.height.saturating_sub(2), area.width, 1),
+                Paragraph::new(line).style(palette.muted),
+                Rect::new(
+                    5,
+                    FIRST_ROW + PLACES.len() as u16 * ROW_GAP + 1,
+                    area.width.saturating_sub(7),
+                    1,
+                ),
+            );
+            frame.render_widget(
+                Paragraph::new("↑↓ move   enter open   ? help   q quit").style(palette.muted),
+                Rect::new(
+                    2,
+                    area.height.saturating_sub(2),
+                    area.width.saturating_sub(4),
+                    1,
+                ),
             );
         }
         View::Shape(shape) => shape::render(frame, shape, body, palette),
@@ -661,6 +669,104 @@ mod tests {
         assert!(screen.contains("tinkery"));
         assert_eq!(h.count(1), Some("1".into()));
         assert_eq!(h.count(0), None);
+    }
+
+    #[test]
+    fn home_key_bar_shows_only_immediate_controls_without_replacing_the_description() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bar = "↑↓ move   enter open   ? help   q quit";
+        for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            for no_color in [false, true] {
+                let mut h = home(tmp.path());
+                let screen = snapshot(width, height, &mut h, no_color).unwrap();
+                assert_eq!(screen.lines().last().unwrap().trim(), bar, "{screen}");
+                assert_eq!(screen.matches(bar).count(), 1);
+                assert_eq!(
+                    screen.lines().nth(17).unwrap(),
+                    format!("     {}", PLACES[0].1)
+                );
+                h.handle_key(key(KeyCode::Down));
+                let screen = snapshot(width, height, &mut h, no_color).unwrap();
+                assert_eq!(
+                    screen.lines().nth(17).unwrap(),
+                    format!("     {}", PLACES[1].1)
+                );
+                assert!(screen.lines().nth(height as usize - 3).unwrap().is_empty());
+                assert_eq!(screen.lines().last().unwrap().trim(), bar);
+                h.handle_key(key(KeyCode::F(1)));
+                assert!(
+                    !snapshot(width, height, &mut h, no_color)
+                        .unwrap()
+                        .contains(bar)
+                );
+                h.handle_key(key(KeyCode::Esc));
+                h.handle_key(key(KeyCode::Char('3')));
+                assert!(
+                    !snapshot(width, height, &mut h, no_color)
+                        .unwrap()
+                        .contains(bar)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn menu_descriptions_distinguish_outputs_without_granting_permission() {
+        let tmp = tempfile::tempdir().unwrap();
+        let descriptions = [
+            "Make your intention a clear goal.",
+            "Choose a saved goal and copy a prompt to continue.",
+            "Decide whether the plan is ready. Not built yet.",
+            "Follow the work’s progress. Not built yet.",
+            "Decide whether the result meets your goal. Not built yet.",
+            "See recorded work and attention, when available.",
+        ];
+        for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            for no_color in [false, true] {
+                let mut h = home(tmp.path());
+                for description in descriptions {
+                    let screen = snapshot(width, height, &mut h, no_color).unwrap();
+                    assert_eq!(screen.lines().nth(17).unwrap().trim(), description);
+                    assert_eq!(screen.matches(description).count(), 1);
+                    assert!(matches!(h.view, View::Menu));
+                    assert!(!h.quit && h.take_copy_request().is_none());
+                    h.handle_key(key(KeyCode::Down));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn home_menu_uses_one_grid_and_keeps_the_count_near_its_place() {
+        let tmp = tempfile::tempdir().unwrap();
+        for i in 0..10 {
+            session(
+                tmp.path(),
+                &format!("s{i}"),
+                "active",
+                "2026-10-09T10:00:00Z",
+                None,
+            );
+        }
+        let mut h = home(tmp.path());
+        settle(&mut h);
+        for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            for no_color in [false, true] {
+                let screen = snapshot(width, height, &mut h, no_color).unwrap();
+                let rows: Vec<_> = screen.split('\n').collect();
+                assert_eq!(rows[1].find("tinkery"), Some(2));
+                assert_eq!(rows[4], "  1  think");
+                assert_eq!(rows[6], "  2  shape        10");
+                assert_eq!(rows[14], "  6  measure");
+                assert!(rows[15].is_empty() && rows[16].is_empty());
+                assert_eq!(rows[17], format!("     {}", PLACES[0].1));
+                assert_eq!(rows[height as usize - 2].find('↑'), Some(2));
+                assert!(
+                    rows[height as usize - 1].is_empty(),
+                    "footer needs a blank row below"
+                );
+            }
+        }
     }
 
     #[test]

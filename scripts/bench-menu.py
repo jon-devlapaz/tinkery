@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from vt_screen import Screen  # noqa: E402
 
 PLACES = ['think', 'shape', 'approve', 'watch', 'taste', 'measure']
-SHAPE_LINE = 'Your Seed Me sessions'
+SHAPE_LINE = 'Choose a saved goal and copy a prompt to continue.'
 WIDTH, HEIGHT = 100, 30
 
 
