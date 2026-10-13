@@ -21,7 +21,7 @@ use ratatui::{
     Frame,
     layout::Rect,
     text::{Line, Span},
-    widgets::{Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, Padding, Paragraph, Wrap},
 };
 
 /// Name, one-line purpose, and whether the place exists yet.
@@ -370,6 +370,12 @@ impl Home {
             self.help = false;
             return;
         }
+        if self.help && matches!(self.view, View::Menu) {
+            if key.code == KeyCode::Char('q') {
+                self.quit = true;
+            }
+            return;
+        }
         match &mut self.view {
             View::Menu => match key.code {
                 KeyCode::Char(c @ '1'..='6') => self.open(c as usize - '1' as usize),
@@ -447,6 +453,9 @@ impl Home {
             self.help = !self.help;
             return;
         }
+        if self.help {
+            return;
+        }
         if let Some(index) =
             (0..PLACES.len()).find(|i| event.row == FIRST_ROW + *i as u16 * ROW_GAP)
         {
@@ -498,7 +507,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         area.width.saturating_sub(4),
         area.height.saturating_sub(4),
     );
-    if home.help {
+    if home.help && !matches!(home.view, View::Menu) {
         if let View::Shape(shape) = &mut home.view {
             let p = Paragraph::new(shape.help_text(home.seed_me.as_deref()))
                 .wrap(Wrap { trim: false })
@@ -559,15 +568,19 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                     1,
                 ),
             );
-            frame.render_widget(
-                Paragraph::new("↑↓ move   enter open   ? help   q quit").style(palette.muted),
-                Rect::new(
-                    2,
-                    area.height.saturating_sub(2),
-                    area.width.saturating_sub(4),
-                    1,
-                ),
-            );
+            if home.help {
+                render_menu_help(frame, palette);
+            } else {
+                frame.render_widget(
+                    Paragraph::new("↑↓ move   enter open   ? help   q quit").style(palette.muted),
+                    Rect::new(
+                        2,
+                        area.height.saturating_sub(2),
+                        area.width.saturating_sub(4),
+                        1,
+                    ),
+                );
+            }
         }
         View::Shape(shape) => shape::render(frame, shape, body, palette),
         View::Measure(reading) => frame.render_widget(
@@ -583,6 +596,38 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         ),
         View::Think(_) => {}
     }
+}
+
+fn render_menu_help(frame: &mut Frame, palette: Palette) {
+    let area = frame.area();
+    let width = 38.min(area.width.saturating_sub(4));
+    let panel = Rect::new(area.width.saturating_sub(width + 2), 3, width, 13).intersection(area);
+    let action = |key: &str, label: &str| {
+        Line::from(vec![
+            Span::styled(format!("{key:<8}"), palette.ink.bold()),
+            Span::styled(label.to_owned(), palette.muted),
+        ])
+    };
+    let lines = vec![
+        Line::default(),
+        Line::styled("Move around", palette.ink.bold()),
+        Line::default(),
+        action("↑ ↓", "Choose a place"),
+        action("Enter", "Open it"),
+        action("1–6", "Open directly"),
+        Line::default(),
+        action("q", "Quit Tinkery"),
+        Line::default(),
+        Line::default(),
+        action("Esc", "Close help"),
+    ];
+    let block = Block::default()
+        .title(Span::styled(" Help ", palette.jade))
+        .borders(Borders::ALL)
+        .border_style(palette.muted)
+        .padding(Padding::new(1, 1, 0, 0));
+    frame.render_widget(Clear, panel);
+    frame.render_widget(Paragraph::new(lines).style(palette.ink).block(block), panel);
 }
 
 /// The screen as plain text at `width`×`height`, for `--snapshot` and tests. No terminal mode,
@@ -707,6 +752,134 @@ mod tests {
                         .contains(bar)
                 );
             }
+        }
+    }
+
+    #[test]
+    fn menu_help_is_a_bounded_overlay_with_the_menu_still_visible() {
+        let tmp = tempfile::tempdir().unwrap();
+        for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            for no_color in [false, true] {
+                let mut h = home(tmp.path());
+                h.handle_key(key(KeyCode::F(1)));
+                let screen = snapshot(width, height, &mut h, no_color).unwrap();
+                let rows: Vec<_> = screen.split('\n').collect();
+                for (index, (name, _, _)) in PLACES.iter().enumerate() {
+                    assert!(rows[4 + index * 2].starts_with(&format!("  {}  {name}", index + 1)));
+                }
+                assert_eq!(rows[17], format!("     {}", PLACES[0].1));
+                assert!(screen.contains("Choose a place") && screen.contains("Esc     Close help"));
+                let panel_content = |row: &str| {
+                    row.chars()
+                        .skip(width as usize - 38)
+                        .take(34)
+                        .collect::<String>()
+                };
+                assert!(panel_content(rows[4]).trim().is_empty());
+                assert!(panel_content(rows[5]).starts_with("Move around"));
+                assert!(!screen.contains("Leave"));
+                assert_eq!(
+                    rows[3].chars().position(|c| c == '┌'),
+                    Some(width as usize - 40)
+                );
+                assert!(rows[15].contains('└'));
+                assert!(rows[16].is_empty());
+                assert!(!screen.contains("↑↓ move   enter open"));
+                assert!(!screen.contains("Inside think"));
+                h.handle_key(key(KeyCode::Esc));
+                let closed = snapshot(width, height, &mut h, no_color).unwrap();
+                assert!(!closed.contains('┌') && closed.contains("↑↓ move   enter open"));
+            }
+        }
+    }
+
+    #[test]
+    fn menu_help_uses_jade_for_place_bold_keys_and_quiet_labels_and_border() {
+        use ratatui::style::{Color, Modifier};
+        let tmp = tempfile::tempdir().unwrap();
+        for no_color in [false, true] {
+            let mut h = home(tmp.path());
+            h.handle_key(key(KeyCode::F(1)));
+            let palette = Palette::new(no_color);
+            let backend = ratatui::backend::TestBackend::new(100, 30);
+            let mut terminal = ratatui::Terminal::new(backend).unwrap();
+            terminal
+                .draw(|frame| render(frame, &mut h, palette))
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            assert_eq!(buffer[(62, 3)].symbol(), "H");
+            assert_eq!(buffer[(62, 3)].fg, palette.jade.fg.unwrap_or(Color::Reset));
+            assert!(buffer[(62, 3)].modifier.contains(Modifier::BOLD));
+            for (x, y) in [(62, 5), (62, 7), (62, 8), (62, 9), (62, 11), (62, 14)] {
+                assert_eq!(buffer[(x, y)].fg, palette.ink.fg.unwrap_or(Color::Reset));
+                assert!(buffer[(x, y)].modifier.contains(Modifier::BOLD));
+            }
+            for (x, y) in [(70, 7), (70, 8), (70, 9), (70, 11), (70, 14), (60, 6)] {
+                assert_eq!(buffer[(x, y)].fg, palette.muted.fg.unwrap_or(Color::Reset));
+                assert!(!buffer[(x, y)].modifier.contains(Modifier::BOLD));
+                assert_eq!(buffer[(x, y)].modifier.contains(Modifier::DIM), no_color);
+            }
+        }
+    }
+
+    #[test]
+    fn menu_help_blocks_underlying_keys_paste_and_clicks_but_keeps_close_and_quit() {
+        let tmp = tempfile::tempdir().unwrap();
+        for code in [
+            KeyCode::Char('1'),
+            KeyCode::Char('2'),
+            KeyCode::Char('3'),
+            KeyCode::Char('4'),
+            KeyCode::Char('5'),
+            KeyCode::Char('6'),
+            KeyCode::Enter,
+            KeyCode::Down,
+            KeyCode::Up,
+            KeyCode::Char('j'),
+            KeyCode::Char('k'),
+        ] {
+            let mut h = home(tmp.path());
+            h.handle_key(key(KeyCode::F(1)));
+            h.handle_key(key(code));
+            h.paste("1\nq");
+            h.handle_mouse(
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: 5,
+                    row: 6,
+                    modifiers: KeyModifiers::NONE,
+                },
+                Rect::new(0, 0, 80, 24),
+            );
+            assert!(h.help && matches!(h.view, View::Menu) && h.selected == 0 && !h.quit);
+        }
+        for close in [KeyCode::Esc, KeyCode::F(1), KeyCode::Char('?')] {
+            let mut h = home(tmp.path());
+            h.handle_key(key(KeyCode::F(1)));
+            h.handle_key(key(close));
+            assert!(!h.help && matches!(h.view, View::Menu) && !h.quit);
+        }
+        let mut h = home(tmp.path());
+        h.handle_key(key(KeyCode::F(1)));
+        h.handle_mouse(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: 77,
+                row: 1,
+                modifiers: KeyModifiers::NONE,
+            },
+            Rect::new(0, 0, 80, 24),
+        );
+        assert!(!h.help && matches!(h.view, View::Menu));
+        for quit in [
+            key(KeyCode::Char('q')),
+            key(KeyCode::F(10)),
+            KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+        ] {
+            let mut h = home(tmp.path());
+            h.handle_key(key(KeyCode::F(1)));
+            h.handle_key(quit);
+            assert!(h.quit);
         }
     }
 
