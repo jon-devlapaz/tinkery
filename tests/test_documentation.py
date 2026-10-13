@@ -22,10 +22,10 @@ def tracked_files():
 
 TRACKED = tracked_files()
 TRACKED_DIRS = {str(parent) for path in TRACKED for parent in Path(path).parents} - {"."}
-# Vendored upstream docs and test fixtures are not ours to steer agents with;
-# CLAUDE.md only imports the entry point and names the skills folder.
+# Vendored upstream docs, upstream skills and test fixtures are not ours to steer
+# agents with; CLAUDE.md only imports the entry point and names the skills folder.
 DOCS = sorted(path for path in TRACKED if path.endswith(".md") and path != "CLAUDE.md"
-              and not path.startswith(("vendor/", "tests/fixtures/")))
+              and not path.startswith(("vendor/", ".agents/skills/", "tests/fixtures/")))
 FENCE = re.compile(r"^(```|~~~).*?^\1", re.M | re.S)
 LINK = re.compile(r"\]\(([^)\s]+)\)|^\[[^\]]+\]:\s*(\S+)", re.M)
 
@@ -118,6 +118,15 @@ class DocumentationLintTests(unittest.TestCase):
 
 
 class DocumentationTests(unittest.TestCase):
+    def test_retro_loads_its_style_guide_without_a_harness_specific_tool(self):
+        skill = ".agents/skills/retro/SKILL.md"
+        first_step = re.search(r"^1\. (.+)$", (REPO / skill).read_text(), re.M).group(1)
+        self.assertTrue(first_step.startswith("Read [writing-for-agents]"), first_step)
+        links = list(relative_links(skill))
+        self.assertIn(("../writing-for-agents/SKILL.md",
+                       ".agents/skills/writing-for-agents/SKILL.md", ""), links)
+        self.assertIn(".agents/skills/writing-for-agents/SKILL.md", TRACKED)
+
     def test_ci_can_extract_one_valid_verification_block(self):
         source = (REPO / "AGENTS.md").read_text()
         for marker in ("<!-- full-check:start -->", "<!-- full-check:end -->"):
