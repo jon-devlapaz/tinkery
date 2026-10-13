@@ -1,0 +1,35 @@
+{
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "low",
+  "origin": "AI-authored live evaluation, not human recognition",
+  "source": "I want Tinkery operators to catch unclear references before a goal looks ready because the design notes describe a prior failure. Keep original words verbatim. This is AI-operator dogfood; I have not reproduced that historical failure in this run. I have not decided what evidence should count as success: a simulated test or a live trial.",
+  "verified_projection": {
+    "parts": {
+      "who": "Tinkery operators",
+      "outcome": "catch unclear references before a goal looks ready",
+      "when": null,
+      "why": "the design notes describe a prior failure",
+      "done_when": null,
+      "must": [
+        "Keep original words verbatim."
+      ],
+      "must_not": []
+    },
+    "open": [
+      "done_when"
+    ],
+    "questions": [
+      {
+        "target": "done_when",
+        "id": "model-92ed0bbb7a172115",
+        "text": "Should a simulated test or a live trial count as success?"
+      }
+    ],
+    "unresolved_notes": [
+      "Open decision: What evidence should count as success? (A simulated test / A live trial)",
+      "Open decision: Decide whether a simulated test or a live trial counts as success. (A simulated test counts as success. / A live trial is required for success.)"
+    ],
+    "other_goals": [],
+    "deferred": []
+  }
+}

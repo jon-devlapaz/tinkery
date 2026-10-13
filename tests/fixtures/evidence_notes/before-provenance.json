@@ -1,0 +1,34 @@
+{
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "low",
+  "origin": "AI-authored live evaluation, not human recognition",
+  "source": "I want Tinkery operators to catch unclear references before a goal looks ready. The design notes describe a live trial where a phrase like the eval stuff we just ran could point to two different sources, and the reading kept the wrong one. I want one focused question when choosing between plausible sources would change the work, while clear references should need no extra question. Done means approved examples with competing sources stay open until the operator chooses, clear examples still stop without another question, and the chosen source survives review, saving and handoff. Keep original words verbatim. Do not ask the operator things the repo can answer, invent a source, launch implementation, or change Seed Me. This is an AI-operator dogfood goal; I have not reproduced that historical failure in this run.",
+  "verified_projection": {
+    "parts": {
+      "who": "Tinkery operators",
+      "outcome": "catch unclear references before a goal looks ready",
+      "when": null,
+      "why": "The design notes describe a live trial where a phrase like the eval stuff we just ran could point to two different sources, and the reading kept the wrong one.",
+      "done_when": "approved examples with competing sources stay open until the operator chooses, clear examples still stop without another question, and the chosen source survives review, saving and handoff",
+      "must": [
+        "Ask one focused question when choosing between plausible sources would change the work.",
+        "Clear references should need no extra question.",
+        "Keep original words verbatim.",
+        "This is an AI-operator dogfood goal."
+      ],
+      "must_not": [
+        "Ask the operator things the repo can answer.",
+        "Invent a source.",
+        "Launch implementation.",
+        "Change Seed Me."
+      ]
+    },
+    "open": [],
+    "questions": [],
+    "unresolved_notes": [
+      "I have not reproduced that historical failure in this run."
+    ],
+    "other_goals": [],
+    "deferred": []
+  }
+}

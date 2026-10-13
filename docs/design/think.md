@@ -34,7 +34,11 @@ have built from the wrong source. The "anything to add or change?" box corrects 
 in one line. A candidate fix is a final check for such lines before "Nothing I'm
 unsure about"; it is not built or measured yet.
 Questions stop when no decision is left. Unresolved notes carry only open intent,
-never status disclaimers. Answers
+never status disclaimers. Statements about who produced evidence, which tests ran,
+or a historical failure not reproduced stay in the intact originals. The reading
+prompt does not turn that context into goal requirements or unfinished intent;
+explicit requirements and undecided success checks or permission boundaries still
+belong in the goal or its open questions. Answers
 and added dumps remain distinct exact sources. Sending refines the reading;
 refining a ready reading does not start a new dump. Skipped questions stay skipped;
 Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other's
@@ -129,6 +133,10 @@ Think never reads a record back. The record is not a ledger: that word is Seed M
   Dictation never deletes a selection. Ctrl-C copies the active
   surface's nonempty selection; otherwise it cancels a running request or does
   nothing. It never leaves think. F4 (the reader) and F6 (voice) are separate.
+- When there is nothing to send or retry, F2 shows “Write something, then F2
+  sends it.” on the normal screen, both before a first reading and while refining
+  one. It sends no request and saves nothing. The next input clears the notice;
+  the empty screen has no permanent warning.
 - F10 is guarded when leaving loses unsaved work, and returns to the menu.
 - F4 originals and F5 why are help-only, not permanent bar clutter.
 - Local dictation inserts editable text, never auto-sends; see [voice](voice.md).
@@ -141,3 +149,27 @@ Think never reads a record back. The record is not a ledger: that word is Seed M
 and send aliases, per-sentence evidence on demand, multiple-choice answers,
 scratch-space research and an operator-supplied eval harness. None is shipped.
 Extracted-card shortcuts remain in technical help.
+
+## Evidence-note regression check (#58)
+
+AI-operator dogfood on 2026-10-12 put “I have not reproduced that historical
+failure in this run” under Still open. A bounded replay through
+`openai-codex/gpt-6.1-sol` with low thinking reproduced it with the old reading
+prompt. The revised prompt distinguishes statements about the evidence from
+requirements and choices about the work, without a keyword filter in the decoder.
+The decision-review prompt and the two-call send contract are unchanged.
+
+| Supplied dump | Observed reading |
+| --- | --- |
+| Same dogfood dump, old prompt | Evidence note stayed unresolved; no focused question |
+| Same dump, revised prompt | No unresolved note or question; evidence text remained verbatim in the original |
+| Evidence note plus undecided simulated-test/live-trial success check | Asked which evidence counts as success; Done when remained missing |
+| Evidence note plus undecided permission to show private text | Asked about the private-text boundary; Must not remained open |
+
+Four sends made eight provider calls through the subscription connection, within
+the operator's authorized budget. No goal was confirmed or saved by this eval.
+These are three revised-prompt examples and one baseline, not a general quality
+rate or a human-recognition result. The small captured projections in
+`tests/fixtures/evidence_notes/` exercise readiness, review and exact original
+handoff with no calls. The prompt byte test guards the deliberate instruction
+change; those replay tests alone do not establish future model behavior.

@@ -13,11 +13,14 @@ pub(super) fn parts() -> GoalParts {
     }
 }
 pub(super) fn app(raw: serde_json::Value) -> BrainDump {
+    app_with_source(raw, "An intact original")
+}
+fn app_with_source(raw: serde_json::Value, source: &str) -> BrainDump {
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
     a.conversation.sources_mut().push(Source {
         id: 1,
-        text: "An intact original".into(),
+        text: source.into(),
         in_reply_to: None,
     });
     a.conversation.set_applied(1);
@@ -435,4 +438,60 @@ fn model_cannot_impersonate_owned_goal_refinement_history() {
         )
         .is_err()
     );
+}
+
+// These are projections of live verified readings, not fake-provider quality claims.
+// The prompt byte test guards the instructions; the bounded live eval guards their meaning.
+#[test]
+fn captured_evidence_context_stays_in_originals_and_real_choices_stay_open() {
+    for (fixture, ready, question_part) in [
+        (
+            include_str!("../../../tests/fixtures/evidence_notes/before-provenance.json"),
+            false,
+            None,
+        ),
+        (
+            include_str!("../../../tests/fixtures/evidence_notes/provenance.json"),
+            true,
+            None,
+        ),
+        (
+            include_str!("../../../tests/fixtures/evidence_notes/missing-check.json"),
+            false,
+            Some(Part::DoneWhen),
+        ),
+        (
+            include_str!("../../../tests/fixtures/evidence_notes/boundary.json"),
+            false,
+            Some(Part::MustNot),
+        ),
+    ] {
+        let capture: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let source = capture["source"].as_str().unwrap();
+        let mut a = app_with_source(capture["verified_projection"].clone(), source);
+        assert_eq!(a.goal_ready(), ready);
+        assert_eq!(
+            a.conversation.focused_question().and_then(|q| q.target),
+            question_part
+        );
+        a.review_goal();
+        let review = &a.handoff.review.as_ref().unwrap().affirmation;
+        assert_eq!(review.sources[0].text, source);
+        let saved = review.affirmed();
+        assert_eq!(saved.originals[0].text, source);
+        let context: serde_json::Value = serde_json::from_str(&saved.context).unwrap();
+        if ready {
+            assert!(review.unresolved.is_empty() && review.unresolved_notes.is_empty());
+            assert_eq!(context["unresolved_notes"], serde_json::json!([]));
+            assert!(!review.goal.contains("dogfood") && !review.goal.contains("not reproduced"));
+        } else {
+            assert!(!review.unresolved.is_empty() || !review.unresolved_notes.is_empty());
+            assert!(
+                context["unresolved_notes"]
+                    .as_array()
+                    .is_some_and(|v| !v.is_empty())
+            );
+        }
+        assert!(a.handoff.receipt.is_none() && a.handoff.job.is_none());
+    }
 }

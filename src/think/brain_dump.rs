@@ -522,7 +522,7 @@ impl BrainDump {
             return;
         }
         if self.conversation.caught_up() {
-            self.notice = "Write something before submitting; no request sent.".into();
+            self.notice = layout::EMPTY_SEND_TEXT.into();
             return;
         }
         if let Some((r, result)) = self.shaping.ready.take() {
@@ -611,7 +611,7 @@ impl BrainDump {
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
         self.conversation.forget_changes();
-        self.clear_limit_notice();
+        self.clear_edit_notice();
         if self.screen.leave_prompt
             || self.screen.help
             || self.screen.details
@@ -666,7 +666,7 @@ impl BrainDump {
         if key.kind == KeyEventKind::Release {
             return;
         }
-        self.clear_limit_notice();
+        self.clear_edit_notice();
         let mut ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if matches!(key.code, KeyCode::F(2..=10))
             && (key.kind == KeyEventKind::Repeat
@@ -945,8 +945,8 @@ impl BrainDump {
             _ => {}
         }
     }
-    fn clear_limit_notice(&mut self) {
-        if self.notice.starts_with(layout::LIMIT_NOTICE) {
+    fn clear_edit_notice(&mut self) {
+        if self.notice.starts_with(layout::LIMIT_NOTICE) || self.notice == layout::EMPTY_SEND_TEXT {
             self.notice.clear();
         }
     }
