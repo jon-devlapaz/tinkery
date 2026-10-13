@@ -215,7 +215,8 @@ log=root/'calls.jsonl'
 previous=[json.loads(s) for s in log.read_text().splitlines()] if log.exists() else []
 with log.open('a') as f:f.write(json.dumps(dict(kind=kind,request=r))+'\n')
 if kind=='decision-review':
- assert sorted(r)==['answers','draft','kind','words'] and r['words']==['the restaurateur judges the result']
+ assert sorted(r)==['answers','decisions','draft','kind','words'] and r['words']==['the restaurateur judges the result']
+ assert r['decisions']==[]
  p=sys.argv[sys.argv.index('--system-prompt')+1]
  assert 'how an action is carried out' in p and 'edge cases and overlaps' in p
  assert 'return none unless another decision is as costly' in p

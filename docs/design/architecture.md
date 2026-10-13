@@ -41,10 +41,10 @@ to the dependency rule: think hands a saved goal to shape only through `seed_me`
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and shape (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
 | `think/brain_dump/conversation.rs` | The conversation, turn by turn: words, extracts, reading, the rules for questions, skips, scope and the next request, and the ordered turns the think record keeps. Fields are private; nothing about the screen or jobs. |
-| `think/brain_dump/reading.rs` | The reading's contract with the model: the request, the prompt, the reply's wire shape and its lenient decoder. |
+| `think/brain_dump/reading.rs` | The reading's contract with the model: the request, the prompt, the reply's wire shape (including open choices linked to questions) and its lenient decoder. |
 | `think/brain_dump/review.rs` | The decision review: its prompt, what it sees, and how its decisions join the reading's. |
 | `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
-| `think/brain_dump/host.rs` | Who answers a reading request: Pi (a shaping call, then the review) or the practice simulation. |
+| `think/brain_dump/host.rs` | Who answers a reading request: Pi (a shaping call, then the review) or the practice simulation; a stateful host starts a separate history for each Think visit. |
 | `think/brain_dump/board.rs` | Verifying a decoded reading; a `Board` only exists once verified. |
 | `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | Think's review screen, original pane, dictation input, and where everything goes on screen with help words, key bar and notices. |
@@ -85,3 +85,8 @@ and `brain_dump.rs`'s narrow interface over a large amount of routing.
 
 A check fails when the code gets worse than its limit, and also when it gets better, so the PR that improves it
 lowers the limit too.
+
+The goal-history/review fix (#64) keeps diagnostics 3 and 6 true: hosts own their
+per-goal state, and the reading contract retains decision/question relationships.
+Review coverage is explicit metadata, not a text-similarity rule in a renderer.
+The raw-key merge residue in diagnostic 3 remains; this slice does not re-score it.

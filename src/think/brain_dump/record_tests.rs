@@ -170,3 +170,113 @@ fn review_says_confirm_also_saves_the_record_only_when_one_will_be_written() {
     let screen = snapshot(160, 40, &mut plain, false).unwrap();
     assert!(!screen.contains("record"), "{screen}");
 }
+
+#[cfg(unix)]
+#[test]
+fn new_goals_keep_their_own_checks_and_the_standalone_record_setting() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(
+        &skill,
+        "# Seed Me\n### Shape the working draft\nTEST\n### Size gate\n",
+    )
+    .unwrap();
+    let program = dir.path().join("pi");
+    std::fs::write(&program, r#"#!/usr/bin/env python3
+import json,sys
+r=json.load(sys.stdin)
+if r.get('kind')=='decision-review':print('{"decisions":[]}');sys.exit(0)
+marker=r['sources'][0]['text']
+print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work is stuck',done_when='tests pass for '+marker),questions=[])))
+"#).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let host = Arc::new(PiHost::new(program, "test/model".into(), skill.clone()).unwrap());
+    let root = dir.path().join("TEST-records");
+    let mut first = BrainDump::with_host(host.clone())
+        .with_seed_me(skill.clone(), None)
+        .with_record_root(root.clone());
+    first.paste("ALPHA");
+    first.submit();
+    settle(&mut first);
+    first.paste("Also keep this goal's second check.");
+    first.submit();
+    settle(&mut first);
+    first.review_goal();
+    let goal = first
+        .handoff
+        .review
+        .as_ref()
+        .unwrap()
+        .affirmation
+        .goal
+        .clone();
+    save(&mut first, Ok(receipt(&goal)));
+    let alpha_file = records(&root).pop().unwrap();
+    let alpha_bytes = std::fs::read(&alpha_file).unwrap();
+    let alpha: serde_json::Value = serde_json::from_slice(&alpha_bytes).unwrap();
+    assert_eq!(
+        alpha["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["raw"].is_string())
+            .count(),
+        2
+    );
+
+    // Home passes its configured prototype again; standalone uses fresh_factory.
+    for (name, mut next) in [
+        (
+            "BRAVO",
+            BrainDump::with_host(host)
+                .with_seed_me(skill, None)
+                .with_record_root(root.clone()),
+        ),
+        ("CHARLIE", first.fresh_factory()()),
+    ] {
+        assert!(next.records(), "a new visit lost --record-root");
+        next.paste(name);
+        next.submit();
+        settle(&mut next);
+        assert!(
+            !next.diagnostics().join("\n").contains("ALPHA"),
+            "previous goal in F5 history"
+        );
+        next.review_goal();
+        let goal = next
+            .handoff
+            .review
+            .as_ref()
+            .unwrap()
+            .affirmation
+            .goal
+            .clone();
+        let mut result = seed_me::Receipt::test(format!("/tmp/TEST-sessions/{name}").into());
+        result.goal = goal;
+        save(&mut next, Ok(result));
+        let file = records(&root)
+            .into_iter()
+            .find(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .ends_with(&format!("_{name}.json"))
+            })
+            .unwrap();
+        let text = std::fs::read_to_string(file).unwrap();
+        assert!(!text.contains("ALPHA"));
+        let record: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(
+            record["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|c| c["raw"].is_string())
+                .count(),
+            1
+        );
+        assert_eq!(record["turns"][0]["text"], name);
+    }
+    assert_eq!(std::fs::read(alpha_file).unwrap(), alpha_bytes);
+}

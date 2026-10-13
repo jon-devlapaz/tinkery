@@ -286,3 +286,109 @@ fn the_review_change_note_counts_only_the_decisions_it_added() {
     review::merge(board, review, &mut changes).unwrap();
     assert_eq!(changes, ["Decision review added 1 decision(s)"]);
 }
+
+#[test]
+fn review_shows_a_linked_decision_once_and_keeps_other_choices_on_the_same_part() {
+    let shape = serde_json::json!({"parts":{"who":"Tinkery users","outcome":"understand refused sends","why":"empty sends look like nothing happened","done_when":"tests show the reason"},"decisions":[{"part":"must_not","text":"Whether refusal messages may include private text","answers":["may include private text","must omit private text"]},{"part":"must_not","text":"Whether drafts may leave this machine","answers":["local only","may upload"]}],"questions":[{"target":"must_not","text":"May refusals show private text?"}]}).to_string();
+    let review = r#"{"decisions":[{"part":"must_not","text":"Whether refusal messages may include private text","answers":["omit private text","may include private text"],"question":"May refusals show private text?","covers":[0]}]}"#;
+    let merged = review::merge(&shape, review, &mut vec![]).unwrap();
+    let (b, _) = parsed(&merged);
+    let mut app =
+        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    *app.conversation.sources_mut() = request().sources;
+    app.conversation.set_applied(1);
+    app.conversation.set_board(Some(b));
+    app.review_goal();
+    let notes = &app
+        .handoff
+        .review
+        .as_ref()
+        .unwrap()
+        .affirmation
+        .unresolved_notes;
+    assert!(
+        !notes.iter().any(|n| n.contains("Whether refusal messages")),
+        "question repeated as a note: {notes:?}"
+    );
+    assert!(
+        notes.iter().any(|n| n.contains("Whether drafts may leave")),
+        "a different same-part decision disappeared"
+    );
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        for no_color in [false, true] {
+            let screen = snapshot(w, h, &mut app, no_color).unwrap();
+            let right = super::goal_tests::right_text(&screen, w);
+            assert_eq!(
+                right.matches("May refusals show private text?").count(),
+                1,
+                "{right}"
+            );
+            assert!(!right.contains("Whether refusal messages"), "{right}");
+            assert!(right.contains("Whether drafts may leave"), "{right}");
+        }
+    }
+    let saved = app.handoff.review.as_ref().unwrap().affirmation.affirmed();
+    assert!(saved.context.contains("local only") && saved.context.contains("may upload"));
+    assert!(
+        saved.context.contains("omit private text")
+            && saved.context.contains("may include private text")
+    );
+    assert!(app.handoff.receipt.is_none());
+}
+
+#[test]
+fn coverage_never_removes_a_choice_on_invalid_indices_parts_or_replies() {
+    let shape = r#"{"parts":{"who":"I","outcome":"review refusals","why":"nothing appears","done_when":"tests pass"},"decisions":[{"part":"must_not","text":"Private text","answers":["omit","include"]}]}"#;
+    for coverage in [
+        serde_json::json!([99]),
+        serde_json::json!([-1]),
+        serde_json::json!(["0"]),
+        serde_json::json!([0, 99]),
+    ] {
+        let reply=serde_json::json!({"decisions":[{"part":"must_not","text":"A separate choice","answers":["local","remote"],"question":"Local or remote?","covers":coverage}]}).to_string();
+        let merged = review::merge(shape, &reply, &mut vec![]).unwrap();
+        assert!(merged.contains("Private text"));
+        assert_eq!(parsed(&merged).0.decisions.len(), 2);
+    }
+    for (part, answers) in [
+        ("must", serde_json::json!(["omit", "include"])),
+        ("must_not", serde_json::json!(["omit"])),
+        ("must_not", serde_json::json!(["same", "same"])),
+    ] {
+        let reply=serde_json::json!({"decisions":[{"part":part,"text":"Changed choice","answers":answers,"question":"What do you want?","covers":[0]}]}).to_string();
+        let merged = review::merge(shape, &reply, &mut vec![]).unwrap_or_else(|| shape.into());
+        assert!(merged.contains("Private text"));
+    }
+}
+
+#[test]
+fn unasked_decisions_and_unlinked_notes_remain_visible_in_review_and_handoff() {
+    let partial = r#"{"parts":{"who":"I","outcome":"review refusals","why":"nothing appears"},"decisions":[{"part":"must_not","text":"Private text","answers":["omit","include"],"question":"May private text appear?"}],"unresolved_notes":["Keep this different unresolved note"]}"#;
+    let (board, _) = parsed(partial);
+    let mut a =
+        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    *a.conversation.sources_mut() = request().sources;
+    a.conversation.set_applied(1);
+    a.conversation.set_board(Some(board));
+    a.review_goal();
+    let review = &a.handoff.review.as_ref().unwrap().affirmation;
+    assert_eq!(review.unresolved[0].target, Some(Part::DoneWhen));
+    assert!(
+        review
+            .unresolved_notes
+            .iter()
+            .any(|n| n.contains("Private text"))
+    );
+    assert!(
+        review
+            .unresolved_notes
+            .iter()
+            .any(|n| n.contains("different unresolved note"))
+    );
+    assert_eq!(review.decisions.len(), 1);
+    let saved = review.affirmed();
+    assert!(
+        saved.context.contains("May private text appear?") && saved.context.contains("include")
+    );
+    assert_eq!(saved.originals[0].text, "Exact Café 👩‍💻 words.");
+}

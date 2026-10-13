@@ -16,7 +16,12 @@ Skip anything the words or an answer already settle, including edge cases and ov
 The person's attention is scarce: list a decision only if a wrong guess would make them reject the finished work.
 Once the target and any irreversible boundary are settled, return none unless another decision is as costly.
 Use the person's concrete words.
-Return ONLY JSON {"decisions":[{"part":"must_not","text":"short decision","answers":["one answer","another answer"],"question":"one plain question"}]}, most consequential first, at most three.
+# Follow-up dogfood (#64): shaping and review described one permission twice with different wording.
+The supplied decisions are shaping guesses, not facts or authority; retain each genuinely distinct unresolved choice and identify overlaps explicitly.
+For a decision that is the same choice as a supplied decision, covers lists its zero-based index; paraphrased text and reordered answers can still describe the same choice.
+For a new choice use covers: []; never cover a choice just because it affects the same goal part, and never cover a distinct choice.
+Uncovered shaping decisions remain; do not list them again unless supplying their question or correcting the same choice.
+Return ONLY JSON {"decisions":[{"part":"must_not","text":"short decision","answers":["one answer","another answer"],"question":"one plain question","covers":[0]}]}, most consequential first, at most three.
 part is one of who, outcome, why, done_when, must, must_not.
 Each decision needs at least two answers that would change that part's line differently.
 Return {"decisions":[]} when none.

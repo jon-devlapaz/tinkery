@@ -33,7 +33,9 @@ use crate::goal::{GoalParts, Part};
 
 pub use host::BoardHost;
 use host::Simulated;
-pub use reading::{Anchor, BoardRequest, Fragment, Framing, Guess, Question, Settled, Source};
+pub use reading::{
+    Anchor, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled, Source,
+};
 use reading::{grapheme_boundary, same_question};
 
 /// Think: one place where the person writes, reads the reading, answers one question at a
@@ -178,6 +180,7 @@ impl BrainDump {
         Self::with_mode(host, true)
     }
     fn with_mode(host: Arc<dyn BoardHost>, real: bool) -> Self {
+        let host = host.new_session().unwrap_or(host);
         Self {
             input: Note::new(""),
             add_more: false,
@@ -637,9 +640,11 @@ impl BrainDump {
         let real = self.real;
         let config = self.handoff.config.clone();
         let voice = self.voice.is_some();
+        let record_root = self.handoff.record_root.clone();
         Box::new(move || {
             let mut dump = Self::with_mode(host.clone(), real);
             dump.handoff.config = config.as_ref().map(seed_me::Config::fresh);
+            dump.handoff.record_root = record_root.clone();
             if voice {
                 dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
             }

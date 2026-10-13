@@ -10,6 +10,11 @@ pub trait BoardHost: Send + Sync {
     /// Reads `request` into a guess. A real host may make provider calls; the practice host
     /// makes none.
     fn reshape(&self, request: BoardRequest, cancelled: &AtomicBool) -> Result<Guess, String>;
+    /// A separate goal's host with the same settings and empty diagnostics. Stateful hosts
+    /// return a fresh instance; the default `None` permits sharing a stateless host.
+    fn new_session(&self) -> Option<Arc<dyn BoardHost>> {
+        None
+    }
     /// The host's own log lines for F5 "why"; none by default.
     fn diagnostics(&self) -> Vec<String> {
         Vec::new()
@@ -20,6 +25,9 @@ pub trait BoardHost: Send + Sync {
     }
 }
 impl BoardHost for PiHost {
+    fn new_session(&self) -> Option<Arc<dyn BoardHost>> {
+        Some(Arc::new(PiHost::new_session(self)))
+    }
     fn origin(&self) -> record::Origin {
         record::Origin {
             origin: "live".into(),
@@ -88,6 +96,7 @@ impl BoardHost for Simulated {
             deferred: vec![],
             open: vec![],
             unresolved_notes: vec![],
+            decisions: vec![],
             uncertain: false,
             framings: vec![Framing {
                 text: String::new(),
