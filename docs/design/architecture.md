@@ -49,7 +49,7 @@ to the dependency rule: think hands a saved goal to shape only through `seed_me`
 | `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | Think's review screen, original pane, dictation input, and where everything goes on screen with help words, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
-| `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request. |
+| `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request, optionally limited by a call budget. |
 | `think/record.rs` | The think record's format and its one `write`: a confirmed session's turns, checks and goal in one file. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the text box with grapheme-safe selection. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |

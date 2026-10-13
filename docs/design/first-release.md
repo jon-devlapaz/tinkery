@@ -7,8 +7,8 @@ goal, passes its required checks and is accepted by the operator.
 
 The operator requested this plan and its [ten tasks](first-release-issues.md).
 R1 ([#62](https://github.com/jon-devlapaz/tinkery/issues/62)) and R2
-([#63](https://github.com/jon-devlapaz/tinkery/issues/63)) are done. R3–R10 remain
-unpublished drafts. No private data use, provider budget or merge is authorized.
+([#63](https://github.com/jon-devlapaz/tinkery/issues/63)) are done. R3 is
+[#96](https://github.com/jon-devlapaz/tinkery/issues/96). R4–R10 remain unpublished drafts. No private data use, provider budget or merge is authorized.
 
 ## Starting point
 

@@ -1,4 +1,6 @@
-//! Explicit-data evaluation with scripted replies only. No provider, session save or confirmation.
+//! Explicit-data evaluation of think. Replies are scripted by default; `--live` sends the supplied
+//! words to Pi only with operator data, a written permission and a positive call limit, all counted
+//! by one budget at the Pi boundary. Never saves a session or confirms a goal.
 #[path = "support/capture.rs"]
 mod capture;
 
@@ -14,16 +16,23 @@ use tinkery::think::{
     brain_dump::{
         BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, decision_review_input,
     },
+    drafting::{CallBudget, PiHost, Request},
     record::hash,
 };
 
-const USAGE: &str = "Supply --dataset FILE --output NEW_TEMP_DIRECTORY --max-requests N. Replies are fake; no default dataset or live mode exists.";
+const USAGE: &str = "Supply --dataset FILE --output NEW_DIRECTORY --max-requests N. Replies are scripted. \
+Add --live --model provider/model-id --seed-me SKILL.md [--pi-command PATH] [--thinking LEVEL] to call Pi; \
+there is no default dataset, model or limit.";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Dataset {
     provenance: Provenance,
+    /// Who allowed these words to go to a provider, in their own terms. Required for `--live`.
+    #[serde(default)]
+    permission: Option<String>,
     steps: Vec<Step>,
+    #[serde(default)]
     replies: VecDeque<Reply>,
     #[serde(default)]
     expected: std::collections::BTreeMap<String, Value>,
@@ -46,16 +55,10 @@ enum Step {
     Send { text: String },
     Retry,
 }
-#[derive(Clone, Copy, Deserialize, serde::Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum Kind {
-    Shaping,
-    DecisionReview,
-}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Reply {
-    kind: Kind,
+    kind: Request,
     #[serde(flatten)]
     result: ReplyResult,
 }
@@ -67,27 +70,14 @@ enum ReplyResult {
 }
 
 struct Fake {
-    cap: usize,
-    state: Mutex<FakeState>,
-}
-#[derive(Default)]
-struct FakeState {
-    replies: VecDeque<Reply>,
-    sends: usize,
-    requests: Vec<Value>,
-    refused: Vec<Value>,
+    budget: Arc<CallBudget>,
+    replies: Mutex<VecDeque<Reply>>,
 }
 impl Fake {
-    fn request(&self, kind: Kind, send: usize) -> Result<String, String> {
-        let mut state = self.state.lock().unwrap();
-        // Charge before touching the fake provider, including scripted failures and retries.
-        if state.requests.len() >= self.cap {
-            state.refused.push(json!({"kind": kind, "send": send}));
-            return Err(
-                "Fake request cap exhausted; next request refused before invocation.".into(),
-            );
-        }
-        let result = match state.replies.pop_front() {
+    fn request(&self, kind: Request) -> Result<String, String> {
+        // The same budget as Pi: charged before the scripted reply is read.
+        let slot = self.budget.reserve(kind)?;
+        let result = match self.replies.lock().unwrap().pop_front() {
             Some(reply) if reply.kind == kind => match reply.result {
                 ReplyResult::Text(text) => Ok(text),
                 ReplyResult::Failure(error) => Err(error),
@@ -95,24 +85,17 @@ impl Fake {
             Some(_) => Err("Fake reply kind does not match the next request.".into()),
             None => Err("No scripted fake reply remains.".into()),
         };
-        state.requests.push(json!({"kind": kind, "send": send,
-            "outcome": if result.is_ok() { "reply" } else { "failure" },
-            "error": result.as_ref().err()}));
+        self.budget.finish(slot, &result);
         result
     }
 }
 impl BoardHost for Fake {
     fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
-        let send = {
-            let mut state = self.state.lock().unwrap();
-            state.sends += 1;
-            state.sends
-        };
-        let raw = self.request(Kind::Shaping, send)?;
+        let raw = self.request(Request::Shaping)?;
         let mut changes = vec![];
         // Like PiHost, readable invalid boards still get a review before decoding.
         let review = decision_review_input(&request, &raw).and_then(|_| {
-            self.request(Kind::DecisionReview, send)
+            self.request(Request::DecisionReview)
                 .ok()
                 .and_then(|review| DecisionReview::decode(&review, &mut changes))
         });
@@ -120,26 +103,76 @@ impl BoardHost for Fake {
     }
 }
 
-fn options(args: impl Iterator<Item = String>) -> Result<(PathBuf, PathBuf, usize), String> {
-    let mut args = args;
-    let (mut dataset, mut output, mut cap) = (None, None, None);
-    while let Some(arg) = args.next() {
-        let value = args.next().ok_or(USAGE)?;
-        match arg.as_str() {
-            "--dataset" if dataset.is_none() => dataset = Some(PathBuf::from(value)),
-            "--output" if output.is_none() => output = Some(PathBuf::from(value)),
-            "--max-requests" if cap.is_none() => cap = Some(value.parse().map_err(|_| USAGE)?),
-            _ => return Err(USAGE.into()),
-        }
-    }
-    Ok((
-        dataset.ok_or(USAGE)?,
-        output.ok_or(USAGE)?,
-        cap.ok_or(USAGE)?,
-    ))
+/// Pi settings for a live run; absent for a scripted one.
+#[derive(Debug)]
+struct Live {
+    pi_command: PathBuf,
+    model: String,
+    seed_me: PathBuf,
+    thinking: String,
+}
+#[derive(Debug)]
+struct Options {
+    dataset: PathBuf,
+    output: PathBuf,
+    cap: usize,
+    live: Option<Live>,
 }
 
-fn validate(dataset: &Dataset, output: &Path) -> Result<(), String> {
+fn options(args: impl Iterator<Item = String>) -> Result<Options, String> {
+    let mut args = args;
+    let mut live = false;
+    let mut values = std::collections::BTreeMap::new();
+    while let Some(arg) = args.next() {
+        if arg == "--live" && !live {
+            live = true;
+            continue;
+        }
+        let known = [
+            "--dataset",
+            "--output",
+            "--max-requests",
+            "--model",
+            "--seed-me",
+            "--pi-command",
+            "--thinking",
+        ];
+        let value = args.next().ok_or(USAGE)?;
+        if !known.contains(&arg.as_str()) || values.insert(arg, value).is_some() {
+            return Err(USAGE.into());
+        }
+    }
+    let mut take = |name: &str| values.remove(name);
+    let (dataset, output) = (
+        take("--dataset").ok_or(USAGE)?,
+        take("--output").ok_or(USAGE)?,
+    );
+    let cap = take("--max-requests")
+        .ok_or(USAGE)?
+        .parse()
+        .map_err(|_| USAGE)?;
+    let live = if live {
+        Some(Live {
+            model: take("--model").ok_or(USAGE)?,
+            seed_me: take("--seed-me").ok_or(USAGE)?.into(),
+            pi_command: take("--pi-command").unwrap_or_else(|| "pi".into()).into(),
+            thinking: take("--thinking").unwrap_or_else(|| "low".into()),
+        })
+    } else {
+        None
+    };
+    if !values.is_empty() {
+        return Err(format!("Pi options need --live. {USAGE}"));
+    }
+    Ok(Options {
+        dataset: dataset.into(),
+        output: output.into(),
+        cap,
+        live,
+    })
+}
+
+fn validate(dataset: &Dataset, output: &Path, cap: usize, live: bool) -> Result<(), String> {
     if dataset.provenance.description.trim().is_empty() || dataset.steps.is_empty() {
         return Err("Supply provenance and at least one step; synthetic fixtures must say synthetic_test_data.".into());
     }
@@ -166,24 +199,69 @@ fn validate(dataset: &Dataset, output: &Path) -> Result<(), String> {
                 .into(),
         );
     }
-    let temp = std::env::temp_dir()
+    let parent = output.parent().and_then(|p| p.canonicalize().ok());
+    if !output.is_absolute() || output.exists() {
+        return Err("Output must be a new absolute directory with an existing parent.".into());
+    }
+    let Some(parent) = parent else {
+        return Err("Output must be a new absolute directory with an existing parent.".into());
+    };
+    if !live {
+        let temp = std::env::temp_dir()
+            .canonicalize()
+            .map_err(|e| e.to_string())?;
+        if !parent.starts_with(temp) {
+            return Err("A scripted run writes under the system temporary directory only.".into());
+        }
+        return Ok(());
+    }
+    if !matches!(dataset.provenance.kind, InputKind::OperatorSupplied) {
+        return Err(
+            "A live run sends operator_supplied words only; synthetic fixtures stay scripted."
+                .into(),
+        );
+    }
+    if dataset
+        .permission
+        .as_deref()
+        .is_none_or(|p| p.trim().is_empty())
+    {
+        return Err("A live run needs the dataset's permission: who allowed these words to reach a provider.".into());
+    }
+    if !dataset.replies.is_empty() {
+        return Err("A live run takes no scripted replies; remove them or drop --live.".into());
+    }
+    if cap == 0 {
+        return Err("A live run needs a positive --max-requests; nothing was sent.".into());
+    }
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
         .canonicalize()
         .map_err(|e| e.to_string())?;
-    let parent = output.parent().and_then(|p| p.canonicalize().ok());
-    if !output.is_absolute() || output.exists() || parent.is_none_or(|p| !p.starts_with(temp)) {
-        return Err("Output must be a new absolute directory under the system temporary directory, with an existing parent.".into());
+    let operator_data = std::env::var_os("HOME")
+        .map(|home| PathBuf::from(home).join(".local/share"))
+        .into_iter()
+        .flat_map(|share| [share.join("seed-me"), share.join("tinkery")])
+        .filter_map(|p| p.canonicalize().ok());
+    if parent.starts_with(&repository) || operator_data.into_iter().any(|p| parent.starts_with(p)) {
+        return Err(
+            "Live output stays outside the repository and the operator's Seed Me and Tinkery data."
+                .into(),
+        );
     }
     Ok(())
 }
 
-fn settle(app: &mut BrainDump) -> Result<(), String> {
-    let deadline = Instant::now() + Duration::from_secs(5);
+fn settle(app: &mut BrainDump, limit: Duration) -> Result<(), String> {
+    let deadline = Instant::now() + limit;
     while app.running() && Instant::now() < deadline {
         app.tick();
         std::thread::sleep(Duration::from_millis(1));
     }
     if app.running() {
-        Err("Fake run did not settle within five seconds.".into())
+        Err(format!(
+            "The run did not settle within {} seconds.",
+            limit.as_secs()
+        ))
     } else {
         Ok(())
     }
@@ -197,21 +275,40 @@ fn originals_match(app: &BrainDump, supplied: &[&str]) -> bool {
         .eq(supplied.iter().copied())
 }
 
-fn run(dataset_path: &Path, output: &Path, cap: usize) -> Result<Value, String> {
+fn run(options: &Options) -> Result<Value, String> {
+    let (dataset_path, output, cap) = (&options.dataset, &options.output, options.cap);
     let input = std::fs::read_to_string(dataset_path)
         .map_err(|e| format!("Read the supplied dataset: {e}. {USAGE}"))?;
     let mut dataset: Dataset =
         serde_json::from_str(&input).map_err(|e| format!("Invalid dataset: {e}"))?;
-    validate(&dataset, output)?;
-    std::fs::create_dir(output).map_err(|e| e.to_string())?;
-    let host = Arc::new(Fake {
-        cap,
-        state: Mutex::new(FakeState {
-            replies: std::mem::take(&mut dataset.replies),
-            ..Default::default()
-        }),
+    validate(&dataset, output, cap, options.live.is_some())?;
+    let budget = CallBudget::new(cap);
+    let fake = Arc::new(Fake {
+        budget: budget.clone(),
+        replies: Mutex::new(std::mem::take(&mut dataset.replies)),
     });
-    let mut app = BrainDump::with_host(host.clone());
+    let (host, settle_limit): (Arc<dyn BoardHost>, _) = match &options.live {
+        None => (fake.clone(), Duration::from_secs(5)),
+        Some(live) => (
+            Arc::new(
+                PiHost::new(
+                    live.pi_command.clone(),
+                    live.model.clone(),
+                    live.seed_me.clone(),
+                )?
+                .with_thinking(&live.thinking)?
+                .with_budget(budget.clone()),
+            ),
+            // Two 90-second Pi calls per send, plus room to settle.
+            Duration::from_secs(200),
+        ),
+    };
+    let provider = options
+        .live
+        .as_ref()
+        .map(|live| json!({"pi_command": live.pi_command, "origin": host.origin()}));
+    std::fs::create_dir(output).map_err(|e| e.to_string())?;
+    let mut app = BrainDump::with_host(host);
     capture::capture(&mut app, output, "00-entry");
     let mut supplied = vec![];
     let mut steps = vec![];
@@ -230,7 +327,7 @@ fn run(dataset_path: &Path, output: &Path, cap: usize) -> Result<Value, String> 
             }
         }
         app.submit();
-        settle(&mut app)?;
+        settle(&mut app, settle_limit)?;
         let name = format!("{:02}-reading", index + 1);
         capture::capture(&mut app, output, &name);
         let accepted = originals_match(&app, &supplied);
@@ -265,7 +362,7 @@ fn run(dataset_path: &Path, output: &Path, cap: usize) -> Result<Value, String> 
     for (name, reason) in [
         (
             "injection_handling",
-            "No model ran. Source preservation and decoder checks do not prove prompt-injection resistance.",
+            "Not judged automatically. Source preservation and decoder checks do not prove prompt-injection resistance.",
         ),
         (
             "exact_confirmation_handoff",
@@ -274,7 +371,10 @@ fn run(dataset_path: &Path, output: &Path, cap: usize) -> Result<Value, String> 
     ] {
         checks.insert(name.into(), json!({"status": "unknown", "reason": reason}));
     }
-    let state = host.state.lock().unwrap();
+    let attempts = budget.attempts();
+    let (refused, calls): (Vec<_>, Vec<_>) = attempts.iter().partition(|a| a.outcome == "refused");
+    let count = |kind| calls.iter().filter(|a| a.kind == kind).count();
+    let live = options.live.is_some();
     let source = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
@@ -290,23 +390,31 @@ fn run(dataset_path: &Path, output: &Path, cap: usize) -> Result<Value, String> 
         .filter(|o| o.status.success())
         .map(|o| !o.stdout.is_empty());
     let report = json!({
-        "execution": "fake", "input": {"path": dataset_path, "hash": hash(&input), "provenance": dataset.provenance},
+        "execution": if live { "live" } else { "fake" },
+        "input": {"path": dataset_path, "hash": hash(&input), "provenance": dataset.provenance,
+            "permission": dataset.permission},
+        "provider": provider,
         "revision": {"checkout_at_run": source, "working_tree_dirty": dirty,
             "compiled_library_revision": null,
             "limit": "Runtime Git metadata describes the checkout, not necessarily this executable. Compiled library revision is unknown; rebuild at the revision being evaluated.",
-            "compiled_runner_hash": hash(include_str!("fake_think_eval.rs")),
+            "compiled_runner_hash": hash(include_str!("think_eval.rs")),
             "reading_prompt_file_hash": hash(include_str!("../src/think/brain_dump/prompts/reading.txt")),
             "review_prompt_file_hash": hash(include_str!("../src/think/brain_dump/prompts/decision_review.txt")),
-            "prompts_executed": false},
-        "requests": {"cap": cap, "used": state.requests.len(), "calls": state.requests,
-            "refused_before_invocation": state.refused, "unused_replies": state.replies.len(),
-            "shaping": state.requests.iter().filter(|r| r["kind"] == "shaping").count(),
-            "decision_review": state.requests.iter().filter(|r| r["kind"] == "decision_review").count()},
+            "prompts_executed": live},
+        "requests": {"cap": budget.limit(), "used": calls.len(), "calls": calls,
+            "refused_before_invocation": refused,
+            "unused_replies": (!live).then(|| fake.replies.lock().unwrap().len()),
+            "shaping": count(Request::Shaping), "decision_review": count(Request::DecisionReview)},
         "steps": steps, "reading_current": current, "automated_checks": checks,
         "human_baseline": {"recognition": null, "active_attention_seconds": null,
             "waiting_seconds": null, "corrections": null, "cost": null,
             "note": "Unknown until measured by a person. Fake timings and replies are not a human baseline."},
-        "provider_cost": {"amount": 0, "currency": "USD", "real_calls": 0},
+        "provider_cost": if live {
+            json!({"amount": null, "currency": null, "real_calls": calls.len(),
+                "note": "Charges are unknown here; read them from the provider account."})
+        } else {
+            json!({"amount": 0, "currency": "USD", "real_calls": 0})
+        },
         "think_record": null, "session_confirmed": false,
     });
     std::fs::write(
@@ -318,8 +426,7 @@ fn run(dataset_path: &Path, output: &Path, cap: usize) -> Result<Value, String> 
 }
 
 fn main() {
-    let result = options(std::env::args().skip(1))
-        .and_then(|(dataset, output, cap)| run(&dataset, &output, cap));
+    let result = options(std::env::args().skip(1)).and_then(|options| run(&options));
     match result {
         Ok(report) => println!("{}", serde_json::to_string_pretty(&report).unwrap()),
         Err(error) => {
@@ -330,5 +437,5 @@ fn main() {
 }
 
 #[cfg(test)]
-#[path = "support/fake_eval_tests.rs"]
+#[path = "support/think_eval_tests.rs"]
 mod tests;

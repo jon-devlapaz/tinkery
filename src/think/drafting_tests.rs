@@ -51,6 +51,7 @@ print('done')
     let prompt = host.working_instructions().to_owned();
     let output = host
         .complete(
+            Request::Shaping,
             input("I want a graph, so I can find reasons."),
             prompt,
             &AtomicBool::new(false),
@@ -64,7 +65,7 @@ print('done')
 #[test]
 fn failures_timeout_overflow_and_cancellation_never_return_output() {
     let call = |host: &PiHost, text: &str, cancelled: &AtomicBool| {
-        host.complete(input(text), "prompt".into(), cancelled)
+        host.complete(Request::Shaping, input(text), "prompt".into(), cancelled)
     };
     for script in [
         "import sys; sys.exit(7)",
@@ -98,5 +99,117 @@ fn failures_timeout_overflow_and_cancellation_never_return_output() {
     assert!(
         started.elapsed() < Duration::from_secs(2),
         "Exit waited for the model instead of cancelling"
+    );
+}
+
+/// A Pi that leaves one file per start in the returned folder, then prints `reply`, or exits
+/// with 3 when `reply` is empty. The files show exactly how many processes ran.
+#[cfg(unix)]
+fn counting_host(reply: &str) -> (tempfile::TempDir, PiHost, tempfile::TempDir) {
+    let starts = tempfile::tempdir().unwrap();
+    let (directory, host) = host(&format!(
+        "import os, sys, uuid\nopen(os.path.join({:?}, uuid.uuid4().hex), 'w').close()\nprint({reply:?}) if {reply:?} else sys.exit(3)",
+        starts.path().display().to_string()
+    ));
+    (directory, host, starts)
+}
+
+#[cfg(unix)]
+fn started(starts: &tempfile::TempDir) -> usize {
+    std::fs::read_dir(starts.path()).unwrap().count()
+}
+
+#[cfg(unix)]
+#[test]
+fn a_budget_refuses_before_pi_starts_and_counts_failures_and_retries() {
+    let call = |host: &PiHost, kind| {
+        host.complete(
+            kind,
+            input("words"),
+            "prompt".into(),
+            &AtomicBool::new(false),
+        )
+    };
+    for limit in [0, 1, 2] {
+        let (_directory, pi, starts) = counting_host("done");
+        let budget = CallBudget::new(limit);
+        let pi = pi.with_budget(budget.clone());
+        // One send is a shaping call then a review; a third request is a retry.
+        let results = [
+            call(&pi, Request::Shaping),
+            call(&pi, Request::DecisionReview),
+            call(&pi, Request::Shaping),
+        ];
+        assert_eq!(started(&starts), limit, "limit {limit}");
+        assert_eq!(budget.used(), limit);
+        for (i, result) in results.iter().enumerate() {
+            assert_eq!(result.is_ok(), i < limit, "limit {limit}, request {i}");
+        }
+        let attempts = budget.attempts();
+        assert_eq!(attempts.len(), 3);
+        assert!(attempts[limit..].iter().all(|a| a.outcome == "refused"));
+        assert_eq!(attempts[1].kind, Request::DecisionReview);
+    }
+    // A failed call still spends its unit, so a retry after it is refused.
+    let (_directory, pi, starts) = counting_host("");
+    let budget = CallBudget::new(1);
+    let pi = pi.with_budget(budget.clone());
+    assert!(call(&pi, Request::Shaping).is_err());
+    assert!(
+        call(&pi, Request::Shaping)
+            .unwrap_err()
+            .contains("Call limit of 1 reached")
+    );
+    assert_eq!(started(&starts), 1);
+    assert_eq!(budget.attempts()[0].outcome, "failure");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_new_session_shares_its_budget_and_cancellation_is_counted_only_once_started() {
+    let (_directory, first, starts) = counting_host("done");
+    let budget = CallBudget::new(1);
+    let first = first.with_budget(budget.clone());
+    let other = first.new_session();
+    let cancelled = AtomicBool::new(true);
+    assert_eq!(
+        first.complete(
+            Request::Shaping,
+            input("words"),
+            "prompt".into(),
+            &cancelled
+        ),
+        Err("Request cancelled.".into())
+    );
+    assert_eq!(
+        budget.used(),
+        0,
+        "a request cancelled before it starts costs nothing"
+    );
+    let fresh = AtomicBool::new(false);
+    assert!(
+        first
+            .complete(Request::Shaping, input("words"), "prompt".into(), &fresh)
+            .is_ok()
+    );
+    assert!(
+        other
+            .complete(Request::Shaping, input("words"), "prompt".into(), &fresh)
+            .is_err()
+    );
+    assert_eq!(started(&starts), 1, "a new session can't reset the budget");
+
+    let (_directory, slow) = host("import time; time.sleep(10)");
+    let budget = CallBudget::new(2);
+    let slow = slow.with_budget(budget.clone());
+    let job = Job::launch(move |cancelled| {
+        slow.complete(Request::Shaping, input("words"), "prompt".into(), cancelled)
+    });
+    thread::sleep(Duration::from_millis(100));
+    drop(job);
+    assert_eq!(
+        budget.used(),
+        1,
+        "a started request stays spent when cancelled"
     );
 }
