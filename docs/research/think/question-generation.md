@@ -28,5 +28,5 @@ they didn't cover.
 
 ## Backlog
 
-Two items from this page are in the [backlog's loose ends](../../design/backlog.md#loose-ends):
-generic fallback questions and contradicting answers.
+Two items from this page are in [think's backlog](backlog.md#loose-ends): generic fallback
+questions and contradicting answers.

@@ -184,8 +184,7 @@ Literal `?` remains text while writing. On review the bar reads
 
 ## Open work only
 
-[Backlog](backlog.md) owns the remaining proposals and distinguishes completed
-portions from work still requiring approval. Extracted-card shortcuts remain in
+[Think's backlog](../research/think/backlog.md) owns the remaining proposals. Extracted-card shortcuts remain in
 technical help; they are not the proposed scratch space.
 
 Known gap: the review can stop one question early when a line points at something

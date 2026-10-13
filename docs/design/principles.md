@@ -16,7 +16,7 @@ amends it. These notes explain design application, not a second constitution.
 
 Use the constitution's [colour roles](../yohaku.md#colour-has-one-job-each),
 including its non-colour cues. The shipped paper palette is light;
-[dark mode](backlog.md#4-a-calm-dark-theme) is not built.
+[dark mode](../research/shared/backlog.md#a-calm-dark-theme) is not built.
 After an answer, changed goal lines stay in full ink and unchanged lines rest
 muted; the distinction clears on typing or sending. No extra banner or model call.
 
@@ -26,7 +26,7 @@ muted; the distinction clears on typing or sending. No extra banner or model cal
 [shape and handoff](shape-and-handoff.md) defines persistence and continuation;
 [voice](voice.md) defines local dictation; [menu](menu.md) distinguishes built views
 from future ones. [Architecture](architecture.md) maps code to phases and
-holds the design score. [Backlog](backlog.md) contains proposals, not permission.
+holds the design score. Each area's backlog under `docs/research/` holds proposals, not permission.
 
 ## Why these choices
 

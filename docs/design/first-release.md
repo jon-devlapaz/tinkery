@@ -54,7 +54,7 @@ the new full-loop views on the trial tasks.
 Keep the existing manual agent handoff for this release. An integrated launcher,
 automatic approval or merge, multi-run dashboard and the Think convenience
 proposals are outside this release unless real use reveals a specific blocker.
-The [existing backlog](backlog.md) remains available; it is not the release checklist.
+The area backlogs (`docs/research/<area>/backlog.md`) remain available; they are not the release checklist.
 
 ## Milestones and dependencies
 
