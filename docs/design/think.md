@@ -78,7 +78,8 @@ muted line says which of three states holds:
 
 The missing line names only the first missing part in the order who, outcome, why,
 done when. Without any composed goal it drops “Review when you're ready.” F1 help
-uses the same first sentence, then offers F3 only when a composed goal exists (else: type
+uses the same first sentence, then offers F3 only when a composed goal exists and can be
+saved (practice or no Seed Me: says saving needs real mode and Seed Me; no goal: type
 it, then F2 sends). If the first reading was cancelled or never applied, help says
 F2 tries again. Only goal content decides the state, including sent words not yet
 applied and any skipped question still unanswered; recording or
@@ -124,7 +125,8 @@ Think never reads a record back. The record is not a ledger: that word is Seed M
 
 ### Help
 
-The state-aware muted bar uses F2, F3, F8 and F10 labels that agree with help.
+The state-aware muted bar uses F2, F3, F6, F8 and F10 labels that agree with help.
+It never offers a key the current mode refuses: F3 appears only in real mode with Seed Me.
 Empty-box help says “Type, then F2 sends it.” F1 opens a bounded overlay on the
 reading side; originals and drafts stay intact. Right now leads with the current
 state, F1 opens Every key, and `h` opens How it works.

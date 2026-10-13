@@ -26,7 +26,7 @@ setup/helper source runs via Node ESM `--eval`, not a runtime helper file.
 Commands/events are versioned JSON lines with take IDs so stale callbacks cannot
 modify a newer take. The helper stays goal-blind.
 
-- macOS advertises `⌃⌥Z speak`; elsewhere `6 speak`. F6 and Ctrl+Alt+Z work
+- macOS advertises `⌃⌥Z speak`; elsewhere `F6 speak`. F6 and Ctrl+Alt+Z work
   everywhere. The macOS Ω variant inserts no character and never undoes a skip.
 - Only explicit start records. Partial text is muted **at the current cursor**;
   final text inserts at the cursor when it arrives. There is no tracked old anchor.

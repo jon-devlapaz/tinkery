@@ -541,11 +541,7 @@ fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
     let mut a = BrainDump::default();
     a.screen.help_all = true;
     assert!(!layout::help_text(&a).contains("speak"));
-    assert!(
-        !snapshot(100, 30, &mut a, false)
-            .unwrap()
-            .contains("6 speak")
-    );
+    assert!(!snapshot(100, 30, &mut a, false).unwrap().contains("speak"));
     let (mut a, fake) = attach(a);
     assert!(layout::help_text(&a).contains("F6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"));
     assert!(

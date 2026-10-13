@@ -272,6 +272,30 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
     assert!(a.handoff.job.is_none());
 }
 #[test]
+fn practice_never_offers_review_it_would_refuse() {
+    for (real, seed_me) in [(false, true), (true, false), (false, false)] {
+        let mut a = board();
+        a.real = real;
+        if !seed_me {
+            a.handoff.config = None;
+        }
+        let bar = snapshot(100, 30, &mut a, false).unwrap();
+        assert!(!bar.lines().last().unwrap().contains("F3"), "{bar}");
+        assert!(!layout::key_bar_items(&a).contains(&("F3", "review")));
+        a.screen.help = true;
+        assert!(!layout::help_text(&a).contains("F3"));
+        amend_board(&mut a, |g| g.questions.clear());
+        let help = layout::help_text(&a);
+        assert!(
+            !help.contains("F3") && help.contains("Saving a goal needs real mode and Seed Me.")
+        );
+    }
+    let mut a = board();
+    assert!(layout::key_bar_items(&a).contains(&("F3", "review")));
+    a.screen.help = true;
+    assert!(layout::help_text(&a).contains("F3 reviews the goal."));
+}
+#[test]
 fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();

@@ -25,6 +25,12 @@ approved issue before work starts.
   ("Must not: No sending") come from the model's wording, so code can't fix them safely.
   Each needs a live recheck on current main (about 2 calls for #74, 3 to 6 for #75)
   and likely a reading-prompt rule; both need the operator's explicit budget.
+- **Measure strands the operator when the ledger fails** (Art 6, 7). The error shows a raw
+  path, unwrapped, with no "Esc back" on screen, and the report runs on the UI thread
+  (`src/measure.rs`, `src/menu.rs`).
+- **The reading's wire shape keeps data the board drops.** `Guess.outcome` repeats done-when
+  and the composed framing text is ignored; the board uses `parts` and framing `supports` only
+  (`src/think/brain_dump/reading.rs`, `board.rs`). Two owners for one value.
 - **"Like X" lines stop think early.** The review can leave an ambiguous source or
   scope in place. See think's [known gap](think.md#open-work-only).
 - **Think's routing remains large.** Split `src/think/brain_dump.rs` further without
@@ -56,6 +62,7 @@ Closed issues with merged PRs: history, not proof that a whole proposal is compl
 | [#76](https://github.com/jon-devlapaz/tinkery/issues/76) | One owner for the displayed goal block | [#94](https://github.com/jon-devlapaz/tinkery/pull/94) |
 | [#88](https://github.com/jon-devlapaz/tinkery/issues/88) | Records keep only rejected replies; an unset HOME is refused | [#90](https://github.com/jon-devlapaz/tinkery/pull/90) |
 | [#89](https://github.com/jon-devlapaz/tinkery/issues/89) | Approaches keyed `option` are kept; the review joins as typed decisions | [#91](https://github.com/jon-devlapaz/tinkery/pull/91) |
+| [#99](https://github.com/jon-devlapaz/tinkery/issues/99) | Key bar and help say only what's true: no F3 in practice, `F6` voice key, `--no-color` and legend wording | [#98](https://github.com/jon-devlapaz/tinkery/pull/98) |
 
 ## 1. Goal-block polish
 
