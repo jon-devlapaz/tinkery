@@ -99,6 +99,11 @@ impl BrainDump {
         self.handoff.record_root = Some(root);
         self
     }
+    /// True when a goal can be saved here: real mode with Seed Me. Practice never saves, so it
+    /// never offers review.
+    pub(super) fn can_save(&self) -> bool {
+        self.real && self.handoff.config.is_some()
+    }
     /// True when confirming also writes a think record.
     pub(super) fn records(&self) -> bool {
         self.handoff.record_root.is_some()
@@ -145,8 +150,8 @@ impl BrainDump {
         if self.handoff.receipt.is_some() || self.handoff.job.is_some() {
             return;
         }
-        if !self.real || self.handoff.config.is_none() {
-            self.refuse("Saving a goal needs real mode and Seed Me.");
+        if !self.can_save() {
+            self.refuse(layout::SAVE_NEEDS_REAL);
             return;
         }
         // Each blocker names itself, so the person knows which one to clear.

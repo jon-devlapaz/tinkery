@@ -171,8 +171,8 @@ fn install_deadline_closes_work_and_stale_ready_cannot_restart_it() {
 #[test]
 fn key_label_matches_platform_and_setup_protocol_stays_typed() {
     assert_eq!(key_label("macos"), "⌃⌥Z");
-    assert_eq!(key_label("linux"), "6");
-    assert_eq!(key_label("windows"), "6");
+    assert_eq!(key_label("linux"), "F6");
+    assert_eq!(key_label("windows"), "F6");
     assert_eq!(
         serde_json::to_string(&Command::Install).unwrap(),
         r#"{"command":"install"}"#

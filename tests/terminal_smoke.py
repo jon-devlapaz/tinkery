@@ -12,6 +12,7 @@ for arguments in (["--help"], ["--snapshot"], ["--no-color", "--snapshot"]):
 result = subprocess.run([str(BINARY), "--help"], capture_output=True, check=True)
 assert b"prototype" not in result.stdout, "Help still calls Tinkery a prototype"
 assert b"--workbench" not in result.stdout, "Help still lists the removed demo"
+assert b"--no-color   Turn off colors" in result.stdout, "Help misdescribes --no-color"
 
 result = subprocess.run([str(BINARY)], capture_output=True)
 assert result.returncode != 0 and b"needs a terminal" in result.stderr

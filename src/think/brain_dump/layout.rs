@@ -18,6 +18,8 @@ const RECEIPTS: [&str; 5] = [
     "Skip undone",
     "Added words",
 ];
+/// Why practice, or real mode without Seed Me, can't review or save a goal.
+pub(super) const SAVE_NEEDS_REAL: &str = "Saving a goal needs real mode and Seed Me.";
 /// Rows a refusal may take: every fixed refusal fits in two at the narrowest pane.
 pub(super) const STATUS_ROWS: u16 = 2;
 
@@ -343,15 +345,19 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         open_now = format!(
             "{}\n{}",
             open_intent(app).unwrap_or_else(|| "No question left.".into()),
-            if composed {
+            if composed && app.can_save() {
                 "F3 reviews the goal."
+            } else if composed {
+                SAVE_NEEDS_REAL
             } else {
                 "Type it, then F2 sends."
             }
         );
         open_now.as_str()
-    } else {
+    } else if app.can_save() {
         "Type your answer.\nF2 sends · F8 skips · F3 reviews the goal."
+    } else {
+        "Type your answer.\nF2 sends · F8 skips."
     };
     if !app.screen.help_all {
         return format!("Right now\n{now}\n\nF1 every key · Esc close");
@@ -366,8 +372,8 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         ""
     };
-    let finish = if !app.real || app.handoff.config.is_none() {
-        "Saving a goal needs real mode and Seed Me."
+    let finish = if !app.can_save() {
+        SAVE_NEEDS_REAL
     } else if app.records() {
         "! F3   review the goal; typing confirm saves it and its think record for good"
     } else {
@@ -380,7 +386,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Tab  switch between writing and your original (the original is read-only)\n"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\n{select}Drag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (grey)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\n{select}Drag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
@@ -438,7 +444,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         items
     } else {
         let mut items = vec![("F2", "send")];
-        if app.conversation.board().is_some() {
+        if app.conversation.board().is_some() && app.can_save() {
             items.push(("F3", "review"));
         }
         if app.conversation.focused_question().is_some() {

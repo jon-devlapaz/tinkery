@@ -25,11 +25,6 @@ approved issue before work starts.
   ("Must not: No sending") come from the model's wording, so code can't fix them safely.
   Each needs a live recheck on current main (about 2 calls for #74, 3 to 6 for #75)
   and likely a reading-prompt rule; both need the operator's explicit budget.
-- **Four screen words don't match what's true** (Yohaku Art 2, 6, 7). Practice mode's
-  key bar offers `F3 review`, which practice always refuses (`src/think/brain_dump/layout.rs`,
-  `key_bar_items`). The voice key reads `6 speak` off macOS (`src/voice/setup.rs`, `key_label`)
-  where every other key reads `F2`. `--help` says `--no-color` means "Use terminal colors"
-  (`src/main.rs`). Every-key help calls the reading "grey"; it is italic. One small slice.
 - **Measure strands the operator when the ledger fails** (Art 6, 7). The error shows a raw
   path, unwrapped, with no "Esc back" on screen, and the report runs on the UI thread
   (`src/measure.rs`, `src/menu.rs`).
@@ -67,6 +62,7 @@ Closed issues with merged PRs: history, not proof that a whole proposal is compl
 | [#76](https://github.com/jon-devlapaz/tinkery/issues/76) | One owner for the displayed goal block | [#94](https://github.com/jon-devlapaz/tinkery/pull/94) |
 | [#88](https://github.com/jon-devlapaz/tinkery/issues/88) | Records keep only rejected replies; an unset HOME is refused | [#90](https://github.com/jon-devlapaz/tinkery/pull/90) |
 | [#89](https://github.com/jon-devlapaz/tinkery/issues/89) | Approaches keyed `option` are kept; the review joins as typed decisions | [#91](https://github.com/jon-devlapaz/tinkery/pull/91) |
+| [#99](https://github.com/jon-devlapaz/tinkery/issues/99) | Key bar and help say only what's true: no F3 in practice, `F6` voice key, `--no-color` and legend wording | [#98](https://github.com/jon-devlapaz/tinkery/pull/98) |
 
 ## 1. Goal-block polish
 
