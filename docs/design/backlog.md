@@ -33,6 +33,13 @@ approved issue before work starts.
   (`src/think/brain_dump/reading.rs`, `board.rs`). Two owners for one value.
 - **"Like X" lines stop think early.** The review can leave an ambiguous source or
   scope in place. See think's [known gap](think.md#open-work-only).
+- **Think's fallback questions are generic** ([research](../research/think/question-generation.md)).
+  When a required part is empty and the model asked nothing, `board.rs` asks a fixed template
+  such as "Who is this for?". User studies find generic, low-quality questions hurt more than
+  they help. First step needs no calls: count how often the fallback fires in think records and eval logs.
+- **Nothing flags an answer that contradicts an earlier one** ([research](../research/think/question-generation.md)).
+  Multi-turn clarification degrades as conversations grow; tracking conflicting answers helped
+  most. Add one eval case with a contradicting answer before changing anything.
 - **Think's routing remains large.** Split `src/think/brain_dump.rs` further without
   loosening the [architecture limits](architecture.md#limits-enforced-by-testsarchitecturers).
 - **An unset `HOME` puts Seed Me sessions under the current folder.** `Home::default_paths`
