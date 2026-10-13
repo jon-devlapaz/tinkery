@@ -1,19 +1,25 @@
 # Tinkery
 
-A human-first, calm, keyboard-first terminal front door for agentic work:
-**think → shape → approve → watch → taste → measure**.
+A calm, keyboard-first terminal front door for agentic work:
+think, shape, approve, watch, taste, measure.
 
-Today: think turns a messy dump into one goal block and one consequential question.
-Explicit confirmation saves that exact goal in a Seed Me session, and a think
-record of the session (every turn, words verbatim) in `~/.local/share/tinkery/think/`. The receipt and
-shape detail offer a repeatable copyable continuation prompt; nothing launches an
-agent. Voice is local, editable dictation with its own consented setup, not a Pi
-Voice dependency. Measure reads a separately installed ledger (otherwise unknown).
-Approve, watch and taste are placeholders, not working factory controls.
+## What works
 
-## Run
+- **Think** reads a messy dump into one goal block and asks one question at a time.
+  Your words are kept exactly.
+- **Confirming** saves that goal, unchanged, as a Seed Me session in
+  `~/.local/share/seed-me/sessions/`, and writes a think record to
+  `~/.local/share/tinkery/think/`.
+- **Shape** lists saved goals and copies a prompt to continue in Claude, Codex or Pi.
+- **Measure** shows a separately installed ledger, or says it is unknown.
+- **Approve, watch and taste** are not built yet.
 
-On a fresh Debian/Ubuntu Linux clone, with Bash and Git:
+Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that
+stays on your machine.
+
+## Try it
+
+On a fresh Debian/Ubuntu clone:
 
 ```bash
 ./scripts/cloud-setup.sh
@@ -21,40 +27,17 @@ export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
 cargo +stable run --locked -- --home
 ```
 
-This is practice mode: no provider calls or saved sessions. F2 sends; Enter adds a
-line; F1 helps; F10 returns to the menu. Snapshot without a terminal:
+This is practice: no model calls, nothing saved. F2 sends, Enter adds a line,
+F1 helps, F10 returns to the menu. Add `--snapshot` to print the screen as text.
 
-```bash
-cargo +stable run --locked -- --home --snapshot
-```
+Real drafting needs `--shape-pi --model provider/model-id --seed-me PATH` and can
+incur provider charges. `--help` lists every option.
 
-For macOS prerequisites, the full test recipe and contribution rules, read
-[CLAUDE.md](CLAUDE.md). No installed launcher or operator-machine files are needed.
+## Read next
 
-## Screens as text
+- [docs/yohaku.md](docs/yohaku.md): the constitution.
+- [CLAUDE.md](CLAUDE.md): macOS setup, the full test run, and rules for changing Tinkery.
+- [docs/design/](docs/design/principles.md): current decisions.
+  The [backlog](docs/design/backlog.md) holds drafts, not plans.
 
-Simplified views (bracketed text is a placeholder, not a saved operator record):
-
-```text
-  tinkery
-
-    1  think
-    2  shape
-    3  approve
-    4  watch
-    5  taste
-    6  measure
-```
-
-```text
-  Saved.
-
-  [the confirmed goal block, unchanged]
-
-  Next: shape it into a seed with Seed Me.
-
-  c copy prompt   s open in shape   10 menu
-```
-
-Current decisions live in [docs/design/](docs/design/principles.md); future work
-is in the [draft backlog](docs/design/backlog.md). GPL-3.0-only; see [LICENSE](LICENSE).
+GPL-3.0-only; see [LICENSE](LICENSE).
