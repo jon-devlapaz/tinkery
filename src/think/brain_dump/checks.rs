@@ -231,6 +231,21 @@ pub(super) fn why(history: &[String]) -> String {
         .collect::<Vec<_>>()
         .join("\n\n")
 }
+/// The checks as a think record keeps them: each as it serializes, except that the model's
+/// reply stays only where F5 shows it, on a rejection. A passing check's reply is already in
+/// its decoded `candidate`, so keeping both would only make long sessions' records large.
+pub(super) fn recorded(history: &[String]) -> Vec<serde_json::Value> {
+    history
+        .iter()
+        .filter_map(|s| serde_json::from_str::<Decision>(s).ok())
+        .map(|mut d| {
+            if d.decision != "reject" {
+                d.raw = None;
+            }
+            serde_json::to_value(d).expect("decision is serializable")
+        })
+        .collect()
+}
 fn attempt_text(g: &serde_json::Value) -> String {
     let text = |v: Option<&serde_json::Value>| {
         v.map(|v| {
