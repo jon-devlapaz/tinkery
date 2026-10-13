@@ -2,3 +2,4 @@
 __pycache__/
 /.ci-seed-me/
 /.cloud-tools/
+.DS_Store
