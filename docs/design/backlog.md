@@ -27,12 +27,9 @@ approved issue before work starts.
 - **The review merges by top-level keys.** `review::merge` writes its decisions and
   questions into the raw reading by key, the residue named in
   [architecture](architecture.md) diagnostic 3.
-- **Think records keep raw model replies.** Each check's `raw` reply goes into the
-  [think record](think.md#think-record), so records from long sessions get large.
-  Decide what a record needs from the reply.
-- **An unset `HOME` writes records to a relative path.** Without `HOME` or
-  `--record-root`, records land under `.local/share/tinkery/think` in the current
-  folder. Refuse or say where instead.
+- **An unset `HOME` puts Seed Me sessions under the current folder.** `Home::default_paths`
+  still falls back to a relative `.local/share/seed-me/sessions` when `--seed-session-root` is
+  absent. Think records refuse this since #88; sessions could do the same.
 - **Possible approaches can vanish.** The reading prompt names `alternatives` without
   their shape. In #86's live recheck the model keyed each one `option`; `reading.rs`
   reads only `label`, so all three were dropped and the section was empty.

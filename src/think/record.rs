@@ -9,6 +9,7 @@
 use crate::goal::Part;
 use serde::Serialize;
 use std::{
+    ffi::OsStr,
     io::Write,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
@@ -17,10 +18,18 @@ use std::{
 /// The record format's version. Renaming or removing a field changes it.
 pub const SCHEMA: u8 = 1;
 
-/// Where records go for a user whose home is `home`. Only a default: the operator may point
-/// Tinkery elsewhere with `--record-root`, and nothing here creates the folder.
-pub fn default_root(home: &Path) -> PathBuf {
-    home.join(".local/share/tinkery/think")
+/// Where records go for a user whose home is `home` (the `HOME` variable). Only a default: the
+/// operator may point Tinkery elsewhere with `--record-root`, and nothing here creates the
+/// folder. Refuses, saying so, when `home` is unset, empty or relative, rather than writing
+/// records under whatever folder Tinkery was started in.
+pub fn default_root(home: Option<&OsStr>) -> Result<PathBuf, String> {
+    match home.map(Path::new) {
+        Some(home) if home.is_absolute() => Ok(home.join(".local/share/tinkery/think")),
+        _ => Err(
+            "HOME is unset or not an absolute path, so think records have no default folder; pass --record-root PATH"
+                .into(),
+        ),
+    }
 }
 
 /// One thing that happened in a think session, and when.
@@ -133,7 +142,8 @@ pub struct Session<'a> {
     pub origin: &'a Origin,
     /// Every turn, in order.
     pub turns: &'a [Turn],
-    /// Each check's decision, as it already serializes for F5 "why".
+    /// Each check's decision, as it serializes for F5 "why", keeping the model's reply only
+    /// where the check rejected.
     pub checks: Vec<serde_json::Value>,
     /// The goal block exactly as confirmed.
     pub goal: &'a str,
@@ -260,6 +270,21 @@ mod tests {
         assert_eq!(utc(at(0), ':'), "1970-01-01T00:00:00.007Z");
         assert_eq!(utc(at(951_782_400), ':'), "2000-02-29T00:00:00.007Z");
         assert_eq!(utc(at(1_791_844_800), '-'), "2026-10-12T22-40-00.007Z");
+    }
+
+    #[test]
+    fn default_root_is_under_an_absolute_home_and_refuses_any_other() {
+        assert_eq!(
+            default_root(Some(OsStr::new("/TEST/home"))).unwrap(),
+            Path::new("/TEST/home/.local/share/tinkery/think")
+        );
+        for home in [None, Some(""), Some("TEST-relative"), Some(".")] {
+            let refusal = default_root(home.map(OsStr::new)).unwrap_err();
+            assert!(
+                refusal.contains("--record-root PATH"),
+                "{home:?}: {refusal}"
+            );
+        }
     }
 
     #[test]

@@ -89,13 +89,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into(),
         );
     }
-    let record_root = record_root.unwrap_or_else(|| {
-        tinkery::think::record::default_root(
-            &std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_default(),
-        )
-    });
+    let record_root = match (record_root, shape_pi) {
+        (Some(root), _) => root,
+        (None, true) => tinkery::think::record::default_root(std::env::var_os("HOME").as_deref())?,
+        // Only --shape-pi writes records.
+        (None, false) => PathBuf::new(),
+    };
     let goal_skill = seed_me.clone();
     if home_menu {
         let (default_root, substrate_dir) = Home::default_paths();

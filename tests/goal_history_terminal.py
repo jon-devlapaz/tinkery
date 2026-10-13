@@ -53,7 +53,7 @@ def journey(w,h,home):
    send(b'omit','omit');send(b'\x1bOQ',"Nothing I'm unsure about")
    confirm()
    alpha_file=next(records.iterdir());alpha_bytes=alpha_file.read_bytes();alpha=json.loads(alpha_bytes)
-   assert sum(bool(c.get('raw')) for c in alpha['checks'])==2,alpha['checks']
+   assert sum(c['check']=='structure-spans-history' for c in alpha['checks'])==2,alpha['checks']
    send(b'\x1b[21~','1  think');send(b'1',"What's on your mind?")
    send(b'BRAVO','BRAVO');send(b'\x1bOQ','May refusals show private text?')
    send(b'\x1bOR','type confirm')
@@ -64,7 +64,7 @@ def journey(w,h,home):
    found=list(records.iterdir());assert len(found)==2,'Second visit lost record setting'
    bravo_file=next(f for f in found if f!=alpha_file);bravo_text=bravo_file.read_text();bravo=json.loads(bravo_text)
    assert 'ALPHA' not in bravo_text,'Prior goal leaked into the second think record'
-   assert sum(bool(c.get('raw')) for c in bravo['checks'])==1,bravo['checks']
+   assert sum(c['check']=='structure-spans-history' for c in bravo['checks'])==1,bravo['checks']
    assert bravo['turns'][0]['text']=='BRAVO'
    ledger=helper('read',root/bravo['seed_me_session'])
    origin=next(n for n in ledger['nodes'] if n['id']==ledger['origin'])

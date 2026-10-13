@@ -93,7 +93,9 @@ to save, and saving is not seed or implementation approval.
 
 The same typed `confirm` also writes a **think record**: one pretty-printed JSON file
 per confirmed session in `~/.local/share/tinkery/think/` (`--record-root` overrides it),
-named `<UTC confirm time>_<Seed Me session id>.json`. The review prompt and key bar say
+named `<UTC confirm time>_<Seed Me session id>.json`. With no `--record-root` and an
+unset, empty or relative `HOME`, `--shape-pi` refuses to start and says to pass one,
+rather than writing under the current folder. The review prompt and key bar say
 so (`type confirm` → `save goal and record`), so the write rides a labelled action
 ([Yohaku article 4](../yohaku.md#the-articles)). Sessions that end without confirming
 (Esc, F10, quit, crash) leave no record. This is the operator's chosen boundary.
@@ -103,7 +105,9 @@ A record holds `schema` (1), the tinkery version, `origin` (`live` for Pi,
 start (first turn) and confirm times, the Seed Me session id, every `turn` in the order
 it happened (`words`, `asked`, `answered`, `skipped`, `restored`, `scope_asked`,
 `scope_answered`, each with its time and the person's words verbatim), every F5 check
-as it already serializes, and the goal block exactly as confirmed. Each Think
+as it already serializes, and the goal block exactly as confirmed. A check keeps the
+model's `raw` reply only when it rejected, where F5 shows it; a passing check's reply
+is already in its decoded `candidate`, so its `raw` is `null`. Each Think
 visit has its own Pi diagnostic history, so a new goal cannot collect a previous
 goal's replies. Reusing the model settings starts no process and rereads no file;
 all sends in the current goal remain in its own history. The record folder is
