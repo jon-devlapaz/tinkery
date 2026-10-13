@@ -39,6 +39,8 @@ def journey(w,h,home):
      except OSError:break
     if not screen.synchronized and until(screen.text()):return
     if p.poll() is not None:break
+   # The binary can exit between the check above and poll(); look once more before failing.
+   if not screen.synchronized and until(screen.text()):return
    raise AssertionError(screen.text())
   def send(keys,text):os.write(master,keys);drain(lambda s:text in s)
   def right():return ' '.join(' '.join(l[w*48//100+2:].split()) for l in screen.text().splitlines())
