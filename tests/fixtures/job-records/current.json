@@ -1,0 +1,133 @@
+{
+  "think": {
+    "schema": 1,
+    "tinkery": "0.1.0",
+    "origin": "simulated",
+    "model": null,
+    "thinking": null,
+    "prompt_hash": null,
+    "started": "2026-10-12T12:00:00.000Z",
+    "confirmed": "2026-10-12T12:01:00.000Z",
+    "seed_me_session": "00000000-0000-4000-8000-000000000063",
+    "turns": [
+      {
+        "at": "2026-10-12T12:00:00.000Z",
+        "kind": "words",
+        "source": 1,
+        "text": "TEST: Let me read the counter."
+      }
+    ],
+    "checks": [],
+    "goal": "TEST: I can read the counter value.\nWhy: inspect it.\nDone when: the value is visible.\nMust: remain local.\nMust not: send data."
+  },
+  "seed_ledger": {
+    "schema_version": 1,
+    "session_id": "00000000-0000-4000-8000-000000000063",
+    "version": 2,
+    "revision": 0,
+    "created_at": "2026-10-12T12:00:00+00:00",
+    "updated_at": "2026-10-12T12:00:00+00:00",
+    "status": "completed",
+    "draft": {
+      "goal": "",
+      "outcome": "",
+      "options": []
+    },
+    "goal": "TEST: I can read the counter value.\nWhy: inspect it.\nDone when: the value is visible.\nMust: remain local.\nMust not: send data.",
+    "origin": "goal",
+    "current_question": null,
+    "frontier": [],
+    "nodes": [
+      {
+        "id": "goal",
+        "kind": "decision",
+        "status": "settled",
+        "prerequisites": [],
+        "evidence": [],
+        "answer": "TEST: I can read the counter value.\nWhy: inspect it.\nDone when: the value is visible.\nMust: remain local.\nMust not: send data.",
+        "authority": "user",
+        "authority_source": "TEST ONLY: synthetic words, no human approval",
+        "owner": "TEST operator",
+        "gate": "TEST ONLY: explicit choice",
+        "history": [],
+        "revision": 0,
+        "premise_version": 2,
+        "reviewed_version": 2
+      },
+      {
+        "id": "scope",
+        "kind": "decision",
+        "status": "settled",
+        "prerequisites": [
+          "goal"
+        ],
+        "evidence": [],
+        "answer": "Only read the existing counter.",
+        "authority": "user",
+        "authority_source": "TEST ONLY: synthetic words, no human approval",
+        "owner": "TEST operator",
+        "gate": "TEST ONLY: explicit choice",
+        "history": [],
+        "revision": 0,
+        "premise_version": 2,
+        "reviewed_version": 2
+      }
+    ],
+    "assumed": [],
+    "operator": "human"
+  },
+  "sdlc_run": {
+    "schema": 1,
+    "profile": "light",
+    "kind": "feature",
+    "seed_contract": {
+      "path": "runs/test-job/seed-contract.md",
+      "sha256": "234d69edea456be666027d8c3083b453e469b51ec5e44710424462e01133b445",
+      "source": "/TEST/seed-sessions/00000000-0000-4000-8000-000000000063/seed-contract.md"
+    }
+  },
+  "sdlc_decision": {
+    "inputs": "0908dfb436ce3d85e04ce943a5df33933453f729bface74d62e253412f080c0c",
+    "decision": "approved",
+    "has_checklist": true,
+    "reviewer": "TEST ONLY",
+    "source": "TEST ONLY: not a human decision",
+    "reason": "Synthetic fixture generation"
+  },
+  "sdlc_verification": {
+    "result": "passed",
+    "candidate": {
+      "head": "3b9ea95dd1dc51802a08ce79bceb2e4c9391a8a5",
+      "tree": "fee6b29cc8d084fc49fbd2eb7b006ebf80e29b5ced13c87309c2fc5a0d164f96"
+    },
+    "inputs": "0908dfb436ce3d85e04ce943a5df33933453f729bface74d62e253412f080c0c",
+    "policy": "5a392e71185dd877f7c65a6e3d3a6a787769abf0dddd28d1e1779bd13e4985d6",
+    "test_lock": null,
+    "checklist": "3ec41a347c0b272e2b3f63735ba91318677aba25558a6b37b2b1dcc23f7cfd90",
+    "manual_marks": {},
+    "checklist_items": {
+      "math": "proven"
+    },
+    "log": "aeac700d84a3e1359e635985938c6bb2edc977d938ab4ce073bee5b939f48efd"
+  },
+  "github_pr": {
+    "number": 63,
+    "url": "https://github.com/TEST-fixture/example/pull/63",
+    "title": "TEST ONLY: counter view",
+    "state": "OPEN",
+    "isDraft": false,
+    "headRefOid": "3b9ea95dd1dc51802a08ce79bceb2e4c9391a8a5",
+    "headRefName": "test-job",
+    "baseRefName": "main",
+    "reviewDecision": "",
+    "mergedAt": null,
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "name": "TEST ONLY: fake CI",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS"
+      }
+    ]
+  }
+}

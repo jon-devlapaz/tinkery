@@ -1,0 +1,98 @@
+# Synthetic job records
+
+Companion to [the design](../../../docs/design/job-records.md). Every name, word,
+approval, check and result here is test data. Never execute the fake PR URL or
+treat `operator: human`, `authority: user` or `decision: approved` as human action.
+The temporary helpers accepted those fields; that does not authenticate them.
+
+`current.json` is a **fixture container, not an upstream format or proposed job
+schema**. Its values use these source shapes at the design's pinned revisions:
+
+| Key / file | Original source location or response | How this example was made |
+| --- | --- | --- |
+| `think` | Tinkery think record, schema 1 | Hand-authored from `record.rs::write`; simulated origin, synthetic words; not generated through the UI |
+| `seed_ledger` | Seed Me `<session>/ledger.json`, schema 1 | Official `transition`, `confirm_seed`, `end` and `load` in a temporary TEST root; two separate settled decisions |
+| `seed-contract.md` | Seed Me `<session>/seed-contract.md` and SDLC's byte-identical run copy | Minimal structural fixture, like upstream `tests/seed_fixture.py`; helper confirmed it. Intentionally not a full seed specification |
+| `sdlc_run` | `runs/test-job/run.json`, schema 1 | Created in a temporary test checkout; copied-seed fields follow the stage writer's shape, without invoking the launcher |
+| `sdlc_decision` | `runs/test-job/decisions/3-1791806400000000000-TEST.json` | Body from official `decide` with TEST reviewer/source/reason; representative valid filename supplies stage 3 |
+| `sdlc_verification` | `runs/test-job/04-test/output/verification.json` | Official `verify` ran `python3 -c 'assert 1 + 1 == 2'` for configured and checklist checks; official status was `current` |
+| `github_pr` | Selected fields from `gh pr view --json` | Hand-authored with synthetic checks and the temporary candidate HEAD; `ci` is absent because Substrate derives it |
+| `work.md` | Substrate TOML-front-matter work record, schema 1 | Hand-authored using `sources.read_record`'s format |
+
+Only the source path is replaced with `/TEST/...`. Candidate and evidence hashes
+come from the disposable test checkout; the full checkout is not saved here.
+These snapshots are not enough to re-establish a current verification on another
+machine. A real reader must ask that run's helper for current state. The goal and
+Seed Me ID agree in this example; no source record connects them to the work
+record. No tools-package receipt or real GitHub outcome is claimed.
+
+`cases.json` is a **scenario description with proposed display expectations**,
+not a source response. Each case starts from the current example. Its
+`source_change` describes the independent alteration; it is not an implemented
+patch language. `expected_source_state` is an observation/classification label,
+not a common upstream enum. `unreadable-ledger.json` is deliberately truncated.
+
+| Case | Source fact or condition |
+| --- | --- |
+| current | The temporary run's helper reported current; synthetic PR remains open without review approval |
+| missing | Remove verification while preserving approved gates: helper reports `not-run` |
+| unreadable | Truncated ledger cannot parse; its authority is unknown |
+| outdated | Change the tracked counter after verification: helper reports `stale` |
+| failed | Replace receipt with the source-shaped failed record: helper reports `failed` |
+| interrupted | A source-shaped running receipt with **no active writer**: helper reports `interrupted` |
+| conflict | Replace PR head; Substrate warns that local HEAD and PR checks differ |
+
+Generation exercised current/missing/outdated/failed/interrupted through the
+pinned SDLC runtime, in a disposable TEST checkout with fake decisions. JSON
+parsing covers unreadable; the pinned Substrate source tests cover head mismatch.
+No provider, microphone, installed launcher or operator data was used. This is
+fixture consistency evidence, not Tinkery end-to-end testing.
+
+Validation at the pinned revisions: all 4 selected SDLC protocol tests passed
+(read-only status, full-profile gate staleness, changed candidate/mark/log, and
+failed/interrupted checks); all 3 selected Substrate tests passed (head mismatch,
+nonpassing CI states, and conflicting change-ID/PR links). The saved-shape check
+below and document link checks passed. Rust, Node and PTY tests were not run.
+
+To check the saved shapes and direct links without contacting GitHub, run from
+the Tinkery root with the pinned source checkouts as arguments:
+
+```sh
+python3 -B - /path/to/pinned-seed-me /path/to/pinned-tink-substrate <<'PY'
+import hashlib, importlib.util, json, pathlib, subprocess, sys, tempfile
+from unittest.mock import patch
+seed, substrate = map(pathlib.Path, sys.argv[1:])
+for root, expected in [(seed, '1a2f31a136d53bceff51ae8c2e0e787c1a8a90bb'),
+                       (substrate, '0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02')]:
+    assert subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() == expected
+spec = importlib.util.spec_from_file_location('seed_session', seed / 'skills/seed-me/scripts/session.py')
+session = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(session)
+sys.path.insert(0, str(substrate))
+from tink_substrate.sources import pr_state, read_record
+root = pathlib.Path('tests/fixtures/job-records')
+value = json.loads((root / 'current.json').read_text())
+json.loads((root / 'cases.json').read_text())
+with tempfile.TemporaryDirectory(prefix='TEST-job-records-') as temporary:
+    folder = pathlib.Path(temporary)
+    (folder / 'ledger.json').write_text(json.dumps(value['seed_ledger']))
+    (folder / 'seed-contract.md').write_bytes((root / 'seed-contract.md').read_bytes())
+    ledger = session.load(folder)
+    session.require_seed_line(folder, session.STATUS_CONFIRMED)
+    session.require_seed_body(folder, 'TEST')
+assert value['think']['goal'] == ledger['goal']
+assert value['think']['seed_me_session'] == ledger['session_id']
+assert hashlib.sha256((root / 'seed-contract.md').read_bytes()).hexdigest() == value['sdlc_run']['seed_contract']['sha256']
+assert value['sdlc_decision']['inputs'] == value['sdlc_verification']['inputs']
+record = read_record(root / 'work.md')
+with patch('tink_substrate.sources.command', return_value=json.dumps(value['github_pr'])):
+    assert pr_state(record['pr'])['ci'] == 'passed'
+try:
+    json.loads((root / 'unreadable-ledger.json').read_text())
+except ValueError:
+    pass
+else:
+    raise AssertionError('unreadable example parsed')
+print('Saved fixture shapes and direct links checked; no real outcome asserted.')
+PY
+```
