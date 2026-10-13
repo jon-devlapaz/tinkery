@@ -162,8 +162,7 @@ Literal `?` remains text while writing. On review the bar reads
   exits before a goal is saved and opens the menu after saving.
 - F4 originals and F5 why are help-only, not permanent bar clutter.
 - Local dictation inserts editable text, never auto-sends; see [voice](voice.md).
-- Answering does not switch the original away from the dump. This is an interim
-  fix, **not** the proposed notecard stack.
+- Answering does not switch the original away from the dump.
 
 ## Open work only
 

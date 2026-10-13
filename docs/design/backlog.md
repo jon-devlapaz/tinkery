@@ -12,7 +12,7 @@ risks specific to its slice.
 
 The [first-release plan](first-release.md) selects a complete six-stage journey.
 Its [issue drafts](first-release-issues.md) split the release work into bounded
-tasks; R1, R3 and R4 take the evaluation work in proposal 8 below. The other
+tasks; R1, R3 and R4 take the evaluation work in proposal 7 below. The other
 proposals remain optional unless the release trial demonstrates a blocker.
 
 ## Loose ends
@@ -79,28 +79,7 @@ approved dogfood, not a claim from stubs.
 **Don't:** Rewrite originals, force “can”, invent numbers/deadlines, lose deferred
 work, change Seed Me, spend provider budget without approval, or write operator sessions.
 
-## 2. The notecard stack (D4)
-
-**Context:** Answering no longer switches away from the dump, but answers are still
-paged sources, not a stack. A person should see their original thought while refining it.
-
-**Build:** Keep the whole dump at the top. Put answers below as real notecards with
-muted question edges; newest open, others folded to their edges. Click an edge or
-use arrows outside typing to open a card. Long dumps scroll independently with
-edges pinned. Replace “Words n / m” and source paging, without exposing sticky organization first.
-
-**Acceptance:** Several answers and a long dump remain reachable without the dump
-vanishing. Card headers identify the answered question, keyboard/click routes agree,
-typing isn't stolen, exact text survives folding, and returning keeps position.
-PTYs cover small and wide sizes; revert the dump-retention protection to prove a regression.
-
-**Read:** [think](think.md), [principles](principles.md).
-
-**Don't:** Rewrite/split the dump automatically, add category colors, require
-organization, implement the scratch-space spike, call providers without budget,
-or persist to operator roots.
-
-## 3. Context menu and send aliases (C4–C6, C9)
+## 2. Context menu and send aliases (C4–C6, C9)
 
 **Context:** Writing selection and Tab into the original shipped in issue #14
 ([think](think.md#interaction-contracts)). There is still no right-click menu or
@@ -120,7 +99,7 @@ shortcuts honestly; no fabricated clipboard success.
 make copy/send confirm anything, record audio, call providers without budget,
 or change terminal/launcher settings or operator data.
 
-## 4. Evidence on demand (C13)
+## 3. Evidence on demand (C13)
 
 **Context:** Always-on highlights were removed. Exact-span checks remain, but a
 person cannot ask which words support just one sentence of the reading.
@@ -139,7 +118,7 @@ mouse agree; NO_COLOR cues remain. Revert exact-span validation to prove the tes
 **Don't:** Restore permanent green, rewrite originals, imply unused words are
 rejected, use providers without budget, or write operator sessions.
 
-## 5. A calm dark theme
+## 4. A calm dark theme
 
 **Context:** The operator wants a calm, not generic-black terminal. The shipped
 palette is light. Jade must still mean location; rust must still mean consequence.
@@ -160,7 +139,7 @@ Changing appearance must preserve input, navigation and the confirmed goal.
 change terminal/macOS preferences, break NO_COLOR, record audio, spend provider
 budget without approval, or touch operator installs/data.
 
-## 6. Multiple-choice answers
+## 5. Multiple-choice answers
 
 **Context:** Some focused questions naturally offer alternatives, but guesses can
 anchor the operator. Free text is currently the answer route.
@@ -181,7 +160,7 @@ only under a separately approved budget/dump set.
 **Don't:** Force choices, turn guesses into facts, trade meaning for speed,
 rewrite original answers, call providers without budget, or write operator sessions.
 
-## 7. Scratch-space spike — design only
+## 6. Scratch-space spike — design only
 
 **Context:** The old `--scratchpad` canvas was removed (issue #21); extracted cards
 remain, hidden in technical help. Stickies-first made people organize too early. A scratch space
@@ -205,7 +184,7 @@ a later build needs a separate approved slice.
 anything, mix guesses with verbatim cards, persist canvases, invent operator dumps,
 or touch operator data/settings. Research model calls need explicit budget.
 
-## 8. Operator-supplied real-dump eval harness
+## 7. Operator-supplied real-dump eval harness
 
 **Context:** Stub tests prove mechanics, not whether a messy human dump becomes a
 goal they recognize. Historical dogfood exposed actor, constraints, timing and
