@@ -227,7 +227,7 @@ change; those replay tests alone do not establish future model behavior.
 
 ## Goal-history and review regression check (#64)
 
-Follow-up AI-operator dogfood found a previous goal's model reply in the next
+Follow-up AI-operator [dogfood](../../findings/README.md) found a previous goal's model reply in the next
 goal's think record, and one permission choice repeated as a question and two
 notes. New visits now get a fresh host history; fresh standalone visits also keep
 the chosen record folder. Explicit decision/question links let review show the

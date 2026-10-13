@@ -1,27 +1,20 @@
 # First-release tasks
 
-These ten tasks implement the [first-release plan](first-release.md). R1 and R2
-are done. R3 is published as [#96](https://github.com/jon-devlapaz/tinkery/issues/96).
-R4–R10 remain unpublished drafts without implementation permission. R1–R10 are stable local
+These ten tasks implement the [first-release plan](first-release.md). R1, R2 and R3
+are done. R4–R10 remain unpublished drafts without implementation permission. R1–R10 are stable local
 labels. Review each remaining draft with the operator before publishing it and
 keep dependencies current.
 
 ## Rules shared by every draft
 
-- Follow [the constitution](../yohaku.md) and [CLAUDE.md](../../CLAUDE.md).
-  Preserve original words and every distinct human decision.
-- Start from the verified dependency revision. Work on one approved slice per
-  branch/PR; never merge your own work. Name the issue and dependencies in the PR.
-- Code changes need relevant regression checks, important reversion probes and
-  the documented zero-call verification. Report actual Rust/Node counts, failures
-  and terminal journeys/sizes. Design-only work reports document/fixture checks;
-  it must not imply that production behavior was tested.
-- Test under temporary TEST roots with fake providers and voice. Never use real
-  audio or alter operator sessions, installs, launcher or another tool's checkout.
-- Real calls need separately authorized data use and an explicit budget. The
-  default is zero. Historical authorization from #58 does not carry into a draft.
-- Preserve phase boundaries. Update the affected design documentation in the same
-  PR. Read existing tests before changing behavior and reuse existing helpers.
+Every draft inherits the [guardrails](../../AGENTS.md#guardrails) and
+[work intake](../../AGENTS.md#work-intake). In addition:
+
+- Start from the verified dependency revision, and name the issue and its
+  dependencies in the PR.
+- Design-only work reports document and fixture checks; it must not imply that
+  production behavior was tested.
+- Authorization given for #58 does not carry into any draft.
 
 <a id="r1"></a>
 ## R1 — Make Think evaluation repeatable without live calls
@@ -40,35 +33,9 @@ keep dependencies current.
 <a id="r3"></a>
 ## R3 — Add an explicitly budgeted live evaluation mode
 
-**Published:** [#96](https://github.com/jon-devlapaz/tinkery/issues/96); see
-[live runs](think-evaluation.md#live-runs).
-**Milestone:** M1. **Depends on:** R1. **Parallel work:** R2/R5.
-**Owner:** the evaluation builder. Building and testing this slice needs no live calls.
-
-**Scope:** Connect the R1 runner to the existing drafting boundary. Reuse capture
-support in the live example; remove reliance on default dumps/answers in this
-entry point. Provider invocation is permitted only for supplied, authorized data.
-
-**Completion checks:**
-
-- [ ] Missing supplied data, permission or a positive authorized call limit causes
-  refusal before any provider process/request starts. Default behavior is fake.
-- [ ] One budget boundary covers every shaping and review request, retries and
-  failures. Reserve/count before invocation; exhaustion stops before the next
-  request, including the second call of a send. Test this with fake executables.
-- [ ] Tests cover limits 0, 1 and 2, cancellation, provider failure and retry.
-  Reverting the pre-invocation limit makes a regression test fail. Reusing an
-  evaluation run cannot silently reset its remaining budget.
-- [ ] Records identify the supplied dataset, provider/model, prompt and source
-  revisions, configured limit, attempted calls and run outcome. Keep provider
-  execution provenance separate from the operator's quality verdict.
-- [ ] Private input and raw output stay in an explicitly selected, permitted
-  evaluation location outside the repository; no operator sessions are written.
-- [ ] Report fake-only verification as such. Any real smoke run requires its own
-  data permission and budget and is not necessary to claim the limit tests pass.
-
-**Leave out:** Automatically running live examples, harvesting sessions/history,
-new provider integrations and permission inferred from a configuration flag alone.
+**Done:** [#96](https://github.com/jon-devlapaz/tinkery/issues/96), merged in
+[PR #97](https://github.com/jon-devlapaz/tinkery/pull/97). See
+[live runs](think-evaluation.md#live-runs). The issue keeps the completion checks.
 
 <a id="r4"></a>
 ## R4 — Record the current goal quality and human effort

@@ -36,7 +36,7 @@ incur provider charges. `--help` lists every option.
 ## Read next
 
 - [docs/yohaku.md](docs/yohaku.md): the constitution.
-- [CLAUDE.md](CLAUDE.md): macOS setup, the full test run, and rules for changing Tinkery.
+- [AGENTS.md](AGENTS.md): macOS setup, the full test run, and rules for changing Tinkery.
 - [First-release plan](docs/design/first-release.md): the six-stage finish line,
   milestone dependencies, approved tasks and remaining issue drafts.
 - [docs/design/](docs/design/principles.md): current decisions.
