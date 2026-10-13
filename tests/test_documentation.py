@@ -23,7 +23,7 @@ def tracked_files():
 TRACKED = tracked_files()
 TRACKED_DIRS = {str(parent) for path in TRACKED for parent in Path(path).parents} - {"."}
 # Vendored upstream docs and test fixtures are not ours to steer agents with;
-# CLAUDE.md only imports the entry point.
+# CLAUDE.md only imports the entry point and names the skills folder.
 DOCS = sorted(path for path in TRACKED if path.endswith(".md") and path != "CLAUDE.md"
               and not path.startswith(("vendor/", "tests/fixtures/")))
 FENCE = re.compile(r"^(```|~~~).*?^\1", re.M | re.S)
@@ -60,7 +60,10 @@ class DocumentationLintTests(unittest.TestCase):
     """Deterministic checks that every agent-facing page points at things that exist."""
 
     def test_one_guide_serves_every_harness(self):
-        self.assertEqual("@AGENTS.md\n", (REPO / "CLAUDE.md").read_text(),
+        # Claude Code doesn't load .agents/skills/ by itself, as Codex and Pi do.
+        self.assertEqual("@AGENTS.md\n\nProject skills live in `.agents/skills/`. "
+                         "When a task matches one, read its `SKILL.md`.\n",
+                         (REPO / "CLAUDE.md").read_text(),
                          f"Agent guidance lives in {ENTRY}; CLAUDE.md only imports it")
 
     def test_links_reach_tracked_files_and_headings(self):
