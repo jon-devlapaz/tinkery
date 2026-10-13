@@ -61,11 +61,15 @@ impl BoardHost for PiHost {
         let result: Result<Guess, String> = (|| {
             let input = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
             let text = self.complete(input, prompt, cancelled)?;
-            let text = self
-                .review_decisions(&request, &text, cancelled, &mut decision.normalizations)
-                .unwrap_or(text);
+            let review =
+                self.review_decisions(&request, &text, cancelled, &mut decision.normalizations);
             decision.raw = Some(text.clone());
-            let guess = Guess::decode(&text, &request, &mut decision.normalizations)?;
+            let guess = Guess::decode_reviewed(
+                &text,
+                review.as_ref(),
+                &request,
+                &mut decision.normalizations,
+            )?;
             decision.candidate = Some(guess.clone());
             decision.coverage = checks::coverage(&request, &guess);
             Ok(guess)

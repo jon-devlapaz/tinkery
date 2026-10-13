@@ -28,15 +28,9 @@ approved issue before work starts.
   scope in place. See think's [known gap](think.md#open-work-only).
 - **Think's routing remains large.** Split `src/think/brain_dump.rs` further without
   loosening the [architecture limits](architecture.md#limits-enforced-by-testsarchitecturers).
-- **The review merges by top-level keys.** `review::merge` writes its decisions and
-  questions into the raw reading by key, the residue named in
-  [architecture](architecture.md) diagnostic 3.
 - **An unset `HOME` puts Seed Me sessions under the current folder.** `Home::default_paths`
   still falls back to a relative `.local/share/seed-me/sessions` when `--seed-session-root` is
   absent. Think records refuse this since #88; sessions could do the same.
-- **Possible approaches can vanish.** The reading prompt names `alternatives` without
-  their shape. In #86's live recheck the model keyed each one `option`; `reading.rs`
-  reads only `label`, so all three were dropped and the section was empty.
 - **Gaps across think records aren't flagged yet.** The rest of the record slice:
   the eval harness writes records with origin `eval`, and a separate script reads
   them and flags gaps.

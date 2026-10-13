@@ -24,8 +24,8 @@ After each reading, a separate review call sees only the person's words, their
 answers, the draft parts and shaping decisions (not the template) and names decisions the draft settled
 silently: a target or scope, a boundary on deleting, sending or overwriting, what
 happens to protected things, persistence, whose rules apply. Its decisions join the
-reading's. For the same choice, the review explicitly names the shaping decision
-indices it covers; only valid references to the same part replace those entries.
+reading's in the reading's decoder; the recorded reply stays as the model sent it.
+For the same choice, the review explicitly names the shaping decision indices it covers; only valid references to the same part replace those entries.
 Uncovered choices remain, including different choices about the same part. No
 text-similarity or same-part rule guesses that two decisions are the same. Once
 required parts are present after the reading's cleanup, its top question is asked first.

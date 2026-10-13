@@ -116,6 +116,7 @@ fn the_reading_prompt_names_the_fields_its_decoder_reads() {
             "parts" => assert_eq!(braced(entry), sorted(reading::PARTS.iter().copied())),
             "decisions" => assert_eq!(braced(entry), sorted(reading::DECISION.iter().copied())),
             "questions" => assert_eq!(braced(entry), sorted(reading::QUESTION.iter().copied())),
+            "alternatives" => assert_eq!(braced(entry), sorted(reading::APPROACH.iter().copied())),
             "supports" => assert!(entry.contains(&reading::ANCHOR.join("/")), "{entry}"),
             _ => {}
         }
@@ -164,4 +165,53 @@ fn notes_never_reach_the_model() {
         assert!(file.lines().any(|l| l.starts_with('#')));
         assert!(!sent.lines().any(|l| l.starts_with('#')), "{sent}");
     }
+}
+
+/// The check record keeps the shaping reply exactly as received; the review's decisions reach
+/// the reading through its decoder, never by rewriting that reply (#89).
+#[cfg(unix)]
+#[test]
+fn the_recorded_reply_is_the_models_and_the_review_still_joins() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(&skill, SKILL).unwrap();
+    let program = dir.path().join("pi");
+    std::fs::write(&program, r#"#!/usr/bin/env python3
+import json,sys
+r=json.load(sys.stdin)
+if r.get('kind')=='decision-review':print(json.dumps(dict(decisions=[dict(part='must_not',text='Whether results may be published',answers=['keep private','may publish'],question='May the results be published?',covers=[])])));sys.exit(0)
+print('{"parts":{"who":"I","outcome":"judge the result","why":"it matters","done_when":"a judged result exists"},"questions":[]}')
+"#).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let request = BoardRequest {
+        ask_counts: Default::default(),
+        sources: vec![Source {
+            id: 1,
+            text: "the restaurateur judges the result".into(),
+            in_reply_to: None,
+        }],
+        fragments: vec![],
+        previous: None,
+        skipped: vec![],
+        answered: vec![],
+        settled: vec![],
+        layout: vec![],
+    };
+    let guess = pi.reshape(request, &AtomicBool::new(false)).unwrap();
+    assert_eq!(guess.decisions.len(), 1);
+    assert_eq!(guess.questions[0].text, "May the results be published?");
+    let record: checks::Decision = serde_json::from_str(pi.diagnostics().last().unwrap()).unwrap();
+    assert_eq!(
+        record.raw.as_deref().map(str::trim_end),
+        Some(
+            r#"{"parts":{"who":"I","outcome":"judge the result","why":"it matters","done_when":"a judged result exists"},"questions":[]}"#
+        )
+    );
+    assert!(
+        record
+            .normalizations
+            .contains(&"Decision review added 1 decision(s)".into())
+    );
 }

@@ -1,6 +1,6 @@
 //! The decision review: a second call after each reading that names decisions the draft settled
 //! silently. It holds the prompt, what the review sees (the person's words, their answers and the
-//! draft parts, not the template), and how its decisions join the reading's.
+//! draft parts, not the template), its reply's decoder, and how its decisions join the reading's.
 use super::*;
 
 /// The decision review prompt as written: one rule per line, with notes on why.
@@ -9,18 +9,18 @@ pub(super) const PROMPT: &str = include_str!("prompts/decision_review.txt");
 pub(super) const COVERS: &str = "covers";
 
 impl PiHost {
-    /// Runs the review on a reading's raw reply. Returns the reply with the review's decisions
-    /// merged in, or `None` to keep the reply as it was.
+    /// Runs the review on a reading's raw reply. Returns the decisions it found, or `None` when
+    /// it found none or couldn't run, leaving the reading as it was.
     pub(super) fn review_decisions(
         &self,
         request: &BoardRequest,
         raw: &str,
         cancelled: &AtomicBool,
         changes: &mut Vec<String>,
-    ) -> Option<String> {
+    ) -> Option<Review> {
         let input = input(request, raw)?;
         match self.complete(input, reading::assemble(PROMPT), cancelled) {
-            Ok(review) => merge(raw, &review, changes),
+            Ok(review) => Review::decode(&review, changes),
             Err(e) => {
                 changes.push(format!("Decision review skipped: {e}"));
                 None
@@ -33,12 +33,7 @@ impl PiHost {
 /// Unreadable JSON yields no review; a readable but invalid board is still reviewed.
 /// Contains original words, settled answers, draft parts and shaping decisions, never standing instructions.
 pub fn input(request: &BoardRequest, raw: &str) -> Option<Vec<u8>> {
-    let reading = reading::read(raw, &mut vec![]).ok()?;
-    let draft = reading.get("parts").cloned().unwrap_or_default();
-    let decisions = reading
-        .get("decisions")
-        .cloned()
-        .unwrap_or_else(|| serde_json::json!([]));
+    let (draft, decisions) = reading::draft(raw)?;
     let text_of = |id: usize| {
         request
             .sources
@@ -63,95 +58,115 @@ pub fn input(request: &BoardRequest, raw: &str) -> Option<Vec<u8>> {
     .ok()
 }
 
-/// Merges a review into a reading's raw reply. Only explicitly covered shaping choices are
-/// replaced; all others remain, including different choices about the same goal part. Once
-/// required parts are present, its top question is asked first. Board validation still applies
-/// (ask counts, skips, duplicates), so a dropped review question falls back to the reading's own.
-/// An empty or unreadable review returns `None`, leaving the reading as it was.
-pub fn merge(raw: &str, review: &str, changes: &mut Vec<String>) -> Option<String> {
-    let mut board = reading::read(raw, &mut vec![]).ok()?;
-    let review = match reading::read(review, &mut vec![]) {
-        Ok(v) => v,
-        Err(e) => {
-            changes.push(format!("Ignored decision review: {e}"));
-            return None;
-        }
-    };
-    let found: Vec<_> = reading::items(review.get("decisions"), "review decisions", &mut vec![])
-        .into_iter()
-        .filter_map(|v| v.as_object().cloned())
-        .collect();
-    let obj = board.as_object_mut()?;
-    if found.is_empty() {
-        return None;
-    }
-    let required_missing = reading::read_parts(obj.get("parts"), &mut vec![])
-        .missing()
-        .next()
-        .is_some();
-    let original = reading::items(obj.get("decisions"), "decisions", &mut vec![]);
-    let mut covered = HashSet::new();
-    let mut decisions = vec![];
-    let mut asks = vec![];
-    for mut d in found {
-        let coverage = d.remove(COVERS);
-        let Ok(choice) =
-            serde_json::from_value::<OpenDecision>(serde_json::Value::Object(d.clone()))
-        else {
-            changes.push("Ignored unreadable review decision; shaping choices retained".into());
-            continue;
+/// A decision review's reply, decoded: the choices it found, most consequential first. Each is
+/// checked on its own here; whether it may replace a shaping decision is decided when the reading
+/// joins it ([`Guess::decode_reviewed`]). The review never edits the reading's reply.
+#[derive(Clone, Debug)]
+pub struct Review {
+    found: Vec<Found>,
+}
+#[derive(Clone, Debug)]
+struct Found {
+    choice: OpenDecision,
+    /// The shaping decisions it says it covers: `None` when it names none, `Err` when the
+    /// indices it names aren't indices.
+    covers: Option<Result<Vec<usize>, ()>>,
+}
+
+impl Review {
+    /// Reads a review reply. Unreadable or invalid decisions are noted and left out; a reply with
+    /// none left is `None`, so the reading stays as it was.
+    pub fn decode(review: &str, changes: &mut Vec<String>) -> Option<Self> {
+        let review = match reading::read(review, &mut vec![]) {
+            Ok(v) => v,
+            Err(e) => {
+                changes.push(format!("Ignored decision review: {e}"));
+                return None;
+            }
         };
-        let safe =
-            |s: &str| !s.trim().is_empty() && s.chars().all(|c| c == '\n' || !c.is_control());
-        let distinct: HashSet<_> = choice.answers.iter().map(|a| a.trim()).collect();
-        if !safe(&choice.text)
-            || distinct.len() < 2
-            || choice.answers.iter().any(|a| !safe(a))
-            || choice.question.as_ref().is_some_and(|q| !safe(q))
-        {
-            changes.push("Ignored invalid review decision; shaping choices retained".into());
-            continue;
-        }
-        if let Some(indices) = coverage.as_ref().and_then(|v| v.as_array()) {
-            let indices: Option<Vec<usize>> = indices
-                .iter()
-                .map(|v| v.as_u64().and_then(|n| usize::try_from(n).ok()))
-                .collect();
-            if let Some(indices) = indices.filter(|indices| {
+        let mut found = vec![];
+        for v in reading::items(review.get("decisions"), "review decisions", &mut vec![]) {
+            let Some(mut d) = v.as_object().cloned() else {
+                continue;
+            };
+            let covers = d.remove(COVERS);
+            let Ok(mut choice) =
+                serde_json::from_value::<OpenDecision>(serde_json::Value::Object(d))
+            else {
+                changes.push("Ignored unreadable review decision; shaping choices retained".into());
+                continue;
+            };
+            let safe =
+                |s: &str| !s.trim().is_empty() && s.chars().all(|c| c == '\n' || !c.is_control());
+            let distinct: HashSet<_> = choice.answers.iter().map(|a| a.trim()).collect();
+            if !safe(&choice.text)
+                || distinct.len() < 2
+                || choice.answers.iter().any(|a| !safe(a))
+                || choice.question.as_ref().is_some_and(|q| !safe(q))
+            {
+                changes.push("Ignored invalid review decision; shaping choices retained".into());
+                continue;
+            }
+            let mut answers: Vec<String> = vec![];
+            for a in choice.answers {
+                if !answers.contains(&a) {
+                    answers.push(a);
+                }
+            }
+            choice.answers = answers;
+            let covers = covers.as_ref().and_then(|v| v.as_array()).map(|indices| {
                 indices
                     .iter()
-                    .all(|i| original.get(*i).and_then(|v| v.get("part")) == d.get("part"))
-            }) {
-                covered.extend(indices);
-            } else {
-                changes.push("Ignored invalid decision coverage; shaping choices retained".into());
+                    .map(|v| v.as_u64().and_then(|n| usize::try_from(n).ok()).ok_or(()))
+                    .collect()
+            });
+            found.push(Found { choice, covers });
+        }
+        (!found.is_empty()).then_some(Self { found })
+    }
+
+    /// The reading's decisions with this review joined in. A shaping decision is replaced only
+    /// when a review decision about the same part names its index; every other one remains,
+    /// including different choices about the same part. `shaping` pairs each decision with its
+    /// index in the reply the review saw.
+    pub(super) fn join(
+        &self,
+        shaping: Vec<(usize, OpenDecision)>,
+        changes: &mut Vec<String>,
+    ) -> Vec<OpenDecision> {
+        let mut covered: HashSet<usize> = HashSet::new();
+        for found in &self.found {
+            match &found.covers {
+                Some(Ok(indices))
+                    if indices.iter().all(|i| {
+                        shaping
+                            .iter()
+                            .any(|(j, d)| j == i && d.part == found.choice.part)
+                    }) =>
+                {
+                    covered.extend(indices.iter().copied())
+                }
+                Some(_) => changes
+                    .push("Ignored invalid decision coverage; shaping choices retained".into()),
+                None => {}
             }
         }
-        if let Some(text) = &choice.question {
-            asks.push(serde_json::json!({"target": choice.part, "text": text}));
-        }
-        decisions.push(serde_json::Value::Object(d));
+        changes.push(format!(
+            "Decision review added {} decision(s)",
+            self.found.len()
+        ));
+        shaping
+            .into_iter()
+            .filter(|(i, _)| !covered.contains(i))
+            .map(|(_, d)| d)
+            .chain(self.found.iter().map(|f| f.choice.clone()))
+            .collect()
     }
-    if decisions.is_empty() {
-        return None;
+
+    /// The questions the review asks, most consequential first, with the part each would change.
+    pub(super) fn questions(&self) -> impl Iterator<Item = (Part, &str)> {
+        self.found
+            .iter()
+            .filter_map(|f| f.choice.question.as_deref().map(|q| (f.choice.part, q)))
     }
-    let added = decisions.len();
-    let mut kept: Vec<_> = original
-        .into_iter()
-        .enumerate()
-        .filter_map(|(i, d)| (!covered.contains(&i)).then_some(d))
-        .collect();
-    kept.extend(decisions);
-    let decisions = kept;
-    let mut questions = reading::items(obj.get("questions"), "questions", &mut vec![]);
-    if required_missing {
-        questions.extend(asks);
-    } else {
-        asks.extend(questions);
-        questions = asks;
-    }
-    changes.push(format!("Decision review added {added} decision(s)"));
-    obj.insert("decisions".into(), decisions.into());
-    obj.insert("questions".into(), questions.into());
-    serde_json::to_string(&board).ok()
 }

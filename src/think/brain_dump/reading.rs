@@ -65,6 +65,8 @@ pub(super) const PARTS: &[&str] = &[
 pub(super) const DECISION: &[&str] = &["part", "text", "answers", "question"];
 /// The fields of one question.
 pub(super) const QUESTION: &[&str] = &["id", "text", "target"];
+/// The fields of one possible approach. Replies have also keyed the label `option` (#89).
+pub(super) const APPROACH: &[&str] = &["label", "benefit", "cost", "undo_cost"];
 /// The fields of a claimed source span.
 pub(super) const ANCHOR: &[&str] = &["source", "quote", "occurrence"];
 
@@ -286,6 +288,17 @@ impl Guess {
     ) -> Result<Self, String> {
         parse(raw, request, normalizations)
     }
+    /// [`decode`](Self::decode), with a decision review joined in: decisions it covers are
+    /// replaced, its own are added, and once the required parts are present its question comes
+    /// first. The same checks then apply to the whole reading.
+    pub fn decode_reviewed(
+        raw: &str,
+        review: Option<&Review>,
+        request: &BoardRequest,
+        normalizations: &mut Vec<String>,
+    ) -> Result<Self, String> {
+        reviewed(raw, review, request, normalizations)
+    }
     /// Refuses a reading that could mislead: control characters in shown text, a cited span
     /// that isn't exact, or a question that reuses an answered, skipped or application-owned
     /// identity.
@@ -400,8 +413,28 @@ pub(super) fn read_parts(
     parts
 }
 
+/// What the decision review sees of a reply before it is decoded: its parts and decisions as
+/// written, so a readable but invalid reading is still reviewed. `None` when unreadable.
+pub(super) fn draft(raw: &str) -> Option<(serde_json::Value, serde_json::Value)> {
+    let reading = read(raw, &mut vec![]).ok()?;
+    let parts = reading.get("parts").cloned().unwrap_or_default();
+    let decisions = reading
+        .get("decisions")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    Some((parts, decisions))
+}
+
 pub(super) fn parse(
     raw: &str,
+    request: &BoardRequest,
+    changes: &mut Vec<String>,
+) -> Result<Guess, String> {
+    reviewed(raw, None, request, changes)
+}
+fn reviewed(
+    raw: &str,
+    review: Option<&Review>,
     request: &BoardRequest,
     changes: &mut Vec<String>,
 ) -> Result<Guess, String> {
@@ -433,8 +466,7 @@ pub(super) fn parse(
     // Typed decisions: a choice only the person can make, with answers that would change
     // a goal line. Each keeps its part open (so it can be asked and blocks readiness) and
     // travels to review and the seed as a note.
-    let mut decision_notes = vec![];
-    let mut decisions = vec![];
+    let mut shaping = vec![];
     for (i, v) in items(obj.get("decisions"), "decisions", changes)
         .iter()
         .enumerate()
@@ -466,22 +498,31 @@ pub(super) fn parse(
             ));
             continue;
         }
-        if !open.contains(&part) {
-            open.push(part);
-        }
         let question = display(
             o.get("question"),
             &format!("decision {i} question"),
             changes,
         );
-        let decision = OpenDecision {
-            part,
-            text,
-            answers,
-            question,
-        };
+        shaping.push((
+            i,
+            OpenDecision {
+                part,
+                text,
+                answers,
+                question,
+            },
+        ));
+    }
+    let decisions = match review {
+        Some(review) => review.join(shaping, changes),
+        None => shaping.into_iter().map(|(_, d)| d).collect(),
+    };
+    let mut decision_notes = vec![];
+    for decision in &decisions {
+        if !open.contains(&decision.part) {
+            open.push(decision.part);
+        }
         decision_notes.push(decision.note());
-        decisions.push(decision);
     }
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
@@ -517,6 +558,17 @@ pub(super) fn parse(
     let outcome = parts.done_when.clone().unwrap_or_default();
     let mut questions = vec![];
     let mut question_values = items(obj.get("questions"), "questions", changes);
+    if let Some(review) = review {
+        // A missing required part is still asked before any review decision.
+        let asks = review
+            .questions()
+            .map(|(part, text)| serde_json::json!({"target": part, "text": text}));
+        if parts.missing().next().is_some() {
+            question_values.extend(asks);
+        } else {
+            question_values.splice(0..0, asks);
+        }
+    }
     question_values.extend(decisions.iter().filter_map(|d| {
         d.question
             .as_ref()
@@ -611,16 +663,23 @@ pub(super) fn parse(
         .enumerate()
     {
         let o = v.as_object();
+        // A live reply keyed each approach `option`; reading only `label` dropped them all.
+        let option = o
+            .filter(|o| !o.contains_key("label"))
+            .and_then(|o| o.get("option"));
         if let Some(o) = o {
-            extras(
-                o,
-                &["label", "benefit", "cost", "undo_cost"],
-                &format!("candidate {i}"),
-                changes,
-            );
+            let known = if option.is_some() {
+                [APPROACH, &["option"]].concat()
+            } else {
+                APPROACH.to_vec()
+            };
+            extras(o, &known, &format!("candidate {i}"), changes);
+        }
+        if option.is_some() {
+            changes.push(format!("Read candidate {i} label from its option field"));
         }
         let Some(label) = display(
-            o.and_then(|o| o.get("label")).or(Some(v)),
+            o.and_then(|o| o.get("label")).or(option).or(Some(v)),
             &format!("candidate {i} label"),
             changes,
         ) else {

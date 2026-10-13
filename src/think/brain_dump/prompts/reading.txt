@@ -18,9 +18,11 @@ Worries stay worries, not diagnoses or aspirations.
 Never invent properties of unknown names.
 Proposed mechanisms remain candidates, not automatically goals; preserve compatible aims rather than forcing a choice.
 
+# Live recheck, 2026-10-13 (#86): with alternatives unshaped, the model keyed each one option and
+# all were dropped. Declaring the shape is the only change; no eval was run for it (#89).
 # Decisions are typed because a prompt sentence alone did not make the model ask about them:
 # in the 5-dump pilot of 2026-10-12 (8b9b7d8) it returned open: [] once Done when was filled (#31, 505617f).
-Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_goals (short labels for separate goals), deferred (explicitly deferred items), open (consequentially unclear part names), decisions (open choices only the person can make, each {part, text, answers, optional question} with at least two short answers that would each change that part's line differently; [] only when no plausible answer would change a goal line), questions (at most one {target, text, optional id}), optional supports (source/quote/occurrence objects only; prose belongs in unresolved_notes, never supports), alternatives, misfits or unresolved_notes.
+Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_goals (short labels for separate goals), deferred (explicitly deferred items), open (consequentially unclear part names), decisions (open choices only the person can make, each {part, text, answers, optional question} with at least two short answers that would each change that part's line differently; [] only when no plausible answer would change a goal line), questions (at most one {target, text, optional id}), optional supports (source/quote/occurrence objects only; prose belongs in unresolved_notes, never supports), alternatives (possible approaches, each {label, benefit, cost, undo_cost}), misfits or unresolved_notes.
 Required parts: who names the beneficiary (I for the person's own goal; name the people otherwise); outcome is what becomes true or the beneficiary's behaviour, a predicate following who with NO forced can and no repeated subject.
 Never substitute a proposed mechanism for the outcome.
 Why explains the actual problem or reason, not an echo of the request.
