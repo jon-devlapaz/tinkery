@@ -358,19 +358,14 @@ impl Guess {
     }
 }
 
-pub(super) fn parse(
-    raw: &str,
-    request: &BoardRequest,
+/// Goal parts with the reading's display cleanup and duplicate-part rules applied.
+/// Review uses the same result to put missing-part questions before decision questions.
+pub(super) fn read_parts(
+    value: Option<&serde_json::Value>,
     changes: &mut Vec<String>,
-) -> Result<Guess, String> {
-    let value = read(raw, changes)?;
-    let obj = value.as_object().ok_or("No readable board object")?;
-    extras(obj, READING, "board", changes);
-    if obj.contains_key("uncertain") {
-        changes.push("Legacy uncertainty flag ignored as a count/authority signal; all readings remain provisional".into());
-    }
+) -> GoalParts {
     let mut parts = GoalParts::default();
-    let object = obj.get("parts").and_then(serde_json::Value::as_object);
+    let object = value.and_then(serde_json::Value::as_object);
     if let Some(object) = object {
         extras(object, PARTS, "goal parts", changes);
     }
@@ -402,6 +397,21 @@ pub(super) fn parse(
         ));
     }
     parts.distinct_check();
+    parts
+}
+
+pub(super) fn parse(
+    raw: &str,
+    request: &BoardRequest,
+    changes: &mut Vec<String>,
+) -> Result<Guess, String> {
+    let value = read(raw, changes)?;
+    let obj = value.as_object().ok_or("No readable board object")?;
+    extras(obj, READING, "board", changes);
+    if obj.contains_key("uncertain") {
+        changes.push("Legacy uncertainty flag ignored as a count/authority signal; all readings remain provisional".into());
+    }
+    let parts = read_parts(obj.get("parts"), changes);
     let other_goals = items(obj.get("other_goals"), "other goals", changes)
         .iter()
         .filter_map(|v| display(Some(v), "other goal", changes))

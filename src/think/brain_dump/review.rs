@@ -78,13 +78,10 @@ pub(super) fn merge(raw: &str, review: &str, changes: &mut Vec<String>) -> Optio
     if found.is_empty() {
         return None;
     }
-    let required_missing = Part::REQUIRED.iter().any(|p| {
-        let key = serde_json::to_value(p).ok();
-        obj.get("parts")
-            .and_then(|parts| parts.get(key.as_ref()?.as_str()?))
-            .and_then(|v| v.as_str())
-            .is_none_or(|s| s.trim().is_empty())
-    });
+    let required_missing = reading::read_parts(obj.get("parts"), &mut vec![])
+        .missing()
+        .next()
+        .is_some();
     let original = reading::items(obj.get("decisions"), "decisions", &mut vec![]);
     let mut covered = HashSet::new();
     let mut decisions = vec![];
