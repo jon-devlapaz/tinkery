@@ -392,7 +392,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
 pub(super) fn how_text(app: &BrainDump) -> String {
     if let Some(receipt) = &app.handoff.receipt {
         return format!(
-            "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}{}\n\nCopying sends the continuation prompt through OSC 52; your terminal may require clipboard permission. Paste it into Claude, Codex or Pi yourself. Opening shape only selects this saved session. No agent, harness or browser starts.\n\nThe session stays active. Only Tinkery's owned viewer stops when you leave. Goal confirmation is not seed or implementation approval.",
+            "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it into Claude, Codex or Pi yourself. Nothing starts on its own.",
             receipt.text(),
             app.record_line()
                 .map_or(String::new(), |line| format!("\n{line}"))
@@ -400,11 +400,11 @@ pub(super) fn how_text(app: &BrainDump) -> String {
     }
     let diagnostics = app.diagnostics().join("\n\n");
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nOther keys\nAliases: Ctrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why. Ctrl-E extracts a selection; F7 or Ctrl-X shows or hides the cards. Ctrl-L repaints. Mac keyboards may need fn, or the standard function keys setting.\n\nSending and checks\n{}\nReal requests may incur charges. One shaping call and one decision review run before the reading is shown: at most two provider calls per send, no automatic retry. Nothing runs after the reading appears. Exact spans/schema/history remain local blocking checks. Calls remain bounded and cancellable; Ctrl-C cancels sending. Logs retain decisions, reasons, responses, coverage locations and elapsed milliseconds. A model judgment is not proof of understanding.\n\nGoal and authority\nOnly explicit confirmation creates an active Seed Me session and pins its origin. Answers, skips, empty question queues and review opening confirm nothing. Goal is not seed or implementation approval; outcome/options remain proposals. No seed confirmation or intake readiness. The same confirmation writes a think record (every turn and check, your words verbatim) into Tinkery's own folder; F1 then h shows where after saving. Sessions that end without confirming leave no record.\n\nOriginals and viewing\nUnmarked words are neutral; original dumps/answers stay intact. Review opens the current original at its beginning; wheel scrolls the left source and Ctrl-PgUp/PgDn changes original. Questions stay open, nonblocking.\n\nAfter saving\nTinkery is read-only. Continue the active session in Seed Me. No browser opens. Only Tinkery's owned viewer stops at exit; the session stays active. Saving already affirmed durable writes cannot be undone; F10 waits for read-back before returning.\n\nLeaving\nUnconfirmed work is not saved. F10 asks before discarding originals, replies or a reading; n/Esc keeps everything. y or a second F10 returns to the menu. Ctrl-C never leaves: it copies a selection or cancels sending. After confirmation, the goal stays saved, so returning is immediate.{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\nOnly typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept.\n\nAfter saving\nContinue in Seed Me.\n\nOther keys\nCtrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why, Ctrl-E extract, Ctrl-X cards, Ctrl-L repaint, Ctrl-PgUp/PgDn switch originals. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {
-            "Real provider mode."
+            "Real: your words go to the model you chose and may cost money."
         } else {
-            "Simulated practice; no real session."
+            "Practice: replies are simulated and nothing leaves your machine."
         },
         if diagnostics.is_empty() {
             String::new()
