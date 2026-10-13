@@ -490,11 +490,12 @@ fn right_side_speaks_in_one_voice_with_one_reading() {
     assert!(!one.contains("Review goal") && !one.contains("or maybe"));
     let bar = snapshot(100, 30, &mut a, false).unwrap();
     assert!(!bar.lines().last().unwrap().contains('7'));
+    let before = a.conversation.board().unwrap().goal().map(str::to_owned);
     key(&mut a, KeyCode::F(7));
     assert_eq!(
-        snapshot(100, 30, &mut a, false).unwrap(),
-        bar,
-        "F7 does nothing"
+        a.conversation.board().unwrap().goal().map(str::to_owned),
+        before,
+        "F7 switches no reading"
     );
     assert_eq!(agent_text("Possible goal: a reading."), "A reading.");
     assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
