@@ -5,17 +5,17 @@
 Successful explicit goal saving shows `Saved.`, the exact frozen goal block and
 one next step: `Next: shape it into a seed with Seed Me.`
 
-- `c copy prompt` requests OSC 52 copying, with quiet success/failure feedback.
-  It remains available to retry. Host forwarding determines clipboard support.
+- `c copy prompt` sends OSC 52 with quiet write success/failure feedback and can
+  be retried. This does not verify the host clipboard; see
+  [clipboard support](../terminal-setup.md#clipboard-osc-52).
 - `s open in shape` opens **this session's detail**, not the list.
 - F10 returns to the menu. Standalone think also transitions into the menu.
 
 Nothing launches, opens a browser, pastes into a harness or starts implementation.
-Raw storage paths live only in deliberate technical help (F1, then `h`), not the
-ordinary receipt/detail body. That help shows the [think record](think.md#think-record)'s
-path under Seed Me's, or says plainly that the record wasn't written; the receipt's one
-muted notice says so too, and the goal stays saved either way. A plain-text terminal exit receipt can include
-recovery/session locations; that is separate from the calm interactive view.
+Storage paths live in technical help (F1, then `h`), not the ordinary receipt or
+detail. Help shows the [think record](think.md#think-record)'s path under Seed Me's.
+If the record wasn't written, help and the receipt's muted notice say so; the goal
+stays saved. The plain-text terminal exit receipt may include recovery locations.
 
 ## Shape list and detail
 
@@ -59,8 +59,7 @@ Compact title/state/recency, context-sensitive keys and repeatable copying follo
 patterns in [lazygit](https://lazygit.dev/keybindings/),
 [gh-dash](https://gh-dash.dev/getting-started/usage/) and
 [fzf](https://github.com/junegunn/fzf/blob/master/README.md). These are design
-inferences, not comparative user-study results. The approved minimal list replaces
-the research mock-up's preview lines and headings.
+inferences, not comparative user-study results.
 Regression coverage includes exact multiline preservation, status/order/truncation,
 repeatable prompt bytes, no ordinary-view paths, ended-session guards and receipt
 `s` navigation at four PTY sizes.

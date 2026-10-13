@@ -1,13 +1,12 @@
 # Architecture
 
-Read [the constitution](../yohaku.md) first. This page is about code structure: which module owns what, which may
-use which, and how good the design is today by one fixed yardstick. `tests/architecture.rs` enforces the limits
-below; a limit may only get stricter.
+Read [the constitution](../yohaku.md) first. This page owns module responsibilities,
+dependency rules and the design score. [Architecture tests](../../tests/architecture.rs)
+enforce the limits below; a limit may only get stricter.
 
 ## Phases and the dependency rule
 
-Tinkery is one front door with six places: think, shape, approve, watch, taste, measure. Each built place is a
-**phase**. The target is one compartment per phase:
+Each built [place](menu.md) is a **phase**, with its own compartment:
 
 - A phase uses only shared code, never another phase.
 - Only the menu knows every phase.
@@ -24,12 +23,10 @@ there, so a new phase can't count as shared code by default.
 | measure | `src/measure.rs` |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` |
 
-Approve, watch and taste get their own modules when they're built. No phase reaches into another, and the check
-has no exceptions: think hands a saved goal to shape only through `seed_me`.
+Approve, watch and taste get their own modules when built. There are no exceptions
+to the dependency rule: think hands a saved goal to shape only through `seed_me`.
 
 ## Modules today
-
-One sentence each: what it owns.
 
 | Module | Owns |
 | --- | --- |
@@ -62,20 +59,20 @@ One sentence each: what it owns.
 The yardstick is the eight-question diagnostic from John Ousterhout's *A Philosophy of Software Design*: the score
 is how many pass, times 1.25. Each PR that changes structure says which rows it moves.
 
-| # | Question | Today | What moves it |
-| --- | --- | --- | --- |
-| 1 | Can each module be described in one sentence? | Yes: the reading's types, prompt and decoder moved to `reading.rs` (#38); see the table above | |
-| 2 | Are interfaces simpler than implementations? | Yes | |
-| 3 | Can an implementation change without touching callers? | Yes: each model contract is written once, next to its decoder, and a test holds each prompt's field names equal to the decoder's. Seed Me's format lives only in `seed_me/`. One residue: the review merges into the raw reading by its top-level keys | |
-| 4 | Do interface comments describe the abstraction? | Yes: every module opens with what it owns and promises, and every `pub` item has a comment; the build denies `missing_docs` and `unreachable_pub` (#39) | |
-| 5 | Is design discussion part of review? | Yes: CLAUDE.md's guardrails ask whether a change makes the code simpler to change and which rows it moves (#39) | |
-| 6 | Does each module hide an important decision? | Yes: `Conversation` hides think's question, skip and scope rules behind methods | |
-| 7 | Can a newcomer see the boundaries without reading code? | Yes | this page |
-| 8 | Is design improvement part of ordinary work? | Yes | |
+| # | Question | Recorded assessment |
+| --- | --- | --- |
+| 1 | Can each module be described in one sentence? | Yes: see the module map; the reading's types, prompt and decoder live in `reading.rs` (#38) |
+| 2 | Are interfaces simpler than implementations? | Yes |
+| 3 | Can an implementation change without touching callers? | Yes: each model contract lives beside its decoder; tests check their field names agree. Seed Me's format lives only in `seed_me/`. Residue: the review merges into the raw reading by top-level keys |
+| 4 | Do interface comments describe the abstraction? | Yes: modules and `pub` items carry interface comments; the build denies `missing_docs` and `unreachable_pub` (#39) |
+| 5 | Is design discussion part of review? | Yes: [the working guide](../../CLAUDE.md#guardrails) requires a changeability check and names the rows moved (#39) |
+| 6 | Does each module hide an important decision? | Yes: `Conversation` hides question, skip and scope rules behind methods |
+| 7 | Can a newcomer see the boundaries without reading code? | Yes: this page |
+| 8 | Is design improvement part of ordinary work? | Yes |
 
-**Score: 10/10** (2026-10-12, re-scored after #39; first scored at 2d25a7c, 5/10). Every row passes. What a
-pass doesn't hide: row 3's residue above, and `brain_dump.rs` is still the largest file (about 1,500 lines), with
-a narrow interface over a lot of routing.
+**Recorded score: 10/10** (2026-10-12, after #39; first scored at 2d25a7c, 5/10).
+This is a dated assessment, not a fresh measurement. Remaining debt: row 3's merge
+and `brain_dump.rs`'s narrow interface over a large amount of routing.
 
 ## Limits enforced by `tests/architecture.rs`
 

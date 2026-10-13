@@ -3,25 +3,21 @@
 Read [the constitution](../yohaku.md) first; it wins conflicts and only the operator
 amends it. These notes explain design application, not a second constitution.
 
-- **Yohaku:** empty space earns its place. Add only what this moment needs; say each
-  thing once. A quiet key bar shows available actions, not a catalogue.
-- **Authority:** the operator's words remain exact. A reading is a guess beside
-  them, never a replacement. Layout, copying, answering and skipping are not consent.
-- **Explicit action:** nothing runs by itself. Goal confirmation, seed confirmation,
-  intake approval and implementation permission are separate gates.
-- **Plain words:** use what the person does, not protocol or workflow jargon.
-- **Unknown is unknown:** missing evidence is not zero, a success, or demo data.
-- **Keyboard first:** keep a keyboard route; terminal-host shortcuts and OSC 52
-  clipboard forwarding are capabilities to test, not universal promises.
+- **Controls:** the quiet key bar shows available actions, not a catalogue. Name
+  what the person does, not the underlying protocol.
+- **Consent:** layout, copying, answering and skipping grant no approval. Goal
+  confirmation, seed confirmation, intake approval and implementation permission
+  are separate gates.
+- **Status:** missing evidence is unknown, not zero, success or demo data.
+- **Keyboard:** keep a keyboard route. Terminal-host shortcuts and OSC 52 clipboard
+  forwarding are capabilities to test, not universal promises.
 
 ## Visual meaning
 
-Ink belongs to the operator's words and the goal as it stands. Italic marks a
-reading as a guess; muted carries hints and unchanged lines. Jade marks where you
-are (question, selection/caret, current place); rust marks consequences. Color never carries
-meaning alone: pair it with words, emphasis or `!`. `NO_COLOR` retains bold, dim
-and underline. The shipped paper palette is light; dark mode is a draft, not built.
-After an answer, changed goal lines remain in full ink and unchanged lines rest
+Use the constitution's [colour roles](../yohaku.md#colour-has-one-job-each),
+including its non-colour cues. The shipped paper palette is light;
+[dark mode](backlog.md#5-a-calm-dark-theme) is not built.
+After an answer, changed goal lines stay in full ink and unchanged lines rest
 muted; the distinction clears on typing or sending. No extra banner or model call.
 
 ## Where to read next

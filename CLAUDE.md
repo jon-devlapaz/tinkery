@@ -4,9 +4,8 @@
 wins in conflicts with this file, design docs or briefs. Only the operator amends
 it; report factual discrepancies rather than editing it.
 
-Tinkery is a calm, keyboard-first terminal front door for agentic work. Read
-[README.md](README.md) for what works today. This file is the agent working guide
-and source of truth subordinate to the constitution; `AGENTS.md` points here.
+This is the working guide, subordinate to the constitution. Read
+[README.md](README.md) for what works today.
 
 ## Guardrails
 
@@ -18,8 +17,7 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
   is a guess. The displayed, confirmed goal stays unchanged through saving and handoff.
 - Nothing runs by itself: navigation and copying never launch agents. Explicit goal
   confirmation is not seed confirmation or implementation permission.
-- Work from a GitHub issue on a branch; open a PR, **never merge**. Link the issue
-  and report actual test counts, failures, and reversion probes. If the operator
+- Work from a GitHub issue on a branch; open a PR, **never merge**. If the operator
   requests draft-only issues, leave them uncreated and identify the approved task instead.
 - No model/provider calls without an explicit budget. Default budget is zero.
   Examples named `live_*` and eval commands are not part of the zero-call suite.
@@ -29,34 +27,32 @@ and source of truth subordinate to the constitution; `AGENTS.md` points here.
   Pi Voice, or the operator's Seed Me checkout.
 - Read relevant tests before changing behavior. Add regression tests and verify
   important protections go red when reverted. Restore the protection afterward.
-- Update `docs/design/` when decisions change. Read the relevant design below
-  before implementation; backlog proposals are not shipped behavior or build permission.
-- Leave the repository at rest ("git equanimity"): on `main`, matching `origin/main` after a fetch,
-  clean, with no stashes, extra worktrees or leftover branches. While a PR is open, say so instead of
-  cleaning it up. Delete only merged branches (`git branch -d`); never force-delete, drop stashes or
-  remove worktrees to look clean.
+- Read the relevant design below before implementation; update it when decisions
+  change. Backlog proposals are not shipped behavior or build permission.
+- When refining agent-facing docs, use `writing-for-agents` if available: subtract
+  first, keep one authoritative home per rule, and link task-specific detail.
+  Preserve safeguards and runnable commands; brevity is not permission to weaken them.
+- Leave the repository at rest ("git equanimity"): on `main`, matching `origin/main`
+  after a fetch, clean, with no stashes, extra worktrees or leftover branches.
+  While a PR is open, say so instead of cleaning it up. Delete only merged
+  branches (`git branch -d`); never force-delete, drop stashes or remove worktrees
+  to look clean.
 
 ## Layout and design entry points
+
+Read the design for the task, not every page. [Architecture](docs/design/architecture.md#modules-today)
+maps individual modules to their responsibilities.
 
 | Work | Code | Read first |
 | --- | --- | --- |
 | CLI, terminal loop, snapshots | `src/main.rs` | [principles](docs/design/principles.md) |
 | Module boundaries, design limits | `tests/architecture.rs` | [architecture](docs/design/architecture.md) |
-| Menu | `src/menu.rs` | [menu](docs/design/menu.md) |
-| Ledger view (measure) | `src/measure.rs` | [menu](docs/design/menu.md) |
-| Shape list/detail, session discovery | `src/shape/` | [shape and handoff](docs/design/shape-and-handoff.md) |
-| Think state and views | `src/think/brain_dump.rs`, `src/think/brain_dump/` | [think](docs/design/think.md) |
-| Think's conversation rules (questions, skips, scope) | `src/think/brain_dump/conversation.rs` | [think](docs/design/think.md) |
-| Typed goal parts/composition | `src/goal/mod.rs`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
-| Think's model prompts, reading contract and decision review | `src/think/brain_dump/prompts/`, `reading.rs`, `review.rs` | [think](docs/design/think.md) |
-| Shared review/receipt/detail goal rendering | `src/goal/confirmed.rs` | [goal block](docs/design/goal-block.md) |
-| Confirmation review | `src/think/brain_dump/goal_view.rs` | [shape and handoff](docs/design/shape-and-handoff.md) |
-| Seed Me: saving, reading sessions, continuation prompt | `src/seed_me/` | [shape and handoff](docs/design/shape-and-handoff.md) |
-| Explicit Pi drafting boundary | `src/think/drafting.rs` | [think](docs/design/think.md) |
-| Think record written on confirm | `src/think/record.rs` | [think](docs/design/think.md#think-record) |
-| Voice host/process/protocol and owned setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
-| Extracted cards (canvas, notes) | `src/think/canvas.rs`, `note.rs` | [think](docs/design/think.md) |
-| Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), `vendor/pinstar/API.md` |
+| Menu, session discovery, measure | `src/menu.rs`, `src/shape/discovery.rs`, `src/measure.rs` | [menu](docs/design/menu.md) |
+| Think: conversation, prompts, views, drafting, records, cards | `src/think/` | [think](docs/design/think.md) |
+| Goal composition, validation, shared rendering | `src/goal/`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
+| Review, saving, shape, continuation | `src/think/brain_dump/goal_view.rs`, `src/shape/`, `src/seed_me/` | [shape and handoff](docs/design/shape-and-handoff.md) |
+| Local voice and setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
+| Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md) |
 | Tests | inline Rust tests, `tests/`, `voice/*.test.mjs` | relevant tests; `tests/vt_screen.py` is a helper |
 
 ## Cold setup
@@ -69,12 +65,11 @@ From the clone's root, on a fresh Debian/Ubuntu Linux box with Bash and Git:
 
 The script installs missing build/Python prerequisites, stable Rust with rustfmt
 and Clippy, and Node if missing. It checks out the **same Seed Me commit as CI**
-into ignored `.ci-seed-me/` and prints shell exports. Re-running it is safe; it
-refuses a dirty or unrelated fixture checkout rather than resetting it.
-The fixture's local Git exclude ignores generated Python bytecode caches, so helper
-tests do not make it dirty; tracked Seed Me files remain untouched. It fetches only
-packages and Git repositories: no providers, microphones, native voice engines, or
-speech models. A non-root box needs sudo for missing apt packages.
+into ignored `.ci-seed-me/` and prints shell exports. It refuses dirty or unrelated
+fixture checkouts rather than resetting them; rerunning is safe. A local Git exclude
+ignores generated Python bytecode without changing tracked Seed Me files.
+It fetches only packages and Git repositories: no providers, microphones, native
+voice engines or speech models. Missing apt packages need root or sudo.
 
 CI uses **stable Rust** on Ubuntu and macOS. Local Clippy must use the same updated
 stable toolchain, not an older default. The setup script updates stable in the
@@ -117,22 +112,16 @@ cargo +stable clippy --workspace --all-targets --locked -- -D warnings
 ```
 <!-- full-check:end -->
 
-For interactive practice (no providers or saved sessions), use a terminal:
-
-```bash
-cargo +stable run --locked -- --home
-```
-
-Without `--home`, the binary opens think directly. The installed launcher is
-separate and is not needed for development. `--snapshot` prints a 100×30 text view
-without terminal mode or provider calls. `NO_COLOR=1` or `--no-color` preserves
-non-color cues. Use `--help` for CLI options; real drafting requires explicit
-`--shape-pi`, `--model` and `--seed-me` plus operator-authorized budget.
+For interactive practice, see [README](README.md#try-it); the installed launcher
+is not needed. `--snapshot` prints a 100×30 view without terminal mode or provider
+calls. `NO_COLOR=1` or `--no-color` preserves non-color cues. Real drafting requires
+explicit `--shape-pi`, `--model` and `--seed-me` plus operator-authorized budget;
+[terminal setup](docs/terminal-setup.md#launch) has an isolated trial example.
 
 ## Work intake
 
-[Backlog](docs/design/backlog.md) contains eight **drafts**, not published issues.
-They must be reviewed with the operator before anyone creates them. For an approved
-issue, keep the slice bounded, follow its acceptance checks and don't-list, and
-report observed Rust/Node test counts and PTY journeys/sizes separately from any
-operator dogfood. Stub tests establish mechanics, not goal quality on real dumps.
+Review [backlog drafts](docs/design/backlog.md) with the operator before publishing
+issues. For approved work, keep the slice bounded and follow its acceptance checks
+and don't-list. Link the issue and report observed Rust/Node/Python test counts,
+PTY journeys/sizes, failures and reversion probes separately from operator dogfood.
+Stub tests establish mechanics, not goal quality on real dumps.

@@ -1,10 +1,10 @@
 # Terminal setup
 
-Tinkery draws in whatever terminal hosts it. It takes every font face from that
-terminal and cannot install or pick one itself. This page covers the host settings
-that matter: font, function keys, mouse, clipboard and colour. Key behaviour here
-follows the in-app help (F1, then F1 again for every key); if they ever disagree,
-the help and [docs/design/](design/principles.md) win.
+This page covers terminal-host settings and launch commands. Tinkery uses the
+host's font; it cannot install or choose one. For key behaviour, use in-app help
+(F1, then F1 again for every key). Report disagreements with the
+[interaction contract](design/think.md#interaction-contracts), rather than treating
+this setup guide as a new rule.
 
 ## Font
 
@@ -66,30 +66,23 @@ Ctrl aliases exist for hosts that capture function keys: **Ctrl-N** new dump
 (also Shift-F2), **Ctrl-G** review, **Ctrl-O** originals, **Ctrl-D** why. Local
 voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
 
-**Tab** (or Shift-Tab) moves between writing and your original once one exists, and
-the same key returns. Shift with the arrow keys, Home or End selects in either one;
-**Ctrl-A** selects all of the one you are in. In writing, typing, Enter, Backspace,
-Delete and paste replace the selection; the original is read-only, and typing there
-returns to writing.
-Extracted cards (Ctrl-E extracts a selection) show and hide with **F7** or **Ctrl-X**; while they
-cover the original it cannot be selected or copied. A paste or edit past the 4,096-byte
-limit is refused whole, with a one-line notice that clears on your next key.
-**Ctrl-C** copies the selection in the surface you are in, or cancels a running
-request; it never leaves think. Dictation adds text at the caret and never deletes
-a selection.
-F10 leaves think and asks first (`y` / `n`) when leaving would lose unsaved work.
-It returns to the menu, where `q` quits. The one exception: launched without
-`--home`, F10 before a goal is saved exits Tinkery; after saving, it opens the menu.
+**Tab** (or Shift-Tab) switches between writing and the read-only original once
+it exists.
+**Ctrl-C** copies the active selection or cancels a request; it never leaves think.
+F10 asks first (`y` / `n`) when leaving would lose unsaved work. With `--home` it
+returns to the menu, where `q` quits. Without `--home`, it exits before a goal is
+saved and opens the menu after saving. See the
+[interaction contract](design/think.md#interaction-contracts) for selection,
+editing limits and extracted cards.
 
 ## Mouse
 
-Tinkery captures the mouse while it runs and releases it on exit. In think, the
-wheel scrolls the reading and the original, and dragging across your original
-selects text for Ctrl-C to copy, in your original or your writing (Tab and Shift-arrows
-do the same without a mouse). Because Tinkery captures the mouse, the host's own
-click-to-select needs whatever bypass modifier the host offers (Option in many
-macOS terminals). Shift works only in hosts that ignore the Shift forwarding
-request below. A native selection copies terminal cells, boxes and wrapping included.
+Tinkery captures the mouse while running and releases it on exit. In think, the
+wheel scrolls the reading and original; dragging selects text in the original or
+writing for Ctrl-C to copy. Tab and Shift-arrows provide the keyboard route.
+Host-native selection needs its bypass modifier (Option in many macOS terminals).
+Shift works only in hosts that ignore the forwarding request below. Native
+selection copies terminal cells, including boxes and wrapping.
 
 Tinkery also asks the terminal to forward Shift-clicks
 ([XTSHIFTESCAPE](https://ghostty.org/docs/vt/csi/xtshiftescape)) and restores the
@@ -129,19 +122,22 @@ checkout. `./scripts/cloud-setup.sh` checks out the Seed Me commit CI pins into
 `.ci-seed-me/`:
 
 ```sh
+trial_root=$(mktemp -d /tmp/tinkery-TEST-trial-XXXXXX) &&
 cargo +stable run --locked -- --shape-pi \
   --model provider/model-id \
   --seed-me .ci-seed-me/skills/seed-me/SKILL.md \
-  --seed-session-root "$(mktemp -d /tmp/tinkery-TEST-goal-XXXXXX)"
+  --seed-session-root "$trial_root/sessions" \
+  --record-root "$trial_root/think"
 ```
 
-`--seed-session-root` keeps trial sessions in a temporary directory; leave it out
-only when you mean to save real sessions. `--thinking` sets Pi's reasoning level
-(default `low`).
+Both overrides are required for an isolated trial: one keeps Seed Me sessions
+outside operator data, the other keeps [think records](design/think.md#think-record)
+there too. Omit them only when you intend to save to the real data directories.
+`--thinking` sets Pi's reasoning level (default `low`).
 
 A send makes at most two provider calls: one shaping call and one decision review,
 both before the reading is shown, with no automatic retry. Some sends make none, such as a new dump that first asks how its words fit.
 F3 opens the review. Scroll to its end (PgDn), then type `confirm` and Enter to
-save the goal to a new Seed Me session. Saving a goal is not seed confirmation or permission to implement, and
-nothing launches an agent. See [think](design/think.md) and
+save the goal and its think record. Saving is not seed confirmation or permission
+to implement, and nothing launches an agent. See [think](design/think.md) and
 [shape and handoff](design/shape-and-handoff.md).
