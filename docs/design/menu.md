@@ -11,8 +11,33 @@ The six places are in operator/pipeline order:
 | 5 | taste | Placeholder; no end-report/review integration |
 | 6 | measure | Read-only report from a separately installed substrate ledger; otherwise unknown |
 
-Only selection reveals a one-line description. Shape's count of active sessions appears
+Only selection reveals a one-line description:
+
+| Place | Description |
+| --- | --- |
+| think | Make your intention a clear goal. |
+| shape | Choose a saved goal and copy a prompt to continue. |
+| approve | Decide whether the plan is ready. Not built yet. |
+| watch | Follow the work’s progress. Not built yet. |
+| taste | Decide whether the result meets your goal. Not built yet. |
+| measure | See recorded work and attention, when available. |
+
+Descriptions name the purpose without borrowing another place's name. Shape names
+the manual handoff, not in-app drafting; measure does not promise a verified metric.
+Approve's readiness wording grants no implementation permission: intake approval
+and implementation permission remain separate gates. The unbuilt places authorize
+nothing today. Goal confirmation stays explicit inside think.
+
+Shape's count of active sessions appears
 only when it is exact and nonzero (see below).
+A muted bottom key bar, with one blank row beneath it, shows the immediate menu actions once:
+`↑↓ move   enter open   ? help   q quit`. The selected-place description (or latest
+receipt notice) sits two blank rows beneath the six-place list, aligned with the
+place names. Numbers align with the title and key bar; shape's muted count sits
+near its name. Empty space separates purpose from controls; help and open places
+do not show the menu bar. Digits and other existing aliases remain
+available without adding them to the bar.
+
 Digits or arrows plus Enter open a place. Help is deliberate. F10 leaves think for
 the menu, guarded for unsaved work; home `q` quits. The binary needs `--home`;
 without it, it opens think. The separate installed launcher passes `--home`.
