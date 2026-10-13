@@ -364,3 +364,68 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     assert_eq!(frozen.answered[0].source, 2);
     assert!(a.handoff.job.is_none());
 }
+/// The right-pane text on the row Back is drawn on, from Back's column.
+fn back_row(screen: &str, back: Rect) -> String {
+    screen
+        .lines()
+        .nth(usize::from(back.y))
+        .unwrap()
+        .chars()
+        .skip(usize::from(back.x))
+        .collect::<String>()
+        .trim_end()
+        .to_owned()
+}
+#[test]
+fn a_failed_save_says_so_whole_above_back_and_retries() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40)] {
+        for no_color in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut a = board().with_record_root(dir.path().join("TEST-records"));
+            a.review_goal();
+            let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+            snapshot(w, h, &mut a, no_color).unwrap();
+            for _ in 0..30 {
+                key(&mut a, KeyCode::PageDown);
+            }
+            a.paste("confirm");
+            key(&mut a, KeyCode::Enter);
+            let end = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            while a.running() && std::time::Instant::now() < end {
+                a.tick();
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            assert!(
+                a.notice.starts_with("Handoff not complete:"),
+                "{}",
+                a.notice
+            );
+            let screen = snapshot(w, h, &mut a, no_color).unwrap();
+            assert!(
+                right_text(&screen, w)
+                    .contains("Handoff not complete. F1 then h shows why; Enter retries."),
+                "{w}x{h}: the whole failure and its next step\n{screen}"
+            );
+            assert_eq!(
+                back_row(&screen, a.screen.back_button),
+                "Back",
+                "{w}x{h}: Back stands alone\n{screen}"
+            );
+            assert!(
+                layout::how_text(&a).contains("Cannot locate Seed Me"),
+                "{w}x{h}: the reason is in How it works"
+            );
+            assert!(a.handoff.receipt.is_none(), "no false Saved");
+            assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+            key(&mut a, KeyCode::Enter);
+            assert!(a.handoff.job.is_some(), "{w}x{h}: Enter retries");
+            let mut receipt = seed_me::Receipt::test("/tmp/TEST-retry/session".into());
+            receipt.goal = goal.clone();
+            let (tx, rx) = std::sync::mpsc::channel();
+            a.handoff.job = Some(rx);
+            tx.send(Ok(receipt)).unwrap();
+            a.goal_tick();
+            assert_eq!(a.handoff.receipt.as_ref().unwrap().goal, goal);
+        }
+    }
+}

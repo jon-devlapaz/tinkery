@@ -138,14 +138,20 @@ fn a_record_that_cannot_be_written_leaves_the_saved_goal_standing_and_says_so() 
     let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
     save(&mut a, Ok(receipt(&shown)));
     assert_eq!(a.saved().unwrap().goal, shown, "the goal save must stand");
-    assert!(
-        a.notice
-            .starts_with("Saved, but the think record wasn't written:"),
-        "{}",
-        a.notice
-    );
-    let screen = snapshot(100, 30, &mut a, false).unwrap();
-    assert!(screen.contains("think record wasn't written"), "{screen}");
+    for (w, h) in [(80, 24), (100, 30), (160, 40)] {
+        let screen = snapshot(w, h, &mut a, false).unwrap();
+        let right = super::goal_tests::right_text(&screen, w);
+        assert!(
+            right.contains("Saved. ")
+                && right.contains("The think record wasn't written; F1 then h shows why."),
+            "{w}x{h}: the whole warning, apart from the saved goal\n{screen}"
+        );
+        assert!(
+            !screen.contains("TEST-not-a-folder"),
+            "the path stays in help"
+        );
+    }
+    assert!(layout::how_text(&a).contains("Think record not written: "));
     let printed = a.finish_handoff().unwrap();
     assert!(printed.contains("Think record not written: "), "{printed}");
 }
