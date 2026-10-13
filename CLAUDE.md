@@ -120,8 +120,11 @@ explicit `--shape-pi`, `--model` and `--seed-me` plus operator-authorized budget
 
 ## Work intake
 
-Review [backlog drafts](docs/design/backlog.md) with the operator before publishing
-issues. For approved work, keep the slice bounded and follow its acceptance checks
-and don't-list. Link the issue and report observed Rust/Node/Python test counts,
+Remaining work goes in its area's backlog, `docs/research/<area>/backlog.md`, using the
+areas in [architecture](docs/design/architecture.md#phases-and-the-dependency-rule);
+an area without one has nothing pending. Drafts are not permission: review them with
+the operator before publishing issues. Each approved slice gets one branch and PR,
+inherits the guardrails above, stays bounded and follows its acceptance checks and
+don't-list. Link the issue and report observed Rust/Node/Python test counts,
 PTY journeys/sizes, failures and reversion probes separately from operator dogfood.
 Stub tests establish mechanics, not goal quality on real dumps.

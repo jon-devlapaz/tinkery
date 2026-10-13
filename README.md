@@ -40,6 +40,6 @@ incur provider charges. `--help` lists every option.
 - [First-release plan](docs/design/first-release.md): the six-stage finish line,
   milestone dependencies, approved tasks and remaining issue drafts.
 - [docs/design/](docs/design/principles.md): current decisions.
-  The [backlog](docs/design/backlog.md) holds drafts, not plans.
+  Each area's backlog, `docs/research/<area>/backlog.md`, holds drafts, not plans.
 
 GPL-3.0-only; see [LICENSE](LICENSE).
