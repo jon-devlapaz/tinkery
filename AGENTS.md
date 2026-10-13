@@ -29,7 +29,11 @@ This is the working guide, subordinate to the constitution. Read
   important protections go red when reverted. Restore the protection afterward.
 - Read the relevant design below before implementation; update it when decisions
   change. Backlog proposals are not shipped behavior or build permission.
-- When refining agent-facing docs, use `writing-for-agents` if available: subtract
+- Project skills live in `.agents/skills/`, one folder each. Pi and Codex load them;
+  in Claude, read a skill's `SKILL.md` when its name is called. They are
+  [writing-for-agents](.agents/skills/writing-for-agents/SKILL.md) and
+  [retro](.agents/skills/retro/SKILL.md), which runs only when the operator asks.
+- When refining agent-facing docs, use `writing-for-agents`: subtract
   first, keep one authoritative home per rule, and link task-specific detail.
   Preserve safeguards and runnable commands; brevity is not permission to weaken them.
   `tests/test_documentation.py` fails when a link, heading, repository path or
