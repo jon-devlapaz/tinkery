@@ -19,6 +19,7 @@ impl BoardHost for Counting {
             other_goals: vec![],
             deferred: vec![],
             unresolved_notes: vec![],
+            decisions: vec![],
             uncertain: false,
             framings: vec![Framing {
                 text: "Keep track of the books you've read.".into(),

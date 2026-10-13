@@ -83,6 +83,19 @@ impl PiHost {
         })
     }
 
+    /// Reuses the configuration for a separate goal, with an empty check history. No process,
+    /// provider request or file read occurs; an older goal's running job keeps its own history.
+    pub fn new_session(&self) -> Self {
+        Self {
+            program: self.program.clone(),
+            model: self.model.clone(),
+            thinking: self.thinking.clone(),
+            instructions: self.instructions.clone(),
+            timeout: self.timeout,
+            brain_history: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
     /// Sets Pi's thinking level; refuses a level Pi doesn't name. The default is `low`.
     pub fn with_thinking(mut self, level: &str) -> Result<Self, String> {
         if !matches!(

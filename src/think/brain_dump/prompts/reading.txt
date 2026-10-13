@@ -20,7 +20,7 @@ Proposed mechanisms remain candidates, not automatically goals; preserve compati
 
 # Decisions are typed because a prompt sentence alone did not make the model ask about them:
 # in the 5-dump pilot of 2026-10-12 (8b9b7d8) it returned open: [] once Done when was filled (#31, 505617f).
-Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_goals (short labels for separate goals), deferred (explicitly deferred items), open (consequentially unclear part names), decisions (open choices only the person can make, each {part, text, answers} with at least two short answers that would each change that part's line differently; [] only when no plausible answer would change a goal line), questions (at most one {target, text, optional id}), optional supports (source/quote/occurrence objects only; prose belongs in unresolved_notes, never supports), alternatives, misfits or unresolved_notes.
+Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_goals (short labels for separate goals), deferred (explicitly deferred items), open (consequentially unclear part names), decisions (open choices only the person can make, each {part, text, answers, optional question} with at least two short answers that would each change that part's line differently; [] only when no plausible answer would change a goal line), questions (at most one {target, text, optional id}), optional supports (source/quote/occurrence objects only; prose belongs in unresolved_notes, never supports), alternatives, misfits or unresolved_notes.
 Required parts: who names the beneficiary (I for the person's own goal; name the people otherwise); outcome is what becomes true or the beneficiary's behaviour, a predicate following who with NO forced can and no repeated subject.
 Never substitute a proposed mechanism for the outcome.
 Why explains the actual problem or reason, not an echo of the request.
@@ -49,6 +49,8 @@ A decision is one only the person can make where plausible answers would change 
 # Think pilot, 2026-10-12: real decisions (a boundary, a scope, protected things) were filed as
 # unresolved_notes prose with no question (#31, 8b9b7d8).
 List every such decision in decisions each turn, drop it once an answer settles it, and ask the top one, never leaving it only in unresolved_notes.
+# Follow-up dogfood (#64): linking the question to its choice lets review show it once.
+When a decision is asked, put that same question in its optional question field; other decisions remain explicit even when not asked.
 If no plausible answer would change a goal line, decisions is empty; that is when questions stop.
 No did-I-get-it, draft-review, keep/cut/reshape, or confirmation questions.
 Optional constraints warrant a question only if the dump hints at an unclear constraint.

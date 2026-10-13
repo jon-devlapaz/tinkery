@@ -15,14 +15,20 @@ consequential missing intent, not facts an agent could discover. Once the
 required parts are present, ask the most consequential open decision: a choice only
 the person can make whose answers would change a goal line (a boundary, a scope, what
 happens to protected things). The reading lists decisions as typed items (part, text,
-two or more answers). Each keeps its part open, so it blocks "Nothing I'm unsure
-about" until an answer settles it, and travels to review and the seed as an
-"Open decision" note. A decision without two answers or a known part is ignored.
+two or more answers, and an optional linked question). Each keeps its part open, so it blocks "Nothing I'm unsure
+about" until an answer settles it, and travels to review and the seed. Review
+shows its linked question once; an unasked or unlinked choice stays an "Open
+decision" note. Alternatives remain in the handoff even when a question replaces
+the note on screen. A decision without two answers or a known part is ignored.
 After each reading, a separate review call sees only the person's words, their
-answers and the draft parts (not the template) and names decisions the draft settled
+answers, the draft parts and shaping decisions (not the template) and names decisions the draft settled
 silently: a target or scope, a boundary on deleting, sending or overwriting, what
 happens to protected things, persistence, whose rules apply. Its decisions join the
-reading's, and once required parts are present its top question is asked first; a
+reading's. For the same choice, the review explicitly names the shaping decision
+indices it covers; only valid references to the same part replace those entries.
+Uncovered choices remain, including different choices about the same part. No
+text-similarity or same-part rule guesses that two decisions are the same. Once
+required parts are present its top question is asked first; a
 failed or unreadable review leaves the reading as it was. It stops once the target
 and any irreversible boundary are settled: no edge cases the person's rules already
 cover and no questions about how an action is carried out (a live trial asked
@@ -95,7 +101,11 @@ A record holds `schema` (1), the tinkery version, `origin` (`live` for Pi,
 start (first turn) and confirm times, the Seed Me session id, every `turn` in the order
 it happened (`words`, `asked`, `answered`, `skipped`, `restored`, `scope_asked`,
 `scope_answered`, each with its time and the person's words verbatim), every F5 check
-as it already serializes, and the goal block exactly as confirmed.
+as it already serializes, and the goal block exactly as confirmed. Each Think
+visit has its own Pi diagnostic history, so a new goal cannot collect a previous
+goal's replies. Reusing the model settings starts no process and rereads no file;
+all sends in the current goal remain in its own history. The record folder is
+preserved when standalone Think returns to the menu and opens another goal.
 
 `src/think/record.rs` owns the format; `Conversation` keeps the turns. The record is
 written after Seed Me's save reads back, so a failed save writes none. If the record
@@ -196,3 +206,32 @@ rate or a human-recognition result. The small captured projections in
 `tests/fixtures/evidence_notes/` exercise readiness, review and exact original
 handoff with no calls. The prompt byte test guards the deliberate instruction
 change; those replay tests alone do not establish future model behavior.
+
+## Goal-history and review regression check (#64)
+
+Follow-up AI-operator dogfood found a previous goal's model reply in the next
+goal's think record, and one permission choice repeated as a question and two
+notes. New visits now get a fresh host history; fresh standalone visits also keep
+the chosen record folder. Explicit decision/question links let review show the
+question once while retaining its alternatives in handoff. The review's `covers`
+indices identify the shaping choices it replaces; invalid indices, different parts
+and malformed replacement choices leave the originals intact. Different choices
+are not collapsed just because they share a part.
+
+The live check used four sends/eight subscription-provider calls with
+`openai-codex/gpt-6.1-sol`, low thinking, in isolated TEST roots. The formerly
+repeated private-text choice appeared once. A second goal retained two different
+permission choices, one as the question and the other as an open note. Its record
+held one raw model reply; the first goal retained its three replies, with no
+cross-goal overlap. Originals, confirmed goal copies and existing-session handoff
+remained intact. This is bounded AI-operator evidence, not a general model-quality
+rate or human recognition.
+
+The live run also produced “Must not: Always omit” for an instruction to omit
+private text. Normal refinement corrected that draft before it was saved. This
+slice does not fix general constraint-polarity errors; the overlap judgment in
+`covers` also remains a model judgment, not proof that choices mean the same thing.
+Fake-provider terminal journeys cover both entry routes at all four supported
+sizes, including distinct same-part choices, saved history and record-folder
+preservation. Reversion probes fail for history isolation, linked-note suppression,
+decision coverage and its validation, and pass again with the protections restored.

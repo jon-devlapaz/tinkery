@@ -142,7 +142,7 @@ fn the_review_prompt_names_the_fields_its_merge_reads() {
     assert_eq!(sorted(object.keys().map(String::as_str)), ["decisions"]);
     let decision = object["decisions"][0].as_object().unwrap();
     let mut expected = reading::DECISION.to_vec();
-    expected.push(review::QUESTION);
+    expected.push(review::COVERS);
     assert_eq!(
         sorted(decision.keys().map(String::as_str)),
         sorted(expected)

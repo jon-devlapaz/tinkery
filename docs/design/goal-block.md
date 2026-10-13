@@ -79,8 +79,10 @@ detail. Confirmation freezes the **whole displayed block**, not just its headlin
 
 The whole block is the confirmed origin: headline → goal, Why → problem context,
 Done when → success criteria, Must/Must not → constraints and exclusions.
-Original sources, answers, unresolved/skipped questions, other goals and deferred
-notes travel as context, not extra settled decisions. The
+Original sources, answers, unresolved/skipped questions, typed open decisions
+(with alternatives and question links), other goals and deferred notes travel as
+context, not extra settled decisions. [Think's questions](think.md#questions)
+explain how review presents those choices; the
 [continuation contract](shape-and-handoff.md#continuation-contract) keeps goal,
 seed and implementation approval separate.
 

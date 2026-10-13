@@ -125,6 +125,8 @@ pub struct BoardData {
     pub alternatives: Vec<Candidate>,
     /// The person's words that don't fit the reading.
     pub misfits: Vec<VerifiedAnchor>,
+    /// Open choices and explicit links to their questions, retained even when asking is skipped.
+    pub decisions: Vec<OpenDecision>,
     /// Open intent that isn't a question yet.
     pub unresolved_notes: Vec<String>,
 }
@@ -170,6 +172,11 @@ impl Board {
         ] {
             for value in values {
                 *value = agent_text(value);
+            }
+        }
+        for d in &g.decisions {
+            if !g.open.contains(&d.part) {
+                g.open.push(d.part);
             }
         }
         g.parts.normalize_constraints();
@@ -276,6 +283,7 @@ impl Board {
                 .map(verify)
                 .collect::<Result<_, String>>()?,
             unresolved_notes: g.unresolved_notes,
+            decisions: g.decisions,
         }))
     }
     /// The readings to show. There is only ever one, whichever is selected.
@@ -304,6 +312,7 @@ impl Board {
             alternatives: self.alternatives.iter().map(Candidate::wire).collect(),
             misfits: self.misfits.iter().map(|a| a.anchor.clone()).collect(),
             unresolved_notes: self.unresolved_notes.clone(),
+            decisions: self.decisions.clone(),
         }
     }
 }

@@ -46,6 +46,7 @@ fn guess(r: &BoardRequest) -> Guess {
         other_goals: vec![],
         deferred: vec![],
         unresolved_notes: vec![],
+        decisions: vec![],
         uncertain: false,
         framings: vec![Framing {
             text: format!(

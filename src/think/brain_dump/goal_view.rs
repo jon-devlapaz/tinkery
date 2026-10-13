@@ -29,6 +29,7 @@ pub(super) struct Affirmation {
     pub answered: Vec<Settled>,
     pub unresolved: Vec<Question>,
     pub unresolved_notes: Vec<String>,
+    pub decisions: Vec<OpenDecision>,
     pub source: String,
 }
 impl Affirmation {
@@ -38,6 +39,7 @@ impl Affirmation {
             "answered": self.answered,
             "unresolved": self.unresolved,
             "unresolved_notes": self.unresolved_notes,
+            "decisions": self.decisions,
             "goal_parts": self.parts,
             "success": self.parts.done_when,
             "constraints": {"must": self.parts.must, "must_not": self.parts.must_not},
@@ -175,8 +177,21 @@ impl BrainDump {
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
         let missing = open_parts
             .into_iter()
-            .filter(|p| !unresolved.iter().any(|q| q.target == Some(*p)))
+            .filter(|p| {
+                !unresolved.iter().any(|q| q.target == Some(*p))
+                    && !g.decisions.iter().any(|d| d.part == *p)
+            })
             .map(|p| format!("{} — still open", p.label()))
+            .collect::<Vec<_>>();
+        let notes = g
+            .unresolved_notes
+            .iter()
+            .filter(|note| {
+                !g.decisions
+                    .iter()
+                    .any(|d| d.covered_by(&unresolved) && d.note() == **note)
+            })
+            .cloned()
             .collect::<Vec<_>>();
         self.handoff.review = Some(Review {
             affirmation: Affirmation {
@@ -188,9 +203,10 @@ impl BrainDump {
                 options: g.alternatives.iter().map(board::Candidate::wire).collect(),
                 sources: self.conversation.sources().to_vec(),
                 answered: self.conversation.settled().to_vec(),
+                decisions: g.decisions.clone(),
                 unresolved,
                 unresolved_notes: missing.into_iter()
-                    .chain(g.unresolved_notes.iter().cloned())
+                    .chain(notes)
                     .chain(g.misfits.iter().map(|s| format!("{} (original {})", s.quote, s.source)))
                     .collect(),
                 source: "Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into(),

@@ -62,7 +62,7 @@ pub(super) const PARTS: &[&str] = &[
     "must_not",
 ];
 /// The fields of one decision. The decision review adds a question to these.
-pub(super) const DECISION: &[&str] = &["part", "text", "answers"];
+pub(super) const DECISION: &[&str] = &["part", "text", "answers", "question"];
 /// The fields of one question.
 pub(super) const QUESTION: &[&str] = &["id", "text", "target"];
 /// The fields of a claimed source span.
@@ -150,6 +150,44 @@ pub struct Question {
     /// The question as shown.
     pub text: String,
 }
+/// An open choice proposed by a model, with its alternatives and the question that names it.
+/// This is provisional context, never an operator decision or permission.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpenDecision {
+    /// The goal line an answer would change.
+    pub part: Part,
+    /// What is undecided.
+    pub text: String,
+    /// At least two alternatives, kept for review and handoff.
+    pub answers: Vec<String>,
+    /// The question about this choice, when supplied; absence never hides the choice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question: Option<String>,
+}
+impl OpenDecision {
+    /// The note used when this choice has no question represented in review.
+    pub fn note(&self) -> String {
+        format!(
+            "Open decision: {} ({})",
+            self.text,
+            self.answers.join(" / ")
+        )
+    }
+    pub(super) fn covered_by(&self, questions: &[Question]) -> bool {
+        self.question.as_ref().is_some_and(|text| {
+            let linked = Question {
+                target: Some(self.part),
+                id: String::new(),
+                text: text.clone(),
+            };
+            questions
+                .iter()
+                .any(|q| q.target == linked.target && same_question_text(&q.text, &linked.text))
+        })
+    }
+}
+
 /// One reading as decoded from the model's reply: unverified, so nothing shows it or trusts it
 /// until [`Board::verify`](super::board::Board::verify) accepts it. The fields follow the
 /// prompt's schema; see `prompts/reading.txt` for what each asks of the model.
@@ -168,6 +206,9 @@ pub struct Guess {
     /// Parts still consequentially unclear.
     #[serde(default)]
     pub open: Vec<Part>,
+    /// Open choices and their question links; originals and answers remain separate sources.
+    #[serde(default)]
+    pub decisions: Vec<OpenDecision>,
     /// Open intent that can't become a question this turn.
     #[serde(default)]
     pub unresolved_notes: Vec<String>,
@@ -218,13 +259,16 @@ pub struct BoardRequest {
 }
 
 pub(super) fn same_question(a: &Question, b: &Question) -> bool {
+    a.id == b.id || same_question_text(&a.text, &b.text)
+}
+fn same_question_text(a: &str, b: &str) -> bool {
     let words = |s: &str| {
         s.split(|c: char| !c.is_alphanumeric())
             .filter(|s| !s.is_empty())
             .map(str::to_lowercase)
             .collect::<Vec<_>>()
     };
-    a.id == b.id || words(&a.text) == words(&b.text)
+    words(a) == words(b)
 }
 pub(super) fn grapheme_boundary(text: &str, index: usize) -> bool {
     index == text.len() || text.grapheme_indices(true).any(|(i, _)| i == index)
@@ -279,6 +323,11 @@ impl Guess {
         }
         for text in std::iter::once(&self.outcome)
             .chain(self.unresolved_notes.iter())
+            .chain(self.decisions.iter().flat_map(|d| {
+                std::iter::once(&d.text)
+                    .chain(d.answers.iter())
+                    .chain(d.question.iter())
+            }))
             .chain(
                 self.alternatives
                     .iter()
@@ -375,6 +424,7 @@ pub(super) fn parse(
     // a goal line. Each keeps its part open (so it can be asked and blocks readiness) and
     // travels to review and the seed as a note.
     let mut decision_notes = vec![];
+    let mut decisions = vec![];
     for (i, v) in items(obj.get("decisions"), "decisions", changes)
         .iter()
         .enumerate()
@@ -409,7 +459,19 @@ pub(super) fn parse(
         if !open.contains(&part) {
             open.push(part);
         }
-        decision_notes.push(format!("Open decision: {text} ({})", answers.join(" / ")));
+        let question = display(
+            o.get("question"),
+            &format!("decision {i} question"),
+            changes,
+        );
+        let decision = OpenDecision {
+            part,
+            text,
+            answers,
+            question,
+        };
+        decision_notes.push(decision.note());
+        decisions.push(decision);
     }
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
@@ -444,10 +506,13 @@ pub(super) fn parse(
     }];
     let outcome = parts.done_when.clone().unwrap_or_default();
     let mut questions = vec![];
-    for (i, v) in items(obj.get("questions"), "questions", changes)
-        .iter()
-        .enumerate()
-    {
+    let mut question_values = items(obj.get("questions"), "questions", changes);
+    question_values.extend(decisions.iter().filter_map(|d| {
+        d.question
+            .as_ref()
+            .map(|text| serde_json::json!({"target": d.part, "text": text}))
+    }));
+    for (i, v) in question_values.iter().enumerate() {
         let o = v.as_object();
         if let Some(o) = o {
             extras(o, QUESTION, &format!("question {i}"), changes);
@@ -635,6 +700,7 @@ pub(super) fn parse(
         outcome,
         misfits,
         unresolved_notes,
+        decisions,
         questions,
         alternatives,
     };
