@@ -1,6 +1,6 @@
 # The menu
 
-The six places are in operator/pipeline order:
+The six places follow the operator's work:
 
 | Key | Place | Today |
 | --- | --- | --- |
@@ -11,25 +11,15 @@ The six places are in operator/pipeline order:
 | 5 | taste | Placeholder; no end-report/review integration |
 | 6 | measure | Read-only report from a separately installed substrate ledger; otherwise unknown |
 
-Only selection reveals a one-line description:
-
-| Place | Description |
-| --- | --- |
-| think | Make your intention a clear goal. |
-| shape | Choose a saved goal and copy a prompt to continue. |
-| approve | Decide whether the plan is ready. Not built yet. |
-| watch | Follow the work’s progress. Not built yet. |
-| taste | Decide whether the result meets your goal. Not built yet. |
-| measure | See recorded work and attention, when available. |
-
-Descriptions name the purpose without borrowing another place's name. Shape names
-the manual handoff, not in-app drafting; measure does not promise a verified metric.
+Only the selected place reveals its one-line description; [the menu](../../src/menu.rs)
+owns the exact copy. Name the purpose without borrowing another place's name.
+Shape names the manual handoff, not in-app drafting; measure does not promise a verified metric.
 Approve's readiness wording grants no implementation permission: intake approval
 and implementation permission remain separate gates. The unbuilt places authorize
 nothing today. Goal confirmation stays explicit inside think.
 
-Shape's count of active sessions appears
-only when it is exact and nonzero (see below).
+Shape's active-session count appears only when [discovery](#session-discovery)
+is complete and the count is nonzero.
 A muted bottom key bar, with one blank row beneath it, shows the immediate menu actions once:
 `↑↓ move   enter open   ? help   q quit`. The selected-place description (or latest
 receipt notice) sits two blank rows beneath the six-place list, aligned with the
@@ -51,11 +41,12 @@ help is open, so instructions are not repeated.
 While menu help is open, digits, Enter, movement and menu-row clicks cannot act
 underneath it. Paste still does nothing. Esc closes; ?/F1 and the corner help click
 toggle it; q, Ctrl-C and F10 retain their explicit quit routes. Closing restores the
-same selection. Help in other places is unchanged by this menu-only prototype.
+same selection. Other places own their help behavior.
 
-Digits or arrows plus Enter open a place. Help is deliberate. F10 leaves think for
-the menu, guarded for unsaved work; home `q` quits. The binary needs `--home`;
-without it, it opens think. The separate installed launcher passes `--home`.
+Digits or arrows plus Enter open a place; home `q` quits. Think's
+[exit contract](think.md#sending-and-leaving) guards unsaved work. The binary
+opens this menu with `--home`; without it, think opens directly. The separate
+installed launcher passes `--home`.
 
 ## Direction, not built behavior
 
@@ -117,12 +108,10 @@ claim), 30 fresh processes per row:
 | --- | --- | --- | --- |
 | before (e07f920) | 0 | 3.2 / 4.4 / 4.5 | 0.5 / 0.7 / 1.0 |
 | before (e07f920) | 5,000 (585 KB ledgers) | 76.4 / 112.2 / 115.6 | 69.7 / 92.5 / 110.6 |
-| this change (fb177c4) | 0 | 3.4 / 6.2 / 7.7 | 0.5 / 0.6 / 1.1 |
-| this change (fb177c4) | 5,000 (585 KB ledgers) | 3.7 / 6.7 / 6.9 | 0.5 / 0.8 / 2.9 |
+| after (fb177c4) | 0 | 3.4 / 6.2 / 7.7 | 0.5 / 0.6 / 1.1 |
+| after (fb177c4) | 5,000 (585 KB ledgers) | 3.7 / 6.7 / 6.9 | 0.5 / 0.8 / 2.9 |
 
 This meets the under-100 ms target for p95 launch to a usable frame on that machine and
 fixture only. It is not a universal guarantee; other disks, much larger roots and
 terminals were not measured. The portable gate is the deterministic blocked-source
 tests, not these timings.
-
-Gate integrations need their own approved issues.

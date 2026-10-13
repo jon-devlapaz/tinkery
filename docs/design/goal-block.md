@@ -2,7 +2,7 @@
 
 ## Built contract
 
-Think outputs a short block, not a dense two-sentence SMART-style template:
+Think composes seven typed parts into this block:
 
 ```text
 [Who] [what is true when it works][, when relevant].
@@ -12,9 +12,9 @@ Must: [positive constraints].
 Must not: [exclusions and negative constraints].
 ```
 
-The composer consumes seven typed parts: `who`, `outcome`, `when`, `why`,
-`done_when`, `must`, `must_not`. Who, outcome, why and done-when are required for
-readiness; optional situation/constraints are not filled merely to satisfy a form.
+The parts are `who`, `outcome`, `when`, `why`, `done_when`, `must`, `must_not`.
+Who, outcome, why and done-when are required for readiness; optional situation and
+constraints stay absent unless supplied.
 A goal can be reviewed with remaining questions when a composed goal exists;
 readiness and permission to save are distinct. Missing intent becomes a question,
 not an invented fact, metric or deadline.
@@ -57,7 +57,9 @@ colours”). This is not a negation parser; an ambiguous item keeps its polarity
 rewritten item already stated in the same category is not repeated (compared
 exactly, except the first letter's case, so “use IT” and “use it” are both kept).
 
-Prose parts (why, done when, the goal line, `when`) are still split into clauses
+### Prose and rendering
+
+Prose parts (why, done when, the goal line, `when`) are split into clauses
 and joined with `;`. A clause ends at `;` or a sentence end outside quotes (`"…"`,
 `“…”`, `'…'` or `‘…’`; a single quote opens after a space or punctuation and closes
 at the last single quote of its kind, so an apostrophe never ends it early). A period
@@ -75,11 +77,12 @@ detail. Confirmation freezes the **whole displayed block**, not just its headlin
 
 ## Seed Me mapping
 
-The whole block is the confirmed origin. Its headline names the goal; Why supplies
-problem context; Done when supplies success criteria; Must/Must not supply
-constraints and exclusions. Original sources, answers, unresolved/skipped
-questions, other goals and deferred notes accompany it as context. They are not
-extra settled Seed Me decisions. Saving a goal confirms no seed or implementation.
+The whole block is the confirmed origin: headline → goal, Why → problem context,
+Done when → success criteria, Must/Must not → constraints and exclusions.
+Original sources, answers, unresolved/skipped questions, other goals and deferred
+notes travel as context, not extra settled decisions. The
+[continuation contract](shape-and-handoff.md#continuation-contract) keeps goal,
+seed and implementation approval separate.
 
 ## Why this format
 

@@ -8,8 +8,10 @@ The original remains intact on the left; one reading, titled “I think you mean
 and at most one question in focus sit on the right. No second reading.
 If interpretations compete, ask the question that decides between them.
 
-The reading uses the [goal block](goal-block.md), not dense template sentences.
-Ask about consequential missing intent, not facts an agent could discover. Once the
+### Questions
+
+The reading follows the [goal-block contract](goal-block.md). Ask about
+consequential missing intent, not facts an agent could discover. Once the
 required parts are present, ask the most consequential open decision: a choice only
 the person can make whose answers would change a goal line (a boundary, a scope, what
 happens to protected things). The reading lists decisions as typed items (part, text,
@@ -27,38 +29,35 @@ cover and no questions about how an action is carried out (a live trial asked
 "whole folders or just files?" after the real decision was answered). Each answer
 lands in the one part it answers rather than being repeated across parts.
 
-Known gap: the review can stop one question early when a line points at something
-by example ("like the eval stuff we just ran") that could mean two different
-sources or scopes. In a live trial it left that reading in place, and an agent would
-have built from the wrong source. The "anything to add or change?" box corrects it
-in one line. A candidate fix is a final check for such lines before "Nothing I'm
-unsure about"; it is not built or measured yet.
-Questions stop when no decision is left. Unresolved notes carry only open intent,
-never status disclaimers. Statements about who produced evidence, which tests ran,
+Questions stop when no decision is left; the [known early-stop gap](#open-work-only)
+remains open. Unresolved notes carry only open intent, never status disclaimers. Statements about who produced evidence, which tests ran,
 or a historical failure not reproduced stay in the intact originals. The reading
 prompt does not turn that context into goal requirements or unfinished intent;
 explicit requirements and undecided success checks or permission boundaries still
-belong in the goal or its open questions. Answers
-and added dumps remain distinct exact sources. Sending refines the reading;
-refining a ready reading does not start a new dump. Skipped questions stay skipped;
+belong in the goal or its open questions. Answers and added dumps remain distinct
+exact sources. Sending refines the reading; refining a ready reading does not start
+a new dump. Skipped questions stay skipped;
 Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other's
 constraints. Deferred items remain context for the seed.
 
 The original is plain ink by default. Exact cited spans are validated invisibly;
-uncited words are not implicitly rejected. A send is one shaping call plus one
-decision review, both before the reading is shown, so budget for two; nothing runs
-after it appears. Practice and the documented suite use fakes. (History: the review
-replaced a log-only meaning audit that ran in the background and never changed a
-reading; #34 deleted it. In the v3 eval the review roughly doubled the decisions
-asked, from 23% to 40%, with questions on clear dumps staying within the
-0.5-per-run target. A drop in silent guesses, 18% to 14%, is likely but unproven:
-the difference is within noise.)
+uncited words are not implicitly rejected.
+
+### Model calls
+
+Budget at most two calls per live send: one shaping call, then one decision review.
+Some sends ask about scope without calling a model. Nothing runs after the reading
+appears, and nothing retries automatically. Practice and the documented suite use
+fakes. [Historical evaluation](#decision-review-evidence-34) is evidence, not a
+general quality guarantee.
 
 Both prompts live in `src/think/brain_dump/prompts/`, one rule per line, with a note
 naming the eval or live-trial finding behind each tuned rule; notes never reach the
 model. A test holds the bytes sent to Pi equal to a recorded copy, and another holds
 each prompt's field names equal to its decoder's, so a wording change is deliberate
 and needs an eval and the operator's budget.
+
+### Readiness and review
 
 When no question is in focus (none left, skipped, or a part asked twice), one
 muted line says which of three states holds:
@@ -72,8 +71,9 @@ muted line says which of three states holds:
 The missing line names only the first missing part in the order who, outcome, why,
 done when. Without any composed goal it drops “Review when you're ready.” F1 help
 uses the same first sentence, then offers F3 only when a composed goal exists (else: type
-it, then F2 sends). If the first reading was cancelled or never applied, help says F2 tries again. Only goal content decides the state, including sent
-words not yet applied and any skipped question still unanswered; recording or
+it, then F2 sends). If the first reading was cancelled or never applied, help says
+F2 tries again. Only goal content decides the state, including sent words not yet
+applied and any skipped question still unanswered; recording or
 unsent text does not change it. Review still lists everything open.
 
 Review is deliberate (F3), then typed `confirm` plus Enter. It freezes the displayed
@@ -87,8 +87,8 @@ The same typed `confirm` also writes a **think record**: one pretty-printed JSON
 per confirmed session in `~/.local/share/tinkery/think/` (`--record-root` overrides it),
 named `<UTC confirm time>_<Seed Me session id>.json`. The review prompt and key bar say
 so (`type confirm` → `save goal and record`), so the write rides a labelled action
-(Yohaku article 4). Sessions that end without confirming (Esc, F10, quit, crash) leave
-no record; that was the operator's call on 2026-10-12, to revisit after reading a few.
+([Yohaku article 4](../yohaku.md#the-articles)). Sessions that end without confirming
+(Esc, F10, quit, crash) leave no record. This is the operator's chosen boundary.
 
 A record holds `schema` (1), the tinkery version, `origin` (`live` for Pi,
 `simulated` otherwise), model, thinking level and a hash of both system prompts, the
@@ -105,39 +105,49 @@ Think never reads a record back. The record is not a ledger: that word is Seed M
 
 ## Interaction contracts
 
-- State-aware muted bar uses F2, F3, F8 and F10 labels to agree with help.
-  Empty-box help says “Type, then F2 sends it.”
-  F1 opens a bounded help overlay on the reading side;
-  originals and drafts stay intact. Right now leads with the current state, F1
-  opens Every key, and `h` opens How it works. Technical details stay on demand.
-  Jade names the layer; headings and keys are bold ink, labels and the thin border
-  muted. Short help fits its content. Long pages scroll with their title and
-  close/back/scroll keys fixed, with Scroll shown only when the body overflows.
-  Empty technical sections add no spacing before Last result.
-  Esc first cancels an active voice take, otherwise
-  closes or returns from How it works. A reading's Esc cancellation remains
-  available after closing help.
-  While help is open, typing, paste and hidden send/review/voice actions do nothing.
-  F10 keeps the unsaved-loss guard, Ctrl-C keeps cancellation, Ctrl-D keeps its
-  explicit Why route, and `b` changes the key-bar preference without exposing the
-  ordinary bar beneath help. Literal `?` remains text while writing.
-  On review the bar reads `type confirm save goal and record` when a record will be written.
-- Letters are text while writing. Tab or Shift-Tab moves between writing and the
-  left original once one exists; the same key returns, and anything typed returns
-  to writing and drops the original's selection. No letter is a command, with
-  either surface focused; skipping, copying and the cards use F8, F9 and F7 (Ctrl-X).
-  Cards that cover the original hide it: it holds no selection and cannot be copied. In writing, Shift with arrows,
-  Home or End and mouse drag select by logical position and whole graphemes;
-  Ctrl-A selects all of the active surface only; typing, Enter, Backspace, Delete
-  and paste replace it as one edit, refused whole past the 4,096-byte limit.
-  Dictation never deletes a selection. Ctrl-C copies the active
-  surface's nonempty selection; otherwise it cancels a running request or does
-  nothing. It never leaves think. F4 (the reader) and F6 (voice) are separate.
+### Help
+
+The state-aware muted bar uses F2, F3, F8 and F10 labels that agree with help.
+Empty-box help says “Type, then F2 sends it.” F1 opens a bounded overlay on the
+reading side; originals and drafts stay intact. Right now leads with the current
+state, F1 opens Every key, and `h` opens How it works.
+
+Jade names the layer; headings and keys are bold ink, labels and the thin border
+muted. Short help fits its content. Long pages scroll beneath a fixed title and
+close/back/scroll keys; Scroll appears only on overflow. Empty technical sections
+add no spacing before Last result.
+
+Esc first cancels an active voice take, otherwise closes or returns from How it
+works. Reading cancellation remains available after closing help. While help is
+open, typing, paste and hidden send/review/voice actions do nothing. F10 keeps the
+unsaved-loss guard, Ctrl-C keeps cancellation, Ctrl-D keeps its explicit Why route,
+and `b` changes the key-bar preference without revealing the bar beneath help.
+Literal `?` remains text while writing. On review the bar reads
+`type confirm save goal and record` when a record will be written.
+
+### Editing and focus
+
+- **Focus:** Tab or Shift-Tab switches between writing and the left original once
+  one exists. Typing returns to writing and clears the original's selection.
+  Letters are never commands in either surface; F8 skips and F9 copies.
+- **Selection:** Shift with arrows, Home or End and mouse drag select by logical
+  position and whole graphemes. Ctrl-A selects only the active surface. In writing,
+  typing, Enter, Backspace, Delete and paste replace the selection as one edit,
+  refused whole past the 4,096-byte limit.
+- **Cards:** Ctrl-E extracts a selection; F7 or Ctrl-X shows/hides the cards.
+  While they cover the original, it holds no selection and cannot be copied.
+- **Copy and dictation:** Ctrl-C copies the active surface's nonempty selection;
+  otherwise it cancels a running request or does nothing. It never leaves think.
+  Dictation never deletes a selection.
+
+### Sending and leaving
+
 - When there is nothing to send or retry, F2 shows “Write something, then F2
   sends it.” on the normal screen, both before a first reading and while refining
   one. It sends no request and saves nothing. The next input clears the notice;
   the empty screen has no permanent warning.
-- F10 is guarded when leaving loses unsaved work, and returns to the menu.
+- F10 guards unsaved work. With `--home` it returns to the menu; standalone think
+  exits before a goal is saved and opens the menu after saving.
 - F4 originals and F5 why are help-only, not permanent bar clutter.
 - Local dictation inserts editable text, never auto-sends; see [voice](voice.md).
 - Answering does not switch the original away from the dump. This is an interim
@@ -145,10 +155,23 @@ Think never reads a record back. The record is not a ledger: that word is Seed M
 
 ## Open work only
 
-[Drafts 1–4 and 6–8](backlog.md) cover goal polish, the notecard stack, right-click
-and send aliases, per-sentence evidence on demand, multiple-choice answers,
-scratch-space research and an operator-supplied eval harness. None is shipped.
-Extracted-card shortcuts remain in technical help.
+[Backlog](backlog.md) owns the remaining proposals and distinguishes completed
+portions from work still requiring approval. Extracted-card shortcuts remain in
+technical help; they are not the proposed scratch space.
+
+Known gap: the review can stop one question early when a line points at something
+by example ("like the eval stuff we just ran") that could mean two different
+sources or scopes. In a live trial it left that reading in place, and an agent would
+have built from the wrong source. The "anything to add or change?" box corrects it
+in one line. A candidate fix is a final check for such lines before "Nothing I'm
+unsure about"; it is not built or measured yet.
+
+## Decision-review evidence (#34)
+
+The review replaced a log-only background meaning audit that never changed a
+reading; #34 deleted it. In the v3 eval, decisions asked rose from 23% to 40%,
+with questions on clear dumps within the 0.5-per-run target. Silent guesses fell
+from 18% to 14%, but that difference is within noise, not a demonstrated gain.
 
 ## Evidence-note regression check (#58)
 

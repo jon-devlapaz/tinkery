@@ -1,13 +1,14 @@
-# Backlog — remaining proposals, loose ends and completed issues
+# Backlog
 
-The eight proposals below describe remaining work, not published issues or
-implementation permission. Some earlier portions have shipped; their completed
-issues are listed separately below and noted in each proposal's context.
-Review the remaining scope with the operator before publishing a new issue. When
-approved, work on one branch/PR per bounded slice and link the published issue.
-All acceptance work follows `CLAUDE.md`: temporary TEST roots, fake providers/voice,
-zero calls unless the operator gives a budget, regression tests and important
-reversion probes.
+These proposals are drafts, not published issues or implementation permission.
+Review each remaining slice with the operator before publishing; approved slices
+get one branch/PR each, linked to their issue. Completed portions are listed below
+and in each proposal's context.
+
+Every proposal inherits the [working guardrails](../../CLAUDE.md#guardrails):
+temporary TEST roots, fake providers/voice, zero calls without an explicit budget,
+regression tests and important reversion probes. Each don't-list also names the
+risks specific to its slice.
 
 The [first-release plan](first-release.md) selects a complete six-stage journey.
 Its [issue drafts](first-release-issues.md) split the release work into bounded
@@ -23,11 +24,10 @@ approved issue before work starts.
   `src/think/brain_dump/layout.rs` only appear under How it works → Last result.
   Give those refusals an appropriate visible route in a separately approved slice;
   this is outside #56's help-overlay scope.
-- **"Like X" lines stop think early.** The review can leave a line that points at
-  something by example as its first reading. See the
-  known gap under [shipped experience](think.md#shipped-experience).
-- **`src/think/brain_dump.rs` is about 1,500 lines.** Split it further without
-  loosening the limits in [architecture](architecture.md#limits-enforced-by-testsarchitecturers).
+- **"Like X" lines stop think early.** The review can leave an ambiguous source or
+  scope in place. See think's [known gap](think.md#open-work-only).
+- **Think's routing remains large.** Split `src/think/brain_dump.rs` further without
+  loosening the [architecture limits](architecture.md#limits-enforced-by-testsarchitecturers).
 - **The review merges by top-level keys.** `review::merge` writes its decisions and
   questions into the raw reading by key, the residue named in
   [architecture](architecture.md) diagnostic 3.
@@ -43,8 +43,7 @@ approved issue before work starts.
 
 ## Previously published, completed issues
 
-These issues are closed and their implementation PRs are merged. They are history,
-not remaining work or evidence that an entire related proposal is complete.
+Closed issues with merged PRs: history, not proof that a whole proposal is complete.
 
 | Issue | Completed scope | Merged PR |
 | --- | --- | --- |
@@ -115,7 +114,7 @@ distinctly reported; F2 remains reliable and visible.
 remains a newline; letters remain text. Document/test host forwarding and unsupported
 shortcuts honestly; no fabricated clipboard success.
 
-**Read:** [think](think.md), [principles](principles.md), `docs/terminal-setup.md`.
+**Read:** [think](think.md), [principles](principles.md), [terminal setup](../terminal-setup.md).
 
 **Don't:** Introduce a focus-management key maze, intercept unreported host shortcuts,
 make copy/send confirm anything, record audio, call providers without budget,
