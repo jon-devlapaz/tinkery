@@ -4,11 +4,14 @@ Drafts, not permission. [Work intake](../../../CLAUDE.md#work-intake) says how a
 
 ## Loose ends
 
-- **Two dogfood findings wait on a call budget.** [#74](https://github.com/jon-devlapaz/tinkery/issues/74)
-  (settled context under "Still open") and [#75](https://github.com/jon-devlapaz/tinkery/issues/75)
-  ("Must not: No sending") come from the model's wording, so code can't fix them safely.
-  Each needs a live recheck on current main (about 2 calls for #74, 3 to 6 for #75)
-  and likely a reading-prompt rule; both need the operator's explicit budget.
+- **The think screen can hide Must not lines.** At 100×30 the newsletter goal's exclusions
+  were cut mid-line or missing (3/3 live runs, 2026-10-13); review shows them. A boundary the
+  person can't see breaks Art 6 (`src/think/brain_dump/layout.rs`).
+- **Approaches carry a "PROVISIONAL assumption:" prefix.** Seen in most live readings with
+  approaches on 2026-10-13, against reading.txt's "no template prefixes inside values".
+  Needs a budgeted prompt check.
+- **A separate goal keeps only its label.** Since #74's fix, its check and rules stay in the
+  intact originals, not with the other goal. Attaching them to that goal is a design choice.
 - **The reading's wire shape keeps data the board drops.** `Guess.outcome` repeats done-when
   and the composed framing text is ignored; the board uses `parts` and framing `supports` only
   (`src/think/brain_dump/reading.rs`, `board.rs`). Two owners for one value.
