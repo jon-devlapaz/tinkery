@@ -9,9 +9,11 @@ use ratatui::style::Modifier;
 /// Short enough for one row of the narrowest (80-column) right-hand pane.
 pub(super) const LIMIT_TEXT: &str = "Over 4096 bytes; nothing changed.";
 pub(super) const LIMIT_NOTICE: &str = "Over 4096 bytes";
+/// Empty sends need one next step, without a permanent warning on the blank screen.
+pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then F2 sends it.";
 /// Notices drawn on the status row below the writing box. One list, so the later
 /// "reading couldn't be updated" line cannot overwrite a notice that is meant to show.
-const SHOWN_NOTICES: [&str; 8] = [
+const SHOWN_NOTICES: [&str; 9] = [
     "Copy",
     "Clipboard",
     "Question skipped",
@@ -20,6 +22,7 @@ const SHOWN_NOTICES: [&str; 8] = [
     "Updated encoded",
     "Added words",
     LIMIT_NOTICE,
+    EMPTY_SEND_TEXT,
 ];
 
 pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
@@ -53,8 +56,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
         app.screen.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
-        if app.notice.starts_with(LIMIT_NOTICE) {
-            // The only status the first screen shows: an edit past the limit was refused.
+        if app.notice.starts_with(LIMIT_NOTICE) || app.notice == EMPTY_SEND_TEXT {
+            // Show only a refused edit/send, never the initial status as permanent clutter.
             frame.render_widget(
                 Paragraph::new(app.notice.as_str()).style(palette.muted),
                 Rect::new(4, area.height - 3, width, 1),

@@ -1,0 +1,35 @@
+{
+  "model": "openai-codex/gpt-6.1-sol",
+  "thinking": "low",
+  "origin": "AI-authored live evaluation, not human recognition",
+  "source": "I want Tinkery users to understand refused sends because empty sends currently look like nothing happened. Done means automated tests show a reason and next step at 80x24 and 160x40. Keep original words intact. This is AI-operator dogfood; I have not reproduced the historical failure myself. I have not decided whether refusal messages may include the private text that triggered them or must omit that text.",
+  "verified_projection": {
+    "parts": {
+      "who": "Tinkery users",
+      "outcome": "understand refused sends",
+      "when": null,
+      "why": "empty sends currently look like nothing happened",
+      "done_when": "automated tests show a reason and next step at 80x24 and 160x40",
+      "must": [
+        "Keep original words intact."
+      ],
+      "must_not": []
+    },
+    "open": [
+      "must_not"
+    ],
+    "questions": [
+      {
+        "target": "must_not",
+        "id": "model-fc742e1ae4d6b808",
+        "text": "May refusal messages include the private text that triggered them, or must they omit it?"
+      }
+    ],
+    "unresolved_notes": [
+      "Open decision: Whether refusal messages may include the private text that triggered them. (May include that private text / Must omit that private text)",
+      "Open decision: Whether refusal messages may include the private text that triggered them. (Refusal messages must omit the private text that triggered them. / Refusal messages may include the private text that triggered them.)"
+    ],
+    "other_goals": [],
+    "deferred": []
+  }
+}

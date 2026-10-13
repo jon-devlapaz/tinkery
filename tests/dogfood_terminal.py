@@ -31,7 +31,11 @@ def journey(w,h):
   def send(keys,text):os.write(master,keys);await_condition(lambda s:text in s)
   try:
    await_condition(lambda s:"What's on your mind?" in s)
+   send(b'\x1bOQ','Write something, then F2 sends it.')
+   assert not (cwd/'calls.jsonl').exists(),'Empty send called the provider'
+   assert not (cwd/'TEST-sessions').exists() and not (cwd/'TEST-records').exists()
    send(b'Books read this year.','Books read this year.')
+   assert 'Write something, then F2 sends it.' not in screen.text(),screen.text()
    send(b'\x1bOQ','What would you want')
    send(b'\x1bOR','type confirm');assert process.poll() is None
    send(b'\x1b','What would you want')
@@ -61,7 +65,7 @@ def journey(w,h):
    assert not (cwd/'TEST-sessions').exists(),'Implicit handoff'
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
-   print(json.dumps(dict(width=w,height=h,provider='stub',journey='one-frame uncertain reading/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore',confirmation=False)))
+   print(json.dumps(dict(width=w,height=h,provider='stub',journey='empty send and recovery/one-frame uncertain reading/F1-F10/Shift-F2/skip undo/copy/focus/keybar/scope/back/guard/restore',confirmation=False)))
   finally:
    if process.poll() is None:process.kill();process.wait()
    os.close(master);os.close(slave)

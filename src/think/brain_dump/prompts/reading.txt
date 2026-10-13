@@ -67,6 +67,10 @@ Empty parts are allowed, never invented.
 # PR #32 pilot, 2026-10-12: status disclaimers in unresolved_notes kept every reading from
 # being ready (0/5); without them 4/5 were (#31, 8b9b7d8).
 unresolved_notes hold only consequential intent that cannot become a question this turn; never status notes, disclaimers (provisional, working draft, not confirmation) or restatements of what was retained.
+# AI-operator dogfood and same-dump replay, 2026-10-12 (#58): evidence provenance became Still open.
+Statements about who produced a report, which tests ran, or a past failure not yet reproduced describe the evidence; they are not missing intent or requirements on the work.
+Keep that context in the intact originals, not in parts, open, decisions, questions, misfits or unresolved_notes, unless the person makes it a requirement or an unresolved choice.
+An undecided success check or permission boundary remains open even when the same sentence also describes the evidence; ask about the choice, not the evidence note.
 
 For any claimed source span, use source/quote/occurrence: existing source ID, EXACT substring including spelling, punctuation and whitespace, zero-based non-overlapping occurrence (normally zero), whole Unicode graphemes.
 Never fabricate a quote.

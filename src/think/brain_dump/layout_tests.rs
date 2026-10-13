@@ -305,3 +305,47 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
         "shape\ndecision-review\n"
     );
 }
+
+#[test]
+fn empty_send_is_visible_without_a_request_and_typing_clears_it() {
+    const NOTICE: &str = "Write something, then F2 sends it.";
+    struct NoCalls;
+    impl BoardHost for NoCalls {
+        fn reshape(&self, _: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+            panic!("empty send must not request a reading");
+        }
+    }
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        for no_color in [false, true] {
+            let host = Arc::new(NoCalls);
+            let mut a = BrainDump::with_host(host.clone());
+            assert!(!snapshot(w, h, &mut a, no_color).unwrap().contains(NOTICE));
+            for whitespace in ["", " \n\t"] {
+                a.input = Note::new(whitespace);
+                key(&mut a, KeyCode::F(2));
+                let screen = snapshot(w, h, &mut a, no_color).unwrap();
+                assert!(screen.contains(NOTICE), "{w}x{h}: {screen}");
+                assert_eq!(a.input.text, whitespace);
+                assert!(a.conversation.sources().is_empty());
+                assert!(!a.running() && a.handoff.receipt.is_none());
+            }
+            a.paste("Café 👩‍💻");
+            assert!(!snapshot(w, h, &mut a, no_color).unwrap().contains(NOTICE));
+            assert_eq!(a.input.text, " \n\tCafé 👩‍💻");
+
+            let mut a = board();
+            let original = serde_json::to_value(a.conversation.sources()).unwrap();
+            let goal = a.conversation.board().unwrap().parts.compose();
+            key(&mut a, KeyCode::F(2));
+            assert!(right_text(&snapshot(w, h, &mut a, no_color).unwrap(), w).contains(NOTICE));
+            assert_eq!(
+                serde_json::to_value(a.conversation.sources()).unwrap(),
+                original
+            );
+            assert_eq!(a.conversation.board().unwrap().parts.compose(), goal);
+            assert!(!a.running() && a.handoff.receipt.is_none());
+            key(&mut a, KeyCode::Char('x'));
+            assert!(!snapshot(w, h, &mut a, no_color).unwrap().contains(NOTICE));
+        }
+    }
+}
