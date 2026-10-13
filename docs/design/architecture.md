@@ -63,7 +63,7 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 | --- | --- | --- |
 | 1 | Can each module be described in one sentence? | Yes: see the module map; the reading's types, prompt and decoder live in `reading.rs` (#38) |
 | 2 | Are interfaces simpler than implementations? | Yes |
-| 3 | Can an implementation change without touching callers? | Yes: each model contract lives beside its decoder; tests check their field names agree. Seed Me's format lives only in `seed_me/`. Residue: the review merges into the raw reading by top-level keys |
+| 3 | Can an implementation change without touching callers? | Yes: each model contract lives beside its decoder; tests check their field names agree. Seed Me's format lives only in `seed_me/`. The review decodes only its own reply; the reading's decoder joins it (#89) |
 | 4 | Do interface comments describe the abstraction? | Yes: modules and `pub` items carry interface comments; the build denies `missing_docs` and `unreachable_pub` (#39) |
 | 5 | Is design discussion part of review? | Yes: [the working guide](../../CLAUDE.md#guardrails) requires a changeability check and names the rows moved (#39) |
 | 6 | Does each module hide an important decision? | Yes: `Conversation` hides question, skip and scope rules behind methods |
@@ -71,8 +71,8 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 | 8 | Is design improvement part of ordinary work? | Yes |
 
 **Recorded score: 10/10** (2026-10-12, after #39; first scored at 2d25a7c, 5/10).
-This is a dated assessment, not a fresh measurement. Remaining debt: row 3's merge
-and `brain_dump.rs`'s narrow interface over a large amount of routing.
+This is a dated assessment, not a fresh measurement. Remaining debt:
+`brain_dump.rs`'s narrow interface over a large amount of routing.
 
 ## Limits enforced by `tests/architecture.rs`
 

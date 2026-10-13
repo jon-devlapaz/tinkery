@@ -12,7 +12,7 @@ use std::{
 };
 use tinkery::think::{
     brain_dump::{
-        BoardHost, BoardRequest, BrainDump, Guess, decision_review_input, merge_decision_review,
+        BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, decision_review_input,
     },
     record::hash,
 };
@@ -111,12 +111,12 @@ impl BoardHost for Fake {
         let raw = self.request(Kind::Shaping, send)?;
         let mut changes = vec![];
         // Like PiHost, readable invalid boards still get a review before decoding.
-        let merged = decision_review_input(&request, &raw).and_then(|_| {
+        let review = decision_review_input(&request, &raw).and_then(|_| {
             self.request(Kind::DecisionReview, send)
                 .ok()
-                .and_then(|review| merge_decision_review(&raw, &review, &mut changes))
+                .and_then(|review| DecisionReview::decode(&review, &mut changes))
         });
-        Guess::decode(merged.as_deref().unwrap_or(&raw), &request, &mut changes)
+        Guess::decode_reviewed(&raw, review.as_ref(), &request, &mut changes)
     }
 }
 

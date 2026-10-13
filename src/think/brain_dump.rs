@@ -37,7 +37,8 @@ pub use reading::{
     Anchor, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled, Source,
 };
 use reading::{grapheme_boundary, same_question};
-pub use review::{input as decision_review_input, merge as merge_decision_review};
+use review::Review;
+pub use review::{Review as DecisionReview, input as decision_review_input};
 
 /// Think: one place where the person writes, reads the reading, answers one question at a
 /// time, and confirms a goal. It routes keys, mouse and ticks to its parts: the

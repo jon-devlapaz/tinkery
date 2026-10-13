@@ -28,18 +28,12 @@ approved issue before work starts.
   scope in place. See think's [known gap](think.md#open-work-only).
 - **Think's routing remains large.** Split `src/think/brain_dump.rs` further without
   loosening the [architecture limits](architecture.md#limits-enforced-by-testsarchitecturers).
-- **The review merges by top-level keys.** `review::merge` writes its decisions and
-  questions into the raw reading by key, the residue named in
-  [architecture](architecture.md) diagnostic 3.
 - **Think records keep raw model replies.** Each check's `raw` reply goes into the
   [think record](think.md#think-record), so records from long sessions get large.
   Decide what a record needs from the reply.
 - **An unset `HOME` writes records to a relative path.** Without `HOME` or
   `--record-root`, records land under `.local/share/tinkery/think` in the current
   folder. Refuse or say where instead.
-- **Possible approaches can vanish.** The reading prompt names `alternatives` without
-  their shape. In #86's live recheck the model keyed each one `option`; `reading.rs`
-  reads only `label`, so all three were dropped and the section was empty.
 - **Gaps across think records aren't flagged yet.** The rest of the record slice:
   the eval harness writes records with origin `eval`, and a separate script reads
   them and flags gaps.
