@@ -155,8 +155,8 @@ fn full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading() {
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     assert!(screen.contains("Reading couldn't be updated."));
     assert_eq!(
-        a.conversation.board().unwrap().framings[0].text,
-        old.framings[0].text
+        a.conversation.board().unwrap().goal().unwrap(),
+        old.goal().unwrap()
     );
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::Char('h'));

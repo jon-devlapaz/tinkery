@@ -170,7 +170,7 @@ impl BrainDump {
             self.refuse("No reading to review yet; F2 sends your words.");
             return;
         };
-        let Some(goal) = g.parts.compose() else {
+        let Some(goal) = g.goal().map(str::to_owned) else {
             self.refuse("No goal to review yet; parts remain open.");
             return;
         };

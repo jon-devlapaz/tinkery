@@ -194,10 +194,27 @@ fn coarse_criteria_are_present_and_empty_queue_is_not_completion() {
     assert!(blank.handoff.review.is_none());
 }
 #[test]
+fn review_freezes_the_displayed_block_not_a_recomposition() {
+    // Artificial state (#76): ordinary verification never shows a block that differs from
+    // its parts. Review must freeze what was shown, whatever the parts would compose to.
+    let mut a = app(serde_json::json!({"parts":parts()}));
+    let shown = "I keep field notes, before dinner.\nWhy: a calm check.";
+    let board = a
+        .conversation
+        .board()
+        .unwrap()
+        .clone()
+        .with_displayed_goal(shown);
+    a.conversation.set_board(Some(board));
+    assert!(a.copy_text().contains(shown));
+    a.review_goal();
+    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, shown);
+}
+#[test]
 fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = app(serde_json::json!({"parts":parts(),"open":["why"]}));
-        let reading = a.conversation.board().unwrap().framings[0].text.clone();
+        let reading = a.conversation.board().unwrap().goal().unwrap().to_owned();
         assert!(a.copy_text().contains(&reading));
         a.review_goal();
         let frozen = a.handoff.review.as_ref().unwrap();
@@ -398,8 +415,11 @@ fn typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2() {
     assert_eq!(a.conversation.settled()[0].question.id, "goal-refinement-2");
     assert!(a.goal_ready());
     assert!(
-        a.conversation.board().unwrap().framings[0]
-            .text
+        a.conversation
+            .board()
+            .unwrap()
+            .goal()
+            .unwrap()
             .contains("usual week")
     );
     assert!(a.handoff.receipt.is_none());

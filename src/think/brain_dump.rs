@@ -94,8 +94,6 @@ struct Screen {
     /// Focus is on the original (or its cards), not the writing box.
     board_focus: bool,
     show_extractions: bool,
-    /// Which framing of the reading is presented.
-    reading: usize,
     original_scroll: u16,
     input_scroll: u16,
     paper_scroll: u16,
@@ -129,7 +127,6 @@ impl Default for Screen {
             refused: false,
             board_focus: false,
             show_extractions: false,
-            reading: 0,
             original_scroll: 0,
             input_scroll: 0,
             paper_scroll: 0,
@@ -293,7 +290,7 @@ impl BrainDump {
     pub fn copy_text(&self) -> String {
         let mut text = "# Tinkery / provisional board\n\nNothing confirmed. Unsaved.\n".to_owned();
         if let Some(g) = self.conversation.board() {
-            for f in g.framings.iter() {
+            if let Some(f) = &g.reading {
                 text.push_str(&format!(
                     "\n## I think this is about… / guess\n\n{}\n\nSupporting words:\n\n{}\n",
                     f.text,
@@ -405,7 +402,7 @@ impl BrainDump {
                 format!("Skipped, not resolved\n{skipped}\n\n")
             }
         );
-        context+&self.conversation.board().map_or_else(|| "No reading yet.".into(), |g| format!("{}Desired experience\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", if g.framings.len()>2 {format!("All readings / provisional\n{}\n\n",g.framings.iter().enumerate().map(|(i,r)|format!("{}. {}",i+1,agent_text(&r.text))).collect::<Vec<_>>().join("\n\n"))}else{String::new()}, agent_text(g.outcome.as_deref().unwrap_or("Not supplied")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
+        context+&self.conversation.board().map_or_else(|| "No reading yet.".into(), |g| format!("Desired experience\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", agent_text(g.outcome.as_deref().unwrap_or("Not supplied")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
     }
     fn misfit_text(&self) -> String {
         let mut unresolved = self
@@ -607,7 +604,6 @@ impl BrainDump {
         match self.conversation.apply(request, result) {
             Ok(()) => {
                 self.screen.paper_scroll = 0;
-                self.screen.reading = 0;
                 self.notice =
                     "Reshaped after submit. Your positions kept; nothing confirmed.".into();
             }
@@ -1361,7 +1357,7 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
         let supported = app
             .conversation
             .board()
-            .and_then(|g| g.framings.get(app.screen.reading))
+            .and_then(|g| g.reading.as_ref())
             .is_some_and(|f| {
                 app.conversation
                     .fragments()

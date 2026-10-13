@@ -206,7 +206,7 @@ impl Conversation {
     }
     /// The reading covers every word and leaves nothing open, unplaced or unasked.
     pub fn nothing_open(&self) -> bool {
-        self.board.as_ref().is_some_and(|g| !g.framings.is_empty())
+        self.board.as_ref().is_some_and(|g| g.goal().is_some())
             && self.caught_up()
             && self.open_parts().is_empty()
             && self
@@ -408,10 +408,7 @@ impl Conversation {
             && self.focused_question().is_none()
             && self.scope_pending.is_none()
             && fresh
-            && self
-                .board
-                .as_ref()
-                .is_some_and(|g| g.parts.compose().is_some());
+            && self.board.as_ref().is_some_and(|g| g.goal().is_some());
         let addition = (add_more || (self.focused_question().is_none() && !refinement))
             && self.board.is_some()
             && has_words;
@@ -565,8 +562,8 @@ impl Conversation {
                     {
                         return None;
                     }
-                    let previous = old.parts.compose().unwrap_or_default();
-                    let current = board.parts.compose().unwrap_or_default();
+                    let previous = old.goal().unwrap_or_default();
+                    let current = board.goal().unwrap_or_default();
                     let changed = current
                         .lines()
                         .filter(|line| !previous.lines().any(|old| old == *line))

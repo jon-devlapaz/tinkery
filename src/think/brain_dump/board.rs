@@ -8,7 +8,7 @@ use std::{collections::VecDeque, ops::Deref};
 /// use tinkery::think::brain_dump::board::{NonEmpty, Reading};
 /// let empty = NonEmpty::<Reading>(vec![]);
 /// ```
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonEmpty<T>(Vec<T>);
 impl<T> Deref for NonEmpty<T> {
     type Target = [T];
@@ -17,11 +17,9 @@ impl<T> Deref for NonEmpty<T> {
     }
 }
 /// An [`Anchor`] checked against the sources when the board was made.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAnchor {
-    #[serde(flatten)]
     anchor: Anchor,
-    #[serde(skip)]
     range: std::ops::Range<usize>,
 }
 impl Deref for VerifiedAnchor {
@@ -42,7 +40,7 @@ impl VerifiedAnchor {
 }
 /// Whether a reading cites the person's words. Uncited is allowed and shown plainly; it is
 /// not a failure.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Grounding {
     /// No citations.
     Uncited,
@@ -59,7 +57,7 @@ impl Deref for Grounding {
     }
 }
 /// The reading as shown: the composed goal block and what it cites.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reading {
     /// The goal block.
     pub text: String,
@@ -67,7 +65,7 @@ pub struct Reading {
     pub supports: Grounding,
 }
 /// A proposed approach; an empty benefit or cost is `None` rather than shown blank.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 pub struct Candidate {
     /// The approach in a few words.
     pub label: String,
@@ -105,7 +103,7 @@ impl Candidate {
 }
 /// What a verified board holds, readable through [`Board`] but never writable. The fields mean
 /// what [`Guess`]'s do, after verification.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 pub struct BoardData {
     /// The goal's parts, cleaned and with constraints normalised.
     pub parts: GoalParts,
@@ -115,8 +113,9 @@ pub struct BoardData {
     pub deferred: Vec<String>,
     /// Parts still open, including every part a question targets.
     pub open: Vec<Part>,
-    /// The reading; at most one.
-    pub framings: Vec<Reading>,
+    /// The displayed goal block and what it cites; `None` while the parts can't compose one.
+    /// Read the block through [`Board::goal`], so nothing downstream composes it again.
+    pub reading: Option<Reading>,
     /// The done-when part, if any.
     pub outcome: Option<String>,
     /// The one question to ask, if any.
@@ -137,8 +136,7 @@ pub struct BoardData {
 ///     board.questions.clear();
 /// }
 /// ```
-#[derive(Clone, Debug, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Debug)]
 pub struct Board(BoardData);
 impl Deref for Board {
     type Target = BoardData;
@@ -242,26 +240,22 @@ impl Board {
             other_goals: g.other_goals,
             deferred: g.deferred,
             open: g.open,
-            framings: composed
-                .into_iter()
-                .map(|text| {
+            reading: composed
+                .map(|text| -> Result<_, String> {
+                    let spans = supports
+                        .into_iter()
+                        .map(verify)
+                        .collect::<Result<Vec<_>, _>>()?;
                     Ok(Reading {
                         text,
-                        supports: {
-                            let spans = supports.clone().into_iter().map(verify).collect::<Result<
-                                Vec<_>,
-                                String,
-                            >>(
-                            )?;
-                            if spans.is_empty() {
-                                Grounding::Uncited
-                            } else {
-                                Grounding::Cited(NonEmpty(spans))
-                            }
+                        supports: if spans.is_empty() {
+                            Grounding::Uncited
+                        } else {
+                            Grounding::Cited(NonEmpty(spans))
                         },
                     })
                 })
-                .collect::<Result<_, String>>()?,
+                .transpose()?,
             outcome,
             questions: g.questions.into(),
             alternatives: g
@@ -286,9 +280,20 @@ impl Board {
             decisions: g.decisions,
         }))
     }
-    /// The readings to show. There is only ever one, whichever is selected.
-    pub fn presented(&self, _selected: usize) -> &[Reading] {
-        &self.framings
+    /// The goal block exactly as shown. Review freezes it and refinement compares it; it is
+    /// never recomposed from the parts after verification.
+    pub fn goal(&self) -> Option<&str> {
+        self.reading.as_ref().map(|r| r.text.as_str())
+    }
+    /// Test-only: replaces the displayed block, leaving the parts alone. Verification never
+    /// makes such a board; tests use it to prove consumers read the block instead of
+    /// recomposing it from the parts.
+    #[cfg(test)]
+    pub(super) fn with_displayed_goal(mut self, text: &str) -> Self {
+        if let Some(reading) = &mut self.0.reading {
+            reading.text = text.into();
+        }
+        self
     }
     /// The board in the model's wire shape, sent back as `previous` so the next reading
     /// refines this one.
@@ -300,7 +305,7 @@ impl Board {
             open: self.open.clone(),
             uncertain: false,
             framings: self
-                .framings
+                .reading
                 .iter()
                 .map(|r| Framing {
                     text: r.text.clone(),

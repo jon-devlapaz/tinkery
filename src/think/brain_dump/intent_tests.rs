@@ -231,7 +231,7 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
         assert_eq!(parts.must, *want_must, "{must:?} {must_not:?}");
         assert_eq!(parts.must_not, *want_not, "{must:?} {must_not:?}");
         let composed = format!("{HEAD}\n{lines}");
-        assert_eq!(a.conversation.board().unwrap().framings[0].text, composed);
+        assert_eq!(a.conversation.board().unwrap().goal().unwrap(), composed);
         a.review_goal();
         let affirmation = &a.handoff.review.as_ref().unwrap().affirmation;
         assert_eq!(affirmation.goal, composed);
@@ -286,7 +286,7 @@ fn ambiguous_or_quoted_negation_is_left_unchanged() {
             .collect::<Vec<_>>()
             .join("\n");
         assert_eq!(
-            a.conversation.board().unwrap().framings[0].text,
+            a.conversation.board().unwrap().goal().unwrap(),
             format!("{HEAD}\n{lines}")
         );
         assert_eq!(
@@ -321,7 +321,7 @@ fn timing_is_emitted_once_beside_normalized_constraints() {
     let a = app(
         serde_json::json!({"parts":{"who":"My mom","outcome":"spots a fake text before tapping anything","when":"before tapping anything","must_not":["must not need an app"]}}),
     );
-    let text = &a.conversation.board().unwrap().framings[0].text;
+    let text = a.conversation.board().unwrap().goal().unwrap();
     assert_eq!(
         text,
         "My mom spots a fake text before tapping anything.\nMust not: need an app."
@@ -656,7 +656,7 @@ fn a_compound_item_is_noted_for_why_but_shown_whole() {
             "{must}: {changes:?}"
         );
         let board = board::Board::verify(g, &r(&a)).unwrap();
-        let block = &board.framings[0].text;
+        let block = &board.goal().unwrap();
         assert_eq!(
             block.lines().filter(|l| l.starts_with("Must")).count(),
             1,

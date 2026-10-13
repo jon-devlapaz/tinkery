@@ -86,7 +86,7 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     assert_eq!(a.screen.source_view, 1);
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(view.contains("Also fix a typo"));
-    assert_eq!(a.conversation.board().unwrap().framings, old.framings);
+    assert_eq!(a.conversation.board().unwrap().reading, old.reading);
     assert!(a.misfit_text().contains("scope not answered"));
     assert!(a.misfit_text().contains("welcome email"));
     a.submit();
@@ -436,7 +436,7 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
 fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
     let mut a = board();
     let g = a.conversation.board().unwrap();
-    let mut raw = serde_json::to_value(g).unwrap();
+    let mut raw = serde_json::to_value(g.wire()).unwrap();
     raw["alternatives"][0]["precondition"] =
         serde_json::json!("An unverified capability is needed.");
     let text = serde_json::to_string(&raw).unwrap();
@@ -452,7 +452,7 @@ fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
     let logs = vec![serde_json::to_string(&d).unwrap()];
     let why = checks::why(&logs);
     assert!(why.contains("Rejected attempt — not confirmable"));
-    assert!(why.contains(&g.framings[0].text));
+    assert!(why.contains(g.goal().unwrap()));
     assert!(why.contains("precondition: An unverified capability is needed."));
     a.conversation.set_board(None);
     a.conversation.set_last_failure(Some(d.reason.clone()));
@@ -490,9 +490,13 @@ fn right_side_speaks_in_one_voice_with_one_reading() {
     assert!(!one.contains("Review goal") && !one.contains("or maybe"));
     let bar = snapshot(100, 30, &mut a, false).unwrap();
     assert!(!bar.lines().last().unwrap().contains('7'));
-    let before = a.screen.reading;
+    let before = a.conversation.board().unwrap().goal().map(str::to_owned);
     key(&mut a, KeyCode::F(7));
-    assert_eq!(a.screen.reading, before, "F7 does nothing");
+    assert_eq!(
+        a.conversation.board().unwrap().goal().map(str::to_owned),
+        before,
+        "F7 switches no reading"
+    );
     assert_eq!(agent_text("Possible goal: a reading."), "A reading.");
     assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
     assert_eq!(agent_text("PROVISIONAL goal: x"), "X");
