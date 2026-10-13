@@ -33,7 +33,10 @@ fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority()
     let (b, changes) = parsed(
         r#"{"parts":{"who":"I","outcome":"remember books","unexpected":"ignore"},"alternatives":{"label":"Maybe","precondition":"unknown"},"misfits":[{"text":"Unsure about a relationship"}],"confirmed":true,"settled":[{"source":99}]}"#,
     );
-    assert!(matches!(b.framings[0].supports, board::Grounding::Uncited));
+    assert!(matches!(
+        b.reading.as_ref().unwrap().supports,
+        board::Grounding::Uncited
+    ));
     assert_eq!(b.parts.outcome.as_deref(), Some("remember books"));
     assert_eq!(b.parts.missing().count(), 2);
     assert_eq!(b.questions[0].target, Some(Part::Why));
@@ -49,10 +52,9 @@ fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority()
 fn lengths_and_optional_types_are_not_boundary_rules_and_one_question_is_presented() {
     let input = serde_json::json!({"parts":{"who":"I","outcome":vec!["word";100].join(" "),"why":{},"done_when":null},"open":["done_when","nonsense"],"questions":(0..9).map(|i|serde_json::json!({"target":"done_when","text":format!("Unresolved {i} without question mark")})).collect::<Vec<_>>(),"alternatives":vec!["same";7]});
     let (b, changes) = parsed(&input.to_string());
-    assert_eq!(b.framings.len(), 1);
+    assert!(b.goal().is_some());
     assert_eq!(b.questions.len(), 1);
     assert_eq!(b.alternatives.len(), 7);
-    assert_eq!(b.presented(0).len(), 1);
     assert!(b.parts.why.is_none() && b.parts.done_when.is_none());
     assert!(changes.iter().any(|s| s.contains("unknown open part")));
     assert!(changes.iter().any(|s| s.contains("Extra questions")));
@@ -68,7 +70,7 @@ fn malformed_json_fails_but_empty_partial_parts_display_without_fabrication() {
         r#"{"framings":["Do not infer this old goal"]}"#,
     ] {
         let (b, _) = parsed(raw);
-        assert!(b.framings.is_empty());
+        assert!(b.goal().is_none());
         assert_eq!(b.parts.missing().count(), 4);
         let mut app = BrainDump::default();
         *app.conversation.sources_mut() = request().sources;
@@ -105,7 +107,7 @@ fn claimed_citations_remain_exact_and_grapheme_safe_even_without_parts() {
     let (b, _) = parsed(
         r#"{"parts":{"who":"I","outcome":"read"},"supports":[{"source":1,"quote":"Café 👩‍💻"}]}"#,
     );
-    let span = &b.framings[0].supports[0];
+    let span = &b.reading.as_ref().unwrap().supports[0];
     assert_eq!(
         &request().sources[0].text[span.range(&request().sources).unwrap()],
         "Café 👩‍💻"
@@ -142,8 +144,8 @@ fn local_history_and_scope_identity_cannot_be_replaced_by_model_output() {
 fn normalization_escapes_controls_and_logs_fences_without_changing_originals() {
     let raw = "```json\n{\"parts\":{\"who\":\"I\",\"outcome\":\"Meaning\\u001b[31m\"},\"misfits\":[\"Uncertain\"]}\n```";
     let (b, changes) = parsed(raw);
-    assert!(!b.framings[0].text.contains('\x1b'));
-    assert!(b.framings[0].text.contains("\\u{1b}"));
+    assert!(!b.goal().unwrap().contains('\x1b'));
+    assert!(b.goal().unwrap().contains("\\u{1b}"));
     assert!(changes.iter().any(|s| s.contains("code fence")));
     assert!(
         changes
@@ -183,7 +185,7 @@ fn historical_raw_captures_display_without_inferred_parts_or_provider_helpers() 
             .unwrap();
             let b = board::Board::verify(g, &r).unwrap();
             assert_eq!(b.parts, GoalParts::default());
-            assert!(b.framings.is_empty());
+            assert!(b.goal().is_none());
             assert!(!changes.is_empty());
             let mut app = BrainDump::default();
             *app.conversation.sources_mut() = r.sources;
@@ -202,7 +204,7 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     let (b, changes) = parsed(
         r#"{"parts":{"must_not":"no dashboard"},"framings":["Reading zero","Reading one"],"misfits":["Unresolved note"]}"#,
     );
-    assert_eq!(b.framings[0].text, "Must not: no dashboard.");
+    assert_eq!(b.goal().unwrap(), "Must not: no dashboard.");
     assert!(changes.iter().any(|s| s.contains("Ignored freeform")));
     assert_eq!(b.unresolved_notes, ["Unresolved note"]);
     let mut app =

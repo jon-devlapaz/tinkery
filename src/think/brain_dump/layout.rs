@@ -124,13 +124,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         let retained = app
             .conversation
             .board()
-            .map(|g| {
-                g.presented(app.screen.reading)
-                    .iter()
-                    .map(|f| agent_text(&f.text))
-                    .collect::<Vec<_>>()
-                    .join("\n\n")
-            })
+            .and_then(|g| g.goal())
+            .map(agent_text)
             .unwrap_or_default();
         format!(
             "Reading failed: {error}\n\nOriginals retained. Retry, inspect Why, or add clarification.\n\n{retained}"
@@ -154,13 +149,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             "I think you mean…",
             palette.muted,
         ));
-        for line in g
-            .framings
-            .first()
-            .map(|f| f.text.as_str())
-            .unwrap_or("")
-            .lines()
-        {
+        for line in g.goal().unwrap_or("").lines() {
             lines.push(ratatui::text::Line::styled(
                 line.to_owned(),
                 app.reading_line_style(line, palette)
@@ -182,15 +171,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         text = ratatui::text::Text::from(lines);
     }
     if failure.is_some() {
-        let retained_lines = app.conversation.board().map_or(0, |g| {
-            g.presented(app.screen.reading)
-                .iter()
-                .map(|f| agent_text(&f.text))
-                .collect::<Vec<_>>()
-                .join("\n\n")
-                .lines()
-                .count()
-        });
+        let retained_lines = app
+            .conversation
+            .board()
+            .and_then(|g| g.goal())
+            .map_or(0, |goal| agent_text(goal).lines().count());
         let known = text.lines.len().saturating_sub(retained_lines);
         for line in text.lines.iter_mut().take(known) {
             line.style = palette.ink.remove_modifier(Modifier::ITALIC);
@@ -211,7 +196,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         ]),
         None => match (open_intent(app), app.conversation.board()) {
             (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
-                if g.framings.is_empty() {
+                if g.goal().is_none() {
                     line
                 } else {
                     format!("{line} Review when you're ready.")
@@ -346,10 +331,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     {
         "Your words haven't been read yet.\nF2 tries again."
     } else if app.conversation.focused_question().is_none() {
-        let composed = app
-            .conversation
-            .board()
-            .is_some_and(|g| !g.framings.is_empty());
+        let composed = app.conversation.board().is_some_and(|g| g.goal().is_some());
         open_now = format!(
             "{}\n{}",
             open_intent(app).unwrap_or_else(|| "No question left.".into()),

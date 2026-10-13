@@ -59,7 +59,7 @@ fn repeated_subjects_and_uncited_supports_are_not_fabricated_citations() {
         serde_json::json!({"parts":parts(),"supports":["A possible explanation",{"option":"Try a mechanism"}],"open":["A report remains unverified"]}),
     );
     let g = a.conversation.board().unwrap();
-    assert!(g.framings[0].supports.is_empty());
+    assert!(g.reading.as_ref().unwrap().supports.is_empty());
     assert!(
         g.unresolved_notes
             .iter()
@@ -118,7 +118,7 @@ fn quiet_asides_survive_paper_review_and_are_not_constraints() {
         serde_json::json!({"parts":parts(),"other_goals":["renaming a tab","release builds"],"deferred":["editing can wait"]}),
     );
     assert!(a.goal_ready());
-    let reading = a.conversation.board().unwrap().framings[0].text.clone();
+    let reading = a.conversation.board().unwrap().goal().unwrap().to_owned();
     assert!(!reading.contains("renaming") && !reading.contains("editing"));
     let paper = a.copy_text();
     assert!(paper.contains("also in your dump: renaming a tab; release builds"));
@@ -183,8 +183,12 @@ fn changed_lines_ink_unchanged_muted_until_any_keystroke_paste_or_send() {
             .unwrap()
             .contains("Why: a different problem.")
     );
-    let unchanged = a.conversation.board().unwrap().framings[0]
-        .text
+    let unchanged = a
+        .conversation
+        .board()
+        .unwrap()
+        .goal()
+        .unwrap()
         .lines()
         .next()
         .unwrap()
@@ -240,7 +244,7 @@ fn unchanged_answer_never_mutes_the_whole_block() {
     assert!(a.conversation.changed_lines().is_none());
     let palette = Palette::new(true);
     assert_eq!(
-        a.reading_line_style(&a.conversation.board().unwrap().framings[0].text, palette),
+        a.reading_line_style(a.conversation.board().unwrap().goal().unwrap(), palette),
         palette.ink
     );
 }

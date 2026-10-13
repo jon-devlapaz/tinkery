@@ -25,23 +25,23 @@ pub(crate) fn capture(app: &mut BrainDump, dir: &Path, name: &str) {
     if let Some(g) = app.conversation().board() {
         std::fs::write(
             dir.join(format!("{name}-guess.json")),
-            serde_json::to_string_pretty(g).unwrap() + "\n",
+            serde_json::to_string_pretty(&g.wire()).unwrap() + "\n",
         )
         .unwrap();
         let mut anchors = vec![];
-        for (reading, framing) in g.framings.iter().enumerate() {
-            for anchor in framing.supports.iter() {
+        if let Some(reading) = &g.reading {
+            for anchor in reading.supports.iter() {
                 let range = anchor
                     .range(app.conversation().sources())
                     .expect("Accepted anchor must match original");
-                anchors.push(serde_json::json!({"role":"support","reading":reading+1,"anchor":anchor,"start":range.start,"end":range.end}));
+                anchors.push(serde_json::json!({"role":"support","anchor":&**anchor,"start":range.start,"end":range.end}));
             }
         }
         for anchor in &g.misfits {
             let range = anchor
                 .range(app.conversation().sources())
                 .expect("Accepted anchor must match original");
-            anchors.push(serde_json::json!({"role":"unresolved","anchor":anchor,"start":range.start,"end":range.end}));
+            anchors.push(serde_json::json!({"role":"unresolved","anchor":&**anchor,"start":range.start,"end":range.end}));
         }
         std::fs::write(
             dir.join(format!("{name}-anchors.json")),

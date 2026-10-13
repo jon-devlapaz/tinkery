@@ -422,8 +422,11 @@ fn simulated_is_explicit_and_never_an_automatic_real_failure_fallback() {
     a.submit();
     settle(&mut a);
     assert!(
-        a.conversation.board().unwrap().framings[0]
-            .text
+        a.conversation
+            .board()
+            .unwrap()
+            .goal()
+            .unwrap()
             .contains("Simulated")
     );
 }

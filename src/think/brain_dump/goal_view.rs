@@ -157,7 +157,7 @@ impl BrainDump {
             self.notice = "No displayed reading to confirm.".into();
             return;
         };
-        let Some(goal) = g.parts.compose() else {
+        let Some(goal) = g.goal().map(str::to_owned) else {
             self.notice = "No composed goal to confirm; parts remain open.".into();
             return;
         };
