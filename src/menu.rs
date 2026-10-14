@@ -405,10 +405,20 @@ impl Home {
                 }
                 KeyCode::PageDown if tend.detail => tend.scroll = tend.scroll.saturating_add(5),
                 KeyCode::PageUp if tend.detail => tend.scroll = tend.scroll.saturating_sub(5),
-                KeyCode::Down | KeyCode::Char('j') if !tend.sessions.is_empty() => {
+                KeyCode::Right | KeyCode::Char('j') if tend.garden_showing() => {
                     tend.selected = (tend.selected + 1).min(tend.sessions.len() - 1)
                 }
-                KeyCode::Up | KeyCode::Char('k') => tend.selected = tend.selected.saturating_sub(1),
+                KeyCode::Left | KeyCode::Char('k') if tend.garden_showing() => {
+                    tend.selected = tend.selected.saturating_sub(1)
+                }
+                KeyCode::Down if tend.garden_showing() => {
+                    tend.selected = (tend.selected + tend.columns).min(tend.sessions.len() - 1)
+                }
+                KeyCode::Up if tend.garden_showing() => {
+                    if tend.selected >= tend.columns {
+                        tend.selected -= tend.columns;
+                    }
+                }
                 KeyCode::Enter if !tend.sessions.is_empty() => {
                     tend.detail = true;
                     tend.scroll = 0;
@@ -437,14 +447,27 @@ impl Home {
         }
     }
 
-    /// One mouse event in a terminal of size `area`. The menu takes left clicks on a place.
+    /// One mouse event in a terminal of size `area`. Routes deliberate presses to the open place.
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
+        self.handle_mouse_at(event, area, Instant::now());
+    }
+
+    /// [`Home::handle_mouse`] with the clock as an input, so double-click tests never sleep.
+    fn handle_mouse_at(&mut self, event: MouseEvent, area: Rect, now: Instant) {
         if let View::Think(dump) = &mut self.view {
             dump.handle_mouse(event, area);
             return;
         }
-        if !matches!(self.view, View::Menu) || event.kind != MouseEventKind::Down(MouseButton::Left)
-        {
+        if event.kind != MouseEventKind::Down(MouseButton::Left) {
+            return;
+        }
+        if let View::Tend(tend) = &mut self.view {
+            if !self.help {
+                tend.press(event.column, event.row, body(area), now);
+            }
+            return;
+        }
+        if !matches!(self.view, View::Menu) {
             return;
         }
         if event.row == 1 && event.column + 3 >= area.width {
@@ -499,12 +522,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             Rect::new(area.width - 3, 1, 1, 1),
         );
     }
-    let body = Rect::new(
-        2,
-        3,
-        area.width.saturating_sub(4),
-        area.height.saturating_sub(4),
-    );
+    let body = body(area);
     if home.help && !matches!(home.view, View::Menu) {
         if let View::Tend(tend) = &mut home.view {
             let p = Paragraph::new(tend.help_text(home.seed_me.as_deref()))
@@ -594,6 +612,15 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         ),
         View::Think(_) => {}
     }
+}
+
+fn body(area: Rect) -> Rect {
+    Rect::new(
+        2,
+        3,
+        area.width.saturating_sub(4),
+        area.height.saturating_sub(4),
+    )
 }
 
 fn render_menu_help(frame: &mut Frame, palette: Palette) {
@@ -1087,7 +1114,7 @@ mod tests {
     }
 
     #[test]
-    fn tend_rows_derive_each_state_and_only_show_goal_lines_newest_first() {
+    fn tend_garden_derives_each_state_and_only_shows_goal_lines_newest_first() {
         let tmp = tempfile::tempdir().unwrap();
         for (id, status, date, seed) in [
             ("saved", "active", "2026-10-10T00:00:00Z", None),
@@ -1138,20 +1165,26 @@ mod tests {
             assert!(
                 !screen.contains("Why:") && !screen.contains("Done when:") && !screen.contains("/")
             );
-            for (row, label) in ["goal saved", "seed drafted", "seed ready", "ended"]
-                .into_iter()
-                .enumerate()
-            {
+            let positions: Vec<_> = ["saved", "drafted", "ready", "ended"]
+                .iter()
+                .map(|id| screen.find(id).unwrap())
+                .collect();
+            assert!(
+                positions.windows(2).all(|pair| pair[0] < pair[1]),
+                "{screen}"
+            );
+            for label in ["goal saved", "seed drafted", "seed ready", "ended"] {
+                let selected = snapshot(w, height, &mut h, false).unwrap();
+                let line = selected.lines().nth(height as usize - 3).unwrap();
                 assert!(
-                    screen.lines().nth(row + 3).unwrap().contains(label),
-                    "{screen}"
+                    line.contains(label) && line.contains('…') && line.contains(" · "),
+                    "{selected}"
                 );
-                assert!(screen.lines().nth(row + 3).unwrap().contains('…'));
-                assert!(screen.lines().nth(row + 3).unwrap().contains(" · "));
+                h.handle_key(key(KeyCode::Char('j')));
             }
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "↑↓ move   enter open   esc back"
+                "↑↓←→ move   enter open   esc back"
             );
         }
     }

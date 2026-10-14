@@ -18,10 +18,14 @@ If the record wasn't written, help and the receipt's muted notice say so; the go
 stays saved. A notice wraps whole rather than clipping, in the receipt and shape's
 detail. The plain-text terminal exit receipt may include recovery locations.
 
-## Shape list and detail
+## Tend garden and detail
 
-One row per session, newest first: **only the first line of its saved goal**, then
-status and relative time. Truncate the headline with an ellipsis, not the status.
+Saved goals appear newest first in a deterministic staggered grid. Each has a hollow
+Braille ring of the same size: size is unknown. Only the first saved-goal line sits
+above it, clipped with an ellipsis. The selected label starts with `› ` and uses jade;
+other labels are muted. No label is italic. The selected line below the garden keeps
+the first line, status and relative time, truncating the headline rather than status.
+Pages follow selection, with a page note only when more than one page exists.
 Old unstructured goals use their first line too. No preview lines, divider or count.
 
 | Stored state | Label | Detail next step |
@@ -32,13 +36,17 @@ Old unstructured goals use their first line too. No preview lines, divider or co
 | Ended session | ended | None; copying is unavailable |
 
 Unknown and practice states are distinct, never mislabeled ready. Unreadable
-ledger records are skipped rather than shown as ready, and the list says how many
-couldn't be read. Sessions come from the menu's [background read](menu.md#session-discovery):
-until it lands, shape says it is reading and Esc/F10 still leave; it never says
-“no sessions” for an unknown or failed read.
+ledger records are skipped rather than shown as ready, and the garden says how many
+couldn't be read, above the selected line. Sessions come from the menu's
+[background read](menu.md#session-discovery): until it lands, tend says it is reading
+and Esc/F10 still leave; it never says “no sessions” for an unknown or failed read.
 Enter opens the stored block line by line using the receipt's shared component,
-without `Saved.`. `c` copies the same continuation prompt again. Arrows / `j k`
-move in the list; Esc goes detail → list → menu; F10 goes to menu. F1 helps.
+without `Saved.`. `c` copies the same continuation prompt again, only in detail.
+Right / `j` and Left / `k` step through goals; Down / Up move by the last rendered
+column count, staying put at the top and clamping at the last goal. A left press
+on a label or either ring row selects; a second press on the same session path within
+500 ms opens detail. Help, detail and discovery states ignore garden presses.
+Esc goes detail → garden → menu; F10 goes to menu. F1 helps.
 
 ## Continuation contract
 

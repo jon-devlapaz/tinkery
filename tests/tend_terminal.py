@@ -63,15 +63,17 @@ def journey(width, height):
 
         try:
             wait(lambda: '1  think' in screen.text())
-            send(b'2', '↑↓ move   enter open   esc back')
-            for index, label in enumerate(['goal saved', 'seed drafted', 'seed ready', 'ended']):
-                line = screen.text().splitlines()[index+3]
-                assert line.startswith('  I can read') and label in line and ' · ' in line, line
-                if width <= 100: assert '…' in line, line
+            send(b'2', '↑↓←→ move   enter open   esc back')
+            assert '› I can read' in screen.text() and '…' in screen.text(), screen.text()
+            line = screen.text().splitlines()[height-3]
+            assert line.startswith('  I can read') and 'goal saved' in line and ' · ' in line, line
+            if width <= 100: assert '…' in line, line
             assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
             ordinary()
             for index, next_line in enumerate(['Next: shape it into a seed with Seed Me.',
                     'Next: confirm the seed draft with Seed Me.', 'Next: the seed is ready for intake.', None]):
+                label = ['goal saved', 'seed drafted', 'seed ready', 'ended'][index]
+                wait(lambda: label in screen.text().splitlines()[height-3])
                 send(b'\r', 'esc back   10 menu')
                 assert 'Saved.' not in screen.text()
                 for line in GOAL.splitlines(): assert line in ' '.join(screen.text().split()), (line, screen.text())
@@ -99,7 +101,7 @@ def journey(width, height):
                 assert 'Session:' in screen.text() and str(root) in screen.text().replace('\n','').replace(' ',''), screen.text()
                 send(b'\x1b', 'Right now')
                 send(b'\x1b', 'esc back   10 menu')
-                send(b'\x1b', '↑↓ move   enter open   esc back')
+                send(b'\x1b', '↑↓←→ move   enter open   esc back')
                 if index < 3: os.write(master, b'j')
             send(b'\x1b[21~', '1  think')
             assert process.poll() is None
@@ -108,7 +110,7 @@ def journey(width, height):
             assert process.returncode == 0
             assert not (root/'provider-was-run').exists()
             assert {str(p): p.read_bytes() for p in sessions.rglob('*') if p.is_file()} == before
-            print(json.dumps(dict(width=width, height=height, journey='list/status/detail/repeat copy/help/back/menu',
+            print(json.dumps(dict(width=width, height=height, journey='garden/status/detail/repeat copy/help/back/menu',
                 provider_calls=0, sessions='synthetic fixtures in temporary root', operator_confirmation=False)))
         finally:
             if process.poll() is None: process.kill(); process.wait()

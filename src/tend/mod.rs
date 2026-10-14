@@ -1,10 +1,11 @@
-//! Tend: the saved goals list and one goal's detail, read from Seed Me sessions.
+//! Tend: the saved goals garden and one goal's detail, read from Seed Me sessions.
 //!
 //! Tend only reads. It shows what discovery has landed, says plainly when that is unknown,
 //! incomplete or failed, and offers the continuation prompt to copy; it never edits a session,
 //! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
 
 pub mod discovery;
+mod garden;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
 pub use crate::seed_me::{Session, Stage};
@@ -13,15 +14,10 @@ use crate::{
     goal::confirmed::{SavedGoal, render_saved_goal},
     seed_me::continuation_prompt,
 };
-use ratatui::{
-    Frame,
-    layout::Rect,
-    text::{Line, Span, Text},
-    widgets::Paragraph,
-};
+use ratatui::{Frame, layout::Rect, widgets::Paragraph};
 use std::{
     path::{Path, PathBuf},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -55,6 +51,9 @@ pub(super) struct Tend {
     pub help_scroll: u16,
     pub notice: String,
     pub copy: Option<String>,
+    /// Columns in the last rendered garden; vertical movement uses this stride.
+    pub columns: usize,
+    last_press: Option<(PathBuf, Instant)>,
 }
 impl Tend {
     pub(super) fn new() -> Self {
@@ -74,6 +73,8 @@ impl Tend {
             help_scroll: 0,
             notice: String::new(),
             copy: None,
+            columns: 1,
+            last_press: None,
         }
     }
     /// Note how long the read this view waits on has been running (`None`: no worker).
@@ -126,6 +127,38 @@ impl Tend {
             }
         }
     }
+    /// Whether the saved-goal garden is showing, rather than detail or a discovery state.
+    pub(super) fn garden_showing(&self) -> bool {
+        !self.detail
+            && !self.pending
+            && self.want.is_none()
+            && self.error.is_none()
+            && !self.sessions.is_empty()
+    }
+    /// Select a garden cell; a timely second press on the same session opens detail.
+    pub(super) fn press(&mut self, column: u16, row: u16, body: Rect, now: Instant) {
+        if !self.garden_showing() {
+            return;
+        }
+        let Some(index) = garden::hit(self, column, row, body) else {
+            return;
+        };
+        let path = self.sessions[index].path.clone();
+        let double = self.last_press.as_ref().is_some_and(|(last, at)| {
+            *last == path
+                && now
+                    .checked_duration_since(*at)
+                    .is_some_and(|elapsed| elapsed <= Duration::from_millis(500))
+        });
+        self.selected = index;
+        self.last_press = Some((path, now));
+        if double {
+            self.detail = true;
+            self.scroll = 0;
+            self.notice.clear();
+            self.last_press = None;
+        }
+    }
     pub(super) fn current(&self) -> Option<&Session> {
         self.sessions.get(self.selected)
     }
@@ -163,7 +196,7 @@ impl Tend {
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll."
             } else {
-                "↑↓ / j k move · Enter opens the saved goal."
+                "Arrows / j k move · Enter or a double click opens the saved goal."
             },
             copy
         )
@@ -216,7 +249,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         // Nothing on screen to move to or open: reading, unavailable or empty.
         "esc back"
     } else {
-        "↑↓ move   enter open   esc back"
+        "↑↓←→ move   enter open   esc back"
     };
     frame.render_widget(
         Paragraph::new(keys).style(palette.muted),
@@ -280,44 +313,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         .duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs());
-    let lines: Vec<Line> = tend
-        .sessions
-        .iter()
-        .enumerate()
-        .map(|(i, session)| {
-            let (goal, status) = row(session, usize::from(area.width), now);
-            Line::from(vec![
-                Span::styled(
-                    goal,
-                    if i == tend.selected {
-                        palette.jade
-                    } else {
-                        palette.ink
-                    },
-                ),
-                Span::styled(status, palette.muted),
-            ])
-        })
-        .collect();
-    let note = tend.unreadable > 0 && area.height > 1;
-    let list = Rect::new(area.x, area.y, area.width, area.height - u16::from(note));
-    let skip = tend
-        .selected
-        .saturating_sub(list.height.saturating_sub(1) as usize);
-    frame.render_widget(
-        Paragraph::new(Text::from(lines)).scroll((skip as u16, 0)),
-        list,
-    );
-    if note {
-        frame.render_widget(
-            Paragraph::new(format!(
-                "{} couldn't be read; this list may be missing sessions.",
-                records(tend.unreadable)
-            ))
-            .style(palette.muted),
-            Rect::new(area.x, area.bottom() - 1, area.width, 1),
-        );
-    }
+    garden::render(frame, tend, area, palette, now);
 }
 fn records(n: usize) -> String {
     if n == 1 {

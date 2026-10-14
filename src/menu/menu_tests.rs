@@ -103,6 +103,228 @@ fn screen(h: &mut Home) -> String {
     snapshot(100, 30, h, true).unwrap()
 }
 
+fn garden(count: usize) -> Home {
+    let mut h = home(Arc::new(|_| panic!("input and painting never read")))
+        .with_seed_me("/TEST/SKILL.md".into());
+    let mut tend = Tend::new();
+    tend.apply(
+        &found(
+            (0..count)
+                .map(|i| sess(&i.to_string(), Stage::GoalSaved, "unknown"))
+                .collect(),
+        ),
+        true,
+        1,
+    );
+    tend.current = true;
+    h.view = View::Tend(tend);
+    h
+}
+fn selected(h: &Home) -> usize {
+    let View::Tend(tend) = &h.view else { panic!() };
+    tend.selected
+}
+fn press(h: &mut Home, column: u16, row: u16, now: Instant) {
+    h.handle_mouse_at(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        },
+        Rect::new(0, 0, 100, 30),
+        now,
+    );
+}
+
+#[test]
+fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
+    let mut h = garden(23);
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 1, "the pre-render stride defaults to one");
+    screen(&mut h);
+    for (code, expected) in [
+        (KeyCode::Right, 2),
+        (KeyCode::Char('j'), 3),
+        (KeyCode::Down, 7),
+        (KeyCode::Up, 3),
+        (KeyCode::Up, 3),
+        (KeyCode::Left, 2),
+        (KeyCode::Char('k'), 1),
+        (KeyCode::Left, 0),
+        (KeyCode::Left, 0),
+    ] {
+        h.handle_key(key(code));
+        assert_eq!(selected(&h), expected);
+    }
+    snapshot(80, 24, &mut h, true).unwrap();
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 3, "resize changes the stride after render");
+    for _ in 0..30 {
+        h.handle_key(key(KeyCode::Right));
+    }
+    assert_eq!(selected(&h), 22);
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 22);
+    h.handle_key(key(KeyCode::Char('c')));
+    assert!(h.take_copy_request().is_none(), "garden cannot copy");
+    h.handle_key(key(KeyCode::Enter));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail);
+    h.handle_key(key(KeyCode::Down));
+    h.handle_key(key(KeyCode::Right));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.scroll, 1);
+    assert_eq!(tend.selected, 22);
+    h.handle_key(key(KeyCode::Char('c')));
+    assert_eq!(
+        h.take_copy_request().unwrap(),
+        crate::seed_me::continuation_prompt(Path::new("/TEST/SKILL.md"), Path::new("/TEST/22"))
+    );
+    h.handle_key(key(KeyCode::Esc));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail && tend.scroll == 0);
+    h.handle_key(key(KeyCode::F(1)));
+    assert!(
+        screen(&mut h)
+            .contains("Arrows / j k move · Enter or a double click opens the saved goal.")
+    );
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 22);
+    h.handle_key(key(KeyCode::Esc));
+    h.handle_key(key(KeyCode::Esc));
+    assert!(matches!(h.view, View::Menu) && !h.quit);
+    let mut h = garden(1);
+    h.handle_key(key(KeyCode::F(1)));
+    h.handle_key(key(KeyCode::F(10)));
+    assert!(matches!(h.view, View::Menu) && !h.help && !h.quit);
+}
+
+#[test]
+fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
+    let now = Instant::now();
+    for (elapsed, opens) in [(499, true), (500, true), (501, false)] {
+        let mut h = garden(7);
+        screen(&mut h);
+        // Second cell at 100 columns, including its two ring rows.
+        press(&mut h, 24, 4, now);
+        assert_eq!(selected(&h), 1);
+        press(&mut h, 24, 5, now + Duration::from_millis(elapsed));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.detail, opens);
+    }
+    let mut h = garden(7);
+    screen(&mut h);
+    press(&mut h, 24, 3, now);
+    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(
+        !tend.detail && tend.selected == 2,
+        "different goals aren't a double click"
+    );
+}
+
+#[test]
+fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
+    let now = Instant::now();
+    let mut h = garden(7);
+    screen(&mut h);
+    press(&mut h, 24, 3, now);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    let mut sessions = tend.sessions.clone();
+    sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
+    tend.apply(&found(sessions), true, 2);
+    assert_eq!(tend.selected, 2);
+    screen(&mut h);
+    press(&mut h, 24, 3, now + Duration::from_millis(100));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail && tend.current().unwrap().path == Path::new("/TEST/0"));
+    // The same identity moving to another cell still counts as a double press.
+    let mut h = garden(7);
+    screen(&mut h);
+    press(&mut h, 24, 3, now);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    let mut sessions = tend.sessions.clone();
+    sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
+    tend.apply(&found(sessions), true, 2);
+    screen(&mut h);
+    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail && tend.current().unwrap().path == Path::new("/TEST/1"));
+}
+
+#[test]
+fn garden_presses_ignore_blank_rows_help_detail_and_discovery_states() {
+    let now = Instant::now();
+    for state in [
+        "garden",
+        "help",
+        "detail",
+        "reading",
+        "wanted",
+        "unavailable",
+        "empty",
+    ] {
+        let mut h = garden(7);
+        screen(&mut h);
+        if state == "help" {
+            h.handle_key(key(KeyCode::F(1)));
+        }
+        let View::Tend(tend) = &mut h.view else {
+            panic!()
+        };
+        match state {
+            "detail" => tend.detail = true,
+            "reading" => tend.pending = true,
+            "wanted" => tend.want = Some(("/TEST/wanted".into(), None)),
+            "unavailable" => tend.error = Some("unavailable".into()),
+            "empty" => tend.sessions.clear(),
+            _ => {}
+        }
+        let detail = tend.detail;
+        let row = if state == "garden" { 6 } else { 3 };
+        press(&mut h, 24, row, now);
+        press(&mut h, 24, row, now + Duration::from_millis(100));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.selected, 0, "{state}");
+        assert_eq!(tend.detail, detail, "{state}");
+    }
+    let mut h = garden(7);
+    for (column, row) in [(0, 3), (99, 3), (2, 26), (2, 27), (2, 28), (2, 29)] {
+        press(&mut h, column, row, now);
+    }
+    assert_eq!(selected(&h), 0);
+}
+
+#[test]
+fn garden_test_session_plain_text_renders() {
+    let mut h = garden(7);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    for (session, goal) in tend.sessions.iter_mut().zip([
+        "Find invoices",
+        "Read a calm theme",
+        "Keep goals intact",
+        "Plan the next seed",
+        "Review saved work",
+        "Make room to think",
+        "Leave manual control",
+    ]) {
+        session.goal = goal.into();
+    }
+    for (width, height) in [(100, 30), (80, 24)] {
+        let screen = snapshot(width, height, &mut h, true).unwrap();
+        println!("TEST garden {width}×{height}:\n{screen}");
+        assert_eq!(screen.split('\n').count(), height as usize);
+        assert!(screen.contains("› Find invoices") && screen.contains("goal saved · time unknown"));
+    }
+}
+
 #[test]
 fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
     let gate = Gate::new(found(vec![sess(
@@ -368,7 +590,10 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
     settle(&mut h);
     let frame = screen(&mut h);
     assert!(frame.contains("goal a"), "{frame}");
-    assert!(frame.contains("↑↓ move   enter open   esc back"), "{frame}");
+    assert!(
+        frame.contains("↑↓←→ move   enter open   esc back"),
+        "{frame}"
+    );
 }
 
 #[test]
@@ -530,7 +755,10 @@ fn counts_are_exact_only_after_complete_current_reads() {
     settle(&mut h);
     assert_eq!(h.count(1), None, "incomplete is not an exact result");
     let frame = screen(&mut h);
-    assert!(frame.contains("1 saved record couldn't be read"), "{frame}");
+    assert!(
+        frame.contains("1 saved record couldn't be read; this view may be missing sessions."),
+        "{frame}"
+    );
     assert!(
         frame.contains("goal a") && frame.contains("goal b"),
         "{frame}"

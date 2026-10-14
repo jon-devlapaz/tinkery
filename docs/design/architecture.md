@@ -38,7 +38,8 @@ to the dependency rule: think hands a saved goal to shape only through `seed_me`
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
 | `menu.rs` | The menu: the six places and navigation between them. |
 | `measure.rs` | The ledger's read-only report. |
-| `tend/mod.rs` | The saved-goal list and detail, and copying the continuation prompt again. |
+| `tend/mod.rs` | Saved-goal discovery states, selection, detail and copying the continuation prompt again. |
+| `tend/garden.rs` | Deterministic saved-goal pages, hollow rings, labels and cell hit-testing. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, and the continuation prompt (shared). |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
