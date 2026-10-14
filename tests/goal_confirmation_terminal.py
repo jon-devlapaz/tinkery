@@ -74,7 +74,7 @@ def journey(width,height,home=False,menu_only=False):
    os.write(master,b'\x1b[6~'*30);await_text('remain unresolved?')
    send(b'confirm\r','Saved.');await_text('Next:')
    assert 'Next: shape it into a seed with Seed Me.' in right(),screen.text()
-   assert screen.text().splitlines()[-1].strip()=='c copy prompt   s open in shape   F10 menu'
+   assert screen.text().splitlines()[-1].strip()=='c copy prompt   s open in tend   F10 menu'
    assert str(root) not in screen.text() and 'seed not written yet' not in screen.text()
    first_goal=right()
    sessions=list(root.iterdir());assert len(sessions)==1
@@ -141,16 +141,16 @@ def journey(width,height,home=False,menu_only=False):
    assert str(root) not in screen.text()
    if menu_only:
     send(b'\x1b[21~','think')
-    assert process.poll() is None and 'shape' in screen.text()
+    assert process.poll() is None and 'tend' in screen.text()
    else:
     # Make the target non-first with the official helper, not hand-written canonical files.
     newer=Path(helper('init','--root',root)['session'])
     send(b's','c copy prompt   esc back   10 menu')
-    assert 'tinkery › shape' in screen.text()
+    assert 'tinkery › tend' in screen.text()
     assert 'Saved.' not in screen.text() and 'any harness' not in screen.text()
     assert str(root) not in screen.text() and session.name not in screen.text()
-    shape_block=' '.join(screen.text().split())
-    for line in ledger['goal'].splitlines(): assert line in shape_block,(line,screen.text())
+    tend_block=' '.join(screen.text().split())
+    for line in ledger['goal'].splitlines(): assert line in tend_block,(line,screen.text())
     # Copy again after leaving the receipt, and repeat it without launching anything.
     before=len(re.findall(rb'\x1b\]52;c;([^\x07\x1b]+)(?:\x07|\x1b\\)',bytes(raw)))
     for extra in [1,2]:
@@ -161,7 +161,7 @@ def journey(width,height,home=False,menu_only=False):
       if len(copied)>=before+extra:break
      assert len(copied)==before+extra and base64.b64decode(copied[-1]).decode()==expected
     await_text('Copied.')
-    send(b'\x1b','↑↓ move   enter open   esc back')
+    send(b'\x1b','↑↓←→ move   enter open   esc back')
     assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
     send(b'\r','c copy prompt   esc back   10 menu')
     assert 'Must not: build a dashboard.' in screen.text()

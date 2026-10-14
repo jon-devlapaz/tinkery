@@ -1,9 +1,11 @@
 # First complete release
 
-The operator chose this release boundary: **think → shape → approve → watch →
-taste → measure**. The north star is **useful, verified changes per operator
-hour**, from [the constitution](../yohaku.md). A useful result meets the original
-goal, passes its required checks and is accepted by the operator.
+The release boundary is **think → tend → approve → watch → taste → measure**
+(tend replaced the operator's original shape list on 2026-10-14,
+[#123](https://github.com/jon-devlapaz/tinkery/issues/123); shape returns later as the
+Seed Me step). The north star is **useful, verified changes per operator hour**,
+from [the constitution](../yohaku.md). A useful result meets the original goal,
+passes its required checks and is accepted by the operator.
 
 The operator requested this plan. The [task index](first-release-issues.md)
 links the authoritative issues for scope, status, approval and completion evidence.
@@ -12,12 +14,13 @@ build, private data use, provider budget or merge.
 
 ## Starting point
 
-Checked on October 12, 2026 against main at `4f520b2`, including #58:
+Baseline checked on October 12, 2026 against main at `4f520b2`, including #58;
+the tend row reflects the replacement above:
 
 | Place | Available now | Needed for this release |
 | --- | --- | --- |
 | Think | Refine a dump and explicitly save its confirmed goal | Repeatable quality checks and operator recognition on permitted examples |
-| Shape | List saved goals and copy a continuation prompt | Trace the same goal through the existing external workflow |
+| Tend | Show saved goals in a read-only garden, open detail and copy a continuation prompt | Trace the same goal through the existing external workflow |
 | Approve | Placeholder | Show the exact pending decision and a deliberate approval handoff |
 | Watch | Placeholder | Show trustworthy progress and the next action for one job |
 | Taste | Placeholder | Compare a result and its checks with the original goal |

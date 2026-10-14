@@ -14,12 +14,13 @@ Imagine you say: “I want customers to find their invoices more easily.”
 
 Tinkery’s intended journey is:
 
-**Think → Shape → Approve → work happens → Watch → Taste → Measure**
+**Think → Tend → Shape → Approve → work happens → Watch → Taste → Measure**
 
 | Place | What it helps you do |
 | --- | --- |
 | **Think** | Work out what you actually want. It offers a reading and asks one question at a time. |
-| **Shape** | Prepare that goal for someone—or an agent—to work on, including its boundaries. |
+| **Tend** | Choose a saved goal in a quiet garden and open its detail. |
+| **Shape** | Turn a confirmed goal into a seed with Seed Me. This step returns later in Tinkery. |
 | **Approve** | Understand exactly what decision is needed and what you’re authorizing. |
 | **Watch** | See what’s happening, what’s blocked and what needs your attention. |
 | **Taste** | Compare the result with your original goal. You decide whether it’s useful or needs correction. |
@@ -54,10 +55,11 @@ Today, Tinkery can:
   saves that goal, unchanged, as a Seed Me session in
   `~/.local/share/seed-me/sessions/`, and writes a think record to
   `~/.local/share/tinkery/think/`.
-- List saved goals in Shape and copy a continuation prompt to Claude, Codex or Pi.
+- Show saved goals in Tend's read-only garden, open their detail and copy a
+  continuation prompt to Claude, Codex or Pi.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
-**Approve, Watch and Taste aren’t built yet.** The complete journey and its
+**Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its
 claimed benefit still need proving.
 
 Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that

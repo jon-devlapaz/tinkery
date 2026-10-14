@@ -1,10 +1,11 @@
-//! Shape: the saved goals list and one goal's detail, read from Seed Me sessions.
+//! Tend: the saved goals garden and one goal's detail, read from Seed Me sessions.
 //!
-//! Shape only reads. It shows what discovery has landed, says plainly when that is unknown,
+//! Tend only reads. It shows what discovery has landed, says plainly when that is unknown,
 //! incomplete or failed, and offers the continuation prompt to copy; it never edits a session,
 //! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
 
 pub mod discovery;
+mod garden;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
 pub use crate::seed_me::{Session, Stage};
@@ -16,12 +17,11 @@ use crate::{
 use ratatui::{
     Frame,
     layout::Rect,
-    text::{Line, Span, Text},
-    widgets::Paragraph,
+    widgets::{Paragraph, Wrap},
 };
 use std::{
     path::{Path, PathBuf},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -31,7 +31,7 @@ use unicode_width::UnicodeWidthStr;
 /// this only shows when something is actually slow, such as a cold or network disk.
 pub(super) const STILL_READING_AFTER: Duration = Duration::from_secs(3);
 
-pub(super) struct Shape {
+pub(super) struct Tend {
     pub sessions: Vec<Session>,
     pub error: Option<String>,
     /// Nothing has landed yet: unknown, never "no sessions".
@@ -46,6 +46,8 @@ pub(super) struct Shape {
     pub want: Option<(PathBuf, Option<PathBuf>)>,
     /// Records the last read could not parse; the list may be missing them.
     pub unreadable: usize,
+    /// Readable ended sessions omitted from the garden.
+    pub ended: usize,
     /// The discovery version last applied.
     pub seen: u64,
     pub selected: usize,
@@ -55,8 +57,11 @@ pub(super) struct Shape {
     pub help_scroll: u16,
     pub notice: String,
     pub copy: Option<String>,
+    /// Columns in the last rendered garden; vertical movement uses this stride.
+    pub columns: usize,
+    last_press: Option<(PathBuf, Instant)>,
 }
-impl Shape {
+impl Tend {
     pub(super) fn new() -> Self {
         Self {
             sessions: vec![],
@@ -66,6 +71,7 @@ impl Shape {
             current: false,
             want: None,
             unreadable: 0,
+            ended: 0,
             seen: 0,
             selected: 0,
             detail: false,
@@ -74,6 +80,8 @@ impl Shape {
             help_scroll: 0,
             notice: String::new(),
             copy: None,
+            columns: 1,
+            last_press: None,
         }
     }
     /// Note how long the read this view waits on has been running (`None`: no worker).
@@ -102,16 +110,25 @@ impl Shape {
                 self.error = Some(error.clone());
                 self.sessions.clear();
                 self.unreadable = 0;
+                self.ended = 0;
                 self.want = None;
             }
             Ok(found) => {
                 let keep = self.current().map(|s| s.path.clone());
                 self.error = None;
                 self.unreadable = found.unreadable;
-                self.sessions = found.sessions.clone();
+                self.sessions = found
+                    .sessions
+                    .iter()
+                    .filter(|s| s.stage != Stage::Ended)
+                    .cloned()
+                    .collect();
+                self.ended = found.sessions.len() - self.sessions.len();
                 if let Some(index) = wanted_at {
-                    self.selected = index;
-                    self.detail = true;
+                    let path = &found.sessions[index].path;
+                    let active = self.sessions.iter().position(|s| s.path == *path);
+                    self.selected = active.unwrap_or(0);
+                    self.detail = active.is_some();
                     self.scroll = 0;
                     self.want = None;
                 } else if let Some((path, _)) = self.want.take() {
@@ -124,6 +141,38 @@ impl Shape {
                         .min(self.sessions.len().saturating_sub(1));
                 }
             }
+        }
+    }
+    /// Whether the saved-goal garden is showing, rather than detail or a discovery state.
+    pub(super) fn garden_showing(&self) -> bool {
+        !self.detail
+            && !self.pending
+            && self.want.is_none()
+            && self.error.is_none()
+            && !self.sessions.is_empty()
+    }
+    /// Select a garden cell; a timely second press on the same session opens detail.
+    pub(super) fn press(&mut self, column: u16, row: u16, body: Rect, now: Instant) {
+        if !self.garden_showing() {
+            return;
+        }
+        let Some(index) = garden::hit(self, column, row, body) else {
+            return;
+        };
+        let path = self.sessions[index].path.clone();
+        let double = self.last_press.as_ref().is_some_and(|(last, at)| {
+            *last == path
+                && now
+                    .checked_duration_since(*at)
+                    .is_some_and(|elapsed| elapsed <= Duration::from_millis(500))
+        });
+        self.selected = index;
+        self.last_press = Some((path, now));
+        if double {
+            self.detail = true;
+            self.scroll = 0;
+            self.notice.clear();
+            self.last_press = None;
         }
     }
     pub(super) fn current(&self) -> Option<&Session> {
@@ -163,7 +212,7 @@ impl Shape {
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll."
             } else {
-                "↑↓ / j k move · Enter opens the saved goal."
+                "Arrows / j k move · Enter or a double click opens the saved goal."
             },
             copy
         )
@@ -205,18 +254,18 @@ fn row(session: &Session, width: usize, now: Option<u64>) -> (String, String) {
     (format!("{title}{}", " ".repeat(gap)), suffix)
 }
 
-pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: Palette) {
-    let keys = if shape.detail {
-        if shape.current().is_some_and(|s| s.stage.can_copy()) {
+pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Palette) {
+    let keys = if tend.detail {
+        if tend.current().is_some_and(|s| s.stage.can_copy()) {
             "c copy prompt   esc back   10 menu"
         } else {
             "esc back   10 menu"
         }
-    } else if shape.sessions.is_empty() || shape.want.is_some() {
+    } else if tend.sessions.is_empty() || tend.want.is_some() {
         // Nothing on screen to move to or open: reading, unavailable or empty.
         "esc back"
     } else {
-        "↑↓ move   enter open   esc back"
+        "↑↓←→ move   enter open   esc back"
     };
     frame.render_widget(
         Paragraph::new(keys).style(palette.muted),
@@ -227,12 +276,10 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
             1,
         ),
     );
-    let stale_empty = shape.sessions.is_empty()
-        && shape.unreadable == 0
-        && shape.error.is_none()
-        && !shape.current;
-    if shape.pending || shape.want.is_some() || stale_empty {
-        let status = if shape.still_reading {
+    let stale_empty =
+        tend.sessions.is_empty() && tend.unreadable == 0 && tend.error.is_none() && !tend.current;
+    if tend.pending || tend.want.is_some() || stale_empty {
+        let status = if tend.still_reading {
             "Still reading your sessions. Esc goes back."
         } else {
             "Reading your sessions. Esc goes back."
@@ -240,39 +287,48 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         frame.render_widget(Paragraph::new(status).style(palette.muted), area);
         return;
     }
-    if shape.error.is_some() {
+    if tend.error.is_some() {
         frame.render_widget(
             Paragraph::new("Saved session unavailable. F1 then h for details.").style(palette.ink),
             area,
         );
         return;
     }
-    if shape.sessions.is_empty() {
+    if tend.sessions.is_empty() {
         frame.render_widget(
-            Paragraph::new(if shape.unreadable > 0 {
+            Paragraph::new(if tend.ended > 0 {
+                format!(
+                    "No active goals. {} ended not shown. Confirm a goal in think to start one.",
+                    tend.ended
+                )
+            } else if tend.unreadable > 0 {
                 format!(
                     "{} couldn't be read, so nothing can be listed. Esc goes back.",
-                    records(shape.unreadable)
+                    records(tend.unreadable)
                 )
             } else {
                 "No Seed Me sessions yet. Confirm a goal in think to start one.".into()
             })
-            .style(palette.muted),
+            .style(palette.muted)
+            .wrap(Wrap { trim: false }),
             area,
         );
+        if tend.ended > 0 {
+            garden::render_note(frame, tend, area, palette);
+        }
         return;
     }
-    if shape.detail {
-        let session = &shape.sessions[shape.selected];
+    if tend.detail {
+        let session = &tend.sessions[tend.selected];
         render_saved_goal(
             frame,
-            &mut shape.scroll,
+            &mut tend.scroll,
             area,
             palette,
             SavedGoal {
                 goal: &session.goal,
                 next: session.stage.next(),
-                notice: &shape.notice,
+                notice: &tend.notice,
                 saved: false,
             },
         );
@@ -282,44 +338,7 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         .duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs());
-    let lines: Vec<Line> = shape
-        .sessions
-        .iter()
-        .enumerate()
-        .map(|(i, session)| {
-            let (goal, status) = row(session, usize::from(area.width), now);
-            Line::from(vec![
-                Span::styled(
-                    goal,
-                    if i == shape.selected {
-                        palette.jade
-                    } else {
-                        palette.ink
-                    },
-                ),
-                Span::styled(status, palette.muted),
-            ])
-        })
-        .collect();
-    let note = shape.unreadable > 0 && area.height > 1;
-    let list = Rect::new(area.x, area.y, area.width, area.height - u16::from(note));
-    let skip = shape
-        .selected
-        .saturating_sub(list.height.saturating_sub(1) as usize);
-    frame.render_widget(
-        Paragraph::new(Text::from(lines)).scroll((skip as u16, 0)),
-        list,
-    );
-    if note {
-        frame.render_widget(
-            Paragraph::new(format!(
-                "{} couldn't be read; this list may be missing sessions.",
-                records(shape.unreadable)
-            ))
-            .style(palette.muted),
-            Rect::new(area.x, area.bottom() - 1, area.width, 1),
-        );
-    }
+    garden::render(frame, tend, area, palette, now);
 }
 fn records(n: usize) -> String {
     if n == 1 {

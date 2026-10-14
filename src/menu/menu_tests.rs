@@ -1,7 +1,7 @@
-//! Menu and shape never wait on session discovery. The fake source is held open, so a
+//! Menu and tend never wait on session discovery. The fake source is held open, so a
 //! regression that reads inside paint, tick or input fails instead of passing quietly.
 use super::*;
-use crate::shape::{Found, Outcome, Session, Stage, scan};
+use crate::tend::{Found, Outcome, Session, Stage, scan};
 use serde_json::json;
 use std::{
     collections::HashSet,
@@ -103,6 +103,361 @@ fn screen(h: &mut Home) -> String {
     snapshot(100, 30, h, true).unwrap()
 }
 
+fn garden(count: usize) -> Home {
+    let mut h = home(Arc::new(|_| panic!("input and painting never read")))
+        .with_seed_me("/TEST/SKILL.md".into());
+    let mut tend = Tend::new();
+    tend.apply(
+        &found(
+            (0..count)
+                .map(|i| sess(&i.to_string(), Stage::GoalSaved, "unknown"))
+                .collect(),
+        ),
+        true,
+        1,
+    );
+    tend.current = true;
+    h.view = View::Tend(Box::new(tend));
+    h
+}
+fn selected(h: &Home) -> usize {
+    let View::Tend(tend) = &h.view else { panic!() };
+    tend.selected
+}
+fn press(h: &mut Home, column: u16, row: u16, now: Instant) {
+    h.handle_mouse_at(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        },
+        Rect::new(0, 0, 100, 30),
+        now,
+    );
+}
+
+#[test]
+fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
+    let stages = [
+        Stage::GoalSaved,
+        Stage::SeedDrafted,
+        Stage::SeedReady,
+        Stage::Unknown,
+        Stage::Simulated,
+    ];
+    let mut h = garden(0);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    let sessions = stages
+        .iter()
+        .enumerate()
+        .flat_map(|(i, &stage)| {
+            [
+                sess(&format!("ended-{i}"), Stage::Ended, "unknown"),
+                sess(&i.to_string(), stage, "unknown"),
+            ]
+        })
+        .collect();
+    tend.apply(&found(sessions), true, 1);
+    assert_eq!(
+        tend.sessions.iter().map(|s| s.stage).collect::<Vec<_>>(),
+        stages
+    );
+    assert_eq!(tend.ended, 5);
+    let frame = screen(&mut h);
+    assert!(frame.contains("5 ended not shown"), "{frame}");
+    assert!(!frame.contains("goal ended"), "{frame}");
+    for code in [
+        KeyCode::Right,
+        KeyCode::Char('j'),
+        KeyCode::Left,
+        KeyCode::Char('k'),
+        KeyCode::Down,
+        KeyCode::Up,
+    ] {
+        for _ in 0..7 {
+            h.handle_key(key(code));
+            let View::Tend(tend) = &h.view else { panic!() };
+            assert_ne!(tend.current().unwrap().stage, Stage::Ended);
+        }
+    }
+    let now = Instant::now();
+    for (index, column, row) in [(0, 3, 3), (1, 24, 3), (2, 45, 3), (3, 66, 3), (4, 14, 7)] {
+        press(&mut h, column, row, now);
+        assert_eq!(selected(&h), index);
+        h.handle_key(key(KeyCode::Enter));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert!(tend.detail);
+        assert_eq!(tend.current().unwrap().stage, stages[index]);
+        h.handle_key(key(KeyCode::Esc));
+    }
+}
+
+#[test]
+fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
+    let mut h = garden(0);
+    for count in [1, 2] {
+        for unreadable in [0, 1] {
+            let View::Tend(tend) = &mut h.view else {
+                panic!()
+            };
+            tend.apply(
+                &Ok(Found {
+                    sessions: (0..count)
+                        .map(|i| sess(&format!("ended-{i}"), Stage::Ended, "unknown"))
+                        .collect(),
+                    unreadable,
+                }),
+                true,
+                1,
+            );
+            for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+                let frame = snapshot(width, height, &mut h, true).unwrap();
+                let text = frame.split_whitespace().collect::<Vec<_>>().join(" ");
+                assert!(text.contains(&format!("No active goals. {count} ended not shown. Confirm a goal in think to start one.")), "{frame}");
+                assert!(!text.contains("No Seed Me sessions"), "{frame}");
+                assert_eq!(text.matches("ended not shown").count(), 1);
+                if unreadable > 0 {
+                    assert!(frame.contains("1 saved record couldn't be read"), "{frame}");
+                }
+                assert_eq!(frame.lines().last().unwrap().trim(), "esc back");
+                for code in [
+                    KeyCode::Right,
+                    KeyCode::Down,
+                    KeyCode::Char('j'),
+                    KeyCode::Enter,
+                ] {
+                    h.handle_key(key(code));
+                }
+                press(&mut h, 3, 3, Instant::now());
+                let View::Tend(tend) = &h.view else { panic!() };
+                assert!(tend.current().is_none() && !tend.detail);
+            }
+        }
+    }
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    tend.apply(&found(vec![]), true, 2);
+    let frame = screen(&mut h);
+    assert!(frame.contains("No Seed Me sessions yet. Confirm a goal in think to start one."));
+    assert!(!frame.contains("ended not shown"));
+}
+
+#[test]
+fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
+    for stage in [Stage::GoalSaved, Stage::Ended] {
+        let mut tend = Tend::new();
+        tend.want = Some(("/TEST/alias".into(), Some("/TEST/target".into())));
+        tend.apply(
+            &found(vec![
+                sess("ended", Stage::Ended, "unknown"),
+                sess("target", stage, "unknown"),
+            ]),
+            false,
+            1,
+        );
+        assert!(tend.want.is_none() && !tend.pending && tend.error.is_none());
+        assert_eq!(tend.detail, stage != Stage::Ended);
+        if stage != Stage::Ended {
+            assert_eq!(tend.selected, 0);
+            assert_eq!(tend.current().unwrap().path, Path::new("/TEST/target"));
+        } else {
+            assert!(tend.current().is_none());
+        }
+    }
+}
+
+#[test]
+fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
+    let mut h = garden(23);
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 1, "the pre-render stride defaults to one");
+    screen(&mut h);
+    for (code, expected) in [
+        (KeyCode::Right, 2),
+        (KeyCode::Char('j'), 3),
+        (KeyCode::Down, 7),
+        (KeyCode::Up, 3),
+        (KeyCode::Up, 3),
+        (KeyCode::Left, 2),
+        (KeyCode::Char('k'), 1),
+        (KeyCode::Left, 0),
+        (KeyCode::Left, 0),
+    ] {
+        h.handle_key(key(code));
+        assert_eq!(selected(&h), expected);
+    }
+    snapshot(80, 24, &mut h, true).unwrap();
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 3, "resize changes the stride after render");
+    for _ in 0..30 {
+        h.handle_key(key(KeyCode::Right));
+    }
+    assert_eq!(selected(&h), 22);
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 22);
+    h.handle_key(key(KeyCode::Char('c')));
+    assert!(h.take_copy_request().is_none(), "garden cannot copy");
+    h.handle_key(key(KeyCode::Enter));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail);
+    h.handle_key(key(KeyCode::Down));
+    h.handle_key(key(KeyCode::Right));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.scroll, 1);
+    assert_eq!(tend.selected, 22);
+    h.handle_key(key(KeyCode::Char('c')));
+    assert_eq!(
+        h.take_copy_request().unwrap(),
+        crate::seed_me::continuation_prompt(Path::new("/TEST/SKILL.md"), Path::new("/TEST/22"))
+    );
+    h.handle_key(key(KeyCode::Esc));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail && tend.scroll == 0);
+    h.handle_key(key(KeyCode::F(1)));
+    assert!(
+        screen(&mut h)
+            .contains("Arrows / j k move · Enter or a double click opens the saved goal.")
+    );
+    h.handle_key(key(KeyCode::Down));
+    assert_eq!(selected(&h), 22);
+    h.handle_key(key(KeyCode::Esc));
+    h.handle_key(key(KeyCode::Esc));
+    assert!(matches!(h.view, View::Menu) && !h.quit);
+    let mut h = garden(1);
+    h.handle_key(key(KeyCode::F(1)));
+    h.handle_key(key(KeyCode::F(10)));
+    assert!(matches!(h.view, View::Menu) && !h.help && !h.quit);
+}
+
+#[test]
+fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
+    let now = Instant::now();
+    for (elapsed, opens) in [(499, true), (500, true), (501, false)] {
+        let mut h = garden(7);
+        screen(&mut h);
+        // Second cell at 100 columns, including its two ring rows.
+        press(&mut h, 24, 4, now);
+        assert_eq!(selected(&h), 1);
+        press(&mut h, 24, 5, now + Duration::from_millis(elapsed));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.detail, opens);
+    }
+    let mut h = garden(7);
+    screen(&mut h);
+    press(&mut h, 24, 3, now);
+    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(
+        !tend.detail && tend.selected == 2,
+        "different goals aren't a double click"
+    );
+}
+
+#[test]
+fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
+    let now = Instant::now();
+    let mut h = garden(7);
+    screen(&mut h);
+    press(&mut h, 24, 3, now);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    let mut sessions = tend.sessions.clone();
+    sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
+    tend.apply(&found(sessions), true, 2);
+    assert_eq!(tend.selected, 2);
+    screen(&mut h);
+    press(&mut h, 24, 3, now + Duration::from_millis(100));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail && tend.current().unwrap().path == Path::new("/TEST/0"));
+    // The same identity moving to another cell still counts as a double press.
+    let mut h = garden(7);
+    screen(&mut h);
+    press(&mut h, 24, 3, now);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    let mut sessions = tend.sessions.clone();
+    sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
+    tend.apply(&found(sessions), true, 2);
+    screen(&mut h);
+    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail && tend.current().unwrap().path == Path::new("/TEST/1"));
+}
+
+#[test]
+fn garden_presses_ignore_blank_rows_help_detail_and_discovery_states() {
+    let now = Instant::now();
+    for state in [
+        "garden",
+        "help",
+        "detail",
+        "reading",
+        "wanted",
+        "unavailable",
+        "empty",
+    ] {
+        let mut h = garden(7);
+        screen(&mut h);
+        if state == "help" {
+            h.handle_key(key(KeyCode::F(1)));
+        }
+        let View::Tend(tend) = &mut h.view else {
+            panic!()
+        };
+        match state {
+            "detail" => tend.detail = true,
+            "reading" => tend.pending = true,
+            "wanted" => tend.want = Some(("/TEST/wanted".into(), None)),
+            "unavailable" => tend.error = Some("unavailable".into()),
+            "empty" => tend.sessions.clear(),
+            _ => {}
+        }
+        let detail = tend.detail;
+        let row = if state == "garden" { 6 } else { 3 };
+        press(&mut h, 24, row, now);
+        press(&mut h, 24, row, now + Duration::from_millis(100));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.selected, 0, "{state}");
+        assert_eq!(tend.detail, detail, "{state}");
+    }
+    let mut h = garden(7);
+    for (column, row) in [(0, 3), (99, 3), (2, 26), (2, 27), (2, 28), (2, 29)] {
+        press(&mut h, column, row, now);
+    }
+    assert_eq!(selected(&h), 0);
+}
+
+#[test]
+fn garden_test_session_plain_text_renders() {
+    let mut h = garden(7);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    for (session, goal) in tend.sessions.iter_mut().zip([
+        "Find invoices",
+        "Read a calm theme",
+        "Keep goals intact",
+        "Plan the next seed",
+        "Review saved work",
+        "Make room to think",
+        "Leave manual control",
+    ]) {
+        session.goal = goal.into();
+    }
+    for (width, height) in [(100, 30), (80, 24)] {
+        let screen = snapshot(width, height, &mut h, true).unwrap();
+        println!("TEST garden {width}×{height}:\n{screen}");
+        assert_eq!(screen.split('\n').count(), height as usize);
+        assert!(screen.contains("› Find invoices") && screen.contains("goal saved · time unknown"));
+    }
+}
+
 #[test]
 fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
     let gate = Gate::new(found(vec![sess(
@@ -115,7 +470,7 @@ fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
     wait_until("the worker to start", || gate.entered.load(SeqCst) == 1);
     for _ in 0..50 {
         let frame = screen(&mut h);
-        for name in ["think", "shape", "approve", "watch", "taste", "measure"] {
+        for name in ["think", "tend", "approve", "watch", "taste", "measure"] {
             assert!(frame.contains(name), "{frame}");
         }
         assert!(!frame.contains("Reading") && !frame.contains("No Seed Me"));
@@ -134,7 +489,7 @@ fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
     }
     h.handle_key(key(KeyCode::Char('2')));
     h.tick();
-    assert!(matches!(h.view, View::Shape(_)));
+    assert!(matches!(h.view, View::Tend(_)));
     h.handle_key(key(KeyCode::Esc));
     h.handle_key(key(KeyCode::Char('q')));
     assert!(h.quit, "quit is handled before discovery finishes");
@@ -175,7 +530,7 @@ fn many_requests_while_blocked_stay_bounded_to_one_worker() {
 }
 
 #[test]
-fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
+fn tend_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     let gate = Gate::new(found(vec![sess(
         "a",
         Stage::GoalSaved,
@@ -197,14 +552,12 @@ fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     );
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Enter));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(!shape.detail, "nothing to open yet");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail, "nothing to open yet");
     h.handle_key(key(KeyCode::F(1)));
     h.handle_key(key(KeyCode::Esc));
     h.handle_key(key(KeyCode::F(10)));
-    assert!(matches!(h.view, View::Menu), "F10 leaves shape");
+    assert!(matches!(h.view, View::Menu), "F10 leaves tend");
     assert!(!h.quit);
     h.handle_key(key(KeyCode::Char('2')));
     h.handle_key(key(KeyCode::Esc));
@@ -214,7 +567,7 @@ fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     settle(&mut h);
     assert!(
         matches!(h.view, View::Menu),
-        "a late result never reopens shape"
+        "a late result never reopens tend"
     );
     assert_eq!(h.selected, selected, "or moves the menu selection");
     assert_eq!(
@@ -237,7 +590,7 @@ fn a_slow_read_changes_one_quiet_line_and_starts_nothing() {
     h.handle_key(key(KeyCode::Char('2')));
     // The clock is an input of the real tick, so no test sleeps: the read's start plus a wait.
     let since = h.discovery.running_since().expect("a read is pending");
-    let threshold = shape::STILL_READING_AFTER;
+    let threshold = tend::STILL_READING_AFTER;
     h.tick_at(since + threshold - Duration::from_millis(1));
     let before = screen(&mut h);
     assert!(
@@ -261,10 +614,8 @@ fn a_slow_read_changes_one_quiet_line_and_starts_nothing() {
     assert_eq!(gate.live.load(SeqCst), 1);
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Enter));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(!shape.detail, "nothing to open yet");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail, "nothing to open yet");
     h.handle_key(key(KeyCode::Esc));
     assert!(matches!(h.view, View::Menu), "Esc still goes back");
     // The wait belongs to the read, not the visit: reopening meets the same slow read.
@@ -291,11 +642,11 @@ fn a_slow_read_behind_a_saved_session_says_so_too() {
     let mut h = home(gate.source());
     h.tick();
     wait_until("the worker to start", || gate.entered.load(SeqCst) == 1);
-    h.open_shape_session(Path::new("/TEST/new"));
+    h.open_tend_session(Path::new("/TEST/new"));
     let since = h.discovery.running_since().expect("a read is pending");
-    h.tick_at(since + shape::STILL_READING_AFTER - Duration::from_millis(1));
+    h.tick_at(since + tend::STILL_READING_AFTER - Duration::from_millis(1));
     assert!(screen(&mut h).contains("Reading your sessions. Esc goes back."));
-    h.tick_at(since + shape::STILL_READING_AFTER);
+    h.tick_at(since + tend::STILL_READING_AFTER);
     let frame = screen(&mut h);
     assert!(frame.contains("Still reading your sessions."), "{frame}");
     assert!(!frame.contains("unavailable"), "{frame}");
@@ -306,10 +657,8 @@ fn a_slow_read_behind_a_saved_session_says_so_too() {
     )]));
     gate.release(8);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(shape.detail && shape.error.is_none());
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail && tend.error.is_none());
 }
 
 #[test]
@@ -330,7 +679,7 @@ fn a_slow_reread_leaves_a_list_already_on_screen_alone() {
         .running_since()
         .expect("the second read is running");
     let before = screen(&mut h);
-    h.tick_at(since + shape::STILL_READING_AFTER * 10);
+    h.tick_at(since + tend::STILL_READING_AFTER * 10);
     let after = screen(&mut h);
     assert!(after.contains("goal a"), "{after}");
     assert!(!after.to_lowercase().contains("reading"), "{after}");
@@ -362,7 +711,7 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
         .discovery
         .running_since()
         .expect("the second read is running");
-    h.tick_at(since + shape::STILL_READING_AFTER * 10);
+    h.tick_at(since + tend::STILL_READING_AFTER * 10);
     let frame = screen(&mut h);
     assert!(
         frame.contains("Still reading your sessions. Esc goes back."),
@@ -374,7 +723,10 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
     settle(&mut h);
     let frame = screen(&mut h);
     assert!(frame.contains("goal a"), "{frame}");
-    assert!(frame.contains("↑↓ move   enter open   esc back"), "{frame}");
+    assert!(
+        frame.contains("↑↓←→ move   enter open   esc back"),
+        "{frame}"
+    );
 }
 
 #[test]
@@ -393,10 +745,8 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
     settle(&mut h);
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Down));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert_eq!(shape.current().unwrap().path, PathBuf::from("/TEST/c"));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.current().unwrap().path, PathBuf::from("/TEST/c"));
     // A newer session appears at the top; the reader's selection does not move to it.
     let mut newer = vec![sess("n", Stage::GoalSaved, "2026-10-10T10:00:00Z")];
     newer.extend(old.clone());
@@ -406,10 +756,8 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
     settle(&mut h);
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Down));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    let chosen = shape.current().unwrap().path.clone();
+    let View::Tend(tend) = &h.view else { panic!() };
+    let chosen = tend.current().unwrap().path.clone();
     // Open detail, then let a read land that edits that session's goal and drops another.
     h.handle_key(key(KeyCode::Enter));
     let mut edited = newer.clone();
@@ -419,27 +767,23 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
     h.discovery.request(&h.sessions_root.clone());
     gate.release(2);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(shape.detail);
-    assert_eq!(shape.current().unwrap().path, chosen);
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail);
+    assert_eq!(tend.current().unwrap().path, chosen);
     assert_ne!(
-        shape.current().unwrap().goal,
+        tend.current().unwrap().goal,
         "EDITED elsewhere",
         "frozen while read"
     );
     h.handle_key(key(KeyCode::Esc));
     h.tick();
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
+    let View::Tend(tend) = &h.view else { panic!() };
     assert_eq!(
-        shape.current().unwrap().path,
+        tend.current().unwrap().path,
         chosen,
         "selection follows identity"
     );
-    assert_eq!(shape.current().unwrap().goal, "EDITED elsewhere");
+    assert_eq!(tend.current().unwrap().goal, "EDITED elsewhere");
 }
 
 #[test]
@@ -453,7 +797,7 @@ fn receipt_detail_waits_for_a_read_that_can_contain_the_session() {
     let mut h = home(gate.source());
     h.tick();
     wait_until("first read started", || gate.entered.load(SeqCst) == 1);
-    h.open_shape_session(&target);
+    h.open_tend_session(&target);
     assert!(screen(&mut h).contains("Reading your sessions"));
     // The read that began before the save lands without it: still waiting, not "unavailable".
     gate.release(1);
@@ -470,12 +814,10 @@ fn receipt_detail_waits_for_a_read_that_can_contain_the_session() {
     ]));
     gate.release(1);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(shape.detail && shape.error.is_none());
-    assert_eq!(shape.current().unwrap().path, target);
-    assert_eq!(shape.current().unwrap().goal, "goal new");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail && tend.error.is_none());
+    assert_eq!(tend.current().unwrap().path, target);
+    assert_eq!(tend.current().unwrap().goal, "goal new");
 }
 
 #[test]
@@ -483,19 +825,16 @@ fn receipt_detail_for_a_session_a_complete_read_lacks_is_explicit() {
     let gate = Gate::new(found(vec![]));
     gate.release(4);
     let mut h = home(gate.source());
-    h.open_shape_session(Path::new("/TEST/missing"));
+    h.open_tend_session(Path::new("/TEST/missing"));
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
+    let View::Tend(tend) = &h.view else { panic!() };
     assert!(
-        shape
-            .error
+        tend.error
             .as_ref()
             .unwrap()
             .contains("Saved session is unavailable")
     );
-    assert!(shape.sessions.is_empty() && !shape.detail);
+    assert!(tend.sessions.is_empty() && !tend.detail);
 }
 
 #[test]
@@ -506,7 +845,7 @@ fn a_late_receipt_target_does_not_resurrect_an_exited_visit() {
         "2026-10-09T10:00:00Z",
     )]));
     let mut h = home(gate.source());
-    h.open_shape_session(Path::new("/TEST/a"));
+    h.open_tend_session(Path::new("/TEST/a"));
     h.handle_key(key(KeyCode::Esc));
     assert!(matches!(h.view, View::Menu));
     h.handle_key(key(KeyCode::Char('4')));
@@ -515,11 +854,9 @@ fn a_late_receipt_target_does_not_resurrect_an_exited_visit() {
     settle(&mut h);
     assert!(matches!(h.view, View::Menu));
     h.open(1);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
+    let View::Tend(tend) = &h.view else { panic!() };
     assert!(
-        shape.want.is_none() && !shape.detail,
+        tend.want.is_none() && !tend.detail,
         "the old target is gone"
     );
 }
@@ -551,7 +888,10 @@ fn counts_are_exact_only_after_complete_current_reads() {
     settle(&mut h);
     assert_eq!(h.count(1), None, "incomplete is not an exact result");
     let frame = screen(&mut h);
-    assert!(frame.contains("1 saved record couldn't be read"), "{frame}");
+    assert!(
+        frame.contains("1 saved record couldn't be read; this view may be missing sessions."),
+        "{frame}"
+    );
     assert!(
         frame.contains("goal a") && frame.contains("goal b"),
         "{frame}"
@@ -591,7 +931,7 @@ fn only_unreadable_records_never_read_as_no_sessions() {
 }
 
 #[test]
-fn returning_from_think_and_reopening_shape_read_again_and_hide_a_stale_count() {
+fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
     let tmp = tempfile::tempdir().unwrap();
     write_session(tmp.path(), "first", "2026-10-09T10:00:00Z");
     let mut h = Home::new(
@@ -618,11 +958,9 @@ fn returning_from_think_and_reopening_shape_read_again_and_hide_a_stale_count() 
     write_session(tmp.path(), "later", "2026-10-11T10:00:00Z");
     h.open(1);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert_eq!(shape.sessions.len(), 3, "deliberate reopening reads again");
-    assert_eq!(shape.sessions[0].path.file_name().unwrap(), "later");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.sessions.len(), 3, "deliberate reopening reads again");
+    assert_eq!(tend.sessions[0].path.file_name().unwrap(), "later");
 }
 
 fn write_session(root: &Path, id: &str, updated: &str) {
@@ -660,7 +998,7 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
     let times: Vec<_> = found
         .sessions
         .iter()
-        .map(|s| shape::timestamp(&s.updated).unwrap())
+        .map(|s| tend::timestamp(&s.updated).unwrap())
         .collect();
     assert!(times.windows(2).all(|w| w[0] >= w[1]), "newest first");
     let mut h = Home::new(

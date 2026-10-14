@@ -74,7 +74,7 @@ words (`the`, `it`, `both`…) written in lower or title case. Names, acronyms
 `GoalParts::compose` owns composition and runs once, when a reading is verified.
 `Board::goal` is then the displayed block: reading, copy, refinement, changed-line
 marks and review all read it and never compose again. `goal::confirmed::goal_block` and the shared
-saved-goal renderer preserve line breaks across reading, review, receipt and shape
+saved-goal renderer preserve line breaks across reading, review, receipt and tend
 detail. Confirmation freezes the **whole displayed block**, not just its headline.
 
 ## Seed Me mapping

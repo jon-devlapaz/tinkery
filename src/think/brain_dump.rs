@@ -73,8 +73,8 @@ pub enum Exit {
     Stay,
     /// Back to the menu, or out when think was opened on its own.
     Menu,
-    /// Open this saved Seed Me session in shape.
-    Shape(std::path::PathBuf),
+    /// Open this saved Seed Me session in tend.
+    Tend(std::path::PathBuf),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -232,7 +232,7 @@ impl BrainDump {
     pub fn saved(&self) -> Option<&seed_me::Receipt> {
         self.handoff.receipt.as_ref()
     }
-    /// Ask to go back. Never replaces a request to open shape.
+    /// Ask to go back. Never replaces a request to open tend.
     fn leave(&mut self) {
         if self.exit == Exit::Stay {
             self.exit = Exit::Menu;

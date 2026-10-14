@@ -103,7 +103,7 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
     }
 }
 #[test]
-fn receipt_copy_is_exact_and_shape_is_an_explicit_request() {
+fn receipt_copy_is_exact_and_tend_is_an_explicit_request() {
     let mut a = board();
     a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/TEST-receipt/session".into()));
     a.screen.key_bar = false;
@@ -114,7 +114,7 @@ fn receipt_copy_is_exact_and_shape_is_an_explicit_request() {
             .last()
             .unwrap()
             .trim(),
-        "c copy prompt   s open in shape   F10 menu"
+        "c copy prompt   s open in tend   F10 menu"
     );
     let expected = "Use the seed-me skill at \"/TEST/seed-me/SKILL.md\" to continue the existing Seed Me session at \"/tmp/TEST-receipt/session\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.";
     key(&mut a, KeyCode::Char('c'));
@@ -133,11 +133,11 @@ fn receipt_copy_is_exact_and_shape_is_an_explicit_request() {
     a.handle_key(repeated);
     assert_eq!(a.exit(), &Exit::Stay);
     key(&mut a, KeyCode::Char('s'));
-    assert_eq!(a.exit(), &Exit::Shape("/tmp/TEST-receipt/session".into()));
+    assert_eq!(a.exit(), &Exit::Tend("/tmp/TEST-receipt/session".into()));
     assert!(!a.quitting() && !a.running());
     a.screen.help_all = true;
     let help = layout::help_text(&a);
-    assert!(help.contains("s   open in shape"));
+    assert!(help.contains("s   open in tend"));
     assert!(!help.contains("send") && !help.contains("speak"));
     assert!(layout::how_text(&a).contains("/tmp/TEST-receipt/session"));
 }

@@ -341,7 +341,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         );
         assert_eq!(
             receipt.lines().last().unwrap().trim(),
-            "c copy prompt   s open in shape   F10 menu"
+            "c copy prompt   s open in tend   F10 menu"
         );
         assert_eq!(rect, a.screen.source_area);
     }

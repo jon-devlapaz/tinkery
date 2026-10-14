@@ -326,7 +326,7 @@ impl BrainDump {
                 }
                 KeyCode::Char('s') if key.modifiers.is_empty() => {
                     if let Some(receipt) = &self.handoff.receipt {
-                        self.exit = Exit::Shape(receipt.session.clone());
+                        self.exit = Exit::Tend(receipt.session.clone());
                     }
                 }
                 KeyCode::PageDown | KeyCode::Down => {

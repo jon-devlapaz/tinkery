@@ -313,9 +313,9 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
 pub(super) fn help_text(app: &BrainDump) -> String {
     if app.handoff.receipt.is_some() {
         return if app.screen.help_all {
-            "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nc   copy prompt to continue in Claude, Codex or Pi\ns   open in shape with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
+            "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nc   copy prompt to continue in Claude, Codex or Pi\ns   open in tend with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
         } else {
-            "Right now\nYour goal is saved. Next: shape it into a seed with Seed Me.\nc copy prompt · s open in shape · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
+            "Right now\nYour goal is saved. Next: shape it into a seed with Seed Me.\nc copy prompt · s open in tend · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
         };
     }
     let open_now;
@@ -441,11 +441,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     if app.screen.leave_prompt || app.handoff.job.is_some() {
         vec![]
     } else if app.handoff.receipt.is_some() {
-        vec![
-            ("c", "copy prompt"),
-            ("s", "open in shape"),
-            ("F10", "menu"),
-        ]
+        vec![("c", "copy prompt"), ("s", "open in tend"), ("F10", "menu")]
     } else if app.handoff.review.is_some() {
         let save = if app.records() {
             "save goal and record"
