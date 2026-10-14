@@ -195,6 +195,26 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
     }
 }
 #[test]
+fn escape_leaves_empty_think_and_guards_unsaved_words() {
+    let mut a = BrainDump::default();
+    key(&mut a, KeyCode::Esc);
+    assert_eq!(a.exit(), &Exit::Menu);
+    assert!(!a.screen.leave_prompt);
+
+    for mut a in [BrainDump::default(), board()] {
+        a.paste("Keep these exact words.");
+        key(&mut a, KeyCode::Esc);
+        assert!(a.screen.leave_prompt && !a.quitting());
+        key(&mut a, KeyCode::Esc);
+        assert!(!a.screen.leave_prompt && !a.quitting());
+        assert_eq!(a.input.text, "Keep these exact words.");
+        key(&mut a, KeyCode::Esc);
+        key(&mut a, KeyCode::Char('y'));
+        assert_eq!(a.exit(), &Exit::Menu);
+        assert!(a.handoff.receipt.is_none() && a.handoff.job.is_none());
+    }
+}
+#[test]
 fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     let mut a = BrainDump::default();
     leave(&mut a);

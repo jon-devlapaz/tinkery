@@ -220,8 +220,10 @@ raw bytes survive copying and sending but never execute during display.
 - **A save that didn't finish** shows “Handoff not complete. F1 then h shows
   why; Enter retries.” in the same place; the reason stays as Last result. The
   review's message rows grow to fit, so Back always keeps a row of its own.
-- F10 guards unsaved work. With `--home` it returns to the menu; standalone think
-  exits before a goal is saved and opens the menu after saving.
+- Esc from idle writing and F10 guard unsaved work. With `--home` they return
+  to the menu; standalone think exits before a goal is saved and opens the menu
+  after saving. Esc still cancels voice or a reading first, closes overlays,
+  returns from review, clears original selection/focus, or declines the loss prompt.
 - F4 originals and F5 why are help-only, not permanent bar clutter.
 - Local dictation inserts editable text, never auto-sends; see [voice](voice.md).
 - Answering does not switch the original away from the dump.
