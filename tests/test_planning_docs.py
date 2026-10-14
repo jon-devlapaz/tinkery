@@ -1,0 +1,58 @@
+from pathlib import Path
+import hashlib
+import re
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+RELEASE = {
+    "## Starting point": "592d596fce09bd51b2c4d3e76c32dba19d3e4676c4c7fa77ef8e825f588fa6de",
+    "## Finish line": "e4e85c59f747382b80f49ef881e9f69898f082609f95025d6f3b3169562f6e74",
+    "## Milestones and dependencies": "895f61d9cf05c44c180bd6f9ab801c0656dcc5563df94eb141751054cd66ddf7",
+    "## How to measure the benefit": "cf87d09453c50f53449199b105b97e95b511ac3c5bd697b52d09ceb7ddb5bc1f"
+}
+PROPOSALS = {
+    "### Context menu and send aliases (C4–C6, C9)": "c6e1492e229317cef4081de5dcdea416a58eb0dea80aaedb59f5a0c3481b4fd5",
+    "### Evidence on demand (C13)": "3d69bd3b847475c34e28291d15bf66b3a353dbee256838b8b0341ce79103aeb6",
+    "### Multiple-choice answers": "1e47e1d7372b78b06f3651bb479b6ffcf8d56321cabe2bf50c4d6827128c3552",
+    "### Scratch-space spike — design only": "2b4f5bc10f2c02e613988a61c546a73cb741e36b0ea6846cba70d0c5cf2af584",
+    "### A calm dark theme": "b283b75afcf28b3209d4dd442526bd65b4392361f4c74ef08e378d75988dff99",
+    "### Absorb substrate: keep runs and learn from them": "1996982b57faf5a9e80918ea3b6418542019535f9278d2728065be6698de67db"
+}
+
+
+class PlanningDocumentationTests(unittest.TestCase):
+    def test_release_keeps_boundaries_and_links_status_to_issues(self):
+        source = (ROOT / "docs/design/first-release.md").read_text()
+        for heading, digest in RELEASE.items():
+            section = next(s for s in re.split(r"(?=^## )", source, flags=re.M)
+                           if s.startswith(heading + "\n"))
+            self.assertEqual(digest, hashlib.sha256(section.strip().encode()).hexdigest(), heading)
+        self.assertIn("links the authoritative issues for scope, status, approval and completion evidence.", source)
+        self.assertIn("R2's revised design is not accepted", source)
+        self.assertIn("does not authorize the next", source)
+        self.assertNotIn("R1, R2 and R3 are done", source)
+        self.assertNotIn("published as unassigned", source)
+        self.assertNotIn("needs-approval", source)
+
+    def test_shared_safeguards_apply_without_changing_proposal_contracts(self):
+        source = (ROOT / "docs/research/shared/backlog.md").read_text()
+        safeguards = source.split("## Shared safeguards\n", 1)[1].split("\n## ", 1)[0]
+        for guard in ("../../../AGENTS.md#guardrails", "explicit budget", "default is zero",
+                      "Never record\nreal audio", "original words and answers verbatim",
+                      "operator data", "sessions, installs, settings", "terminal/macOS/launcher preferences",
+                      "do not approve any proposal"):
+            self.assertIn(guard, safeguards)
+        for heading, digest in PROPOSALS.items():
+            section = next(s for s in re.split(r"(?=^### )", source, flags=re.M)
+                           if s.startswith(heading + "\n"))
+            contract = section.split("**Read:**")[0].strip()
+            self.assertEqual(digest, hashlib.sha256(contract.encode()).hexdigest(), heading)
+            self.assertIn("**Read:** [safeguards](#shared-safeguards)", section)
+        for boundary in ("or make copy/send confirm anything", "imply unused words are rejected",
+                         "Force choices", "mix guesses with verbatim cards", "persist canvases",
+                         "invent operator dumps", "break NO_COLOR", "Don't add features to substrate"):
+            self.assertIn(boundary, source)
+
+
+if __name__ == "__main__":
+    unittest.main()

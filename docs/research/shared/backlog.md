@@ -5,6 +5,15 @@ implementation permission or the release checklist. Concrete task specifications
 live in GitHub Issues; [work intake](../../../AGENTS.md#work-intake) separates
 publication, design acceptance and implementation approval.
 
+## Shared safeguards
+
+Work on every draft follows [the guardrails](../../../AGENTS.md#guardrails).
+Model/provider calls require explicit budget; the default is zero. Never record
+real audio. Preserve original words and answers verbatim. Leave operator data,
+sessions, installs, settings and terminal/macOS/launcher preferences untouched.
+Proposal-specific restrictions and separate data, evaluation and implementation
+permissions remain below; these safeguards do not approve any proposal.
+
 ## Published from this inventory
 
 - Release tasks: [R4–R10 and I2](../../design/first-release-issues.md).
@@ -65,11 +74,10 @@ distinctly reported; F2 remains reliable and visible.
 remains a newline; letters remain text. Document/test host forwarding and unsupported
 shortcuts honestly; no fabricated clipboard success.
 
-**Read:** [think](../../design/think.md), [principles](../../design/principles.md), [terminal setup](../../terminal-setup.md).
+**Read:** [safeguards](#shared-safeguards), [think](../../design/think.md), [principles](../../design/principles.md), [terminal setup](../../terminal-setup.md).
 
 **Don't:** Introduce a focus-management key maze, intercept unreported host shortcuts,
-make copy/send confirm anything, record audio, call providers without budget,
-or change terminal/launcher settings or operator data.
+or make copy/send confirm anything.
 
 ### Evidence on demand (C13)
 
@@ -85,10 +93,9 @@ correct exact spans. Invalid citations fail explicitly; selecting one sentence
 never lights all evidence. Clearing returns to plain original ink. Keyboard and
 mouse agree; NO_COLOR cues remain. Revert exact-span validation to prove the test fails.
 
-**Read:** [think](../../design/think.md), [principles](../../design/principles.md).
+**Read:** [safeguards](#shared-safeguards), [think](../../design/think.md), [principles](../../design/principles.md).
 
-**Don't:** Restore permanent green, rewrite originals, imply unused words are
-rejected, use providers without budget, or write operator sessions.
+**Don't:** Restore permanent green or imply unused words are rejected.
 
 ### Multiple-choice answers
 
@@ -106,10 +113,9 @@ Answer provenance survives review/handoff; selecting confirms no goal or seed.
 Fake-provider journeys establish mechanics; evaluate fixation with the operator
 only under a separately approved budget/dump set.
 
-**Read:** [think](../../design/think.md), [goal block](../../design/goal-block.md), [principles](../../design/principles.md).
+**Read:** [safeguards](#shared-safeguards), [think](../../design/think.md), [goal block](../../design/goal-block.md), [principles](../../design/principles.md).
 
-**Don't:** Force choices, turn guesses into facts, trade meaning for speed,
-rewrite original answers, call providers without budget, or write operator sessions.
+**Don't:** Force choices, turn guesses into facts or trade meaning for speed.
 
 ### Scratch-space spike — design only
 
@@ -129,11 +135,10 @@ beats another typed line, and recommends build/shrink/drop with reasoning. Dogfo
 uses only operator-supplied dumps and explicit budget. No production behavior changes;
 a later build needs a separate approved slice.
 
-**Read:** [think](../../design/think.md), [principles](../../design/principles.md), [goal block](../../design/goal-block.md).
+**Read:** [safeguards](#shared-safeguards), [think](../../design/think.md), [principles](../../design/principles.md), [goal block](../../design/goal-block.md).
 
 **Don't:** Implement the canvas proposal, replace dump-first, let arrangement confirm
-anything, mix guesses with verbatim cards, persist canvases, invent operator dumps,
-or touch operator data/settings. Research model calls need explicit budget.
+anything, mix guesses with verbatim cards, persist canvases or invent operator dumps.
 
 ### Like X early stop
 
@@ -161,11 +166,10 @@ hints and semantic jade/rust. Fake appearance-change tests cover automatic switc
 snapshot/PTY tests cover selection, consequence prompts and NO_COLOR's non-color cues.
 Changing appearance must preserve input, navigation and the confirmed goal.
 
-**Read:** [principles](../../design/principles.md), [think](../../design/think.md), [menu](../../design/menu.md).
+**Read:** [safeguards](#shared-safeguards), [principles](../../design/principles.md), [think](../../design/think.md), [menu](../../design/menu.md).
 
 **Don't:** Substitute generic black, add category colors or a settings maze,
-change terminal/macOS preferences, break NO_COLOR, record audio, spend provider
-budget without approval, or touch operator installs/data.
+or break NO_COLOR.
 
 ### Absorb substrate: keep runs and learn from them
 
@@ -207,7 +211,7 @@ turn reviewed failures into tests. Research on self-written agent memory
 ([Reflexion](https://arxiv.org/abs/2303.11366), [ExpeL](https://arxiv.org/abs/2308.10144))
 shows methods, not that unreviewed lessons are safe.
 
-**Read:** [first release](../../design/first-release.md), [the constitution](../../yohaku.md).
+**Read:** [safeguards](#shared-safeguards), [first release](../../design/first-release.md), [the constitution](../../yohaku.md).
 
 **Don't:** Add a multi-agent dashboard, notifications, restart controls, a hosted
 trace service, or agent-written memory. Don't add features to substrate.

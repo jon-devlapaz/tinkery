@@ -5,13 +5,10 @@ taste → measure**. The north star is **useful, verified changes per operator
 hour**, from [the constitution](../yohaku.md). A useful result meets the original
 goal, passes its required checks and is accepted by the operator.
 
-The operator requested this plan and its [task index](first-release-issues.md).
-R1 ([#62](https://github.com/jon-devlapaz/tinkery/issues/62)), R2
-([#63](https://github.com/jon-devlapaz/tinkery/issues/63)) and R3
-([#96](https://github.com/jon-devlapaz/tinkery/issues/96)) are done. R4–R10 and I2
-are published as unassigned `needs-approval` issues; I1 remains a conditional
-upstream capability check. R2's revised design is not accepted; publication
-approves no prerequisite/reader build, private data use, provider budget or merge.
+The operator requested this plan. The [task index](first-release-issues.md)
+links the authoritative issues for scope, status, approval and completion evidence.
+R2's revised design is not accepted; publication approves no prerequisite/reader
+build, private data use, provider budget or merge.
 
 ## Starting point
 
@@ -106,17 +103,16 @@ wait for every branch; milestone numbering is not a reason to serialize them all
 
 ## What agents can start next
 
-R1, R2 and R3 are done. The published tasks still need approval; finishing one
-or satisfying its dependencies does not authorize the next.
+Select an explicitly approved task from the [task index](first-release-issues.md).
+Finishing one or satisfying its dependencies does not authorize the next.
 
 Before R5, review R2's [revised design](job-records.md), refresh the source
 contracts, and separately approve missing I1/I2 capabilities. Verify source-owned
 run identity and initial local binding creation with duplicate detection;
 existing capabilities need evidence, not replacement. Binding revisions and
 relocation are deferred. The narrowed binding design remains unaccepted;
-I2 [#110](https://github.com/jon-devlapaz/tinkery/issues/110) and R5
-[#111](https://github.com/jon-devlapaz/tinkery/issues/111) need separate
-implementation approval afterward.
+[I2 and R5](first-release-issues.md#r5-identity) need separate implementation
+approval afterward.
 An unlinked source read is not completion of R5. These slices need no model calls;
 R4 separately needs supplied examples, data permission, provider/model budget and
 human participation. Only the operator can judge goal meaning and usefulness.
