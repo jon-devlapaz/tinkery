@@ -51,7 +51,7 @@ Readers must receive the selected locations explicitly.
 | GitHub / PR and checks | Repository plus PR number/URL; `headRefOid`, `state`, `isDraft`, `reviewDecision`, `statusCheckRollup`, `mergedAt` | Substrate's pinned `pr_state`, using [`gh pr view --json`][G-cli] | Refresh and compare PR head with checkout HEAD before relying on CI. Existing read does not establish branch protection rules or the reviewed commit for each review | No checks, pending, failed, skipped and unknown never become Substrate `ci: passed`; network/auth failure means unknown, not no PR |
 | Substrate / measurement JSONL, schema 1 | `change` is `owner/repo#number`; `key`, `phase`, `at`, `by`, `fields`; optional `fields.change_id` matches tools `change` | [`surface.ledger_view`][B-surface] reads the existing ledger; [`ledger.fold`][B-ledger] applies field updates | File order folds observations; `as_of` is file modification time, not proof each field was refreshed. A unique change-ID link precedes PR fallback; disagreement is unavailable | No ledger, no row and null measurements are unknown, never zero. A partial last line is ignored by the surface; a malformed earlier line is an error |
 
-The current Tinkery shape reader is intentionally lighter than these authority
+The current Tinkery tend reader is intentionally lighter than these authority
 checks: it classifies the ledger status and seed's first line. Its `seed ready`
 label is not a validated approval receipt. See [`seed_me/session.rs`][T-session].
 

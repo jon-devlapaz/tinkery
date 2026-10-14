@@ -5,7 +5,7 @@ The six places follow the operator's work:
 | Key | Place | Today |
 | --- | --- | --- |
 | 1 | think | Dump, refine, review and explicitly save a goal |
-| 2 | shape | Saved-goal/seed session list and manual continuation |
+| 2 | tend | Read-only saved-goal garden and manual continuation |
 | 3 | approve | Placeholder; no sequence approval reader |
 | 4 | watch | Placeholder; no live multi-run view |
 | 5 | taste | Placeholder; no end-report/review integration |
@@ -13,17 +13,18 @@ The six places follow the operator's work:
 
 Only the selected place reveals its one-line description; [the menu](../../src/menu.rs)
 owns the exact copy. Name the purpose without borrowing another place's name.
-Shape names the manual handoff, not in-app drafting; measure does not promise a verified metric.
+[Tend and handoff](shape-and-handoff.md) owns garden and continuation behavior;
+measure does not promise a verified metric.
 Approve's readiness wording grants no implementation permission: intake approval
 and implementation permission remain separate gates. The unbuilt places authorize
 nothing today. Goal confirmation stays explicit inside think.
 
-Shape's active-session count appears only when [discovery](#session-discovery)
+Tend's active-session count appears only when [discovery](#session-discovery)
 is complete and the count is nonzero.
 A muted bottom key bar, with one blank row beneath it, shows the immediate menu actions once:
 `↑↓ move   enter open   ? help   q quit`. The selected-place description (or latest
 receipt notice) sits two blank rows beneath the six-place list, aligned with the
-place names. Numbers align with the title and key bar; shape's muted count sits
+place names. Numbers align with the title and key bar; tend's muted count sits
 near its name. Empty space separates purpose from controls; help and open places
 do not show the menu bar. Digits and other existing aliases remain
 available without adding them to the bar.
@@ -55,19 +56,20 @@ Future approve is a deliberate intake gate, watch a read-only running-work view,
 and taste an evidence-based review point. Use existing session/run/ledger/PR
 artifacts, not one harness's self-report. No “run now”, skip-review or global
 auto-merge switch. Missing sources stay unknown. Future launch capability needs
-approved shape and externally enforced gates; the current UI launches no agents.
+a separately confirmed Seed Me seed and externally enforced gates; the current UI
+launches no agents.
 
 ## Session discovery
 
 Painting, the count and navigation read in-memory state only. One owned, read-only
 worker scans the sessions root (never more than one at a time; requests made while it
 runs coalesce into one follow-up). It starts on the first tick, and again when think
-returns to the menu and when shape is deliberately reopened. Nothing watches files or
+returns to the menu and when tend is deliberately reopened. Nothing watches files or
 keeps an index; a rescan is a rescan.
 
 | Read | Meaning | Shown |
 | --- | --- | --- |
-| Not known | nothing landed yet, or a newer read is running | no count; shape says it is reading, unless it already shows a non-empty list |
+| Not known | nothing landed yet, or a newer read is running | no count; tend says it is reading, unless it already shows a non-empty garden |
 | Complete | every record was read (a missing root counts: nothing saved yet) | exact count of active sessions, if nonzero |
 | Incomplete | some records exist but could not be read | the valid sessions, a quiet “N saved records couldn't be read”, no count |
 | Failed | the root could not be listed | the unavailable message, no count |
@@ -76,16 +78,16 @@ Unknown, incomplete and failed are never shown as zero or “no sessions”. Dir
 without a `ledger.json` and stray files are not sessions and do not make a read
 incomplete. A count is also hidden while a newer read is running, so a stale number is
 not shown after saving a goal. For the same reason an empty list from an older read
-is not shown as “no sessions” while a newer read runs; shape says it is reading.
+is not shown as “no sessions” while a newer read runs; tend says it is reading.
 
-In shape, a late read keeps the selected session by path, never by row, and cannot
+In tend, a late read keeps the selected session by path, never by row, and cannot
 reopen an exited view. While a saved session's detail is open nothing is replaced under
-it; the list catches up on going back. From a receipt, `s` waits for a read that can
+it; the garden catches up on going back. From a receipt, `s` waits for a read that can
 contain that session and then opens its detail; a read that began before the save is
 not treated as “unavailable”. Measure's subprocess still runs only when measure is
 opened.
 
-Once a pending read has run 3 seconds, shape's line becomes “Still reading your
+Once a pending read has run 3 seconds, tend's line becomes “Still reading your
 sessions.” This is wording only, measured from when that read started: no new worker,
 spinner or timer, and Esc and navigation stay live.
 

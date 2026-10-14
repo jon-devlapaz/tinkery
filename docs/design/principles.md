@@ -23,7 +23,7 @@ muted; the distinction clears on typing or sending. No extra banner or model cal
 ## Where to read next
 
 [Think](think.md) is intake; [goal block](goal-block.md) defines its output;
-[shape and handoff](shape-and-handoff.md) defines persistence and continuation;
+[tend and handoff](shape-and-handoff.md) defines persistence and continuation;
 [voice](voice.md) defines local dictation; [menu](menu.md) distinguishes built views
 from future ones. [Architecture](architecture.md) maps code to phases and
 holds the design score. Each area's backlog under `docs/research/` holds proposals, not permission.

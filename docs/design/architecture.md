@@ -23,12 +23,14 @@ ideas; the area entry points below contain navigation only.
 | --- | --- | --- |
 | menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [menu](../research/menu/backlog.md) |
 | think | `src/think/` | [think](../research/think/backlog.md) |
-| tend | `src/tend/` | [#106](https://github.com/jon-devlapaz/tinkery/issues/106), still needs approval |
+| tend | `src/tend/` | [#123](https://github.com/jon-devlapaz/tinkery/issues/123) |
 | measure | `src/measure.rs` | [measure](../research/measure/backlog.md) |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
-Approve, watch and taste get their own modules when built. There are no exceptions
-to the dependency rule: think hands a saved goal to shape only through `seed_me`.
+Shape returns later as the Seed Me step with its own module; its entry point is
+[#106](https://github.com/jon-devlapaz/tinkery/issues/106), which still needs approval.
+Approve, watch and taste also get their own modules when built. There are no exceptions
+to the dependency rule: think hands a saved goal to tend only through `seed_me`.
 
 ## Modules today
 
@@ -38,12 +40,12 @@ to the dependency rule: think hands a saved goal to shape only through `seed_me`
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
 | `menu.rs` | The menu: the six places and navigation between them. |
 | `measure.rs` | The ledger's read-only report. |
-| `tend/mod.rs` | Saved-goal discovery states, selection, detail and copying the continuation prompt again. |
-| `tend/garden.rs` | Deterministic saved-goal pages, hollow rings, labels and cell hit-testing. |
+| `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
+| `tend/garden.rs` | The garden's deterministic pages, hollow rings, labels and cell hit-testing. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, and the continuation prompt (shared). |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
-| `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and shape (shared). |
+| `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
 | `think/brain_dump/conversation.rs` | The conversation, turn by turn: words, extracts, reading, the rules for questions, skips, scope and the next request, and the ordered turns the think record keeps. Fields are private; nothing about the screen or jobs. |
 | `think/brain_dump/reading.rs` | The reading's contract with the model: the request, the prompt, the reply's wire shape (including open choices linked to questions) and its lenient decoder. |
@@ -84,6 +86,9 @@ It preserves the simple editor interface and documented promises in diagnostics
 2 and 4. Cached preview size stays inside Think's input/reply routing, preserving
 those boundaries; the request boundary now has one definition in drafting (3 and 6).
 No new score is claimed.
+On 2026-10-14, [#123](https://github.com/jon-devlapaz/tinkery/issues/123) keeps one
+module per phase and holds diagnostics 1 and 7: each module retains a one-sentence
+job and the map shows the garden and future Seed Me boundary.
 
 ## Limits enforced by `tests/architecture.rs`
 
