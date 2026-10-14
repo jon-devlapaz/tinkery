@@ -12,21 +12,21 @@ The big idea
 
  Think → Shape → Approve → work happens → Watch → Taste → Measure
 
- ┌─────────┬─────────────────────────────────────────────────────────────────────────────────────────────────┐
- │ Place   │ What it helps you do                                                                            │
- ├─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ Think   │ Work out what you actually want. It offers a reading and asks one question at a time.           │
- ├─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ Shape   │ Prepare that goal for someone—or an agent—to work on, including its boundaries.                 │
- ├─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ Approve │ Understand exactly what decision is needed and what you’re authorizing.                         │
- ├─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ Watch   │ See what’s happening, what’s blocked and what needs your attention.                             │
- ├─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ Taste   │ Compare the result with your original goal. You decide whether it’s useful or needs correction. │
- ├─────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
- │ Measure │ See whether the process produced accepted, checked results with less effort from you.           │
- └─────────┴─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Place  | What it helps you do                                                                            
+
+Think  │ Work out what you actually want. It offers a reading and asks one question at a time.          
+
+Shape  │ Prepare that goal for someone—or an agent—to work on, including its boundaries.                
+
+Approve│ Understand exactly what decision is needed and what you’re authorizing.                         
+
+Watch  │ See what’s happening, what’s blocked and what needs your attention.                             
+
+Taste  │ Compare the result with your original goal. You decide whether it’s useful or needs correction. 
+
+Measure│ See whether the process produced accepted, checked results with less effort from you.           
+
 
  Once you confirm the goal, it stays unchanged through the handoffs. Suggestions and guesses must never masquerade as your words.
 
