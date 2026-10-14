@@ -1,0 +1,67 @@
+name: Bounded task
+description: Propose one task with evidence, scope, completion checks and explicit permissions.
+labels: [needs-approval]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Publication is not implementation approval. Follow [AGENTS.md](https://github.com/jon-devlapaz/tinkery/blob/main/AGENTS.md).
+        Triage applies one area label, one kind label, the release milestone where relevant, and native blocking links.
+        Dropdown choices do not apply labels automatically. Priorities require triage; no budget or private-data access is implied.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Primary area
+      options: [think, shape, approve, watch, taste, measure, menu, shared]
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [bug, enhancement, documentation, research]
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Who needs what outcome, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Preserve source wording and distinguish observations from proposals. For bugs, give expected/actual behavior, reproduction and revision; identify unverified claims.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and boundaries
+      description: One independently reviewable outcome. Say what changes and what stays unchanged; research names the investigation, not a presumed fix.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Checkable outcomes, applicable verification and failure/recovery protections. Closing needs completion evidence or an explicit superseded/not-planned reason.
+      placeholder: "- [ ] Observable outcome\n- [ ] Verification\n- [ ] Failure/recovery protection"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and dependencies
+      description: Link authoritative designs, relevant tests and blocking issues. Say which dependencies are completed and which capabilities still need verification.
+    validations:
+      required: true
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Open decisions and permissions
+      description: State unresolved decisions and exact scoped approval, execution, budget and data permissions. An unresolved proposal is not ready to implement; write None only when there really are no open decisions.
+    validations:
+      required: true

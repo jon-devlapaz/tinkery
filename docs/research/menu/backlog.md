@@ -1,7 +1,5 @@
 # Menu backlog
 
-Drafts, not permission. [Work intake](../../../AGENTS.md#work-intake) says how a draft becomes work.
-
-- **An unset `HOME` puts Seed Me sessions under the current folder.** `Home::default_paths`
-  (`src/menu.rs`) still falls back to a relative `.local/share/seed-me/sessions` when
-  `--seed-session-root` is absent. Think records refuse this since #88; sessions could do the same.
+The implicit session-root task is published as [#118](https://github.com/jon-devlapaz/tinkery/issues/118) and needs
+approval. GitHub owns its specification. New unpublished ideas belong only in the
+[parked backlog](../shared/backlog.md).

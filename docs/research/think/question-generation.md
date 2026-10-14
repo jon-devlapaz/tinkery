@@ -28,5 +28,6 @@ they didn't cover.
 
 ## Backlog
 
-Two items from this page are in [think's backlog](backlog.md#loose-ends): generic fallback
-questions and contradicting answers.
+Two proposals from this research live in the
+[parked backlog](../shared/backlog.md#loose-ends): generic fallback questions and
+contradicting answers.

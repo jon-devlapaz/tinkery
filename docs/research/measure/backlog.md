@@ -1,7 +1,9 @@
 # Measure backlog
 
-Drafts, not permission. [Work intake](../../../AGENTS.md#work-intake) says how a draft becomes work.
+The original observation is preserved in the published tasks:
 
-- **Measure strands the operator when the ledger fails** (Art 6, 7). The error shows a raw
-  path, unwrapped, with no "Esc back" on screen, and the report runs on the UI thread
-  (`src/measure.rs`, `src/menu.rs`).
+- Failure presentation and exit: [#119](https://github.com/jon-devlapaz/tinkery/issues/119).
+- Responsive ledger reading: [#120](https://github.com/jon-devlapaz/tinkery/issues/120).
+
+Both need approval; neither authorizes a backend migration. New unpublished ideas
+belong only in the [parked backlog](../shared/backlog.md).

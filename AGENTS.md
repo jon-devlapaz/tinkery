@@ -123,11 +123,22 @@ explicit `--shape-pi`, `--model` and `--seed-me` plus operator-authorized budget
 
 ## Work intake
 
-Remaining work goes in its area's backlog, `docs/research/<area>/backlog.md`, using the
-areas in [architecture](docs/design/architecture.md#phases-and-the-dependency-rule);
-an area without one has nothing pending. Drafts are not permission: review them with
-the operator before publishing issues. Each approved slice gets one branch and PR,
-inherits the guardrails above, stays bounded and follows its acceptance checks and
-don't-list. Link the issue and report observed Rust/Node/Python test counts,
-PTY journeys/sizes, failures and reversion probes separately from operator dogfood.
-Stub tests establish mechanics, not goal quality on real dumps.
+Concrete tasks live in GitHub Issues; unpublished ideas have one home in the
+[parked backlog](docs/research/shared/backlog.md), grouped by
+[area](docs/design/architecture.md#phases-and-the-dependency-rule). Review proposals
+with the operator before publication; replace published local specifications with
+issue links while retaining design contracts and historical findings.
+
+Use the Bounded task issue form. Triage applies exactly one `area:` label and one
+kind (`bug`, `enhancement`, `documentation`, `research`), a release milestone where
+relevant and native blocking links. Its dropdowns do not apply labels automatically;
+priority is a separate triage decision. Unapproved work stays `needs-approval`.
+`approved` summarizes an explicit scoped operator decision, never creates permission;
+material scope changes return to `needs-approval`. Publication, design acceptance,
+implementation, data use, provider budget and merge permission remain separate.
+
+Each approved slice gets one branch and PR, inherits the guardrails above and stays
+bounded by its issue. Closing requires completion evidence or an explicit reason
+such as superseded/not planned. Link the issue and report observed Rust/Node/Python
+test counts, PTY journeys/sizes, failures and reversion probes separately from
+operator dogfood. Stub tests establish mechanics, not goal quality on real dumps.
