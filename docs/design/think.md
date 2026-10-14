@@ -224,15 +224,11 @@ raw bytes survive copying and sending but never execute during display.
 
 ## Open work only
 
-[Think's backlog](../research/think/backlog.md) owns the remaining proposals. Extracted-card shortcuts remain in
-technical help; they are not the proposed scratch space.
-
-Known gap: the review can stop one question early when a line points at something
-by example ("like the eval stuff we just ran") that could mean two different
-sources or scopes. In a live trial it left that reading in place, and an agent would
-have built from the wrong source. The "anything to add or change?" box corrects it
-in one line. A candidate fix is a final check for such lines before "Nothing I'm
-unsure about"; it is not built or measured yet.
+The [parked backlog](../research/shared/backlog.md#think) owns remaining proposals,
+including the ["Like X" early-stop gap](../research/shared/backlog.md#like-x-early-stop).
+Extracted-card shortcuts remain in technical help; they are not the proposed scratch
+space. The main-reading exclusion-accessibility task is published as
+[#117](https://github.com/jon-devlapaz/tinkery/issues/117), not implemented.
 
 ## Decision-review evidence (#34)
 

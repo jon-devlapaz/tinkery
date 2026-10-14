@@ -38,8 +38,9 @@ incur provider charges. `--help` lists every option.
 - [docs/yohaku.md](docs/yohaku.md): the constitution.
 - [AGENTS.md](AGENTS.md): macOS setup, the full test run, and rules for changing Tinkery.
 - [First-release plan](docs/design/first-release.md): the six-stage finish line,
-  milestone dependencies, approved tasks and remaining issue drafts.
+  milestone dependencies and authoritative task issues; publication is not approval.
 - [docs/design/](docs/design/principles.md): current decisions.
-  Each area's backlog, `docs/research/<area>/backlog.md`, holds drafts, not plans.
+- [Parked ideas](docs/research/shared/backlog.md): one backlog for unpublished
+  proposals across all areas. Concrete tasks live in GitHub Issues.
 
 GPL-3.0-only; see [LICENSE](LICENSE).

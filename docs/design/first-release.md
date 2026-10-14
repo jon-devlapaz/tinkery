@@ -5,10 +5,13 @@ taste → measure**. The north star is **useful, verified changes per operator
 hour**, from [the constitution](../yohaku.md). A useful result meets the original
 goal, passes its required checks and is accepted by the operator.
 
-The operator requested this plan and its [ten tasks](first-release-issues.md).
-R1 ([#62](https://github.com/jon-devlapaz/tinkery/issues/62)) and R2
+The operator requested this plan and its [task index](first-release-issues.md).
+R1 ([#62](https://github.com/jon-devlapaz/tinkery/issues/62)), R2
 ([#63](https://github.com/jon-devlapaz/tinkery/issues/63)) and R3
-([#96](https://github.com/jon-devlapaz/tinkery/issues/96)) are done. R4–R10 remain unpublished drafts. No private data use, provider budget or merge is authorized.
+([#96](https://github.com/jon-devlapaz/tinkery/issues/96)) are done. R4–R10 and I2
+are published as unassigned `needs-approval` issues; I1 remains a conditional
+upstream capability check. R2's revised design is not accepted; publication
+approves no prerequisite/reader build, private data use, provider budget or merge.
 
 ## Starting point
 
@@ -54,17 +57,22 @@ the new full-loop views on the trial tasks.
 Keep the existing manual agent handoff for this release. An integrated launcher,
 automatic approval or merge, multi-run dashboard and the Think convenience
 proposals are outside this release unless real use reveals a specific blocker.
-The area backlogs (`docs/research/<area>/backlog.md`) remain available; they are not the release checklist.
+The [Substrate absorption decision](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
+makes Tinkery the shared-reader owner, not a permanent client of Substrate's
+aggregation service. Run retention and reviewed lessons remain separate drafts;
+R5 does not wait for them. The [parked backlog](../research/shared/backlog.md)
+holds unpublished proposals, not the release checklist.
 
 ## Milestones and dependencies
 
-Draft IDs below are local labels, not GitHub issue numbers. Completion of a draft
-means its checks pass and its change is reviewed and merged where code is involved.
+R/I IDs below remain local labels; the task index links their authoritative
+GitHub issues. Milestones group work, not permission or deadlines. Completion
+requires issue evidence and review/merge where code is involved.
 
-| Milestone | Completion evidence | Draft issues |
+| Milestone | Completion evidence | Task references |
 | --- | --- | --- |
 | M1. Trust the goal | #58 finished; safe evaluation; exact handoff; operator recognition and attention baseline recorded separately | [R1](first-release-issues.md#r1), [R3](first-release-issues.md#r3), [R4](first-release-issues.md#r4) |
-| M2. Connect the handoffs | One goal can be traced to its seed, decisions, run, checks and result, including missing or outdated records | [R2](first-release-issues.md#r2), [R5](first-release-issues.md#r5) |
+| M2. Connect the handoffs | Explicit goal-to-run binding and Tinkery-owned reading trace the seed, decisions, run, checks and result; missing/outdated evidence stays distinct | [R2](first-release-issues.md#r2), [I1/I2](first-release-issues.md#r5-identity), [R5](first-release-issues.md#r5) |
 | M3. Approve | The displayed revision and required decision agree with the existing approval mechanism | [R6](first-release-issues.md#r6) |
 | M4. Watch | One external job has a reliable state, source freshness and next action | [R7](first-release-issues.md#r7) |
 | M5. Taste | The operator can judge the exact result against the goal and supporting checks | [R8](first-release-issues.md#r8) |
@@ -75,13 +83,16 @@ flowchart TD
     Done58["#58 reviewed, merged and checked"] --> R1["R1: fake evaluation"]
     Done58 --> R2["R2: map existing records"]
     R1 --> R3["R3: budgeted live evaluation"]
-    R3 --> R4["R4: human baseline"]
-    R2 --> R5["R5: read one linked job"]
-    R5 --> R6["R6: Approve"]
-    R5 --> R7["R7: Watch"]
-    R5 --> R8["R8: Taste"]
-    R5 --> R9["R9: Measure"]
-    R4 --> R10["R10: complete journey and trial"]
+    R3 --> R4["R4 / #109: human baseline"]
+    R2 --> Design["Accept revised identity/reader design"]
+    Design --> I1["I1: SDLC run-instance identity"]
+    I1 --> I2["I2 / #110: initial binding, no duplicates"]
+    I2 --> R5["R5 / #111: read one linked job"]
+    R5 --> R6["R6 / #112: Approve"]
+    R5 --> R7["R7 / #113: Watch"]
+    R5 --> R8["R8 / #114: Taste"]
+    R5 --> R9["R9 / #115: Measure"]
+    R4 --> R10["R10 / #116: complete journey and trial"]
     R6 --> R10
     R7 --> R10
     R8 --> R10
@@ -95,15 +106,20 @@ wait for every branch; milestone numbering is not a reason to serialize them all
 
 ## What agents can start next
 
-R1, R2 and R3 are done. The other tasks remain drafts; finishing one does not
-authorize the next.
+R1, R2 and R3 are done. The published tasks still need approval; finishing one
+or satisfying its dependencies does not authorize the next.
 
-R5 waits
-for the operator to accept R2's [proposed design](job-records.md); then an agent
-can build it while live evaluation awaits the operator. R4 needs supplied
-examples, explicit permission to use them, an approved provider/model budget and
-human participation. Only the operator can
-say that the goal is right or that the result is useful.
+Before R5, review R2's [revised design](job-records.md), refresh the source
+contracts, and separately approve missing I1/I2 capabilities. Verify source-owned
+run identity and initial local binding creation with duplicate detection;
+existing capabilities need evidence, not replacement. Binding revisions and
+relocation are deferred. The narrowed binding design remains unaccepted;
+I2 [#110](https://github.com/jon-devlapaz/tinkery/issues/110) and R5
+[#111](https://github.com/jon-devlapaz/tinkery/issues/111) need separate
+implementation approval afterward.
+An unlinked source read is not completion of R5. These slices need no model calls;
+R4 separately needs supplied examples, data permission, provider/model budget and
+human participation. Only the operator can judge goal meaning and usefulness.
 
 Measure's field survey belongs in R2. R9 can proceed once the reader and measurement
 definitions are ready; the completed human baseline is required for R10's comparison,

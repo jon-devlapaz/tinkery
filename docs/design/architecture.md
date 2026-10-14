@@ -15,11 +15,15 @@ Each built [place](menu.md) is a **phase**, with its own compartment:
 Each top-level module belongs to one area, listed in `MODULES` in the check. A new module must be listed
 there, so a new phase can't count as shared code by default.
 
-| Area | Code | Backlog |
+Published task specifications live in GitHub Issues. The
+[parked backlog](../research/shared/backlog.md) is the single home for unpublished
+ideas; the area entry points below contain navigation only.
+
+| Area | Code | Work entry point |
 | --- | --- | --- |
 | menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [menu](../research/menu/backlog.md) |
 | think | `src/think/` | [think](../research/think/backlog.md) |
-| shape | `src/shape/` | none |
+| shape | `src/shape/` | [#106](https://github.com/jon-devlapaz/tinkery/issues/106), still needs approval |
 | measure | `src/measure.rs` | [measure](../research/measure/backlog.md) |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
