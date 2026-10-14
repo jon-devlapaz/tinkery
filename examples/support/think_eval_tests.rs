@@ -323,7 +323,8 @@ fn a_local_request_size_refusal_cannot_pass_against_the_old_reading() {
         report["steps"][7]["failure"]
             .as_str()
             .unwrap()
-            .contains("32 KiB")
+            .to_ascii_lowercase()
+            .contains("too long")
     );
     assert_eq!(report["reading_current"], false);
     assert_eq!(

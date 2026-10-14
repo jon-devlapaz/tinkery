@@ -453,7 +453,7 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
     assert!(host.requests.lock().unwrap().is_empty());
     assert_eq!(a.conversation.sources()[0].text, source);
     assert_eq!(a.input.text, "new words stay local");
-    assert!(a.notice.contains("above 32 KiB"));
+    assert!(a.notice.contains("too long"));
     assert_eq!(a.local_checks.last().unwrap().decision, "reject");
 }
 #[test]
@@ -562,4 +562,435 @@ fn answering_keeps_the_dump_in_view() {
         .join(" ");
     assert!(screen.contains(&first), "dump left view");
     assert!(screen.contains("your dump"));
+}
+
+fn encoded(a: &BrainDump, text: &str) -> usize {
+    serde_json::to_vec(
+        &a.conversation
+            .stage(text, false, a.shaping.ready.is_some(), a.card_positions())
+            .unwrap()
+            .request,
+    )
+    .unwrap()
+    .len()
+}
+
+#[test]
+fn encoded_under_at_over_boundary_counts_json_and_preserves_refused_selection() {
+    for target in [32767usize, 32768, 32769] {
+        let host = Arc::new(Counting::default());
+        let mut a = BrainDump::with_host(host.clone());
+        let prefix = "\"\\\n\0e\u{301}中👩‍💻".repeat(120);
+        let overhead = encoded(&a, &prefix);
+        let raw = prefix + &"x".repeat(target - overhead);
+        assert!(raw.len() < target && raw.len() > 4096);
+        a.paste(&raw);
+        a.input.select_all();
+        assert_eq!(encoded(&a, &raw), target);
+        assert_eq!(a.encoded_bytes(), Some(target));
+        let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
+        a.submit();
+        wait(&mut a);
+        let requests = host.requests.lock().unwrap();
+        if target > 32768 {
+            assert!(requests.is_empty());
+            assert_eq!(
+                (a.input.text.clone(), a.input.cursor, a.input.selection()),
+                before
+            );
+            assert!(a.conversation.sources().is_empty());
+        } else {
+            assert_eq!(requests.len(), 1);
+            assert_eq!(requests[0].sources[0].text.as_bytes(), raw.as_bytes());
+        }
+        eprintln!(
+            "encoded={target}, raw={}, host starts={}",
+            raw.len(),
+            requests.len()
+        );
+    }
+}
+
+#[test]
+fn draft_overflow_copies_completely_then_one_explicit_fitting_resend() {
+    let host = Arc::new(Counting::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("initial words");
+    a.submit();
+    wait(&mut a);
+    let old = a.conversation.board().unwrap().reading.clone();
+    let source = a.conversation.sources()[0].text.clone();
+    let large = "中\r\n\t\0".repeat(6000);
+    a.paste(&large);
+    a.input.select_all();
+    a.submit();
+    assert_eq!(host.requests.lock().unwrap().len(), 1);
+    assert_eq!(a.conversation.board().unwrap().reading, old);
+    assert_eq!(a.conversation.sources()[0].text, source);
+    assert_eq!(a.input.selected_text(), Some(large.as_str()));
+    a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
+    assert_eq!(a.take_copy_request(), Some(large));
+    a.paste("fitting answer");
+    assert_eq!(host.requests.lock().unwrap().len(), 1);
+    a.submit();
+    wait(&mut a);
+    assert_eq!(host.requests.lock().unwrap().len(), 2);
+    assert_eq!(a.conversation.sources()[1].text, "fitting answer");
+}
+
+#[test]
+fn context_only_overflow_offers_copy_out_without_pruning_or_false_resend() {
+    let host = Arc::new(Counting::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("initial");
+    a.submit();
+    wait(&mut a);
+    a.conversation.sources_mut()[0].text = "retained\r\n\t\0".repeat(4000);
+    let original = a.conversation.sources()[0].text.clone();
+    a.paste("local words");
+    a.input.select_all();
+    let old = a.conversation.board().unwrap().reading.clone();
+    assert!(encoded(&a, "") > 32768);
+    a.submit();
+    assert!(a.notice.starts_with("Earlier words"));
+    assert!(layout::help_text(&a).contains("Shortening new words cannot"));
+    assert_eq!(a.conversation.board().unwrap().reading, old);
+    a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
+    assert_eq!(a.take_copy_request().as_deref(), Some("local words"));
+    key(&mut a, KeyCode::Tab);
+    a.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+    a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
+    assert_eq!(a.take_copy_request(), Some(original.clone()));
+    assert_eq!(a.conversation.sources()[0].text, original);
+    assert_eq!(a.input.text, "local words");
+    assert_eq!(host.requests.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn overflow_help_uses_semantic_kind_after_notice_rewording_and_f1() {
+    for kind in [Refusal::DraftTooLong, Refusal::EarlierWordsTooLong] {
+        let mut a = BrainDump::with_host(Arc::new(Counting::default()));
+        a.refuse("Notice wording can change completely.");
+        a.screen.refused = Some(kind);
+        key(&mut a, KeyCode::F(1));
+        let help = layout::help_text(&a);
+        assert!(help.contains("Nothing was sent") && help.contains("Ctrl-A then Ctrl-C"));
+        assert!(!help.contains("KiB") && !help.contains("encoded") && !help.contains("context"));
+        if kind == Refusal::EarlierWordsTooLong {
+            assert!(
+                help.contains("Shortening new words cannot") && help.contains("Ctrl-PgUp/PgDn")
+            );
+            assert!(!help.contains("F2 sends once"));
+        } else {
+            assert!(help.contains("replace it with fewer words, then F2 sends once"));
+        }
+    }
+    let mut a = BrainDump::with_host(Arc::new(Counting::default()));
+    a.refuse("Context 32 KiB is just incidental notice text.");
+    assert!(!layout::help_text(&a).contains("too long to send"));
+}
+
+#[test]
+fn waiting_reply_contraction_sends_the_fitting_preview_once() {
+    struct Gated {
+        calls: Counting,
+        release: Mutex<std::sync::mpsc::Receiver<()>>,
+    }
+    impl BoardHost for Gated {
+        fn reshape(&self, r: BoardRequest, cancel: &AtomicBool) -> Result<Guess, String> {
+            let mut guess = self.calls.reshape(r, cancel)?;
+            let count = self.calls.requests.lock().unwrap().len();
+            if count == 1 {
+                guess.parts.why = Some("w".repeat(12000));
+            } else if count == 2 {
+                self.release.lock().unwrap().recv().unwrap();
+            }
+            Ok(guess)
+        }
+    }
+    let (release, receive) = std::sync::mpsc::channel();
+    let host = Arc::new(Gated {
+        calls: Counting::default(),
+        release: Mutex::new(receive),
+    });
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("initial exact words\r\n中");
+    a.submit();
+    wait(&mut a);
+    assert!(a.conversation.focused_question().is_some());
+    key(&mut a, KeyCode::F(8));
+    a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
+    a.paste("additional exact words");
+    a.submit();
+    assert!(a.conversation.awaiting_scope());
+    a.paste("include these words");
+    let initial_bytes = encoded(&a, &a.input.text);
+    assert!(initial_bytes <= 32768);
+    a.submit();
+    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
+    a.paste("next answer");
+    release.send(()).unwrap();
+    wait(&mut a);
+    assert!(
+        a.shaping.ready.is_some(),
+        "tick defers the smaller reply while typing"
+    );
+    assert!(a.conversation.focused_question().is_some());
+    // Derive padding from the actual staged serialization, including source metadata.
+    let base = encoded(&a, "x");
+    a.input = Note::new(&"x".repeat(32769 - base + 1));
+    a.input.select_all();
+    let words = a.input.text.clone();
+    let staged = a
+        .conversation
+        .stage(&words, false, true, a.card_positions())
+        .unwrap();
+    assert!(
+        !staged.addition,
+        "this answers the focused question, not an unscoped addition"
+    );
+    let stale_bytes = encoded(&a, &words);
+    let final_bytes = a.encoded_bytes().unwrap();
+    assert_eq!(stale_bytes, 32769);
+    assert!(final_bytes <= 32768 && final_bytes < stale_bytes);
+    assert_eq!(host.calls.requests.lock().unwrap().len(), 2);
+    a.submit();
+    wait(&mut a);
+    let requests = host.calls.requests.lock().unwrap();
+    eprintln!(
+        "contraction initial={initial_bytes}, stale={stale_bytes}, final={final_bytes}, host starts={}",
+        requests.len()
+    );
+    assert_eq!(
+        requests.len(),
+        3,
+        "fitting preview must send once, not refuse: {}",
+        a.notice
+    );
+    assert_eq!(serde_json::to_vec(&requests[2]).unwrap().len(), final_bytes);
+    assert_eq!(
+        serde_json::to_vec(&requests[2].sources).unwrap(),
+        serde_json::to_vec(a.conversation.sources()).unwrap()
+    );
+    assert_eq!(requests[2].sources[0].text, "initial exact words\r\n中");
+    assert_eq!(requests[2].sources[1].text, "additional exact words");
+    assert_eq!(requests[2].sources[2].text, "include these words");
+    assert_eq!(requests[2].sources[3].text.as_bytes(), words.as_bytes());
+    assert_eq!(a.local_checks.last().unwrap().decision, "pass");
+    assert!(a.shaping.ready.is_none() && a.input.text.is_empty());
+}
+
+#[test]
+fn waiting_reply_overflow_is_transactional_before_committing_local_words() {
+    let host = Arc::new(Counting::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("initial");
+    a.submit();
+    wait(&mut a);
+    let r = host.requests.lock().unwrap()[0].clone();
+    let mut guess = host.reshape(r.clone(), &AtomicBool::new(false)).unwrap();
+    guess.parts.why = Some("w".repeat(32000));
+    a.shaping.ready = Some((r, Ok(guess)));
+    a.paste(&"x".repeat(1500));
+    a.input.select_all();
+    assert!(encoded(&a, &a.input.text) < 32768);
+    assert!(
+        a.encoded_bytes().unwrap() > 32768,
+        "preview includes the waiting reading"
+    );
+    let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
+    let old = a.conversation.board().unwrap().reading.clone();
+    a.submit();
+    assert_eq!(
+        (a.input.text.clone(), a.input.cursor, a.input.selection()),
+        before
+    );
+    assert_eq!(a.conversation.sources().len(), 1);
+    assert_eq!(a.conversation.board().unwrap().reading, old);
+    assert!(a.shaping.ready.is_some());
+    assert_eq!(a.local_checks.last().unwrap().decision, "reject");
+    assert!(!a.running());
+    assert_eq!(
+        host.requests.lock().unwrap().len(),
+        2,
+        "second call above is a fixture, not submit"
+    );
+}
+
+#[test]
+#[ignore = "rerunnable zero-call frame measurement: cargo test --release measure_large_paste_frames -- --ignored --nocapture"]
+fn measure_large_paste_frames() {
+    // Same large input as tests/selection_terminal.py.
+    let sentinel = "\x1b]2;PASTE-TITLE-SENTINEL\x07\x1b]52;c;UEFTVEUtU0VOVElORUw=\x07";
+    let mut words = format!("Typed evidence PREFIX {sentinel}\n");
+    for i in 0..120 {
+        words.push_str(&format!(
+            "row {i:03}: e\u{301} 中 👩‍💻\r\nCR\rTAB\tESC\x1b[31m BEL\x07 NUL\0\n"
+        ));
+    }
+    words.push_str(" SUFFIX copy exactly.");
+    let host = Arc::new(Counting::default());
+    let mut a = BrainDump::with_host(host);
+    a.paste(&words);
+    a.submit();
+    wait(&mut a);
+    a.paste("next answer");
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+    let palette = Palette::new(false);
+    terminal.draw(|f| render(f, &mut a, palette)).unwrap();
+    let start = std::time::Instant::now();
+    for _ in 0..1000 {
+        std::hint::black_box(a.encoded_bytes());
+    }
+    eprintln!(
+        "size preview: {:.3} us/frame",
+        start.elapsed().as_secs_f64() * 1000.0
+    );
+    let start = std::time::Instant::now();
+    for _ in 0..200 {
+        a.tick();
+        terminal.draw(|f| render(f, &mut a, palette)).unwrap();
+    }
+    eprintln!(
+        "100x30 frame: {:.3} us/frame; fixture={} bytes",
+        start.elapsed().as_secs_f64() * 1_000_000.0 / 200.0,
+        words.len()
+    );
+}
+
+fn assert_cached_size(a: &mut BrainDump) {
+    let fresh = a
+        .preview_send(&a.input.text)
+        .ok()
+        .filter(|preview| preview.waiting_failure.is_none())
+        .map(|preview| preview.bytes);
+    assert_eq!(a.encoded_bytes(), fresh);
+    assert_eq!(a.shaping.encoded_bytes, Some(fresh));
+    a.tick();
+    assert_eq!(
+        a.shaping.encoded_bytes,
+        Some(fresh),
+        "idle ticks keep the cache"
+    );
+    assert_eq!(a.encoded_bytes(), fresh);
+}
+
+#[test]
+fn size_cache_tracks_edits_waiting_reply_scope_and_cards() {
+    let host = Arc::new(Counting::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("original words");
+    assert_cached_size(&mut a);
+    key(&mut a, KeyCode::Char('x'));
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert_cached_size(&mut a);
+    a.submit();
+    wait(&mut a);
+    assert_cached_size(&mut a);
+
+    // A worker reply lands while local words are present, so tick must invalidate.
+    a.paste("answer");
+    assert_cached_size(&mut a);
+    let r = host.requests.lock().unwrap()[0].clone();
+    let guess = host.reshape(r.clone(), &AtomicBool::new(false)).unwrap();
+    a.shaping.request = Some(r);
+    a.shaping.job = Some(Job::launch(move |_| Ok(guess)));
+    wait(&mut a);
+    assert!(a.shaping.ready.is_some());
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert_cached_size(&mut a);
+    a.submit();
+    wait(&mut a);
+    assert_cached_size(&mut a);
+
+    a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
+    assert!(a.shaping.encoded_bytes.is_none());
+    a.paste("added words");
+    assert_cached_size(&mut a);
+    a.submit();
+    assert!(a.conversation.awaiting_scope());
+    assert_cached_size(&mut a);
+    a.paste("include them");
+    assert_cached_size(&mut a);
+    a.submit();
+    wait(&mut a);
+    assert!(!a.conversation.awaiting_scope());
+    assert_cached_size(&mut a);
+
+    a.extract_range(1, 0, 3).unwrap();
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert!(!a.card_positions().is_empty());
+    assert_cached_size(&mut a);
+    let before = a.encoded_bytes();
+    let CanvasNode::Text(node) = &mut a.screen.canvas.state.data.nodes[0] else {
+        panic!("extracted text card");
+    };
+    node.x = 12345.0;
+    a.handle_mouse(
+        MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        },
+        Rect::new(0, 0, 100, 30),
+    );
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert_cached_size(&mut a);
+    assert_ne!(a.encoded_bytes(), before);
+}
+
+#[test]
+fn failed_waiting_reply_has_unknown_size_and_the_same_failure_as_submit() {
+    for invalid_board in [false, true] {
+        let host = Arc::new(Counting::default());
+        let mut a = BrainDump::with_host(host.clone());
+        a.paste("original words");
+        a.submit();
+        wait(&mut a);
+        let r = host.requests.lock().unwrap()[0].clone();
+        let result = if invalid_board {
+            let mut guess = host.reshape(r.clone(), &AtomicBool::new(false)).unwrap();
+            guess.framings[0].supports[0].quote = "invented support".into();
+            Ok(guess)
+        } else {
+            Err("failed reply".to_owned())
+        };
+        let starts = host.requests.lock().unwrap().len();
+        a.shaping.ready = Some((r.clone(), result.clone()));
+        a.paste("next answer");
+        let before = a.originals();
+        let old = a.conversation.board().unwrap().goal().unwrap().to_owned();
+        let mut applied = BrainDump {
+            conversation: a.conversation.clone(),
+            ..BrainDump::default()
+        };
+        applied.apply_result(r, result);
+        let preview = a.preview_send(&a.input.text).unwrap();
+        assert!(
+            preview.waiting_failure.is_some(),
+            "failed apply is not a known size"
+        );
+        assert_eq!(
+            preview.waiting_failure.as_deref(),
+            applied.conversation.last_failure()
+        );
+        assert_cached_size(&mut a);
+        assert_eq!(a.encoded_bytes(), None);
+        assert_eq!(a.originals(), before, "rendering commits nothing");
+        a.submit();
+        assert_eq!(
+            a.conversation.last_failure(),
+            preview.waiting_failure.as_deref()
+        );
+        assert_eq!(a.conversation.board().unwrap().goal(), Some(old.as_str()));
+        assert!(a.shaping.ready.is_none());
+        wait(&mut a);
+        let requests = host.requests.lock().unwrap();
+        assert_eq!(requests.len(), starts + 1, "the same F2 still retries once");
+        let sent = requests.last().unwrap();
+        assert_eq!(serde_json::to_vec(sent).unwrap().len(), preview.bytes);
+        assert_eq!(sent.sources[0].text, "original words");
+        assert_eq!(sent.sources[1].text, "next answer");
+    }
 }

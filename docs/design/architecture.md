@@ -51,7 +51,7 @@ to the dependency rule: think hands a saved goal to shape only through `seed_me`
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
 | `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request, optionally limited by a call budget. |
 | `think/record.rs` | The think record's format and its one `write`: a confirmed session's turns, checks and goal in one file. |
-| `think/canvas.rs`, `note.rs` | Extracted cards, and the text box with grapheme-safe selection. |
+| `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 
 ## Design score
@@ -73,6 +73,12 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 **Recorded score: 10/10** (2026-10-12, after #39; first scored at 2d25a7c, 5/10).
 This is a dated assessment, not a fresh measurement. Remaining debt:
 `brain_dump.rs`'s narrow interface over a large amount of routing.
+Paste reliability improves diagnostics 3 and 6 by keeping raw/display mapping in
+Note and using conversation staging for both encoded-size preview and sending.
+It preserves the simple editor interface and documented promises in diagnostics
+2 and 4. Cached preview size stays inside Think's input/reply routing, preserving
+those boundaries; the request boundary now has one definition in drafting (3 and 6).
+No new score is claimed.
 
 ## Limits enforced by `tests/architecture.rs`
 

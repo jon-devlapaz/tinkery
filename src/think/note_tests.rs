@@ -126,10 +126,10 @@ fn replacement_deletion_and_paste_preserve_surrounding_bytes() {
     }
     note.insert("x\r\ny\u{1b}[31m").unwrap();
     assert_eq!(
-        note.text, "keep x\ny[31m keep",
-        "controls stripped, CRLF is one newline"
+        note.text, "keep x\r\ny\u{1b}[31m keep",
+        "received line endings and controls are retained"
     );
-    assert_eq!((note.cursor, note.selection()), (5 + 7, None));
+    assert_eq!((note.cursor, note.selection()), (5 + 9, None));
     let mut note = at("keep MIDDLE keep", 5);
     for _ in 0..6 {
         note.navigate(Motion::Right, true, 40);
@@ -170,37 +170,31 @@ fn deleting_between_a_base_and_its_mark_realigns_the_caret() {
 }
 
 #[test]
-fn oversize_replacement_is_rejected_atomically_and_counts_removed_bytes() {
+fn large_replacement_counts_removed_bytes_without_a_request_policy() {
     let base = "a".repeat(4090) + "BCDEFG";
     let mut note = at(&base, 4090);
     for _ in 0..2 {
         note.navigate(Motion::Right, true, 40);
     }
-    let before = (note.text.clone(), note.cursor, note.selection());
-    assert!(note.insert(&"z".repeat(9)).is_err(), "4096 - 2 + 9 > 4096");
-    assert_eq!((note.text.clone(), note.cursor, note.selection()), before);
-    assert!(
-        note.insert("zz").is_ok(),
-        "same size as the removed bytes fits"
-    );
-    assert_eq!(note.text.len(), 4096);
+    note.insert(&"z".repeat(9000)).unwrap();
+    assert_eq!(note.text, "a".repeat(4090) + &"z".repeat(9000) + "DEFG");
+    assert_eq!(note.cursor, 13090);
+    assert_eq!(note.selection(), None);
 }
 
 #[test]
-fn replacement_at_exactly_the_cap_is_allowed() {
+fn editing_crosses_the_historical_cap_including_selection_replacement() {
     let base = "a".repeat(4090) + "BCDEFG";
     assert_eq!(base.len(), 4096);
     let mut note = at(&base, 4090);
     for _ in 0..6 {
         note.navigate(Motion::Right, true, 40);
     }
-    assert!(note.insert(&"z".repeat(7)).is_err());
-    assert_eq!(sel(&note), Some("BCDEFG"));
-    assert!(note.insert(&"z".repeat(6)).is_ok());
-    assert_eq!(note.text.len(), 4096);
+    note.insert(&"z".repeat(7)).unwrap();
+    assert_eq!(note.text.len(), 4097);
     let mut full = Note::new(&"a".repeat(4096));
-    assert!(full.insert("b").is_err());
-    assert_eq!(full.text.len(), 4096);
+    full.insert("b").unwrap();
+    assert_eq!(full.text.len(), 4097);
 }
 
 #[test]
@@ -236,4 +230,70 @@ fn a_stale_caret_inside_a_character_edits_at_the_boundary_instead_of_panicking()
     note.cursor = 99;
     note.insert("x").unwrap();
     assert_eq!(note.text, "aécx");
+}
+
+#[test]
+fn raw_controls_have_safe_display_and_exact_grapheme_coordinates() {
+    let raw = "a\r\nb\rc\td\u{1b}[31m\0\u{7f}\u{85}e\u{301}中👩‍💻";
+    let mut note = Note::new("");
+    note.insert(raw).unwrap();
+    assert_eq!(note.text.as_bytes(), raw.as_bytes());
+    for width in [2, 32, 72, 96, 156, 316] {
+        let wrapped = note.wrap(width);
+        assert_eq!(wrapped.positions.len(), raw.graphemes(true).count() + 1);
+        for ((offset, g), (_, row, col)) in raw.grapheme_indices(true).zip(&wrapped.positions) {
+            assert_eq!(
+                wrapped.index_at(*row, *col as u16),
+                offset,
+                "{g:?} at {row},{col}"
+            );
+        }
+        assert!(
+            wrapped
+                .lines
+                .iter()
+                .all(|l| !l.chars().any(char::is_control))
+        );
+        assert!(wrapped.lines.join("\n").contains("␛"));
+    }
+    note.select_all();
+    assert_eq!(note.selected_text(), Some(raw));
+    note.cursor = 1;
+    note.collapse();
+    note.right();
+    assert_eq!(note.cursor, 3, "CRLF is a whole grapheme");
+    note.left();
+    assert_eq!(note.cursor, 1);
+    note.end();
+    assert_eq!(note.cursor, 1, "End never stops inside CRLF");
+}
+
+#[test]
+fn logical_and_wrapped_rows_reach_beyond_u16_without_aliasing() {
+    for rows in [65534usize, 65535, 65536, 70000] {
+        let text = "x\n".repeat(rows) + "tail";
+        let began = std::time::Instant::now();
+        let mut note = Note::new("");
+        note.insert(&text).unwrap();
+        let wrapped = note.wrap(72);
+        assert_eq!(wrapped.cursor, (rows, 4));
+        assert_eq!(wrapped.index_at(rows, 0), rows * 2);
+        note.move_row(false, 72);
+        assert_eq!(note.cursor, rows * 2 - 1);
+        note.move_row(true, 72);
+        assert_eq!(note.cursor, rows * 2 + 1);
+        note.select_all();
+        assert_eq!(note.selected_text(), Some(text.as_str()));
+        eprintln!(
+            "logical rows={rows}, bytes={}, elapsed={:?}",
+            text.len(),
+            began.elapsed()
+        );
+    }
+    let text = "中".repeat(70000);
+    let note = Note::new(&text);
+    let wrapped = note.wrap(2);
+    assert_eq!(wrapped.cursor, (70000, 0));
+    assert_eq!(wrapped.index_at(65536, 0), 65536 * 3);
+    assert_eq!(wrapped.index_at(69999, 0), 69999 * 3);
 }

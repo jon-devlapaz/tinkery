@@ -5,11 +5,10 @@
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-/// Editable text with a caret and an optional selection. Paste is treated as data: control
-/// characters are dropped and line breaks kept. One box holds at most 4096 bytes; an edit
-/// that would pass that changes nothing.
+/// Editable raw text with a grapheme caret and selection. Editing has no request-size policy.
+/// Allocation refusal leaves the existing text intact; wrapping never emits terminal controls.
 pub struct Note {
-    /// The text, exactly as typed or pasted (after control characters are dropped).
+    /// The received text, including original line endings and controls.
     pub text: String,
     /// The caret, as a byte offset on a grapheme boundary.
     pub cursor: usize,
@@ -149,13 +148,14 @@ impl Note {
         }
     }
 
-    /// Replace `start..end` (grapheme boundaries) with already-sanitized text.
-    /// The 4096-byte cap is checked on the proposed result before anything changes.
+    /// Replace a grapheme range with raw text, reserving storage before changing anything.
     fn replace(&mut self, start: usize, end: usize, clean: &str) -> Result<(), &'static str> {
         let (start, end) = (self.floor(start), self.floor(end).max(self.floor(start)));
-        if self.text.len() - (end - start) + clean.len() > 4096 {
-            return Err("Card limit: 4096 bytes. Nothing inserted.");
-        }
+        self.text
+            .try_reserve(clean.len().saturating_sub(end - start))
+            .map_err(
+                |_| "Not enough memory; incoming edit not accepted. Existing words unchanged.",
+            )?;
         self.text.replace_range(start..end, clean);
         self.cursor = start + clean.len();
         self.anchor = None;
@@ -163,17 +163,15 @@ impl Note {
         Ok(())
     }
 
-    /// Types or pastes `text` at the caret, replacing any selection. Over the 4096-byte cap
-    /// it changes nothing and says why.
+    /// Inserts received bytes at the caret, replacing a selection. Refuses allocation failure
+    /// before changing the text, caret or selection.
     pub fn insert(&mut self, text: &str) -> Result<(), &'static str> {
-        // Paste is data, not terminal control sequences. Keep line breaks, not escapes.
-        let clean = Self::sanitize(text);
-        if clean.is_empty() {
+        if text.is_empty() {
             return Ok(());
         }
         self.settle();
         let (start, end) = self.selection().unwrap_or((self.cursor, self.cursor));
-        self.replace(start, end, &clean)
+        self.replace(start, end, text)
     }
 
     /// Inserting before a combining mark may join it to the inserted grapheme.
@@ -188,11 +186,18 @@ impl Note {
         }
     }
 
-    pub(crate) fn sanitize(text: &str) -> String {
-        text.replace("\r\n", "\n")
-            .replace('\r', "\n")
-            .chars()
-            .filter(|c| *c == '\n' || !c.is_control())
+    /// Safe display for received text. Only LF is emitted as a layout control; raw offsets
+    /// remain in the Note. CRLF is one selectable grapheme shown as a CR mark and a new row.
+    pub(crate) fn display(text: &str) -> String {
+        text.chars()
+            .map(|c| match c {
+                '\n' => "\n".into(),
+                '\t' => "⇥".into(),
+                c if c <= '\u{1f}' => char::from_u32(0x2400 + c as u32).unwrap().to_string(),
+                '\u{7f}' => "␡".into(),
+                c if c.is_control() => "�".into(),
+                c => c.to_string(),
+            })
             .collect()
     }
 
@@ -274,9 +279,12 @@ impl Note {
 
     /// Caret to the end of its line (before the next line break).
     pub fn end(&mut self) {
-        self.cursor += self.text[self.cursor..]
-            .find('\n')
-            .unwrap_or(self.text.len() - self.cursor);
+        self.cursor = self.floor(
+            self.cursor
+                + self.text[self.cursor..]
+                    .find('\n')
+                    .unwrap_or(self.text.len() - self.cursor),
+        );
     }
 
     /// Caret one wrapped row up or down at `width`, to the nearest column. At the first or
@@ -318,7 +326,7 @@ impl Note {
                 let word_width: usize = graphemes[i..]
                     .iter()
                     .take_while(|(_, g)| !g.chars().all(char::is_whitespace))
-                    .map(|(_, g)| g.width())
+                    .map(|(_, g)| Self::display(g).width())
                     .sum();
                 if word_width <= width && column + word_width > width {
                     lines.push(String::new());
@@ -326,23 +334,21 @@ impl Note {
                     column = 0;
                 }
             }
-            if grapheme != "\n" && column + grapheme.width() > width {
+            let display = Self::display(grapheme);
+            let cells = display.trim_end_matches('\n').width();
+            if column + cells > width {
                 lines.push(String::new());
                 row += 1;
                 column = 0;
-                if whitespace {
-                    positions.push((index, row, column));
-                    continue;
-                }
             }
             positions.push((index, row, column));
-            if grapheme == "\n" {
+            lines[row].push_str(display.trim_end_matches('\n'));
+            if grapheme.ends_with('\n') {
                 lines.push(String::new());
                 row += 1;
                 column = 0;
             } else {
-                lines[row].push_str(grapheme);
-                column += grapheme.width();
+                column += cells;
             }
         }
         if column >= width {
@@ -356,7 +362,7 @@ impl Note {
             .find(|(i, _, _)| *i == self.cursor)
             .unwrap();
         Wrapped {
-            cursor: (*cursor_row as u16, *cursor_column as u16),
+            cursor: (*cursor_row, *cursor_column as u16),
             lines,
             positions,
         }
@@ -368,21 +374,16 @@ pub struct Wrapped {
     /// The rows to draw.
     pub lines: Vec<String>,
     /// The caret's row and column.
-    pub cursor: (u16, u16),
+    pub cursor: (usize, u16),
     pub(super) positions: Vec<(usize, usize, usize)>,
 }
 
 impl Wrapped {
     /// The text offset nearest a row and column, for mouse clicks and drags.
-    pub fn index_at(&self, row: u16, column: u16) -> usize {
+    pub fn index_at(&self, row: usize, column: u16) -> usize {
         self.positions
             .iter()
-            .min_by_key(|(_, y, x)| {
-                (
-                    y.abs_diff(usize::from(row)),
-                    x.abs_diff(usize::from(column)),
-                )
-            })
+            .min_by_key(|(_, y, x)| (y.abs_diff(row), x.abs_diff(usize::from(column))))
             .map_or(0, |(index, _, _)| *index)
     }
 }

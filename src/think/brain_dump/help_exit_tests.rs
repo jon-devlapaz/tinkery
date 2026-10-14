@@ -279,7 +279,7 @@ fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {
             assert_eq!(b[(w - 3, 1)].symbol(), "?");
             let wrapped = Note::new(&text).wrap(a.screen.source_area.width);
             for (index, row, col) in &wrapped.positions {
-                let Some(row) = row.checked_sub(usize::from(a.screen.source_scroll)) else {
+                let Some(row) = row.checked_sub(a.screen.source_scroll) else {
                     continue;
                 };
                 if row >= usize::from(a.screen.source_area.height)

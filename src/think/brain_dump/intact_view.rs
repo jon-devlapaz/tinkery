@@ -10,10 +10,11 @@ pub(super) fn title(text: &str) -> String {
     short_title(text, 32)
 }
 pub(super) fn short_title(text: &str, width: u16) -> String {
-    let line = text
+    let safe = Note::display(text);
+    let line = safe
         .lines()
         .find(|s| !s.trim().is_empty())
-        .unwrap_or(text)
+        .unwrap_or(&safe)
         .trim();
     if UnicodeWidthStr::width(line) <= usize::from(width) {
         return line.into();
@@ -44,6 +45,7 @@ impl BrainDump {
     /// Refused when the range is blank or cuts a character, or after 32 cards.
     pub fn extract_range(&mut self, source: usize, start: usize, end: usize) -> Result<(), String> {
         self.conversation.extract(source, start, end)?;
+        self.shaping.encoded_bytes = None;
         self.place_card();
         self.notice =
             "Extracted by you; original intact. F7 shows cards; nothing confirmed.".into();
@@ -112,7 +114,7 @@ impl BrainDump {
                             .positions
                             .iter()
                             .find(|(i, _, _)| *i == fragment.start)
-                            .map_or(0, |(_, row, _)| *row as u16);
+                            .map_or(0, |(_, row, _)| *row);
                 }
                 self.screen.show_extractions = false;
                 return true;
@@ -156,9 +158,11 @@ impl BrainDump {
             let row = note.wrap(self.screen.source_area.width).cursor.0;
             if row < self.screen.source_scroll {
                 self.screen.source_scroll = row;
-            } else if row >= self.screen.source_scroll + self.screen.source_area.height {
-                self.screen.source_scroll =
-                    row.saturating_sub(self.screen.source_area.height.saturating_sub(1));
+            } else if row >= self.screen.source_scroll + usize::from(self.screen.source_area.height)
+            {
+                self.screen.source_scroll = row.saturating_sub(usize::from(
+                    self.screen.source_area.height.saturating_sub(1),
+                ));
             }
             return true;
         }
@@ -184,7 +188,7 @@ impl BrainDump {
                 let index = Note::new(&self.conversation.sources()[self.screen.source_view].text)
                     .wrap(area.width)
                     .index_at(
-                        event.row - area.y + self.screen.source_scroll,
+                        usize::from(event.row - area.y) + self.screen.source_scroll,
                         event.column - area.x,
                     );
                 self.screen.board_focus = true;
@@ -197,8 +201,9 @@ impl BrainDump {
             MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)
                 if self.screen.drag_anchor.is_some() =>
             {
-                let row = event.row.clamp(area.y, area.bottom().saturating_sub(1)) - area.y
-                    + self.screen.source_scroll;
+                let row =
+                    usize::from(event.row.clamp(area.y, area.bottom().saturating_sub(1)) - area.y)
+                        + self.screen.source_scroll;
                 let col = event.column.clamp(area.x, area.right().saturating_sub(1)) - area.x;
                 let end = Note::new(&self.conversation.sources()[self.screen.source_view].text)
                     .wrap(area.width)
@@ -234,7 +239,7 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
                     >= wrapped
                         .lines
                         .len()
-                        .saturating_sub(usize::from(inner.height)) as u16
+                        .saturating_sub(usize::from(inner.height))
                 {
                     "↑ more"
                 } else if app.screen.source_scroll > 0 {
@@ -251,12 +256,20 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
     let max = wrapped
         .lines
         .len()
-        .saturating_sub(usize::from(inner.height)) as u16;
+        .saturating_sub(usize::from(inner.height));
     app.screen.source_scroll = app.screen.source_scroll.min(max);
     frame.render_widget(
-        Paragraph::new(wrapped.lines.join("\n"))
-            .style(palette.ink)
-            .scroll((app.screen.source_scroll, 0)),
+        Paragraph::new(
+            wrapped
+                .lines
+                .iter()
+                .skip(app.screen.source_scroll)
+                .take(usize::from(inner.height))
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+        .style(palette.ink),
         inner,
     );
     // P10: the original stays plain ink; only your own selection is drawn. The exact-quote
@@ -268,25 +281,20 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
             .positions
             .iter()
             .find(|(i, _, _)| *i == app.screen.source_cursor)
-        && let Some(row) = row.checked_sub(usize::from(app.screen.source_scroll))
+        && let Some(row) = row.checked_sub(app.screen.source_scroll)
         && row < usize::from(inner.height)
         && *col < usize::from(inner.width)
     {
         frame.set_cursor_position((inner.x + *col as u16, inner.y + row as u16));
     }
-    for (index, grapheme) in source.text.grapheme_indices(true) {
-        let Some((_, row, col)) = wrapped.positions.iter().find(|(i, _, _)| *i == index) else {
-            continue;
-        };
-        let Some(row) = row.checked_sub(usize::from(app.screen.source_scroll)) else {
+    for ((index, grapheme), (_, row, col)) in
+        source.text.grapheme_indices(true).zip(&wrapped.positions)
+    {
+        let Some(row) = row.checked_sub(app.screen.source_scroll) else {
             continue;
         };
         if row >= usize::from(inner.height) || *col >= usize::from(inner.width) || grapheme == "\n"
         {
-            continue;
-        }
-        let cell = &mut frame.buffer_mut()[(inner.x + *col as u16, inner.y + row as u16)];
-        if cell.symbol() != grapheme {
             continue;
         }
         let mut style = palette.ink;
@@ -297,6 +305,11 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
         {
             style = style.add_modifier(Modifier::REVERSED);
         }
-        cell.set_style(style);
+        for offset in 0..Note::display(grapheme).trim_end_matches('\n').width() {
+            if col + offset < usize::from(inner.width) {
+                frame.buffer_mut()[(inner.x + (col + offset) as u16, inner.y + row as u16)]
+                    .set_style(style);
+            }
+        }
     }
 }

@@ -47,6 +47,12 @@ fn every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane() {
             found += 1;
         }
     }
+    // Shared preflight now returns this fixed refusal instead of calling refuse directly.
+    let lines = Paragraph::new(layout::SCOPE_REFUSAL)
+        .wrap(Wrap { trim: false })
+        .line_count(narrowest);
+    assert!(lines <= usize::from(layout::STATUS_ROWS));
+    found += 1;
     assert!(found >= 18, "found only {found} refusals");
 }
 

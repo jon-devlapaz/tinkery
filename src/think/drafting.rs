@@ -21,7 +21,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-const LIMIT: usize = 32 * 1024;
+/// Maximum encoded request, instructions or reply bytes accepted by the Pi boundary.
+pub(super) const LIMIT: usize = 32 * 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -318,7 +319,23 @@ impl PiHost {
             let diagnostics = String::from_utf8_lossy(&diagnostics);
             if diagnostics.contains("429") && diagnostics.contains("rate_limit") {
                 return Err(
-                    "Pi provider rate limit (429); retry later. Previous paper retained.".into(),
+                    "Pi provider rate limit (429); retry later. No automatic retry.".into(),
+                );
+            }
+            let lower = diagnostics.to_ascii_lowercase();
+            if [
+                "context_length_exceeded",
+                "context window",
+                "input too long",
+                "context rejected",
+                "context length",
+                "input/context rejected",
+            ]
+            .iter()
+            .any(|s| lower.contains(s))
+            {
+                return Err(
+                    "Pi provider rejected the input/context size. No automatic retry.".into(),
                 );
             }
             return Err(format!(

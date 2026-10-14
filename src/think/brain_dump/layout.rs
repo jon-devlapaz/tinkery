@@ -6,7 +6,10 @@ use super::*;
 use ratatui::style::Modifier;
 
 /// The refused edit. Short enough for one row of the narrowest (80-column) right-hand pane.
-pub(super) const LIMIT_TEXT: &str = "Over 4096 bytes; nothing changed.";
+pub(super) const LIMIT_TEXT: &str = "Edit not accepted; words unchanged.";
+/// Staging refuses a skipped scope question before sending or committing words.
+pub(super) const SCOPE_REFUSAL: &str =
+    "Answer the skipped scope question first: Ctrl-Z brings it back.";
 /// Empty sends need one next step, without a permanent warning on the blank screen.
 pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then F2 sends it.";
 /// Notices that report a finished action and stay on the status row until replaced. Other
@@ -28,7 +31,7 @@ pub(super) const STATUS_ROWS: u16 = 2;
 /// key is never silent.
 fn status(app: &BrainDump) -> Option<&str> {
     let board = app.conversation.board().is_some();
-    if app.screen.refused {
+    if app.screen.refused.is_some() {
         Some(&app.notice)
     } else if app.running() && board {
         Some("Thinking…")
@@ -80,11 +83,13 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
         app.screen.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
-        if app.screen.refused {
+        if app.screen.refused.is_some() {
             // Show only a refusal, never the initial status as permanent clutter.
             frame.render_widget(
-                Paragraph::new(app.notice.as_str()).style(palette.muted),
-                Rect::new(4, area.height - 3, width, 1),
+                Paragraph::new(app.notice.as_str())
+                    .style(palette.muted)
+                    .wrap(Wrap { trim: false }),
+                Rect::new(4, area.height - 4, width, 2),
             );
         }
         return;
@@ -120,7 +125,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 checks::why(&app.diagnostics())
             )
         };
-        let text = ratatui::text::Text::styled(text, palette.ink);
+        let text = ratatui::text::Text::styled(Note::display(&text), palette.ink);
         let p = Paragraph::new(text)
             .style(palette.ink)
             .wrap(Wrap { trim: false });
@@ -246,6 +251,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     frame.render_widget(input, rows[2]);
     render_input(frame, app, palette);
     // A one-row status keeps its old row; a longer refusal takes both rows of the status area.
+    let encoded_bytes = app.encoded_bytes();
     let status = status(app).map(|text| {
         let p = Paragraph::new(text)
             .style(palette.muted)
@@ -253,8 +259,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         let lines = (p.line_count(rows[3].width) as u16).clamp(1, STATUS_ROWS);
         (p, lines)
     });
-    if let Some(bytes) = app
-        .encoded_bytes()
+    if let Some(bytes) = encoded_bytes
         .filter(|b| *b >= 28 * 1024 && status.as_ref().is_none_or(|(_, n)| *n < STATUS_ROWS))
     {
         let offset = if app.screen.goal_button.width > 0 {
@@ -263,7 +268,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             0
         };
         frame.render_widget(
-            Paragraph::new(format!("{bytes} / 32768 bytes")).style(palette.muted),
+            Paragraph::new(format!("{bytes} / {REQUEST_LIMIT} bytes")).style(palette.muted),
             Rect::new(
                 rows[3].x + offset,
                 rows[3].y,
@@ -314,7 +319,24 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         };
     }
     let open_now;
-    let now = if app.handoff.job.is_some() {
+    let now = if matches!(
+        app.screen.refused,
+        Some(Refusal::DraftTooLong | Refusal::EarlierWordsTooLong)
+    ) {
+        if app.screen.refused == Some(Refusal::EarlierWordsTooLong) {
+            concat!(
+                "Earlier words are too long to send. Nothing was sent; all words stay here. Shortening new words cannot help.\n",
+                "Ctrl-A then Ctrl-C copies local words. Tab selects originals; Ctrl-PgUp/PgDn switches them. ",
+                "Ctrl-A then Ctrl-C copies each to take elsewhere. Copying starts nothing."
+            )
+        } else {
+            concat!(
+                "Nothing was sent; all words stay here.\n",
+                "Ctrl-A then Ctrl-C copies the full draft. Deliberately replace it with fewer words, then F2 sends once. ",
+                "The model may still refuse."
+            )
+        }
+    } else if app.handoff.job.is_some() {
         "Saving your goal. Wait a moment."
     } else if app.handoff.review.is_some() && app.records() {
         "Type confirm, then Enter, to save this goal and its think record.\nEsc goes back without saving."
