@@ -1,4 +1,4 @@
-//! One rendering of a confirmed goal, shared by think's review and receipt and shape's detail,
+//! One rendering of a confirmed goal, shared by think's review and receipt and tend's detail,
 //! so the person sees the same words, wrapping and scroll behaviour in each place. It draws only;
 //! saving and reading are elsewhere.
 
@@ -24,7 +24,7 @@ pub struct SavedGoal<'a> {
     pub next: Option<&'a str>,
     /// A muted notice at the bottom, wrapped whole so it is never clipped, or empty.
     pub notice: &'a str,
-    /// Show "Saved." above the goal: true on think's receipt, false in review and shape.
+    /// Show "Saved." above the goal: true on think's receipt, false in review and tend.
     pub saved: bool,
 }
 

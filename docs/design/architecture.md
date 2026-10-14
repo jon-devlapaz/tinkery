@@ -23,7 +23,7 @@ ideas; the area entry points below contain navigation only.
 | --- | --- | --- |
 | menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [menu](../research/menu/backlog.md) |
 | think | `src/think/` | [think](../research/think/backlog.md) |
-| shape | `src/shape/` | [#106](https://github.com/jon-devlapaz/tinkery/issues/106), still needs approval |
+| tend | `src/tend/` | [#106](https://github.com/jon-devlapaz/tinkery/issues/106), still needs approval |
 | measure | `src/measure.rs` | [measure](../research/measure/backlog.md) |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
@@ -38,8 +38,8 @@ to the dependency rule: think hands a saved goal to shape only through `seed_me`
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
 | `menu.rs` | The menu: the six places and navigation between them. |
 | `measure.rs` | The ledger's read-only report. |
-| `shape/mod.rs` | The saved-goal list and detail, and copying the continuation prompt again. |
-| `shape/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
+| `tend/mod.rs` | The saved-goal list and detail, and copying the continuation prompt again. |
+| `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, and the continuation prompt (shared). |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and shape (shared). |

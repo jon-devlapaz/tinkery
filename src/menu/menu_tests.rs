@@ -1,7 +1,7 @@
-//! Menu and shape never wait on session discovery. The fake source is held open, so a
+//! Menu and tend never wait on session discovery. The fake source is held open, so a
 //! regression that reads inside paint, tick or input fails instead of passing quietly.
 use super::*;
-use crate::shape::{Found, Outcome, Session, Stage, scan};
+use crate::tend::{Found, Outcome, Session, Stage, scan};
 use serde_json::json;
 use std::{
     collections::HashSet,
@@ -115,7 +115,7 @@ fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
     wait_until("the worker to start", || gate.entered.load(SeqCst) == 1);
     for _ in 0..50 {
         let frame = screen(&mut h);
-        for name in ["think", "shape", "approve", "watch", "taste", "measure"] {
+        for name in ["think", "tend", "approve", "watch", "taste", "measure"] {
             assert!(frame.contains(name), "{frame}");
         }
         assert!(!frame.contains("Reading") && !frame.contains("No Seed Me"));
@@ -134,7 +134,7 @@ fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
     }
     h.handle_key(key(KeyCode::Char('2')));
     h.tick();
-    assert!(matches!(h.view, View::Shape(_)));
+    assert!(matches!(h.view, View::Tend(_)));
     h.handle_key(key(KeyCode::Esc));
     h.handle_key(key(KeyCode::Char('q')));
     assert!(h.quit, "quit is handled before discovery finishes");
@@ -175,7 +175,7 @@ fn many_requests_while_blocked_stay_bounded_to_one_worker() {
 }
 
 #[test]
-fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
+fn tend_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     let gate = Gate::new(found(vec![sess(
         "a",
         Stage::GoalSaved,
@@ -197,14 +197,12 @@ fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     );
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Enter));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(!shape.detail, "nothing to open yet");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail, "nothing to open yet");
     h.handle_key(key(KeyCode::F(1)));
     h.handle_key(key(KeyCode::Esc));
     h.handle_key(key(KeyCode::F(10)));
-    assert!(matches!(h.view, View::Menu), "F10 leaves shape");
+    assert!(matches!(h.view, View::Menu), "F10 leaves tend");
     assert!(!h.quit);
     h.handle_key(key(KeyCode::Char('2')));
     h.handle_key(key(KeyCode::Esc));
@@ -214,7 +212,7 @@ fn shape_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     settle(&mut h);
     assert!(
         matches!(h.view, View::Menu),
-        "a late result never reopens shape"
+        "a late result never reopens tend"
     );
     assert_eq!(h.selected, selected, "or moves the menu selection");
     assert_eq!(
@@ -237,7 +235,7 @@ fn a_slow_read_changes_one_quiet_line_and_starts_nothing() {
     h.handle_key(key(KeyCode::Char('2')));
     // The clock is an input of the real tick, so no test sleeps: the read's start plus a wait.
     let since = h.discovery.running_since().expect("a read is pending");
-    let threshold = shape::STILL_READING_AFTER;
+    let threshold = tend::STILL_READING_AFTER;
     h.tick_at(since + threshold - Duration::from_millis(1));
     let before = screen(&mut h);
     assert!(
@@ -261,10 +259,8 @@ fn a_slow_read_changes_one_quiet_line_and_starts_nothing() {
     assert_eq!(gate.live.load(SeqCst), 1);
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Enter));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(!shape.detail, "nothing to open yet");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.detail, "nothing to open yet");
     h.handle_key(key(KeyCode::Esc));
     assert!(matches!(h.view, View::Menu), "Esc still goes back");
     // The wait belongs to the read, not the visit: reopening meets the same slow read.
@@ -291,11 +287,11 @@ fn a_slow_read_behind_a_saved_session_says_so_too() {
     let mut h = home(gate.source());
     h.tick();
     wait_until("the worker to start", || gate.entered.load(SeqCst) == 1);
-    h.open_shape_session(Path::new("/TEST/new"));
+    h.open_tend_session(Path::new("/TEST/new"));
     let since = h.discovery.running_since().expect("a read is pending");
-    h.tick_at(since + shape::STILL_READING_AFTER - Duration::from_millis(1));
+    h.tick_at(since + tend::STILL_READING_AFTER - Duration::from_millis(1));
     assert!(screen(&mut h).contains("Reading your sessions. Esc goes back."));
-    h.tick_at(since + shape::STILL_READING_AFTER);
+    h.tick_at(since + tend::STILL_READING_AFTER);
     let frame = screen(&mut h);
     assert!(frame.contains("Still reading your sessions."), "{frame}");
     assert!(!frame.contains("unavailable"), "{frame}");
@@ -306,10 +302,8 @@ fn a_slow_read_behind_a_saved_session_says_so_too() {
     )]));
     gate.release(8);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(shape.detail && shape.error.is_none());
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail && tend.error.is_none());
 }
 
 #[test]
@@ -330,7 +324,7 @@ fn a_slow_reread_leaves_a_list_already_on_screen_alone() {
         .running_since()
         .expect("the second read is running");
     let before = screen(&mut h);
-    h.tick_at(since + shape::STILL_READING_AFTER * 10);
+    h.tick_at(since + tend::STILL_READING_AFTER * 10);
     let after = screen(&mut h);
     assert!(after.contains("goal a"), "{after}");
     assert!(!after.to_lowercase().contains("reading"), "{after}");
@@ -362,7 +356,7 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
         .discovery
         .running_since()
         .expect("the second read is running");
-    h.tick_at(since + shape::STILL_READING_AFTER * 10);
+    h.tick_at(since + tend::STILL_READING_AFTER * 10);
     let frame = screen(&mut h);
     assert!(
         frame.contains("Still reading your sessions. Esc goes back."),
@@ -393,10 +387,8 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
     settle(&mut h);
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Down));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert_eq!(shape.current().unwrap().path, PathBuf::from("/TEST/c"));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.current().unwrap().path, PathBuf::from("/TEST/c"));
     // A newer session appears at the top; the reader's selection does not move to it.
     let mut newer = vec![sess("n", Stage::GoalSaved, "2026-10-10T10:00:00Z")];
     newer.extend(old.clone());
@@ -406,10 +398,8 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
     settle(&mut h);
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Down));
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    let chosen = shape.current().unwrap().path.clone();
+    let View::Tend(tend) = &h.view else { panic!() };
+    let chosen = tend.current().unwrap().path.clone();
     // Open detail, then let a read land that edits that session's goal and drops another.
     h.handle_key(key(KeyCode::Enter));
     let mut edited = newer.clone();
@@ -419,27 +409,23 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
     h.discovery.request(&h.sessions_root.clone());
     gate.release(2);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(shape.detail);
-    assert_eq!(shape.current().unwrap().path, chosen);
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail);
+    assert_eq!(tend.current().unwrap().path, chosen);
     assert_ne!(
-        shape.current().unwrap().goal,
+        tend.current().unwrap().goal,
         "EDITED elsewhere",
         "frozen while read"
     );
     h.handle_key(key(KeyCode::Esc));
     h.tick();
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
+    let View::Tend(tend) = &h.view else { panic!() };
     assert_eq!(
-        shape.current().unwrap().path,
+        tend.current().unwrap().path,
         chosen,
         "selection follows identity"
     );
-    assert_eq!(shape.current().unwrap().goal, "EDITED elsewhere");
+    assert_eq!(tend.current().unwrap().goal, "EDITED elsewhere");
 }
 
 #[test]
@@ -453,7 +439,7 @@ fn receipt_detail_waits_for_a_read_that_can_contain_the_session() {
     let mut h = home(gate.source());
     h.tick();
     wait_until("first read started", || gate.entered.load(SeqCst) == 1);
-    h.open_shape_session(&target);
+    h.open_tend_session(&target);
     assert!(screen(&mut h).contains("Reading your sessions"));
     // The read that began before the save lands without it: still waiting, not "unavailable".
     gate.release(1);
@@ -470,12 +456,10 @@ fn receipt_detail_waits_for_a_read_that_can_contain_the_session() {
     ]));
     gate.release(1);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert!(shape.detail && shape.error.is_none());
-    assert_eq!(shape.current().unwrap().path, target);
-    assert_eq!(shape.current().unwrap().goal, "goal new");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.detail && tend.error.is_none());
+    assert_eq!(tend.current().unwrap().path, target);
+    assert_eq!(tend.current().unwrap().goal, "goal new");
 }
 
 #[test]
@@ -483,19 +467,16 @@ fn receipt_detail_for_a_session_a_complete_read_lacks_is_explicit() {
     let gate = Gate::new(found(vec![]));
     gate.release(4);
     let mut h = home(gate.source());
-    h.open_shape_session(Path::new("/TEST/missing"));
+    h.open_tend_session(Path::new("/TEST/missing"));
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
+    let View::Tend(tend) = &h.view else { panic!() };
     assert!(
-        shape
-            .error
+        tend.error
             .as_ref()
             .unwrap()
             .contains("Saved session is unavailable")
     );
-    assert!(shape.sessions.is_empty() && !shape.detail);
+    assert!(tend.sessions.is_empty() && !tend.detail);
 }
 
 #[test]
@@ -506,7 +487,7 @@ fn a_late_receipt_target_does_not_resurrect_an_exited_visit() {
         "2026-10-09T10:00:00Z",
     )]));
     let mut h = home(gate.source());
-    h.open_shape_session(Path::new("/TEST/a"));
+    h.open_tend_session(Path::new("/TEST/a"));
     h.handle_key(key(KeyCode::Esc));
     assert!(matches!(h.view, View::Menu));
     h.handle_key(key(KeyCode::Char('4')));
@@ -515,11 +496,9 @@ fn a_late_receipt_target_does_not_resurrect_an_exited_visit() {
     settle(&mut h);
     assert!(matches!(h.view, View::Menu));
     h.open(1);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
+    let View::Tend(tend) = &h.view else { panic!() };
     assert!(
-        shape.want.is_none() && !shape.detail,
+        tend.want.is_none() && !tend.detail,
         "the old target is gone"
     );
 }
@@ -591,7 +570,7 @@ fn only_unreadable_records_never_read_as_no_sessions() {
 }
 
 #[test]
-fn returning_from_think_and_reopening_shape_read_again_and_hide_a_stale_count() {
+fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
     let tmp = tempfile::tempdir().unwrap();
     write_session(tmp.path(), "first", "2026-10-09T10:00:00Z");
     let mut h = Home::new(
@@ -618,11 +597,9 @@ fn returning_from_think_and_reopening_shape_read_again_and_hide_a_stale_count() 
     write_session(tmp.path(), "later", "2026-10-11T10:00:00Z");
     h.open(1);
     settle(&mut h);
-    let View::Shape(shape) = &h.view else {
-        panic!()
-    };
-    assert_eq!(shape.sessions.len(), 3, "deliberate reopening reads again");
-    assert_eq!(shape.sessions[0].path.file_name().unwrap(), "later");
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.sessions.len(), 3, "deliberate reopening reads again");
+    assert_eq!(tend.sessions[0].path.file_name().unwrap(), "later");
 }
 
 fn write_session(root: &Path, id: &str, updated: &str) {
@@ -660,7 +637,7 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
     let times: Vec<_> = found
         .sessions
         .iter()
-        .map(|s| shape::timestamp(&s.updated).unwrap())
+        .map(|s| tend::timestamp(&s.updated).unwrap())
         .collect();
     assert!(times.windows(2).all(|w| w[0] >= w[1]), "newest first");
     let mut h = Home::new(

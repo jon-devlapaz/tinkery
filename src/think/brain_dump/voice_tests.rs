@@ -555,11 +555,7 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
     assert!(!layout::help_text(&a).contains("speak"));
     assert_eq!(
         layout::key_bar_items(&a),
-        vec![
-            ("c", "copy prompt"),
-            ("s", "open in shape"),
-            ("F10", "menu")
-        ]
+        vec![("c", "copy prompt"), ("s", "open in tend"), ("F10", "menu")]
     );
 }
 #[test]

@@ -1,4 +1,4 @@
-"""Read-only shape journeys with synthetic fixture sessions; no model calls or operator confirmation."""
+"""Read-only tend journeys with synthetic fixture sessions; no model calls or operator confirmation."""
 import base64, fcntl, json, os, re, select, struct, subprocess, tempfile, termios, time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,7 +12,7 @@ GOAL = ('I can read a calm dark theme while preserving every confirmed goal line
 
 
 def journey(width, height):
-    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-shape-') as directory:
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-tend-') as directory:
         root = Path(directory).resolve()
         sessions = root / 'TEST-sessions'
         now = datetime.now(timezone.utc)

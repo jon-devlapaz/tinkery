@@ -1,6 +1,6 @@
 //! Session discovery for the menu: one owned, read-only worker that never runs in paint.
 //!
-//! The menu and shape read only what this has already landed. Four states are kept apart:
+//! The menu and tend read only what this has already landed. Four states are kept apart:
 //! not known (nothing landed, or a newer request is still running), complete (every
 //! record was read), incomplete (some records could not be read) and failed (the root
 //! could not be read at all). A missing root is complete and empty: nothing exists yet.
@@ -15,7 +15,7 @@ use std::{
     time::Instant,
 };
 
-use super::{self as shape, Session, Stage};
+use super::{self as tend, Session, Stage};
 use crate::seed_me::{self, Record};
 
 /// What one scan found.
@@ -60,8 +60,8 @@ pub fn scan(root: &Path) -> Outcome {
         }
     }
     found.sessions.sort_by(|a, b| {
-        shape::timestamp(&b.updated)
-            .cmp(&shape::timestamp(&a.updated))
+        tend::timestamp(&b.updated)
+            .cmp(&tend::timestamp(&a.updated))
             .then_with(|| b.updated.cmp(&a.updated))
     });
     Ok(found)

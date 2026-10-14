@@ -49,11 +49,11 @@ maps individual modules to their responsibilities.
 | --- | --- | --- |
 | CLI, terminal loop, snapshots | `src/main.rs` | [principles](docs/design/principles.md) |
 | Module boundaries, design limits | `tests/architecture.rs` | [architecture](docs/design/architecture.md) |
-| Menu, session discovery, measure | `src/menu.rs`, `src/shape/discovery.rs`, `src/measure.rs` | [menu](docs/design/menu.md) |
+| Menu, session discovery, measure | `src/menu.rs`, `src/tend/discovery.rs`, `src/measure.rs` | [menu](docs/design/menu.md) |
 | Think: conversation, prompts, views, drafting, records, cards | `src/think/` | [think](docs/design/think.md) |
 | Think evaluation runner | `examples/think_eval.rs` | [think evaluation](docs/design/think-evaluation.md) |
 | Goal composition, validation, shared rendering | `src/goal/`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
-| Review, saving, shape, continuation | `src/think/brain_dump/goal_view.rs`, `src/shape/`, `src/seed_me/` | [shape and handoff](docs/design/shape-and-handoff.md) |
+| Review, saving, shape, continuation | `src/think/brain_dump/goal_view.rs`, `src/tend/`, `src/seed_me/` | [shape and handoff](docs/design/shape-and-handoff.md) |
 | Local voice and setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
 | Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md) |
 | Tests | inline Rust tests, `tests/`, `voice/*.test.mjs` | relevant tests; `tests/vt_screen.py` is a helper |

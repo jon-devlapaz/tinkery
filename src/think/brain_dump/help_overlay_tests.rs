@@ -24,7 +24,7 @@ fn escape_closes_help_before_cancelling_a_reading_and_keeps_words() {
 }
 
 #[test]
-fn review_and_receipt_help_cannot_confirm_copy_or_open_shape() {
+fn review_and_receipt_help_cannot_confirm_copy_or_open_tend() {
     let mut app = board();
     app.review_goal();
     app.paste("conf");

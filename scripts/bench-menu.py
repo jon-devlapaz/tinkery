@@ -10,7 +10,7 @@ Not part of the zero-call suite (it needs a release build and takes minutes):
 The monotonic clock starts immediately before the process is spawned. "First frame" ends when
 the PTY output has delivered a finished synchronized update that shows all six places.
 "Input" is the time from writing one Down arrow, right after that frame, until a finished frame
-shows the selection moved (shape's description appears). Page cache is warm: fixtures are written
+shows the selection moved (tend's description appears). Page cache is warm: fixtures are written
 just before sampling and every sample reuses them; nothing here drops caches or claims a cold disk.
 """
 import argparse, fcntl, json, math, os, platform, select, shutil, statistics, struct, subprocess, sys
@@ -20,8 +20,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from vt_screen import Screen  # noqa: E402
 
-PLACES = ['think', 'shape', 'approve', 'watch', 'taste', 'measure']
-SHAPE_LINE = 'Choose a saved goal and copy a prompt to continue.'
+PLACES = ['think', 'tend', 'approve', 'watch', 'taste', 'measure']
+TEND_LINE = 'Choose a saved goal and copy a prompt to continue.'
 WIDTH, HEIGHT = 100, 30
 
 
@@ -69,7 +69,7 @@ def sample(binary, home):
         first = until(lambda: all(name in screen.text() for name in PLACES))
         sent = time.monotonic_ns()
         os.write(master, b'\x1b[B')
-        done = until(lambda: SHAPE_LINE in screen.text())
+        done = until(lambda: TEND_LINE in screen.text())
         os.write(master, b'q')
         process.wait(timeout=5)
         return (first - t0) / 1e6, (done - sent) / 1e6, (done - t0) / 1e6

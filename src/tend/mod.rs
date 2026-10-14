@@ -1,6 +1,6 @@
-//! Shape: the saved goals list and one goal's detail, read from Seed Me sessions.
+//! Tend: the saved goals list and one goal's detail, read from Seed Me sessions.
 //!
-//! Shape only reads. It shows what discovery has landed, says plainly when that is unknown,
+//! Tend only reads. It shows what discovery has landed, says plainly when that is unknown,
 //! incomplete or failed, and offers the continuation prompt to copy; it never edits a session,
 //! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
 
@@ -31,7 +31,7 @@ use unicode_width::UnicodeWidthStr;
 /// this only shows when something is actually slow, such as a cold or network disk.
 pub(super) const STILL_READING_AFTER: Duration = Duration::from_secs(3);
 
-pub(super) struct Shape {
+pub(super) struct Tend {
     pub sessions: Vec<Session>,
     pub error: Option<String>,
     /// Nothing has landed yet: unknown, never "no sessions".
@@ -56,7 +56,7 @@ pub(super) struct Shape {
     pub notice: String,
     pub copy: Option<String>,
 }
-impl Shape {
+impl Tend {
     pub(super) fn new() -> Self {
         Self {
             sessions: vec![],
@@ -205,14 +205,14 @@ fn row(session: &Session, width: usize, now: Option<u64>) -> (String, String) {
     (format!("{title}{}", " ".repeat(gap)), suffix)
 }
 
-pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: Palette) {
-    let keys = if shape.detail {
-        if shape.current().is_some_and(|s| s.stage.can_copy()) {
+pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Palette) {
+    let keys = if tend.detail {
+        if tend.current().is_some_and(|s| s.stage.can_copy()) {
             "c copy prompt   esc back   10 menu"
         } else {
             "esc back   10 menu"
         }
-    } else if shape.sessions.is_empty() || shape.want.is_some() {
+    } else if tend.sessions.is_empty() || tend.want.is_some() {
         // Nothing on screen to move to or open: reading, unavailable or empty.
         "esc back"
     } else {
@@ -227,12 +227,10 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
             1,
         ),
     );
-    let stale_empty = shape.sessions.is_empty()
-        && shape.unreadable == 0
-        && shape.error.is_none()
-        && !shape.current;
-    if shape.pending || shape.want.is_some() || stale_empty {
-        let status = if shape.still_reading {
+    let stale_empty =
+        tend.sessions.is_empty() && tend.unreadable == 0 && tend.error.is_none() && !tend.current;
+    if tend.pending || tend.want.is_some() || stale_empty {
+        let status = if tend.still_reading {
             "Still reading your sessions. Esc goes back."
         } else {
             "Reading your sessions. Esc goes back."
@@ -240,19 +238,19 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         frame.render_widget(Paragraph::new(status).style(palette.muted), area);
         return;
     }
-    if shape.error.is_some() {
+    if tend.error.is_some() {
         frame.render_widget(
             Paragraph::new("Saved session unavailable. F1 then h for details.").style(palette.ink),
             area,
         );
         return;
     }
-    if shape.sessions.is_empty() {
+    if tend.sessions.is_empty() {
         frame.render_widget(
-            Paragraph::new(if shape.unreadable > 0 {
+            Paragraph::new(if tend.unreadable > 0 {
                 format!(
                     "{} couldn't be read, so nothing can be listed. Esc goes back.",
-                    records(shape.unreadable)
+                    records(tend.unreadable)
                 )
             } else {
                 "No Seed Me sessions yet. Confirm a goal in think to start one.".into()
@@ -262,17 +260,17 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         );
         return;
     }
-    if shape.detail {
-        let session = &shape.sessions[shape.selected];
+    if tend.detail {
+        let session = &tend.sessions[tend.selected];
         render_saved_goal(
             frame,
-            &mut shape.scroll,
+            &mut tend.scroll,
             area,
             palette,
             SavedGoal {
                 goal: &session.goal,
                 next: session.stage.next(),
-                notice: &shape.notice,
+                notice: &tend.notice,
                 saved: false,
             },
         );
@@ -282,7 +280,7 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         .duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs());
-    let lines: Vec<Line> = shape
+    let lines: Vec<Line> = tend
         .sessions
         .iter()
         .enumerate()
@@ -291,7 +289,7 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
             Line::from(vec![
                 Span::styled(
                     goal,
-                    if i == shape.selected {
+                    if i == tend.selected {
                         palette.jade
                     } else {
                         palette.ink
@@ -301,9 +299,9 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
             ])
         })
         .collect();
-    let note = shape.unreadable > 0 && area.height > 1;
+    let note = tend.unreadable > 0 && area.height > 1;
     let list = Rect::new(area.x, area.y, area.width, area.height - u16::from(note));
-    let skip = shape
+    let skip = tend
         .selected
         .saturating_sub(list.height.saturating_sub(1) as usize);
     frame.render_widget(
@@ -314,7 +312,7 @@ pub(super) fn render(frame: &mut Frame, shape: &mut Shape, area: Rect, palette: 
         frame.render_widget(
             Paragraph::new(format!(
                 "{} couldn't be read; this list may be missing sessions.",
-                records(shape.unreadable)
+                records(tend.unreadable)
             ))
             .style(palette.muted),
             Rect::new(area.x, area.bottom() - 1, area.width, 1),

@@ -219,13 +219,13 @@ impl Intake {
             let session = match dump.exit() {
                 Exit::Stay => None,
                 Exit::Menu => dump.saved().map(|r| (r.session.clone(), false)),
-                Exit::Shape(path) => Some((path.clone(), true)),
+                Exit::Tend(path) => Some((path.clone(), true)),
             };
-            if let Some((session, open_shape)) = session {
+            if let Some((session, open_tend)) = session {
                 let Self::Brain(dump) = std::mem::replace(self, Self::Brain(Box::default())) else {
                     unreachable!()
                 };
-                *self = Self::Home(Box::new(Home::from_receipt(*dump, &session, open_shape)));
+                *self = Self::Home(Box::new(Home::from_receipt(*dump, &session, open_tend)));
             }
         }
     }
