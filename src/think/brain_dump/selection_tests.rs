@@ -241,7 +241,7 @@ fn typing_paste_enter_and_delete_replace_the_selection_atomically() {
     a.input.cursor = 5;
     press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
     a.paste("S\r\nx\u{1b}[0m");
-    assert_eq!(a.input.text, "keep S\nx[0m keep");
+    assert_eq!(a.input.text, "keep S\r\nx\u{1b}[0m keep");
     a.input.select_all();
     key(&mut a, KeyCode::Enter);
     assert_eq!(a.input.text, "\n");
@@ -262,22 +262,18 @@ fn typing_paste_enter_and_delete_replace_the_selection_atomically() {
 }
 
 #[test]
-fn oversize_paste_over_a_selection_changes_nothing_and_says_why() {
+fn large_paste_over_a_selection_retains_surrounding_bytes() {
     let base = "a".repeat(4090) + "BCDEFG";
     let mut a = writing(&base);
     a.input.cursor = 4090;
     for _ in 0..2 {
         press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
     }
-    let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
-    a.paste(&"z".repeat(20));
-    assert_eq!(
-        (a.input.text.clone(), a.input.cursor, a.input.selection()),
-        before
-    );
-    assert!(a.notice.contains("4096"));
+    a.paste(&"z".repeat(5000));
+    assert_eq!(a.input.text, "a".repeat(4090) + &"z".repeat(5000) + "DEFG");
+    a.input.select_all();
     ctrl_c(&mut a);
-    assert_eq!(a.take_copy_request().as_deref(), Some("BC"));
+    assert_eq!(a.take_copy_request(), Some(a.input.text.clone()));
 }
 
 #[test]
@@ -412,21 +408,17 @@ fn paste_delete_and_buffer_replacement_during_a_drag_end_it_too() {
 }
 
 #[test]
-fn a_rejected_oversize_edit_during_a_drag_changes_nothing_and_keeps_the_drag() {
+fn a_large_edit_during_a_drag_ends_the_old_selection() {
     let mut a = writing(&("a".repeat(4090) + "BCDEFG"));
     let (x, y) = (a.screen.input_area.x, a.screen.input_area.y);
     click(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
     click(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 3, y);
-    let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
     a.paste(&"z".repeat(5000));
-    assert_eq!(
-        (a.input.text.clone(), a.input.cursor, a.input.selection()),
-        before
-    );
+    assert_eq!(a.input.text.len(), 9093);
     click(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 5, y);
     assert!(
-        a.input.selection().is_some(),
-        "an unchanged text keeps its drag"
+        a.input.selection().is_none(),
+        "replacement ends the old drag"
     );
 }
 
@@ -540,48 +532,23 @@ fn cards_covering_the_original_hide_its_selection_but_not_the_writing_box() {
 }
 
 #[test]
-fn the_oversize_notice_is_rendered_cleared_by_the_next_input_and_beats_other_status_rows() {
+fn encoded_send_refusal_is_visible_at_every_size_and_next_input_clears_it() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
-        let mut a = writing(&("a".repeat(4090) + "BCDEFG"));
-        a.input.cursor = 4090;
-        for _ in 0..3 {
-            press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
-        }
+        let mut a = writing(&"z".repeat(32768));
+        a.input.select_all();
         let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
-        a.paste(&"z".repeat(20));
+        a.submit();
         assert_eq!(
             (a.input.text.clone(), a.input.cursor, a.input.selection()),
             before
         );
-        let shown = snapshot(w, h, &mut a, false).unwrap();
+        let shown = snapshot(w, h, &mut a, true).unwrap();
         assert!(
-            shown.contains("Over 4096 bytes; nothing changed."),
+            shown.contains("Too long to send") && shown.contains("Ctrl-A/C"),
             "{w}x{h}\n{shown}"
         );
-        // Overlapping status: an unapplied reading would draw "Reading couldn't be updated."
-        a.conversation.set_applied(0);
-        let shown = snapshot(w, h, &mut a, false).unwrap();
-        assert!(
-            shown.contains("Over 4096 bytes"),
-            "{w}x{h} with an unapplied reading\n{shown}"
-        );
-        // And a running request would draw "Thinking…" on the same row.
-        let (_tx, rx) = std::sync::mpsc::channel();
-        a.handoff.job = Some(rx);
-        let shown = snapshot(w, h, &mut a, false).unwrap();
-        assert!(
-            shown.contains("Over 4096 bytes") && !shown.contains("Thinking…"),
-            "{w}x{h} running\n{shown}"
-        );
-        a.handoff.job = None;
-        // The next input clears it: no permanent clutter.
         key(&mut a, KeyCode::Left);
-        assert!(
-            !snapshot(w, h, &mut a, false)
-                .unwrap()
-                .contains("Over 4096 bytes"),
-            "{w}x{h}"
-        );
+        assert!(a.screen.refused.is_none());
         assert_eq!(a.input.text, before.0);
     }
 }
@@ -605,21 +572,127 @@ fn backspace_or_delete_without_a_selection_ends_a_held_drag() {
 }
 
 #[test]
-fn the_limit_notice_shows_on_the_first_screen_before_any_send() {
+fn raw_controls_are_safe_in_sources_titles_cards_and_selections() {
+    let raw = "\u{1b}]2;BAD_TITLE\u{7}\r\nfirst\t\0\u{85}last";
+    let mut a = ready();
+    a.conversation.sources_mut()[0].text = raw.into();
+    a.extract_range(1, 0, raw.len()).unwrap();
+    assert_eq!(a.conversation.fragments()[0].text, raw);
+    assert_eq!(a.screen.canvas.state.data.nodes[0].text(), raw);
+    assert!(!intact_view::title(raw).chars().any(char::is_control));
+    for cards in [false, true] {
+        a.screen.show_extractions = cards;
+        let shown = snapshot(80, 24, &mut a, true).unwrap();
+        assert!(!shown.chars().any(|c| c.is_control() && c != '\n'));
+        assert!(shown.contains("␛"), "{shown}");
+    }
+    a.screen.show_extractions = false;
+    key(&mut a, KeyCode::Tab);
+    press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+    ctrl_c(&mut a);
+    assert_eq!(a.take_copy_request().as_deref(), Some(raw));
+    super::tests::amend_board(&mut a, |g| {
+        for f in &mut g.framings {
+            f.supports = vec![Anchor {
+                source: 1,
+                quote: raw.into(),
+                occurrence: 0,
+            }];
+        }
+        g.misfits = vec![Anchor {
+            source: 1,
+            quote: raw.into(),
+            occurrence: 0,
+        }];
+    });
+    a.review_goal();
+    assert!(a.handoff.review.is_some());
+    let shown = snapshot(80, 24, &mut a, true).unwrap();
+    assert!(!shown.chars().any(|c| c.is_control() && c != '\n'));
+}
+
+#[test]
+fn safe_control_cells_highlight_their_raw_selection_on_both_surfaces() {
+    let raw = "a\t\u{1b}\0\r\nz";
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let mut a = writing(raw);
+        a.conversation.sources_mut()[0].text = raw.into();
+        for original in [false, true] {
+            if original {
+                key(&mut a, KeyCode::Tab);
+            }
+            press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
+            let mut terminal =
+                ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+            terminal
+                .draw(|f| render(f, &mut a, Palette::new(true)))
+                .unwrap();
+            let area = if original {
+                a.screen.source_area
+            } else {
+                a.screen.input_area
+            };
+            let wrapped = Note::new(raw).wrap(area.width);
+            for (offset, row, col) in &wrapped.positions {
+                if *offset == raw.len() {
+                    continue;
+                }
+                let safe = Note::display(raw[*offset..].graphemes(true).next().unwrap());
+                for cell in 0..safe.trim_end_matches('\n').width() {
+                    let buffer = terminal.backend().buffer();
+                    assert!(
+                        buffer[(area.x + (*col + cell) as u16, area.y + *row as u16)]
+                            .modifier
+                            .contains(ratatui::style::Modifier::REVERSED)
+                    );
+                }
+            }
+            ctrl_c(&mut a);
+            assert_eq!(a.take_copy_request().as_deref(), Some(raw));
+        }
+    }
+}
+
+#[test]
+fn editor_and_original_viewports_do_not_alias_beyond_u16_rows() {
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        let raw = "x\n".repeat(70000) + "unique tail";
+        let mut a = writing(&raw);
+        let began = std::time::Instant::now();
+        let shown = snapshot(w, h, &mut a, true).unwrap();
+        assert!(shown.contains("unique tail"));
+        assert!(a.screen.input_scroll > 65535);
+        a.conversation.sources_mut()[0].text = raw.clone();
+        a.screen.source_cursor = raw.len();
+        a.screen.source_scroll = 69999;
+        let shown = snapshot(w, h, &mut a, true).unwrap();
+        assert!(shown.contains("unique tail"));
+        key(&mut a, KeyCode::Tab);
+        key(&mut a, KeyCode::Up);
+        assert_eq!(a.screen.source_cursor, 139999);
+        eprintln!(
+            "viewport={w}x{h}, rows=70001, bytes={}, elapsed={:?}",
+            raw.len(),
+            began.elapsed()
+        );
+    }
+}
+
+#[test]
+fn large_paste_is_local_and_encoded_refusal_shows_before_the_first_send() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = BrainDump::default();
         snapshot(w, h, &mut a, false).unwrap();
-        a.paste(&"a".repeat(5000));
-        assert!(a.input.text.is_empty(), "nothing inserted");
-        let shown = snapshot(w, h, &mut a, false).unwrap();
+        a.paste(&"a".repeat(32768));
+        assert_eq!(a.input.text.len(), 32768);
+        assert!(a.conversation.sources().is_empty() && !a.running());
+        a.submit();
+        let shown = snapshot(w, h, &mut a, true).unwrap();
         assert!(
-            shown.contains("Over 4096 bytes; nothing changed."),
+            shown.contains("Too long to send") && shown.contains("replace, F2"),
             "{w}x{h}\n{shown}"
         );
-        key(&mut a, KeyCode::Char('q'));
-        assert!(
-            !snapshot(w, h, &mut a, false).unwrap().contains("Over 4096"),
-            "cleared"
-        );
+        assert_eq!(a.input.text.len(), 32768);
+        assert!(a.conversation.sources().is_empty() && !a.running());
     }
 }

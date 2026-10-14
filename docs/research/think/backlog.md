@@ -4,6 +4,13 @@ Drafts, not permission. [Work intake](../../../AGENTS.md#work-intake) says how a
 
 ## Loose ends
 
+- **Large drafts rewrap the whole buffer.** The debug insertion/wrap/motion/full-selection
+  fixture measured 224 to 240 ms for about 131 KB and 65,534 to 65,536 logical rows.
+  This is a combined fixture time, not a pure per-keystroke measurement. Wrapping rebuilds
+  all rows and cursor lookup scans positions, so typing and motion can lag on large drafts.
+  Measure single-edit/render latency separately before choosing wrap caching. Caching is
+  later work, not part of paste reliability.
+
 - **The think screen can hide Must not lines.** At 100×30 the newsletter goal's exclusions
   were cut mid-line or missing (3/3 live runs, 2026-10-13); review shows them. A boundary the
   person can't see breaks Art 6 (`src/think/brain_dump/layout.rs`).

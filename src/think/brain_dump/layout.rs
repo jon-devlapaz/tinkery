@@ -6,7 +6,10 @@ use super::*;
 use ratatui::style::Modifier;
 
 /// The refused edit. Short enough for one row of the narrowest (80-column) right-hand pane.
-pub(super) const LIMIT_TEXT: &str = "Over 4096 bytes; nothing changed.";
+pub(super) const LIMIT_TEXT: &str = "Edit not accepted; words unchanged.";
+/// Staging refuses a skipped scope question before sending or committing words.
+pub(super) const SCOPE_REFUSAL: &str =
+    "Answer the skipped scope question first: Ctrl-Z brings it back.";
 /// Empty sends need one next step, without a permanent warning on the blank screen.
 pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then F2 sends it.";
 /// Notices that report a finished action and stay on the status row until replaced. Other
@@ -28,7 +31,7 @@ pub(super) const STATUS_ROWS: u16 = 2;
 /// key is never silent.
 fn status(app: &BrainDump) -> Option<&str> {
     let board = app.conversation.board().is_some();
-    if app.screen.refused {
+    if app.screen.refused.is_some() {
         Some(&app.notice)
     } else if app.running() && board {
         Some("Thinking…")
@@ -80,11 +83,13 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         );
         app.screen.input_area = Rect::new(4, 8, width, area.height - 12);
         render_input(frame, app, palette);
-        if app.screen.refused {
+        if app.screen.refused.is_some() {
             // Show only a refusal, never the initial status as permanent clutter.
             frame.render_widget(
-                Paragraph::new(app.notice.as_str()).style(palette.muted),
-                Rect::new(4, area.height - 3, width, 1),
+                Paragraph::new(app.notice.as_str())
+                    .style(palette.muted)
+                    .wrap(Wrap { trim: false }),
+                Rect::new(4, area.height - 4, width, 2),
             );
         }
         return;
@@ -120,7 +125,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 checks::why(&app.diagnostics())
             )
         };
-        let text = ratatui::text::Text::styled(text, palette.ink);
+        let text = ratatui::text::Text::styled(Note::display(&text), palette.ink);
         let p = Paragraph::new(text)
             .style(palette.ink)
             .wrap(Wrap { trim: false });
@@ -314,7 +319,25 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         };
     }
     let open_now;
-    let now = if app.handoff.job.is_some() {
+    let now = if matches!(
+        app.screen.refused,
+        Some(Refusal::DraftTooLong | Refusal::EarlierWordsTooLong)
+    ) {
+        if app.screen.refused == Some(Refusal::EarlierWordsTooLong) {
+            concat!(
+                "Your earlier words and reading are too long to send, even without new words. Nothing was sent. All your words stay here. ",
+                "Shortening new words cannot fix this conversation.\n",
+                "Ctrl-A then Ctrl-C copies local words. Tab selects the original pane; Ctrl-PgUp/PgDn switches originals; ",
+                "Ctrl-A then Ctrl-C copies each one. Carry them to another editor or tool yourself. Copying changes nothing and starts nothing."
+            )
+        } else {
+            concat!(
+                "These words are too long to send. Nothing was sent. Your draft and earlier words stay here.\n",
+                "Ctrl-A then Ctrl-C copies the full local draft. Deliberately replace it with fewer words, then F2 sends once. ",
+                "Earlier words and the reading also take space. The model may refuse a long send too."
+            )
+        }
+    } else if app.handoff.job.is_some() {
         "Saving your goal. Wait a moment."
     } else if app.handoff.review.is_some() && app.records() {
         "Type confirm, then Enter, to save this goal and its think record.\nEsc goes back without saving."

@@ -46,6 +46,59 @@ fn start(a: &mut BrainDump, fake: &Rc<RefCell<Fake>>) {
 }
 
 #[test]
+fn raw_display_mapping_styles_fake_voice_without_searching_transformed_rows() {
+    let raw = "same\r\n\u{1b}[0m\tsame\r\nsame";
+    let partial = "preview\t\u{1b}[31m\0中";
+    for width in [2, 32, 72, 96, 156, 316] {
+        let (mut a, fake) = attach(BrainDump::default());
+        a.input = Note::new(raw);
+        a.input.cursor = 6;
+        a.screen.input_area.width = width;
+        start(&mut a, &fake);
+        event(
+            &mut a,
+            &fake,
+            Event::Partial {
+                take: 1,
+                text: partial.into(),
+            },
+        );
+        let palette = Palette::new(true);
+        let (_, text) = voice_input::input_text(&a, palette);
+        let expected = Note::new(&format!("{}{}{}", &raw[..6], partial, &raw[6..])).wrap(width);
+        assert_eq!(text.to_string(), expected.lines.join("\n"));
+        let muted = text
+            .lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .filter(|s| s.style == palette.muted)
+            .map(|s| s.content.as_ref())
+            .collect::<String>();
+        assert_eq!(muted, Note::display(partial));
+        assert_eq!(a.input.text, raw);
+        assert!(
+            !text
+                .to_string()
+                .chars()
+                .any(|c| c.is_control() && c != '\n')
+        );
+        event(
+            &mut a,
+            &fake,
+            Event::Final {
+                take: 1,
+                text: partial.into(),
+            },
+        );
+        assert_eq!(
+            a.input.text,
+            format!("{}{}{}", &raw[..6], partial, &raw[6..])
+        );
+        assert!(a.conversation.sources().is_empty());
+    }
+}
+
+#[test]
 fn partial_and_final_follow_current_cursor_not_a_captured_anchor() {
     let (mut a, fake) = attach(BrainDump::default());
     a.input = Note::new("A🙂Z");
@@ -378,15 +431,8 @@ fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
     }
 }
 #[test]
-fn empty_fillers_and_insert_overflow_never_send_or_overwrite() {
-    for final_text in [
-        "",
-        "thank you",
-        "YOU.",
-        ".",
-        "\u{1b}\r",
-        "x".repeat(4097).as_str(),
-    ] {
+fn empty_fillers_never_send_or_overwrite() {
+    for final_text in ["", "thank you", "YOU.", "."] {
         let (mut a, fake) = attach(BrainDump::default());
         a.paste("typed");
         start(&mut a, &fake);
@@ -403,11 +449,31 @@ fn empty_fillers_and_insert_overflow_never_send_or_overwrite() {
         assert!(a.conversation.sources().is_empty());
         assert!(!a.running());
         let notice = a.voice.as_ref().unwrap().notice();
-        assert!(notice == "Didn't catch that." || notice.contains("4096"));
+        assert_eq!(notice, "Didn't catch that.");
     }
 }
 #[test]
-fn final_uses_existing_paste_sanitation_and_does_not_grant_confirmation() {
+fn large_fake_voice_final_uses_editor_storage_not_request_policy() {
+    let (mut a, fake) = attach(BrainDump::default());
+    a.paste("typed ");
+    let raw = "spoken 中\r\n\t\0".repeat(400);
+    assert!(raw.len() > 4096);
+    start(&mut a, &fake);
+    event(
+        &mut a,
+        &fake,
+        Event::Final {
+            take: 1,
+            text: raw.clone(),
+        },
+    );
+    assert_eq!(a.input.text, format!("typed {raw}"));
+    assert!(a.conversation.sources().is_empty() && !a.running());
+    assert!(!a.voice.as_ref().unwrap().notice().contains("4096"));
+}
+
+#[test]
+fn final_preserves_raw_words_and_does_not_grant_confirmation() {
     let (mut a, fake) = attach(BrainDump::default());
     start(&mut a, &fake);
     event(
@@ -418,7 +484,9 @@ fn final_uses_existing_paste_sanitation_and_does_not_grant_confirmation() {
             text: "a\r\nb\u{0}confirm\u{1b}".into(),
         },
     );
-    assert_eq!(a.input.text, "a\nbconfirm");
+    assert_eq!(a.input.text, "a\r\nb\u{0}confirm\u{1b}");
+    let shown = snapshot(100, 30, &mut a, true).unwrap();
+    assert!(!shown.contains('\u{1b}') && !shown.contains('\u{0}'));
     assert!(a.conversation.sources().is_empty());
     assert!(a.handoff.receipt.is_none());
     assert!(a.handoff.review.is_none());

@@ -81,7 +81,7 @@ impl BrainDump {
         if !self.voice_allowed() {
             return;
         }
-        let text = Note::sanitize(&result.text);
+        let text = result.text;
         if silence_filler(&text) {
             self.voice.as_mut().unwrap().missed();
             return;
@@ -104,14 +104,14 @@ impl BrainDump {
 
 /// True while dictation shows a live preview in the writing box.
 pub(super) fn previewing(app: &BrainDump) -> bool {
-    !Note::sanitize(app.voice.as_ref().map_or("", Voice::partial)).is_empty()
+    !app.voice.as_ref().map_or("", Voice::partial).is_empty()
 }
 
 pub(super) fn input_text(
     app: &BrainDump,
     palette: Palette,
 ) -> (super::super::note::Wrapped, Text<'static>) {
-    let partial = Note::sanitize(app.voice.as_ref().map_or("", Voice::partial));
+    let partial = app.voice.as_ref().map_or("", Voice::partial);
     if partial.is_empty() {
         let wrapped = app.input.wrap(app.screen.input_area.width);
         let text = Text::styled(wrapped.lines.join("\n"), palette.ink);
@@ -133,31 +133,20 @@ pub(super) fn input_text(
         .last()
         .unwrap_or(0);
     let wrapped = preview.wrap(app.screen.input_area.width);
-    let mut scan = 0;
-    let lines = wrapped
-        .lines
-        .iter()
-        .map(|line| {
-            scan += preview.text[scan..].find(line).unwrap();
-            let line_start = scan;
-            scan += line.len();
-            Line::from(
-                line.grapheme_indices(true)
-                    .map(|(i, g)| {
-                        let at = line_start + i;
-                        Span::styled(
-                            g.to_owned(),
-                            if at < end && at + g.len() > start {
-                                palette.muted
-                            } else {
-                                palette.ink
-                            },
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect::<Vec<_>>();
+    let mut lines = vec![Line::default(); wrapped.lines.len()];
+    for ((at, g), (_, row, _)) in preview.text.grapheme_indices(true).zip(&wrapped.positions) {
+        let safe = Note::display(g);
+        let safe = safe.trim_end_matches('\n');
+        // Raw positions, not substring searches in transformed or repeated display rows.
+        lines[*row].spans.push(Span::styled(
+            safe.to_owned(),
+            if at < end && at + g.len() > start {
+                palette.muted
+            } else {
+                palette.ink
+            },
+        ));
+    }
     (wrapped, Text::from(lines))
 }
 

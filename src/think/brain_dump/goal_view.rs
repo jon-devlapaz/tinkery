@@ -417,7 +417,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     };
     // One message row group (a refusal, the save in progress, a failed save, else the
     // instruction), the typed word, then Back on a row of its own, so nothing paints over it.
-    let message = if app.screen.refused {
+    let message = if app.screen.refused.is_some() {
         app.notice.clone()
     } else if app.handoff.job.is_some() {
         "Saving…".into()
@@ -465,7 +465,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     if !open.is_empty() {
         body.push_str(&format!("\n\nStill open\n{}", open.join("\n\n")));
     }
-    let p = goal_block(body, palette);
+    let p = goal_block(Note::display(&body), palette);
     review.max = p
         .line_count(rows[0].width)
         .saturating_sub(rows[0].height as usize) as u16;
@@ -486,10 +486,10 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         let mut note = Note::new(&prompt);
         note.cursor = prompt.len();
         let wrapped = note.wrap(rows[1].width);
-        if wrapped.cursor.0 < rows[1].height {
+        if wrapped.cursor.0 < usize::from(rows[1].height) {
             frame.set_cursor_position((
                 rows[1].x + wrapped.cursor.1.min(rows[1].width - 1),
-                rows[1].y + wrapped.cursor.0,
+                rows[1].y + wrapped.cursor.0 as u16,
             ));
         }
     }

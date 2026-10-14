@@ -181,6 +181,9 @@ fn one_shape_then_one_review_never_auto_repairs_or_withholds() {
         ("syntax", false),
         ("invalid", false),
         ("transport", false),
+        ("review-transport", true),
+        ("review-syntax", true),
+        ("review-cap", true),
     ] {
         let dir = tempfile::tempdir().unwrap();
         let skill = dir.path().join("SKILL.md");
@@ -193,7 +196,11 @@ fn one_shape_then_one_review_never_auto_repairs_or_withholds() {
             ask_counts: Default::default(),
             sources: vec![Source {
                 id: 1,
-                text: "the restaurateur judges the result".into(),
+                text: if mode == "review-cap" {
+                    "original words ".repeat(150)
+                } else {
+                    "the restaurateur judges the result".into()
+                },
                 in_reply_to: None,
             }],
             fragments: vec![],
@@ -215,6 +222,8 @@ log=root/'calls.jsonl'
 previous=[json.loads(s) for s in log.read_text().splitlines()] if log.exists() else []
 with log.open('a') as f:f.write(json.dumps(dict(kind=kind,request=r))+'\n')
 if kind=='decision-review':
+ if mode=='review-transport':print('provider context rejected',file=sys.stderr);sys.exit(2)
+ if mode=='review-syntax':print('unreadable review');sys.exit(0)
  assert sorted(r)==['answers','decisions','draft','kind','words'] and r['words']==['the restaurateur judges the result']
  assert r['decisions']==[]
  p=sys.argv[sys.argv.index('--system-prompt')+1]
@@ -223,9 +232,9 @@ if kind=='decision-review':
  (root/'review-ok').write_text('1')
  print(json.dumps(dict(decisions=[])));sys.exit(0)
 assert not previous
-if mode=='transport':sys.exit(2)
+if mode=='transport':print('provider context rejected',file=sys.stderr);sys.exit(2)
 if mode=='syntax':print('not JSON');sys.exit(0)
-print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote='invented' if mode=='invalid' else r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
+print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*31500 if mode=='review-cap' else 'A judged result'),uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote='invented' if mode=='invalid' else r['sources'][0]['text'][:10] if mode=='review-cap' else r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#)).unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
         let pi = PiHost::new(program, "test/model".into(), skill)
@@ -250,9 +259,65 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
             "{mode}: only shaping and review calls: {calls}"
         );
         // The decision review runs only on a readable board, once.
-        let readable = !matches!(mode, "syntax" | "transport");
-        assert_eq!(reviews, usize::from(readable), "{mode}: {calls}");
-        assert_eq!(dir.path().join("review-ok").exists(), readable, "{mode}");
+        let reviewed = !matches!(mode, "syntax" | "transport" | "review-cap");
+        assert_eq!(reviews, usize::from(reviewed), "{mode}: {calls}");
+        let review_ok = reviewed && !matches!(mode, "review-transport" | "review-syntax");
+        assert_eq!(dir.path().join("review-ok").exists(), review_ok, "{mode}");
+        if mode.starts_with("review-") {
+            let logs = pi.diagnostics().join("\n");
+            assert!(
+                logs.contains(if mode == "review-syntax" {
+                    "Ignored decision review"
+                } else {
+                    "Decision review skipped"
+                }),
+                "{logs}"
+            );
+            assert_eq!(
+                result.as_ref().unwrap().parts.outcome.as_deref(),
+                Some("judge the result")
+            );
+            assert!(
+                !logs.contains("previous reading retained")
+                    && !logs.contains("Previous paper retained")
+            );
+            if mode == "review-transport" {
+                assert!(logs.contains("provider rejected the input/context size"));
+            }
+            if mode == "review-cap" {
+                assert!(logs.contains("Encoded request exceeds 32 KiB"));
+                let decision: checks::Decision =
+                    serde_json::from_str(&pi.diagnostics()[0]).unwrap();
+                let raw = decision.raw.as_ref().unwrap();
+                let shape_bytes = serde_json::to_vec(&r).unwrap().len();
+                let review_bytes = review::input(&r, raw).unwrap().len();
+                assert!(shape_bytes <= 32768 && raw.len() <= 32768 && review_bytes > 32768);
+                eprintln!(
+                    "review-only cap: shaping input={shape_bytes}, shaping output={}, review input={review_bytes}, fake starts=1",
+                    raw.len()
+                );
+            }
+            let mut a = BrainDump::default();
+            a.conversation.sources_mut().push(r.sources[0].clone());
+            let mut previous = result.clone().unwrap();
+            previous.parts.outcome = Some("retain the previous reading".into());
+            a.apply_result(r.clone(), Ok(previous));
+            assert_eq!(
+                a.conversation.board().unwrap().parts.outcome.as_deref(),
+                Some("retain the previous reading")
+            );
+            a.apply_result(r.clone(), result.clone());
+            assert_eq!(
+                a.conversation.board().unwrap().parts.outcome.as_deref(),
+                Some("judge the result")
+            );
+            assert_eq!(a.conversation.sources()[0].text, r.sources[0].text);
+            assert!(a.conversation.last_failure().is_none());
+        }
+        eprintln!(
+            "mode={mode}, fake process starts={}, reviews={reviews}",
+            calls.lines().count()
+        );
         for log in pi.diagnostics() {
             let d: checks::Decision = serde_json::from_str(&log).unwrap();
             assert!(!d.request_key.is_empty());
@@ -281,6 +346,7 @@ r=json.load(sys.stdin)
 kind=r.get('kind','shape')
 with (root/'calls').open('a') as f:f.write(kind+'\n')
 if kind=='decision-review':print(json.dumps(dict(decisions=[])));sys.exit(0)
+if (root/'reject').exists():print('provider input/context rejected',file=sys.stderr);sys.exit(2)
 print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -300,10 +366,50 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
         a.tick();
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    drop(a);
     assert_eq!(
         std::fs::read_to_string(dir.path().join("calls")).unwrap(),
         "shape\ndecision-review\n"
+    );
+    let old = a.conversation.board().unwrap().reading.clone();
+    let original = a.conversation.sources()[0].text.clone();
+    std::fs::write(dir.path().join("reject"), "1").unwrap();
+    let answer = "exact\r\n\t\0".repeat(600);
+    a.paste(&answer);
+    // This legacy reading has no goal parts/question, so treat the new words as a
+    // settled answer for this failure-path fixture rather than an unscoped addition.
+    super::tests::amend_board(&mut a, |g| {
+        g.questions.push(Question {
+            target: None,
+            id: "failure-answer".into(),
+            text: "What matters?".into(),
+        })
+    });
+    a.submit();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while a.running() && std::time::Instant::now() < deadline {
+        a.tick();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert!(!a.running());
+    assert_eq!(a.conversation.board().unwrap().reading, old);
+    assert_eq!(a.conversation.sources()[0].text, original);
+    assert_eq!(a.conversation.sources()[1].text, answer);
+    assert!(
+        a.input.text.is_empty(),
+        "failed shaping words are committed originals, not local draft"
+    );
+    assert!(a.notice.contains("Reshape failed"), "{}", a.notice);
+    assert!(a.conversation.last_failure().is_some());
+    assert!(
+        a.notice
+            .contains("provider rejected the input/context size")
+    );
+    for _ in 0..10 {
+        a.tick();
+    }
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("calls")).unwrap(),
+        "shape\ndecision-review\nshape\n"
     );
 }
 

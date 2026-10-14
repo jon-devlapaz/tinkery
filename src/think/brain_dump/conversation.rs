@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// question is in focus, what is still open, how added words are scoped, and what the next
 /// request carries. It knows nothing about the screen, keys or running jobs, so every rule
 /// here can be tested without a terminal.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Conversation {
     sources: Vec<Source>,
     fragments: Vec<Fragment>,
@@ -327,61 +327,6 @@ impl Conversation {
         };
         self.fragments.push(fragment);
         Ok(self.fragments.last().unwrap())
-    }
-
-    /// The size of the request the draft would make now, shown as the 32 KiB cap nears.
-    pub(super) fn encoded_bytes(
-        &self,
-        words: &str,
-        add_more: bool,
-        layout: Vec<(String, f64, f64)>,
-    ) -> Option<usize> {
-        let mut sources = self.sources.clone();
-        let mut settled = self.settled.clone();
-        if !words.trim().is_empty() {
-            let sid = sources.len() + 1;
-            let q = self.focused_question().filter(|_| !add_more).cloned();
-            if let Some(q) = &q {
-                settled.push(Settled {
-                    question: q.clone(),
-                    source: sid,
-                });
-            }
-            sources.push(Source {
-                id: sid,
-                text: words.to_owned(),
-                in_reply_to: q.map(|q| q.id),
-            });
-        }
-        let mut r = BoardRequest {
-            ask_counts: self.ask_counts.clone(),
-            answered: sources
-                .iter()
-                .filter_map(|s| s.in_reply_to.clone())
-                .collect(),
-            sources,
-            settled,
-            previous: self.board.as_ref().map(|g| g.wire()),
-            fragments: self.fragments.clone(),
-            skipped: self.skipped.clone(),
-            layout,
-        };
-        let answering_scope = !add_more
-            && !words.trim().is_empty()
-            && self
-                .scope_pending
-                .as_ref()
-                .is_some_and(|(_, q)| self.focused_question().is_some_and(|f| f.id == q.id));
-        if !answering_scope && let Some((id, _)) = &self.scope_pending {
-            r.sources.retain(|s| s.id != *id);
-            r.fragments.retain(|f| f.source != *id);
-            r.answered = r
-                .sources
-                .iter()
-                .filter_map(|s| s.in_reply_to.clone())
-                .collect();
-        }
-        serde_json::to_vec(&r).ok().map(|b| b.len())
     }
 
     /// Prepare a send of `words`. With no question in focus, words after a composed goal

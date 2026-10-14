@@ -151,16 +151,52 @@ Literal `?` remains text while writing. On review the bar reads
   Letters are never commands in either surface; F8 skips and F9 copies.
 - **Selection:** Shift with arrows, Home or End and mouse drag select by logical
   position and whole graphemes. Ctrl-A selects only the active surface. In writing,
-  typing, Enter, Backspace, Delete and paste replace the selection as one edit,
-  refused whole past the 4,096-byte limit.
+  typing, Enter, Backspace, Delete and paste replace the selection as one edit.
+  The writing box has no numeric request-size cap. Allocation refusal leaves the
+  previous text and selection intact; finite regression fixtures do not promise
+  unlimited memory or responsiveness.
 - **Cards:** Ctrl-E extracts a selection; F7 or Ctrl-X shows/hides the cards.
   While they cover the original, it holds no selection and cannot be copied.
 - **Copy and dictation:** Ctrl-C copies the active surface's nonempty selection;
   otherwise it cancels a running request or does nothing. It never leaves think.
   Dictation never deletes a selection.
 
+### Original bytes and display
+
+The writing box, sources and extracted cards retain received UTF-8 exactly,
+including CRLF, CR, tabs and controls. Copying uses base64 OSC 52, not executable
+source bytes. Terminal clipboard support and permission remain host capabilities.
+LF starts a row; CR displays as ␍, tab as ⇥, ASCII controls as control pictures,
+and C1 controls as �. CRLF remains one grapheme. These marks are display only.
+Each wrapped cell maps to a raw grapheme offset for motion, selection, highlights
+and fake/local voice preview; no substring search reconstructs source offsets.
+Editor and original scroll rows use machine-sized integers, not terminal u16
+coordinates. Only the visible viewport is narrowed to terminal coordinates.
+
+The terminal paste envelope is a separate boundary. A literal ESC `[201~` closes
+bracketed paste and cannot be represented inside that envelope. Crossterm decodes
+invalid UTF-8 with replacement characters before delivering a Paste string.
+Tinkery retains that received string, not unavailable pre-decoding bytes. Tests
+use valid UTF-8 and a complete envelope, including executable OSC sentinels whose
+raw bytes survive copying and sending but never execute during display.
+
 ### Sending and leaving
 
+- The encoded shaping request still has a 32 KiB boundary, including metadata,
+  history and a waiting reply's refreshed reading. One shared preview prepares and
+  measures the final outgoing request, whether the waiting reading grows or shrinks.
+  Preflight is transactional:
+  refusal starts no host and commits neither local words nor the waiting reply.
+  If a fitting replacement exists, Ctrl-A then Ctrl-C copies the full draft;
+  deliberate replacement and F2 sends once. If retained context alone cannot
+  fit, editing new words cannot fix this conversation. F1 explains copy-out:
+  copy local words, Tab to the original pane, Ctrl-PgUp/PgDn between originals,
+  and Ctrl-A then Ctrl-C for each. Copying does not prune history or start over.
+- Provider input/context rejection, rate limits, timeout and output overflow are
+  separate failures. Shaping failure keeps committed originals and the previous
+  reading. Failed, unreadable or oversized decision review is best-effort and
+  does not discard an otherwise valid shaping result; Why names the skipped review.
+  Nothing retries, chunks, summarizes or sends automatically.
 - When there is nothing to send or retry, F2 shows “Write something, then F2
   sends it.” on the normal screen, both before a first reading and while refining
   one. It sends no request and saves nothing. The next input clears the notice;

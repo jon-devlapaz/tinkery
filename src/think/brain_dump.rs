@@ -77,6 +77,13 @@ pub enum Exit {
     Shape(std::path::PathBuf),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Refusal {
+    Other,
+    DraftTooLong,
+    EarlierWordsTooLong,
+}
+
 /// What is shown where: rectangles from the last paint, scrolls, focus, overlays and
 /// selection. Nothing here is part of the conversation.
 struct Screen {
@@ -90,15 +97,15 @@ struct Screen {
     details: bool,
     leave_prompt: bool,
     /// The notice says why the last action did nothing; drawn until the next input.
-    refused: bool,
+    refused: Option<Refusal>,
     /// Focus is on the original (or its cards), not the writing box.
     board_focus: bool,
     show_extractions: bool,
     original_scroll: u16,
-    input_scroll: u16,
+    input_scroll: usize,
     paper_scroll: u16,
     source_view: usize,
-    source_scroll: u16,
+    source_scroll: usize,
     source_cursor: usize,
     selection: Option<(usize, usize)>,
     drag_anchor: Option<usize>,
@@ -124,7 +131,7 @@ impl Default for Screen {
             original: false,
             details: false,
             leave_prompt: false,
-            refused: false,
+            refused: None,
             board_focus: false,
             show_extractions: false,
             original_scroll: 0,
@@ -430,8 +437,50 @@ impl BrainDump {
         }
     }
     fn encoded_bytes(&self) -> Option<usize> {
-        self.conversation
-            .encoded_bytes(&self.input.text, self.add_more, self.card_positions())
+        self.preview_send(&self.input.text)
+            .ok()
+            .map(|(_, _, bytes, _)| bytes)
+    }
+    fn preview_send(
+        &self,
+        words: &str,
+    ) -> Result<(conversation::Staged, BoardRequest, usize, bool), String> {
+        let staged = self
+            .conversation
+            .stage(
+                words,
+                self.add_more,
+                self.shaping.ready.is_some(),
+                self.card_positions(),
+            )
+            .map_err(|()| layout::SCOPE_REFUSAL.to_owned())?;
+        let mut preview = self.conversation.clone();
+        let mut request = staged.request.clone();
+        if staged.adds_words(&preview) {
+            preview.commit(&staged);
+        }
+        if let Some((r, result)) = &self.shaping.ready {
+            let _ = preview.apply(r.clone(), result.clone());
+            preview.refresh(&mut request);
+        }
+        let bytes = serde_json::to_vec(&request)
+            .map_err(|e| format!("Cannot encode request: {e}. Words retained."))?
+            .len();
+        let context_over = bytes > 32768
+            && self
+                .conversation
+                .stage(
+                    "",
+                    self.add_more,
+                    self.shaping.ready.is_some(),
+                    self.card_positions(),
+                )
+                .is_ok_and(|s| {
+                    let mut context = s.request;
+                    preview.refresh(&mut context);
+                    serde_json::to_vec(&context).map_or(true, |b| b.len() > 32768)
+                });
+        Ok((staged, request, bytes, context_over))
     }
     fn diagnostics(&self) -> Vec<String> {
         let mut logs = self
@@ -446,7 +495,6 @@ impl BrainDump {
     /// call is running, during review, or before an addition's scope is answered; during a
     /// take it stops the take and sends its text once.
     pub fn submit(&mut self) {
-        self.conversation.forget_changes();
         if self.handoff.receipt.is_some()
             || self.handoff.review.is_some()
             || self.handoff.job.is_some()
@@ -468,35 +516,36 @@ impl BrainDump {
             self.refuse("Answer the added-words scope question first; your draft stays local.");
             return;
         }
-        let Ok(staged) = self.conversation.stage(
-            &self.input.text,
-            self.add_more,
-            self.shaping.ready.is_some(),
-            self.card_positions(),
-        ) else {
-            self.refuse("Answer the skipped scope question first: Ctrl-Z brings it back.");
-            return;
-        };
-        let bytes = match serde_json::to_vec(&staged.request) {
-            Ok(b) => b.len(),
-            Err(e) => {
-                self.refuse(format!("Cannot encode request: {e}. Words retained."));
+        let (staged, refreshed, measured, context_over) = match self.preview_send(&self.input.text)
+        {
+            Ok(preview) => preview,
+            Err(message) => {
+                self.refuse(message);
                 return;
             }
         };
         let mut cap = checks::Decision::new(
             "encoded-request-cap",
             "blocking",
-            if bytes > 32768 { "reject" } else { "pass" },
-            format!("Encoded request: {bytes} / 32768 bytes; no truncation or dropped originals."),
+            if measured > 32768 { "reject" } else { "pass" },
+            format!(
+                "Encoded request: {measured} / 32768 bytes; no truncation or dropped originals."
+            ),
             std::time::Instant::now(),
         );
-        cap.request_key = checks::request_key(&staged.request);
+        cap.request_key = checks::request_key(&refreshed);
         self.local_checks.push(cap);
-        if bytes > 32768 {
-            self.refuse(format!(
-                "Request is {bytes} bytes, above 32 KiB; nothing sent. Words kept."
-            ));
+        if measured > 32768 {
+            self.refuse(if context_over {
+                "Earlier words are too long.\nWords kept. F1: copy elsewhere."
+            } else {
+                "Too long to send. Words kept.\nCtrl-A/C copy; replace, F2."
+            });
+            self.screen.refused = Some(if context_over {
+                Refusal::EarlierWordsTooLong
+            } else {
+                Refusal::DraftTooLong
+            });
             return;
         }
         if staged.adds_words(&self.conversation) {
@@ -537,7 +586,7 @@ impl BrainDump {
             self.conversation.refresh(&mut request);
         }
         if serde_json::to_vec(&request).map_or(true, |b| b.len() > 32768) {
-            self.refuse("With the waiting reply this is above 32 KiB; nothing sent.");
+            self.refuse("Too long to send. Words kept.\nF1 shows how to copy them.");
             return;
         }
         self.conversation.forget_changes();
@@ -617,7 +666,9 @@ impl BrainDump {
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
         self.conversation.forget_changes();
-        self.screen.refused = false;
+        if !self.screen.help {
+            self.screen.refused = None;
+        }
         if self.screen.leave_prompt
             || self.screen.help
             || self.screen.details
@@ -674,7 +725,9 @@ impl BrainDump {
         if key.kind == KeyEventKind::Release {
             return;
         }
-        self.screen.refused = false;
+        if !self.screen.help && key.code != KeyCode::F(1) {
+            self.screen.refused = None;
+        }
         let mut ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if matches!(key.code, KeyCode::F(2..=10))
             && (key.kind == KeyEventKind::Repeat
@@ -956,7 +1009,7 @@ impl BrainDump {
     /// their next key or paste, then stays only as the last result in How it works.
     fn refuse(&mut self, why: impl Into<String>) {
         self.notice = why.into();
-        self.screen.refused = true;
+        self.screen.refused = Some(Refusal::Other);
     }
     /// F8: skip the question in focus. Ctrl-Z brings it back.
     fn skip_question(&mut self) {
@@ -1228,7 +1281,7 @@ impl BrainDump {
             self.focus_writing();
             let wrapped = self.input.wrap(self.screen.input_area.width);
             let index = wrapped.index_at(
-                event.row - self.screen.input_area.y + self.screen.input_scroll,
+                usize::from(event.row - self.screen.input_area.y) + self.screen.input_scroll,
                 event.column - self.screen.input_area.x,
             );
             self.input.begin_drag(index);
@@ -1242,8 +1295,9 @@ impl BrainDump {
             )
         {
             let area = self.screen.input_area;
-            let row = event.row.clamp(area.y, area.bottom().saturating_sub(1)) - area.y
-                + self.screen.input_scroll;
+            let row =
+                usize::from(event.row.clamp(area.y, area.bottom().saturating_sub(1)) - area.y)
+                    + self.screen.input_scroll;
             let column = event.column.clamp(area.x, area.right().saturating_sub(1)) - area.x;
             let index = self.input.wrap(area.width).index_at(row, column);
             // False once an edit has ended the drag: release then selects nothing.
@@ -1419,7 +1473,7 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
             ));
         }
         let inner = block.inner(rect);
-        let paragraph = Paragraph::new(node.text())
+        let paragraph = Paragraph::new(Note::display(node.text()))
             .style(palette.ink)
             .wrap(Wrap { trim: false });
         let clipped = x < left
@@ -1441,20 +1495,24 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
     }
 }
 fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
-    let (wrapped, text) = voice_input::input_text(app, palette);
+    let (wrapped, mut text) = voice_input::input_text(app, palette);
     if wrapped.cursor.0 < app.screen.input_scroll {
         app.screen.input_scroll = wrapped.cursor.0;
     }
-    if wrapped.cursor.0 >= app.screen.input_scroll + app.screen.input_area.height {
+    if wrapped.cursor.0 >= app.screen.input_scroll + usize::from(app.screen.input_area.height) {
         app.screen.input_scroll = wrapped
             .cursor
             .0
-            .saturating_sub(app.screen.input_area.height.saturating_sub(1));
+            .saturating_sub(usize::from(app.screen.input_area.height.saturating_sub(1)));
     }
+    text.lines = text
+        .lines
+        .into_iter()
+        .skip(app.screen.input_scroll)
+        .take(usize::from(app.screen.input_area.height))
+        .collect();
     frame.render_widget(
-        Paragraph::new(text)
-            .style(palette.ink)
-            .scroll((app.screen.input_scroll, 0)),
+        Paragraph::new(text).style(palette.ink),
         app.screen.input_area,
     );
     if let Some((start, end)) = app.input.selection()
@@ -1465,7 +1523,7 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             if *index < start || *index >= end {
                 continue;
             }
-            let Some(row) = row.checked_sub(usize::from(app.screen.input_scroll)) else {
+            let Some(row) = row.checked_sub(app.screen.input_scroll) else {
                 continue;
             };
             let Some(grapheme) = app.input.text[*index..].graphemes(true).next() else {
@@ -1474,7 +1532,11 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             if row >= usize::from(area.height) || grapheme == "\n" {
                 continue;
             }
-            for offset in 0..grapheme.width().max(1) {
+            for offset in 0..Note::display(grapheme)
+                .trim_end_matches('\n')
+                .width()
+                .max(1)
+            {
                 if column + offset < usize::from(area.width) {
                     frame.buffer_mut()[(area.x + (column + offset) as u16, area.y + row as u16)]
                         .set_style(palette.ink.add_modifier(ratatui::style::Modifier::REVERSED));
@@ -1494,7 +1556,8 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                     .cursor
                     .1
                     .min(app.screen.input_area.width.saturating_sub(1)),
-            app.screen.input_area.y + wrapped.cursor.0.saturating_sub(app.screen.input_scroll),
+            app.screen.input_area.y
+                + wrapped.cursor.0.saturating_sub(app.screen.input_scroll) as u16,
         ));
     }
 }
