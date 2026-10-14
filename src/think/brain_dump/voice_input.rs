@@ -86,6 +86,7 @@ impl BrainDump {
             self.voice.as_mut().unwrap().missed();
             return;
         }
+        self.shaping.encoded_bytes = None;
         self.input.collapse();
         if let Err(error) = self.input.insert(&text) {
             self.voice

@@ -9,7 +9,7 @@
 use super::{
     Motion, Note,
     canvas::Canvas,
-    drafting::{Approach, Job, PiHost, Request},
+    drafting::{Approach, Job, LIMIT as REQUEST_LIMIT, PiHost, Request},
 };
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{
@@ -154,12 +154,22 @@ impl Default for Screen {
     }
 }
 
+struct SendPreview {
+    staged: conversation::Staged,
+    request: BoardRequest,
+    bytes: usize,
+    context_over: bool,
+    waiting_failure: Option<String>,
+}
+
 /// The shaping call in flight, or its reply waiting while the person types.
 #[derive(Default)]
 struct Shaping {
     job: Option<Job<Guess>>,
     request: Option<BoardRequest>,
     ready: Option<(BoardRequest, Result<Guess, String>)>,
+    /// Encoded size, including unknown, reused until an input or reply event.
+    encoded_bytes: Option<Option<usize>>,
 }
 
 /// Saving a confirmed goal through Seed Me: the review, the save in flight, and its receipt.
@@ -436,15 +446,19 @@ impl BrainDump {
             unresolved.join("\n\n")
         }
     }
-    fn encoded_bytes(&self) -> Option<usize> {
-        self.preview_send(&self.input.text)
+    fn encoded_bytes(&mut self) -> Option<usize> {
+        if let Some(bytes) = self.shaping.encoded_bytes {
+            return bytes;
+        }
+        let bytes = self
+            .preview_send(&self.input.text)
             .ok()
-            .map(|(_, _, bytes, _)| bytes)
+            .filter(|preview| preview.waiting_failure.is_none())
+            .map(|preview| preview.bytes);
+        self.shaping.encoded_bytes = Some(bytes);
+        bytes
     }
-    fn preview_send(
-        &self,
-        words: &str,
-    ) -> Result<(conversation::Staged, BoardRequest, usize, bool), String> {
+    fn preview_send(&self, words: &str) -> Result<SendPreview, String> {
         let staged = self
             .conversation
             .stage(
@@ -459,14 +473,19 @@ impl BrainDump {
         if staged.adds_words(&preview) {
             preview.commit(&staged);
         }
-        if let Some((r, result)) = &self.shaping.ready {
-            let _ = preview.apply(r.clone(), result.clone());
+        let waiting_failure = if let Some((r, result)) = &self.shaping.ready {
+            let failure = preview.apply(r.clone(), result.clone()).err();
+            // Submit retains the previous board on failure and still retries. The size
+            // display stays unknown until that failure has been handled by submit.
             preview.refresh(&mut request);
-        }
+            failure
+        } else {
+            None
+        };
         let bytes = serde_json::to_vec(&request)
             .map_err(|e| format!("Cannot encode request: {e}. Words retained."))?
             .len();
-        let context_over = bytes > 32768
+        let context_over = bytes > REQUEST_LIMIT
             && self
                 .conversation
                 .stage(
@@ -478,9 +497,15 @@ impl BrainDump {
                 .is_ok_and(|s| {
                     let mut context = s.request;
                     preview.refresh(&mut context);
-                    serde_json::to_vec(&context).map_or(true, |b| b.len() > 32768)
+                    serde_json::to_vec(&context).map_or(true, |b| b.len() > REQUEST_LIMIT)
                 });
-        Ok((staged, request, bytes, context_over))
+        Ok(SendPreview {
+            staged,
+            request,
+            bytes,
+            context_over,
+            waiting_failure,
+        })
     }
     fn diagnostics(&self) -> Vec<String> {
         let mut logs = self
@@ -495,6 +520,7 @@ impl BrainDump {
     /// call is running, during review, or before an addition's scope is answered; during a
     /// take it stops the take and sends its text once.
     pub fn submit(&mut self) {
+        self.shaping.encoded_bytes = None;
         if self.handoff.receipt.is_some()
             || self.handoff.review.is_some()
             || self.handoff.job.is_some()
@@ -516,8 +542,13 @@ impl BrainDump {
             self.refuse("Answer the added-words scope question first; your draft stays local.");
             return;
         }
-        let (staged, refreshed, measured, context_over) = match self.preview_send(&self.input.text)
-        {
+        let SendPreview {
+            staged,
+            request: refreshed,
+            bytes: measured,
+            context_over,
+            ..
+        } = match self.preview_send(&self.input.text) {
             Ok(preview) => preview,
             Err(message) => {
                 self.refuse(message);
@@ -527,15 +558,19 @@ impl BrainDump {
         let mut cap = checks::Decision::new(
             "encoded-request-cap",
             "blocking",
-            if measured > 32768 { "reject" } else { "pass" },
+            if measured > REQUEST_LIMIT {
+                "reject"
+            } else {
+                "pass"
+            },
             format!(
-                "Encoded request: {measured} / 32768 bytes; no truncation or dropped originals."
+                "Encoded request: {measured} / {REQUEST_LIMIT} bytes; no truncation or dropped originals."
             ),
             std::time::Instant::now(),
         );
         cap.request_key = checks::request_key(&refreshed);
         self.local_checks.push(cap);
-        if measured > 32768 {
+        if measured > REQUEST_LIMIT {
             self.refuse(if context_over {
                 "Earlier words are too long.\nWords kept. F1: copy elsewhere."
             } else {
@@ -585,7 +620,7 @@ impl BrainDump {
             }
             self.conversation.refresh(&mut request);
         }
-        if serde_json::to_vec(&request).map_or(true, |b| b.len() > 32768) {
+        if serde_json::to_vec(&request).map_or(true, |b| b.len() > REQUEST_LIMIT) {
             self.refuse("Too long to send. Words kept.\nF1 shows how to copy them.");
             return;
         }
@@ -638,6 +673,7 @@ impl BrainDump {
         self.voice_tick();
         self.goal_tick();
         if let Some(result) = self.shaping.job.as_ref().and_then(Job::poll) {
+            self.shaping.encoded_bytes = None;
             self.shaping.job.take();
             let request = self.shaping.request.take().unwrap();
             if self.input.text.is_empty() && !self.voice_active() {
@@ -650,6 +686,7 @@ impl BrainDump {
         }
     }
     fn apply_result(&mut self, request: BoardRequest, result: Result<Guess, String>) {
+        self.shaping.encoded_bytes = None;
         match self.conversation.apply(request, result) {
             Ok(()) => {
                 self.screen.paper_scroll = 0;
@@ -665,6 +702,7 @@ impl BrainDump {
     }
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
+        self.shaping.encoded_bytes = None;
         self.conversation.forget_changes();
         if !self.screen.help {
             self.screen.refused = None;
@@ -721,6 +759,7 @@ impl BrainDump {
     }
     /// One key press. Releases are ignored; navigation and copying never send or save.
     pub fn handle_key(&mut self, mut key: KeyEvent) {
+        self.shaping.encoded_bytes = None;
         self.conversation.forget_changes();
         if key.kind == KeyEventKind::Release {
             return;
@@ -1185,6 +1224,7 @@ impl BrainDump {
     /// One mouse event in a terminal of size `area`. Ignored while asking whether to leave, or
     /// when the terminal has been resized since the last paint.
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
+        self.shaping.encoded_bytes = None;
         if self.screen.leave_prompt {
             return;
         }

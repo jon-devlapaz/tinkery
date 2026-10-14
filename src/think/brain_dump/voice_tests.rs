@@ -82,6 +82,7 @@ fn raw_display_mapping_styles_fake_voice_without_searching_transformed_rows() {
                 .chars()
                 .any(|c| c.is_control() && c != '\n')
         );
+        let before = a.encoded_bytes().unwrap();
         event(
             &mut a,
             &fake,
@@ -90,6 +91,10 @@ fn raw_display_mapping_styles_fake_voice_without_searching_transformed_rows() {
                 text: partial.into(),
             },
         );
+        assert!(a.shaping.encoded_bytes.is_none());
+        let fresh = a.preview_send(&a.input.text).unwrap().bytes;
+        assert_eq!(a.encoded_bytes(), Some(fresh));
+        assert!(fresh > before);
         assert_eq!(
             a.input.text,
             format!("{}{}{}", &raw[..6], partial, &raw[6..])

@@ -816,3 +816,181 @@ fn waiting_reply_overflow_is_transactional_before_committing_local_words() {
         "second call above is a fixture, not submit"
     );
 }
+
+#[test]
+#[ignore = "rerunnable zero-call frame measurement: cargo test --release measure_large_paste_frames -- --ignored --nocapture"]
+fn measure_large_paste_frames() {
+    // Same large input as tests/selection_terminal.py.
+    let sentinel = "\x1b]2;PASTE-TITLE-SENTINEL\x07\x1b]52;c;UEFTVEUtU0VOVElORUw=\x07";
+    let mut words = format!("Typed evidence PREFIX {sentinel}\n");
+    for i in 0..120 {
+        words.push_str(&format!(
+            "row {i:03}: e\u{301} 中 👩‍💻\r\nCR\rTAB\tESC\x1b[31m BEL\x07 NUL\0\n"
+        ));
+    }
+    words.push_str(" SUFFIX copy exactly.");
+    let host = Arc::new(Counting::default());
+    let mut a = BrainDump::with_host(host);
+    a.paste(&words);
+    a.submit();
+    wait(&mut a);
+    a.paste("next answer");
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+    let palette = Palette::new(false);
+    terminal.draw(|f| render(f, &mut a, palette)).unwrap();
+    let start = std::time::Instant::now();
+    for _ in 0..1000 {
+        std::hint::black_box(a.encoded_bytes());
+    }
+    eprintln!(
+        "size preview: {:.3} us/frame",
+        start.elapsed().as_secs_f64() * 1000.0
+    );
+    let start = std::time::Instant::now();
+    for _ in 0..200 {
+        a.tick();
+        terminal.draw(|f| render(f, &mut a, palette)).unwrap();
+    }
+    eprintln!(
+        "100x30 frame: {:.3} us/frame; fixture={} bytes",
+        start.elapsed().as_secs_f64() * 1_000_000.0 / 200.0,
+        words.len()
+    );
+}
+
+fn assert_cached_size(a: &mut BrainDump) {
+    let fresh = a
+        .preview_send(&a.input.text)
+        .ok()
+        .filter(|preview| preview.waiting_failure.is_none())
+        .map(|preview| preview.bytes);
+    assert_eq!(a.encoded_bytes(), fresh);
+    assert_eq!(a.shaping.encoded_bytes, Some(fresh));
+    a.tick();
+    assert_eq!(
+        a.shaping.encoded_bytes,
+        Some(fresh),
+        "idle ticks keep the cache"
+    );
+    assert_eq!(a.encoded_bytes(), fresh);
+}
+
+#[test]
+fn size_cache_tracks_edits_waiting_reply_scope_and_cards() {
+    let host = Arc::new(Counting::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("original words");
+    assert_cached_size(&mut a);
+    key(&mut a, KeyCode::Char('x'));
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert_cached_size(&mut a);
+    a.submit();
+    wait(&mut a);
+    assert_cached_size(&mut a);
+
+    // A worker reply lands while local words are present, so tick must invalidate.
+    a.paste("answer");
+    assert_cached_size(&mut a);
+    let r = host.requests.lock().unwrap()[0].clone();
+    let guess = host.reshape(r.clone(), &AtomicBool::new(false)).unwrap();
+    a.shaping.request = Some(r);
+    a.shaping.job = Some(Job::launch(move |_| Ok(guess)));
+    wait(&mut a);
+    assert!(a.shaping.ready.is_some());
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert_cached_size(&mut a);
+    a.submit();
+    wait(&mut a);
+    assert_cached_size(&mut a);
+
+    a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
+    assert!(a.shaping.encoded_bytes.is_none());
+    a.paste("added words");
+    assert_cached_size(&mut a);
+    a.submit();
+    assert!(a.conversation.awaiting_scope());
+    assert_cached_size(&mut a);
+    a.paste("include them");
+    assert_cached_size(&mut a);
+    a.submit();
+    wait(&mut a);
+    assert!(!a.conversation.awaiting_scope());
+    assert_cached_size(&mut a);
+
+    a.extract_range(1, 0, 3).unwrap();
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert!(!a.card_positions().is_empty());
+    assert_cached_size(&mut a);
+    let before = a.encoded_bytes();
+    let CanvasNode::Text(node) = &mut a.screen.canvas.state.data.nodes[0] else {
+        panic!("extracted text card");
+    };
+    node.x = 12345.0;
+    a.handle_mouse(
+        MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        },
+        Rect::new(0, 0, 100, 30),
+    );
+    assert!(a.shaping.encoded_bytes.is_none());
+    assert_cached_size(&mut a);
+    assert_ne!(a.encoded_bytes(), before);
+}
+
+#[test]
+fn failed_waiting_reply_has_unknown_size_and_the_same_failure_as_submit() {
+    for invalid_board in [false, true] {
+        let host = Arc::new(Counting::default());
+        let mut a = BrainDump::with_host(host.clone());
+        a.paste("original words");
+        a.submit();
+        wait(&mut a);
+        let r = host.requests.lock().unwrap()[0].clone();
+        let result = if invalid_board {
+            let mut guess = host.reshape(r.clone(), &AtomicBool::new(false)).unwrap();
+            guess.framings[0].supports[0].quote = "invented support".into();
+            Ok(guess)
+        } else {
+            Err("failed reply".to_owned())
+        };
+        let starts = host.requests.lock().unwrap().len();
+        a.shaping.ready = Some((r.clone(), result.clone()));
+        a.paste("next answer");
+        let before = a.originals();
+        let old = a.conversation.board().unwrap().goal().unwrap().to_owned();
+        let mut applied = BrainDump {
+            conversation: a.conversation.clone(),
+            ..BrainDump::default()
+        };
+        applied.apply_result(r, result);
+        let preview = a.preview_send(&a.input.text).unwrap();
+        assert!(
+            preview.waiting_failure.is_some(),
+            "failed apply is not a known size"
+        );
+        assert_eq!(
+            preview.waiting_failure.as_deref(),
+            applied.conversation.last_failure()
+        );
+        assert_cached_size(&mut a);
+        assert_eq!(a.encoded_bytes(), None);
+        assert_eq!(a.originals(), before, "rendering commits nothing");
+        a.submit();
+        assert_eq!(
+            a.conversation.last_failure(),
+            preview.waiting_failure.as_deref()
+        );
+        assert_eq!(a.conversation.board().unwrap().goal(), Some(old.as_str()));
+        assert!(a.shaping.ready.is_none());
+        wait(&mut a);
+        let requests = host.requests.lock().unwrap();
+        assert_eq!(requests.len(), starts + 1, "the same F2 still retries once");
+        let sent = requests.last().unwrap();
+        assert_eq!(serde_json::to_vec(sent).unwrap().len(), preview.bytes);
+        assert_eq!(sent.sources[0].text, "original words");
+        assert_eq!(sent.sources[1].text, "next answer");
+    }
+}

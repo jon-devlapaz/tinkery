@@ -76,7 +76,9 @@ This is a dated assessment, not a fresh measurement. Remaining debt:
 Paste reliability improves diagnostics 3 and 6 by keeping raw/display mapping in
 Note and using conversation staging for both encoded-size preview and sending.
 It preserves the simple editor interface and documented promises in diagnostics
-2 and 4. No new score is claimed.
+2 and 4. Cached preview size stays inside Think's input/reply routing, preserving
+those boundaries; the request boundary now has one definition in drafting (3 and 6).
+No new score is claimed.
 
 ## Limits enforced by `tests/architecture.rs`
 

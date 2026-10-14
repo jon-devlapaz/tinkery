@@ -251,6 +251,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     frame.render_widget(input, rows[2]);
     render_input(frame, app, palette);
     // A one-row status keeps its old row; a longer refusal takes both rows of the status area.
+    let encoded_bytes = app.encoded_bytes();
     let status = status(app).map(|text| {
         let p = Paragraph::new(text)
             .style(palette.muted)
@@ -258,8 +259,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         let lines = (p.line_count(rows[3].width) as u16).clamp(1, STATUS_ROWS);
         (p, lines)
     });
-    if let Some(bytes) = app
-        .encoded_bytes()
+    if let Some(bytes) = encoded_bytes
         .filter(|b| *b >= 28 * 1024 && status.as_ref().is_none_or(|(_, n)| *n < STATUS_ROWS))
     {
         let offset = if app.screen.goal_button.width > 0 {
@@ -268,7 +268,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             0
         };
         frame.render_widget(
-            Paragraph::new(format!("{bytes} / 32768 bytes")).style(palette.muted),
+            Paragraph::new(format!("{bytes} / {REQUEST_LIMIT} bytes")).style(palette.muted),
             Rect::new(
                 rows[3].x + offset,
                 rows[3].y,
@@ -325,16 +325,15 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     ) {
         if app.screen.refused == Some(Refusal::EarlierWordsTooLong) {
             concat!(
-                "Your earlier words and reading are too long to send, even without new words. Nothing was sent. All your words stay here. ",
-                "Shortening new words cannot fix this conversation.\n",
-                "Ctrl-A then Ctrl-C copies local words. Tab selects the original pane; Ctrl-PgUp/PgDn switches originals; ",
-                "Ctrl-A then Ctrl-C copies each one. Carry them to another editor or tool yourself. Copying changes nothing and starts nothing."
+                "Earlier words are too long to send. Nothing was sent; all words stay here. Shortening new words cannot help.\n",
+                "Ctrl-A then Ctrl-C copies local words. Tab selects originals; Ctrl-PgUp/PgDn switches them. ",
+                "Ctrl-A then Ctrl-C copies each to take elsewhere. Copying starts nothing."
             )
         } else {
             concat!(
-                "These words are too long to send. Nothing was sent. Your draft and earlier words stay here.\n",
-                "Ctrl-A then Ctrl-C copies the full local draft. Deliberately replace it with fewer words, then F2 sends once. ",
-                "Earlier words and the reading also take space. The model may refuse a long send too."
+                "Nothing was sent; all words stay here.\n",
+                "Ctrl-A then Ctrl-C copies the full draft. Deliberately replace it with fewer words, then F2 sends once. ",
+                "The model may still refuse."
             )
         }
     } else if app.handoff.job.is_some() {

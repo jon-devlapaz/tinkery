@@ -21,7 +21,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-const LIMIT: usize = 32 * 1024;
+/// Maximum encoded request, instructions or reply bytes accepted by the Pi boundary.
+pub(super) const LIMIT: usize = 32 * 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

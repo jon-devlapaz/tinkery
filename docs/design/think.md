@@ -185,6 +185,10 @@ raw bytes survive copying and sending but never execute during display.
 - The encoded shaping request still has a 32 KiB boundary, including metadata,
   history and a waiting reply's refreshed reading. One shared preview prepares and
   measures the final outgoing request, whether the waiting reading grows or shrinks.
+  Idle frames reuse the size until a key, paste, mouse event, extraction, voice
+  insertion or reply arrives. A waiting reply that cannot be applied leaves the preview
+  size unknown.
+  F2 keeps the previous reading on that failure and still sends one retry.
   Preflight is transactional:
   refusal starts no host and commits neither local words nor the waiting reply.
   If a fitting replacement exists, Ctrl-A then Ctrl-C copies the full draft;

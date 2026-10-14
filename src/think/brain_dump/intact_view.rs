@@ -45,6 +45,7 @@ impl BrainDump {
     /// Refused when the range is blank or cuts a character, or after 32 cards.
     pub fn extract_range(&mut self, source: usize, start: usize, end: usize) -> Result<(), String> {
         self.conversation.extract(source, start, end)?;
+        self.shaping.encoded_bytes = None;
         self.place_card();
         self.notice =
             "Extracted by you; original intact. F7 shows cards; nothing confirmed.".into();
