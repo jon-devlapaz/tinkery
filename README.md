@@ -1,77 +1,135 @@
-The big idea
+# Tinkery
 
- Tinkery is a calm front door for turning a messy thought into useful, checked work—without losing what you meant or taking control away from you.
+## The big idea
 
- It isn’t meant to be another busy dashboard or an autonomous agent manager. It should show what matters now, one next step, and how to leave.
+Tinkery is a calm front door for turning a messy thought into useful, checked
+work—without losing what you meant or taking control away from you.
 
- The journey
+It isn’t meant to be another busy dashboard or an autonomous agent manager. It
+should show what matters now, one next step, and how to leave.
 
- Imagine you say: “I want customers to find their invoices more easily.”
+## The journey
 
- Tinkery’s intended journey is:
+Imagine you say: “I want customers to find their invoices more easily.”
 
- Think → Shape → Approve → work happens → Watch → Taste → Measure
+Tinkery’s intended journey is:
 
+**Think → Shape → Approve → work happens → Watch → Taste → Measure**
 
-Place  | What it helps you do                                                                            
+| Place | What it helps you do |
+| --- | --- |
+| **Think** | Work out what you actually want. It offers a reading and asks one question at a time. |
+| **Shape** | Prepare that goal for someone—or an agent—to work on, including its boundaries. |
+| **Approve** | Understand exactly what decision is needed and what you’re authorizing. |
+| **Watch** | See what’s happening, what’s blocked and what needs your attention. |
+| **Taste** | Compare the result with your original goal. You decide whether it’s useful or needs correction. |
+| **Measure** | See whether the process produced accepted, checked results with less effort from you. |
 
-Think  │ Work out what you actually want. It offers a reading and asks one question at a time.          
+Once you confirm the goal, it stays unchanged through the handoffs. Suggestions
+and guesses must never masquerade as your words. Your original words remain
+intact.
 
-Shape  │ Prepare that goal for someone—or an agent—to work on, including its boundaries.                
+This is the direction, not a claim that every place is built.
 
-Approve│ Understand exactly what decision is needed and what you’re authorizing.                         
+## Tinkery doesn’t do everything itself
 
-Watch  │ See what’s happening, what’s blocked and what needs your attention.                             
+Think of Tinkery as the reception desk, not the whole workshop.
 
-Taste  │ Compare the result with your original goal. You decide whether it’s useful or needs correction. 
+- **Seed Me** keeps the saved goal, working brief and separate decisions.
+- **SDLC** organizes the external implementation, checks and review process.
+- **GitHub** holds issues, proposed code changes, checks and reviews.
+- **You** supply permission and judge whether the result meets your intent.
 
-Measure│ See whether the process produced accepted, checked results with less effort from you.           
+Tinkery should connect those records and explain them—not invent a competing set
+of approvals.
 
+Confirming a goal, confirming a brief and approving implementation are different
+decisions. Copying a prompt approves none of them.
 
- Once you confirm the goal, it stays unchanged through the handoffs. Suggestions and guesses must never masquerade as your words.
+## What works today
 
- Tinkery doesn’t do everything itself
+Today, Tinkery can:
 
- Think of Tinkery as the reception desk, not the whole workshop.
+- Help you think through a dump and explicitly save a confirmed goal. Confirming
+  saves that goal, unchanged, as a Seed Me session in
+  `~/.local/share/seed-me/sessions/`, and writes a think record to
+  `~/.local/share/tinkery/think/`.
+- List saved goals in Shape and copy a continuation prompt to Claude, Codex or Pi.
+- Show an existing ledger report in Measure, or say it’s unavailable.
 
- - Seed Me keeps the saved goal, working brief and separate decisions.
- - SDLC organizes the external implementation, checks and review process.
- - GitHub holds issues, proposed code changes, checks and reviews.
- - You supply permission and judge whether the result meets your intent.
+**Approve, Watch and Taste aren’t built yet.** The complete journey and its
+claimed benefit still need proving.
 
- Tinkery should connect those records and explain them—not invent a competing set of approvals.
+Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that
+stays on your machine.
 
- Confirming a goal, confirming a brief and approving implementation are different decisions. Copying a prompt approves none of them.
+## Where we’re going next
 
- What works today
+The foundation is trustworthy connections.
 
- Today, Tinkery can:
- - Help you think through a dump and explicitly save a confirmed goal.
- - List saved goals in Shape and copy a continuation prompt.
- - Show an existing ledger report in Measure, or say it’s unavailable.
+If two jobs have similar names, Tinkery must not guess which one belongs to your
+goal. So we’re proposing:
 
- Approve, Watch and Taste aren’t built yet. The complete journey and its claimed benefit still need proving.
+1. A permanent serial number for each external run.
+2. An explicitly confirmed connection between your saved goal and that exact run.
+3. A shared reader that checks those identities and brings back current evidence.
 
- Where we’re going next
+First check whether SDLC already provides permanent run identity; recreating a
+run under the same name must not reuse it. The first binding version creates one
+immutable connection and detects duplicates; changing or relocating it is deferred.
 
- The foundation is trustworthy connections.
+That would let Approve, Watch and Taste all talk about the same work, rather than
+loosely related files. The [binding design](docs/design/job-records.md#goal-to-run-identity-prerequisite)
+remains an unaccepted proposal, not implemented behavior.
 
- If two jobs have similar names, Tinkery must not guess which one belongs to your goal. So we’re proposing:
+We also intend to bring useful Substrate responsibilities into Tinkery, rather
+than permanently requiring a separate Substrate aggregation service. That
+migration is planned, not finished. Today’s Measure still uses its ledger report.
 
- 1. A permanent serial number for each external run.
- 2. An explicitly confirmed connection between your saved goal and that exact run.
- 3. A shared reader that checks those identities and brings back current evidence.
+The [first-release plan](docs/design/first-release.md) and
+[task index](docs/design/first-release-issues.md) explain the path. The twelve
+published tasks organize that direction; publication does not approve their
+implementation. Speculative ideas stay in the [parked backlog](docs/research/shared/backlog.md).
 
- That would let Approve, Watch and Taste all talk about the same work, rather than loosely related files.
+## What success means
 
- We also intend to bring useful Substrate responsibilities into Tinkery, rather than permanently requiring a separate Substrate aggregation service. That
- migration is planned, not finished.
+Not “more agents running” or “more code generated.”
 
- What success means
+**Success means useful, verified changes per hour of your attention.**
 
- Not “more agents running” or “more code generated.”
+You should explain yourself less, recover after interruptions, understand
+failures, and retain the final judgment. Missing evidence should say unknown,
+not pretend everything is green.
 
- Success means useful, verified changes per hour of your attention.
+Active effort is different from elapsed session time. Passing checks is different
+from your acceptance. We still need a separately permitted baseline and trial to
+show that the complete workflow helps; improvement is a goal, not a measured
+claim today.
 
- You should explain yourself less, recover after interruptions, understand failures, and retain the final judgment. Missing evidence should say unknown, not
- pretend everything is green.
+## Try it
+
+On a fresh Debian/Ubuntu clone:
+
+```bash
+./scripts/cloud-setup.sh
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
+cargo +stable run --locked -- --home
+```
+
+This is practice: no model calls, nothing saved. F2 sends, Enter adds a line,
+F1 helps, F10 returns to the menu. Add `--snapshot` to print the screen as text.
+
+Real drafting needs `--shape-pi --model provider/model-id --seed-me PATH` and an
+explicitly authorized budget; it can incur provider charges. `--help` lists every
+option. See [terminal setup](docs/terminal-setup.md#launch) for an isolated trial.
+
+## Read next
+
+- [docs/yohaku.md](docs/yohaku.md): the constitution and the meaning of calm.
+- [AGENTS.md](AGENTS.md): macOS setup, the full test run, and rules for changing Tinkery.
+- [First-release plan](docs/design/first-release.md): milestones and the finish line.
+- [Task index](docs/design/first-release-issues.md): authoritative issue links and dependencies.
+- [docs/design/](docs/design/principles.md): current decisions and clearly marked proposals.
+- [Parked ideas](docs/research/shared/backlog.md): one home for unpublished proposals.
+
+GPL-3.0-only; see [LICENSE](LICENSE).
