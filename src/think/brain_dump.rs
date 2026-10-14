@@ -966,6 +966,9 @@ impl BrainDump {
             return;
         }
         match key.code {
+            KeyCode::Esc if key.kind == KeyEventKind::Press && key.modifiers.is_empty() => {
+                self.request_leave();
+            }
             KeyCode::F(2) => self.submit(),
             KeyCode::Tab | KeyCode::BackTab
                 if !key

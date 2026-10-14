@@ -401,7 +401,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         "! F3   review the goal; typing confirm saves it for good"
     };
-    let leave = "! F10  back to the menu; asks before losing your draft";
+    let leave = "! F10  back to the menu; asks before losing your draft\nEsc from writing does the same; elsewhere it cancels or goes back";
     let select = if app.conversation.sources().is_empty() {
         ""
     } else {

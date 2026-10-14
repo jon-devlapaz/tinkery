@@ -1,5 +1,6 @@
 """Executable documentation contracts; fake commands, no providers or operator data."""
 import fnmatch
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,7 +18,7 @@ ENTRY = "AGENTS.md"
 def tracked_files():
     listed = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, check=True,
                             capture_output=True, text=True).stdout
-    return {path for path in listed.split("\0") if path}
+    return {path for path in listed.split("\0") if path and (REPO / path).is_file()}
 
 
 TRACKED = tracked_files()
@@ -126,6 +127,41 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn(("../writing-for-agents/SKILL.md",
                        ".agents/skills/writing-for-agents/SKILL.md", ""), links)
         self.assertIn(".agents/skills/writing-for-agents/SKILL.md", TRACKED)
+
+    def test_backlog_forwarders_are_retired_without_losing_permissions(self):
+        for area in ("think", "menu", "measure"):
+            self.assertFalse((REPO / f"docs/research/{area}/backlog.md").exists())
+        shared = prose("docs/research/shared/backlog.md")
+        self.assertIn("Both need approval; neither authorizes a backend migration.", shared)
+        architecture = list(relative_links("docs/design/architecture.md"))
+        self.assertIn(("../research/shared/backlog.md#think",
+                       "docs/research/shared/backlog.md", "think"), architecture)
+        source = prose("docs/design/architecture.md")
+        for issue in (118, 119, 120):
+            self.assertIn(f"https://github.com/jon-devlapaz/tinkery/issues/{issue}", source)
+
+    def test_think_history_has_one_home_and_compatible_anchors(self):
+        historical = (REPO / "findings/README.md").read_text()
+        current = (REPO / "docs/design/think.md").read_text()
+        sections = {
+            "## Decision-review evidence (#34)":
+                "21e9620a512fcdedd1611ddd327905ab8d6639b41407492d65a38f1b51d02b6a",
+            "## Evidence-note regression check (#58)":
+                "8f5cda3ee02995f16e4c1f701cc62a0693c6b1ea3444e0b2cc33e0e86908f1df",
+            "## Goal-history and review regression check (#64)":
+                "35963ff33ae28925daf24ad1bbe2c46cd430c4749da3a2eae999ef850ba12d29",
+        }
+        for heading, expected in sections.items():
+            self.assertEqual(1, historical.count(heading))
+            body = historical.split(heading, 1)[1].split("\n## ", 1)[0].strip()
+            digest = hashlib.sha256(f"{heading}\n\n{body}".encode()).hexdigest()
+            self.assertEqual(expected, digest, f"Preserve the historical evidence for {heading}")
+            self.assertEqual(1, current.count(heading))
+            pointer = current.split(heading, 1)[1].split("\n## ", 1)[0].strip()
+            anchor = re.sub(r"[^\w\- ]", "", heading[3:].lower()).replace(" ", "-")
+            self.assertEqual(f"See [historical evidence](../../findings/README.md#{anchor}).", pointer)
+        self.assertIn("Constraint-polarity errors remain possible", current)
+        self.assertIn("judgment, not proof that choices mean the same thing", current)
 
     def test_ci_can_extract_one_valid_verification_block(self):
         source = (REPO / "AGENTS.md").read_text()
