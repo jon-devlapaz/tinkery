@@ -48,6 +48,10 @@ a new dump. Skipped questions stay skipped;
 Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other's
 constraints. Deferred items remain context for the seed.
 
+Constraint-polarity errors remain possible; decision coverage remains a model
+judgment, not proof that choices mean the same thing. See the
+[bounded #64 evidence](../../findings/README.md#goal-history-and-review-regression-check-64).
+
 The original is plain ink by default. Exact cited spans are validated invisibly;
 uncited words are not implicitly rejected.
 
@@ -232,60 +236,12 @@ space. The main-reading exclusion-accessibility task is published as
 
 ## Decision-review evidence (#34)
 
-The review replaced a log-only background meaning audit that never changed a
-reading; #34 deleted it. In the v3 eval, decisions asked rose from 23% to 40%,
-with questions on clear dumps within the 0.5-per-run target. Silent guesses fell
-from 18% to 14%, but that difference is within noise, not a demonstrated gain.
+See [historical evidence](../../findings/README.md#decision-review-evidence-34).
 
 ## Evidence-note regression check (#58)
 
-AI-operator dogfood on 2026-10-12 put “I have not reproduced that historical
-failure in this run” under Still open. A bounded replay through
-`openai-codex/gpt-6.1-sol` with low thinking reproduced it with the old reading
-prompt. The revised prompt distinguishes statements about the evidence from
-requirements and choices about the work, without a keyword filter in the decoder.
-The decision-review prompt and the two-call send contract are unchanged.
-
-| Supplied dump | Observed reading |
-| --- | --- |
-| Same dogfood dump, old prompt | Evidence note stayed unresolved; no focused question |
-| Same dump, revised prompt | No unresolved note or question; evidence text remained verbatim in the original |
-| Evidence note plus undecided simulated-test/live-trial success check | Asked which evidence counts as success; Done when remained missing |
-| Evidence note plus undecided permission to show private text | Asked about the private-text boundary; Must not remained open |
-
-Four sends made eight provider calls through the subscription connection, within
-the operator's authorized budget. No goal was confirmed or saved by this eval.
-These are three revised-prompt examples and one baseline, not a general quality
-rate or a human-recognition result. The small captured projections in
-`tests/fixtures/evidence_notes/` exercise readiness, review and exact original
-handoff with no calls. The prompt byte test guards the deliberate instruction
-change; those replay tests alone do not establish future model behavior.
+See [historical evidence](../../findings/README.md#evidence-note-regression-check-58).
 
 ## Goal-history and review regression check (#64)
 
-Follow-up AI-operator [dogfood](../../findings/README.md) found a previous goal's model reply in the next
-goal's think record, and one permission choice repeated as a question and two
-notes. New visits now get a fresh host history; fresh standalone visits also keep
-the chosen record folder. Explicit decision/question links let review show the
-question once while retaining its alternatives in handoff. The review's `covers`
-indices identify the shaping choices it replaces; invalid indices, different parts
-and malformed replacement choices leave the originals intact. Different choices
-are not collapsed just because they share a part.
-
-The live check used four sends/eight subscription-provider calls with
-`openai-codex/gpt-6.1-sol`, low thinking, in isolated TEST roots. The formerly
-repeated private-text choice appeared once. A second goal retained two different
-permission choices, one as the question and the other as an open note. Its record
-held one raw model reply; the first goal retained its three replies, with no
-cross-goal overlap. Originals, confirmed goal copies and existing-session handoff
-remained intact. This is bounded AI-operator evidence, not a general model-quality
-rate or human recognition.
-
-The live run also produced “Must not: Always omit” for an instruction to omit
-private text. Normal refinement corrected that draft before it was saved. This
-slice does not fix general constraint-polarity errors; the overlap judgment in
-`covers` also remains a model judgment, not proof that choices mean the same thing.
-Fake-provider terminal journeys cover both entry routes at all four supported
-sizes, including distinct same-part choices, saved history and record-folder
-preservation. Reversion probes fail for history isolation, linked-note suppression,
-decision coverage and its validation, and pass again with the protections restored.
+See [historical evidence](../../findings/README.md#goal-history-and-review-regression-check-64).

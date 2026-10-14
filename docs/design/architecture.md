@@ -21,10 +21,10 @@ ideas; the area entry points below contain navigation only.
 
 | Area | Code | Work entry point |
 | --- | --- | --- |
-| menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [menu](../research/menu/backlog.md) |
-| think | `src/think/` | [think](../research/think/backlog.md) |
+| menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [#118](https://github.com/jon-devlapaz/tinkery/issues/118), still needs approval |
+| think | `src/think/` | [think](../research/shared/backlog.md#think) |
 | shape | `src/shape/` | [#106](https://github.com/jon-devlapaz/tinkery/issues/106), still needs approval |
-| measure | `src/measure.rs` | [measure](../research/measure/backlog.md) |
+| measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119), [#120](https://github.com/jon-devlapaz/tinkery/issues/120), both need approval |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
 Approve, watch and taste get their own modules when built. There are no exceptions
