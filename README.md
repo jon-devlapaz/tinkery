@@ -1,49 +1,37 @@
 # Tinkery
 
-A calm, keyboard-first terminal front door for turning a messy thought into useful,
-checked work—without losing what you meant or taking control away from you.
+## The big idea
 
-Tinkery is not meant to be another busy dashboard or an autonomous agent manager.
-It should show what matters now, one next step, and how to leave.
+Tinkery is a calm front door for turning a messy thought into useful, checked
+work—without losing what you meant or taking control away from you.
+
+It isn’t meant to be another busy dashboard or an autonomous agent manager. It
+should show what matters now, one next step, and how to leave.
 
 ## The journey
 
 Imagine you say: “I want customers to find their invoices more easily.”
 
-The intended journey is:
+Tinkery’s intended journey is:
 
-**Think → Shape → Approve → external work → Watch → Taste → Measure**
+**Think → Shape → Approve → work happens → Watch → Taste → Measure**
 
 | Place | What it helps you do |
 | --- | --- |
 | **Think** | Work out what you actually want. It offers a reading and asks one question at a time. |
 | **Shape** | Prepare that goal for someone—or an agent—to work on, including its boundaries. |
-| **Approve** | Understand exactly what decision is needed and what you are authorizing. |
-| **Watch** | See what is happening, what is blocked and what needs your attention. |
-| **Taste** | Compare the result with your original goal. You decide whether it is useful or needs correction. |
+| **Approve** | Understand exactly what decision is needed and what you’re authorizing. |
+| **Watch** | See what’s happening, what’s blocked and what needs your attention. |
+| **Taste** | Compare the result with your original goal. You decide whether it’s useful or needs correction. |
 | **Measure** | See whether the process produced accepted, checked results with less effort from you. |
 
-Once you confirm the goal, it stays unchanged through the handoffs. Your original
-words remain intact; Tinkery's readings and suggestions are visibly guesses.
+Once you confirm the goal, it stays unchanged through the handoffs. Suggestions
+and guesses must never masquerade as your words. Your original words remain
+intact.
 
 This is the direction, not a claim that every place is built.
 
-## What works today
-
-- **Think** reads a messy dump into one goal block and asks one question at a time.
-  Your words are kept exactly.
-- **Confirming** saves that goal, unchanged, as a Seed Me session in
-  `~/.local/share/seed-me/sessions/`, and writes a think record to
-  `~/.local/share/tinkery/think/`.
-- **Shape** lists saved goals and copies a prompt to continue in Claude, Codex or Pi.
-- **Measure** shows a separately installed ledger, or says it is unknown.
-- **Approve, Watch and Taste** are not built yet.
-
-Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that
-stays on your machine. The complete journey and its claimed benefit still need
-proving.
-
-## Tinkery does not do everything itself
+## Tinkery doesn’t do everything itself
 
 Think of Tinkery as the reception desk, not the whole workshop.
 
@@ -53,23 +41,42 @@ Think of Tinkery as the reception desk, not the whole workshop.
 - **You** supply permission and judge whether the result meets your intent.
 
 Tinkery should connect those records and explain them—not invent a competing set
-of approvals. Confirming a goal, confirming a brief and approving implementation
-are different decisions. Copying a prompt approves none of them.
+of approvals.
 
-## Where we are going
+Confirming a goal, confirming a brief and approving implementation are different
+decisions. Copying a prompt approves none of them.
 
-The foundation is trustworthy connections. If two jobs have similar names,
-Tinkery must not guess which one belongs to your goal.
+## What works today
 
-We are proposing:
+Today, Tinkery can:
 
-1. A permanent serial number for each external run. First check whether SDLC
-   already provides it; recreating a run under the same name must not reuse its
-   identity.
-2. An explicitly confirmed connection between your saved goal and that exact
-   run. The first version creates one immutable binding and detects duplicates;
-   changing or relocating a binding is deferred.
+- Help you think through a dump and explicitly save a confirmed goal. Confirming
+  saves that goal, unchanged, as a Seed Me session in
+  `~/.local/share/seed-me/sessions/`, and writes a think record to
+  `~/.local/share/tinkery/think/`.
+- List saved goals in Shape and copy a continuation prompt to Claude, Codex or Pi.
+- Show an existing ledger report in Measure, or say it’s unavailable.
+
+**Approve, Watch and Taste aren’t built yet.** The complete journey and its
+claimed benefit still need proving.
+
+Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that
+stays on your machine.
+
+## Where we’re going next
+
+The foundation is trustworthy connections.
+
+If two jobs have similar names, Tinkery must not guess which one belongs to your
+goal. So we’re proposing:
+
+1. A permanent serial number for each external run.
+2. An explicitly confirmed connection between your saved goal and that exact run.
 3. A shared reader that checks those identities and brings back current evidence.
+
+First check whether SDLC already provides permanent run identity; recreating a
+run under the same name must not reuse it. The first binding version creates one
+immutable connection and detects duplicates; changing or relocating it is deferred.
 
 That would let Approve, Watch and Taste all talk about the same work, rather than
 loosely related files. The [binding design](docs/design/job-records.md#goal-to-run-identity-prerequisite)
@@ -77,22 +84,22 @@ remains an unaccepted proposal, not implemented behavior.
 
 We also intend to bring useful Substrate responsibilities into Tinkery, rather
 than permanently requiring a separate Substrate aggregation service. That
-migration is planned, not finished; today's Measure still uses its ledger report.
+migration is planned, not finished. Today’s Measure still uses its ledger report.
 
 The [first-release plan](docs/design/first-release.md) and
 [task index](docs/design/first-release-issues.md) explain the path. The twelve
-published tasks organize that direction; they need approval, not implementation
-all at once. Speculative ideas stay in the [parked backlog](docs/research/shared/backlog.md).
+published tasks organize that direction; publication does not approve their
+implementation. Speculative ideas stay in the [parked backlog](docs/research/shared/backlog.md).
 
 ## What success means
 
-Not more agents running or more code generated.
+Not “more agents running” or “more code generated.”
 
 **Success means useful, verified changes per hour of your attention.**
 
-You should explain yourself less, recover after interruptions, understand failures
-and retain the final judgment. Missing evidence should say unknown, not pretend
-everything is green.
+You should explain yourself less, recover after interruptions, understand
+failures, and retain the final judgment. Missing evidence should say unknown,
+not pretend everything is green.
 
 Active effort is different from elapsed session time. Passing checks is different
 from your acceptance. We still need a separately permitted baseline and trial to
