@@ -5,7 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = {
-    "## Starting point": "592d596fce09bd51b2c4d3e76c32dba19d3e4676c4c7fa77ef8e825f588fa6de",
+    "## Starting point": "c92bcc3231607a9b964690c079e9782e6fb2a964593b31824dbc2686d9793484",
     "## Finish line": "e4e85c59f747382b80f49ef881e9f69898f082609f95025d6f3b3169562f6e74",
     "## Milestones and dependencies": "895f61d9cf05c44c180bd6f9ab801c0656dcc5563df94eb141751054cd66ddf7",
     "## How to measure the benefit": "cf87d09453c50f53449199b105b97e95b511ac3c5bd697b52d09ceb7ddb5bc1f"
