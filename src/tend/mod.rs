@@ -14,7 +14,11 @@ use crate::{
     goal::confirmed::{SavedGoal, render_saved_goal},
     seed_me::continuation_prompt,
 };
-use ratatui::{Frame, layout::Rect, widgets::Paragraph};
+use ratatui::{
+    Frame,
+    layout::Rect,
+    widgets::{Paragraph, Wrap},
+};
 use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -42,6 +46,8 @@ pub(super) struct Tend {
     pub want: Option<(PathBuf, Option<PathBuf>)>,
     /// Records the last read could not parse; the list may be missing them.
     pub unreadable: usize,
+    /// Readable ended sessions omitted from the garden.
+    pub ended: usize,
     /// The discovery version last applied.
     pub seen: u64,
     pub selected: usize,
@@ -65,6 +71,7 @@ impl Tend {
             current: false,
             want: None,
             unreadable: 0,
+            ended: 0,
             seen: 0,
             selected: 0,
             detail: false,
@@ -103,16 +110,25 @@ impl Tend {
                 self.error = Some(error.clone());
                 self.sessions.clear();
                 self.unreadable = 0;
+                self.ended = 0;
                 self.want = None;
             }
             Ok(found) => {
                 let keep = self.current().map(|s| s.path.clone());
                 self.error = None;
                 self.unreadable = found.unreadable;
-                self.sessions = found.sessions.clone();
+                self.sessions = found
+                    .sessions
+                    .iter()
+                    .filter(|s| s.stage != Stage::Ended)
+                    .cloned()
+                    .collect();
+                self.ended = found.sessions.len() - self.sessions.len();
                 if let Some(index) = wanted_at {
-                    self.selected = index;
-                    self.detail = true;
+                    let path = &found.sessions[index].path;
+                    let active = self.sessions.iter().position(|s| s.path == *path);
+                    self.selected = active.unwrap_or(0);
+                    self.detail = active.is_some();
                     self.scroll = 0;
                     self.want = None;
                 } else if let Some((path, _)) = self.want.take() {
@@ -280,7 +296,12 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     }
     if tend.sessions.is_empty() {
         frame.render_widget(
-            Paragraph::new(if tend.unreadable > 0 {
+            Paragraph::new(if tend.ended > 0 {
+                format!(
+                    "No active goals. {} ended not shown. Confirm a goal in think to start one.",
+                    tend.ended
+                )
+            } else if tend.unreadable > 0 {
                 format!(
                     "{} couldn't be read, so nothing can be listed. Esc goes back.",
                     records(tend.unreadable)
@@ -288,9 +309,13 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             } else {
                 "No Seed Me sessions yet. Confirm a goal in think to start one.".into()
             })
-            .style(palette.muted),
+            .style(palette.muted)
+            .wrap(Wrap { trim: false }),
             area,
         );
+        if tend.ended > 0 {
+            garden::render_note(frame, tend, area, palette);
+        }
         return;
     }
     if tend.detail {

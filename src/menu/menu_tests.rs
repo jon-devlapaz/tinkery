@@ -117,7 +117,7 @@ fn garden(count: usize) -> Home {
         1,
     );
     tend.current = true;
-    h.view = View::Tend(tend);
+    h.view = View::Tend(Box::new(tend));
     h
 }
 fn selected(h: &Home) -> usize {
@@ -135,6 +135,139 @@ fn press(h: &mut Home, column: u16, row: u16, now: Instant) {
         Rect::new(0, 0, 100, 30),
         now,
     );
+}
+
+#[test]
+fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
+    let stages = [
+        Stage::GoalSaved,
+        Stage::SeedDrafted,
+        Stage::SeedReady,
+        Stage::Unknown,
+        Stage::Simulated,
+    ];
+    let mut h = garden(0);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    let sessions = stages
+        .iter()
+        .enumerate()
+        .flat_map(|(i, &stage)| {
+            [
+                sess(&format!("ended-{i}"), Stage::Ended, "unknown"),
+                sess(&i.to_string(), stage, "unknown"),
+            ]
+        })
+        .collect();
+    tend.apply(&found(sessions), true, 1);
+    assert_eq!(
+        tend.sessions.iter().map(|s| s.stage).collect::<Vec<_>>(),
+        stages
+    );
+    assert_eq!(tend.ended, 5);
+    let frame = screen(&mut h);
+    assert!(frame.contains("5 ended not shown"), "{frame}");
+    assert!(!frame.contains("goal ended"), "{frame}");
+    for code in [
+        KeyCode::Right,
+        KeyCode::Char('j'),
+        KeyCode::Left,
+        KeyCode::Char('k'),
+        KeyCode::Down,
+        KeyCode::Up,
+    ] {
+        for _ in 0..7 {
+            h.handle_key(key(code));
+            let View::Tend(tend) = &h.view else { panic!() };
+            assert_ne!(tend.current().unwrap().stage, Stage::Ended);
+        }
+    }
+    let now = Instant::now();
+    for (index, column, row) in [(0, 3, 3), (1, 24, 3), (2, 45, 3), (3, 66, 3), (4, 14, 7)] {
+        press(&mut h, column, row, now);
+        assert_eq!(selected(&h), index);
+        h.handle_key(key(KeyCode::Enter));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert!(tend.detail);
+        assert_eq!(tend.current().unwrap().stage, stages[index]);
+        h.handle_key(key(KeyCode::Esc));
+    }
+}
+
+#[test]
+fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
+    let mut h = garden(0);
+    for count in [1, 2] {
+        for unreadable in [0, 1] {
+            let View::Tend(tend) = &mut h.view else {
+                panic!()
+            };
+            tend.apply(
+                &Ok(Found {
+                    sessions: (0..count)
+                        .map(|i| sess(&format!("ended-{i}"), Stage::Ended, "unknown"))
+                        .collect(),
+                    unreadable,
+                }),
+                true,
+                1,
+            );
+            for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+                let frame = snapshot(width, height, &mut h, true).unwrap();
+                let text = frame.split_whitespace().collect::<Vec<_>>().join(" ");
+                assert!(text.contains(&format!("No active goals. {count} ended not shown. Confirm a goal in think to start one.")), "{frame}");
+                assert!(!text.contains("No Seed Me sessions"), "{frame}");
+                assert_eq!(text.matches("ended not shown").count(), 1);
+                if unreadable > 0 {
+                    assert!(frame.contains("1 saved record couldn't be read"), "{frame}");
+                }
+                assert_eq!(frame.lines().last().unwrap().trim(), "esc back");
+                for code in [
+                    KeyCode::Right,
+                    KeyCode::Down,
+                    KeyCode::Char('j'),
+                    KeyCode::Enter,
+                ] {
+                    h.handle_key(key(code));
+                }
+                press(&mut h, 3, 3, Instant::now());
+                let View::Tend(tend) = &h.view else { panic!() };
+                assert!(tend.current().is_none() && !tend.detail);
+            }
+        }
+    }
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    tend.apply(&found(vec![]), true, 2);
+    let frame = screen(&mut h);
+    assert!(frame.contains("No Seed Me sessions yet. Confirm a goal in think to start one."));
+    assert!(!frame.contains("ended not shown"));
+}
+
+#[test]
+fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
+    for stage in [Stage::GoalSaved, Stage::Ended] {
+        let mut tend = Tend::new();
+        tend.want = Some(("/TEST/alias".into(), Some("/TEST/target".into())));
+        tend.apply(
+            &found(vec![
+                sess("ended", Stage::Ended, "unknown"),
+                sess("target", stage, "unknown"),
+            ]),
+            false,
+            1,
+        );
+        assert!(tend.want.is_none() && !tend.pending && tend.error.is_none());
+        assert_eq!(tend.detail, stage != Stage::Ended);
+        if stage != Stage::Ended {
+            assert_eq!(tend.selected, 0);
+            assert_eq!(tend.current().unwrap().path, Path::new("/TEST/target"));
+        } else {
+            assert!(tend.current().is_none());
+        }
+    }
 }
 
 #[test]

@@ -254,17 +254,47 @@ fn pages_follow_selection_and_only_multiple_pages_get_a_note() {
 }
 
 #[test]
-fn unreadable_note_sits_above_selected_line_without_changing_it() {
+fn read_notes_share_the_muted_row_above_selection_without_changing_it() {
     let mut tend = tend(1);
-    let before = paint(&mut tend, 100, 30, true);
-    for (count, wording) in [(1, "1 saved record"), (2, "2 saved records")] {
-        tend.unreadable = count;
-        let after = paint(&mut tend, 100, 30, true);
-        assert_eq!(line(&before, 27), line(&after, 27));
-        assert_eq!(
-            line(&after, 26).trim_end(),
-            format!("{wording} couldn't be read; this view may be missing sessions.")
-        );
-        assert!(line(&after, 28).trim().is_empty());
+    let before = paint(&mut tend, 160, 40, true);
+    assert!(line(&before, 36).trim().is_empty());
+    for ended in [0, 1, 2] {
+        for unreadable in [0, 1, 2] {
+            let mut sessions = tend.sessions.clone();
+            sessions.extend((0..ended).map(|i| Session {
+                path: format!("/TEST/ended-{i}").into(),
+                goal: "Ended goal must stay hidden".into(),
+                stage: Stage::Ended,
+                updated: String::new(),
+            }));
+            tend.apply(
+                &Ok(super::super::Found {
+                    sessions,
+                    unreadable,
+                }),
+                true,
+                1,
+            );
+            let after = paint(&mut tend, 160, 40, true);
+            assert_eq!(line(&before, 37), line(&after, 37));
+            let mut expected = Vec::new();
+            if ended > 0 {
+                expected.push(format!("{ended} ended not shown"));
+            }
+            if unreadable > 0 {
+                expected.push(format!(
+                    "{} couldn't be read; this view may be missing sessions.",
+                    records(unreadable)
+                ));
+            }
+            assert_eq!(line(&after, 36).trim_end(), expected.join(" · "));
+            for x in 2..158 {
+                assert!(after[(x, 36)].modifier.contains(Modifier::DIM));
+                assert!(!after[(x, 36)].modifier.contains(Modifier::BOLD));
+            }
+            assert!(line(&after, 38).trim().is_empty());
+            assert!(!(3..36).any(|y| line(&after, y).contains("Ended goal")));
+            assert_eq!(tend.sessions.len(), 1);
+        }
     }
 }

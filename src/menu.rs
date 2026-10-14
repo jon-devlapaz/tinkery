@@ -75,7 +75,7 @@ pub struct Home {
 enum View {
     Menu,
     Think(Box<BrainDump>),
-    Tend(Tend),
+    Tend(Box<Tend>),
     Measure(Reading),
     Soon(usize),
 }
@@ -290,7 +290,7 @@ impl Home {
             1 => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.discovery.request(&self.sessions_root);
-                View::Tend(Tend::new())
+                View::Tend(Box::new(Tend::new()))
             }
             5 => View::Measure(Reading {
                 body: measure::ledger_report(&self.substrate_dir),
@@ -1054,6 +1054,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         session(tmp.path(), "old", "active", "2026-10-01T00:00:00Z", None);
         session(tmp.path(), "new", "active", "2026-10-10T00:00:00Z", None);
+        session(tmp.path(), "ended", "stopped", "2026-10-11T00:00:00Z", None);
         let path = tmp.path().join("old");
         let before = fs::read(path.join("ledger.json")).unwrap();
         let mut h = home(tmp.path());
@@ -1165,7 +1166,9 @@ mod tests {
             assert!(
                 !screen.contains("Why:") && !screen.contains("Done when:") && !screen.contains("/")
             );
-            let positions: Vec<_> = ["saved", "drafted", "ready", "ended"]
+            assert!(!screen.contains("ended a long goal"), "{screen}");
+            assert!(screen.contains("1 ended not shown"), "{screen}");
+            let positions: Vec<_> = ["saved", "drafted", "ready"]
                 .iter()
                 .map(|id| screen.find(id).unwrap())
                 .collect();
@@ -1173,7 +1176,7 @@ mod tests {
                 positions.windows(2).all(|pair| pair[0] < pair[1]),
                 "{screen}"
             );
-            for label in ["goal saved", "seed drafted", "seed ready", "ended"] {
+            for label in ["goal saved", "seed drafted", "seed ready"] {
                 let selected = snapshot(w, height, &mut h, false).unwrap();
                 let line = selected.lines().nth(height as usize - 3).unwrap();
                 assert!(

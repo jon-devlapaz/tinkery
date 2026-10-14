@@ -163,16 +163,24 @@ pub(super) fn render(
         ])),
         Rect::new(body.x, body.bottom().saturating_sub(2), body.width, 1),
     );
-    if tend.unreadable > 0 {
-        frame.render_widget(
-            Paragraph::new(format!(
-                "{} couldn't be read; this view may be missing sessions.",
-                records(tend.unreadable),
-            ))
-            .style(palette.muted),
-            Rect::new(body.x, body.bottom().saturating_sub(3), body.width, 1),
-        );
+    render_note(frame, tend, body, palette);
+}
+
+pub(super) fn render_note(frame: &mut Frame, tend: &Tend, body: Rect, palette: Palette) {
+    let mut notes = Vec::new();
+    if tend.ended > 0 && !tend.sessions.is_empty() {
+        notes.push(format!("{} ended not shown", tend.ended));
     }
+    if tend.unreadable > 0 {
+        notes.push(format!(
+            "{} couldn't be read; this view may be missing sessions.",
+            records(tend.unreadable),
+        ));
+    }
+    frame.render_widget(
+        Paragraph::new(notes.join(" · ")).style(palette.muted),
+        Rect::new(body.x, body.bottom().saturating_sub(3), body.width, 1),
+    );
 }
 
 #[cfg(test)]

@@ -21,7 +21,7 @@ def journey(width, height, kind='garden'):
         root = Path(directory).resolve()
         sessions = root / 'TEST-sessions'
         now = datetime.now(timezone.utc)
-        count = 30 if kind == 'paging' else {160: 8, 320: 16}.get(width, 7)
+        count = (30 if kind == 'paging' else {160: 8, 320: 16}.get(width, 7)) + 1
         labels = LABELS + [f'Garden goal {i+1:02}' for i in range(len(LABELS), count)]
         states = [('saved', 'active', None), ('drafted', 'active', 'status: draft'),
                   ('ready', 'active', 'status: confirmed for intake'),
@@ -33,6 +33,8 @@ def journey(width, height, kind='garden'):
             (path / 'ledger.json').write_text(json.dumps(dict(status=status, goal=labels[i]+'\n'+GOAL,
                 updated_at=(now-timedelta(hours=i)).isoformat())))
             if seed: (path / 'seed-contract.md').write_text(seed+'\n# Synthetic fixture only\n')
+        ended_goal = labels.pop(3)
+        count -= 1
         if kind == 'unreadable':
             broken = sessions / 'unreadable'
             broken.mkdir()
@@ -100,6 +102,8 @@ def journey(width, height, kind='garden'):
             wait(lambda: '1  think' in screen.text())
             send(b'2', GARDEN_KEYS)
             wait(lambda: selected(0))
+            assert ended_goal not in screen.text(), screen.text()
+            assert screen.text().splitlines()[height-4].strip().startswith('1 ended not shown'), screen.text()
             visible = labels if kind != 'paging' else [label for label in labels
                                                        if any(label in line for line in garden_lines())]
             positions = [position(label) for label in visible]
@@ -120,7 +124,8 @@ def journey(width, height, kind='garden'):
                 assert page and int(page[1]) == int(page[2]) > 1, line
                 assert not any(label in screen.text() for label in visible), screen.text()
             elif kind == 'unreadable':
-                assert "1 saved record couldn't be read; this view may be missing sessions." in screen.text(), screen.text()
+                note = "1 ended not shown · 1 saved record couldn't be read; this view may be missing sessions."
+                assert screen.text().splitlines()[height-4].strip() == note[:width-4], screen.text()
             else:
                 move(b'\x1b[C', 1)
                 move(b'\x1b[D', 0)
@@ -141,32 +146,25 @@ def journey(width, height, kind='garden'):
                 wait(lambda: selected(1))
                 move(b'k', 0)
             for index, next_line in enumerate(['Next: shape it into a seed with Seed Me.',
-                    'Next: confirm the seed draft with Seed Me.', 'Next: the seed is ready for intake.', None]
+                    'Next: confirm the seed draft with Seed Me.', 'Next: the seed is ready for intake.']
                     if kind == 'garden' else []):
-                label = ['goal saved', 'seed drafted', 'seed ready', 'ended'][index]
+                label = ['goal saved', 'seed drafted', 'seed ready'][index]
                 wait(lambda: label in screen.text().splitlines()[height-3])
                 send(b'\r', 'esc back   10 menu')
                 assert 'Saved.' not in screen.text()
                 assert labels[index] in screen.text(), screen.text()
                 for line in GOAL.splitlines(): assert line in ' '.join(screen.text().split()), (line, screen.text())
                 ordinary()
-                if next_line:
-                    assert next_line in screen.text(), screen.text()
-                    for _ in range(2):
-                        count = len(copies())
-                        os.write(master, b'c')
-                        wait(lambda: len(copies()) == count+1)
-                        text = base64.b64decode(copies()[-1]).decode()
-                        target = sessions / ['saved','drafted','ready'][index]
-                        assert f'"{target}"' in text and f'"{SKILL}"' in text
-                        wait(lambda: 'Copied.' in screen.text())
-                    assert copies()[-1] == copies()[-2]
-                else:
-                    assert 'Next:' not in screen.text() and 'c copy prompt' not in screen.text()
+                assert next_line in screen.text(), screen.text()
+                for _ in range(2):
                     count = len(copies())
-                    send(b'c\x1bOP', 'Right now')
-                    assert len(copies()) == count and 'c copy prompt' not in screen.text()
-                    send(b'\x1b', 'esc back   10 menu')
+                    os.write(master, b'c')
+                    wait(lambda: len(copies()) == count+1)
+                    text = base64.b64decode(copies()[-1]).decode()
+                    target = sessions / ['saved','drafted','ready'][index]
+                    assert f'"{target}"' in text and f'"{SKILL}"' in text
+                    wait(lambda: 'Copied.' in screen.text())
+                assert copies()[-1] == copies()[-2]
                 send(b'\x1bOP', 'Right now')
                 ordinary()
                 send(b'h', 'How it works')
@@ -175,7 +173,7 @@ def journey(width, height, kind='garden'):
                 send(b'\x1b', 'esc back   10 menu')
                 send(b'\x1b', GARDEN_KEYS)
                 wait(lambda: selected(index))
-                if index < 3: move(b'j', index+1)
+                if index < 2: move(b'j', index+1)
             send(b'\x1b', '1  think')
             send(b'2', GARDEN_KEYS)
             send(b'\x1b[21~', '1  think')

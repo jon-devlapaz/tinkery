@@ -28,6 +28,10 @@ detail. The plain-text terminal exit receipt may include recovery locations.
 Tend is read-only: it shows only the saved goals discovery has landed, newest first
 in a deterministic staggered grid. Every goal has the same hollow Braille ring:
 size is unknown. This slice has no links, known sizes or merges.
+Ended sessions are left out; `N ended not shown` shares the muted incomplete-read
+note row, joined with ` · ` when both apply.
+If every readable session is ended, tend says `No active goals. N ended not shown.
+Confirm a goal in think to start one.` rather than claiming no sessions exist.
 
 Only the first saved-goal line sits above each ring, centred and clipped with `…`
 so labels never overlap. Old unstructured goals use their first line too. The selected

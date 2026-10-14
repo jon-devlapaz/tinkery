@@ -71,7 +71,7 @@ keeps an index; a rescan is a rescan.
 | --- | --- | --- |
 | Not known | nothing landed yet, or a newer read is running | no count; tend says it is reading, unless it already shows a non-empty garden |
 | Complete | every record was read (a missing root counts: nothing saved yet) | exact count of active sessions, if nonzero |
-| Incomplete | some records exist but could not be read | the valid sessions, a quiet “N saved records couldn't be read”, no count |
+| Incomplete | some records exist but could not be read | the valid goals under [Tend's display rules](shape-and-handoff.md#tend-garden-and-detail), a quiet “N saved records couldn't be read”, no count |
 | Failed | the root could not be listed | the unavailable message, no count |
 
 Unknown, incomplete and failed are never shown as zero or “no sessions”. Directories
