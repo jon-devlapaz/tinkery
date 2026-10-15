@@ -339,6 +339,9 @@ impl Home {
             {
                 return;
             }
+            if let View::Tend(tend) = &mut self.view {
+                tend.release_pointer();
+            }
             if key.code == KeyCode::F(10) {
                 self.view = View::Menu;
                 self.help = false;
@@ -436,19 +439,16 @@ impl Home {
                 }
                 KeyCode::PageDown if tend.detail => tend.scroll = tend.scroll.saturating_add(5),
                 KeyCode::PageUp if tend.detail => tend.scroll = tend.scroll.saturating_sub(5),
-                KeyCode::Right | KeyCode::Char('j') if tend.garden_showing() => {
-                    tend.selected = (tend.selected + 1).min(tend.sessions.len() - 1)
+                KeyCode::Right | KeyCode::Down | KeyCode::Char('j') if tend.garden_showing() => {
+                    tend.step_selection(true)
                 }
-                KeyCode::Left | KeyCode::Char('k') if tend.garden_showing() => {
-                    tend.selected = tend.selected.saturating_sub(1)
+                KeyCode::Left | KeyCode::Up | KeyCode::Char('k') if tend.garden_showing() => {
+                    tend.step_selection(false)
                 }
-                KeyCode::Down if tend.garden_showing() => {
-                    tend.selected = (tend.selected + tend.columns).min(tend.sessions.len() - 1)
-                }
-                KeyCode::Up if tend.garden_showing() => {
-                    if tend.selected >= tend.columns {
-                        tend.selected -= tend.columns;
-                    }
+                KeyCode::Char(c @ ('+' | '=' | '-' | 'H' | 'J' | 'K' | 'L'))
+                    if tend.garden_showing() =>
+                {
+                    tend.adjust_view(c);
                 }
                 KeyCode::Enter if tend.garden_showing() => {
                     tend.detail = true;
@@ -482,13 +482,13 @@ impl Home {
             dump.handle_mouse(event, area);
             return;
         }
-        if event.kind != MouseEventKind::Down(MouseButton::Left) {
-            return;
-        }
         if let View::Tend(tend) = &mut self.view {
             if !self.help {
-                tend.press(event.column, event.row, body(area), now);
+                tend.pointer(event, body(area), now);
             }
+            return;
+        }
+        if event.kind != MouseEventKind::Down(MouseButton::Left) {
             return;
         }
         if !matches!(self.view, View::Menu) {

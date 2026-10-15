@@ -38,13 +38,13 @@ fn start_self_pick_cancel_commit_and_toggle_return_to_source() {
     tend.selected = 1;
     tend.start_link();
     assert!(tend.is_linking());
-    assert_eq!(tend.selected_line(76, None, "").1, "Quiet garden needs …");
+    assert_eq!(tend.selected_line(76, None).1, "Quiet garden needs …");
     tend.commit_link();
     assert!(tend.is_linking(), "self-pick stays in linking");
     tend.selected = 0;
     assert!(tend.source_marked(1) && !tend.source_marked(0));
     assert_eq!(
-        tend.selected_line(76, None, "").1,
+        tend.selected_line(76, None).1,
         "Quiet garden needs Calm theme"
     );
     tend.cancel_link();
@@ -65,7 +65,7 @@ fn start_self_pick_cancel_commit_and_toggle_return_to_source() {
             .contains("id-1", "id-0")
     );
     assert!(
-        tend.selected_line(76, None, "")
+        tend.selected_line(76, None)
             .1
             .ends_with(" · needs Calm theme · not ready")
     );
@@ -78,10 +78,7 @@ fn start_self_pick_cancel_commit_and_toggle_return_to_source() {
         tend.needs.read().into_links().unwrap(),
         needs::Links::default()
     );
-    assert_eq!(
-        tend.selected_line(76, None, "").1,
-        "goal saved · time unknown"
-    );
+    assert_eq!(tend.selected_line(76, None).1, "goal saved · time unknown");
 }
 
 #[test]
@@ -178,7 +175,7 @@ fn all_readable_sessions_supply_readiness_missing_needs_stay_unknown() {
     );
     assert_eq!(tend.ended, 1);
     assert!(
-        tend.selected_line(76, None, "")
+        tend.selected_line(76, None)
             .1
             .ends_with(" · needs Quiet garden · ready")
     );
@@ -192,7 +189,7 @@ fn all_readable_sessions_supply_readiness_missing_needs_stay_unknown() {
         true,
         3,
     );
-    let suffix = tend.selected_line(156, None, "").1;
+    let suffix = tend.selected_line(156, None).1;
     assert!(
         suffix.ends_with(" · needs Local records, Quiet garden · 1 need not found · not ready"),
         "{suffix}"
@@ -200,7 +197,7 @@ fn all_readable_sessions_supply_readiness_missing_needs_stay_unknown() {
     tend.needs.toggle("id-0", "another-missing").unwrap();
     tend.links = tend.needs.read().into_links();
     assert!(
-        tend.selected_line(156, None, "")
+        tend.selected_line(156, None)
             .1
             .contains("2 needs not found · not ready")
     );

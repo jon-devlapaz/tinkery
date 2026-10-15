@@ -23,7 +23,7 @@ def journey(width, height, kind='garden'):
         root = Path(directory).resolve()
         sessions = root / 'TEST-sessions'
         now = datetime.now(timezone.utc)
-        count = (30 if kind == 'paging' else {160: 8, 320: 16}.get(width, 7)) + 1
+        count = (30 if kind == 'whole-graph' else {160: 8, 320: 16}.get(width, 7)) + 1
         labels = LABELS + [f'Garden goal {i+1:02}' for i in range(len(LABELS), count)]
         states = [('saved', 'active', None), ('drafted', 'active', 'status: draft'),
                   ('ready', 'active', 'status: confirmed for intake'),
@@ -109,13 +109,11 @@ def journey(width, height, kind='garden'):
             wait(lambda: selected(0))
             assert ended_goal not in screen.text(), screen.text()
             assert screen.text().splitlines()[height-4].strip().startswith('1 ended not shown'), screen.text()
-            visible = labels if kind != 'paging' else [label for label in labels
-                                                       if any(label in line for line in garden_lines())]
-            positions = [position(label) for label in visible]
-            assert positions == sorted(positions, key=lambda point: (point[1], point[0])), screen.text()
-            for label, (column, row) in zip(visible, positions):
-                for ring_row in screen.text().splitlines()[row+1:row+3]:
-                    assert any('\u2801' <= char <= '\u28ff' for char in ring_row[column:column+len(label)]), (label, screen.text())
+            visible = [label for label in labels if any(label in line for line in garden_lines())]
+            assert any('\u2801' <= char <= '\u28ff' for line in garden_lines() for char in line), screen.text()
+            assert 'page ' not in screen.text(), screen.text()
+            if width == 100 and kind == 'garden':
+                print('TEST Tend 100×30 screen:\n'+screen.text())
             line = screen.text().splitlines()[height-3]
             assert 'goal saved · ' in line, line
             assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
@@ -126,7 +124,7 @@ def journey(width, height, kind='garden'):
                 assert 'Calm theme needs …' in screen.text(), screen.text()
                 if kind == 'link-mouse':
                     column, row = position(labels[1])
-                    os.write(master, click(column, row))
+                    os.write(master, click(column+len(labels[1])//2, row))
                 else:
                     send(b'j', 'Calm theme needs Clear next step')
                     assert '› Calm theme' in screen.text() and '→ Clear next step' in screen.text(), screen.text()
@@ -151,13 +149,32 @@ def journey(width, height, kind='garden'):
                 send(b'\r', GARDEN_KEYS)
                 wait(lambda: selected(0) and 'needs Clear next step' not in screen.text())
                 assert json.loads(link_file.read_text()) == dict(version=1, needs=[])
-            elif kind == 'paging':
-                assert len(visible) < len(labels), screen.text()
+            elif kind == 'whole-graph':
                 for index in range(1, count): move(b'j', index)
-                line = screen.text().splitlines()[height-3]
-                page = re.search(r'page (\d+) of (\d+)', line)
-                assert page and int(page[1]) == int(page[2]) > 1, line
-                assert not any(label in screen.text() for label in visible), screen.text()
+                assert 'page ' not in screen.text(), screen.text()
+                assert selected(count-1), screen.text()
+            elif kind == 'drag-scroll':
+                column, row = position(labels[0])
+                x, y = column+len(labels[0])//2, row
+                view_before = garden_lines()
+                os.write(master, (f'\x1b[<0;{x+1};{y+1}M'
+                                  f'\x1b[<32;{x+7};{y+2}M'
+                                  f'\x1b[<0;{x+7};{y+2}m').encode())
+                wait(lambda: garden_lines() != view_before)
+                moved = position(labels[0])
+                assert abs(moved[0]-column-6) <= 2 and abs(moved[1]-row-1) <= 1, screen.text()
+                view_before = garden_lines()
+                os.write(master, f'\x1b[<64;{width//2};{height//2}M'.encode())
+                wait(lambda: garden_lines() != view_before)
+                view_before = garden_lines()
+                os.write(master, f'\x1b[<65;{width//2};{height//2}M'.encode())
+                wait(lambda: garden_lines() != view_before)
+                # A corner is empty: drag it to pan without moving a goal or opening detail.
+                view_before = garden_lines()
+                os.write(master, b'\x1b[<0;4;5M\x1b[<32;9;6M\x1b[<0;9;6m')
+                wait(lambda: garden_lines() != view_before)
+                assert GARDEN_KEYS in screen.text(), screen.text()
+                move(b'j', 1)
             elif kind == 'unreadable':
                 note = "1 ended not shown · 1 saved record couldn't be read; this view may be missing sessions."
                 assert screen.text().splitlines()[height-4].strip() == note[:width-4], screen.text()
@@ -166,10 +183,10 @@ def journey(width, height, kind='garden'):
                 move(b'\x1b[D', 0)
                 move(b'j', 1)
                 move(b'k', 0)
-                below = next(i for i, (_, row) in enumerate(positions) if row > positions[0][1])
-                move(b'\x1b[B', below)
+                move(b'\x1b[B', 1)
                 move(b'\x1b[A', 0)
                 column, row = position(labels[1])
+                column += len(labels[1])//2
                 os.write(master, click(column, row))
                 wait(lambda: selected(1))
                 assert screen.text().splitlines()[-1].strip() == GARDEN_KEYS, screen.text()
@@ -229,7 +246,8 @@ def journey(width, height, kind='garden'):
 
 
 for size in [(80,24), (100,30), (160,40), (320,40)]: journey(*size)
-journey(80, 24, 'paging')
+journey(80, 24, 'whole-graph')
+for size in [(80,24), (100,30), (160,40), (320,40)]: journey(*size, 'drag-scroll')
 journey(80, 24, 'unreadable')
 for size in [(80,24), (100,30), (160,40)]:
     journey(*size, 'link-keyboard')

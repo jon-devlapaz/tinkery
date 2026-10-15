@@ -380,6 +380,8 @@ pub struct VisualConfig {
     pub colors: ColorOverrides,
     // Graf-only fields
     pub grid_divisions: usize,
+    /// Keep rings, edges and labels at full detail regardless of visible node count.
+    pub full_detail: bool,
 }
 
 impl Default for VisualConfig {
@@ -412,6 +414,7 @@ impl Default for VisualConfig {
             looking_glass_height: 12,
             colors: ColorOverrides::default(),
             grid_divisions: 10,
+            full_detail: false,
         }
     }
 }

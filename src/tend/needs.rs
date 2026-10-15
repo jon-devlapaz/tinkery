@@ -68,6 +68,12 @@ pub struct Summary {
 }
 
 impl Links {
+    pub(super) fn pairs(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.entries
+            .iter()
+            .map(|link| (link.goal.as_str(), link.needs.as_str()))
+    }
+
     /// Whether this exact directed need exists; never infers identity from session titles.
     pub fn contains(&self, goal: &str, needs: &str) -> bool {
         self.entries.contains(&Link {

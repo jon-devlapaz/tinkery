@@ -134,12 +134,7 @@ impl Tend {
             })
     }
 
-    pub(super) fn selected_line(
-        &self,
-        width: usize,
-        now: Option<u64>,
-        page: &str,
-    ) -> (String, String) {
+    pub(super) fn selected_line(&self, width: usize, now: Option<u64>) -> (String, String) {
         if let Some(source) = self.source() {
             let target = self
                 .current()
@@ -173,7 +168,6 @@ impl Tend {
                 });
             }
         }
-        suffix.push_str(page);
         let (goal, status) = row(session, width.saturating_sub(suffix.width()), now);
         (goal, format!("{status}{suffix}"))
     }

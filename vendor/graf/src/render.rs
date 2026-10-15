@@ -655,10 +655,14 @@ impl RenderCache {
         }
 
         // Determine LOD tier from visible node count.
-        let tier = match self.visible_nodes.len() {
-            0..=200 => LodTier::Full,
-            201..=1000 => LodTier::Medium,
-            _ => LodTier::Minimal,
+        let tier = if settings.visual.full_detail {
+            LodTier::Full
+        } else {
+            match self.visible_nodes.len() {
+                0..=200 => LodTier::Full,
+                201..=1000 => LodTier::Medium,
+                _ => LodTier::Minimal,
+            }
         };
 
         let focus = settings.visual.selection_focus;
@@ -679,7 +683,9 @@ impl RenderCache {
         let floor_rows = node_floor_rows(settings.visual.node_scale, graph.node_count());
         let floor = floor_rows * world_per_row;
 
-        for &idx in &self.visible_nodes {
+        let mut visible: Vec<_> = self.visible_nodes.iter().copied().collect();
+        visible.sort_unstable();
+        for idx in visible {
             let node = &graph[idx];
             let primary_color = if self.dimmed.contains(&idx) {
                 Color::DarkGray

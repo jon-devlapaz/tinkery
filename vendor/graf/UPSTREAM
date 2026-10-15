@@ -35,8 +35,15 @@ Omitted upstream files:
 - cliff.toml, deny.toml: upstream release and dependency-audit configuration.
 - .git checkout metadata is not copied.
 
+Step 3d integration:
+- src/render.rs: sort visible node indices before painting rings, so overlapping
+  nodes paint deterministically instead of depending on HashSet iteration order.
+- src/settings.rs, src/render.rs, API.md: add opt-in visual.full_detail (default
+  false). Tend keeps hollow rings and needs lines even above graf's LOD thresholds;
+  existing hosts retain the upstream detail reduction.
+
 Kept unchanged: LICENSE, README.md, CHANGELOG.md, src/graph.rs, src/input.rs,
-src/physics.rs, src/render.rs, src/settings.rs, src/theme.rs, src/viewport.rs.
+src/physics.rs, src/theme.rs, src/viewport.rs.
 All upstream tests in the kept modules are retained. None of the omitted
 modules is required by the kept library. The workspace includes graf-rs for
-build/test/lint checks; Tinkery does not yet depend on it.
+build/test/lint checks; Tinkery now depends on it for Tend's static graph.

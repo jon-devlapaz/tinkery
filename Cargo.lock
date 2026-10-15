@@ -2531,6 +2531,8 @@ name = "tinkery"
 version = "0.1.0"
 dependencies = [
  "crossterm",
+ "graf-rs",
+ "parking_lot",
  "pinstar",
  "proc-macro2",
  "ratatui",

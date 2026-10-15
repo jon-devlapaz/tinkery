@@ -6,6 +6,7 @@
 
 pub mod discovery;
 mod garden;
+mod graph;
 mod linking;
 pub mod needs;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
@@ -59,8 +60,7 @@ pub(super) struct Tend {
     pub help_scroll: u16,
     pub notice: String,
     pub copy: Option<String>,
-    /// Columns in the last rendered garden; vertical movement uses this stride.
-    pub columns: usize,
+    graph: graph::GraphView,
     last_press: Option<(PathBuf, Instant)>,
     pub(super) needs: needs::Store,
     links: Result<needs::Links, String>,
@@ -89,7 +89,7 @@ impl Tend {
             help_scroll: 0,
             notice: String::new(),
             copy: None,
-            columns: 1,
+            graph: graph::GraphView::default(),
             last_press: None,
             needs: needs::Store::new(link_root),
             links: Ok(needs::Links::default()),
@@ -170,17 +170,38 @@ impl Tend {
             && self.error.is_none()
             && !self.sessions.is_empty()
     }
-    /// Select a garden cell; a timely second press on the same session opens detail.
-    pub(super) fn press(&mut self, column: u16, row: u16, body: Rect, now: Instant) {
+    pub(super) fn release_pointer(&mut self) {
+        self.graph.release();
+    }
+    /// Forward pointer mechanics to graf; only Tend can select, link or open a saved goal.
+    pub(super) fn pointer(
+        &mut self,
+        event: crossterm::event::MouseEvent,
+        body: Rect,
+        now: Instant,
+    ) {
         if !self.garden_showing() {
+            self.graph.release();
             return;
         }
-        let Some(index) = garden::hit(self, column, row, body) else {
+        self.sync_graph(body);
+        if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
+            self.last_press = None;
+        }
+        let Some(id) = self.graph.pointer(event) else {
+            return;
+        };
+        let Some(index) = self
+            .sessions
+            .iter()
+            .position(|s| format!("{:?}", s.path) == id)
+        else {
             return;
         };
         if self.linking.is_some() {
             self.selected = index;
             self.commit_link();
+            self.graph.release();
             return;
         }
         let path = self.sessions[index].path.clone();
@@ -197,6 +218,7 @@ impl Tend {
             self.scroll = 0;
             self.notice.clear();
             self.last_press = None;
+            self.graph.release();
         }
     }
     pub(super) fn current(&self) -> Option<&Session> {
@@ -222,9 +244,10 @@ impl Tend {
             });
             let skill = skill.map_or("\nSeed Me skill is not configured. Start Tinkery with --shape-pi, --model and --seed-me to copy a continuation prompt.".into(), |s| format!("\nSeed Me skill: {}", s.display()));
             return format!(
-                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it yourself. Nothing starts on its own. Ended sessions can't be continued.",
+                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n{}\n{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it yourself. Nothing starts on its own. Ended sessions can't be continued.",
                 self.error.as_deref().unwrap_or(""),
-                self.link_error.as_deref().unwrap_or("")
+                self.link_error.as_deref().unwrap_or(""),
+                self.graph.error.as_deref().unwrap_or("")
             );
         }
         let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_copy()) {
@@ -239,7 +262,13 @@ impl Tend {
             } else if self.linking.is_some() {
                 "Arrows / j k pick · Enter links or unlinks · Esc cancels."
             } else if self.garden_showing() {
-                "Arrows / j k move · Enter or a double click opens the saved goal.\nl link or unlink"
+                concat!(
+                    "Arrows / j k move · Enter or a double click opens the saved goal.\n",
+                    "l link or unlink\n",
+                    "Up / Left / k previous · Down / Right / j next (newest first).\n",
+                    "+ / - zoom · H J K L pan · drag a goal to move it.\n",
+                    "Drag empty space to pan · scroll to zoom",
+                )
             } else {
                 "Esc returns to the menu."
             },

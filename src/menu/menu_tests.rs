@@ -139,6 +139,24 @@ fn press(h: &mut Home, column: u16, row: u16, now: Instant) {
     );
 }
 
+fn goal_point(h: &mut Home, name: &str) -> (u16, u16) {
+    let frame = screen(h);
+    let (row, line) = frame
+        .lines()
+        .enumerate()
+        .skip(3)
+        .take(23)
+        .find(|(_, line)| line.contains(name))
+        .unwrap_or_else(|| panic!("{name}: {frame}"));
+    let col = line[..line.find(name).unwrap()].chars().count();
+    ((col + name.chars().count() / 2) as u16, row as u16)
+}
+
+fn press_goal(h: &mut Home, name: &str, now: Instant) {
+    let (x, y) = goal_point(h, name);
+    press(h, x, y, now);
+}
+
 #[test]
 fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
     let stages = [
@@ -186,13 +204,17 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
         }
     }
     let now = Instant::now();
-    for (index, column, row) in [(0, 3, 3), (1, 24, 3), (2, 45, 3), (3, 66, 3), (4, 14, 7)] {
-        press(&mut h, column, row, now);
+    for (index, &stage) in stages.iter().enumerate() {
+        press_goal(
+            &mut h,
+            &format!("goal {index}"),
+            now + Duration::from_secs(index as u64),
+        );
         assert_eq!(selected(&h), index);
         h.handle_key(key(KeyCode::Enter));
         let View::Tend(tend) = &h.view else { panic!() };
         assert!(tend.detail);
-        assert_eq!(tend.current().unwrap().stage, stages[index]);
+        assert_eq!(tend.current().unwrap().stage, stage);
         h.handle_key(key(KeyCode::Esc));
     }
 }
@@ -273,7 +295,7 @@ fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
 }
 
 #[test]
-fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
+fn garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize() {
     let mut h = garden(23);
     h.handle_key(key(KeyCode::Down));
     assert_eq!(selected(&h), 1, "the pre-render stride defaults to one");
@@ -281,11 +303,11 @@ fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
     for (code, expected) in [
         (KeyCode::Right, 2),
         (KeyCode::Char('j'), 3),
-        (KeyCode::Down, 7),
+        (KeyCode::Down, 4),
         (KeyCode::Up, 3),
-        (KeyCode::Up, 3),
-        (KeyCode::Left, 2),
-        (KeyCode::Char('k'), 1),
+        (KeyCode::Up, 2),
+        (KeyCode::Left, 1),
+        (KeyCode::Char('k'), 0),
         (KeyCode::Left, 0),
         (KeyCode::Left, 0),
     ] {
@@ -294,7 +316,7 @@ fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
     }
     snapshot(80, 24, &mut h, true).unwrap();
     h.handle_key(key(KeyCode::Down));
-    assert_eq!(selected(&h), 3, "resize changes the stride after render");
+    assert_eq!(selected(&h), 1, "resize never changes selection order");
     for _ in 0..30 {
         h.handle_key(key(KeyCode::Right));
     }
@@ -375,7 +397,7 @@ fn linking_routes_keys_and_single_click_and_help_guards_hidden_actions() {
     }
     screen(&mut h);
     h.handle_key(key(KeyCode::Char('l')));
-    press(&mut h, 24, 3, Instant::now());
+    press_goal(&mut h, "goal 1", Instant::now());
     let View::Tend(tend) = &h.view else { panic!() };
     assert!(!tend.is_linking() && !tend.detail);
     assert_eq!(selected(&h), 0);
@@ -436,17 +458,17 @@ fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
     for (elapsed, opens) in [(499, true), (500, true), (501, false)] {
         let mut h = garden(7);
         screen(&mut h);
-        // Second cell at 100 columns, including its two ring rows.
-        press(&mut h, 24, 4, now);
+        // Hit the ring through its displayed label.
+        press_goal(&mut h, "goal 1", now);
         assert_eq!(selected(&h), 1);
-        press(&mut h, 24, 5, now + Duration::from_millis(elapsed));
+        press_goal(&mut h, "goal 1", now + Duration::from_millis(elapsed));
         let View::Tend(tend) = &h.view else { panic!() };
         assert_eq!(tend.detail, opens);
     }
     let mut h = garden(7);
     screen(&mut h);
-    press(&mut h, 24, 3, now);
-    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    press_goal(&mut h, "goal 1", now);
+    press_goal(&mut h, "goal 2", now + Duration::from_millis(100));
     let View::Tend(tend) = &h.view else { panic!() };
     assert!(
         !tend.detail && tend.selected == 2,
@@ -459,7 +481,7 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     let now = Instant::now();
     let mut h = garden(7);
     screen(&mut h);
-    press(&mut h, 24, 3, now);
+    press_goal(&mut h, "goal 1", now);
     let View::Tend(tend) = &mut h.view else {
         panic!()
     };
@@ -468,13 +490,13 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     tend.apply(&found(sessions), true, 2);
     assert_eq!(tend.selected, 2);
     screen(&mut h);
-    press(&mut h, 24, 3, now + Duration::from_millis(100));
+    press_goal(&mut h, "goal 0", now + Duration::from_millis(100));
     let View::Tend(tend) = &h.view else { panic!() };
     assert!(!tend.detail && tend.current().unwrap().path == Path::new("/TEST/0"));
-    // The same identity moving to another cell still counts as a double press.
+    // The same identity moving to another position still counts as a double press.
     let mut h = garden(7);
     screen(&mut h);
-    press(&mut h, 24, 3, now);
+    press_goal(&mut h, "goal 1", now);
     let View::Tend(tend) = &mut h.view else {
         panic!()
     };
@@ -482,7 +504,7 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
     tend.apply(&found(sessions), true, 2);
     screen(&mut h);
-    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    press_goal(&mut h, "goal 1", now + Duration::from_millis(100));
     let View::Tend(tend) = &h.view else { panic!() };
     assert!(tend.detail && tend.current().unwrap().path == Path::new("/TEST/1"));
 }
@@ -516,9 +538,9 @@ fn garden_presses_ignore_blank_rows_help_detail_and_discovery_states() {
             _ => {}
         }
         let detail = tend.detail;
-        let row = if state == "garden" { 6 } else { 3 };
-        press(&mut h, 24, row, now);
-        press(&mut h, 24, row, now + Duration::from_millis(100));
+        let row = if state == "garden" { 26 } else { 3 };
+        press(&mut h, 0, row, now);
+        press(&mut h, 0, row, now + Duration::from_millis(100));
         let View::Tend(tend) = &h.view else { panic!() };
         assert_eq!(tend.selected, 0, "{state}");
         assert_eq!(tend.detail, detail, "{state}");
@@ -1142,6 +1164,43 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
     );
     settle(&mut h);
     assert_eq!(h.count(1), Some((total - total / 5).to_string()));
+}
+
+#[test]
+fn equal_timestamps_have_path_order_independent_of_creation_order() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-sort-")
+        .tempdir()
+        .unwrap();
+    for name in ["z", "a", "m"] {
+        write_session(tmp.path(), name, "2026-10-09T10:00:00Z");
+    }
+    let found = scan(tmp.path()).unwrap();
+    assert_eq!(
+        found
+            .sessions
+            .iter()
+            .map(|s| s.goal.as_str())
+            .collect::<Vec<_>>(),
+        ["goal a", "goal m", "goal z"]
+    );
+}
+
+#[test]
+fn graph_selection_keys_reveal_the_goal_after_panning_it_offscreen() {
+    let mut h = garden(7);
+    screen(&mut h);
+    for _ in 0..80 {
+        h.handle_key(key(KeyCode::Char('H')));
+    }
+    assert!(!screen(&mut h).contains("› goal 0"));
+    h.handle_key(key(KeyCode::Up)); // clamped at newest, but reveal it again
+    assert!(screen(&mut h).contains("› goal 0"));
+    for _ in 0..80 {
+        h.handle_key(key(KeyCode::Char('H')));
+    }
+    h.handle_key(key(KeyCode::Down));
+    assert!(screen(&mut h).contains("› goal 1"));
 }
 
 #[test]

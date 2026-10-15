@@ -407,6 +407,8 @@ pub struct Settings {
 ```
 
 Use `Settings::default()` for sensible defaults, then override fields. All sub-config structs also implement `Default`.
+`settings.visual.full_detail = true` disables visible-count detail reduction, keeping hollow
+rings, edges and labels in dense hosted views. It defaults to `false` (upstream behavior).
 
 ### `ThemeColors`
 
