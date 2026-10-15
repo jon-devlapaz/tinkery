@@ -3,6 +3,107 @@ use super::*;
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
 }
+
+#[test]
+fn overflowing_reading_explains_scroll_and_exposes_every_exclusion() {
+    let mut parts = readiness_tests::parts();
+    parts.must_not = (0..7)
+        .map(|n| format!("remove boundary {n}: {}", "café 家族 👩‍💻 e\u{301} records or publish the private notes before their owner agrees; ".repeat(4)))
+        .collect();
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        for no_color in [false, true] {
+            let mut a = readiness_tests::app(serde_json::json!({"parts": parts}));
+            a.screen.key_bar = false;
+            let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
+            let originals = a.originals();
+            let first = snapshot(w, h, &mut a, no_color).unwrap();
+            assert!(!first.contains("boundary 6"), "fixture must overflow");
+            assert!(first.contains("PgUp/PgDn scroll reading"), "{first}");
+            assert!(a.screen.agent_area.height >= 5);
+
+            // Use terminal cells, so wide and joined graphemes are checked too.
+            let mut rows = std::collections::BTreeMap::new();
+            loop {
+                let mut terminal =
+                    ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+                terminal
+                    .draw(|f| render(f, &mut a, Palette::new(no_color)))
+                    .unwrap();
+                let area = a.screen.agent_area;
+                let b = terminal.backend().buffer();
+                for y in area.y..area.bottom() {
+                    let mut row = String::new();
+                    let mut x = area.x;
+                    while x < area.right() {
+                        let symbol = b[(x, y)].symbol();
+                        row.push_str(symbol);
+                        // A wide grapheme covers the following terminal cell.
+                        x += UnicodeWidthStr::width(symbol).max(1) as u16;
+                    }
+                    rows.insert(a.screen.paper_scroll + y - area.y, row);
+                }
+                let before = a.screen.paper_scroll;
+                key(&mut a, KeyCode::PageDown);
+                snapshot(w, h, &mut a, no_color).unwrap();
+                if a.screen.paper_scroll == before {
+                    break;
+                }
+            }
+            let compact = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+            let seen = compact(&rows.into_values().collect::<String>());
+            assert!(
+                seen.contains(&compact(&goal)),
+                "missing words at {w}×{h}: {seen}"
+            );
+            assert!(a.handoff.review.is_none() && a.handoff.job.is_none() && !a.running());
+            assert_eq!(a.originals(), originals);
+
+            a.paste("local answer");
+            key(&mut a, KeyCode::PageUp);
+            assert_eq!(a.input.text, "local answer");
+            a.input = Note::new("");
+            a.review_goal();
+            let review = a.handoff.review.as_ref().unwrap();
+            assert_eq!(review.affirmation.goal, goal);
+            assert_eq!(review.affirmation.affirmed().goal, goal);
+        }
+    }
+}
+
+#[test]
+fn reading_scroll_hint_tracks_overflow_focus_and_resize() {
+    let mut parts = readiness_tests::parts();
+    parts.must_not = vec!["publish private café notes without asking their owner".repeat(4)];
+    let mut a = readiness_tests::app(serde_json::json!({"parts": parts}));
+    let first = snapshot(80, 24, &mut a, false).unwrap();
+    assert!(first.contains("PgUp/PgDn scroll reading"));
+    key(&mut a, KeyCode::Tab);
+    assert!(
+        snapshot(80, 24, &mut a, false)
+            .unwrap()
+            .contains("PgUp/PgDn scroll reading")
+    );
+    key(&mut a, KeyCode::PageDown);
+    snapshot(80, 24, &mut a, false).unwrap();
+    assert!(a.screen.paper_scroll > 0);
+    assert!(a.screen.board_focus);
+    key(&mut a, KeyCode::Tab);
+    for _ in 0..20 {
+        key(&mut a, KeyCode::PageDown);
+    }
+    let wide = snapshot(320, 40, &mut a, false).unwrap();
+    assert!(!wide.contains("PgUp/PgDn"), "short reading needs no hint");
+    assert_eq!(a.screen.paper_scroll, 0);
+    assert!(
+        snapshot(80, 24, &mut a, true)
+            .unwrap()
+            .contains("PgUp/PgDn scroll reading")
+    );
+    key(&mut a, KeyCode::F(1));
+    key(&mut a, KeyCode::F(1));
+    assert!(layout::help_text(&a).contains("PgUp/PgDn   scroll the reading"));
+}
+
 fn left(screen: &str, w: u16) -> Vec<String> {
     screen
         .lines()

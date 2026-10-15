@@ -213,11 +213,19 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let p = Paragraph::new(text)
         .style(palette.ink.add_modifier(Modifier::ITALIC))
         .wrap(Wrap { trim: false });
-    let max = p
-        .line_count(rows[0].width)
-        .saturating_sub(rows[0].height as usize) as u16;
+    let line_count = p.line_count(rows[0].width);
+    let mut reading = rows[0];
+    if line_count > usize::from(reading.height) {
+        reading.height -= 1;
+        frame.render_widget(
+            Paragraph::new("PgUp/PgDn scroll reading").style(palette.muted),
+            Rect::new(reading.x, reading.bottom(), reading.width, 1),
+        );
+    }
+    app.screen.agent_area = reading;
+    let max = line_count.saturating_sub(usize::from(reading.height)) as u16;
     app.screen.paper_scroll = app.screen.paper_scroll.min(max);
-    frame.render_widget(p.scroll((app.screen.paper_scroll, 0)), rows[0]);
+    frame.render_widget(p.scroll((app.screen.paper_scroll, 0)), reading);
     let question = match app.conversation.focused_question() {
         Some(q) => ratatui::text::Text::from(vec![
             ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
@@ -408,7 +416,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Tab  switch between writing and your original (the original is read-only)\n"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\n{select}Drag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nPgUp/PgDn   scroll the reading\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\n{select}Drag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {

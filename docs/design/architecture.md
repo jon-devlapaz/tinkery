@@ -120,6 +120,10 @@ The diagnostic viewport hides Ratatui's local scroll limit and reflow cache with
 Measure (3 and 6); callers still see one reading. It does not change subprocess
 ownership or claim a new design score.
 
+For #117, the conditional reading-scroll hint stays in Think's layout and uses
+the existing keys. This preserves diagnostics 3 and 6: presentation changes
+without changing conversation, goal composition or saving.
+
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today | Lowered by |

@@ -153,6 +153,10 @@ Literal `?` remains text while writing. On review the bar reads
 - **Focus:** Tab or Shift-Tab switches between writing and the left original once
   one exists. Typing returns to writing and clears the original's selection.
   Letters are never commands in either surface; F8 skips and F9 copies.
+- **Reading:** PgUp/PgDn scroll the main reading, including every Must not line,
+  from either writing or the original. A muted hint appears below it only when
+  it overflows. The question and answer stay in place. Scrolling changes no words
+  and grants no confirmation.
 - **Selection:** Shift with arrows, Home or End and mouse drag select by logical
   position and whole graphemes. Ctrl-A selects only the active surface. In writing,
   typing, Enter, Backspace, Delete and paste replace the selection as one edit.
@@ -233,8 +237,7 @@ raw bytes survive copying and sending but never execute during display.
 The [parked backlog](../research/shared/backlog.md#think) owns remaining proposals,
 including the ["Like X" early-stop gap](../research/shared/backlog.md#like-x-early-stop).
 Extracted-card shortcuts remain in technical help; they are not the proposed scratch
-space. The main-reading exclusion-accessibility task is published as
-[#117](https://github.com/jon-devlapaz/tinkery/issues/117), not implemented.
+space.
 
 ## Decision-review evidence (#34)
 
