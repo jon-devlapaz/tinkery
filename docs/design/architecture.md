@@ -32,6 +32,28 @@ Shape returns later as the Seed Me step with its own module; its entry point is
 Approve, watch and taste also get their own modules when built. There are no exceptions
 to the dependency rule: think hands a saved goal to tend only through `seed_me`.
 
+## Factory boundaries
+
+The operator-supplied [factory principles](https://x.com/zachlloydtweets/status/2110505938604134737)
+are context for these boundaries, not new requirements or implementation permission:
+
+- **Factory as code:** Tinkery versions its prompts, model-call boundary, tests and
+  CI. External SDLC owns implementation orchestration; Tinkery does not yet
+  configure or verify the whole factory's permissions, automations and sandboxes.
+- **Models and harnesses:** Think uses an explicitly selected provider/model
+  through Pi. Continuing in Claude, Codex or Pi is a
+  [manual handoff](shape-and-handoff.md#continuation-contract), not interchangeable
+  execution inside Tinkery. Model choice does not establish open-weight model
+  compatibility or comparative quality.
+- **Owned evidence:** [Think records](think.md#think-record) keep confirmed-session
+  words, turns, checks, model identity, prompt fingerprint and the exact goal in
+  local JSON. Unconfirmed sessions leave no record; this is not complete factory
+  telemetry. Connecting a goal to the exact external run and its evidence remains
+  an [unaccepted design](job-records.md#goal-to-run-identity-prerequisite).
+
+The [release plan](first-release.md) owns the remaining journey and its evidence
+requirements. A complete factory and improved outcomes are not shipped claims.
+
 ## Modules today
 
 | Module | Owns |
