@@ -2,7 +2,7 @@
 
 use super::*;
 use crossterm::event::KeyModifiers;
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 
 fn output(stderr: &[u8], success: bool) -> Output {
     let mut out = Command::new("/bin/sh")
@@ -28,9 +28,14 @@ fn press(reading: &mut Reading, help: &mut bool, code: KeyCode) -> bool {
 fn snapshot(reading: &mut Reading, width: u16, height: u16, no_color: bool, help: bool) -> String {
     let mut terminal =
         ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
-    terminal
-        .draw(|frame| reading.render(frame, frame.area(), Palette::new(no_color), help))
-        .unwrap();
+    loop {
+        terminal
+            .draw(|frame| reading.render(frame, frame.area(), Palette::new(no_color), help))
+            .unwrap();
+        if !reading.local_help() || reading.viewport.ready() {
+            break;
+        }
+    }
     let buffer = terminal.backend().buffer();
     (0..height)
         .map(|y| {
@@ -279,6 +284,13 @@ fn a_single_unicode_line_can_wrap_beyond_u16_rows_without_losing_segment_boundar
             )
         })
         .unwrap();
+    settle_viewport(
+        &mut terminal,
+        &mut viewport,
+        &text,
+        &mut offset,
+        Palette::new(true),
+    );
     assert_eq!(offset, 70_001 - 4);
     assert_eq!(terminal.backend().buffer()[(0, 3)].symbol(), "終");
     offset = 65_534;
@@ -312,6 +324,13 @@ fn a_single_unicode_line_can_wrap_beyond_u16_rows_without_losing_segment_boundar
             )
         })
         .unwrap();
+    settle_viewport(
+        &mut terminal,
+        &mut viewport,
+        &text,
+        &mut offset,
+        Palette::new(true),
+    );
     assert_eq!(offset, 35_001 - 4);
     assert!(
         terminal
@@ -321,6 +340,20 @@ fn a_single_unicode_line_can_wrap_beyond_u16_rows_without_losing_segment_boundar
             .iter()
             .any(|cell| cell.symbol() == "終")
     );
+}
+
+fn settle_viewport(
+    terminal: &mut ratatui::Terminal<ratatui::backend::TestBackend>,
+    viewport: &mut Viewport,
+    text: &str,
+    offset: &mut usize,
+    palette: Palette,
+) {
+    while !viewport.ready() {
+        terminal
+            .draw(|frame| viewport.render(frame, frame.area(), palette, text, offset))
+            .unwrap();
+    }
 }
 
 #[test]
@@ -350,9 +383,10 @@ fn segmented_viewport_preserves_normal_paragraph_wrapping_and_styles() {
                     let mut offset = wanted;
                     actual
                         .draw(|frame| {
-                            viewport.render(frame, frame.area(), palette, text.into(), &mut offset)
+                            viewport.render(frame, frame.area(), palette, text, &mut offset)
                         })
                         .unwrap();
+                    settle_viewport(&mut actual, &mut viewport, text, &mut offset, palette);
                     let clamped = wanted.min(count.saturating_sub(3));
                     expected
                         .draw(|frame| {
@@ -439,6 +473,182 @@ fn help_instructions_are_shown_once_per_view() {
                 guidance
             );
         }
+    }
+}
+
+#[test]
+fn incremental_segments_preserve_blank_rows_across_chunk_boundaries() {
+    let text = "\n".repeat(150_000) + "END";
+    let mut viewport = Viewport::default();
+    let mut offset = usize::MAX;
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 4)).unwrap();
+    terminal
+        .draw(|f| viewport.render(f, f.area(), Palette::new(true), text.as_str(), &mut offset))
+        .unwrap();
+    settle_viewport(
+        &mut terminal,
+        &mut viewport,
+        &text,
+        &mut offset,
+        Palette::new(true),
+    );
+    assert_eq!(
+        offset,
+        Paragraph::new(text.as_str())
+            .wrap(ratatui::widgets::Wrap { trim: false })
+            .line_count(80)
+            - 4
+    );
+    assert_eq!(terminal.backend().buffer()[(0, 3)].symbol(), "E");
+}
+
+#[test]
+fn prepared_success_clipping_matches_paragraph_including_invisible_runs_and_large_valid_clusters() {
+    let cluster = format!("é{}", "\u{0301}".repeat(2047));
+    for body in [
+        String::new(),
+        "\n\n".into(),
+        "café 界 👩‍💻 🇵🇭 العربية हिन्दी\nnext\nlast\n".into(),
+        format!("{}tail\nnext", "\u{200b}".repeat(100_000)),
+        format!("{}tail\nnext", cluster.repeat(100)),
+        "🇵\u{200b}🇭 a\u{200b}\u{301}b".into(),
+    ] {
+        let mut out = output(b"", true);
+        out.stdout = body.as_bytes().to_vec();
+        let mut reading = Reading::from_result(Path::new("/TEST"), Ok(out));
+        assert!(!reading.local_help());
+        for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            for no_color in [false, true] {
+                for offset in [0, 1, 3] {
+                    reading.scroll = offset;
+                    let mut actual =
+                        ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))
+                            .unwrap();
+                    let mut expected =
+                        ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))
+                            .unwrap();
+                    actual
+                        .draw(|f| reading.render(f, f.area(), Palette::new(no_color), false))
+                        .unwrap();
+                    expected
+                        .draw(|f| {
+                            f.render_widget(
+                                Paragraph::new(body.as_str())
+                                    .style(Palette::new(no_color).ink)
+                                    .scroll((offset as u16, 0)),
+                                f.area(),
+                            )
+                        })
+                        .unwrap();
+                    assert_eq!(actual.backend().buffer(), expected.backend().buffer());
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn grapheme_display_limit_checks_exact_valid_boundaries_on_both_paths() {
+    for (size, cluster) in [
+        (4095, format!("a{}", "\u{0301}".repeat(2047))),
+        (4096, format!("é{}", "\u{0301}".repeat(2047))),
+        (4097, format!("a{}", "\u{0301}".repeat(2048))),
+    ] {
+        assert_eq!(cluster.len(), size);
+        assert_eq!(cluster.graphemes(true).count(), 1);
+        for success in [false, true] {
+            let mut out = output(if success { b"" } else { cluster.as_bytes() }, success);
+            if success {
+                out.stdout = cluster.as_bytes().to_vec();
+            }
+            let mut reading = Reading::from_result(Path::new("/TEST"), Ok(out));
+            if size > CLUSTER_LIMIT {
+                assert_eq!(reading.report_cause(), Some(&Cause::DisplayLimit));
+                assert!(snapshot(&mut reading, 80, 24, true, false).contains(UNKNOWN));
+                reading.how = true;
+                let details = snapshot(&mut reading, 80, 24, true, true);
+                assert!(details.contains("withheld") && details.contains("4096-byte"));
+            } else if success {
+                let Report::Complete(body) = &reading.report else {
+                    panic!()
+                };
+                assert_eq!(body, &cluster);
+            } else {
+                assert_eq!(reading.report_cause(), Some(&Cause::Exit));
+                assert!(failure(&reading).details.ends_with(&cluster));
+            }
+        }
+    }
+    let normal = "العربية हिन्दी café 界 👩‍💻 🇵🇭 👨‍👩‍👧‍👦\n";
+    let mut out = output(b"", true);
+    out.stdout = normal.as_bytes().to_vec();
+    let reading = Reading::from_result(Path::new("/TEST"), Ok(out));
+    assert!(matches!(reading.report, Report::Complete(body) if body == normal));
+}
+
+#[test]
+#[ignore = "zero-call worst-case output frame measurement"]
+fn measure_maximum_output_frames() {
+    for (name, bytes) in [
+        ("ascii", vec![b'x'; reader::LIMIT]),
+        ("controls", vec![1; reader::LIMIT]),
+        ("newlines", vec![b'\n'; reader::LIMIT]),
+        (
+            "one-grapheme",
+            format!("a{}", "\u{0301}".repeat((reader::LIMIT - 1) / 2)).into_bytes(),
+        ),
+    ] {
+        let started = std::time::Instant::now();
+        let mut reading = Reading::from_result(Path::new("/TEST"), Ok(output(&bytes, false)));
+        let preparation = started.elapsed();
+        if name == "one-grapheme" {
+            assert_eq!(reading.report_cause(), Some(&Cause::DisplayLimit));
+        }
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        let frame = std::time::Instant::now();
+        terminal
+            .draw(|f| reading.render(f, f.area(), Palette::new(true), true))
+            .unwrap();
+        reading.how = true;
+        terminal
+            .draw(|f| reading.render(f, f.area(), Palette::new(true), true))
+            .unwrap();
+        eprintln!(
+            "{name}: prepare={preparation:?}, first-help-and-details-frames={:?}",
+            frame.elapsed()
+        );
+    }
+}
+
+#[test]
+#[ignore = "zero-call supported-limit steady frame measurement"]
+fn measure_supported_limit_steady_frames() {
+    let cluster = format!("é{}", "\u{0301}".repeat(2047));
+    let body = cluster.repeat(reader::LIMIT / cluster.len());
+    for success in [false, true] {
+        let mut out = output(if success { b"" } else { body.as_bytes() }, success);
+        if success {
+            out.stdout = body.as_bytes().to_vec();
+        }
+        let prepare = std::time::Instant::now();
+        let mut reading = Reading::from_result(Path::new("/TEST"), Ok(out));
+        let preparation = prepare.elapsed();
+        assert_ne!(reading.report_cause(), Some(&Cause::DisplayLimit));
+        reading.how = true;
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        let mut maximum = std::time::Duration::ZERO;
+        for _ in 0..32 {
+            let frame = std::time::Instant::now();
+            terminal
+                .draw(|f| reading.render(f, f.area(), Palette::new(true), !success))
+                .unwrap();
+            maximum = maximum.max(frame.elapsed());
+        }
+        eprintln!(
+            "16MiB of 4096-byte clusters: success={success}, prepare={preparation:?}, max-of-32-frames={maximum:?}"
+        );
     }
 }
 

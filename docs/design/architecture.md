@@ -25,7 +25,7 @@ ideas; the area entry points below contain navigation only.
 | think | `src/think/` | [think](../research/shared/backlog.md#think) |
 | tend | `src/tend/` | [#123](https://github.com/jon-devlapaz/tinkery/issues/123) |
 | shape | `src/shape.rs` | [#149](https://github.com/jon-devlapaz/tinkery/issues/149) built; [#150](https://github.com/jon-devlapaz/tinkery/issues/150) next |
-| measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) lifecycle still needs approval |
+| measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) owned responsive reader |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/think_record.rs`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
 Shape, the Seed Me step, is in the first release (operator decision, 2026-10-15) and has its
@@ -62,8 +62,10 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
 | `menu.rs` | The menu: the seven places and navigation between them, including Esc from Shape back to the Tend it came from. |
-| `measure.rs` | The ledger's read-only report, failure facts and safe two-layer disclosure. |
-| `measure/viewport.rs` | Machine-sized diagnostic scrolling over bounded, grapheme-safe source segments; no subprocess or navigation policy. |
+| `measure.rs` | The ledger's read-only report, display safety limits, failure facts and safe two-layer disclosure. |
+| `measure/reader.rs` | One reader across visits: request ownership, deadline, bounded pipes, process-group cancellation and cleanup-first shutdown. |
+| `measure/viewport.rs` | Incremental machine-sized diagnostic scrolling over bounded, grapheme-safe source segments; no subprocess or navigation policy. |
+| `measure/plain.rs` | Prepared success-report glyph/row offsets; visible-only clipping equivalent to the original Paragraph, including invisible runs. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
 | `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/linking.rs` | Explicit source/pick state, link refusals and derived needs wording, independent of garden drawing. |
@@ -148,6 +150,13 @@ For #143, the confirmed-session format becomes shared so Think writes and Tend
 reads through one owner (diagnostics 1, 3 and 6). The menu retains one history
 reader across visits; Tend owns its view. The map exposes these boundaries (7);
 no phase reaches into another and no new score is claimed.
+
+For #120, Measure's reader hides process ownership, limits and cancellation across visits
+(3 and 6); the menu routes a small open/cancel/poll/shutdown interface (2). The terminal
+loop restores the terminal before draining Measure on normal exit or I/O error. Bounded,
+incremental viewport indexing and prepared shared display text avoid rebuilding all
+output on a frame. The module map and interface promises preserve 1, 4 and 7. No shared
+reader framework or new design score is claimed.
 
 ## Limits enforced by `tests/architecture.rs`
 

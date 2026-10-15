@@ -10,6 +10,12 @@ fn home(root: &Path) -> Home {
         Ok(root.join("TEST-links")),
     );
     home.open(6);
+    let watchdog = Instant::now() + Duration::from_secs(5);
+    while matches!(&home.view, View::Measure(r) if !r.failed()) {
+        assert!(Instant::now() < watchdog);
+        home.tick();
+        std::thread::yield_now();
+    }
     home
 }
 
@@ -72,6 +78,65 @@ fn measure_keeps_f10_and_ctrl_c_quit_routes_in_every_help_layer() {
             }
             h.handle_key(quit);
             assert!(h.quit);
+        }
+    }
+}
+
+#[test]
+fn blocked_measure_keeps_navigation_help_and_late_result_ownership() {
+    let root = tempfile::tempdir().unwrap();
+    for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        for no_color in [false, true] {
+            let mut h = Home::new(
+                Box::new(BrainDump::default),
+                Ok(root.path().join("TEST-sessions")),
+                root.path().join("TEST-ledger"),
+                Ok(root.path().join("TEST-links")),
+            );
+            let (reader, entered, release) = measure::Reader::blocked();
+            h.measure = reader;
+            h.open(6);
+            entered.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(
+                snapshot(width, height, &mut h, no_color)
+                    .unwrap()
+                    .contains("Reading ledger…")
+            );
+            h.open(6); // Same visit coalesces rather than cancelling/restarting.
+            press(&mut h, KeyCode::Char('?'));
+            assert!(
+                snapshot(width, height, &mut h, no_color)
+                    .unwrap()
+                    .contains("Right now")
+            );
+            press(&mut h, KeyCode::Esc);
+            press(&mut h, KeyCode::Esc);
+            assert!(matches!(h.view, View::Menu));
+            press(&mut h, KeyCode::Down);
+            h.open(6);
+            assert!(
+                snapshot(width, height, &mut h, no_color)
+                    .unwrap()
+                    .contains("Finishing the previous read…")
+            );
+            assert!(entered.try_recv().is_err());
+            release.send(()).unwrap();
+            let watchdog = Instant::now() + Duration::from_secs(5);
+            loop {
+                h.tick();
+                if snapshot(width, height, &mut h, no_color)
+                    .unwrap()
+                    .contains("Previous read stopped.")
+                {
+                    break;
+                }
+                assert!(Instant::now() < watchdog);
+                std::thread::yield_now();
+            }
+            press(&mut h, KeyCode::Esc);
+            h.tick();
+            assert!(matches!(h.view, View::Menu));
+            assert!(!root.path().join("TEST-sessions").exists());
         }
     }
 }
