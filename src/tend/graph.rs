@@ -135,8 +135,9 @@ impl Tend {
 
 impl GraphView {
     fn sync(&mut self, topology: Topology, area: Rect) {
+        let resized = self.area.width != area.width || self.area.height != area.height;
         self.area = area;
-        if self.state.is_some() && self.topology == topology {
+        if self.state.is_some() && self.topology == topology && !resized {
             return;
         }
         let settings = settings();
@@ -167,24 +168,38 @@ impl GraphView {
         for &index in &indices {
             graph[index].data.link_count = graph.edges(index).count();
         }
-        state.apply_static_cluster_layout(settings.physics.ideal_distance);
+        // Stable identity order in canvas-shaped slots leaves room for rings and short labels.
+        // World units per row keep ring size steady while the number of slots grows.
+        let width = f64::from(area.width.max(1));
+        let height = f64::from(area.height.max(1));
+        let count = indices.len().max(1);
+        let rows = ((count as f64 * height * 2.4 / width).sqrt().round() as usize).clamp(1, count);
+        let columns = count.div_ceil(rows);
+        let world_per_row = settings.physics.ideal_distance / 6.0;
+        for (slot, &index) in indices.iter().enumerate() {
+            let node = &mut state.simulation.get_graph_mut()[index];
+            node.location.x = (((slot % columns) as f64 + 0.5) / columns as f64 - 0.5) as f32
+                * (width * world_per_row * graf::viewport::CELL_ASPECT) as f32;
+            node.location.y = (0.5 - ((slot / columns) as f64 + 0.5) / rows as f64) as f32
+                * (height * world_per_row) as f32;
+            node.old_location = node.location;
+        }
+        state.graph_bounds = graf::render::compute_graph_bounds(state.simulation.get_graph());
+        state.is_settled = true;
+        state.alpha = 0.0;
+        state.viewport.center_x = 0.0;
+        state.viewport.center_y = 0.0;
+        state.viewport.zoom = 100.0 / (height * world_per_row);
+        state.viewport.auto_fit_zoom = state.viewport.zoom;
         if let Some(previous) = &self.state {
-            state.viewport = previous.read().viewport.clone();
-        } else {
-            // Graf's auto-fit is square-world; fit the actual terminal with label/ring room.
-            let graph = state.simulation.get_graph();
-            let (mut min_x, mut max_x, mut min_y, mut max_y) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
-            for node in graph.node_weights() {
-                min_x = min_x.min(f64::from(node.location.x));
-                max_x = max_x.max(f64::from(node.location.x));
-                min_y = min_y.min(f64::from(node.location.y));
-                max_y = max_y.max(f64::from(node.location.y));
+            let previous = previous.read();
+            if resized {
+                state.viewport.zoom *= previous.viewport.scale();
+                state.viewport.center_x = previous.viewport.center_x;
+                state.viewport.center_y = previous.viewport.center_y;
+            } else {
+                state.viewport = previous.viewport.clone();
             }
-            let aspect = f64::from(area.width) / f64::from(area.height.max(1));
-            let zoom = (50.0 * aspect / ((max_x - min_x).max(80.0) * 1.5))
-                .min(100.0 / ((max_y - min_y).max(80.0) * 1.8));
-            state.viewport.zoom = zoom;
-            state.viewport.auto_fit_zoom = zoom;
         }
         self.state = Some(Arc::new(RwLock::new(state)));
         self.topology = topology;
@@ -306,10 +321,10 @@ impl GraphView {
                     f64::from(node.location.y),
                     self.area,
                 );
-                if x < f64::from(self.area.x + 10)
-                    || x >= f64::from(self.area.right().saturating_sub(10))
-                    || y < f64::from(self.area.y + 3)
-                    || y >= f64::from(self.area.bottom().saturating_sub(2))
+                if x < f64::from(self.area.x + 3)
+                    || x >= f64::from(self.area.right().saturating_sub(3))
+                    || y < f64::from(self.area.y + 1)
+                    || y >= f64::from(self.area.bottom().saturating_sub(1))
                 {
                     let (x, y) = (node.location.x, node.location.y);
                     state.viewport.center_on_node(x, y);

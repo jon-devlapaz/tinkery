@@ -114,6 +114,79 @@ fn identical_inputs_draw_identical_buffers_and_selection_has_colour_independent_
 }
 
 #[test]
+fn forty_short_goal_labels_use_the_canvas_without_overlap() {
+    for chain in [false, true] {
+        for (width, height, minimum) in [(80, 24, 28), (100, 30, 32), (160, 40, 38), (320, 40, 38)]
+        {
+            let (_tmp, mut tend) = fixture(40);
+            if chain {
+                for i in 0..39 {
+                    tend.links = Ok(tend
+                        .needs
+                        .toggle(&format!("id-{i}"), &format!("id-{}", i + 1))
+                        .unwrap());
+                }
+            }
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            let mut paint = |tend: &mut Tend| {
+                terminal
+                    .draw(|frame| {
+                        super::super::garden::render(
+                            frame,
+                            tend,
+                            Rect::new(2, 3, width - 4, height - 4),
+                            Palette::new(true),
+                            None,
+                        )
+                    })
+                    .unwrap();
+                terminal.backend().buffer().clone()
+            };
+            let first = paint(&mut tend);
+            assert_eq!(first, paint(&mut tend), "layout must stay static");
+            let hits = &tend.graph.label_hits;
+            let full_labels = hits
+                .iter()
+                .filter(|(rect, id)| {
+                    let session = tend.sessions.iter().find(|s| identity(s) == *id).unwrap();
+                    let label: String = (rect.x..rect.right())
+                        .map(|x| first[(x, rect.y)].symbol())
+                        .collect();
+                    label.trim_start_matches("› ") == session.goal.lines().next().unwrap()
+                })
+                .count();
+            eprintln!("{width}x{height}, chain={chain}: {full_labels}/40 full labels");
+            assert!(
+                full_labels >= minimum,
+                "{width}x{height}, chain={chain}: only {full_labels}/40 distinct full labels"
+            );
+            let overlaps = hits
+                .iter()
+                .enumerate()
+                .map(|(i, (rect, _))| {
+                    hits[i + 1..]
+                        .iter()
+                        .filter(|(other, _)| {
+                            rect.y == other.y
+                                && rect.x < other.right().saturating_add(1)
+                                && other.x < rect.right().saturating_add(1)
+                        })
+                        .count()
+                })
+                .sum::<usize>();
+            assert_eq!(overlaps, 0, "label overlap at {width}x{height}");
+            let left = hits.iter().map(|(r, _)| r.x).min().unwrap();
+            let right = hits.iter().map(|(r, _)| r.right()).max().unwrap();
+            assert!(
+                right - left >= (width - 4) * 7 / 10,
+                "unused canvas at {width}x{height}: {} columns",
+                right - left
+            );
+        }
+    }
+}
+
+#[test]
 fn static_graph_never_starts_a_physics_worker() {
     let (_tmp, mut tend) = fixture(7);
     paint(&mut tend, true);

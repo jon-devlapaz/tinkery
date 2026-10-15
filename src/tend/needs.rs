@@ -5,6 +5,7 @@
 use crate::seed_me::{Session, Stage};
 use serde::{Deserialize, Serialize};
 use std::{
+    cell::Cell,
     collections::BTreeSet,
     ffi::OsStr,
     fs,
@@ -139,9 +140,10 @@ impl Read {
 }
 
 /// The configured needs.json destination, or why linking is unavailable. Construction does no IO.
-/// Each toggle reads afresh; this is not a lock or a transaction across simultaneous writers.
+/// Toggles serialize across cooperating writers; a missing previously populated store is refused.
 pub struct Store {
     root: Result<PathBuf, String>,
+    populated: Cell<bool>,
 }
 
 impl Store {
@@ -154,7 +156,10 @@ impl Store {
                 Err("Links need an absolute folder; pass --link-root PATH.".into())
             }
         });
-        Self { root }
+        Self {
+            root,
+            populated: Cell::new(false),
+        }
     }
 
     /// Read strictly: bad JSON, schema, version, entries or IO yield a refusal, never empty links.
@@ -165,7 +170,15 @@ impl Store {
         };
         let bytes = match fs::read(root.join("needs.json")) {
             Ok(bytes) => bytes,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Read::Missing,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return if self.populated.get() {
+                    Read::Unreadable(
+                        "Cannot read links: previously loaded needs.json is missing.".into(),
+                    )
+                } else {
+                    Read::Missing
+                };
+            }
             Err(error) => return Read::Unreadable(format!("Cannot read needs.json: {error}")),
         };
         if serde_json::from_slice::<serde_json::Value>(&bytes).is_err() {
@@ -197,11 +210,13 @@ impl Store {
                 );
             }
         }
+        self.populated.set(!entries.is_empty());
         Read::Readable(Links { entries })
     }
 
     /// Add an absent link or remove a present one. Refuses invalid ids, self-links and unreadable
-    /// stores unchanged. Re-reads before writing, then atomically renames a same-folder temp file.
+    /// stores unchanged, including a missing previously populated file. Holds an exclusive sibling
+    /// lock across re-reading and atomic replacement. Refuses existing files we cannot write.
     /// Returns the resulting links; IO failures are explicit and no partial file is published.
     pub fn toggle(&self, goal: &str, needs: &str) -> Result<Links, String> {
         if !valid_id(goal) || !valid_id(needs) {
@@ -210,8 +225,21 @@ impl Store {
         if goal == needs {
             return Err("A goal cannot need itself.".into());
         }
-        let mut links = self.read().into_links()?;
+        self.read().into_links()?;
         let root = self.root.as_ref().map_err(Clone::clone)?;
+        let lock = (|| -> std::io::Result<std::fs::File> {
+            fs::create_dir_all(root)?;
+            let lock = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(root.join("needs.lock"))?;
+            lock.lock()?;
+            Ok(lock)
+        })()
+        .map_err(|error| format!("Cannot save needs.json: {error}"))?;
+        let mut links = self.read().into_links()?;
         let link = Link {
             goal: goal.into(),
             needs: needs.into(),
@@ -225,7 +253,20 @@ impl Store {
         };
         let write = || -> Result<(), String> {
             let bytes = serde_json::to_vec(&file).map_err(|error| error.to_string())?;
-            fs::create_dir_all(root).map_err(|error| error.to_string())?;
+            match fs::metadata(root.join("needs.json")) {
+                Ok(metadata) => {
+                    if metadata.permissions().readonly() {
+                        return Err("The existing links file is read-only.".into());
+                    }
+                    // Opening without truncation checks this process's permissions, including ACLs.
+                    fs::OpenOptions::new()
+                        .write(true)
+                        .open(root.join("needs.json"))
+                        .map_err(|error| error.to_string())?;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.to_string()),
+            }
             let mut temp =
                 tempfile::NamedTempFile::new_in(root).map_err(|error| error.to_string())?;
             temp.write_all(&bytes).map_err(|error| error.to_string())?;
@@ -237,6 +278,8 @@ impl Store {
             Ok(())
         };
         write().map_err(|error| format!("Cannot save needs.json: {error}"))?;
+        self.populated.set(!links.entries.is_empty());
+        drop(lock);
         Ok(links)
     }
 }
@@ -291,7 +334,38 @@ mod tests {
         assert_eq!(store.toggle("goal", "need").unwrap(), Links::default());
         assert_eq!(store.toggle("goal", "need").unwrap(), added);
         assert_eq!(fs::read(root.join("needs.json")).unwrap(), bytes);
-        assert_eq!(fs::read_dir(root).unwrap().count(), 1);
+        let mut names: Vec<_> = fs::read_dir(root)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["needs.json", "needs.lock"]);
+    }
+
+    #[test]
+    fn concurrent_writers_preserve_every_successful_link() {
+        use std::sync::{Arc, Barrier};
+        for round in 0..32 {
+            let (_tmp, store, root) = fixture();
+            let barrier = Arc::new(Barrier::new(8));
+            std::thread::scope(|scope| {
+                for writer in 0..8 {
+                    let root = root.clone();
+                    let barrier = barrier.clone();
+                    scope.spawn(move || {
+                        let store = Store::new(Ok(root));
+                        barrier.wait();
+                        store.toggle("goal", &format!("need-{writer}")).unwrap();
+                    });
+                }
+            });
+            let links = store.read().into_links().unwrap();
+            assert_eq!(
+                links.entries.len(),
+                8,
+                "round {round}: lost a successful save"
+            );
+        }
     }
 
     #[test]

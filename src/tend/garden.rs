@@ -42,6 +42,9 @@ pub(super) fn render(
 
 pub(super) fn render_note(frame: &mut Frame, tend: &Tend, body: Rect, palette: Palette) {
     let mut notes = Vec::new();
+    if tend.links.is_err() {
+        notes.push("Links couldn't be read. F1 then h for details.".into());
+    }
     if tend.ended > 0 && !tend.sessions.is_empty() {
         notes.push(format!("{} ended not shown", tend.ended));
     }

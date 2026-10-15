@@ -1201,19 +1201,21 @@ mod tests {
             );
             assert!(!screen.contains("ended a long goal"), "{screen}");
             assert!(screen.contains("1 ended not shown"), "{screen}");
-            let positions: Vec<_> = ["saved", "drafted", "ready"]
-                .iter()
-                .map(|id| screen.find(id).unwrap())
-                .collect();
-            assert!(
-                positions.windows(2).all(|pair| pair[0] < pair[1]),
-                "{screen}"
-            );
-            for label in ["goal saved", "seed drafted", "seed ready"] {
+            for id in ["saved", "drafted", "ready"] {
+                assert!(screen.contains(id), "{screen}");
+            }
+            for (id, label) in [
+                ("saved", "goal saved"),
+                ("drafted", "seed drafted"),
+                ("ready", "seed ready"),
+            ] {
                 let selected = snapshot(w, height, &mut h, false).unwrap();
                 let line = selected.lines().nth(height as usize - 3).unwrap();
                 assert!(
-                    line.contains(label) && line.contains('…') && line.contains(" · "),
+                    line.trim_start().starts_with(id)
+                        && line.contains(label)
+                        && line.contains('…')
+                        && line.contains(" · "),
                     "{selected}"
                 );
                 h.handle_key(key(KeyCode::Char('j')));
@@ -1265,7 +1267,7 @@ mod tests {
             assert!(screen.contains("Next: shape it into a seed with Seed Me."));
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "c copy prompt   esc back   10 menu"
+                "c copy prompt   esc back   F10 menu"
             );
             for _ in 0..2 {
                 h.handle_key(key(KeyCode::Char('c')));

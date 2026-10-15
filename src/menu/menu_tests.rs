@@ -221,7 +221,15 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
 
 #[test]
 fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-ended-notes-")
+        .tempdir()
+        .unwrap();
     let mut h = garden(0);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().join("TEST-links")));
     for count in [1, 2] {
         for unreadable in [0, 1] {
             let View::Tend(tend) = &mut h.view else {
@@ -1022,9 +1030,14 @@ fn counts_are_exact_only_after_complete_current_reads() {
         sess("b", Stage::SeedReady, "2026-10-08T10:00:00Z"),
         sess("c", Stage::Ended, "2026-10-07T10:00:00Z"),
     ];
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-count-notes-")
+        .tempdir()
+        .unwrap();
     let gate = Gate::new(found(sessions.clone()));
     gate.release(1);
     let mut h = home(gate.source());
+    h.link_root = Ok(tmp.path().join("TEST-links"));
     assert_eq!(h.count(1), None, "not known before any read");
     settle(&mut h);
     assert_eq!(

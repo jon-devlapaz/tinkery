@@ -31,7 +31,8 @@ ambiguous or ended ends draw no line. The selected line below still names those 
 There are no known sizes or merges. Seed Me sessions stay read-only; explicit linking
 writes only Tend's own links.
 Ended sessions are left out; `N ended not shown` shares the muted incomplete-read
-note row, joined with ` · ` when both apply.
+note row with `Links couldn't be read. F1 then h for details.` when links are
+unavailable. Applicable notes join with ` · ` and remain through navigation.
 If every readable session is ended, tend says `No active goals. N ended not shown.
 Confirm a goal in think to start one.` rather than claiming no sessions exist.
 
@@ -58,10 +59,12 @@ the same path within 500 ms opens detail. Drag a ring or label to move the goal,
 drag empty space to pan, and scroll to zoom. Help, detail and reading/empty/unavailable
 states ignore graph input.
 
-Graf lays out components deterministically, with no physics thread. Moving goals,
-panning and zooming write nothing. An unchanged graph keeps positions and viewport
-through refresh. Changed nodes, labels or links rebuild the static layout, resetting
-manual goal positions while retaining zoom and pan; following selection may pan again.
+Tend places goals in deterministic, identity-ordered slots shaped to the available
+canvas; Graf draws the graph without a physics thread. Moving goals, panning and
+zooming write nothing. An unchanged graph keeps positions and viewport through
+refresh. Changed nodes, labels or links rebuild the static layout, resetting manual
+goal positions while retaining zoom and pan; following selection may pan again.
+Resizing reflows the slots to the new canvas, retaining relative zoom and pan.
 
 Enter opens the exact stored goal block line by line, using the receipt's shared
 renderer without `Saved.`. In detail, ↑↓ / `j k` or PgUp/PgDn scroll; `c` copies the
@@ -114,11 +117,19 @@ Links use only the ledger's nonempty, control-free `session_id`, never a title o
 folder name. A missing or invalid id leaves the session readable but unlinkable.
 Entries are sorted by goal id then needed id, so equivalent sets write identical bytes.
 
-A missing file is normally empty. Bad JSON, unsupported versions, invalid or duplicate
-entries and IO errors remain unreadable, with a plain refusal; a toggle cannot overwrite
-them. A toggle rejects self-links, reads the file afresh, then adds or removes the link
-through a temporary file in the same folder and an atomic rename. It preserves changes
-made since a previous read; it does not serialize simultaneous writers.
+A missing file is normally empty. If this view last read a nonempty link set and the
+file disappears, reads and saves refuse rather than recreating it and losing known
+links. Bad JSON, unsupported versions, invalid or duplicate entries and IO errors
+remain unreadable, with a persistent note and a plain refusal; a toggle cannot overwrite
+them. Existing read-only files or files this process cannot open for writing are
+refused without changing their bytes or permissions.
+
+A toggle rejects self-links and unreadable stores, then holds an exclusive lock on a
+sibling `needs.lock` across a fresh read, the add/remove and atomic replacement through
+a same-folder temporary file. The empty lock file stays in the links folder so
+cooperating simultaneous writers always lock the same file; navigation creates neither
+file. This preserves other successful saves and changes since a previous read, but
+does not lock out external tools that ignore the lock.
 
 Readiness is derived from links and all readable sessions, including ended ones. It lists
 found needs by their first goal line and counts unresolved ids without guessing. Duplicate
@@ -155,7 +166,10 @@ Rust regressions cover deterministic layout and overlapping-ring paint order, ho
 rings, needs lines, palette and no-colour selection weight, no physics worker, uncapped
 goals, clamped selection, pointer identity, double-click timing, drag/zoom/pan and refresh
 preservation. Store and linking tests cover unreadable-byte preservation, exact ids,
-duplicate-id refusal, derived readiness, cancel/self-pick and add/remove. Discovery,
+duplicate-id refusal, derived readiness, cancel/self-pick and add/remove. Reversion-probed
+regressions cover read-only and deleted-file refusals, 32 rounds of eight concurrent
+writers, persistent unreadable-link notes, the F10 detail footer and distinct labels
+for 40 short goals (unlinked and chained) at 80×24, 100×30, 160×40 and 320×40. Discovery,
 help, copying and receipt tests retain their state and handoff guards.
 
 PTY journeys show keyboard and mouse linking, restart persistence, keyboard and mouse

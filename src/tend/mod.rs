@@ -318,9 +318,9 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         linking_keys.as_str()
     } else if tend.detail {
         if tend.current().is_some_and(|s| s.stage.can_copy()) {
-            "c copy prompt   esc back   10 menu"
+            "c copy prompt   esc back   F10 menu"
         } else {
-            "esc back   10 menu"
+            "esc back   F10 menu"
         }
     } else if !tend.garden_showing() {
         // Nothing on screen to move to or open: reading, unavailable or empty.
@@ -515,6 +515,40 @@ pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn detail_footer_names_f10_for_copyable_and_noncopyable_goals() {
+        use ratatui::{Terminal, backend::TestBackend};
+        for stage in [Stage::GoalSaved, Stage::Unknown] {
+            let mut tend = Tend::new(Err("TEST no links".into()));
+            tend.pending = false;
+            tend.current = true;
+            tend.detail = true;
+            tend.sessions.push(Session {
+                id: Some("TEST-id".into()),
+                path: "/TEST/goal".into(),
+                goal: "Synthetic goal".into(),
+                stage,
+                updated: String::new(),
+            });
+            let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+            terminal
+                .draw(|frame| {
+                    render(
+                        frame,
+                        &mut tend,
+                        Rect::new(2, 3, 96, 26),
+                        Palette::new(true),
+                    )
+                })
+                .unwrap();
+            let footer: String = (0..100)
+                .map(|x| terminal.backend().buffer()[(x, 29)].symbol())
+                .collect();
+            assert!(footer.contains("F10 menu"), "{footer}");
+            assert_eq!(footer.contains("c copy prompt"), stage.can_copy());
+        }
+    }
+
     #[test]
     fn relative_time_validates_dates_offsets_and_handles_unknown_or_future_times() {
         let now = timestamp("2026-10-11T12:00:00Z").unwrap();

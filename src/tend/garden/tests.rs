@@ -124,8 +124,80 @@ fn needs_suffix_truncates_headline_and_refusals_stay_muted() {
 }
 
 #[test]
+fn unreadable_links_have_a_persistent_muted_note_with_other_notes() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-link-note-")
+        .tempdir()
+        .unwrap();
+    let root = tmp.path().join("TEST-links");
+    std::fs::create_dir_all(&root).unwrap();
+    for bytes in [
+        "{broken",
+        "",
+        r#"{"version":1,"needs":{}}"#,
+        r#"{"version":2,"needs":[]}"#,
+        r#"{"version":1,"needs":[{"goal":"a","needs":"b"},{"goal":"a","needs":"b"}]}"#,
+        r#"{"version":1,"needs":[{"goal":"a","needs":"a"}]}"#,
+    ] {
+        std::fs::write(root.join("needs.json"), bytes).unwrap();
+        let mut tend = tend(2);
+        tend.needs = crate::tend::needs::Store::new(Ok(root.clone()));
+        let mut sessions = tend.sessions.clone();
+        sessions[1].stage = Stage::Ended;
+        tend.apply(
+            &Ok(crate::tend::Found {
+                sessions,
+                unreadable: 1,
+            }),
+            true,
+            1,
+        );
+        for no_color in [false, true] {
+            for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+                let buffer = paint(&mut tend, width, height, no_color);
+                let note = line(&buffer, height - 4);
+                assert!(
+                    note.starts_with("Links couldn't be read. F1 then h for details."),
+                    "{note}"
+                );
+                if width == 320 {
+                    assert_eq!(
+                        note.trim_end(),
+                        "Links couldn't be read. F1 then h for details. · 1 ended not shown · 1 saved record couldn't be read; this view may be missing sessions."
+                    );
+                }
+                assert!(line(&buffer, height - 2).trim().is_empty());
+                let palette = Palette::new(no_color);
+                for x in 2..width - 2 {
+                    assert_eq!(
+                        buffer[(x, height - 4)].fg,
+                        palette.muted.fg.unwrap_or(Color::Reset)
+                    );
+                    assert_eq!(
+                        buffer[(x, height - 4)].modifier.contains(Modifier::DIM),
+                        no_color
+                    );
+                }
+                tend.step_selection(true);
+            }
+        }
+        tend.how = true;
+        assert!(tend.help_text(None).contains("Cannot read links"));
+        assert_eq!(
+            std::fs::read(root.join("needs.json")).unwrap(),
+            bytes.as_bytes()
+        );
+    }
+}
+
+#[test]
 fn read_notes_share_the_muted_row_above_selection_without_changing_it() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-read-notes-")
+        .tempdir()
+        .unwrap();
     let mut tend = tend(1);
+    tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().join("TEST-links")));
     let before = paint(&mut tend, 160, 40, true);
     assert!(line(&before, 36).trim().is_empty());
     for ended in [0, 1, 2] {

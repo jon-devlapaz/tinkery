@@ -143,7 +143,9 @@ def journey(width, height, kind='garden'):
                     move(b'j', 1)
                     a, b = [position(label) for label in labels]
                     x, y = b[0]+len(labels[1])//2, b[1]
-                    target_x, target_y = a[0]+len(labels[0])//2+width//3, a[1]
+                    source_x = a[0]+len(labels[0])//2
+                    direction = 1 if source_x < width//2 else -1
+                    target_x, target_y = source_x+direction*(width//3), a[1]
                     os.write(master, (f'\x1b[<0;{x+1};{y+1}M'
                                       f'\x1b[<32;{target_x+1};{target_y+1}M'
                                       f'\x1b[<0;{target_x+1};{target_y+1}m').encode())
@@ -229,7 +231,7 @@ def journey(width, height, kind='garden'):
                 assert screen.text().splitlines()[-1].strip() == GARDEN_KEYS, screen.text()
                 time.sleep(.55)
                 os.write(master, click(column, row) * 2)
-                wait(lambda: 'c copy prompt   esc back   10 menu' in screen.text())
+                wait(lambda: 'c copy prompt   esc back   F10 menu' in screen.text())
                 assert labels[1] in screen.text(), screen.text()
                 send(b'\x1b', GARDEN_KEYS)
                 wait(lambda: selected(1))
@@ -239,7 +241,7 @@ def journey(width, height, kind='garden'):
                     if kind == 'garden' else []):
                 label = ['goal saved', 'seed drafted', 'seed ready'][index]
                 wait(lambda: label in screen.text().splitlines()[height-3])
-                send(b'\r', 'esc back   10 menu')
+                send(b'\r', 'esc back   F10 menu')
                 assert 'Saved.' not in screen.text()
                 assert labels[index] in screen.text(), screen.text()
                 for line in GOAL.splitlines(): assert line in ' '.join(screen.text().split()), (line, screen.text())
@@ -259,7 +261,7 @@ def journey(width, height, kind='garden'):
                 send(b'h', 'How it works')
                 assert 'Session:' in screen.text() and str(root) in screen.text().replace('\n','').replace(' ',''), screen.text()
                 send(b'\x1b', 'Right now')
-                send(b'\x1b', 'esc back   10 menu')
+                send(b'\x1b', 'esc back   F10 menu')
                 send(b'\x1b', GARDEN_KEYS)
                 wait(lambda: selected(index))
                 if index < 2: move(b'j', index+1)

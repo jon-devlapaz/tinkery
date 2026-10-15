@@ -81,6 +81,62 @@ fn start_self_pick_cancel_commit_and_toggle_return_to_source() {
     assert_eq!(tend.selected_line(76, None).1, "goal saved · time unknown");
 }
 
+#[cfg(unix)]
+#[test]
+fn read_only_links_refuse_save_and_keep_bytes_and_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+    for mode in [0o444, 0o400, 0o440] {
+        let (tmp, mut tend) = fixture();
+        let root = tmp.path().join("TEST-links");
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("needs.json");
+        let bytes = br#"{"version":1,"needs":[]}"#;
+        fs::write(&path, bytes).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
+        tend.start_link();
+        tend.selected = 1;
+        tend.commit_link();
+        assert_eq!(
+            tend.notice,
+            "Links couldn't be saved, so nothing changed. F1 then h for details."
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            mode
+        );
+        assert!(!tend.links.as_ref().unwrap().contains("id-0", "id-1"));
+    }
+}
+
+#[test]
+fn deleted_loaded_links_refuse_before_or_during_picking() {
+    for during_pick in [false, true] {
+        let (tmp, mut tend) = fixture();
+        tend.links = Ok(tend.needs.toggle("id-0", "id-1").unwrap());
+        // A landed read is what the garden would have loaded on open.
+        tend.links = tend.needs.read().into_links();
+        if during_pick {
+            tend.start_link();
+            tend.selected = 2;
+        }
+        let path = tmp.path().join("TEST-links/needs.json");
+        fs::remove_file(&path).unwrap();
+        if during_pick {
+            tend.commit_link();
+        } else {
+            tend.start_link();
+            tend.selected = 2;
+            tend.commit_link();
+        }
+        assert!(!path.exists(), "must not recreate a known missing link set");
+        assert!(!tend.is_linking());
+        assert!(tend.notice.starts_with("Links couldn't be"));
+        tend.how = true;
+        assert!(tend.help_text(None).contains("missing"));
+    }
+}
+
 #[test]
 fn missing_or_ambiguous_ids_refuse_without_writing_or_guessing() {
     for target in [false, true] {
