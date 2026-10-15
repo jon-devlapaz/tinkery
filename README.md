@@ -2,11 +2,13 @@
 
 ## The big idea
 
-Tinkery is a calm front door for turning a messy thought into useful, checked
-work—without losing what you meant or taking control away from you.
+Tinkery is a calm substrate for agentic work: the place where a messy thought
+becomes useful, checked work done by agents—without losing what you meant or
+taking control away from you.
 
-It isn’t meant to be another busy dashboard or an autonomous agent manager. It
-should show what matters now, one next step, and how to leave.
+Agents do the repeatable work here, but none starts without you. It isn’t meant
+to be another busy dashboard. It should show what matters now, one next step,
+and how to leave.
 
 ## The journey
 
@@ -20,7 +22,7 @@ Tinkery’s intended journey is:
 | --- | --- |
 | **Think** | Work out what you actually want. It offers a reading and asks one question at a time. |
 | **Tend** | Choose a saved goal in a quiet garden and open its detail. |
-| **Shape** | Turn a confirmed goal into a seed with Seed Me. This step returns later in Tinkery. |
+| **Shape** | Turn a confirmed goal into a seed by running Seed Me’s interview inside Tinkery. Planned for the first release. |
 | **Approve** | Understand exactly what decision is needed and what you’re authorizing. |
 | **Watch** | See what’s happening, what’s blocked and what needs your attention. |
 | **Taste** | Compare the result with your original goal. You decide whether it’s useful or needs correction. |
@@ -32,9 +34,9 @@ intact.
 
 This is the direction, not a claim that every place is built.
 
-## Tinkery doesn’t do everything itself
+## What Tinkery builds on
 
-Think of Tinkery as the reception desk, not the whole workshop.
+The work happens in Tinkery, but some records belong to the tools it builds on.
 
 - **Seed Me** keeps the saved goal, working brief and separate decisions.
 - **SDLC** organizes the external implementation, checks and review process.

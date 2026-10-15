@@ -1,9 +1,9 @@
 # Tend and handoff
 
 Tend replaces the shape list after the operator chose Replace on 2026-10-14
-([#123](https://github.com/jon-devlapaz/tinkery/issues/123)). Shape returns later as
-the Seed Me step, turning a confirmed goal into a seed; until then that step happens
-outside Tinkery through the copied continuation prompt.
+([#123](https://github.com/jon-devlapaz/tinkery/issues/123)). [Shape](#shape) returns
+as its own place in the first release (operator decision, 2026-10-15). Until it is
+built, the Seed Me step happens outside Tinkery through the copied continuation prompt.
 
 ## Receipt
 
@@ -204,6 +204,33 @@ implicit HOME default. See [session discovery](menu.md#session-discovery) for ro
 Recovery
 errors remain explicit; tests exercise helpers only under temporary roots. The
 Seed Me fixture is external and pinned by CI, not vendored or edited here.
+
+## Shape
+
+**Planned, not built.** The operator put Shape in the first release on 2026-10-15.
+Its design below is a proposal awaiting acceptance; it grants no implementation
+permission or provider budget.
+
+Think settles what the operator wants; Shape settles how to build it. From a goal's
+detail in Tend, a key that says it starts Shape opens the goal's existing Seed Me
+session and runs Seed Me's interview there: investigate facts first, then one
+decision at a time with its evidence, options and suggestion, ending in a seed the
+operator confirms. Journey: think → tend → shape → approve.
+
+- **Seed Me owns the session.** Shape reads and writes it only through Seed Me's
+  session helper (`read`, `publish`, `status`, `seed confirm`). Tinkery keeps no copy
+  of the ledger or a second contract; Seed Me changes are proposed in its repository.
+- **Nothing runs by itself.** Each agent step, including investigating the
+  repository, starts from a key that names it and runs within an explicit budget
+  (default zero). The copied continuation prompt stays available.
+- **Three separate decisions.** Goal confirmation, seed confirmation and approval
+  stay distinct on screen; Shape never asks again what Think settled.
+- **Honest states.** A failed call, an unknown stage or a seed that no longer matches
+  its confirmation (`status`) is said plainly, with one next step.
+
+Open before building: the model host, how Shape avoids writing a session another
+tool is working on, and confirming that Seed Me's stale-confirmation fix
+([seed-me #3](https://github.com/jon-devlapaz/seed-me/issues/3)) is complete.
 
 ## Rationale and verification
 

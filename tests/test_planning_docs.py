@@ -5,9 +5,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = {
-    "## Starting point": "c92bcc3231607a9b964690c079e9782e6fb2a964593b31824dbc2686d9793484",
-    "## Finish line": "e4e85c59f747382b80f49ef881e9f69898f082609f95025d6f3b3169562f6e74",
-    "## Milestones and dependencies": "895f61d9cf05c44c180bd6f9ab801c0656dcc5563df94eb141751054cd66ddf7",
+    "## Starting point": "2b8c0d43c96e50f01242027a5d39418d294d76d05e1e519e52fa0ea3a1950708",
+    "## Finish line": "eea5bd71b2be43a26b1502d7e18b9a3ef5c8bad19a13589137c4b1b074885d70",
+    "## Milestones and dependencies": "5ec0b234038b981f1e93f70ff2f6fc5c3e16f18077213dd72cb66af76029c29b",
     "## How to measure the benefit": "cf87d09453c50f53449199b105b97e95b511ac3c5bd697b52d09ceb7ddb5bc1f"
 }
 PROPOSALS = {

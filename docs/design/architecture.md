@@ -27,9 +27,9 @@ ideas; the area entry points below contain navigation only.
 | measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) lifecycle still needs approval |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/think_record.rs`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
-Shape returns later as the Seed Me step with its own module; its entry point is
-[#106](https://github.com/jon-devlapaz/tinkery/issues/106), which still needs approval.
-Approve, watch and taste also get their own modules when built. There are no exceptions
+Shape, the Seed Me step, is in the first release (operator decision, 2026-10-15) and gets its
+own module; see [Shape](shape-and-handoff.md#shape). Approve, watch and taste also get their
+own modules when built. There are no exceptions
 to the dependency rule: think hands a saved goal to tend only through `seed_me`.
 
 ## Factory boundaries

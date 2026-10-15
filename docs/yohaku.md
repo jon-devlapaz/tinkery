@@ -1,6 +1,7 @@
 # Yohaku: the constitution of Tinkery
 
-Tinkery is the operator's front door to agentic work: think, shape, approve, watch, taste, measure. This document
+Tinkery is the substrate for the operator's agentic work: think, tend, shape, approve, watch, taste, measure.
+Agents do the repeatable work here; the operator decides what runs and judges the result. This document
 is its constitution. When a design choice, a brief or an instinct conflicts with it, this document wins. Only the
 operator amends it.
 
@@ -44,7 +45,7 @@ Nothing is invented to look complete.
 
 **8. Local and private by default.** Voice stays on the operator's machine. Nothing leaves without the operator
 knowing it will.
-**Why:** a front door for thinking has to be safe to think in.
+**Why:** a place to think has to be safe to think in.
 **The test:** does the operator know exactly what leaves their machine, and when?
 
 ## How yohaku shows up today
@@ -84,3 +85,5 @@ Colour is never the only signal. With `NO_COLOR`, the same meanings carry throug
 - **Never merge your own work.** Open a PR; the operator decides.
 
 When unsure, choose the version of the change that leaves more empty space and the operator more in control.
+
+*Amended by the operator on 2026-10-15: Tinkery is the substrate where agentic work happens, not only its front door.*
