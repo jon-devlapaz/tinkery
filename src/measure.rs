@@ -267,7 +267,10 @@ fn display_bytes(bytes: &[u8]) -> String {
         for ch in chunk.valid().chars() {
             if ch != '\n'
                 && (ch.is_control()
-                    || matches!(ch, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+                    || matches!(
+                        ch,
+                        '\u{061c}' | '\u{200e}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'
+                    ))
             {
                 display.extend(ch.escape_default());
             } else {

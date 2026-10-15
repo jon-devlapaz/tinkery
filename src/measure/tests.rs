@@ -123,6 +123,16 @@ fn diagnostics_escape_controls_invalid_bytes_and_bidi_without_executing_or_losin
         display_bytes("界👩‍💻\u{202e}hidden\u{2066}".as_bytes()),
         "界👩‍💻\\u{202e}hidden\\u{2066}"
     );
+    for control in [
+        '\u{061c}', '\u{200e}', '\u{200f}', '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}',
+        '\u{202e}', '\u{2066}', '\u{2067}', '\u{2068}', '\u{2069}',
+    ] {
+        assert_eq!(
+            display_bytes(format!("ع{control}界👩‍💻").as_bytes()),
+            format!("ع{}界👩‍💻", control.escape_default()),
+            "unescaped bidi control {control:?}"
+        );
+    }
 }
 
 #[test]
