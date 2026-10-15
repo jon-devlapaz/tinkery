@@ -98,5 +98,6 @@ open decisions and completion evidence.
 <a id="r11"></a>
 ## R11 — Turn a confirmed goal into a seed in Shape
 
-Added by the operator on 2026-10-15 · M7 · not yet published. The [Shape design](shape-and-handoff.md#shape)
-is a proposal; its issue, scope and completion checks still need publication and approval.
+Added by the operator on 2026-10-15 · M7. Published: [#149](https://github.com/jon-devlapaz/tinkery/issues/149)
+(read-only Shape) and [#150](https://github.com/jon-devlapaz/tinkery/issues/150) (answering and seed
+confirmation, blocked by #149) · needs approval. The [Shape design](shape-and-handoff.md#shape) is a proposal.
