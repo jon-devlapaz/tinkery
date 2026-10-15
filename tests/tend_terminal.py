@@ -1,4 +1,4 @@
-"""Read-only tend journeys with synthetic fixture sessions; no model calls or operator confirmation."""
+"""Tend journeys with synthetic sessions and explicit TEST links; no model calls."""
 import base64, fcntl, json, os, re, select, struct, subprocess, tempfile, termios, time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,7 +11,9 @@ GOAL = ('I can read a calm dark theme while preserving every confirmed goal line
         'Must: Keep manual control.\nMust not: Run agents.')
 
 
-GARDEN_KEYS = '↑↓←→ move   enter open   esc back'
+GARDEN_KEYS = '↑↓←→ move   enter open   l link   esc back'
+LINK_KEYS = '↑↓←→ pick   enter link   esc cancel'
+UNLINK_KEYS = '↑↓←→ pick   enter unlink   esc cancel'
 LABELS = ['Calm theme', 'Clear next step', 'Manual control', 'Keep originals',
           'Quiet garden', 'Readable goals', 'Local records']
 
@@ -43,15 +45,17 @@ def journey(width, height, kind='garden'):
         host = root / 'never-run-pi'
         host.write_text('#!/bin/sh\necho unexpected > provider-was-run\nexit 86\n')
         host.chmod(0o755)
-        master, slave = os.openpty()
-        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        screen = Screen(width, height)
-        raw = bytearray()
-        process = subprocess.Popen([str(REPO/'target/debug/tinkery'), '--home', '--shape-pi', '--record-root', str(root / 'TEST-records'),
-            '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
-            '--link-root', str(root / 'TEST-links'),
-            '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=root,
-            env={**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'})
+        def launch():
+            master, slave = os.openpty()
+            fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
+            process = subprocess.Popen([str(REPO/'target/debug/tinkery'), '--home', '--shape-pi', '--record-root', str(root / 'TEST-records'),
+                '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
+                '--link-root', str(root / 'TEST-links'),
+                '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=root,
+                env={**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'})
+            return process, master, slave, Screen(width, height), bytearray()
+
+        process, master, slave, screen, raw = launch()
 
         def feed():
             data = os.read(master, 65536)
@@ -117,7 +121,37 @@ def journey(width, height, kind='garden'):
             assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
             assert 'I can read' not in screen.text(), screen.text()
             ordinary()
-            if kind == 'paging':
+            if kind in ('link-keyboard', 'link-mouse'):
+                send(b'l', LINK_KEYS)
+                assert 'Calm theme needs …' in screen.text(), screen.text()
+                if kind == 'link-mouse':
+                    column, row = position(labels[1])
+                    os.write(master, click(column, row))
+                else:
+                    send(b'j', 'Calm theme needs Clear next step')
+                    assert '› Calm theme' in screen.text() and '→ Clear next step' in screen.text(), screen.text()
+                    ordinary()
+                    os.write(master, b'\r')
+                wait(lambda: selected(0) and 'needs Clear next step · not ready' in screen.text().splitlines()[height-3])
+                link_file = root / 'TEST-links' / 'needs.json'
+                expected = dict(version=1, needs=[dict(goal='saved', needs='drafted')])
+                assert json.loads(link_file.read_text()) == expected
+                send(b'\x1b[21~', '1  think')
+                os.write(master, b'\x1b[21~')
+                wait(lambda: process.poll() is not None)
+                assert process.returncode == 0
+                os.close(master); os.close(slave)
+                process, master, slave, screen, raw = launch()
+                wait(lambda: '1  think' in screen.text())
+                send(b'2', GARDEN_KEYS)
+                wait(lambda: selected(0) and 'needs Clear next step · not ready' in screen.text().splitlines()[height-3])
+                ordinary()
+                send(b'l', LINK_KEYS)
+                send(b'j', UNLINK_KEYS)
+                send(b'\r', GARDEN_KEYS)
+                wait(lambda: selected(0) and 'needs Clear next step' not in screen.text())
+                assert json.loads(link_file.read_text()) == dict(version=1, needs=[])
+            elif kind == 'paging':
                 assert len(visible) < len(labels), screen.text()
                 for index in range(1, count): move(b'j', index)
                 line = screen.text().splitlines()[height-3]
@@ -183,7 +217,8 @@ def journey(width, height, kind='garden'):
             wait(lambda: process.poll() is not None)
             assert process.returncode == 0
             assert not (root/'provider-was-run').exists()
-            assert not (root/'TEST-links').exists(), 'Navigation must not create a links store'
+            if kind not in ('link-keyboard', 'link-mouse'):
+                assert not (root/'TEST-links').exists(), 'Navigation must not create a links store'
             assert {str(p): p.read_bytes() for p in sessions.rglob('*') if p.is_file()} == before
             name = 'garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu' if kind == 'garden' else 'garden/'+kind
             print(json.dumps(dict(width=width, height=height, journey=name,
@@ -196,3 +231,6 @@ def journey(width, height, kind='garden'):
 for size in [(80,24), (100,30), (160,40), (320,40)]: journey(*size)
 journey(80, 24, 'paging')
 journey(80, 24, 'unreadable')
+for size in [(80,24), (100,30), (160,40)]:
+    journey(*size, 'link-keyboard')
+    journey(*size, 'link-mouse')

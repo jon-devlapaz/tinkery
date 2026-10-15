@@ -170,7 +170,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
       if len(copied)>=before+extra:break
      assert len(copied)==before+extra and base64.b64decode(copied[-1]).decode()==expected
     await_text('Copied.')
-    send(b'\x1b','↑↓←→ move   enter open   esc back')
+    send(b'\x1b','↑↓←→ move   enter open   l link   esc back')
     assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
     send(b'\r','c copy prompt   esc back   10 menu')
     assert 'Must not: build a dashboard.' in screen.text()

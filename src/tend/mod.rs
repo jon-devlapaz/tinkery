@@ -1,11 +1,12 @@
 //! Tend: the saved goals garden and one goal's detail, read from Seed Me sessions.
 //!
-//! The view only reads. It shows what discovery has landed, says plainly when that is unknown,
-//! incomplete or failed, and offers the continuation prompt to copy; it never edits a session,
+//! Shows what discovery has landed, says plainly when that is unknown, incomplete or failed,
+//! and offers explicit needs links and a continuation prompt to copy; it never edits a session,
 //! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
 
 pub mod discovery;
 mod garden;
+mod linking;
 pub mod needs;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
@@ -61,8 +62,12 @@ pub(super) struct Tend {
     /// Columns in the last rendered garden; vertical movement uses this stride.
     pub columns: usize,
     last_press: Option<(PathBuf, Instant)>,
-    /// Links destination retained for the later linking UI; construction performs no IO.
-    pub(super) _needs: needs::Store,
+    pub(super) needs: needs::Store,
+    links: Result<needs::Links, String>,
+    all_sessions: Vec<Session>,
+    /// The source path stays fixed while selection picks the other goal.
+    linking: Option<PathBuf>,
+    link_error: Option<String>,
 }
 impl Tend {
     /// A pending view with a captured links destination or refusal; reads no links and writes nothing.
@@ -86,7 +91,11 @@ impl Tend {
             copy: None,
             columns: 1,
             last_press: None,
-            _needs: needs::Store::new(link_root),
+            needs: needs::Store::new(link_root),
+            links: Ok(needs::Links::default()),
+            all_sessions: vec![],
+            linking: None,
+            link_error: None,
         }
     }
     /// Note how long the read this view waits on has been running (`None`: no worker).
@@ -108,12 +117,16 @@ impl Tend {
         if self.want.is_some() && wanted_at.is_none() && !fresh {
             return;
         }
+        self.cancel_link();
+        self.links = self.needs.read().into_links();
+        self.link_error = self.links.as_ref().err().cloned();
         self.seen = version;
         self.pending = false;
         match outcome {
             Err(error) => {
                 self.error = Some(error.clone());
                 self.sessions.clear();
+                self.all_sessions.clear();
                 self.unreadable = 0;
                 self.ended = 0;
                 self.want = None;
@@ -122,6 +135,7 @@ impl Tend {
                 let keep = self.current().map(|s| s.path.clone());
                 self.error = None;
                 self.unreadable = found.unreadable;
+                self.all_sessions = found.sessions.clone();
                 self.sessions = found
                     .sessions
                     .iter()
@@ -164,6 +178,11 @@ impl Tend {
         let Some(index) = garden::hit(self, column, row, body) else {
             return;
         };
+        if self.linking.is_some() {
+            self.selected = index;
+            self.commit_link();
+            return;
+        }
         let path = self.sessions[index].path.clone();
         let double = self.last_press.as_ref().is_some_and(|(last, at)| {
             *last == path
@@ -203,8 +222,9 @@ impl Tend {
             });
             let skill = skill.map_or("\nSeed Me skill is not configured. Start Tinkery with --shape-pi, --model and --seed-me to copy a continuation prompt.".into(), |s| format!("\nSeed Me skill: {}", s.display()));
             return format!(
-                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it yourself. Nothing starts on its own. Ended sessions can't be continued.",
-                self.error.as_deref().unwrap_or("")
+                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it yourself. Nothing starts on its own. Ended sessions can't be continued.",
+                self.error.as_deref().unwrap_or(""),
+                self.link_error.as_deref().unwrap_or("")
             );
         }
         let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_copy()) {
@@ -216,8 +236,12 @@ impl Tend {
             "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll."
+            } else if self.linking.is_some() {
+                "Arrows / j k pick · Enter links or unlinks · Esc cancels."
+            } else if self.garden_showing() {
+                "Arrows / j k move · Enter or a double click opens the saved goal.\nl link or unlink"
             } else {
-                "Arrows / j k move · Enter or a double click opens the saved goal."
+                "Esc returns to the menu."
             },
             copy
         )
@@ -260,17 +284,20 @@ fn row(session: &Session, width: usize, now: Option<u64>) -> (String, String) {
 }
 
 pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Palette) {
-    let keys = if tend.detail {
+    let linking_keys = format!("↑↓←→ pick   enter {}   esc cancel", tend.link_verb());
+    let keys = if tend.linking.is_some() {
+        linking_keys.as_str()
+    } else if tend.detail {
         if tend.current().is_some_and(|s| s.stage.can_copy()) {
             "c copy prompt   esc back   10 menu"
         } else {
             "esc back   10 menu"
         }
-    } else if tend.sessions.is_empty() || tend.want.is_some() {
+    } else if !tend.garden_showing() {
         // Nothing on screen to move to or open: reading, unavailable or empty.
         "esc back"
     } else {
-        "↑↓←→ move   enter open   esc back"
+        "↑↓←→ move   enter open   l link   esc back"
     };
     frame.render_widget(
         Paragraph::new(keys).style(palette.muted),

@@ -1,6 +1,6 @@
 //! The saved-goal garden: deterministic pages, hollow rings, labels and cell hit-testing.
 
-use super::{Tend, clipped, records, row};
+use super::{Tend, clipped, records};
 use crate::Palette;
 use ratatui::{
     Frame,
@@ -108,7 +108,7 @@ pub(super) fn render(
         .paint(|ctx| {
             for index in layout.start..layout.end {
                 let cell = layout.cell(index);
-                let style = if index == tend.selected {
+                let style = if tend.source_marked(index) {
                     palette.jade
                 } else {
                     palette.ink
@@ -125,8 +125,14 @@ pub(super) fn render(
     frame.render_widget(canvas, layout.area);
     for index in layout.start..layout.end {
         let cell = layout.cell(index);
-        let selected = index == tend.selected;
-        let prefix = if selected { "› " } else { "" };
+        let selected = tend.source_marked(index);
+        let prefix = if selected {
+            "› "
+        } else if tend.is_linking() && index == tend.selected {
+            "→ "
+        } else {
+            ""
+        };
         let label = format!(
             "{prefix}{}",
             clipped(
@@ -151,11 +157,7 @@ pub(super) fn render(
     } else {
         String::new()
     };
-    let (goal, status) = row(
-        &tend.sessions[tend.selected],
-        width.saturating_sub(page_note.width()),
-        now,
-    );
+    let (goal, status) = tend.selected_line(width, now, &page_note);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(goal, palette.ink),
@@ -164,6 +166,10 @@ pub(super) fn render(
         Rect::new(body.x, body.bottom().saturating_sub(2), body.width, 1),
     );
     render_note(frame, tend, body, palette);
+    frame.render_widget(
+        Paragraph::new(&*tend.notice).style(palette.muted),
+        Rect::new(body.x, body.bottom().saturating_sub(1), body.width, 1),
+    );
 }
 
 pub(super) fn render_note(frame: &mut Frame, tend: &Tend, body: Rect, palette: Palette) {

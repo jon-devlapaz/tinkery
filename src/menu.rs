@@ -213,7 +213,7 @@ impl Home {
             return;
         };
         let version = self.discovery.version();
-        if tend.seen == version || (tend.detail && tend.want.is_none()) {
+        if tend.seen == version || ((tend.detail || tend.is_linking()) && tend.want.is_none()) {
             return;
         }
         tend.apply(&landed.outcome, self.discovery.fresh(), version);
@@ -334,7 +334,7 @@ impl Home {
                 || key.kind == KeyEventKind::Repeat
                     && matches!(
                         key.code,
-                        KeyCode::Char('c') | KeyCode::F(1) | KeyCode::F(10) | KeyCode::Enter
+                        KeyCode::Char('c' | 'l') | KeyCode::F(1) | KeyCode::F(10) | KeyCode::Enter
                     )
             {
                 return;
@@ -418,6 +418,9 @@ impl Home {
                 _ => {}
             },
             View::Tend(tend) => match key.code {
+                KeyCode::Char('l') => tend.start_link(),
+                KeyCode::Esc if tend.is_linking() => tend.cancel_link(),
+                KeyCode::Enter if tend.is_linking() => tend.commit_link(),
                 KeyCode::Esc if tend.detail => {
                     tend.detail = false;
                     tend.scroll = 0;
@@ -447,7 +450,7 @@ impl Home {
                         tend.selected -= tend.columns;
                     }
                 }
-                KeyCode::Enter if !tend.sessions.is_empty() => {
+                KeyCode::Enter if tend.garden_showing() => {
                     tend.detail = true;
                     tend.scroll = 0;
                     tend.notice.clear();
@@ -1212,7 +1215,7 @@ mod tests {
             }
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "↑↓←→ move   enter open   esc back"
+                "↑↓←→ move   enter open   l link   esc back"
             );
         }
     }

@@ -55,8 +55,8 @@ Today, Tinkery can:
   saves that goal, unchanged, as a Seed Me session in
   `~/.local/share/seed-me/sessions/`, and writes a think record to
   `~/.local/share/tinkery/think/`.
-- Show saved goals in Tend's read-only garden, open their detail and copy a
-  continuation prompt to Claude, Codex or Pi.
+- Show saved goals in Tend's garden, link what they need, open their detail and
+  copy a continuation prompt to Claude, Codex or Pi. Seed Me sessions stay unchanged.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
 **Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its
@@ -118,7 +118,8 @@ export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
 cargo +stable run --locked -- --home
 ```
 
-This is practice: no model calls, nothing saved. F2 sends, Enter adds a line,
+Think is practice: no model calls, no goals saved. Tend saves needs only when you
+explicitly link or unlink. F2 sends, Enter adds a line,
 F1 helps, F10 returns to the menu. Add `--snapshot` to print the screen as text.
 
 Real drafting needs `--shape-pi --model provider/model-id --seed-me PATH` and an

@@ -68,6 +68,14 @@ pub struct Summary {
 }
 
 impl Links {
+    /// Whether this exact directed need exists; never infers identity from session titles.
+    pub fn contains(&self, goal: &str, needs: &str) -> bool {
+        self.entries.contains(&Link {
+            goal: goal.into(),
+            needs: needs.into(),
+        })
+    }
+
     /// Resolve one goal's needs against all readable sessions, including ended ones.
     /// Unknown stages, missing ids and ambiguous duplicate ids can never establish readiness.
     pub fn summary(&self, goal: &str, sessions: &[Session]) -> Summary {

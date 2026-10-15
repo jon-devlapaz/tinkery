@@ -25,9 +25,10 @@ detail. The plain-text terminal exit receipt may include recovery locations.
 
 ## Tend: garden and detail
 
-Tend's view is read-only: it shows only the saved goals discovery has landed, newest first
-in a deterministic staggered grid. Every goal has the same hollow Braille ring:
-size is unknown. The view has no links, known sizes or merges.
+Tend shows the saved goals discovery has landed, newest first in a deterministic
+staggered grid. Every goal has the same hollow Braille ring: size is unknown.
+Needs appear below the garden, not as drawn edges. There are no known sizes or merges.
+Seed Me sessions stay read-only; explicit linking writes only Tend's own links.
 Ended sessions are left out; `N ended not shown` shares the muted incomplete-read
 note row, joined with ` · ` when both apply.
 If every readable session is ended, tend says `No active goals. N ended not shown.
@@ -39,13 +40,15 @@ label always starts with `› ` and is bold; with colour, its label and ring are
 Other labels are muted and rings are ink. No label is italic.
 
 Below the garden, the selected line shows the first goal line in ink, then status
-and relative time in muted text, truncating the headline rather than the suffix.
+and relative time in muted text, then `needs Quiet garden, Local records · not ready`
+or `needs Local records · ready` when it has needs. Unresolved needs say `1 need not found`
+(or `N needs not found`); no needs adds nothing. The headline truncates before the suffix.
 The page follows selection; `page N of M` appears in the suffix only with multiple
-pages. One blank row separates that line from the key bar.
+pages. A muted refusal uses the otherwise blank row between that line and the key bar.
 
 Right / `j` and Left / `k` step through goals and clamp at either end. Down / Up move
 by the last rendered column count, staying put at the top and clamping at the last
-goal. The garden key bar is `↑↓←→ move   enter open   esc back`.
+goal. The garden key bar is `↑↓←→ move   enter open   l link   esc back`, which fits at 80 columns.
 A left press in a goal cell's label row or either ring row selects it; a second
 press on the same session path within 500 ms opens detail. Blank rows, other areas,
 help, detail and reading/empty/unavailable states ignore garden presses.
@@ -72,11 +75,29 @@ selected line, warning that the view may be missing sessions. If none can be rea
 tend says nothing can be listed, not “no sessions”. Reading, unavailable and empty
 states offer only `esc back`.
 
+## Linking needs
+
+In the garden, `l` starts “this goal needs …”. The source keeps its `›` mark;
+movement picks another goal, marked `→`. Enter or one left press on that goal
+adds the need, or removes an existing need. Picking the source does nothing.
+The key bar becomes `↑↓←→ pick   enter link   esc cancel` (`enter unlink` for an
+existing need); the bottom line names the source and picked goal. Esc cancels
+without writing. Commit or cancellation returns selection to the source. Session
+refreshes wait until picking ends rather than replacing the goals underneath it. Detail, help and
+reading states ignore `l`.
+
+Missing or ambiguous identity and unavailable links change nothing. Ordinary
+refusals are one muted line: `This goal can't be linked yet.` or
+`Links couldn't be read, so nothing changed. F1 then h for details.` A write failure
+says `Links couldn't be saved, so nothing changed. F1 then h for details.`
+The exact reason appears only in technical help beside the session path.
+
 ## Needs store
 
 Tend owns a separate `needs.json` under `--link-root PATH` (default:
 `~/.local/share/tinkery/tend`, requiring an absolute HOME). It never writes Seed Me
-files. This backend has no linking UI yet; navigation and copying create no links.
+files. Navigation and copying create no links. Landed session reads refresh the
+in-memory links; starting a pick reads them again. Painting uses only that cached result.
 
 The version-1 format is `{"version":1,"needs":[{"goal":"id","needs":"id"}]}`.
 Links use only the ledger's nonempty, control-free `session_id`, never a title or
@@ -125,5 +146,8 @@ cover clamped grid movement, mouse selection and double-press timing, path ident
 after late reads, help/detail/discovery guards and unchanged copy/exit behavior.
 Existing tests retain blocked-discovery responsiveness, state distinctions, exact
 multiline preservation, repeatable prompt bytes, no ordinary-view paths,
-ended-session guards and receipt `s` navigation. PTY handoff and garden journeys
-run at 80×24, 100×30, 160×40 and 320×40 with stubs and temporary TEST roots.
+ended-session guards and receipt `s` navigation. Link tests cover cancel, self-pick,
+add/remove, identity refusal, unreadable-byte preservation and help guards. Keyboard
+and single-click PTY linking journeys prove restart persistence and unlinking at
+80×24, 100×30 and 160×40. PTY handoff and garden journeys also run at 320×40.
+All use stubs and temporary TEST roots and check Seed Me fixture bytes stay unchanged.

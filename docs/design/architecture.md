@@ -64,6 +64,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `measure.rs` | The ledger's read-only report, failure facts and safe two-layer disclosure. |
 | `measure/viewport.rs` | Machine-sized diagnostic scrolling over bounded, grapheme-safe source segments; no subprocess or navigation policy. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
+| `tend/linking.rs` | Explicit source/pick state, link refusals and derived needs wording, independent of garden drawing. |
 | `tend/garden.rs` | The garden's deterministic pages, hollow rings, labels and cell hit-testing. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
@@ -121,9 +122,11 @@ The diagnostic viewport hides Ratatui's local scroll limit and reflow cache with
 Measure (3 and 6); callers still see one reading. It does not change subprocess
 ownership or claim a new design score.
 
-For #127's needs-store slice, Tend owns the link format, refusals and readiness (3 and 6);
-Seed Me alone interprets ledger identity (3). The module map and documented public
-contracts preserve diagnostics 1, 4 and 7. No linking UI or new design score is claimed.
+For #127, Tend owns the link format, refusals and readiness (3 and 6);
+Seed Me alone interprets ledger identity (3). Linking and unlinking now live in
+Tend's state, separate from grid drawing, so changing the drawing need not change
+the interaction (3 and 6). The module map and documented public contracts preserve
+diagnostics 1, 4 and 7. No new design score is claimed.
 
 ## Limits enforced by `tests/architecture.rs`
 

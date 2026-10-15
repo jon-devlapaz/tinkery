@@ -336,6 +336,101 @@ fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
 }
 
 #[test]
+fn linking_routes_keys_and_single_click_and_help_guards_hidden_actions() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-link-input-")
+        .tempdir()
+        .unwrap();
+    let root = tmp.path().join("TEST-links");
+    let mut h = garden(7);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    tend.needs = tend::needs::Store::new(Ok(root.clone()));
+    for (width, height) in [(80, 24), (100, 30), (160, 40)] {
+        snapshot(width, height, &mut h, true).unwrap();
+        h.handle_key(key(KeyCode::Char('l')));
+        let frame = snapshot(width, height, &mut h, true).unwrap();
+        assert!(
+            frame.contains("↑↓←→ pick   enter link   esc cancel"),
+            "{frame}"
+        );
+        h.handle_key(key(KeyCode::Enter)); // self-pick
+        h.handle_key(key(KeyCode::Right));
+        let frame = snapshot(width, height, &mut h, true).unwrap();
+        assert!(
+            frame.contains("› goal 0") && frame.contains("→ goal 1"),
+            "{frame}"
+        );
+        assert!(frame.contains("goal 0 needs goal 1"), "{frame}");
+        h.handle_key(key(KeyCode::F(1)));
+        for code in [KeyCode::Char('l'), KeyCode::Enter, KeyCode::Right] {
+            h.handle_key(key(code));
+        }
+        assert_eq!(selected(&h), 1);
+        h.handle_key(key(KeyCode::Esc));
+        h.handle_key(key(KeyCode::Esc));
+        assert_eq!(selected(&h), 0);
+        assert!(!root.exists());
+    }
+    screen(&mut h);
+    h.handle_key(key(KeyCode::Char('l')));
+    press(&mut h, 24, 3, Instant::now());
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.is_linking() && !tend.detail);
+    assert_eq!(selected(&h), 0);
+    assert!(tend.needs.read().into_links().unwrap().contains("0", "1"));
+    h.handle_key(key(KeyCode::Char('l')));
+    h.handle_key(key(KeyCode::Char('j')));
+    assert!(screen(&mut h).contains("enter unlink"));
+    h.handle_key(key(KeyCode::Enter));
+    assert_eq!(selected(&h), 0);
+    assert!(screen(&mut h).contains("l link"));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.needs.read().into_links().unwrap().contains("0", "1"));
+}
+
+#[test]
+fn link_key_is_ignored_outside_garden_and_repeated_presses_do_not_start_linking() {
+    for state in [
+        "detail",
+        "help",
+        "how",
+        "reading",
+        "wanted",
+        "unavailable",
+        "empty",
+        "repeat",
+    ] {
+        let mut h = garden(2);
+        if matches!(state, "help" | "how") {
+            h.handle_key(key(KeyCode::F(1)));
+            if state == "how" {
+                h.handle_key(key(KeyCode::Char('h')));
+            }
+        }
+        let View::Tend(tend) = &mut h.view else {
+            panic!()
+        };
+        match state {
+            "detail" => tend.detail = true,
+            "reading" => tend.pending = true,
+            "wanted" => tend.want = Some(("/TEST/wanted".into(), None)),
+            "unavailable" => tend.error = Some("TEST unavailable".into()),
+            "empty" => tend.sessions.clear(),
+            _ => {}
+        }
+        let mut event = key(KeyCode::Char('l'));
+        if state == "repeat" {
+            event.kind = KeyEventKind::Repeat;
+        }
+        h.handle_key(event);
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert!(!tend.is_linking() && tend.notice.is_empty(), "{state}");
+    }
+}
+
+#[test]
 fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
     let now = Instant::now();
     for (elapsed, opens) in [(499, true), (500, true), (501, false)] {
@@ -726,7 +821,7 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
     let frame = screen(&mut h);
     assert!(frame.contains("goal a"), "{frame}");
     assert!(
-        frame.contains("↑↓←→ move   enter open   esc back"),
+        frame.contains("↑↓←→ move   enter open   l link   esc back"),
         "{frame}"
     );
 }
@@ -786,6 +881,41 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
         "selection follows identity"
     );
     assert_eq!(tend.current().unwrap().goal, "EDITED elsewhere");
+}
+
+#[test]
+fn landed_discovery_does_not_cancel_or_redirect_link_picking() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-link-refresh-")
+        .tempdir()
+        .unwrap();
+    let sessions = vec![
+        sess("a", Stage::GoalSaved, ""),
+        sess("b", Stage::GoalSaved, ""),
+    ];
+    let gate = Gate::new(found(sessions.clone()));
+    gate.release(4);
+    let mut h = home(gate.source());
+    h.link_root = Ok(tmp.path().join("TEST-links"));
+    h.open(1);
+    settle(&mut h);
+    h.handle_key(key(KeyCode::Char('l')));
+    h.handle_key(key(KeyCode::Right));
+    let mut newer = sessions;
+    newer.reverse();
+    gate.set(found(newer));
+    h.discovery.request(h.sessions_root.as_deref().unwrap());
+    settle(&mut h);
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.is_linking());
+    assert_eq!(tend.current().unwrap().id.as_deref(), Some("b"));
+    assert!(screen(&mut h).contains("goal a needs goal b"));
+    h.handle_key(key(KeyCode::Enter));
+    h.tick();
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.is_linking());
+    assert_eq!(tend.current().unwrap().id.as_deref(), Some("a"));
+    assert!(tend.needs.read().into_links().unwrap().contains("a", "b"));
 }
 
 #[test]
@@ -1115,7 +1245,7 @@ fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
             let View::Tend(tend) = &h.view else { panic!() };
             assert_eq!(tend.sessions.len(), 1);
             assert!(
-                matches!(tend._needs.read(), tend::needs::Read::Unreadable(ref reason)
+                matches!(tend.needs.read(), tend::needs::Read::Unreadable(ref reason)
                 if reason == "Cannot read links: needs.json is not valid JSON.")
             );
             assert_eq!(fs::read(links.join("needs.json")).unwrap(), bytes);
@@ -1137,7 +1267,7 @@ fn unavailable_linking_does_not_stop_tend_reading_sessions() {
     assert_eq!(tend.sessions.len(), 1);
     assert!(tend.error.is_none());
     assert_eq!(
-        tend._needs.read(),
+        tend.needs.read(),
         tend::needs::Read::Unreadable(reason.into())
     );
 }
