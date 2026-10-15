@@ -6,6 +6,7 @@
 
 pub mod discovery;
 mod garden;
+pub(crate) mod history;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
 pub use crate::seed_me::{Session, Stage};
@@ -57,6 +58,7 @@ pub(super) struct Tend {
     pub help_scroll: u16,
     pub notice: String,
     pub copy: Option<String>,
+    pub history: Option<history::View>,
     /// Columns in the last rendered garden; vertical movement uses this stride.
     pub columns: usize,
     last_press: Option<(PathBuf, Instant)>,
@@ -80,6 +82,7 @@ impl Tend {
             help_scroll: 0,
             notice: String::new(),
             copy: None,
+            history: None,
             columns: 1,
             last_press: None,
         }
@@ -210,7 +213,7 @@ impl Tend {
         format!(
             "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
-                "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll."
+                "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
             } else {
                 "Arrows / j k move · Enter or a double click opens the saved goal."
             },
@@ -257,9 +260,9 @@ fn row(session: &Session, width: usize, now: Option<u64>) -> (String, String) {
 pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Palette) {
     let keys = if tend.detail {
         if tend.current().is_some_and(|s| s.stage.can_copy()) {
-            "c copy prompt   esc back   10 menu"
+            "c copy prompt   r history   esc back   10 menu"
         } else {
-            "esc back   10 menu"
+            "r history   esc back   10 menu"
         }
     } else if tend.sessions.is_empty() || tend.want.is_some() {
         // Nothing on screen to move to or open: reading, unavailable or empty.

@@ -1,7 +1,7 @@
 //! Who answers a reading request: [`BoardHost`] is the boundary, met by Pi (a shaping call, then
 //! the decision review) or by the practice simulation.
 use super::*;
-use crate::think::record;
+use crate::think_record as record;
 
 /// Answers a reading request. Runs off the paint thread; it must stop promptly once
 /// `cancelled` is set, and it returns a decoded but unverified [`Guess`] or one line saying

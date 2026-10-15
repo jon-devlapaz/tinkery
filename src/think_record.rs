@@ -3,11 +3,16 @@
 //!
 //! It is written once, by the same typed `confirm` that saves the goal, and never before: a
 //! session that ends without confirming leaves no record. The person's words are kept verbatim
-//! and the goal exactly as confirmed. Think never reads a record back, so a record can't steer a
-//! later reading. The format is this module's alone; [`SCHEMA`] changes when it does.
+//! and the goal exactly as confirmed. Reading verifies the saved session and goal; it never
+//! writes or supplies context to a model. The format is this module's alone; [`SCHEMA`] changes
+//! when it does.
+
+mod read;
+
+pub use read::{History, RecordedTurn, Unavailable, read};
 
 use crate::goal::Part;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     ffi::OsStr,
     io::Write,
@@ -16,7 +21,7 @@ use std::{
 };
 
 /// The record format's version. Renaming or removing a field changes it.
-pub const SCHEMA: u8 = 1;
+pub const SCHEMA: u8 = 2;
 
 /// Where records go for a user whose home is `home` (the `HOME` variable). Only a default: the
 /// operator may point Tinkery elsewhere with `--record-root`, and nothing here creates the
@@ -42,7 +47,7 @@ pub struct Turn {
 }
 
 /// What happened in one turn. Words and answers carry the person's text verbatim.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
     /// Words sent that answer no question: a dump or an addition.
@@ -166,7 +171,9 @@ pub fn hash(text: &str) -> String {
 
 /// Writes one record for `session` into `root` (created if missing) and returns its path. The
 /// file is named by confirm time and Seed Me session, written whole, and never replaces another
-/// file: a clash is an error, not an overwrite.
+/// file: a clash is an error, not an overwrite. The session must resolve to an existing
+/// directory whose saved goal still matches; its canonical path and existing Seed Me identity
+/// bind this local record to that session. Missing identity is an error, never a generated ID.
 pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
     #[derive(Serialize)]
     struct TurnOut<'a> {
@@ -174,7 +181,21 @@ pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
         #[serde(flatten)]
         event: &'a Event,
     }
-    let id = session_id(session.seed_me_session);
+    let session_path = session
+        .seed_me_session
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", session.seed_me_session.display()))?;
+    if !session_path.is_dir() {
+        return Err(format!(
+            "{}: the saved session is not a directory",
+            session_path.display()
+        ));
+    }
+    let session_path_text = session_path
+        .to_str()
+        .ok_or("The saved session path is not valid UTF-8.")?;
+    let saved_id = crate::seed_me::session_id(&session_path, session.goal)?;
+    let id = session_id(&session_path);
     let started = session.turns.first().map_or(session.confirmed, |t| t.at);
     let record = serde_json::json!({
         "schema": SCHEMA,
@@ -186,6 +207,8 @@ pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
         "started": utc(started, ':'),
         "confirmed": utc(session.confirmed, ':'),
         "seed_me_session": id,
+        "seed_me_session_path": session_path_text,
+        "seed_me_session_id": saved_id,
         "turns": session.turns.iter().map(|t| TurnOut { at: utc(t.at, ':'), event: &t.event }).collect::<Vec<_>>(),
         "checks": session.checks,
         "goal": session.goal,
@@ -296,6 +319,17 @@ mod tests {
     #[test]
     fn writes_one_whole_file_with_originals_verbatim_and_never_overwrites() {
         let root = tempfile::tempdir().unwrap();
+        let session_path = root.path().join("TEST-sessions/20261012-abc def");
+        std::fs::create_dir_all(&session_path).unwrap();
+        std::fs::write(
+            session_path.join("ledger.json"),
+            serde_json::json!({
+                "schema_version": 1, "session_id": "TEST-existing-session-id",
+                "goal": "I TEST.\nWhy: because.",
+            })
+            .to_string(),
+        )
+        .unwrap();
         let root = root.path().join("TEST-records");
         let words = "  Café 👩‍💻\n\"quoted\"\ttab  ";
         let turns = vec![
@@ -321,7 +355,7 @@ mod tests {
             turns: &turns,
             checks: vec![serde_json::json!({"check": "TEST"})],
             goal: "I TEST.\nWhy: because.",
-            seed_me_session: Path::new("/TEST/sessions/20261012-abc def"),
+            seed_me_session: &session_path,
             confirmed: at(1_791_844_800),
         };
         let path = write(&root, &session).unwrap();
@@ -332,11 +366,16 @@ mod tests {
         assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
         let record: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(record["schema"], 1);
+        assert_eq!(record["schema"], 2);
+        assert_eq!(
+            record["seed_me_session_path"],
+            session_path.canonicalize().unwrap().to_str().unwrap()
+        );
         assert_eq!(record["origin"], "simulated");
         assert_eq!(record["started"], "2026-10-12T22:26:40.007Z");
         assert_eq!(record["confirmed"], "2026-10-12T22:40:00.007Z");
         assert_eq!(record["seed_me_session"], "20261012-abc_def");
+        assert_eq!(record["seed_me_session_id"], "TEST-existing-session-id");
         assert_eq!(record["goal"], "I TEST.\nWhy: because.");
         assert_eq!(record["turns"][0]["kind"], "words");
         assert_eq!(record["turns"][0]["text"], words);

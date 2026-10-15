@@ -70,6 +70,8 @@ pub struct Home {
     receipts: Vec<String>,
     seed_me: Option<PathBuf>,
     discovery: Discovery,
+    record_root: Result<PathBuf, String>,
+    history_reader: tend::history::Reader,
 }
 
 enum View {
@@ -104,6 +106,8 @@ impl Home {
             receipts: Vec::new(),
             seed_me: None,
             discovery,
+            record_root: crate::think_record::default_root(std::env::var_os("HOME").as_deref()),
+            history_reader: tend::history::Reader::default(),
         }
     }
 
@@ -121,6 +125,12 @@ impl Home {
         self
     }
 
+    /// Select the existing Think records to read. Configuring a root creates and reads nothing.
+    pub fn with_record_root(mut self, root: PathBuf) -> Self {
+        self.record_root = Ok(root);
+        self
+    }
+
     /// The menu think returns to after saving a goal when it was launched on its own. The
     /// receipt carries over, and `open_tend` opens tend on the saved session.
     pub fn from_receipt(mut dump: BrainDump, session: &Path, open_tend: bool) -> Self {
@@ -130,6 +140,9 @@ impl Home {
             .map(|path| Ok(path.to_path_buf()))
             .unwrap_or(default_root);
         let mut home = Self::new(dump.fresh_factory(), root, substrate);
+        if let Some(root) = dump.record_root() {
+            home.record_root = Ok(root.to_path_buf());
+        }
         home.key_bar = dump.key_bar_on();
         home.seed_me = dump.saved().map(|r| r.skill.clone());
         if let Some(receipt) = dump.finish_handoff() {
@@ -169,6 +182,12 @@ impl Home {
         self.discovery.poll();
         self.sync_tend();
         self.update_stall(now);
+        if let Some(result) = self.history_reader.poll()
+            && let View::Tend(tend) = &mut self.view
+            && let Some(history) = &mut tend.history
+        {
+            history.finish(result);
+        }
         let mut tend_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
@@ -296,6 +315,7 @@ impl Home {
     /// Opens the place at `index` in [`PLACES`]. Opening tend asks for a fresh scan; an
     /// unbuilt place says so. Opening never starts an agent.
     pub fn open(&mut self, index: usize) {
+        self.history_reader.cancel();
         self.selected = index;
         self.help = false;
         self.view = match index {
@@ -325,12 +345,13 @@ impl Home {
                 || key.kind == KeyEventKind::Repeat
                     && matches!(
                         key.code,
-                        KeyCode::Char('c') | KeyCode::F(1) | KeyCode::F(10) | KeyCode::Enter
+                        KeyCode::Char('c' | 'r') | KeyCode::F(1) | KeyCode::F(10) | KeyCode::Enter
                     )
             {
                 return;
             }
             if key.code == KeyCode::F(10) {
+                self.history_reader.cancel();
                 self.view = View::Menu;
                 self.help = false;
                 return;
@@ -340,11 +361,29 @@ impl Home {
                 if let View::Tend(tend) = &mut self.view {
                     tend.how = false;
                     tend.help_scroll = 0;
+                    if let Some(history) = &mut tend.history {
+                        history.reset_help();
+                    }
                 }
                 return;
             }
             if self.help {
                 if let View::Tend(tend) = &mut self.view {
+                    if let Some(history) = &mut tend.history {
+                        match key.code {
+                            KeyCode::Char('h') => {
+                                tend.how = !tend.how;
+                                history.reset_help();
+                            }
+                            KeyCode::Esc if tend.how => {
+                                tend.how = false;
+                                history.reset_help();
+                            }
+                            KeyCode::Esc => self.help = false,
+                            code => history.scroll(code, true, tend.how),
+                        }
+                        return;
+                    }
                     match key.code {
                         KeyCode::Char('h') => {
                             tend.how = !tend.how;
@@ -365,6 +404,36 @@ impl Home {
                     }
                 }
                 return;
+            }
+            if let View::Tend(tend) = &mut self.view {
+                if let Some(history) = &mut tend.history {
+                    if key.code == KeyCode::Esc {
+                        self.history_reader.cancel();
+                        tend.history = None;
+                    } else {
+                        history.scroll(key.code, false, false);
+                    }
+                    return;
+                }
+                if key.code == KeyCode::Char('r')
+                    && tend.detail
+                    && let Some(session) = tend.current()
+                {
+                    let mut history = tend::history::View::waiting();
+                    match &self.record_root {
+                        Ok(root) => self.history_reader.request(
+                            root.clone(),
+                            session.path.clone(),
+                            session.goal.clone(),
+                        ),
+                        Err(reason) => history.finish(Err(crate::think_record::Unavailable {
+                            message: "The Think record folder is not configured.".into(),
+                            details: reason.clone(),
+                        })),
+                    }
+                    tend.history = Some(history);
+                    return;
+                }
             }
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
@@ -535,6 +604,12 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         );
     }
     let body = body(area);
+    if let View::Tend(tend) = &mut home.view
+        && let Some(history) = &mut tend.history
+    {
+        history.render(frame, body, palette, home.help, tend.how);
+        return;
+    }
     if let View::Measure(reading) = &mut home.view
         && reading.failed()
     {
@@ -692,6 +767,8 @@ pub fn snapshot(
         .join("\n"))
 }
 
+#[cfg(test)]
+mod history_tests;
 #[cfg(test)]
 mod measure_tests;
 #[cfg(test)]
@@ -1247,7 +1324,7 @@ mod tests {
             assert!(screen.contains("Next: shape it into a seed with Seed Me."));
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "c copy prompt   esc back   10 menu"
+                "c copy prompt   r history   esc back   10 menu"
             );
             for _ in 0..2 {
                 h.handle_key(key(KeyCode::Char('c')));

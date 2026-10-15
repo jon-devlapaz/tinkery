@@ -56,7 +56,8 @@ Today, Tinkery can:
   `~/.local/share/seed-me/sessions/`, and writes a think record to
   `~/.local/share/tinkery/think/`.
 - Show saved goals in Tend's read-only garden, open their detail and copy a
-  continuation prompt to Claude, Codex or Pi.
+  continuation prompt to Claude, Codex or Pi. Press `r` in a goal's detail to read
+  its [Think history](docs/design/shape-and-handoff.md#think-history), when safely linked.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
 **Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its

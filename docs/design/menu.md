@@ -126,7 +126,8 @@ remain usable; live drafting refuses the unsafe default before starting a host o
 An explicit session root also works in practice. Relative explicit roots are captured
 against the launch directory and an empty one is refused; discovery and saving receive the
 same absolute destination.
-The separate `--record-root` requirement is unchanged and cannot select a session root.
+The separate `--record-root` selects saved Think history, never a session root.
+It is also available without live drafting; [Tend owns history reading](shape-and-handoff.md#think-history).
 
 Painting, the count and navigation read in-memory state only. One owned, read-only
 worker scans the sessions root (never more than one at a time; requests made while it

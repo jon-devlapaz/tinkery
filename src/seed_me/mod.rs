@@ -10,7 +10,7 @@ mod session;
 mod tests;
 
 pub use save::{Affirmed, Choice, Config, Original, Receipt};
-pub use session::{Record, Session, Stage, read};
+pub use session::{Record, Session, Stage, read, session_id};
 
 use std::{
     ffi::OsStr,

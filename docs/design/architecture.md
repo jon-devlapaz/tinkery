@@ -25,7 +25,7 @@ ideas; the area entry points below contain navigation only.
 | think | `src/think/` | [think](../research/shared/backlog.md#think) |
 | tend | `src/tend/` | [#123](https://github.com/jon-devlapaz/tinkery/issues/123) |
 | measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) lifecycle still needs approval |
-| shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` | [shared](../research/shared/backlog.md) |
+| shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/think_record.rs`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
 Shape returns later as the Seed Me step with its own module; its entry point is
 [#106](https://github.com/jon-devlapaz/tinkery/issues/106), which still needs approval.
@@ -64,6 +64,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `measure.rs` | The ledger's read-only report, failure facts and safe two-layer disclosure. |
 | `measure/viewport.rs` | Machine-sized diagnostic scrolling over bounded, grapheme-safe source segments; no subprocess or navigation policy. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
+| `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/garden.rs` | The garden's deterministic pages, hollow rings, labels and cell hit-testing. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, and the continuation prompt (shared). |
@@ -80,7 +81,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | Think's review screen, original pane, dictation input, and where everything goes on screen with help words, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
 | `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request, optionally limited by a call budget. |
-| `think/record.rs` | The think record's format and its one `write`: a confirmed session's turns, checks and goal in one file. |
+| `think_record.rs`, `think_record/read.rs` | The shared confirmed-session format, its one write, and exact-session history attribution; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 
@@ -119,6 +120,11 @@ ledger error interpretation out of callers, and 1 and 7 by retaining one phase b
 The diagnostic viewport hides Ratatui's local scroll limit and reflow cache within
 Measure (3 and 6); callers still see one reading. It does not change subprocess
 ownership or claim a new design score.
+
+For #143, the confirmed-session format becomes shared so Think writes and Tend
+reads through one owner (diagnostics 1, 3 and 6). The menu retains one history
+reader across visits; Tend owns its view. The map exposes these boundaries (7);
+no phase reaches into another and no new score is claimed.
 
 ## Limits enforced by `tests/architecture.rs`
 

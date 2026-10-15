@@ -140,7 +140,7 @@ def journey(width, height, kind='garden'):
                 assert screen.text().splitlines()[-1].strip() == GARDEN_KEYS, screen.text()
                 time.sleep(.55)
                 os.write(master, click(column, row) * 2)
-                wait(lambda: 'c copy prompt   esc back   10 menu' in screen.text())
+                wait(lambda: 'c copy prompt   r history   esc back   10 menu' in screen.text())
                 assert labels[1] in screen.text(), screen.text()
                 send(b'\x1b', GARDEN_KEYS)
                 wait(lambda: selected(1))
