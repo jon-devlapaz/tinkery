@@ -256,7 +256,7 @@ impl Tend {
             );
         }
         let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_copy()) {
-            "\nc copy prompt to continue in Claude, Codex or Pi"
+            "\nc copy prompt to continue in Claude, Codex or Pi\ns shape: see where its seed stands"
         } else {
             ""
         };
@@ -329,7 +329,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         linking_keys.as_str()
     } else if tend.detail {
         if tend.current().is_some_and(|s| s.stage.can_copy()) {
-            "c copy prompt   r history   esc back   F10 menu"
+            "c copy prompt   s shape   r history   esc back   F10 menu"
         } else {
             "r history   esc back   F10 menu"
         }

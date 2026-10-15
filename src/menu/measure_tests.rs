@@ -9,7 +9,7 @@ fn home(root: &Path) -> Home {
         root.join("missing"),
         Ok(root.join("TEST-links")),
     );
-    home.open(5);
+    home.open(6);
     let watchdog = Instant::now() + Duration::from_secs(5);
     while matches!(&home.view, View::Measure(r) if !r.failed()) {
         assert!(Instant::now() < watchdog);
@@ -95,14 +95,14 @@ fn blocked_measure_keeps_navigation_help_and_late_result_ownership() {
             );
             let (reader, entered, release) = measure::Reader::blocked();
             h.measure = reader;
-            h.open(5);
+            h.open(6);
             entered.recv_timeout(Duration::from_secs(5)).unwrap();
             assert!(
                 snapshot(width, height, &mut h, no_color)
                     .unwrap()
                     .contains("Reading ledger…")
             );
-            h.open(5); // Same visit coalesces rather than cancelling/restarting.
+            h.open(6); // Same visit coalesces rather than cancelling/restarting.
             press(&mut h, KeyCode::Char('?'));
             assert!(
                 snapshot(width, height, &mut h, no_color)
@@ -113,7 +113,7 @@ fn blocked_measure_keeps_navigation_help_and_late_result_ownership() {
             press(&mut h, KeyCode::Esc);
             assert!(matches!(h.view, View::Menu));
             press(&mut h, KeyCode::Down);
-            h.open(5);
+            h.open(6);
             assert!(
                 snapshot(width, height, &mut h, no_color)
                     .unwrap()
@@ -147,7 +147,7 @@ fn failure_help_ignores_menu_shortcuts_and_releases() {
     let mut h = home(root.path());
     press(&mut h, KeyCode::F(1));
     let before = snapshot(100, 30, &mut h, false).unwrap();
-    for code in [KeyCode::Char('1'), KeyCode::Char('6'), KeyCode::Enter] {
+    for code in [KeyCode::Char('1'), KeyCode::Char('7'), KeyCode::Enter] {
         press(&mut h, code);
         assert_eq!(snapshot(100, 30, &mut h, false).unwrap(), before);
     }

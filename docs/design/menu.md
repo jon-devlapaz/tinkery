@@ -1,15 +1,16 @@
 # The menu
 
-The six places follow the operator's work:
+The seven places follow the operator's work:
 
 | Key | Place | Today |
 | --- | --- | --- |
 | 1 | think | Dump, refine, review and explicitly save a goal |
 | 2 | tend | Active-goal graph, needs links, Think history and manual continuation |
-| 3 | approve | Placeholder; no sequence approval reader |
-| 4 | watch | Placeholder; no live multi-run view |
-| 5 | taste | Placeholder; no end-report/review integration |
-| 6 | measure | Read-only report from a separately installed substrate ledger; otherwise unknown |
+| 3 | shape | Read-only: where a saved goal's seed stands ([Shape](shape-and-handoff.md#shape)) |
+| 4 | approve | Placeholder; no sequence approval reader |
+| 5 | watch | Placeholder; no live multi-run view |
+| 6 | taste | Placeholder; no end-report/review integration |
+| 7 | measure | Read-only report from a separately installed substrate ledger; otherwise unknown |
 
 Only the selected place reveals its one-line description; [the menu](../../src/menu.rs)
 owns the exact copy. Name the purpose without borrowing another place's name.
@@ -23,14 +24,14 @@ Tend's active-session count appears only when [discovery](#session-discovery)
 is complete and the count is nonzero.
 A muted bottom key bar, with one blank row beneath it, shows the immediate menu actions once:
 `↑↓ move   enter open   ? help   q quit`. The selected-place description (or latest
-receipt notice) sits two blank rows beneath the six-place list, aligned with the
+receipt notice) sits two blank rows beneath the seven-place list, aligned with the
 place names. Numbers align with the title and key bar; tend's muted count sits
 near its name. Empty space separates purpose from controls; help and open places
 do not show the menu bar. Digits and other existing aliases remain
 available without adding them to the bar.
 
 Menu help is a compact upper-right overlay (38 columns × 13 rows), not a replacement
-screen. The six choices and selected-place description stay visible at every supported
+screen. The seven choices and selected-place description stay visible at every supported
 size. One thin muted border separates the panel. The Help title uses jade to mark
 the active panel; headings and shortcut keys use bold ink, while action labels stay
 muted. One blank row beneath the title gives the movement heading room. Aligned
@@ -234,7 +235,7 @@ there is deliberately none.
 
 `scripts/bench-menu.py` (not part of the zero-call suite) spawns the release binary in a
 POSIX PTY with a temporary `HOME`, from a monotonic clock read immediately before spawn,
-to the first finished synchronized frame showing all six places, then one Down arrow to
+to the first finished synchronized frame showing all six places (seven since #149), then one Down arrow to
 a finished frame showing the selection moved. One run on a 4-vCPU Intel Xeon @ 2.80 GHz
 cloud VM (Linux 6.18, `stat -f` reports ext2/ext3 for an ext4-family disk), 100×30,
 warm page cache (fixtures written just before; no cache dropping, so not a cold-disk

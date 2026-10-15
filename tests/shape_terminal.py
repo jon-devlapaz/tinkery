@@ -1,0 +1,169 @@
+"""Shape journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls."""
+import fcntl, importlib.util, os, select, struct, subprocess, tempfile, termios, time
+from pathlib import Path
+from vt_screen import Screen
+
+REPO = Path(__file__).resolve().parents[1]
+SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
+spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
+helper = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(helper)
+
+GOAL = ('I can see where my seed stands without switching tools.\n'
+        'Why: I lose the thread between tools.\nDone when: Shape shows the next question.\n'
+        'Must: Keep my words.\nMust not: Run agents.')
+DETAIL_KEYS = 'c copy prompt   s shape   r history   esc back   F10 menu'
+SHAPE_KEYS = '↑↓ scroll   esc back   F10 menu'
+LIST_KEYS = '↑↓ move   enter open   esc back'
+
+
+def node(identifier, **fields):
+    return {'id': identifier, 'kind': 'decision', 'prerequisites': [], 'evidence': [],
+            'owner': 'TEST operator', 'gate': 'TEST choice', **fields}
+
+
+def make(root, name, goal=GOAL, question=True):
+    """A human session with a confirmed goal and, optionally, one current question."""
+    session = helper.create(root)
+    old = helper.load(session)
+    state = helper.editable(old)
+    nodes = [node('goal', status='settled', answer=goal, authority='user',
+                  authority_source='TEST fixture, not real approval')]
+    if question:
+        nodes.append(node('storage', status='unresolved', label='Where records live',
+                          question='Keep records local or synced?',
+                          evidence=['README.md:3 says local only'],
+                          recommendation='Local, matching the README.'))
+    state.update(goal=goal, origin='goal', nodes=nodes, current_question='storage' if question else None)
+    helper.publish(session, state, old['version'], 'TEST fixture')
+    return session
+
+
+def seed(session, confirm=False):
+    body = ('status: draft\n# TEST seed\nrevision: r1\n## You are confirming\nKeep records local.\n\n'
+            + helper.decisions_block(helper.load(session)))
+    (session / 'seed-contract.md').write_text(body, encoding='utf-8')
+    if confirm:
+        helper.confirm_seed(session, 'r1', 'TEST fixture only: confirm r1')
+
+
+def files(root):
+    return {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+
+
+def journey(width, height, case, no_color=False):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-shape-') as directory:
+        cwd = Path(directory).resolve()
+        sessions = cwd / 'TEST-sessions'
+        if case == 'list':
+            make(sessions, 'question')
+            seed(make(sessions, 'drafted', goal='Drafted goal\n' + GOAL, question=False))
+            seed(make(sessions, 'ready', goal='Ready goal\n' + GOAL, question=False), confirm=True)
+        else:
+            session = make(sessions, case, question=case in ('question', 'ended', 'unreadable'))
+            if case == 'drafted':
+                seed(session)
+            if case in ('ready', 'stale'):
+                seed(session, confirm=True)
+            if case == 'stale':
+                path = session / 'seed-contract.md'
+                path.write_text(path.read_text().replace('Keep records local.', 'Keep records synced.'))
+        host = cwd / 'never-run-pi'
+        host.write_text('#!/bin/sh\necho unexpected > provider-was-run\nexit 86\n')
+        host.chmod(0o755)
+        master, slave = os.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
+        env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}
+        if no_color:
+            env['NO_COLOR'] = '1'
+        process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--home', '--shape-pi',
+            '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
+            '--record-root', str(cwd / 'TEST-records'), '--link-root', str(cwd / 'TEST-links'),
+            '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=env)
+        screen = Screen(width, height)
+
+        def wait(predicate):
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], .02)[0]:
+                    screen.feed(os.read(master, 65536))
+                if predicate() and not screen.synchronized:
+                    return
+                if process.poll() is not None:
+                    break
+            raise AssertionError(screen.text())
+
+        def send(data, text):
+            os.write(master, data)
+            wait(lambda: ' '.join(text.split()) in flat())
+
+        def flat():
+            return ' '.join(screen.text().split())
+
+        def shows_goal(first=''):
+            for line in ([first] if first else []) + GOAL.splitlines():
+                assert ' '.join(line.split()) in flat(), (line, screen.text())
+
+        try:
+            wait(lambda: '3  shape' in screen.text())
+            if case == 'list':
+                send(b'3', LIST_KEYS)
+                assert 'Ready goal' not in screen.text(), screen.text()
+                assert 'goal saved' in screen.text() and 'seed drafted' in screen.text(), screen.text()
+                before = files(sessions)
+                lines = screen.text().splitlines()
+                drafted = 'j' if any('› I can see' in l for l in lines) else ''
+                os.write(master, drafted.encode())
+                send(b'\r', 'Seed draft r1 is waiting for you to confirm it.')
+                shows_goal('Drafted goal')
+                send(b'\x1b', LIST_KEYS)
+                send(b'\x1b', '3  shape')
+            else:
+                send(b'2', 'enter open')
+                send(b'\r', DETAIL_KEYS)
+                if case == 'ended':
+                    helper.end(next(sessions.iterdir()), 'stopped', 'TEST fixture', no_viewer='TEST fixture')
+                if case == 'unreadable':
+                    (next(sessions.iterdir()) / 'ledger.json').write_text('not JSON')
+                before = files(sessions)
+                expected = {
+                    'question': 'Where records live: Keep records local or synced?',
+                    'drafted': 'Seed draft r1 is waiting for you to confirm it.',
+                    'ready': 'Seed ready: you confirmed r1, and it still matches.',
+                    'stale': "Seed Me can't verify it: the seed changed after revision r1 was confirmed.",
+                    'ended': 'This session has ended (stopped).',
+                    'unreadable': 'Seed Me refused to read this session:',
+                }[case]
+                send(b's', expected)
+                assert screen.text().splitlines()[-1].strip() == SHAPE_KEYS, screen.text()
+                assert flat().count('Next:') == 1, screen.text()
+                if case != 'unreadable':
+                    shows_goal()
+                if case == 'question':
+                    assert 'What I found: README.md:3 says local only' in flat(), screen.text()
+                    assert 'Suggestion: Local, matching the README.' in flat(), screen.text()
+                    assert 'Option' not in screen.text(), screen.text()
+                if width == 100 and case == 'question' and not no_color:
+                    print('TEST Shape 100×30 screen:\n' + screen.text())
+                assert str(cwd) not in screen.text(), screen.text()
+                if case == 'unreadable':
+                    send(b'\x1bOP', 'What went wrong')
+                    send(b'\x1b', SHAPE_KEYS)
+                send(b'\x1b', DETAIL_KEYS)
+                shows_goal()
+            assert files(sessions) == before, 'Shape changed a session file'
+            assert not (cwd / 'provider-was-run').exists()
+            assert not (cwd / 'TEST-records').exists() and not (cwd / 'TEST-links').exists()
+            print(f'Shape {case} journey passed at {width}x{height}' + (' NO_COLOR' if no_color else ''))
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            os.close(master)
+            os.close(slave)
+
+
+for size in [(100, 30), (80, 24)]:
+    for case in ['question', 'drafted', 'ready', 'stale', 'ended', 'unreadable', 'list']:
+        journey(*size, case)
+journey(100, 30, 'question', no_color=True)

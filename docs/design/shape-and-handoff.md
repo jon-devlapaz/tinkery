@@ -2,8 +2,9 @@
 
 Tend replaces the shape list after the operator chose Replace on 2026-10-14
 ([#123](https://github.com/jon-devlapaz/tinkery/issues/123)). [Shape](#shape) returns
-as its own place in the first release (operator decision, 2026-10-15). Until it is
-built, the Seed Me step happens outside Tinkery through the copied continuation prompt.
+as its own place in the first release (operator decision, 2026-10-15). It reads where a
+seed stands; until answering is built, the Seed Me step happens outside Tinkery through
+the copied continuation prompt.
 
 ## Receipt
 
@@ -78,7 +79,8 @@ Resizing reflows the slots to the new canvas, retaining relative zoom and pan.
 
 Enter opens the exact stored goal block line by line, using the receipt's shared
 renderer without `Saved.`. In detail, ↑↓ / `j k` or PgUp/PgDn scroll; `c` copies the
-continuation prompt when the stored stage permits it; `r` opens Think history.
+continuation prompt when the stored stage permits it; `s` opens [Shape](#shape) on the
+same stages; `r` opens Think history.
 Esc goes detail → garden →
 menu; F10 goes to menu. F1 opens help; `h` shows technical details.
 
@@ -207,30 +209,58 @@ Seed Me fixture is external and pinned by CI, not vendored or edited here.
 
 ## Shape
 
-**Planned, not built.** The operator put Shape in the first release on 2026-10-15.
-Its design below is a proposal awaiting acceptance; it grants no implementation
-permission or provider budget.
+Think settles what the operator wants; Shape settles how to build it, through Seed Me's
+interview: investigate facts first, then one decision at a time with its evidence and a
+suggestion, ending in a seed the operator confirms. Journey: think → tend → shape → approve.
+The operator accepted this design and approved both slices on 2026-10-15.
 
-Think settles what the operator wants; Shape settles how to build it. From a goal's
-detail in Tend, a key that says it starts Shape opens the goal's existing Seed Me
-session and runs Seed Me's interview there: investigate facts first, then one
-decision at a time with its evidence, options and suggestion, ending in a seed the
-operator confirms. Journey: think → tend → shape → approve.
+- **Seed Me owns the session.** Shape reads and writes it only through Seed Me's session
+  helper (`read`, `publish`, `status`, `seed confirm`). Tinkery keeps no copy of the ledger
+  or a second contract; Seed Me changes are proposed in its repository.
+- **Nothing runs by itself.** Each agent step starts from a key that names it and runs
+  within an explicit budget (default zero). The copied continuation prompt stays available.
+- **Three separate decisions.** Goal confirmation, seed confirmation and approval stay
+  distinct on screen; Shape never asks again what Think settled.
+- **Honest states.** A failed read, an unknown stage or a seed that no longer matches its
+  confirmation is said plainly, with one next step.
 
-- **Seed Me owns the session.** Shape reads and writes it only through Seed Me's
-  session helper (`read`, `publish`, `status`, `seed confirm`). Tinkery keeps no copy
-  of the ledger or a second contract; Seed Me changes are proposed in its repository.
-- **Nothing runs by itself.** Each agent step, including investigating the
-  repository, starts from a key that names it and runs within an explicit budget
-  (default zero). The copied continuation prompt stays available.
-- **Three separate decisions.** Goal confirmation, seed confirmation and approval
-  stay distinct on screen; Shape never asks again what Think settled.
-- **Honest states.** A failed call, an unknown stage or a seed that no longer matches
-  its confirmation (`status`) is said plainly, with one next step.
+### Reading where a seed stands
 
-Open before building: the model host, how Shape avoids writing a session another
-tool is working on, and confirming that Seed Me's stale-confirmation fix
-([seed-me #3](https://github.com/jon-devlapaz/seed-me/issues/3)) is complete.
+Built in [#149](https://github.com/jon-devlapaz/tinkery/issues/149). In a goal's detail in
+Tend, `s shape` sits beside `c copy prompt` and appears on the same stages (goal saved, seed
+drafted, seed ready). Esc returns to that same detail. Menu place 3 lists only goals waiting
+for a seed (goal saved or seed drafted); Enter opens the same screen and Esc returns to the
+list. A held `s` or Enter opens nothing.
+
+The screen shows the confirmed goal exactly as the ledger records it, in ink, then one of:
+
+| Seed Me reports | Shape says |
+| --- | --- |
+| A current question | Its label and question in jade, `What I found:` for each evidence entry, and `Suggestion:` in italic. The ledger keeps no options, so none are shown. |
+| No question, no seed | Seed Me hasn't asked its next question yet |
+| A draft seed | The draft and its revision wait for confirmation |
+| A confirmed seed that `status` verifies | `Seed ready`, with the confirmed revision |
+| A confirmed seed that `status` can't verify | Seed Me's own reason, such as the seed changing after confirmation |
+| A practice seed, an ended session or an unrecognised state | That, plainly |
+
+An open question comes before a seed, so a reopened decision is never hidden behind an
+older draft. Each state ends with one `Next:` line; until answering is built, that points
+to tend's `c`, in the words Tend's detail uses for the same stage. When Seed Me's helper
+refuses a session, Shape shows Seed Me's first line of reason, such as a ledger saved in
+another format. A missing `--seed-me` or another failure says so; reasons and paths are
+under F1. Reads run off the paint path. Shape writes nothing, copies nothing, calls no
+model and leaves the continuation prompt unchanged. `status` probes a viewer URL that the
+session records, which is a local read.
+
+### Answering and confirming
+
+Approved as [#150](https://github.com/jon-devlapaz/tinkery/issues/150), after #149: one key
+that names both saves an answer and starts the next agent step through Pi with read-only
+tools; Tinkery makes every helper call itself, and the model never does.
+Seed Me's `expected_version` refuses a stale write, so Shape never overwrites another
+writer. The seed's decisions come from `seed decisions`. The stale-confirmation fix
+([seed-me #3](https://github.com/jon-devlapaz/seed-me/issues/3)) was verified and closed on
+2026-10-15; CI pins that Seed Me commit.
 
 ## Rationale and verification
 

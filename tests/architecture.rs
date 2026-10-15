@@ -31,6 +31,7 @@ const MODULES: &[(&str, &str)] = &[
     ("measure", "measure"),
     ("menu", "menu"),
     ("seed_me", "shared"),
+    ("shape", "shape"),
     ("tend", "tend"),
     ("think", "think"),
     ("think_record", "shared"),
