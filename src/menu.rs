@@ -62,6 +62,7 @@ pub struct Home {
     make_dump: Box<dyn Fn() -> BrainDump>,
     sessions_root: Option<PathBuf>,
     substrate_dir: PathBuf,
+    link_root: Result<PathBuf, String>,
     selected: usize,
     view: View,
     help: bool,
@@ -84,11 +85,13 @@ enum View {
 
 impl Home {
     /// A menu on its first row. `make_dump` makes a fresh think each time think is opened;
-    /// tend reads the selected root or shows its refusal without scanning; measure uses `substrate_dir`.
+    /// tend reads the selected sessions root or shows its refusal without scanning. Links use
+    /// the separate captured `link_root` (or its refusal); measure uses `substrate_dir`.
     pub fn new(
         make_dump: Box<dyn Fn() -> BrainDump>,
         sessions_root: Result<PathBuf, String>,
         substrate_dir: PathBuf,
+        link_root: Result<PathBuf, String>,
     ) -> Self {
         let (sessions_root, discovery) = match sessions_root {
             Ok(root) => (Some(root), Discovery::new(Arc::new(tend::scan))),
@@ -99,6 +102,7 @@ impl Home {
             make_dump,
             sessions_root,
             substrate_dir,
+            link_root,
             selected: 0,
             view: View::Menu,
             help: false,
@@ -132,14 +136,19 @@ impl Home {
     }
 
     /// The menu think returns to after saving a goal when it was launched on its own. The
-    /// receipt carries over, and `open_tend` opens tend on the saved session.
-    pub fn from_receipt(mut dump: BrainDump, session: &Path, open_tend: bool) -> Self {
+    /// receipt and captured links destination carry over; `open_tend` opens the saved session.
+    pub fn from_receipt(
+        mut dump: BrainDump,
+        session: &Path,
+        open_tend: bool,
+        link_root: Result<PathBuf, String>,
+    ) -> Self {
         let (default_root, substrate) = Self::default_paths();
         let root = session
             .parent()
             .map(|path| Ok(path.to_path_buf()))
             .unwrap_or(default_root);
-        let mut home = Self::new(dump.fresh_factory(), root, substrate);
+        let mut home = Self::new(dump.fresh_factory(), root, substrate, link_root);
         if let Some(root) = dump.record_root() {
             home.record_root = Ok(root.to_path_buf());
         }
@@ -223,7 +232,7 @@ impl Home {
             return;
         };
         let version = self.discovery.version();
-        if tend.seen == version || (tend.detail && tend.want.is_none()) {
+        if tend.seen == version || ((tend.detail || tend.is_linking()) && tend.want.is_none()) {
             return;
         }
         tend.apply(&landed.outcome, self.discovery.fresh(), version);
@@ -323,7 +332,7 @@ impl Home {
             1 => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.request_sessions();
-                View::Tend(Box::new(Tend::new()))
+                View::Tend(Box::new(Tend::new(self.link_root.clone())))
             }
             5 => View::Measure(measure::Reading::new(&self.substrate_dir)),
             other => View::Soon(other),
@@ -341,14 +350,25 @@ impl Home {
             return;
         }
         if matches!(self.view, View::Tend(_)) {
-            if key.modifiers != KeyModifiers::NONE
+            let shifted_view_key = key.modifiers == KeyModifiers::SHIFT
+                && matches!(
+                    key.code,
+                    KeyCode::Char('H' | 'J' | 'K' | 'L' | '+' | '=' | '-')
+                );
+            if key.modifiers != KeyModifiers::NONE && !shifted_view_key
                 || key.kind == KeyEventKind::Repeat
                     && matches!(
                         key.code,
-                        KeyCode::Char('c' | 'r') | KeyCode::F(1) | KeyCode::F(10) | KeyCode::Enter
+                        KeyCode::Char('c' | 'r' | 'l')
+                            | KeyCode::F(1)
+                            | KeyCode::F(10)
+                            | KeyCode::Enter
                     )
             {
                 return;
+            }
+            if let View::Tend(tend) = &mut self.view {
+                tend.release_pointer();
             }
             if key.code == KeyCode::F(10) {
                 self.history_reader.cancel();
@@ -478,6 +498,9 @@ impl Home {
                 _ => {}
             },
             View::Tend(tend) => match key.code {
+                KeyCode::Char('l') => tend.start_link(),
+                KeyCode::Esc if tend.is_linking() => tend.cancel_link(),
+                KeyCode::Enter if tend.is_linking() => tend.commit_link(),
                 KeyCode::Esc if tend.detail => {
                     tend.detail = false;
                     tend.scroll = 0;
@@ -493,21 +516,18 @@ impl Home {
                 }
                 KeyCode::PageDown if tend.detail => tend.scroll = tend.scroll.saturating_add(5),
                 KeyCode::PageUp if tend.detail => tend.scroll = tend.scroll.saturating_sub(5),
-                KeyCode::Right | KeyCode::Char('j') if tend.garden_showing() => {
-                    tend.selected = (tend.selected + 1).min(tend.sessions.len() - 1)
+                KeyCode::Right | KeyCode::Down | KeyCode::Char('j') if tend.garden_showing() => {
+                    tend.step_selection(true)
                 }
-                KeyCode::Left | KeyCode::Char('k') if tend.garden_showing() => {
-                    tend.selected = tend.selected.saturating_sub(1)
+                KeyCode::Left | KeyCode::Up | KeyCode::Char('k') if tend.garden_showing() => {
+                    tend.step_selection(false)
                 }
-                KeyCode::Down if tend.garden_showing() => {
-                    tend.selected = (tend.selected + tend.columns).min(tend.sessions.len() - 1)
+                KeyCode::Char(c @ ('+' | '=' | '-' | 'H' | 'J' | 'K' | 'L'))
+                    if tend.garden_showing() =>
+                {
+                    tend.adjust_view(c);
                 }
-                KeyCode::Up if tend.garden_showing() => {
-                    if tend.selected >= tend.columns {
-                        tend.selected -= tend.columns;
-                    }
-                }
-                KeyCode::Enter if !tend.sessions.is_empty() => {
+                KeyCode::Enter if tend.garden_showing() => {
                     tend.detail = true;
                     tend.scroll = 0;
                     tend.notice.clear();
@@ -539,13 +559,13 @@ impl Home {
             dump.handle_mouse(event, area);
             return;
         }
-        if event.kind != MouseEventKind::Down(MouseButton::Left) {
-            return;
-        }
         if let View::Tend(tend) = &mut self.view {
             if !self.help {
-                tend.press(event.column, event.row, body(area), now);
+                tend.pointer(event, body(area), now);
             }
+            return;
+        }
+        if event.kind != MouseEventKind::Down(MouseButton::Left) {
             return;
         }
         if !matches!(self.view, View::Menu) {
@@ -789,6 +809,7 @@ mod tests {
             Box::new(BrainDump::default),
             Ok(root.to_path_buf()),
             root.join("no-substrate"),
+            Ok(root.join("TEST-links")),
         )
     }
 
@@ -1260,26 +1281,28 @@ mod tests {
             );
             assert!(!screen.contains("ended a long goal"), "{screen}");
             assert!(screen.contains("1 ended not shown"), "{screen}");
-            let positions: Vec<_> = ["saved", "drafted", "ready"]
-                .iter()
-                .map(|id| screen.find(id).unwrap())
-                .collect();
-            assert!(
-                positions.windows(2).all(|pair| pair[0] < pair[1]),
-                "{screen}"
-            );
-            for label in ["goal saved", "seed drafted", "seed ready"] {
+            for id in ["saved", "drafted", "ready"] {
+                assert!(screen.contains(id), "{screen}");
+            }
+            for (id, label) in [
+                ("saved", "goal saved"),
+                ("drafted", "seed drafted"),
+                ("ready", "seed ready"),
+            ] {
                 let selected = snapshot(w, height, &mut h, false).unwrap();
                 let line = selected.lines().nth(height as usize - 3).unwrap();
                 assert!(
-                    line.contains(label) && line.contains('…') && line.contains(" · "),
+                    line.trim_start().starts_with(id)
+                        && line.contains(label)
+                        && line.contains('…')
+                        && line.contains(" · "),
                     "{selected}"
                 );
                 h.handle_key(key(KeyCode::Char('j')));
             }
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "↑↓←→ move   enter open   esc back"
+                "↑↓←→ move   enter open   l link   esc back"
             );
         }
     }
@@ -1324,7 +1347,7 @@ mod tests {
             assert!(screen.contains("Next: shape it into a seed with Seed Me."));
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "c copy prompt   r history   esc back   10 menu"
+                "c copy prompt   r history   esc back   F10 menu"
             );
             for _ in 0..2 {
                 h.handle_key(key(KeyCode::Char('c')));

@@ -35,6 +35,7 @@ fn home() -> (tempfile::TempDir, Home, PathBuf, Vec<u8>) {
         Box::new(BrainDump::default),
         Ok(sessions),
         "/TEST/no-substrate".into(),
+        Ok(dir.path().join("TEST-links")),
     )
     .with_record_root(records)
     .with_seed_me("/TEST/no-skill".into());
@@ -81,6 +82,13 @@ fn history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal() {
     assert!(history.contains("My original Café 👩‍💻") && !history.contains("/TEST"));
     press(&mut home, KeyCode::Char('c'));
     assert!(home.take_copy_request().is_none());
+    press(&mut home, KeyCode::Char('l'));
+    press(&mut home, KeyCode::Enter);
+    assert_eq!(rendered(&mut home), history);
+    let View::Tend(tend) = &home.view else {
+        panic!("History must stay in Tend");
+    };
+    assert!(!tend.is_linking());
     press(&mut home, KeyCode::F(1));
     press(&mut home, KeyCode::Char('h'));
     assert!(rendered(&mut home).contains("How it works"));

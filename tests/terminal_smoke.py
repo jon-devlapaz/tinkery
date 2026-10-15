@@ -2,6 +2,7 @@
 from pathlib import Path
 import os
 import subprocess
+import tempfile
 
 BINARY = Path(__file__).resolve().parents[1] / "target/debug/tinkery"
 
@@ -44,4 +45,19 @@ result = subprocess.run([str(BINARY), *pi, "--record-root", "/tmp/tinkery-TEST-r
 assert result.returncode != 0 and b"HOME" not in result.stderr, result.stderr
 for arguments in (["--snapshot"], ["--home", "--snapshot"]):
     subprocess.run([str(BINARY), *arguments], capture_output=True, check=True, env=no_home)
-print("PASS: noninteractive modes, removed entry points, explicit CLI errors and the HOME refusal")
+# Tend's destination is independent of live drafting, and never created by navigation/snapshots.
+with tempfile.TemporaryDirectory(prefix="tinkery-TEST-link-cli-") as directory:
+    root = Path(directory)
+    for home in (no_home, {**no_home, "HOME": ""}, {**no_home, "HOME": "TEST-relative"}):
+        for entry in ([], ["--home"]):
+            result = subprocess.run([str(BINARY), *entry, "--snapshot",
+                                     "--seed-session-root", str(root / "TEST-sessions"),
+                                     "--link-root", str(root / "TEST-links")],
+                                    capture_output=True, env=home)
+            assert result.returncode == 0, result.stderr
+    for arguments in (["--link-root"], ["--link-root", ""]):
+        result = subprocess.run([str(BINARY), *arguments], capture_output=True, env=no_home)
+        assert result.returncode != 0 and b"--link-root needs a folder" in result.stderr
+    assert not (root / "TEST-links").exists()
+assert b"--link-root PATH" in subprocess.check_output([str(BINARY), "--help"])
+print("PASS: noninteractive modes, removed entry points, explicit CLI errors, HOME refusal and practice link roots")

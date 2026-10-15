@@ -67,6 +67,8 @@ impl Stage {
 /// One readable session.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Session {
+    /// The ledger's nonempty, control-free session_id; never inferred from a path or title.
+    pub id: Option<String>,
     /// The session folder, canonicalised.
     pub path: PathBuf,
     /// The confirmed goal as recorded, or a plain placeholder when none is.
@@ -104,6 +106,11 @@ pub fn read(path: &Path) -> Record {
     let Some(status) = ledger.get("status").and_then(Value::as_str) else {
         return Record::Unreadable;
     };
+    let id = ledger
+        .get("session_id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))
+        .map(str::to_owned);
     let goal = ledger
         .get("goal")
         .and_then(Value::as_str)
@@ -130,6 +137,7 @@ pub fn read(path: &Path) -> Record {
     };
     match path.canonicalize() {
         Ok(path) => Record::Session(Session {
+            id,
             path,
             goal,
             stage,

@@ -210,14 +210,14 @@ class DocumentationTests(unittest.TestCase):
             args = json.loads(capture.read_text())
             self.assertIn("--shape-pi", args)
             destinations = []
-            for flag in ("--seed-session-root", "--record-root"):
+            for flag in ("--seed-session-root", "--record-root", "--link-root"):
                 self.assertIn(flag, args, f"Trial must override {flag}; defaults use operator data")
                 path = Path(args[args.index(flag) + 1])
                 self.assertTrue(path.is_absolute(), (flag, path))
                 self.assertTrue(path.is_relative_to(trial), (flag, path))
                 destinations.append(path)
-            self.assertNotEqual(destinations[0], destinations[1],
-                                "Sessions and think records need separate roots")
+            self.assertEqual(len(set(destinations)), len(destinations),
+                             "Sessions, think records and links need separate roots")
 
             capture.unlink()
             (binary / "mktemp").write_text(f"#!{sys.executable}\nraise SystemExit(1)\n")

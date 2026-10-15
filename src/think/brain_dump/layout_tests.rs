@@ -10,6 +10,63 @@ fn left(screen: &str, w: u16) -> Vec<String> {
         .collect()
 }
 #[test]
+fn reading_scroll_hint_only_appears_on_overflow_and_clears_after_resize() {
+    const HINT: &str = "PgUp/PgDn scroll reading";
+    for mono in [false, true] {
+        let mut a = board();
+        super::tests::amend_board(&mut a, |g| {
+            g.parts = GoalParts {
+                who: Some("I".into()),
+                outcome: Some("read the boundaries".into()),
+                why: Some("They protect my work".into()),
+                done_when: Some("Each exclusion is visible".into()),
+                must_not: vec!["delete files".into(), "upload logs".into()],
+                ..Default::default()
+            };
+            g.other_goals.clear();
+            g.deferred.clear();
+        });
+        // Six rows exactly fit the minimum-size reading: don't take one for a hint.
+        let fitted = snapshot(80, 24, &mut a, mono).unwrap();
+        assert!(fitted.contains("Must not: upload logs."));
+        assert!(!fitted.contains(HINT));
+        super::tests::amend_board(&mut a, |g| {
+            g.parts.must_not.push(
+                "change the café 東京 archive, including its names, notes and every original entry"
+                    .into(),
+            );
+        });
+        let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
+        let overflow = snapshot(80, 24, &mut a, mono).unwrap();
+        assert!(overflow.contains(HINT), "{overflow}");
+        assert!(!overflow.contains("original entry"));
+        key(&mut a, KeyCode::PageDown);
+        let bottom = snapshot(80, 24, &mut a, mono).unwrap();
+        assert!(bottom.contains("original entry."), "{bottom}");
+        assert!(bottom.contains('東') && bottom.contains('京'), "{bottom}");
+        assert!(bottom.contains(HINT));
+        assert!(a.screen.paper_scroll > 0);
+        let expanded = snapshot(320, 40, &mut a, mono).unwrap();
+        assert!(!expanded.contains(HINT));
+        assert!(expanded.contains("I think you mean…"));
+        assert!(expanded.contains("original entry."));
+        assert_eq!(a.screen.paper_scroll, 0);
+        a.review_goal();
+        assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+        assert!(!snapshot(80, 24, &mut a, mono).unwrap().contains(HINT));
+        assert!(a.handoff.job.is_none() && a.saved().is_none() && !a.running());
+    }
+}
+
+#[test]
+fn every_key_names_the_existing_reading_scroll_route() {
+    let mut a = board();
+    key(&mut a, KeyCode::F(1));
+    key(&mut a, KeyCode::F(1));
+    assert!(layout::help_text(&a).contains("PgUp/PgDn   scroll the reading"));
+}
+
+#[test]
 fn one_help_control_and_stable_original_across_review_help_and_receipt() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut empty = BrainDump::default();

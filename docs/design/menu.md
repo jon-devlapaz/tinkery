@@ -5,7 +5,7 @@ The six places follow the operator's work:
 | Key | Place | Today |
 | --- | --- | --- |
 | 1 | think | Dump, refine, review and explicitly save a goal |
-| 2 | tend | Read-only saved-goal garden and manual continuation |
+| 2 | tend | Active-goal graph, needs links, Think history and manual continuation |
 | 3 | approve | Placeholder; no sequence approval reader |
 | 4 | watch | Placeholder; no live multi-run view |
 | 5 | taste | Placeholder; no end-report/review integration |
@@ -52,8 +52,7 @@ installed launcher passes `--home`.
 ## Measure failure and recovery
 
 Measure still requests the installed ledger report synchronously, only when deliberately
-opened. This slice changes failure presentation, not subprocess lifecycle: a stuck read
-can still block input until it returns ([#120](https://github.com/jon-devlapaz/tinkery/issues/120)).
+opened. A stuck read can still block input until it returns ([#120](https://github.com/jon-devlapaz/tinkery/issues/120)).
 Successful reports retain their existing text, scrolling and help behavior.
 
 A failed read says “Ledger report unavailable”, gives a plain-language cause when
@@ -129,7 +128,16 @@ same absolute destination.
 The separate `--record-root` selects saved Think history, never a session root.
 It is also available without live drafting; [Tend owns history reading](shape-and-handoff.md#think-history).
 
-Painting, the count and navigation read in-memory state only. One owned, read-only
+`--link-root PATH` selects Tend's separate needs store and does not require `--shape-pi`.
+Its default is `~/.local/share/tinkery/tend` under an absolute HOME; without one,
+linking is unavailable with a reason and session discovery still works. An explicit
+relative links root is captured against the launch directory; an empty one is refused.
+Both menu entry and standalone think's receipt handoff retain that destination.
+Configuring the destination creates nothing. Tend reads links when sessions land
+and when `l` starts picking; only an explicit commit writes them. See
+[linking needs](shape-and-handoff.md#linking-needs) for keys and refusal wording.
+
+Painting, the count and garden movement read in-memory state only. One owned, read-only
 worker scans the sessions root (never more than one at a time; requests made while it
 runs coalesce into one follow-up). It starts on the first tick, and again when think
 returns to the menu and when tend is deliberately reopened. Nothing watches files or
@@ -149,8 +157,8 @@ not shown after saving a goal. For the same reason an empty list from an older r
 is not shown as “no sessions” while a newer read runs; tend says it is reading.
 
 In tend, a late read keeps the selected session by path, never by row, and cannot
-reopen an exited view. While a saved session's detail is open nothing is replaced under
-it; the garden catches up on going back. From a receipt, `s` waits for a read that can
+reopen an exited view. While a saved session's detail is open or a need is being
+picked, nothing is replaced underneath it; the garden catches up afterward. From a receipt, `s` waits for a read that can
 contain that session and then opens its detail; a read that began before the save is
 not treated as “unavailable”. Measure's subprocess still runs only when measure is
 opened.

@@ -108,7 +108,8 @@ carry through bold, dim and underline. The palette is light; dark mode is not bu
 
 ## Launch
 
-From the repository root, practice mode needs no providers and saves nothing:
+From the repository root, practice Think needs no providers and saves no goals.
+Tend can still save needs when you explicitly link or unlink:
 
 ```sh
 cargo +stable run --locked -- --home
@@ -127,12 +128,17 @@ cargo +stable run --locked -- --shape-pi \
   --model provider/model-id \
   --seed-me .ci-seed-me/skills/seed-me/SKILL.md \
   --seed-session-root "$trial_root/sessions" \
-  --record-root "$trial_root/think"
+  --record-root "$trial_root/think" \
+  --link-root "$trial_root/tend"
 ```
 
-Both overrides are required for an isolated trial: one keeps Seed Me sessions
-outside operator data, the other keeps [think records](design/think.md#think-record)
-there too. Omit them only when you intend to save to the real data directories.
+All three overrides keep the trial isolated: Seed Me sessions,
+[think records](design/think.md#think-record), and Tend's needs links stay outside
+operator data. Omit them only when you intend to use the real data directories.
+`--link-root PATH` also works without `--shape-pi`; its default is
+`~/.local/share/tinkery/tend` and requires an absolute HOME. In Tend's garden, `l`
+starts [linking or unlinking a need](design/shape-and-handoff.md#linking-needs);
+only Enter or a picked-goal click saves that change. Seed Me sessions stay unchanged.
 `--thinking` sets Pi's reasoning level (default `low`).
 
 A send makes at most two provider calls: one shaping call and one decision review,

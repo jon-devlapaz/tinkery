@@ -18,8 +18,8 @@ BINARY = REPO / 'target/debug/tinkery'
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 SIZES = [(80, 24), (100, 30), (160, 40), (320, 40)]
 MENU = '1  think'
-GARDEN = '↑↓←→ move   enter open   esc back'
-DETAIL = 'esc back   10 menu'
+GARDEN = '↑↓←→ move   enter open   l link   esc back'
+DETAIL = 'esc back   F10 menu'
 HOST = '''#!/usr/bin/env python3
 import json, pathlib, sys
 r = json.load(sys.stdin)
@@ -43,7 +43,7 @@ class Terminal:
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         self.screen = Screen(width, height)
-        self.process = subprocess.Popen([str(BINARY), *map(str, args)],
+        self.process = subprocess.Popen([str(BINARY), '--link-root', str(root / 'TEST-links'), *map(str, args)],
             stdin=self.slave, stdout=self.slave, stderr=self.slave, cwd=root,
             env={**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'})
 

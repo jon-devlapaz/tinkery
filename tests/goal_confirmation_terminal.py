@@ -31,7 +31,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
   if home_case=='unset':environment.pop('HOME')
   elif home_case=='empty':environment['HOME']=''
   elif home_case=='relative':environment['HOME']='TEST-relative-home'
-  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=environment)
+  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--link-root',str(cwd/'TEST-links'),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=environment)
   raw=bytearray()
   def feed():
    data=os.read(master,65536);raw.extend(data);screen.feed(data)
@@ -155,7 +155,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    else:
     # Make the target non-first with the official helper, not hand-written canonical files.
     newer=Path(helper('init','--root',root)['session'])
-    send(b's','c copy prompt   r history   esc back   10 menu')
+    send(b's','c copy prompt   r history   esc back   F10 menu')
     assert 'tinkery › tend' in screen.text()
     assert 'Saved.' not in screen.text() and 'any harness' not in screen.text()
     assert str(root) not in screen.text() and session.name not in screen.text()
@@ -171,9 +171,9 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
       if len(copied)>=before+extra:break
      assert len(copied)==before+extra and base64.b64decode(copied[-1]).decode()==expected
     await_text('Copied.')
-    send(b'\x1b','↑↓←→ move   enter open   esc back')
+    send(b'\x1b','↑↓←→ move   enter open   l link   esc back')
     assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
-    send(b'\r','c copy prompt   r history   esc back   10 menu')
+    send(b'\r','c copy prompt   r history   esc back   F10 menu')
     assert 'Must not: build a dashboard.' in screen.text()
     send(b'\x1b[21~','think')
    assert (session/'ledger.json').read_bytes()==saved

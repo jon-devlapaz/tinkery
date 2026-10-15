@@ -1,12 +1,15 @@
 //! Tend: the saved goals garden and one goal's detail, read from Seed Me sessions.
 //!
-//! Tend only reads. It shows what discovery has landed, says plainly when that is unknown,
-//! incomplete or failed, and offers the continuation prompt to copy; it never edits a session,
+//! Shows what discovery has landed, says plainly when that is unknown, incomplete or failed,
+//! and offers explicit needs links and a continuation prompt to copy; it never edits a session,
 //! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
 
 pub mod discovery;
 mod garden;
+mod graph;
 pub(crate) mod history;
+mod linking;
+pub mod needs;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
 pub use crate::seed_me::{Session, Stage};
@@ -59,12 +62,18 @@ pub(super) struct Tend {
     pub notice: String,
     pub copy: Option<String>,
     pub history: Option<history::View>,
-    /// Columns in the last rendered garden; vertical movement uses this stride.
-    pub columns: usize,
+    graph: graph::GraphView,
     last_press: Option<(PathBuf, Instant)>,
+    pub(super) needs: needs::Store,
+    links: Result<needs::Links, String>,
+    all_sessions: Vec<Session>,
+    /// The source path stays fixed while selection picks the other goal.
+    linking: Option<PathBuf>,
+    link_error: Option<String>,
 }
 impl Tend {
-    pub(super) fn new() -> Self {
+    /// A pending view with a captured links destination or refusal; reads no links and writes nothing.
+    pub(super) fn new(link_root: Result<PathBuf, String>) -> Self {
         Self {
             sessions: vec![],
             error: None,
@@ -83,8 +92,13 @@ impl Tend {
             notice: String::new(),
             copy: None,
             history: None,
-            columns: 1,
+            graph: graph::GraphView::default(),
             last_press: None,
+            needs: needs::Store::new(link_root),
+            links: Ok(needs::Links::default()),
+            all_sessions: vec![],
+            linking: None,
+            link_error: None,
         }
     }
     /// Note how long the read this view waits on has been running (`None`: no worker).
@@ -106,12 +120,18 @@ impl Tend {
         if self.want.is_some() && wanted_at.is_none() && !fresh {
             return;
         }
+        self.cancel_link();
+        self.links = self.needs.read().into_links();
+        if self.notice.is_empty() {
+            self.link_error = self.links.as_ref().err().cloned();
+        }
         self.seen = version;
         self.pending = false;
         match outcome {
             Err(error) => {
                 self.error = Some(error.clone());
                 self.sessions.clear();
+                self.all_sessions.clear();
                 self.unreadable = 0;
                 self.ended = 0;
                 self.want = None;
@@ -120,6 +140,7 @@ impl Tend {
                 let keep = self.current().map(|s| s.path.clone());
                 self.error = None;
                 self.unreadable = found.unreadable;
+                self.all_sessions = found.sessions.clone();
                 self.sessions = found
                     .sessions
                     .iter()
@@ -154,14 +175,40 @@ impl Tend {
             && self.error.is_none()
             && !self.sessions.is_empty()
     }
-    /// Select a garden cell; a timely second press on the same session opens detail.
-    pub(super) fn press(&mut self, column: u16, row: u16, body: Rect, now: Instant) {
+    pub(super) fn release_pointer(&mut self) {
+        self.graph.release();
+    }
+    /// Forward pointer mechanics to graf; only Tend can select, link or open a saved goal.
+    pub(super) fn pointer(
+        &mut self,
+        event: crossterm::event::MouseEvent,
+        body: Rect,
+        now: Instant,
+    ) {
         if !self.garden_showing() {
+            self.graph.release();
             return;
         }
-        let Some(index) = garden::hit(self, column, row, body) else {
+        self.sync_graph(body);
+        if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
+            self.last_press = None;
+        }
+        let Some(id) = self.graph.pointer(event) else {
             return;
         };
+        let Some(index) = self
+            .sessions
+            .iter()
+            .position(|s| format!("{:?}", s.path) == id)
+        else {
+            return;
+        };
+        if self.linking.is_some() {
+            self.selected = index;
+            self.commit_link();
+            self.graph.release();
+            return;
+        }
         let path = self.sessions[index].path.clone();
         let double = self.last_press.as_ref().is_some_and(|(last, at)| {
             *last == path
@@ -176,6 +223,7 @@ impl Tend {
             self.scroll = 0;
             self.notice.clear();
             self.last_press = None;
+            self.graph.release();
         }
     }
     pub(super) fn current(&self) -> Option<&Session> {
@@ -201,8 +249,10 @@ impl Tend {
             });
             let skill = skill.map_or("\nSeed Me skill is not configured. Start Tinkery with --shape-pi, --model and --seed-me to copy a continuation prompt.".into(), |s| format!("\nSeed Me skill: {}", s.display()));
             return format!(
-                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it yourself. Nothing starts on its own. Ended sessions can't be continued.",
-                self.error.as_deref().unwrap_or("")
+                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n{}\n{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it yourself. Nothing starts on its own. Ended sessions can't be continued.",
+                self.error.as_deref().unwrap_or(""),
+                self.link_error.as_deref().unwrap_or(""),
+                self.graph.error.as_deref().unwrap_or("")
             );
         }
         let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_copy()) {
@@ -210,12 +260,28 @@ impl Tend {
         } else {
             ""
         };
+        let needs = self.needs_text();
+        let needs = if needs.is_empty() {
+            String::new()
+        } else {
+            format!("\n\n{}", needs.trim_start_matches(" · "))
+        };
         format!(
-            "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
+            "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
+            } else if self.linking.is_some() {
+                "Arrows / j k pick · Enter links or unlinks · Esc cancels."
+            } else if self.garden_showing() {
+                concat!(
+                    "Arrows / j k move · Enter or a double click opens the saved goal.\n",
+                    "l link or unlink\n",
+                    "Up / Left / k previous · Down / Right / j next (newest first).\n",
+                    "+ / - zoom · H J K L pan · drag a goal to move it.\n",
+                    "Drag empty space to pan · scroll to zoom",
+                )
             } else {
-                "Arrows / j k move · Enter or a double click opens the saved goal."
+                "Esc returns to the menu."
             },
             copy
         )
@@ -258,17 +324,20 @@ fn row(session: &Session, width: usize, now: Option<u64>) -> (String, String) {
 }
 
 pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Palette) {
-    let keys = if tend.detail {
+    let linking_keys = format!("↑↓←→ pick   enter {}   esc cancel", tend.link_verb());
+    let keys = if tend.linking.is_some() {
+        linking_keys.as_str()
+    } else if tend.detail {
         if tend.current().is_some_and(|s| s.stage.can_copy()) {
-            "c copy prompt   r history   esc back   10 menu"
+            "c copy prompt   r history   esc back   F10 menu"
         } else {
-            "r history   esc back   10 menu"
+            "r history   esc back   F10 menu"
         }
-    } else if tend.sessions.is_empty() || tend.want.is_some() {
+    } else if !tend.garden_showing() {
         // Nothing on screen to move to or open: reading, unavailable or empty.
         "esc back"
     } else {
-        "↑↓←→ move   enter open   esc back"
+        "↑↓←→ move   enter open   l link   esc back"
     };
     frame.render_widget(
         Paragraph::new(keys).style(palette.muted),
@@ -316,7 +385,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             .wrap(Wrap { trim: false }),
             area,
         );
-        if tend.ended > 0 {
+        if tend.ended > 0 || tend.links.is_err() {
             garden::render_note(frame, tend, area, palette);
         }
         return;
@@ -458,6 +527,40 @@ pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
 mod tests {
     use super::*;
     #[test]
+    fn detail_footer_names_f10_for_copyable_and_noncopyable_goals() {
+        use ratatui::{Terminal, backend::TestBackend};
+        for stage in [Stage::GoalSaved, Stage::Unknown] {
+            let mut tend = Tend::new(Err("TEST no links".into()));
+            tend.pending = false;
+            tend.current = true;
+            tend.detail = true;
+            tend.sessions.push(Session {
+                id: Some("TEST-id".into()),
+                path: "/TEST/goal".into(),
+                goal: "Synthetic goal".into(),
+                stage,
+                updated: String::new(),
+            });
+            let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+            terminal
+                .draw(|frame| {
+                    render(
+                        frame,
+                        &mut tend,
+                        Rect::new(2, 3, 96, 26),
+                        Palette::new(true),
+                    )
+                })
+                .unwrap();
+            let footer: String = (0..100)
+                .map(|x| terminal.backend().buffer()[(x, 29)].symbol())
+                .collect();
+            assert!(footer.contains("F10 menu"), "{footer}");
+            assert_eq!(footer.contains("c copy prompt"), stage.can_copy());
+        }
+    }
+
+    #[test]
     fn relative_time_validates_dates_offsets_and_handles_unknown_or_future_times() {
         let now = timestamp("2026-10-11T12:00:00Z").unwrap();
         for (value, expected) in [
@@ -478,6 +581,7 @@ mod tests {
     #[test]
     fn row_only_uses_first_line_and_preserves_status_with_unicode_truncation() {
         let s = Session {
+            id: None,
             path: "/TEST/session".into(),
             goal: "界👩‍💻 Café goal with many words\nWhy: never in row".into(),
             stage: Stage::SeedDrafted,
