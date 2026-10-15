@@ -232,7 +232,8 @@ def unavailable(kind, template):
         root = Path(directory).resolve()
         session = root / 'TEST-sessions' / 'saved-goal'
         session.mkdir(parents=True)
-        (session / 'ledger.json').write_text(json.dumps(dict(status='active', goal=template['goal'],
+        (session / 'ledger.json').write_text(json.dumps(dict(schema_version=1,
+            session_id=template['seed_me_session_id'], status='active', goal=template['goal'],
             updated_at='2026-10-15T12:00:00+00:00')))
         records = root / 'TEST-records'
         if kind != 'missing':
