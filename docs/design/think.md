@@ -127,6 +127,14 @@ Think never reads a record back. The record is not a ledger: that word is Seed M
 
 ## Interaction contracts
 
+### Reading
+
+When the reading overflows, a muted `PgUp/PgDn scroll reading` line stays below it.
+The existing keys and mouse wheel reveal the whole reading before review; Every key
+also names the keyboard route. The hint disappears when the reading fits, including
+after a resize. Scrolling changes no goal text or original words
+([#117](https://github.com/jon-devlapaz/tinkery/issues/117)).
+
 ### Help
 
 The state-aware muted bar uses F2, F3, F6, F8 and F10 labels that agree with help.
@@ -233,8 +241,7 @@ raw bytes survive copying and sending but never execute during display.
 The [parked backlog](../research/shared/backlog.md#think) owns remaining proposals,
 including the ["Like X" early-stop gap](../research/shared/backlog.md#like-x-early-stop).
 Extracted-card shortcuts remain in technical help; they are not the proposed scratch
-space. The main-reading exclusion-accessibility task is published as
-[#117](https://github.com/jon-devlapaz/tinkery/issues/117), not implemented.
+space.
 
 ## Decision-review evidence (#34)
 
