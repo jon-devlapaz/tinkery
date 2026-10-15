@@ -51,9 +51,61 @@ installed launcher passes `--home`.
 
 ## Measure failure and recovery
 
-Measure still requests the installed ledger report synchronously, only when deliberately
-opened. A stuck read can still block input until it returns ([#120](https://github.com/jon-devlapaz/tinkery/issues/120)).
-Successful reports retain their existing text, scrolling and help behavior.
+Measure requests the installed ledger report only when deliberately opened. One owned
+read runs off input/render paths, including launch, collection, failure diagnosis and
+text preparation. Successful accepted reports retain their text, scrolling and help.
+There is no polling, log, agent or automatic retry.
+
+“Reading ledger…” and `esc back   ? help` keep navigation available; work and attention
+remain unknown. Help and resizing do not restart or cancel a read. Leaving immediately
+invalidates publication and requests stop, but keeps the reader occupied until cleanup.
+Reopening during cleanup starts and queues nothing: “Finishing the previous read…”
+becomes “Previous read stopped. Return to the menu and open Measure to read again.”
+Only a fresh explicit open starts another read; repeated opens in one visit coalesce.
+
+Each request has a generation and a 30-second monotonic acceptance deadline from open,
+including launch and preparation. At or after the deadline, success is refused. Late
+completion cannot undo cancellation, reopen a view or change selection. Timeout is
+unavailable/unknown, not zero activity or evidence of a missing installation.
+
+On Linux/macOS the reader owns a dedicated process group, null stdin and separately
+captured, concurrently drained nonblocking stdout/stderr. Stop closes owned pipes,
+requests TERM, then requests KILL after one second before reaping the leader, preventing
+PID reuse before the final group signal. Normal EOF and leader exit use this same stop
+path: closed output does not prove helpers finished. The original report or exit outcome
+is accepted only afterward, subject to cancellation, deadline and cleanup errors; even a
+normal completion includes the one-second grace. Ordinary descendants remaining in the
+group are covered, not deliberately escaped or privilege-changing descendants. Cleanup
+means the direct child was reaped, pipes closed and worker finished, not merely a signal sent.
+Signal/collection errors remain explicit and refuse further reads in that session rather
+than risk accumulating unconfirmed work. On macOS, zombie-only groups can return EPERM;
+only a complete bounded snapshot proving every remaining member is a zombie permits
+treating that as already stopped. Unknown/inaccessible snapshots retain the error.
+There is no per-descendant status/reap tracking or universal termination guarantee:
+an OS-stalled descendant may outlast a signal.
+
+Capture retains at most 16 MiB combined raw stdout/stderr; the next byte refuses the
+report and requests cleanup. There are no unbounded transport queues or disk spools.
+Partial stdout is never success. Output-limit details disclose incomplete prefixes.
+During off-thread text preparation, an extended Unicode grapheme over 4 KiB in displayed
+report or diagnostic text refuses the report with an explicit display-limit explanation;
+unsafe text is withheld, not silently truncated or accepted as partial success. The check
+is on UTF-8 bytes after diagnostic escaping (success text retains its existing decoding).
+Ordinary multilingual text and emoji below the limit stay unchanged. The raw cap is not
+a 16 MiB total-memory guarantee: decoding, escaping and caches have bounded amplification.
+Success clipping uses off-thread prepared glyph/row offsets and visits only visible glyphs,
+not hidden rows or invisible runs; the original decoded report remains unchanged. The
+compact glyph index can itself retain up to eight bytes per nonzero-width grapheme.
+These numerical limits are operator-approved policies, not measured ledger timings.
+
+Quit and ordinary terminal-loop errors request stop through the same owner. The terminal
+is restored before draining cleanup. After three seconds pending, one stderr notice says
+exit time is unknown; the foreground process waits rather than detaching work. Arbitrary
+OS launch/reap stalls can therefore make exceptional shutdown wait indefinitely. External
+forced termination and fatal runtime failure cannot guarantee cleanup. A reader-task panic
+refuses further reads and reports unconfirmed cleanup. A deadline does not erase this
+uncertainty: timeout technical details, refused later opens and shutdown retain the
+cleanup error. No force-quit UI is added.
 
 A failed read says “Ledger report unavailable”, gives a plain-language cause when
 supported by the evidence, and says recorded work and attention are unknown. Missing
@@ -67,7 +119,7 @@ can scroll if needed.
 
 F1 or ? opens failure-specific “Right now” help, not menu instructions. `h` opens
 “How it works”: the attempted command, working directory, exit status or complete
-launch error, and complete stderr. Empty stderr explicitly says no error details
+launch error, and complete stderr below the capture/display limits above. Empty stderr says no error details
 were returned. Details warn that paths/output may be private before sharing. Unsafe
 control/bidirectional formatting characters and invalid UTF-8 bytes are visibly escaped,
 not interpreted or silently discarded; ordinary Unicode and line breaks remain readable.
@@ -91,16 +143,22 @@ Wrapped content and scroll limits follow resizing, including 80×24; NO_COLOR
 retains meaning. Failure scroll positions and wrapped-row
 indexes use machine-sized integers, so diagnostics can extend past 65,535 rows. A
 cached viewport indexes source segments and gives Ratatui only a bounded local
-offset. Reflow follows width/text changes; logical lines that themselves exceed
-Ratatui's row range are segmented at grapheme boundaries, retaining all source text.
+offset. Reflow indexes bounded chunks over successive frames after width/text changes;
+“Preparing report…” remains until indexing finishes. No full diagnostic string is rebuilt
+per frame. Long logical lines are segmented at grapheme boundaries, retaining all source
+text; a chunk boundary may add a wrap. Ordinary paragraphs retain Ratatui wrapping.
 Other places' navigation and Measure's existing F10/Ctrl-C quit routes are unchanged.
 
 Measure's [terminal journeys](../../tests) use fake commands and
 temporary TEST roots at 80×24, 100×30, 160×40 and 320×40, with and without NO_COLOR.
 They cover missing executable/module/directory, failed launch, nonzero exit, empty and
 multiline stderr, complete long Unicode diagnostics, safe controls, resize, recovery,
-no extra read from help and unchanged source fixtures. Rust tests also cover ambiguous
-diagnoses, invalid bytes, wide Unicode, help ownership and quit routes. Large-output
+no extra read from help and unchanged source fixtures. Repeated successful reads with
+ordinary same-group helpers using null stdio must leave those helpers stopped before
+acceptance and after shutdown; a leader's EOF/exit alone is insufficient. Rust tests also
+cover normal cleanup's retained capacity, cancellation/deadline during that cleanup,
+original success/exit outcomes and panic uncertainty at and beyond the deadline, alongside
+ambiguous diagnoses, invalid bytes, wide Unicode, help ownership and quit routes. Large-output
 regressions reach the end of 70,000-line diagnostics and a Unicode line wrapping
 past 65,535 rows, cross segment boundaries, scroll back and resize. Ordinary wrapped
 output is compared against the original Paragraph renderer. Reversion
@@ -160,8 +218,8 @@ In tend, a late read keeps the selected session by path, never by row, and canno
 reopen an exited view. While a saved session's detail is open or a need is being
 picked, nothing is replaced underneath it; the garden catches up afterward. From a receipt, `s` waits for a read that can
 contain that session and then opens its detail; a read that began before the save is
-not treated as “unavailable”. Measure's subprocess still runs only when measure is
-opened.
+not treated as “unavailable”. Measure's subprocess still starts only when Measure is deliberately opened and its
+previous reader has finished cleanup.
 
 Once a pending read has run 3 seconds, tend's line becomes “Still reading your
 sessions.” This is wording only, measured from when that read started: no new worker,

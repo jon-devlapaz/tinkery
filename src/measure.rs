@@ -1,20 +1,21 @@
-//! Measure: the ledger's read-only report and failure disclosure. Nothing here writes or retries.
+//! Measure: explicitly requested ledger reports, owned cleanup and safe failure disclosure; no writes or retries.
 
-use std::{
-    io,
-    path::Path,
-    process::{Command, Output},
-};
+use std::{io, path::Path, process::Output, sync::Arc};
 
 use crate::Palette;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{Frame, layout::Rect, widgets::Paragraph};
+use unicode_segmentation::UnicodeSegmentation;
 
+mod plain;
+mod reader;
 mod viewport;
+pub(crate) use reader::Reader;
 use viewport::Viewport;
 
 const COMMAND: &str = "python3 -B -m tink_substrate ledger report";
 const UNKNOWN: &str = "Recorded work and attention are unknown.";
+const CLUSTER_LIMIT: usize = 4096;
 
 pub(crate) struct Reading {
     report: Report,
@@ -22,9 +23,14 @@ pub(crate) struct Reading {
     help_scroll: usize,
     how: bool,
     viewport: Viewport,
+    request: Option<u64>,
+    cleanup_error: Option<String>,
+    text: [Arc<str>; 3],
+    plain: Option<plain::Plain>,
 }
 
 enum Report {
+    Waiting(&'static str),
     Complete(String),
     Failed(Failure),
 }
@@ -41,6 +47,11 @@ enum Cause {
     DirectoryUnavailable,
     Launch,
     Exit,
+    Timeout,
+    OutputLimit,
+    Cancelled,
+    Collection,
+    DisplayLimit,
 }
 
 impl Cause {
@@ -51,13 +62,23 @@ impl Cause {
             Self::DirectoryUnavailable => "The configured ledger directory couldn’t be opened.",
             Self::Launch => "The ledger reader couldn’t be started.",
             Self::Exit => "The ledger reader exited without completing the report.",
+            Self::Timeout => "The ledger report did not finish in time.",
+            Self::OutputLimit => {
+                "The ledger report exceeded the output limit; details are incomplete."
+            }
+            Self::Cancelled => "The ledger read was stopped; no report was accepted.",
+            Self::Collection => "The ledger report could not be collected safely.",
+            Self::DisplayLimit => {
+                "The ledger report contains text too large to display safely; details are incomplete."
+            }
         }
     }
 }
 
 impl Reading {
-    pub(crate) fn new(substrate_dir: &Path) -> Self {
-        let result = Command::new("python3")
+    #[cfg(test)]
+    fn new(substrate_dir: &Path) -> Self {
+        let result = std::process::Command::new("python3")
             .args(["-B", "-m", "tink_substrate", "ledger", "report"])
             .current_dir(substrate_dir)
             .output();
@@ -126,13 +147,108 @@ impl Reading {
                 })
             }
         };
+        Self::with_report(report)
+    }
+
+    fn with_report(mut report: Report) -> Self {
+        let body = match &report {
+            Report::Complete(body) => body.as_str(),
+            Report::Failed(failure) => failure.details.as_str(),
+            Report::Waiting(message) => message,
+        };
+        if body
+            .graphemes(true)
+            .any(|cluster| cluster.len() > CLUSTER_LIMIT)
+        {
+            report = Report::Failed(Failure {
+                cause: Cause::DisplayLimit,
+                details: format!(
+                    "Command: {COMMAND}\nA Unicode character cluster exceeded the {CLUSTER_LIMIT}-byte display limit.\nReport and diagnostic text were withheld; no complete report was accepted."
+                ),
+            });
+        }
+        let plain = if let Report::Complete(body) = &report {
+            Some(plain::Plain::new(body))
+        } else {
+            None
+        };
+        let text = match &report {
+            Report::Complete(_) => [Arc::from(""), Arc::from(""), Arc::from("")],
+            Report::Waiting(message) => [
+                Arc::from(format!("{message}\n\n{UNKNOWN}")),
+                Arc::from(format!(
+                    "Right now\n\n{message}\n{UNKNOWN}\n\nLeaving stops this read. Nothing is retried automatically.\nF10 or Ctrl-C quits Tinkery."
+                )),
+                Arc::from(""),
+            ],
+            Report::Failed(failure) => [
+                Arc::from(format!(
+                    "Ledger report unavailable\n\n{}\n{UNKNOWN}",
+                    failure.cause.explanation()
+                )),
+                Arc::from(format!(
+                    "Right now\n\nThe ledger report couldn’t be read.\n{UNKNOWN}\n\n↑↓ / j k or PgUp/PgDn scroll.\nF10 or Ctrl-C quits Tinkery."
+                )),
+                Arc::from(format!(
+                    concat!(
+                        "How it works\n\nTinkery requested a report from the installed ledger reader.\n",
+                        "This read failed; it does not establish that no work was recorded.\n\n",
+                        "Details may contain private paths or output. Review before sharing.\n",
+                        "PgUp/PgDn or ↑↓ / j k scroll. F10 or Ctrl-C quits Tinkery.\n\n{}"
+                    ),
+                    failure.details
+                )),
+            ],
+        };
         Self {
             report,
             scroll: 0,
             help_scroll: 0,
             how: false,
             viewport: Viewport::default(),
+            request: None,
+            cleanup_error: None,
+            text,
+            plain,
         }
+    }
+
+    fn waiting(request: Option<u64>, message: &'static str) -> Self {
+        let mut reading = Self::with_report(Report::Waiting(message));
+        reading.request = request;
+        reading
+    }
+
+    fn unavailable(cause: Cause, details: String) -> Self {
+        Self::with_report(Report::Failed(Failure { cause, details }))
+    }
+
+    fn report_cause(&self) -> Option<&Cause> {
+        if let Report::Failed(f) = &self.report {
+            Some(&f.cause)
+        } else {
+            None
+        }
+    }
+
+    fn add_cleanup_error(&mut self, error: &str) {
+        self.cleanup_error = Some(error.into());
+        if let Report::Failed(f) = &mut self.report {
+            f.details.push_str("\n\nCleanup errors:\n");
+            f.details.push_str(&display_bytes(error.as_bytes()));
+            let mut text = self.text[2].to_string();
+            text.push_str("\n\nCleanup errors:\n");
+            text.push_str(&display_bytes(error.as_bytes()));
+            self.text[2] = Arc::from(text);
+        }
+    }
+
+    fn waiting_state(&self) -> bool {
+        matches!(self.report, Report::Waiting(_))
+    }
+
+    pub(crate) fn local_help(&self) -> bool {
+        !matches!(self.report, Report::Complete(_))
     }
 
     pub(crate) fn failed(&self) -> bool {
@@ -143,7 +259,7 @@ impl Reading {
     pub(crate) fn key(&mut self, key: KeyEvent, help: &mut bool) -> bool {
         match key.code {
             KeyCode::Char('q') => return true,
-            KeyCode::F(1) | KeyCode::Char('?') if self.failed() => {
+            KeyCode::F(1) | KeyCode::Char('?') if self.local_help() => {
                 *help = !*help;
                 self.how = false;
                 self.help_scroll = 0;
@@ -159,7 +275,7 @@ impl Reading {
                 self.help_scroll = 0;
             }
             code => scroll(
-                if *help && self.failed() {
+                if *help && self.local_help() {
                     &mut self.help_scroll
                 } else {
                     &mut self.scroll
@@ -174,44 +290,48 @@ impl Reading {
     }
 
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette, help: bool) {
-        let Report::Failed(failure) = &self.report else {
-            if let Report::Complete(body) = &self.report {
-                frame.render_widget(
-                    Paragraph::new(body.as_str())
-                        .style(palette.ink)
-                        .scroll((self.scroll as u16, 0)),
-                    area,
-                );
-            }
+        if let Report::Waiting(_) = &self.report {
+            let text = self.text[usize::from(help)].clone();
+            let content = Rect {
+                height: area.height.saturating_sub(2),
+                ..area
+            };
+            let offset = if help {
+                &mut self.help_scroll
+            } else {
+                &mut self.scroll
+            };
+            self.viewport.render(frame, content, palette, text, offset);
+            frame.render_widget(
+                Paragraph::new(if help {
+                    "esc/?/F1 close   q menu"
+                } else {
+                    "esc back   ? help"
+                })
+                .style(palette.muted),
+                Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
+            );
             return;
-        };
+        }
+        if let Report::Complete(_) = &self.report {
+            self.plain
+                .as_ref()
+                .unwrap()
+                .render(frame, area, palette, self.scroll);
+            return;
+        }
         let (text, footer) = if help && self.how {
             (
-                format!(
-                    "How it works\n\nTinkery requested a report from the installed ledger reader.\n\
-                This read failed; it does not establish that no work was recorded.\n\n\
-                Details may contain private paths or output. Review before sharing.\n\
-                PgUp/PgDn or ↑↓ / j k scroll. F10 or Ctrl-C quits Tinkery.\n\n{}",
-                    failure.details
-                ),
+                self.text[2].clone(),
                 "esc back   h help   ?/F1 close   q menu",
             )
         } else if help {
             (
-                format!(
-                    "Right now\n\nThe ledger report couldn’t be read.\n{UNKNOWN}\n\n\
-                ↑↓ / j k or PgUp/PgDn scroll.\nF10 or Ctrl-C quits Tinkery."
-                ),
+                self.text[1].clone(),
                 "esc/?/F1 close   h how it works   q menu",
             )
         } else {
-            (
-                format!(
-                    "Ledger report unavailable\n\n{}\n{UNKNOWN}",
-                    failure.cause.explanation()
-                ),
-                "esc back   ? help",
-            )
+            (self.text[0].clone(), "esc back   ? help")
         };
         let content = Rect {
             height: area.height.saturating_sub(2),

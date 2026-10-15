@@ -2532,6 +2532,7 @@ version = "0.1.0"
 dependencies = [
  "crossterm",
  "graf-rs",
+ "libc",
  "parking_lot",
  "pinstar",
  "proc-macro2",
