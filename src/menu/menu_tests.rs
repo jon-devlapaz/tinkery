@@ -94,7 +94,7 @@ fn settle(h: &mut Home) {
 fn home(source: Source) -> Home {
     Home::new(
         Box::new(BrainDump::default),
-        PathBuf::from("/TEST/sessions"),
+        Ok(PathBuf::from("/TEST/sessions")),
         PathBuf::from("/TEST/no-substrate"),
     )
     .with_discovery_source(source)
@@ -764,7 +764,7 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
     edited.iter_mut().find(|s| s.path == chosen).unwrap().goal = "EDITED elsewhere".into();
     edited.remove(0);
     gate.set(found(edited));
-    h.discovery.request(&h.sessions_root.clone());
+    h.discovery.request(h.sessions_root.as_deref().unwrap());
     gate.release(2);
     settle(&mut h);
     let View::Tend(tend) = &h.view else { panic!() };
@@ -936,7 +936,7 @@ fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
     write_session(tmp.path(), "first", "2026-10-09T10:00:00Z");
     let mut h = Home::new(
         Box::new(BrainDump::default),
-        tmp.path().to_path_buf(),
+        Ok(tmp.path().to_path_buf()),
         tmp.path().join("no-substrate"),
     );
     settle(&mut h);
@@ -1003,7 +1003,7 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
     assert!(times.windows(2).all(|w| w[0] >= w[1]), "newest first");
     let mut h = Home::new(
         Box::new(BrainDump::default),
-        tmp.path().to_path_buf(),
+        Ok(tmp.path().to_path_buf()),
         tmp.path().join("no-substrate"),
     );
     settle(&mut h);
@@ -1047,6 +1047,36 @@ fn scan_completeness_semantics() {
 }
 
 #[test]
+fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
+    let reason = "HOME is unavailable; pass --seed-session-root PATH";
+    let mut h = Home::new(
+        Box::new(BrainDump::default),
+        Err(reason.into()),
+        PathBuf::from("/TEST/no-substrate"),
+    )
+    .with_discovery_source(Arc::new(|_| panic!("No root must never reach a source")));
+    h.tick();
+    h.discover_for_snapshot(Duration::from_secs(1));
+    assert!(!h.discovery.running());
+    assert_eq!(h.count(1), None);
+    for _ in 0..2 {
+        h.open(1);
+        h.tick();
+        let View::Tend(tend) = &mut h.view else {
+            panic!()
+        };
+        assert_eq!(tend.error.as_deref(), Some(reason));
+        assert!(!tend.pending);
+        tend.how = true;
+        assert!(tend.help_text(None).contains("--seed-session-root PATH"));
+        let frame = snapshot(80, 24, &mut h, false).unwrap();
+        assert!(frame.contains("unavailable"), "{frame}");
+        assert!(!frame.contains("No Seed Me sessions"), "{frame}");
+        assert!(!h.discovery.running());
+    }
+}
+
+#[test]
 fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
     let tmp = tempfile::tempdir().unwrap();
     let substrate = tmp.path().join("substrate");
@@ -1059,7 +1089,7 @@ fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
     .unwrap();
     let mut h = Home::new(
         Box::new(BrainDump::default),
-        tmp.path().join("sessions"),
+        Ok(tmp.path().join("sessions")),
         substrate.clone(),
     );
     settle(&mut h);

@@ -12,12 +12,32 @@ mod tests;
 pub use save::{Affirmed, Choice, Config, Original, Receipt};
 pub use session::{Record, Session, Stage, read};
 
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
-/// Where Seed Me keeps sessions for a user whose home is `home`. Only a default: the
-/// operator may point Tinkery elsewhere, and nothing here creates the folder.
-pub fn default_root(home: &Path) -> PathBuf {
-    home.join(".local/share/seed-me/sessions")
+/// The default session root under an absolute HOME; creates nothing and refuses missing,
+/// empty or relative HOME with the explicit-root remedy. Explicit roots remain caller choices.
+pub fn default_root(home: Option<&OsStr>) -> Result<PathBuf, String> {
+    match home.map(Path::new) {
+        Some(home) if home.is_absolute() => Ok(home.join(".local/share/seed-me/sessions")),
+        _ => {
+            Err("HOME is unset or not absolute; pass --seed-session-root PATH for sessions.".into())
+        }
+    }
+}
+
+/// Capture an explicit destination relative to the launch directory, or the checked HOME default.
+/// Returns an absolute path without creating it; helpers must receive this same destination.
+pub fn resolve_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
+    match explicit {
+        Some(root) if root.is_absolute() => Ok(root),
+        Some(root) => std::env::current_dir()
+            .map(|cwd| cwd.join(root))
+            .map_err(|error| format!("Cannot resolve --seed-session-root PATH: {error}")),
+        None => default_root(std::env::var_os("HOME").as_deref()),
+    }
 }
 
 /// The prompt an operator pastes into an agent to continue `session` with the skill at `skill`.

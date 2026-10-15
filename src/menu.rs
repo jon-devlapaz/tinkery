@@ -60,7 +60,7 @@ pub struct Home {
     /// The operator chose to leave Tinkery; the terminal loop stops after this tick.
     pub quit: bool,
     make_dump: Box<dyn Fn() -> BrainDump>,
-    sessions_root: PathBuf,
+    sessions_root: Option<PathBuf>,
     substrate_dir: PathBuf,
     selected: usize,
     view: View,
@@ -87,12 +87,16 @@ struct Reading {
 
 impl Home {
     /// A menu on its first row. `make_dump` makes a fresh think each time think is opened;
-    /// tend reads sessions under `sessions_root`, and measure reports from `substrate_dir`.
+    /// tend reads the selected root or shows its refusal without scanning; measure uses `substrate_dir`.
     pub fn new(
         make_dump: Box<dyn Fn() -> BrainDump>,
-        sessions_root: PathBuf,
+        sessions_root: Result<PathBuf, String>,
         substrate_dir: PathBuf,
     ) -> Self {
+        let (sessions_root, discovery) = match sessions_root {
+            Ok(root) => (Some(root), Discovery::new(Arc::new(tend::scan))),
+            Err(reason) => (None, Discovery::unavailable(reason)),
+        };
         Self {
             quit: false,
             make_dump,
@@ -104,13 +108,15 @@ impl Home {
             key_bar: true,
             receipts: Vec::new(),
             seed_me: None,
-            discovery: Discovery::new(Arc::new(tend::scan)),
+            discovery,
         }
     }
 
-    /// Replace the blocking read (tests hold it open to prove paint and input never wait).
+    /// Replace the reader for a selected root; never override a root refusal.
     pub fn with_discovery_source(mut self, source: Source) -> Self {
-        self.discovery = Discovery::new(source);
+        if self.sessions_root.is_some() {
+            self.discovery = Discovery::new(source);
+        }
         self
     }
 
@@ -126,7 +132,7 @@ impl Home {
         let (default_root, substrate) = Self::default_paths();
         let root = session
             .parent()
-            .map(Path::to_path_buf)
+            .map(|path| Ok(path.to_path_buf()))
             .unwrap_or(default_root);
         let mut home = Self::new(dump.fresh_factory(), root, substrate);
         home.key_bar = dump.key_bar_on();
@@ -140,15 +146,18 @@ impl Home {
         home
     }
 
-    /// Default Seed Me session location and installed tink-substrate package.
-    pub fn default_paths() -> (PathBuf, PathBuf) {
+    /// Checked default sessions root and the unchanged installed tink-substrate location.
+    pub fn default_paths() -> (Result<PathBuf, String>, PathBuf) {
         let home = std::env::var_os("HOME")
             .map(PathBuf::from)
             .unwrap_or_default();
         let substrate = std::env::var_os("TINK_SUBSTRATE_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| home.join(".claude/skills/tink-substrate"));
-        (crate::seed_me::default_root(&home), substrate)
+        (
+            crate::seed_me::default_root(Some(home.as_os_str())),
+            substrate,
+        )
     }
 
     /// Advances time: keeps the session scan moving and tend's wait notice current. Never
@@ -160,7 +169,7 @@ impl Home {
     /// [`Home::tick`] with the clock as an input, so tests never sleep.
     fn tick_at(&mut self, now: Instant) {
         if !self.discovery.requested() {
-            self.discovery.request(&self.sessions_root);
+            self.request_sessions();
         }
         self.discovery.poll();
         self.sync_tend();
@@ -181,7 +190,7 @@ impl Home {
                 }
                 self.view = View::Menu;
                 // Back from think: a goal may have been saved, so read again.
-                self.discovery.request(&self.sessions_root);
+                self.request_sessions();
             }
         }
         if let Some(path) = tend_request {
@@ -220,10 +229,19 @@ impl Home {
 
     /// Read once and wait a bounded time, for the non-interactive `--snapshot` view only.
     pub fn discover_for_snapshot(&mut self, wait: Duration) {
-        self.discovery.request(&self.sessions_root);
+        if self.sessions_root.is_none() {
+            return;
+        }
+        self.request_sessions();
         let deadline = Instant::now() + wait;
         while !self.discovery.poll() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    fn request_sessions(&mut self) {
+        if let Some(root) = &self.sessions_root {
+            self.discovery.request(root);
         }
     }
 
@@ -289,7 +307,7 @@ impl Home {
             0 => View::Think(Box::new((self.make_dump)().with_key_bar(self.key_bar))),
             1 => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
-                self.discovery.request(&self.sessions_root);
+                self.request_sessions();
                 View::Tend(Box::new(Tend::new()))
             }
             5 => View::Measure(Reading {
@@ -695,7 +713,7 @@ mod tests {
     fn home(root: &Path) -> Home {
         Home::new(
             Box::new(BrainDump::default),
-            root.to_path_buf(),
+            Ok(root.to_path_buf()),
             root.join("no-substrate"),
         )
     }
@@ -1078,7 +1096,7 @@ mod tests {
         {
             let alias = tmp.path().join("alias-root");
             std::os::unix::fs::symlink(tmp.path(), &alias).unwrap();
-            h.sessions_root = alias;
+            h.sessions_root = Some(alias);
             h.open_tend_session(&path.canonicalize().unwrap());
             settle(&mut h);
             let View::Tend(tend) = &h.view else { panic!() };
@@ -1087,7 +1105,7 @@ mod tests {
                 tend.sessions[tend.selected].path.canonicalize().unwrap(),
                 path.canonicalize().unwrap()
             );
-            h.sessions_root = tmp.path().to_path_buf();
+            h.sessions_root = Some(tmp.path().to_path_buf());
         }
         h.open_tend_session(&tmp.path().join("missing"));
         settle(&mut h);
@@ -1099,8 +1117,8 @@ mod tests {
                 .unwrap()
                 .contains("Saved session is unavailable")
         );
-        h.sessions_root = tmp.path().join("not-a-directory");
-        fs::write(&h.sessions_root, "not a directory").unwrap();
+        h.sessions_root = Some(tmp.path().join("not-a-directory"));
+        fs::write(h.sessions_root.as_ref().unwrap(), "not a directory").unwrap();
         h.open_tend_session(&path);
         settle(&mut h);
         let View::Tend(tend) = &h.view else { panic!() };

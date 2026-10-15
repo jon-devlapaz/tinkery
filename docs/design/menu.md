@@ -61,6 +61,14 @@ launches no agents.
 
 ## Session discovery
 
+Session defaults require an absolute, nonempty `HOME`. Missing, empty or relative
+`HOME` leaves discovery unavailable: no worker, scan, directory creation or empty-list
+claim. Tend's technical help names `--seed-session-root PATH`. Practice and snapshots
+remain usable; live drafting refuses the unsafe default before starting a host or helper.
+An explicit session root also works in practice. Relative explicit roots are captured
+against the launch directory; discovery and saving receive the same absolute destination.
+The separate `--record-root` requirement is unchanged and cannot select a session root.
+
 Painting, the count and navigation read in-memory state only. One owned, read-only
 worker scans the sessions root (never more than one at a time; requests made while it
 runs coalesce into one follow-up). It starts on the first tick, and again when think
@@ -72,7 +80,7 @@ keeps an index; a rescan is a rescan.
 | Not known | nothing landed yet, or a newer read is running | no count; tend says it is reading, unless it already shows a non-empty garden |
 | Complete | every record was read (a missing root counts: nothing saved yet) | exact count of active sessions, if nonzero |
 | Incomplete | some records exist but could not be read | the valid goals under [Tend's display rules](shape-and-handoff.md#tend-garden-and-detail), a quiet “N saved records couldn't be read”, no count |
-| Failed | the root could not be listed | the unavailable message, no count |
+| Failed | no safe root was configured, or the root could not be listed | the unavailable message, no count |
 
 Unknown, incomplete and failed are never shown as zero or “no sessions”. Directories
 without a `ledger.json` and stray files are not sessions and do not make a read

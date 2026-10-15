@@ -1,5 +1,5 @@
 """Actual binary + official Seed Me helper, isolated TEST roots; no provider charge/browser."""
-import base64,fcntl,json,os,re,select,struct,subprocess,sys,tempfile,termios,time
+import ast,base64,fcntl,json,os,re,select,struct,subprocess,sys,tempfile,termios,time
 from pathlib import Path
 from vt_screen import Screen
 REPO=Path(__file__).resolve().parents[1]
@@ -17,15 +17,21 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge a PR ready for human rev
 '''
 def helper(*args):
  p=subprocess.run(['python3',str(HELPER),*map(str,args)],capture_output=True,text=True,check=True);return json.loads(p.stdout)
-def journey(width,height,home=False,menu_only=False):
+def journey(width,height,home=False,menu_only=False,home_case='absolute',session_case='explicit'):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-goal-') as directory:
-  cwd=Path(directory);root=cwd/'TEST-sessions';records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
+  cwd=Path(directory);root=cwd/'TEST-sessions' if session_case!='default' else cwd/'TEST-home/.local/share/seed-me/sessions'
+  records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
+  root_args=[] if session_case=='default' else ['--seed-session-root',str(root) if session_case=='explicit' else 'TEST-sessions']
   # Observe even short-lived helper/provider Python launches without changing the official helper.
   python=cwd/'python3'
   python.write_text(f'#!{sys.executable}\nimport os,sys\nwith open({str(cwd/"python-launches")!r}, "a") as log: log.write(repr(sys.argv[1:])+"\\n")\nos.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])\n')
   python.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',height,width,0,0));screen=Screen(width,height)
-  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),'--seed-session-root',str(root),'--record-root',str(records),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color','PATH':str(cwd)+os.pathsep+os.environ['PATH']})
+  environment={**os.environ,'TERM':'xterm-256color','PATH':str(cwd)+os.pathsep+os.environ['PATH'],'HOME':str(cwd/'TEST-home')}
+  if home_case=='unset':environment.pop('HOME')
+  elif home_case=='empty':environment['HOME']=''
+  elif home_case=='relative':environment['HOME']='TEST-relative-home'
+  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=environment)
   raw=bytearray()
   def feed():
    data=os.read(master,65536);raw.extend(data);screen.feed(data)
@@ -106,6 +112,9 @@ def journey(width,height,home=False,menu_only=False):
    saved=(session/'ledger.json').read_bytes()
    calls=(cwd/'provider-calls').read_bytes()
    launches=(cwd/'python-launches').read_bytes()
+   initialized=[args for args in map(ast.literal_eval,launches.decode().splitlines()) if len(args)>1 and args[1]=='init']
+   expected_root=str(root.resolve()) if session_case=='relative' else str(root)
+   assert initialized==[[str(HELPER),'init','--root',expected_root]],initialized
    owned=descendants()
    assert len(owned)==1,owned  # Only the already-started official viewer.
    os.write(master,b'\x07confirm\r\x1bOQ\x1bOR\x1bOS\x1b[15~\x1b[17~\x1b[19~\x1b[20~\x0e\x0f\x04q')
@@ -181,7 +190,7 @@ def journey(width,height,home=False,menu_only=False):
    assert ('Think record: '+str(written[0])).encode() in bytes(raw),bytes(raw)[-2000:]
    assert helper('status',session)['viewer']=='started earlier, not running now'
    assert helper('read',session)['status']=='active';assert not (session/'seed-contract.md').exists()
-   print(json.dumps(dict(width=width,height=height,provider='stub',helper='official',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['c','s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_stopped=True,session_root='isolated temporary directory')))
+   print(json.dumps(dict(width=width,height=height,provider='stub',helper='official',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['c','s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_stopped=True,session_root='isolated temporary directory',home_case=home_case,session_case=session_case)))
   finally:
    if process.poll() is None:process.kill();process.wait()
    # If an assertion failed, stop only the viewer recorded by this TEST session.
@@ -196,6 +205,10 @@ def journey(width,height,home=False,menu_only=False):
         try:os.kill(pid,15)
         except ProcessLookupError:pass
    os.close(master);os.close(slave)
+for home in [False,True]:journey(80,24,home=home,session_case='default')
+for home in [False,True]:journey(80,24,home=home,home_case='unset',session_case='relative')
+for home_case in ['unset','empty','relative']:
+ for home in [False,True]:journey(80,24,home=home,home_case=home_case)
 for home in [False,True]:
  for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size,home=home)
  journey(80,24,home=home,menu_only=True)

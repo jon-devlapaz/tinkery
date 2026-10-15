@@ -18,6 +18,7 @@ def load():
     return json.loads(state_file.read_text())
 cmd = sys.argv[1]
 if cmd == "init":
+    assert sys.argv[2] == "--root" and sys.argv[3], "Tinkery must pass its resolved root"
     session.mkdir()
     state_file.write_text(json.dumps({"status": "active", "operator": "human", "version": 1, "origin": None, "goal": None, "nodes": []}))
     print(json.dumps({"session": str(session)}))
@@ -197,8 +198,12 @@ fn reading_a_session_never_guesses() {
 
 #[test]
 fn default_root_is_under_the_given_home() {
+    for home in [None, Some(""), Some("TEST-relative"), Some(".")] {
+        let error = default_root(home.map(std::ffi::OsStr::new)).unwrap_err();
+        assert!(error.contains("--seed-session-root PATH"));
+    }
     assert_eq!(
-        default_root(Path::new("/TEST/home")),
+        default_root(Some(std::ffi::OsStr::new("/TEST/home"))).unwrap(),
         Path::new("/TEST/home/.local/share/seed-me/sessions")
     );
 }
