@@ -73,13 +73,14 @@ pub struct Home {
     discovery: Discovery,
     record_root: Result<PathBuf, String>,
     history_reader: tend::history::Reader,
+    measure: measure::Reader,
 }
 
 enum View {
     Menu,
     Think(Box<BrainDump>),
     Tend(Box<Tend>),
-    Measure(measure::Reading),
+    Measure(Box<measure::Reading>),
     Soon(usize),
 }
 
@@ -112,6 +113,7 @@ impl Home {
             discovery,
             record_root: crate::think_record::default_root(std::env::var_os("HOME").as_deref()),
             history_reader: tend::history::Reader::default(),
+            measure: measure::Reader::default(),
         }
     }
 
@@ -185,6 +187,14 @@ impl Home {
 
     /// [`Home::tick`] with the clock as an input, so tests never sleep.
     fn tick_at(&mut self, now: Instant) {
+        self.measure.poll(
+            if let View::Measure(reading) = &mut self.view {
+                Some(reading)
+            } else {
+                None
+            },
+            now,
+        );
         if !self.discovery.requested() {
             self.request_sessions();
         }
@@ -324,6 +334,15 @@ impl Home {
     /// Opens the place at `index` in [`PLACES`]. Opening tend asks for a fresh scan; an
     /// unbuilt place says so. Opening never starts an agent.
     pub fn open(&mut self, index: usize) {
+        if self.quit {
+            return;
+        }
+        if matches!(self.view, View::Measure(_)) {
+            if index == 5 {
+                return;
+            }
+            self.measure.cancel();
+        }
         self.history_reader.cancel();
         self.selected = index;
         self.help = false;
@@ -334,10 +353,18 @@ impl Home {
                 self.request_sessions();
                 View::Tend(Box::new(Tend::new(self.link_root.clone())))
             }
-            5 => View::Measure(measure::Reading::new(&self.substrate_dir)),
+            5 => View::Measure(Box::new(
+                self.measure.open(&self.substrate_dir, Instant::now()),
+            )),
             other => View::Soon(other),
         };
         self.sync_tend();
+    }
+
+    /// After terminal restoration, stop and collect Measure's reader. Exceptional OS stalls
+    /// may keep this foreground drain pending indefinitely; notices go to the caller, not a log.
+    pub fn shutdown_measure(&mut self, notice: impl FnMut(&str)) {
+        self.measure.shutdown(notice);
     }
 
     /// One key press, routed to the open place or the menu. Releases are ignored.
@@ -458,13 +485,15 @@ impl Home {
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') || key.code == KeyCode::F(10) {
+            self.measure.cancel();
             self.quit = true;
             return;
         }
         if let View::Measure(reading) = &mut self.view
-            && reading.failed()
+            && reading.local_help()
         {
             if reading.key(key, &mut self.help) {
+                self.measure.cancel();
                 self.help = false;
                 self.view = View::Menu;
             }
@@ -536,6 +565,7 @@ impl Home {
             },
             View::Measure(reading) => {
                 if reading.key(key, &mut self.help) {
+                    self.measure.cancel();
                     self.view = View::Menu;
                 }
             }
@@ -631,7 +661,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         return;
     }
     if let View::Measure(reading) = &mut home.view
-        && reading.failed()
+        && reading.local_help()
     {
         reading.render(frame, body, palette, home.help);
         return;

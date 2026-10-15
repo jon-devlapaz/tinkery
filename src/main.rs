@@ -157,14 +157,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err("interactive mode needs a terminal; use --snapshot or --help".into());
         }
         let mut terminal = ratatui::try_init()?;
-        let result = run_shape(
-            &mut terminal,
-            no_color,
-            Intake::Home(Box::new(menu)),
-            full_redraw,
-            link_root,
-        );
+        let mut app = Intake::Home(Box::new(menu));
+        let result = run_shape(&mut terminal, no_color, &mut app, full_redraw, link_root);
         ratatui::restore();
+        app.shutdown();
         if let Some(receipt) = result? {
             println!("{receipt}");
         }
@@ -208,8 +204,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         other => other,
     };
     let mut terminal = ratatui::try_init()?;
-    let result = run_shape(&mut terminal, no_color, app, full_redraw, link_root);
+    let result = run_shape(&mut terminal, no_color, &mut app, full_redraw, link_root);
     ratatui::restore();
+    app.shutdown();
     if let Some(receipt) = result? {
         println!("{receipt}");
     }
@@ -221,6 +218,12 @@ enum Intake {
     Brain(Box<BrainDump>),
 }
 impl Intake {
+    fn shutdown(&mut self) {
+        if let Self::Home(home) = self {
+            home.shutdown_measure(|notice| eprintln!("{notice}"));
+        }
+    }
+
     fn quit(&self) -> bool {
         match self {
             Self::Home(a) => a.quit,
@@ -306,7 +309,7 @@ impl Drop for InputGuard {
 fn run_shape(
     terminal: &mut ratatui::DefaultTerminal,
     no_color: bool,
-    mut app: Intake,
+    app: &mut Intake,
     full_redraw: bool,
     link_root: Result<PathBuf, String>,
 ) -> io::Result<Option<String>> {
@@ -361,7 +364,7 @@ fn run_shape(
             }
         }
     }
-    Ok(match &mut app {
+    Ok(match app {
         Intake::Home(a) => a.finish(),
         Intake::Brain(a) => a.finish_handoff(),
     })
