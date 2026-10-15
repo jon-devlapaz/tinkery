@@ -102,8 +102,8 @@ adds the need, or removes an existing need. Commit preserves the displayed link 
 unlink intent even if another instance changed the file. An already satisfied intent
 keeps the file intact and says `Already linked.` or `Already unlinked.` Picking the source does nothing.
 The key bar becomes `↑↓←→ pick   enter link   esc cancel` (`enter unlink` for an
-existing need); the bottom line names the source and picked goal. Esc cancels
-without writing. Commit or cancellation returns selection to the source. Session
+existing need); the bottom line names the source and picked goal. Before commit,
+Esc cancels picking without writing. Commit or cancellation returns selection to the source. Session
 refreshes wait until picking ends rather than replacing the goals underneath it. Detail, help and
 reading states ignore `l`.
 
@@ -113,9 +113,11 @@ refusals are one muted line: `This goal can't be linked yet.` or
 says `Links couldn't be saved, so nothing changed. F1 then h for details.`
 The exact reason appears only in technical help beside the session path and survives
 a pending discovery refresh while the refusal is shown. Waiting for another writer's
-lock is bounded to about two seconds; a timeout uses the save-failure refusal and
-technical help says `another Tinkery is saving links`. Nothing is queued to save
-later after refusal or cancellation.
+lock is synchronous and bounded to about two seconds; a timeout uses the save-failure
+refusal and technical help says `another Tinkery is saving links`. Esc/F10 queued
+during that wait do not cancel the in-flight save: if the lock becomes available
+before the deadline, the save can complete before navigation is handled. A timeout
+refuses the save outright; releasing the lock later does not retry it.
 
 ## Needs store
 
@@ -179,11 +181,13 @@ Rust regressions cover deterministic layout and overlapping-ring paint order, ho
 rings, needs lines, palette and no-colour selection weight, no physics worker, uncapped
 goals, clamped selection, pointer identity, double-click timing, drag/zoom/pan and refresh
 preservation. Store and linking tests cover unreadable-byte preservation, exact ids,
-duplicate-id refusal, derived readiness, cancel/self-pick and add/remove. Reversion-probed
-regressions cover read-only and deleted-file refusals, 32 rounds of eight concurrent
-writers, same-edge stale intents in both orders and concurrent instances, matching
-no-op byte preservation, bounded lock refusal with retained technical details,
-single unreadable-link wording and empty-view notes. Graph probes cover straight-line
+duplicate-id refusal, derived readiness, cancel/self-pick and add/remove. A matching
+read-only no-op regression checks bytes, permissions and timestamp; that preservation
+check has not had a dedicated reversion probe. Reversion-probed regressions cover
+read-only and deleted-file refusals, 32 rounds of eight concurrent writers, same-edge
+stale intents in both orders and concurrent instances, bounded lock refusal with
+retained technical details, single unreadable-link wording and empty-view notes.
+Graph probes cover straight-line
 gaps in the three-goal repro and seeded larger cases, minimum ring spacing for 40
 short goals (unlinked and chained) at 80×24, 100×30, 160×40 and 320×40, and every
 selected label without overlapping cells for 40 short goals at 40×12 and 60 long
@@ -196,7 +200,9 @@ PTY journeys show keyboard and mouse linking, restart persistence, keyboard and 
 unlinking, and a needs line between two rings at 80×24, 100×30 and 160×40. Selection,
 click/double-click, keyboard zoom/pan, drag and scroll also run at 320×40, alongside
 exact detail text, repeatable prompt bytes and exit routes. A 30-goal journey checks
-selection without paging. A held-lock journey checks the timeout refusal and technical
-help, queued Esc/F10 exits and no save after release. All use stubs and temporary TEST roots, make no provider
-calls and check Seed Me fixture bytes stay unchanged. These prove mechanics, not
+selection without paging. A held-lock journey keeps the lock past the deadline and
+checks timeout refusal, technical help, queued Esc/F10 exits and no save after later
+release. It does not establish cancellation before the deadline. All use stubs and
+temporary TEST roots, make no provider calls and check Seed Me fixture bytes stay
+unchanged. These prove mechanics, not
 operator acceptance or goal quality.
