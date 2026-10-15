@@ -14,7 +14,7 @@ use std::{
 #[derive(Clone)]
 pub struct Config {
     skill: PathBuf,
-    root: Option<PathBuf>,
+    root: Result<PathBuf, String>,
     session: Arc<Mutex<Option<PathBuf>>>,
 }
 /// A goal the operator explicitly affirmed, as Seed Me will record it.
@@ -178,12 +178,12 @@ fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String, String> {
     }
 }
 impl Config {
-    /// Save through the skill at `skill`, in `root` when given (Seed Me's default otherwise).
-    /// Nothing is read or written until [`Config::confirm`].
+    /// Save through `skill` in the explicit root or Tinkery's checked HOME default.
+    /// Resolves the destination once; no helper or file access occurs until [`Config::confirm`].
     pub fn new(skill: PathBuf, root: Option<PathBuf>) -> Self {
         Self {
             skill,
-            root,
+            root: super::resolve_root(root),
             session: Arc::new(Mutex::new(None)),
         }
     }
@@ -193,7 +193,11 @@ impl Config {
     }
     /// The same settings with no session yet, for a new dump.
     pub fn fresh(&self) -> Self {
-        Self::new(self.skill.clone(), self.root.clone())
+        Self {
+            skill: self.skill.clone(),
+            root: self.root.clone(),
+            session: Arc::new(Mutex::new(None)),
+        }
     }
     /// Save `a` as the origin of an active human Seed Me session through the official helper,
     /// then read it back. Promises `Ok` only when the read-back shows this exact goal, settled
@@ -201,6 +205,7 @@ impl Config {
     /// Refuses to replace another goal or touch a session that isn't active and human. Blocks
     /// on helper calls; run it off the paint path. Writes that already happened stay.
     pub fn confirm(&self, a: Affirmed) -> Result<Receipt, String> {
+        let root = self.root.as_ref().map_err(Clone::clone)?;
         let skill = self
             .skill
             .canonicalize()
@@ -220,11 +225,11 @@ impl Config {
         let session = if let Some(path) = self.recovery_path() {
             path
         } else {
-            let mut args = vec![std::ffi::OsStr::new("init")];
-            if let Some(root) = &self.root {
-                args.extend([std::ffi::OsStr::new("--root"), root.as_os_str()]);
-            }
-            let created = call(&args)?;
+            let created = call(&[
+                std::ffi::OsStr::new("init"),
+                std::ffi::OsStr::new("--root"),
+                root.as_os_str(),
+            ])?;
             let path = PathBuf::from(
                 created["session"]
                     .as_str()
@@ -375,5 +380,41 @@ fn start_viewer(script: &Path, session: &Path) -> Result<(Child, String), String
                 detail.trim()
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unavailable_root_survives_fresh_dumps_and_refuses_before_helper_access() {
+        let config = Config {
+            skill: "/TEST/missing-seed-me/SKILL.md".into(),
+            root: crate::seed_me::default_root(None),
+            session: Arc::new(Mutex::new(None)),
+        };
+        for config in [config.clone(), config.fresh()] {
+            let error = config
+                .confirm(Affirmed {
+                    goal: "TEST goal".into(),
+                    outcome: "TEST outcome".into(),
+                    options: vec![],
+                    originals: vec![],
+                    context: "TEST context".into(),
+                    source: "TEST".into(),
+                })
+                .err()
+                .expect("An unavailable destination cannot save");
+            assert!(error.contains("--seed-session-root PATH"), "{error}");
+            assert!(config.recovery_path().is_none());
+        }
+    }
+
+    #[test]
+    fn fresh_dump_keeps_the_selected_root() {
+        let root = PathBuf::from("/TEST/captured-sessions");
+        let config = Config::new("/TEST/SKILL.md".into(), Some(root.clone()));
+        assert_eq!(config.fresh().root, Ok(root));
     }
 }

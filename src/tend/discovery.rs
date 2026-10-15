@@ -98,6 +98,19 @@ impl Discovery {
         }
     }
 
+    /// A configured refusal, already available to the views; starts no worker or filesystem read.
+    pub fn unavailable(reason: String) -> Self {
+        let mut discovery = Self::new(Arc::new(scan));
+        discovery.requested = 1;
+        discovery.version = 1;
+        discovery.landed = Some(Landed {
+            outcome: Err(reason),
+            epoch: 1,
+            active: 0,
+        });
+        discovery
+    }
+
     /// Ask for a fresh read of `root`. Never blocks; at most one worker exists.
     pub fn request(&mut self, root: &Path) {
         self.requested += 1;

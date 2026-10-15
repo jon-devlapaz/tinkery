@@ -82,7 +82,11 @@ confirmation of the displayed seed revision. It does not initialize a replacemen
 session or grant implementation permission. An operator manually pastes it into
 an authorized harness. The prompt needs paths, even though the ordinary UI does not.
 
-Confirmation uses the official Seed Me helpers, not a second schema. Recovery
+Confirmation uses the official Seed Me helpers, not a second schema. Tinkery captures
+and checks the session destination before any helper access, always passes `init --root`,
+and retains that destination for retries and fresh dumps. Seed Me never chooses a second
+implicit HOME default. See [session discovery](menu.md#session-discovery) for root selection.
+Recovery
 errors remain explicit; tests exercise helpers only under temporary roots. The
 Seed Me fixture is external and pinned by CI, not vendored or edited here.
 

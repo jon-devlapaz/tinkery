@@ -39,6 +39,8 @@ for env in (no_home, {**no_home, "HOME": ""}, {**no_home, "HOME": "TEST-relative
     result = subprocess.run([str(BINARY), *pi], capture_output=True, env=env)
     assert result.returncode != 0 and b"pass --record-root PATH" in result.stderr, (env.get("HOME"), result.stderr)
 result = subprocess.run([str(BINARY), *pi, "--record-root", "/tmp/tinkery-TEST-records"], capture_output=True, env=no_home)
+assert result.returncode != 0 and b"pass --seed-session-root PATH" in result.stderr, result.stderr
+result = subprocess.run([str(BINARY), *pi, "--record-root", "/tmp/tinkery-TEST-records", "--seed-session-root", "/tmp/tinkery-TEST-sessions"], capture_output=True, env=no_home)
 assert result.returncode != 0 and b"HOME" not in result.stderr, result.stderr
 for arguments in (["--snapshot"], ["--home", "--snapshot"]):
     subprocess.run([str(BINARY), *arguments], capture_output=True, check=True, env=no_home)

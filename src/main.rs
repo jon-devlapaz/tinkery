@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md\n--seed-session-root  Where saved goals go (default: ~/.local/share/seed-me/sessions)\n--record-root  Where think records go (default: ~/.local/share/tinkery/think)\n--pi-command Pi executable (default: pi)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/seed-me/sessions)\n--record-root  Where think records go (default: ~/.local/share/tinkery/think)\n--pi-command Pi executable (default: pi)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }
@@ -80,7 +80,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         && (model.is_some()
             || thinking.is_some()
             || seed_me.is_some()
-            || seed_session_root.is_some()
             || record_root.is_some()
             || pi_command.is_some())
     {
@@ -95,10 +94,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Only --shape-pi writes records.
         (None, false) => PathBuf::new(),
     };
+    let (default_sessions, substrate_dir) = Home::default_paths();
+    let sessions_root = seed_session_root
+        .map(|root| tinkery::seed_me::resolve_root(Some(root)))
+        .unwrap_or(default_sessions);
+    if shape_pi && !snapshot {
+        sessions_root.as_ref().map_err(Clone::clone)?;
+    }
     let goal_skill = seed_me.clone();
     if home_menu {
-        let (default_root, substrate_dir) = Home::default_paths();
-        let sessions_root = seed_session_root.clone().unwrap_or(default_root);
         let make_dump: Box<dyn Fn() -> BrainDump> = if shape_pi {
             let host = Arc::new(
                 PiHost::new(
@@ -113,12 +117,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_thinking(thinking.as_deref().unwrap_or("low"))?,
             );
             let skill = goal_skill.clone().unwrap();
-            let root = seed_session_root.clone();
+            let root = sessions_root.clone().ok();
             let records = record_root.clone();
             Box::new(move || {
-                BrainDump::with_host(host.clone())
-                    .with_seed_me(skill.clone(), root.clone())
-                    .with_record_root(records.clone())
+                let dump = BrainDump::with_host(host.clone()).with_record_root(records.clone());
+                match &root {
+                    Some(root) => dump.with_seed_me(skill.clone(), Some(root.clone())),
+                    None => dump,
+                }
             })
         } else {
             Box::new(BrainDump::default)
@@ -163,11 +169,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?
             .with_thinking(thinking.as_deref().unwrap_or("low"))?,
         );
-        Intake::Brain(Box::new(
-            BrainDump::with_host(host)
-                .with_seed_me(goal_skill.unwrap(), seed_session_root)
-                .with_record_root(record_root),
-        ))
+        let dump = BrainDump::with_host(host).with_record_root(record_root);
+        Intake::Brain(Box::new(match sessions_root {
+            Ok(root) => dump.with_seed_me(goal_skill.unwrap(), Some(root)),
+            Err(_) => dump,
+        }))
     } else {
         Intake::Brain(Box::default())
     };
