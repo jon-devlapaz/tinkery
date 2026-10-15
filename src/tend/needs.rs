@@ -85,12 +85,21 @@ impl Links {
 
     /// Resolve one goal's needs against all readable sessions, including ended ones.
     /// Unknown stages, missing ids and ambiguous duplicate ids can never establish readiness.
+    /// An ambiguous source has no attributable needs and yields an empty, non-ready summary.
     pub fn summary(&self, goal: &str, sessions: &[Session]) -> Summary {
         let mut summary = Summary {
             titles: vec![],
             missing: 0,
             ready: false,
         };
+        if sessions
+            .iter()
+            .filter(|s| s.id.as_deref() == Some(goal))
+            .count()
+            > 1
+        {
+            return summary;
+        }
         let mut count = 0;
         let mut all_ended = true;
         for link in self.entries.iter().filter(|link| link.goal == goal) {
@@ -593,6 +602,27 @@ mod tests {
                 ready: false,
             }
         );
+    }
+
+    #[test]
+    fn duplicate_source_ids_cannot_supply_a_summary() {
+        let (_tmp, store, _root) = fixture();
+        let links = store.set("goal", "need", true).unwrap().0;
+        for duplicate_stage in [Stage::GoalSaved, Stage::Ended] {
+            let sessions = vec![
+                session(Some("goal"), "First source", Stage::GoalSaved),
+                session(Some("goal"), "Second source", duplicate_stage),
+                session(Some("need"), "Ended dependency", Stage::Ended),
+            ];
+            assert_eq!(
+                links.summary("goal", &sessions),
+                Summary {
+                    titles: vec![],
+                    missing: 0,
+                    ready: false,
+                }
+            );
+        }
     }
 
     #[test]

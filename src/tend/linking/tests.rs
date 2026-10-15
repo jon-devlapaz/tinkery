@@ -386,6 +386,32 @@ fn all_readable_sessions_supply_readiness_missing_needs_stay_unknown() {
 }
 
 #[test]
+fn ambiguous_source_never_inherits_needs_or_readiness() {
+    let (_tmp, mut tend) = fixture();
+    let mut sessions = tend.all_sessions.clone();
+    sessions[1].id = sessions[0].id.clone();
+    sessions[2].stage = Stage::Ended;
+    tend.needs.set("id-0", "id-2", true).unwrap();
+    tend.apply(
+        &Ok(Found {
+            sessions,
+            unreadable: 0,
+        }),
+        true,
+        2,
+    );
+    for selected in [0, 1] {
+        tend.selected = selected;
+        let (_, suffix) = tend.selected_line(76, None);
+        assert!(suffix.ends_with(" · readiness unknown"), "{suffix}");
+        assert!(!suffix.contains("Local records"));
+        assert!(!tend.help_text(None).contains("needs Local records"));
+        tend.start_link();
+        assert_eq!(tend.notice, "This goal can't be linked yet.");
+    }
+}
+
+#[test]
 fn refreshed_sessions_cancel_picking_instead_of_redirecting_the_source() {
     let (tmp, mut tend) = fixture();
     tend.selected = 1;

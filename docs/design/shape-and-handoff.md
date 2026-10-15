@@ -49,8 +49,12 @@ is italic.
 Below the garden, the selected line shows the first goal line in ink, then status
 and relative time in muted text, then `needs Quiet garden, Local records · not ready`
 or `needs Local records · ready` when it has needs. Unresolved needs say `1 need not found`
-(or `N needs not found`); no needs adds nothing. The headline truncates before the suffix.
-A muted refusal uses the otherwise blank row between that line and the key bar.
+(or `N needs not found`); no needs adds nothing. Short needs keep the usual status/time
+suffix. If that suffix would crowd out the headline, the footer shows the headline,
+readiness and `F1 needs` instead; Help provides the unabridged needs summary with
+PgUp/PgDn scrolling. Ambiguous source identity says `readiness unknown` and attributes
+no needs to that goal. A muted refusal uses the otherwise blank row between that
+line and the key bar.
 
 Right / Down / `j` select the next goal in discovery's newest-first order;
 Left / Up / `k` select the previous one, clamping at either end. Up/Down do not
@@ -148,7 +152,8 @@ does not lock out external tools that ignore the lock.
 
 Readiness is derived from links and all readable sessions, including ended ones. It lists
 found needs by their first goal line and counts unresolved ids without guessing. Duplicate
-session ids are unresolved too. A goal is ready only with at least one need and every need
+session ids are unresolved too: duplicate source ids yield no attributable needs or
+positive readiness. A goal is ready only with at least one need and every need
 uniquely found and ended. No needs is not ready; unknown stages or missing needs are not ready.
 
 ## Continuation contract
@@ -187,7 +192,9 @@ check has not had a dedicated reversion probe. Reversion-probed regressions cove
 read-only and deleted-file refusals, 32 rounds of eight concurrent writers, same-edge
 stale intents in both orders and concurrent instances, bounded lock refusal with
 retained technical details, single unreadable-link wording and empty-view notes.
-Graph probes cover straight-line
+Readiness regressions cover ambiguous source attribution and long mixed-Unicode
+needs: source and readiness stay visible at 80×24, 100×30 and 160×40, while Help
+retains the full titles. Graph probes cover straight-line
 gaps in the three-goal repro and seeded larger cases, minimum ring spacing for 40
 short goals (unlinked and chained) at 80×24, 100×30, 160×40 and 320×40, and every
 selected label without overlapping cells for 40 short goals at 40×12 and 60 long

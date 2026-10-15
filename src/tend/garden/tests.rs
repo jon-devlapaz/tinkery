@@ -124,6 +124,61 @@ fn needs_suffix_truncates_headline_and_refusals_stay_muted() {
 }
 
 #[test]
+fn long_needs_keep_source_and_readiness_visible_with_full_help() {
+    for ready in [false, true] {
+        let tmp = tempfile::Builder::new()
+            .prefix("tinkery-TEST-needs-footer-")
+            .tempdir()
+            .unwrap();
+        let mut tend = tend(4);
+        tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().join("TEST-links")));
+        let mut sessions = tend.sessions.clone();
+        sessions[0].goal = "Source goal\nWhy: intact".into();
+        for (i, session) in sessions.iter_mut().enumerate().skip(1) {
+            session.goal = format!("Dependency {i} {}", "界👩‍💻e\u{301} long ".repeat(25));
+            session.stage = if ready {
+                Stage::Ended
+            } else {
+                Stage::GoalSaved
+            };
+            tend.needs
+                .set("session-0", &format!("session-{i}"), true)
+                .unwrap();
+        }
+        let titles: Vec<_> = sessions.iter().skip(1).map(|s| s.goal.clone()).collect();
+        tend.apply(
+            &Ok(crate::tend::Found {
+                sessions,
+                unreadable: 0,
+            }),
+            true,
+            1,
+        );
+        for (width, height) in [(80, 24), (100, 30), (160, 40)] {
+            for no_color in [false, true] {
+                let buffer = paint(&mut tend, width, height, no_color);
+                let footer = line(&buffer, height - 3);
+                assert!(footer.contains("Source goal"), "{footer}");
+                assert!(
+                    footer.contains(if ready { " · ready" } else { " · not ready" }),
+                    "{footer}"
+                );
+                assert!(footer.contains("F1 needs"), "{footer}");
+                let (goal, status) = tend.selected_line((width - 4).into(), None);
+                assert!(goal.width() + status.width() <= usize::from(width - 4));
+                let help = tend.help_text(None);
+                for title in &titles {
+                    assert!(
+                        help.contains(title),
+                        "full dependency title must remain accessible"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn unreadable_link_refusal_and_note_say_it_once() {
     for at_commit in [false, true] {
         let tmp = tempfile::Builder::new()

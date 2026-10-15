@@ -154,8 +154,35 @@ impl Tend {
             );
         }
         let session = &self.sessions[self.selected];
+        let suffix = self.needs_text();
+        let (goal, status) = row(session, width.saturating_sub(suffix.width()), now);
+        let minimum = session.goal.lines().next().unwrap_or("").width().min(12);
+        if !suffix.is_empty()
+            && (goal.trim_end().width() < minimum
+                || goal.width() + status.width() + suffix.width() > width)
+        {
+            let readiness = suffix.rsplit(" · ").next().unwrap_or("");
+            let suffix = format!(" · {readiness} · F1 needs");
+            return (
+                clipped(
+                    session.goal.lines().next().unwrap_or(""),
+                    width.saturating_sub(suffix.width()),
+                ),
+                suffix,
+            );
+        }
+        (goal, format!("{status}{suffix}"))
+    }
+
+    pub(super) fn needs_text(&self) -> String {
+        let Some(session) = self.current() else {
+            return String::new();
+        };
         let mut suffix = String::new();
         if let (Some(id), Ok(links)) = (&session.id, &self.links) {
+            if self.link_id(session).is_err() {
+                return " · readiness unknown".into();
+            }
             let summary = links.summary(id, &self.all_sessions);
             if !summary.titles.is_empty() {
                 suffix.push_str(&format!(" · needs {}", summary.titles.join(", ")));
@@ -175,7 +202,6 @@ impl Tend {
                 });
             }
         }
-        let (goal, status) = row(session, width.saturating_sub(suffix.width()), now);
-        (goal, format!("{status}{suffix}"))
+        suffix
     }
 }

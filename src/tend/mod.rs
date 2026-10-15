@@ -257,8 +257,14 @@ impl Tend {
         } else {
             ""
         };
+        let needs = self.needs_text();
+        let needs = if needs.is_empty() {
+            String::new()
+        } else {
+            format!("\n\n{}", needs.trim_start_matches(" · "))
+        };
         format!(
-            "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
+            "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll."
             } else if self.linking.is_some() {
