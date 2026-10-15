@@ -100,6 +100,7 @@ impl Reader {
 
 /// A frozen reading, with separate scroll positions for history and its two help layers.
 pub(crate) struct View {
+    failed: bool,
     body: Page,
     help: Page,
     details: Page,
@@ -108,6 +109,7 @@ pub(crate) struct View {
 impl View {
     pub(crate) fn waiting() -> Self {
         Self {
+            failed: false,
             body: Page::plain("Reading Think history…"),
             help: Page::plain(concat!(
                 "Read how this goal took shape.\n\n↑↓ / j k or PgUp/PgDn scroll.\n",
@@ -119,6 +121,7 @@ impl View {
     }
 
     pub(crate) fn finish(&mut self, result: Outcome) {
+        self.failed = result.is_err();
         match result {
             Ok(history) => {
                 let mut blocks = Vec::new();
@@ -144,10 +147,7 @@ impl View {
                 self.details = Page::plain(&history.details);
             }
             Err(error) => {
-                self.body = Page::plain(&format!(
-                    "Think history unavailable\n\n{}\n\nEsc returns to the saved goal.",
-                    error.message
-                ));
+                self.body = Page::plain(&error.message);
                 self.details = Page::plain(&error.details);
             }
         }
@@ -190,7 +190,11 @@ impl View {
         how: bool,
     ) {
         let title = if !help {
-            "Think history"
+            if self.failed {
+                "Think history unavailable"
+            } else {
+                "Think history"
+            }
         } else if how {
             "How it works"
         } else {
@@ -209,13 +213,17 @@ impl View {
             area.width,
             area.height.saturating_sub(2),
         );
-        self.page(help, how).render(frame, content, palette);
+        let scrolls = self.page(help, how).render(frame, content, palette);
         let keys = if !help {
-            "↑↓ scroll   esc back   ? help"
+            if scrolls {
+                "↑↓ scroll   esc back   ? help"
+            } else {
+                "esc back   ? help"
+            }
         } else if how {
-            "esc help   h help   ?/F1 close"
+            "esc help   ?/F1 close"
         } else {
-            "esc close   h how it works   ?/F1 close"
+            "esc close   h how it works"
         };
         frame.render_widget(
             Paragraph::new(keys).style(palette.muted),
@@ -287,9 +295,9 @@ impl Page {
         }
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) -> bool {
         if area.is_empty() {
-            return;
+            return false;
         }
         if self.width != area.width {
             self.layout(area.width);
@@ -310,6 +318,7 @@ impl Page {
             })
             .collect();
         frame.render_widget(Paragraph::new(lines), area);
+        self.rows.len() > usize::from(area.height)
     }
 }
 

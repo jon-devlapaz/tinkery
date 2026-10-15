@@ -259,7 +259,7 @@ def unavailable(kind, template):
                      'duplicate': 'More than one Think record matches this saved session.'}[kind]
             assert cause in terminal.screen.text(), terminal.screen.text()
             assert 'original 01:' not in terminal.screen.text(), terminal.screen.text()
-            assert 'Esc returns to the saved goal.' in terminal.screen.text(), terminal.screen.text()
+            assert 'esc back' in terminal.screen.text(), terminal.screen.text()
             terminal.send(b'\x1b', DETAIL)
             assert 'ALPHA café' in terminal.screen.text(), terminal.screen.text()
             terminal.quit()
