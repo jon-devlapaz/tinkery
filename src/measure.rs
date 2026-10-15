@@ -46,10 +46,8 @@ enum Cause {
 impl Cause {
     fn explanation(&self) -> &'static str {
         match self {
-            Self::PythonMissing => "The Python command needed to read the ledger wasn’t found.",
-            Self::ModuleUnavailable => {
-                "The ledger reader couldn’t be loaded in this Python environment."
-            }
+            Self::PythonMissing => "Tinkery couldn’t find what it needs to read the ledger.",
+            Self::ModuleUnavailable => "Tinkery couldn’t load what it needs to read the ledger.",
             Self::DirectoryUnavailable => "The configured ledger directory couldn’t be opened.",
             Self::Launch => "The ledger reader couldn’t be started.",
             Self::Exit => "The ledger reader exited without completing the report.",
@@ -196,7 +194,7 @@ impl Reading {
                 PgUp/PgDn or ↑↓ / j k scroll. F10 or Ctrl-C quits Tinkery.\n\n{}",
                     failure.details
                 ),
-                "esc/h help   ?/F1 close   q menu",
+                "esc back   h help   ?/F1 close   q menu",
             )
         } else if help {
             (

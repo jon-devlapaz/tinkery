@@ -160,7 +160,7 @@ fn all_wrapped_diagnostics_are_reachable_and_navigation_never_scrolls_under_help
             let mut seen = String::new();
             for _ in 0..200 {
                 let text = snapshot(&mut reading, width, height, no_color, help);
-                assert!(text.contains("esc/h help") && text.contains("q menu"));
+                assert!(text.contains("esc back   h help") && text.contains("q menu"));
                 seen.push_str(&text.split_whitespace().collect::<String>());
                 if text.contains("LAST") {
                     break;
@@ -221,7 +221,7 @@ fn diagnostics_beyond_u16_rows_reach_the_tail_and_scroll_back() {
             assert!(tail.contains("LAST-DIAGNOSTIC-ROW"), "{tail}");
             assert!(tail.contains("row-69999 café"));
             assert!(reading.help_scroll > usize::from(u16::MAX));
-            assert!(tail.contains("esc/h help") && tail.contains("q menu"));
+            assert!(tail.contains("esc back   h help") && tail.contains("q menu"));
             let end = reading.help_scroll;
             for key in [KeyCode::Up, KeyCode::Char('k')] {
                 press(&mut reading, &mut help, key);
@@ -377,6 +377,40 @@ fn segmented_viewport_preserves_normal_paragraph_wrapping_and_styles() {
 }
 
 #[test]
+fn summary_copy_keeps_implementation_details_in_technical_help() {
+    let directory = tempfile::tempdir().unwrap();
+    for (result, expected) in [
+        (
+            Err(io::Error::new(io::ErrorKind::NotFound, "missing python3")),
+            "Tinkery couldn’t find what it needs to read the ledger.",
+        ),
+        (
+            Ok(output(
+                b"/usr/bin/python3: No module named tink_substrate\n",
+                false,
+            )),
+            "Tinkery couldn’t load what it needs to read the ledger.",
+        ),
+    ] {
+        let mut reading = Reading::from_result(directory.path(), result);
+        for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+            for no_color in [false, true] {
+                let summary = snapshot(&mut reading, width, height, no_color, false);
+                assert!(summary.contains(expected), "{summary}");
+                for internal in ["Python", "python3", "tink_substrate"] {
+                    assert!(!summary.contains(internal), "{summary}");
+                }
+            }
+        }
+        let mut help = false;
+        press(&mut reading, &mut help, KeyCode::F(1));
+        press(&mut reading, &mut help, KeyCode::Char('h'));
+        let details = snapshot(&mut reading, 80, 24, true, help);
+        assert!(details.contains("python3") && details.contains("tink_substrate"));
+    }
+}
+
+#[test]
 fn help_instructions_are_shown_once_per_view() {
     for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         for no_color in [false, true] {
@@ -396,7 +430,7 @@ fn help_instructions_are_shown_once_per_view() {
             assert_eq!(details.matches("close").count(), 1, "{details}");
             assert_eq!(details.matches("menu").count(), 1, "{details}");
             assert_eq!(details.matches("scroll").count(), 1, "{details}");
-            assert!(details.contains("esc/h help   ?/F1 close   q menu"));
+            assert!(details.contains("esc back   h help   ?/F1 close   q menu"));
             assert!(details.contains("PgUp/PgDn or ↑↓ / j k scroll."));
             assert!(details.contains("F10 or Ctrl-C quits Tinkery."));
             assert!(!press(&mut reading, &mut help, KeyCode::Char('h')));

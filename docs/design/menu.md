@@ -61,8 +61,10 @@ supported by the evidence, and says recorded work and attention are unknown. Mis
 Python, an unavailable target module, an unavailable directory, other launch failures
 and unsuccessful exits stay distinguishable. Ambiguous diagnostics get the generic
 launch/exit explanation, not an installation diagnosis or a zero-activity claim.
-The ordinary view contains no paths or raw errors. Its fixed muted key bar is
-`esc back   ? help`; complete summary text wraps and can scroll if needed.
+The ordinary view contains no paths, raw errors or Python implementation details.
+Missing prerequisites are described as something Tinkery couldn’t find or load.
+Its fixed muted key bar is `esc back   ? help`; complete summary text wraps and
+can scroll if needed.
 
 F1 or ? opens failure-specific “Right now” help, not menu instructions. `h` opens
 “How it works”: the attempted command, working directory, exit status or complete
@@ -83,10 +85,11 @@ Opening help starts no read, writes no log and uploads nothing.
 
 Help owns its scroll position; it cannot move the hidden summary. Switching help
 layers resets help scrolling; closing restores the summary position. Each failure/help
-view keeps its return/close instructions only in the fixed footer, grouping aliases
-once (for example, `esc/h help`). Scroll and quit shortcuts appear once in the help
-body, not again in the footer. Wrapped content and scroll limits follow resizing,
-including 80×24; NO_COLOR retains meaning. Failure scroll positions and wrapped-row
+view keeps its return/close instructions only in the fixed footer. Technical help
+uses `esc back   h help   ?/F1 close   q menu`, naming back and help separately.
+Scroll and quit shortcuts appear once in the help body, not again in the footer.
+Wrapped content and scroll limits follow resizing, including 80×24; NO_COLOR
+retains meaning. Failure scroll positions and wrapped-row
 indexes use machine-sized integers, so diagnostics can extend past 65,535 rows. A
 cached viewport indexes source segments and gives Ratatui only a bounded local
 offset. Reflow follows width/text changes; logical lines that themselves exceed

@@ -16,8 +16,8 @@ from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
 EXPLANATIONS = {
-    'missing-python': "The Python command needed to read the ledger wasn’t found.",
-    'missing-module': "The ledger reader couldn’t be loaded in this Python environment.",
+    'missing-python': "Tinkery couldn’t find what it needs to read the ledger.",
+    'missing-module': "Tinkery couldn’t load what it needs to read the ledger.",
     'missing-directory': "The configured ledger directory couldn’t be opened.",
     'failed': "The ledger reader exited without completing the report.",
     'empty': "The ledger reader exited without completing the report.",
@@ -109,7 +109,7 @@ def journey(width, height, kind, no_color):
                 send(b'?', 'Right now')
                 assert 'h how it works' in screen.text() and 'q quits' not in screen.text()
                 send(b'h', 'How it works')
-                assert 'esc/h help' in screen.text() and 'q menu' in screen.text()
+                assert 'esc back   h help' in screen.text() and 'q menu' in screen.text()
                 seen = compact()
                 # Every screenful overlaps the previous one: no skipped diagnostic rows.
                 for _ in range(120):
@@ -119,7 +119,7 @@ def journey(width, height, kind, no_color):
                     # Two completed frames exclude a queued pre-key frame, even at the clamp.
                     wait(lambda: raw.count(b'\x1b[?2026l') >= frames + 2)
                     seen += compact()
-                    assert 'esc/h help' in screen.text() and 'q menu' in screen.text()
+                    assert 'esc back   h help' in screen.text() and 'q menu' in screen.text()
                     if screen.text() == old:
                         break
                 else:
@@ -141,7 +141,7 @@ def journey(width, height, kind, no_color):
                     screen = Screen(resized_width, 24)
                     os.kill(process.pid, signal.SIGWINCH)
                     wait(lambda: 'q menu' in screen.text())
-                    send(b'\x1b[5~', 'esc/h help')
+                    send(b'\x1b[5~', 'esc back   h help')
                 send(b'\x1b', 'Right now')
                 send(b'\x1b', 'Ledger report unavailable')
                 assert 'esc back   ? help' in screen.text()
