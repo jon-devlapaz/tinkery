@@ -34,6 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut seed_me = None;
     let mut seed_session_root = None;
     let mut record_root = None;
+    let mut link_root = None;
     let mut pi_command = None;
     let mut home_menu = false;
     let mut args = std::env::args().skip(1);
@@ -53,6 +54,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .ok_or("--seed-session-root needs a location outside a repository")?,
                 ));
             }
+            "--link-root" => {
+                link_root = Some(PathBuf::from(
+                    args.next()
+                        .filter(|root| !root.is_empty())
+                        .ok_or("--link-root needs a folder")?,
+                ));
+            }
             "--record-root" => {
                 record_root = Some(PathBuf::from(
                     args.next().ok_or("--record-root needs a folder")?,
@@ -70,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/seed-me/sessions)\n--record-root  Where think records go (default: ~/.local/share/tinkery/think)\n--pi-command Pi executable (default: pi)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/seed-me/sessions)\n--record-root  Where think records go (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }
@@ -95,6 +103,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Only --shape-pi writes records.
         (None, false) => PathBuf::new(),
     };
+    let link_root = tinkery::tend::needs::resolve_root(link_root);
     let (default_sessions, substrate_dir) = Home::default_paths();
     let sessions_root = seed_session_root
         .map(|root| tinkery::seed_me::resolve_root(Some(root)))
@@ -135,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             Box::new(move || make_dump().with_voice(Box::new(tinkery::voice::ProcessHost::new())))
         };
-        let mut menu = Home::new(make_dump, sessions_root, substrate_dir);
+        let mut menu = Home::new(make_dump, sessions_root, substrate_dir, link_root.clone());
         if let Some(skill) = goal_skill {
             menu = menu.with_seed_me(skill.canonicalize()?);
         }
@@ -153,6 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             no_color,
             Intake::Home(Box::new(menu)),
             full_redraw,
+            link_root,
         );
         ratatui::restore();
         if let Some(receipt) = result? {
@@ -198,7 +208,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         other => other,
     };
     let mut terminal = ratatui::try_init()?;
-    let result = run_shape(&mut terminal, no_color, app, full_redraw);
+    let result = run_shape(&mut terminal, no_color, app, full_redraw, link_root);
     ratatui::restore();
     if let Some(receipt) = result? {
         println!("{receipt}");
@@ -217,7 +227,7 @@ impl Intake {
             Self::Brain(a) => *a.exit() == Exit::Menu && a.saved().is_none(),
         }
     }
-    fn tick(&mut self) {
+    fn tick(&mut self, link_root: &Result<PathBuf, String>) {
         match self {
             Self::Home(a) => a.tick(),
             Self::Brain(a) => a.tick(),
@@ -232,7 +242,12 @@ impl Intake {
                 let Self::Brain(dump) = std::mem::replace(self, Self::Brain(Box::default())) else {
                     unreachable!()
                 };
-                *self = Self::Home(Box::new(Home::from_receipt(*dump, &session, open_tend)));
+                *self = Self::Home(Box::new(Home::from_receipt(
+                    *dump,
+                    &session,
+                    open_tend,
+                    link_root.clone(),
+                )));
             }
         }
     }
@@ -293,6 +308,7 @@ fn run_shape(
     no_color: bool,
     mut app: Intake,
     full_redraw: bool,
+    link_root: Result<PathBuf, String>,
 ) -> io::Result<Option<String>> {
     let _input_guard = InputGuard;
     execute!(
@@ -303,7 +319,7 @@ fn run_shape(
     )?;
     let mut repaint = full_redraw;
     while !app.quit() {
-        app.tick();
+        app.tick(&link_root);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
         let drawn = (|| {
             terminal.draw(|frame| {

@@ -18,6 +18,7 @@ fn key(code: KeyCode) -> KeyEvent {
 
 fn sess(id: &str, stage: Stage, updated: &str) -> Session {
     Session {
+        id: Some(id.into()),
         path: PathBuf::from(format!("/TEST/{id}")),
         goal: format!("goal {id}"),
         stage,
@@ -96,6 +97,7 @@ fn home(source: Source) -> Home {
         Box::new(BrainDump::default),
         Ok(PathBuf::from("/TEST/sessions")),
         PathBuf::from("/TEST/no-substrate"),
+        Err("TEST links unavailable".into()),
     )
     .with_discovery_source(source)
 }
@@ -106,7 +108,7 @@ fn screen(h: &mut Home) -> String {
 fn garden(count: usize) -> Home {
     let mut h = home(Arc::new(|_| panic!("input and painting never read")))
         .with_seed_me("/TEST/SKILL.md".into());
-    let mut tend = Tend::new();
+    let mut tend = Tend::new(Err("TEST links unavailable".into()));
     tend.apply(
         &found(
             (0..count)
@@ -249,7 +251,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
 #[test]
 fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
     for stage in [Stage::GoalSaved, Stage::Ended] {
-        let mut tend = Tend::new();
+        let mut tend = Tend::new(Err("TEST links unavailable".into()));
         tend.want = Some(("/TEST/alias".into(), Some("/TEST/target".into())));
         tend.apply(
             &found(vec![
@@ -938,6 +940,7 @@ fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
         Box::new(BrainDump::default),
         Ok(tmp.path().to_path_buf()),
         tmp.path().join("no-substrate"),
+        Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
     assert_eq!(h.count(1), Some("1".into()));
@@ -1005,6 +1008,7 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
         Box::new(BrainDump::default),
         Ok(tmp.path().to_path_buf()),
         tmp.path().join("no-substrate"),
+        Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
     assert_eq!(h.count(1), Some((total - total / 5).to_string()));
@@ -1053,6 +1057,7 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
         Box::new(BrainDump::default),
         Err(reason.into()),
         PathBuf::from("/TEST/no-substrate"),
+        Err("TEST links unavailable".into()),
     )
     .with_discovery_source(Arc::new(|_| panic!("No root must never reach a source")));
     h.tick();
@@ -1077,6 +1082,67 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
 }
 
 #[test]
+fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-link-wiring-")
+        .tempdir()
+        .unwrap();
+    let sessions = tmp.path().join("TEST-sessions");
+    write_session(&sessions, "goal", "2026-10-09T10:00:00Z");
+    let links = tmp.path().join("TEST-links");
+    fs::create_dir_all(&links).unwrap();
+    let bytes = b"TEST deliberately unreadable; navigation must leave it alone";
+    fs::write(links.join("needs.json"), bytes).unwrap();
+    for receipt in [false, true] {
+        let mut h = if receipt {
+            Home::from_receipt(
+                BrainDump::default(),
+                &sessions.join("goal"),
+                true,
+                Ok(links.clone()),
+            )
+        } else {
+            Home::new(
+                Box::new(BrainDump::default),
+                Ok(sessions.clone()),
+                tmp.path().join("no-substrate"),
+                Ok(links.clone()),
+            )
+        };
+        for _ in 0..2 {
+            h.open(1);
+            settle(&mut h);
+            let View::Tend(tend) = &h.view else { panic!() };
+            assert_eq!(tend.sessions.len(), 1);
+            assert!(
+                matches!(tend._needs.read(), tend::needs::Read::Unreadable(ref reason)
+                if reason == "Cannot read links: needs.json is not valid JSON.")
+            );
+            assert_eq!(fs::read(links.join("needs.json")).unwrap(), bytes);
+            h.handle_key(key(KeyCode::Esc));
+        }
+    }
+}
+
+#[test]
+fn unavailable_linking_does_not_stop_tend_reading_sessions() {
+    let reason = "TEST linking unavailable; pass --link-root PATH";
+    let mut h = home(Arc::new(|_| {
+        found(vec![sess("goal", Stage::GoalSaved, "")])
+    }));
+    h.link_root = Err(reason.into());
+    h.open(1);
+    settle(&mut h);
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.sessions.len(), 1);
+    assert!(tend.error.is_none());
+    assert_eq!(
+        tend._needs.read(),
+        tend::needs::Read::Unreadable(reason.into())
+    );
+}
+
+#[test]
 fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
     let tmp = tempfile::tempdir().unwrap();
     let substrate = tmp.path().join("substrate");
@@ -1091,6 +1157,7 @@ fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
         Box::new(BrainDump::default),
         Ok(tmp.path().join("sessions")),
         substrate.clone(),
+        Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
     for code in [

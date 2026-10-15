@@ -66,6 +66,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
 | `tend/garden.rs` | The garden's deterministic pages, hollow rings, labels and cell hit-testing. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
+| `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
 | `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, and the continuation prompt (shared). |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
@@ -119,6 +120,10 @@ ledger error interpretation out of callers, and 1 and 7 by retaining one phase b
 The diagnostic viewport hides Ratatui's local scroll limit and reflow cache within
 Measure (3 and 6); callers still see one reading. It does not change subprocess
 ownership or claim a new design score.
+
+For #127's needs-store slice, Tend owns the link format, refusals and readiness (3 and 6);
+Seed Me alone interprets ledger identity (3). The module map and documented public
+contracts preserve diagnostics 1, 4 and 7. No linking UI or new design score is claimed.
 
 ## Limits enforced by `tests/architecture.rs`
 

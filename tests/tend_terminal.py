@@ -30,7 +30,7 @@ def journey(width, height, kind='garden'):
         for i, (name, status, seed) in enumerate(states):
             path = sessions / name
             path.mkdir(parents=True)
-            (path / 'ledger.json').write_text(json.dumps(dict(status=status, goal=labels[i]+'\n'+GOAL,
+            (path / 'ledger.json').write_text(json.dumps(dict(session_id=name, status=status, goal=labels[i]+'\n'+GOAL,
                 updated_at=(now-timedelta(hours=i)).isoformat())))
             if seed: (path / 'seed-contract.md').write_text(seed+'\n# Synthetic fixture only\n')
         ended_goal = labels.pop(3)
@@ -49,6 +49,7 @@ def journey(width, height, kind='garden'):
         raw = bytearray()
         process = subprocess.Popen([str(REPO/'target/debug/tinkery'), '--home', '--shape-pi', '--record-root', str(root / 'TEST-records'),
             '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
+            '--link-root', str(root / 'TEST-links'),
             '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=root,
             env={**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'})
 
@@ -182,6 +183,7 @@ def journey(width, height, kind='garden'):
             wait(lambda: process.poll() is not None)
             assert process.returncode == 0
             assert not (root/'provider-was-run').exists()
+            assert not (root/'TEST-links').exists(), 'Navigation must not create a links store'
             assert {str(p): p.read_bytes() for p in sessions.rglob('*') if p.is_file()} == before
             name = 'garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu' if kind == 'garden' else 'garden/'+kind
             print(json.dumps(dict(width=width, height=height, journey=name,

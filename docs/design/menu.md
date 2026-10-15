@@ -127,6 +127,12 @@ An explicit session root also works in practice. Relative explicit roots are cap
 against the launch directory and an empty one is refused; discovery and saving receive the
 same absolute destination.
 The separate `--record-root` requirement is unchanged and cannot select a session root.
+`--link-root PATH` selects Tend's separate needs store and does not require `--shape-pi`.
+Its default is `~/.local/share/tinkery/tend` under an absolute HOME; without one,
+linking is unavailable with a reason and session discovery still works. An explicit
+relative links root is captured against the launch directory; an empty one is refused.
+Both menu entry and standalone think's receipt handoff retain that destination.
+Configuring or opening Tend never reads or creates its links file in this slice.
 
 Painting, the count and navigation read in-memory state only. One owned, read-only
 worker scans the sessions root (never more than one at a time; requests made while it

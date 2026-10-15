@@ -25,9 +25,9 @@ detail. The plain-text terminal exit receipt may include recovery locations.
 
 ## Tend: garden and detail
 
-Tend is read-only: it shows only the saved goals discovery has landed, newest first
+Tend's view is read-only: it shows only the saved goals discovery has landed, newest first
 in a deterministic staggered grid. Every goal has the same hollow Braille ring:
-size is unknown. This slice has no links, known sizes or merges.
+size is unknown. The view has no links, known sizes or merges.
 Ended sessions are left out; `N ended not shown` shares the muted incomplete-read
 note row, joined with ` · ` when both apply.
 If every readable session is ended, tend says `No active goals. N ended not shown.
@@ -71,6 +71,28 @@ Incomplete reads keep valid goals and put the unreadable-record count above the
 selected line, warning that the view may be missing sessions. If none can be read,
 tend says nothing can be listed, not “no sessions”. Reading, unavailable and empty
 states offer only `esc back`.
+
+## Needs store
+
+Tend owns a separate `needs.json` under `--link-root PATH` (default:
+`~/.local/share/tinkery/tend`, requiring an absolute HOME). It never writes Seed Me
+files. This backend has no linking UI yet; navigation and copying create no links.
+
+The version-1 format is `{"version":1,"needs":[{"goal":"id","needs":"id"}]}`.
+Links use only the ledger's nonempty, control-free `session_id`, never a title or
+folder name. A missing or invalid id leaves the session readable but unlinkable.
+Entries are sorted by goal id then needed id, so equivalent sets write identical bytes.
+
+A missing file is normally empty. Bad JSON, unsupported versions, invalid or duplicate
+entries and IO errors remain unreadable, with a plain refusal; a toggle cannot overwrite
+them. A toggle rejects self-links, reads the file afresh, then adds or removes the link
+through a temporary file in the same folder and an atomic rename. It preserves changes
+made since a previous read; it does not serialize simultaneous writers.
+
+Readiness is derived from links and all readable sessions, including ended ones. It lists
+found needs by their first goal line and counts unresolved ids without guessing. Duplicate
+session ids are unresolved too. A goal is ready only with at least one need and every need
+uniquely found and ended. No needs is not ready; unknown stages or missing needs are not ready.
 
 ## Continuation contract
 

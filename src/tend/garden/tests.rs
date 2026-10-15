@@ -5,11 +5,12 @@ use crate::tend::{Session, Stage, timestamp};
 use ratatui::{Terminal, backend::TestBackend, buffer::Buffer, style::Modifier};
 
 fn tend(count: usize) -> Tend {
-    let mut tend = Tend::new();
+    let mut tend = Tend::new(Err("TEST links unavailable".into()));
     tend.pending = false;
     tend.current = true;
     tend.sessions = (0..count)
         .map(|i| Session {
+            id: Some(format!("session-{i}")),
             path: format!("/TEST/session-{i}").into(),
             goal: format!(
                 "Goal {i}: Café 界 👩‍💻 {}\nWhy: never in garden",
@@ -262,6 +263,7 @@ fn read_notes_share_the_muted_row_above_selection_without_changing_it() {
         for unreadable in [0, 1, 2] {
             let mut sessions = tend.sessions.clone();
             sessions.extend((0..ended).map(|i| Session {
+                id: Some(format!("ended-{i}")),
                 path: format!("/TEST/ended-{i}").into(),
                 goal: "Ended goal must stay hidden".into(),
                 stage: Stage::Ended,

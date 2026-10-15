@@ -31,7 +31,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
   if home_case=='unset':environment.pop('HOME')
   elif home_case=='empty':environment['HOME']=''
   elif home_case=='relative':environment['HOME']='TEST-relative-home'
-  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=environment)
+  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--link-root',str(cwd/'TEST-links'),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=environment)
   raw=bytearray()
   def feed():
    data=os.read(master,65536);raw.extend(data);screen.feed(data)

@@ -62,6 +62,7 @@ pub struct Home {
     make_dump: Box<dyn Fn() -> BrainDump>,
     sessions_root: Option<PathBuf>,
     substrate_dir: PathBuf,
+    link_root: Result<PathBuf, String>,
     selected: usize,
     view: View,
     help: bool,
@@ -82,11 +83,13 @@ enum View {
 
 impl Home {
     /// A menu on its first row. `make_dump` makes a fresh think each time think is opened;
-    /// tend reads the selected root or shows its refusal without scanning; measure uses `substrate_dir`.
+    /// tend reads the selected sessions root or shows its refusal without scanning. Links use
+    /// the separate captured `link_root` (or its refusal); measure uses `substrate_dir`.
     pub fn new(
         make_dump: Box<dyn Fn() -> BrainDump>,
         sessions_root: Result<PathBuf, String>,
         substrate_dir: PathBuf,
+        link_root: Result<PathBuf, String>,
     ) -> Self {
         let (sessions_root, discovery) = match sessions_root {
             Ok(root) => (Some(root), Discovery::new(Arc::new(tend::scan))),
@@ -97,6 +100,7 @@ impl Home {
             make_dump,
             sessions_root,
             substrate_dir,
+            link_root,
             selected: 0,
             view: View::Menu,
             help: false,
@@ -122,14 +126,19 @@ impl Home {
     }
 
     /// The menu think returns to after saving a goal when it was launched on its own. The
-    /// receipt carries over, and `open_tend` opens tend on the saved session.
-    pub fn from_receipt(mut dump: BrainDump, session: &Path, open_tend: bool) -> Self {
+    /// receipt and captured links destination carry over; `open_tend` opens the saved session.
+    pub fn from_receipt(
+        mut dump: BrainDump,
+        session: &Path,
+        open_tend: bool,
+        link_root: Result<PathBuf, String>,
+    ) -> Self {
         let (default_root, substrate) = Self::default_paths();
         let root = session
             .parent()
             .map(|path| Ok(path.to_path_buf()))
             .unwrap_or(default_root);
-        let mut home = Self::new(dump.fresh_factory(), root, substrate);
+        let mut home = Self::new(dump.fresh_factory(), root, substrate, link_root);
         home.key_bar = dump.key_bar_on();
         home.seed_me = dump.saved().map(|r| r.skill.clone());
         if let Some(receipt) = dump.finish_handoff() {
@@ -303,7 +312,7 @@ impl Home {
             1 => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.request_sessions();
-                View::Tend(Box::new(Tend::new()))
+                View::Tend(Box::new(Tend::new(self.link_root.clone())))
             }
             5 => View::Measure(measure::Reading::new(&self.substrate_dir)),
             other => View::Soon(other),
@@ -712,6 +721,7 @@ mod tests {
             Box::new(BrainDump::default),
             Ok(root.to_path_buf()),
             root.join("no-substrate"),
+            Ok(root.join("TEST-links")),
         )
     }
 

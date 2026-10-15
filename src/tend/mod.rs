@@ -1,11 +1,12 @@
 //! Tend: the saved goals garden and one goal's detail, read from Seed Me sessions.
 //!
-//! Tend only reads. It shows what discovery has landed, says plainly when that is unknown,
+//! The view only reads. It shows what discovery has landed, says plainly when that is unknown,
 //! incomplete or failed, and offers the continuation prompt to copy; it never edits a session,
 //! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
 
 pub mod discovery;
 mod garden;
+pub mod needs;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
 pub use crate::seed_me::{Session, Stage};
@@ -60,9 +61,12 @@ pub(super) struct Tend {
     /// Columns in the last rendered garden; vertical movement uses this stride.
     pub columns: usize,
     last_press: Option<(PathBuf, Instant)>,
+    /// Links destination retained for the later linking UI; construction performs no IO.
+    pub(super) _needs: needs::Store,
 }
 impl Tend {
-    pub(super) fn new() -> Self {
+    /// A pending view with a captured links destination or refusal; reads no links and writes nothing.
+    pub(super) fn new(link_root: Result<PathBuf, String>) -> Self {
         Self {
             sessions: vec![],
             error: None,
@@ -82,6 +86,7 @@ impl Tend {
             copy: None,
             columns: 1,
             last_press: None,
+            _needs: needs::Store::new(link_root),
         }
     }
     /// Note how long the read this view waits on has been running (`None`: no worker).
@@ -475,6 +480,7 @@ mod tests {
     #[test]
     fn row_only_uses_first_line_and_preserves_status_with_unicode_truncation() {
         let s = Session {
+            id: None,
             path: "/TEST/session".into(),
             goal: "界👩‍💻 Café goal with many words\nWhy: never in row".into(),
             stage: Stage::SeedDrafted,

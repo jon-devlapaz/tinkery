@@ -7,6 +7,7 @@ fn home(root: &Path) -> Home {
         Box::new(BrainDump::default),
         Ok(root.to_path_buf()),
         root.join("missing"),
+        Ok(root.join("TEST-links")),
     );
     home.open(5);
     home
