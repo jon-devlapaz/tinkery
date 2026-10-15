@@ -143,7 +143,10 @@ impl View {
                     }
                 }
                 add(&mut blocks, "Confirmed goal", history.goal);
-                add(&mut blocks, "Made in", made_in(&history.made_in));
+                // Only a known repository earns a line; none or unknown stays in How it works.
+                if let MadeIn::Repo(root) = &history.made_in {
+                    add(&mut blocks, "Made in", folder(root));
+                }
                 self.body = Page::new(blocks);
                 self.details = Page::plain(&history.details);
             }
@@ -233,16 +236,12 @@ impl View {
     }
 }
 
-/// Where the goal was made, by folder name; the full path stays in How it works.
-fn made_in(made_in: &MadeIn) -> String {
-    match made_in {
-        MadeIn::Repo(root) => root.file_name().map_or_else(
-            || root.display().to_string(),
-            |name| name.to_string_lossy().into_owned(),
-        ),
-        MadeIn::NoRepo => "not in a repository".into(),
-        MadeIn::Unknown => "repo unknown".into(),
-    }
+/// The repository's folder name; the full path stays in How it works.
+fn folder(root: &std::path::Path) -> String {
+    root.file_name().map_or_else(
+        || root.display().to_string(),
+        |name| name.to_string_lossy().into_owned(),
+    )
 }
 fn add(blocks: &mut Vec<(String, bool)>, label: &str, text: String) {
     if !blocks.is_empty() {

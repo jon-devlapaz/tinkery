@@ -103,9 +103,10 @@ states offer only `esc back`.
 
 [#143](https://github.com/jon-devlapaz/tinkery/issues/143) adds one action inside a
 saved goal's detail: `r history`. History shows the original words, questions,
-answers, skipped/restored questions and exact confirmed goal, in recorded order, then
-where it was made: the repository's folder name, `not in a repository`, or
-`repo unknown` for schema-2 records, which predate it. The full path is in F1 then `h`. Labels are muted; the person's words remain in ink.
+answers, skipped/restored questions and exact confirmed goal, in recorded order. When
+the record names a repository, `Made in` and its folder name follow; outside one, or
+for schema-2 records that predate it, nothing is added. F1 then `h` gives the full
+path, `none` or `not recorded`. Labels are muted; the person's words remain in ink.
 Technical paths, model information and checks appear only in F1 then `h`.
 Display escapes unsafe terminal controls; stored words remain unchanged.
 

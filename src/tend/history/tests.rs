@@ -131,11 +131,8 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
 }
 
 #[test]
-fn where_a_goal_was_made_is_said_plainly_and_never_guessed() {
-    for (made_in, said) in [
-        (MadeIn::NoRepo, "not in a repository"),
-        (MadeIn::Unknown, "repo unknown"),
-    ] {
+fn no_known_repository_adds_nothing_to_history() {
+    for made_in in [MadeIn::NoRepo, MadeIn::Unknown] {
         let mut view = View::waiting();
         view.finish(Ok(History {
             turns: vec![],
@@ -144,7 +141,7 @@ fn where_a_goal_was_made_is_said_plainly_and_never_guessed() {
             details: String::new(),
         }));
         let body = screen(&mut view, (100, 30), false, false);
-        assert!(body.contains("Made in") && body.contains(said), "{body}");
+        assert!(!body.contains("Made in"), "{body}");
     }
 }
 
