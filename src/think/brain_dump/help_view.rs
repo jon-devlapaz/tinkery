@@ -218,6 +218,7 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
                     | "F9"
                     | "F10"
                     | "Shift-F2"
+                    | "PgUp/PgDn"
                     | "Tab"
                     | "Esc"
                     | "c"
