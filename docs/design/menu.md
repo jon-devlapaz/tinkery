@@ -5,7 +5,7 @@ The six places follow the operator's work:
 | Key | Place | Today |
 | --- | --- | --- |
 | 1 | think | Dump, refine, review and explicitly save a goal |
-| 2 | tend | Active-goal graph, needs links and manual continuation |
+| 2 | tend | Active-goal graph, needs links, Think history and manual continuation |
 | 3 | approve | Placeholder; no sequence approval reader |
 | 4 | watch | Placeholder; no live multi-run view |
 | 5 | taste | Placeholder; no end-report/review integration |
@@ -125,7 +125,9 @@ remain usable; live drafting refuses the unsafe default before starting a host o
 An explicit session root also works in practice. Relative explicit roots are captured
 against the launch directory and an empty one is refused; discovery and saving receive the
 same absolute destination.
-The separate `--record-root` requirement is unchanged and cannot select a session root.
+The separate `--record-root` selects saved Think history, never a session root.
+It is also available without live drafting; [Tend owns history reading](shape-and-handoff.md#think-history).
+
 `--link-root PATH` selects Tend's separate needs store and does not require `--shape-pi`.
 Its default is `~/.local/share/tinkery/tend` under an absolute HOME; without one,
 linking is unavailable with a reason and session discovery still works. An explicit

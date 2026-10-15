@@ -45,8 +45,18 @@ fn save(a: &mut BrainDump, result: Result<seed_me::Receipt, String>) {
     tx.send(result).unwrap();
     a.goal_tick();
 }
-fn receipt(goal: &str) -> seed_me::Receipt {
-    let mut receipt = seed_me::Receipt::test("/tmp/TEST-sessions/20261012-TEST".into());
+fn receipt(root: &Path, goal: &str) -> seed_me::Receipt {
+    let path = root.join("TEST-sessions/20261012-TEST");
+    std::fs::create_dir_all(&path).unwrap();
+    std::fs::write(
+        path.join("ledger.json"),
+        serde_json::json!({
+            "schema_version": 1, "session_id": "TEST-existing-session-id", "goal": goal,
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let mut receipt = seed_me::Receipt::test(path);
     receipt.goal = goal.into();
     receipt
 }
@@ -67,7 +77,7 @@ fn a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal()
     amend_board(&mut a, |g| {
         g.parts.outcome = Some("TEST later reading".into())
     });
-    save(&mut a, Ok(receipt(&shown)));
+    save(&mut a, Ok(receipt(dir.path(), &shown)));
     assert_eq!(a.notice, "Saved.");
     let files = records(&root);
     assert_eq!(files.len(), 1, "{files:?}");
@@ -75,7 +85,7 @@ fn a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal()
     assert!(name.ends_with("Z_20261012-TEST.json"), "{name}");
     let record: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&files[0]).unwrap()).unwrap();
-    assert_eq!(record["schema"], 1);
+    assert_eq!(record["schema"], 2);
     assert_eq!(record["origin"], "simulated");
     assert_eq!(record["seed_me_session"], "20261012-TEST");
     assert_eq!(
@@ -136,7 +146,7 @@ fn a_record_that_cannot_be_written_leaves_the_saved_goal_standing_and_says_so() 
     let mut a = session(&blocked);
     a.review_goal();
     let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
-    save(&mut a, Ok(receipt(&shown)));
+    save(&mut a, Ok(receipt(dir.path(), &shown)));
     assert_eq!(a.saved().unwrap().goal, shown, "the goal save must stand");
     for (w, h) in [(80, 24), (100, 30), (160, 40)] {
         let screen = snapshot(w, h, &mut a, false).unwrap();
@@ -154,6 +164,29 @@ fn a_record_that_cannot_be_written_leaves_the_saved_goal_standing_and_says_so() 
     assert!(layout::how_text(&a).contains("Think record not written: "));
     let printed = a.finish_handoff().unwrap();
     assert!(printed.contains("Think record not written: "), "{printed}");
+}
+
+#[test]
+fn an_unresolved_saved_session_leaves_the_goal_standing_without_an_unbound_record() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("TEST-records");
+    let mut a = session(&root);
+    a.review_goal();
+    let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let mut saved = seed_me::Receipt::test(dir.path().join("TEST-missing-session"));
+    saved.goal = shown.clone();
+    save(&mut a, Ok(saved));
+    assert_eq!(a.saved().unwrap().goal, shown);
+    assert!(
+        !root.exists(),
+        "a record without an exact session was written"
+    );
+    assert!(
+        a.record_line()
+            .unwrap()
+            .contains("Think record not written:")
+    );
+    assert!(a.notice.contains("The think record wasn't written"));
 }
 
 #[test]
@@ -221,7 +254,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='t
     settle(&mut a);
     a.review_goal();
     let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
-    save(&mut a, Ok(receipt(&goal)));
+    save(&mut a, Ok(receipt(dir.path(), &goal)));
     let file = records(&root).pop().unwrap();
     let record: serde_json::Value = serde_json::from_slice(&std::fs::read(file).unwrap()).unwrap();
     let checks: Vec<_> = record["checks"]
@@ -285,7 +318,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
         .affirmation
         .goal
         .clone();
-    save(&mut first, Ok(receipt(&goal)));
+    save(&mut first, Ok(receipt(dir.path(), &goal)));
     let alpha_file = records(&root).pop().unwrap();
     let alpha_bytes = std::fs::read(&alpha_file).unwrap();
     let alpha: serde_json::Value = serde_json::from_slice(&alpha_bytes).unwrap();
@@ -318,7 +351,17 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
             .affirmation
             .goal
             .clone();
-        let mut result = seed_me::Receipt::test(format!("/tmp/TEST-sessions/{name}").into());
+        let path = dir.path().join("TEST-sessions").join(name);
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(
+            path.join("ledger.json"),
+            serde_json::json!({
+                "schema_version": 1, "session_id": name, "goal": goal,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let mut result = seed_me::Receipt::test(path);
         result.goal = goal;
         save(&mut next, Ok(result));
         let file = records(&root)

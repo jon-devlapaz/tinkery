@@ -17,8 +17,8 @@ use tinkery::think::{
         BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, decision_review_input,
     },
     drafting::{CallBudget, PiHost, Request},
-    record::hash,
 };
+use tinkery::think_record::hash;
 
 const USAGE: &str = "Supply --dataset FILE --output NEW_DIRECTORY --max-requests N. Replies are scripted. \
 Add --live --model provider/model-id --seed-me SKILL.md [--pi-command PATH] [--thinking LEVEL] to call Pi; \

@@ -1,7 +1,7 @@
 //! Think's conversation with the person, turn by turn.
 
 use super::*;
-use crate::think::record::{Event, Turn};
+use crate::think_record::{Event, Turn};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Everything think has heard and read so far: the person's words in order (sources), the

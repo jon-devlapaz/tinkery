@@ -26,7 +26,7 @@ for arguments, error in [
     (["--shape-pi"], b"requires an explicit --model"),
     (["--model", "test/model"], b"require --shape-pi"),
     (["--thinking", "low"], b"require --shape-pi"),
-    (["--record-root", "/tmp/tinkery-TEST-records"], b"require --shape-pi"),
+    (["--record-root", ""], b"--record-root needs a folder"),
     (["--shape-pi", "--model", "test/model"], b"requires --seed-me"),
     (["--shape-pi", "--model", "bare", "--seed-me", "/nonexistent/SKILL.md"], b"explicit --model provider/model-id"),
 ]:

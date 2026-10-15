@@ -100,7 +100,8 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    written=list(records.iterdir());assert len(written)==1,written
    record=json.loads(written[0].read_text());record_bytes=written[0].read_bytes()
    assert written[0].name.endswith('_'+session.name+'.json'),written[0].name
-   assert record['schema']==1 and record['origin']=='live' and record['model']=='test/model' and record['seed_me_session']==session.name
+   assert record['schema']==2 and record['origin']=='live' and record['model']=='test/model' and record['seed_me_session']==session.name
+   assert Path(record['seed_me_session_path']) == session
    assert record['goal']==ledger['goal'],(record['goal'],ledger['goal'])
    assert [t['kind'] for t in record['turns']]==['words','asked'],record['turns']
    assert record['turns'][0]['text']==dump and record['turns'][1]['id']=='open'
@@ -154,7 +155,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    else:
     # Make the target non-first with the official helper, not hand-written canonical files.
     newer=Path(helper('init','--root',root)['session'])
-    send(b's','c copy prompt   esc back   F10 menu')
+    send(b's','c copy prompt   r history   esc back   F10 menu')
     assert 'tinkery › tend' in screen.text()
     assert 'Saved.' not in screen.text() and 'any harness' not in screen.text()
     assert str(root) not in screen.text() and session.name not in screen.text()
@@ -172,7 +173,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     await_text('Copied.')
     send(b'\x1b','↑↓←→ move   enter open   l link   esc back')
     assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
-    send(b'\r','c copy prompt   esc back   F10 menu')
+    send(b'\r','c copy prompt   r history   esc back   F10 menu')
     assert 'Must not: build a dashboard.' in screen.text()
     send(b'\x1b[21~','think')
    assert (session/'ledger.json').read_bytes()==saved

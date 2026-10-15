@@ -64,7 +64,7 @@ without resetting zoom. The garden key bar is
 `+` / `=` zoom in, `-` zooms out; uppercase `H J K L` pan left/down/up/right.
 A left press on a ring or label selects that exact session path; another press on
 the same path within 500 ms opens detail. Drag a ring or label to move the goal,
-drag empty space to pan, and scroll to zoom. Help, detail and reading/empty/unavailable
+drag empty space to pan, and scroll to zoom. Help, detail, history and reading/empty/unavailable
 states ignore graph input.
 
 Tend places goals in deterministic, identity-ordered slots shaped to the available
@@ -78,7 +78,8 @@ Resizing reflows the slots to the new canvas, retaining relative zoom and pan.
 
 Enter opens the exact stored goal block line by line, using the receipt's shared
 renderer without `Saved.`. In detail, ↑↓ / `j k` or PgUp/PgDn scroll; `c` copies the
-continuation prompt when the stored stage permits it. Esc goes detail → garden →
+continuation prompt when the stored stage permits it; `r` opens Think history.
+Esc goes detail → garden →
 menu; F10 goes to menu. F1 opens help; `h` shows technical details.
 
 | Stored state | Label | Detail next step |
@@ -98,6 +99,36 @@ selected line, warning that the view may be missing sessions. If none can be rea
 tend says nothing can be listed, not “no sessions”. Reading, unavailable and empty
 states offer only `esc back`.
 
+## Think history
+
+[#143](https://github.com/jon-devlapaz/tinkery/issues/143) adds one action inside a
+saved goal's detail: `r history`. History shows the original words, questions,
+answers, skipped/restored questions and exact confirmed goal, in recorded order. Labels are muted; the person's words remain in ink.
+Technical paths, model information and checks appear only in F1 then `h`.
+Display escapes unsafe terminal controls; stored words remain unchanged.
+
+↑↓ / j k, PgUp/PgDn and Home/End scroll. Wrapping follows the terminal width,
+including long Unicode history beyond 65,535 rows. Help has its own scroll position.
+Esc goes details → help → history → the same saved goal; F10 returns to the menu.
+The fixed footer keeps the way back visible. Opening, scrolling and help make no
+model calls, copy nothing and write nothing.
+
+`--record-root` selects existing records for reading even without `--shape-pi`.
+It defaults to the same folder used for saving. One background reader serves the
+menu's lifetime. Requests coalesce while a read is pending; leaving discards its
+result. A stuck read keeps that one worker occupied, but never blocks navigation
+or starts a replacement worker. Reopening explicitly requests another read.
+
+The shared record reader requires one schema-2 record with the exact canonical
+session path, Seed Me session ID and confirmed goal. It rechecks the selected
+session after scanning. Duplicate matches refuse selection. A matching older
+schema-1 record has no exact connection and remains unavailable; no migration or
+text-based guess runs. Unreadable or unsupported JSON could conceal another match,
+so it also prevents selection. Each file is limited to 16 MiB; oversized files
+are unavailable, never partially displayed. Missing, unreadable and conflicting
+history explain the gap while leaving the saved goal intact. Moving sessions or
+recording unfinished Think sessions is outside this feature.
+
 ## Linking needs
 
 In the garden, `l` starts “this goal needs …”. The source keeps its `›` mark;
@@ -108,7 +139,7 @@ keeps the file intact and says `Already linked.` or `Already unlinked.` Picking 
 The key bar becomes `↑↓←→ pick   enter link   esc cancel` (`enter unlink` for an
 existing need); the bottom line names the source and picked goal. Before commit,
 Esc cancels picking without writing. Commit or cancellation returns selection to the source. Session
-refreshes wait until picking ends rather than replacing the goals underneath it. Detail, help and
+refreshes wait until picking ends rather than replacing the goals underneath it. Detail, history, help and
 reading states ignore `l`.
 
 Missing or ambiguous identity and unavailable links change nothing. Ordinary

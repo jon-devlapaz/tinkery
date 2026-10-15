@@ -7,6 +7,7 @@
 pub mod discovery;
 mod garden;
 mod graph;
+pub(crate) mod history;
 mod linking;
 pub mod needs;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
@@ -60,6 +61,7 @@ pub(super) struct Tend {
     pub help_scroll: u16,
     pub notice: String,
     pub copy: Option<String>,
+    pub history: Option<history::View>,
     graph: graph::GraphView,
     last_press: Option<(PathBuf, Instant)>,
     pub(super) needs: needs::Store,
@@ -89,6 +91,7 @@ impl Tend {
             help_scroll: 0,
             notice: String::new(),
             copy: None,
+            history: None,
             graph: graph::GraphView::default(),
             last_press: None,
             needs: needs::Store::new(link_root),
@@ -266,7 +269,7 @@ impl Tend {
         format!(
             "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
-                "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll."
+                "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
             } else if self.linking.is_some() {
                 "Arrows / j k pick · Enter links or unlinks · Esc cancels."
             } else if self.garden_showing() {
@@ -326,9 +329,9 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         linking_keys.as_str()
     } else if tend.detail {
         if tend.current().is_some_and(|s| s.stage.can_copy()) {
-            "c copy prompt   esc back   F10 menu"
+            "c copy prompt   r history   esc back   F10 menu"
         } else {
-            "esc back   F10 menu"
+            "r history   esc back   F10 menu"
         }
     } else if !tend.garden_showing() {
         // Nothing on screen to move to or open: reading, unavailable or empty.

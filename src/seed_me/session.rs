@@ -146,3 +146,75 @@ pub fn read(path: &Path) -> Record {
         Err(_) => Record::Unreadable,
     }
 }
+
+/// Read Seed Me's existing session identifier only while its saved goal still equals `goal`.
+/// Refuses missing identity, an unsupported ledger format or a changed goal; never invents an
+/// identifier from the directory name and never changes the ledger.
+pub fn session_id(path: &Path, goal: &str) -> Result<String, String> {
+    let ledger_path = path.join("ledger.json");
+    let text = fs::read_to_string(&ledger_path)
+        .map_err(|error| format!("{}: {error}", ledger_path.display()))?;
+    let ledger: Value = serde_json::from_str(&text)
+        .map_err(|error| format!("{}: {error}", ledger_path.display()))?;
+    let refuse = |reason: &str| format!("{}: {reason}", ledger_path.display());
+    if ledger.get("schema_version").and_then(Value::as_u64) != Some(1) {
+        return Err(refuse("unsupported Seed Me ledger schema"));
+    }
+    if ledger.get("goal").and_then(Value::as_str) != Some(goal) {
+        return Err(refuse("the saved goal changed"));
+    }
+    ledger
+        .get("session_id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(str::to_owned)
+        .ok_or_else(|| refuse("the saved session has no identity"))
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+
+    #[test]
+    fn identity_comes_from_the_same_saved_goal_and_never_from_the_folder_name() {
+        let root = tempfile::tempdir().unwrap();
+        let session = root.path().join("TEST-folder-name");
+        fs::create_dir(&session).unwrap();
+        let ledger = session.join("ledger.json");
+        let original = serde_json::json!({
+            "schema_version": 1,
+            "session_id": "TEST-existing-id",
+            "goal": "TEST goal",
+        });
+        let original_bytes = serde_json::to_vec(&original).unwrap();
+        fs::write(&ledger, &original_bytes).unwrap();
+        assert_eq!(
+            session_id(&session, "TEST goal").unwrap(),
+            "TEST-existing-id"
+        );
+        assert_eq!(fs::read(&ledger).unwrap(), original_bytes);
+        assert!(
+            session_id(&session, "TEST different")
+                .unwrap_err()
+                .contains("goal changed")
+        );
+        for replacement in [Value::Null, "".into(), "  ".into(), 5.into()] {
+            let mut value = original.clone();
+            value["session_id"] = replacement;
+            fs::write(&ledger, value.to_string()).unwrap();
+            assert!(
+                session_id(&session, "TEST goal")
+                    .unwrap_err()
+                    .contains("no identity")
+            );
+        }
+        let mut value = original;
+        value["schema_version"] = 2.into();
+        fs::write(&ledger, value.to_string()).unwrap();
+        assert!(
+            session_id(&session, "TEST goal")
+                .unwrap_err()
+                .contains("unsupported")
+        );
+    }
+}

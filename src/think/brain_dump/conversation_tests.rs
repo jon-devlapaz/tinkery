@@ -162,7 +162,7 @@ fn extracts_are_exact_unique_and_bounded() {
 
 #[test]
 fn turns_keep_every_question_answer_and_scope_in_the_order_they_happened() {
-    use crate::think::record::Event;
+    use crate::think_record::Event;
     let mut c = asking();
     let staged = c
         .stage("TEST: also the welcome email", true, false, vec![])

@@ -6,7 +6,7 @@
 use super::*;
 use crate::goal::confirmed::{SavedGoal, goal_block, render_saved_goal};
 use crate::seed_me::{self, Config, Receipt};
-use crate::think::record;
+use crate::think_record as record;
 use serde_json::json;
 use std::{
     path::{Path, PathBuf},
@@ -107,6 +107,10 @@ impl BrainDump {
     /// True when confirming also writes a think record.
     pub(super) fn records(&self) -> bool {
         self.handoff.record_root.is_some()
+    }
+    /// The configured record folder, for reading saved history after leaving this visit.
+    pub(crate) fn record_root(&self) -> Option<&Path> {
+        self.handoff.record_root.as_deref()
     }
     /// Where this visit's think record was written, or why it wasn't; `None` before a save or
     /// when no record folder is set.

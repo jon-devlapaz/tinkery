@@ -57,7 +57,9 @@ Today, Tinkery can:
   `~/.local/share/tinkery/think/`.
 - Show active saved goals as rings in Tend's graph, with lines for what they need.
   Link or unlink goals, open their detail and copy a continuation prompt to Claude,
-  Codex or Pi. Seed Me sessions stay unchanged.
+  Codex or Pi. In a goal's detail, press `r` to read its
+  [Think history](docs/design/shape-and-handoff.md#think-history), when its saved record can be verified.
+  Seed Me sessions stay unchanged.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
 **Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its
