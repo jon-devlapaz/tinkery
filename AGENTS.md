@@ -86,6 +86,14 @@ the exports below. No access to another developer's files is needed.
 
 ## Full zero-call verification
 
+CI runs documentation contracts instead of runtime checks only for modified files
+on [the classifier's prose allowlist](scripts/ci-scope.py). Fenced, indented or
+recognized inline command examples in either revision, mixed paths, unknown paths, setup,
+instruction, and CI changes retain full checks. Routing failures block the
+always-running `CI ready` gate, which checks the exact expected job results.
+[Regression tests](tests/test_ci_scope.py) cover routing and failure handling.
+The full verification block below remains authoritative for code changes.
+
 Run this exact block from the repository root after setup. Cold-clone CI executes
 this block in a fresh Ubuntu container; keep it runnable, not illustrative.
 Node is needed **only** for `voice/*.test.mjs`. Voice PTYs run with no Node; the

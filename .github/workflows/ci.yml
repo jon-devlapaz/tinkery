@@ -6,7 +6,35 @@ on:
   pull_request:
 
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Routing and gate regression tests
+        run: python3 tests/test_ci_scope.py
+      - name: Classify committed changes
+        id: classify
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.sha }}
+        run: python3 scripts/ci-scope.py --base "$BASE" --head "$HEAD" >> "$GITHUB_OUTPUT"
+  docs:
+    needs: scope
+    if: needs.scope.outputs.docs_only == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Documentation contracts
+        run: python3 tests/test_documentation.py
   check:
+    needs: scope
+    if: needs.scope.outputs.docs_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +77,8 @@ jobs:
             echo "== $t"; python3 "$t"
           done
   cold-clone:
-    if: github.event_name == 'pull_request'
+    needs: scope
+    if: github.event_name == 'pull_request' && needs.scope.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     container: ubuntu:24.04
     timeout-minutes: 25
@@ -86,3 +115,43 @@ jobs:
           bash -euo pipefail /tmp/tinkery-cold-check.sh
           ./scripts/cloud-setup.sh
           test -z "$(git status --porcelain --untracked-files=all)"
+  ready:
+    name: CI ready
+    if: always()
+    needs: [scope, docs, check, cold-clone]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate required results
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          DOCS_ONLY: ${{ needs.scope.outputs.docs_only }}
+          EVENT: ${{ github.event_name }}
+          DOCS_RESULT: ${{ needs.docs.result }}
+          CHECK_RESULT: ${{ needs.check.result }}
+          COLD_RESULT: ${{ needs.cold-clone.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$SCOPE_RESULT" = success
+          case "$DOCS_ONLY:$EVENT" in
+            true:pull_request|true:push)
+              test "$DOCS_RESULT" = success
+              test "$CHECK_RESULT" = skipped
+              test "$COLD_RESULT" = skipped
+              message="Documentation checks passed; runtime and cold-clone checks were not applicable."
+              ;;
+            false:pull_request|false:push)
+              test "$DOCS_RESULT" = skipped
+              test "$CHECK_RESULT" = success
+              if [[ "$EVENT" = pull_request ]]; then
+                test "$COLD_RESULT" = success
+              else
+                test "$COLD_RESULT" = skipped
+              fi
+              message="Full verification passed; cold-clone checks run on pull requests only."
+              ;;
+            *) echo "Unknown CI route or event" >&2; exit 1 ;;
+          esac
+          echo "$message"
+          echo "$message" >> "$GITHUB_STEP_SUMMARY"
