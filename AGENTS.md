@@ -87,15 +87,17 @@ the exports below. No access to another developer's files is needed.
 ## Full zero-call verification
 
 CI runs documentation contracts instead of runtime checks only for modified files
-on [the classifier's prose allowlist](scripts/ci-scope.py). Fenced, indented or
-recognized inline command examples in either revision, mixed paths, unknown paths, setup,
-instruction, and CI changes retain full checks. Routing failures block the
+on [the classifier's prose allowlist](scripts/ci-scope.py): the constitution, design and
+research pages. Fenced, indented or recognized inline command examples in either revision
+(`mermaid` and `text` fences excepted), mixed paths, unknown paths, setup, instruction, and
+CI changes retain full checks. Pull requests run the cold clone only when setup may change,
+and a newer push cancels the pull request's unfinished run. Routing failures block the
 always-running `CI ready` gate, which checks the exact expected job results.
 [Regression tests](tests/test_ci_scope.py) cover routing and failure handling.
 The full verification block below remains authoritative for code changes.
 
 Run this exact block from the repository root after setup. Cold-clone CI executes
-this block in a fresh Ubuntu container; keep it runnable, not illustrative.
+this block in a fresh Ubuntu container whenever setup may change; keep it runnable, not illustrative.
 Node is needed **only** for `voice/*.test.mjs`. Voice PTYs run with no Node; the
 invalid `TINKERY_NODE` below is deliberate and must remain set for the journeys.
 Python runs the real binary in a PTY with stub providers and temporary session roots.

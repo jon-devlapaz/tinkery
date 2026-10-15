@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# A newer push to the same pull request replaces its unfinished run; main keeps every run.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   scope:
     runs-on: ubuntu-latest
@@ -12,6 +17,7 @@ jobs:
       contents: read
     outputs:
       docs_only: ${{ steps.classify.outputs.docs_only }}
+      setup: ${{ steps.classify.outputs.setup }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,7 +37,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Documentation contracts
-        run: python3 tests/test_documentation.py
+        run: |
+          python3 tests/test_documentation.py
+          python3 tests/test_planning_docs.py
+          python3 tests/test_job_record_docs.py
   check:
     needs: scope
     if: needs.scope.outputs.docs_only != 'true'
@@ -42,6 +51,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Documentation contracts (fast failure)
+        run: |
+          python3 tests/test_documentation.py
+          python3 tests/test_planning_docs.py
+          python3 tests/test_job_record_docs.py
       - name: Official Seed Me contract fixture (not vendored)
         uses: actions/checkout@v4
         with:
@@ -56,10 +70,10 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: Tests (Tinkery and vendored Pinstar)
-        run: cargo test --workspace --locked
       - name: Formatting
         run: cargo fmt --all -- --check
+      - name: Tests (Tinkery and vendored Pinstar)
+        run: cargo test --workspace --locked
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Build
@@ -78,7 +92,7 @@ jobs:
           done
   cold-clone:
     needs: scope
-    if: github.event_name == 'pull_request' && needs.scope.outputs.docs_only != 'true'
+    if: github.event_name == 'pull_request' && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.setup != 'false'
     runs-on: ubuntu-latest
     container: ubuntu:24.04
     timeout-minutes: 25
@@ -126,6 +140,7 @@ jobs:
         env:
           SCOPE_RESULT: ${{ needs.scope.result }}
           DOCS_ONLY: ${{ needs.scope.outputs.docs_only }}
+          SETUP: ${{ needs.scope.outputs.setup }}
           EVENT: ${{ github.event_name }}
           DOCS_RESULT: ${{ needs.docs.result }}
           CHECK_RESULT: ${{ needs.check.result }}
@@ -144,12 +159,12 @@ jobs:
             false:pull_request|false:push)
               test "$DOCS_RESULT" = skipped
               test "$CHECK_RESULT" = success
-              if [[ "$EVENT" = pull_request ]]; then
-                test "$COLD_RESULT" = success
-              else
-                test "$COLD_RESULT" = skipped
-              fi
-              message="Full verification passed; cold-clone checks run on pull requests only."
+              case "$EVENT:$SETUP" in
+                pull_request:true) test "$COLD_RESULT" = success ;;
+                pull_request:false|push:true|push:false) test "$COLD_RESULT" = skipped ;;
+                *) echo "Unknown setup route" >&2; exit 1 ;;
+              esac
+              message="Full verification passed; cold-clone checks run on pull requests that change setup."
               ;;
             *) echo "Unknown CI route or event" >&2; exit 1 ;;
           esac
