@@ -1,6 +1,6 @@
 //! Tinkery: a calm, keyboard-first front door for agentic work.
 //!
-//! Each place in the menu is a phase with its own module (`think`, `tend`, `measure`); the menu
+//! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `measure`); the menu
 //! is the only module that knows them all. Phases never use each other: anything two of them
 //! share (`goal`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
@@ -13,6 +13,7 @@ pub mod measure;
 pub mod menu;
 pub mod repo;
 pub mod seed_me;
+pub mod shape;
 pub mod tend;
 pub mod think;
 pub mod think_record;

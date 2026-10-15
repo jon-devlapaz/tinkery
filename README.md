@@ -22,7 +22,7 @@ Tinkery’s intended journey is:
 | --- | --- |
 | **Think** | Work out what you actually want. It offers a reading and asks one question at a time. |
 | **Tend** | Choose a saved goal in a quiet garden and open its detail. |
-| **Shape** | Turn a confirmed goal into a seed by running Seed Me’s interview inside Tinkery. Planned for the first release. |
+| **Shape** | Turn a confirmed goal into a seed by running Seed Me’s interview inside Tinkery. Today it shows where a seed stands; answering comes next. |
 | **Approve** | Understand exactly what decision is needed and what you’re authorizing. |
 | **Watch** | See what’s happening, what’s blocked and what needs your attention. |
 | **Taste** | Compare the result with your original goal. You decide whether it’s useful or needs correction. |
@@ -63,9 +63,12 @@ Today, Tinkery can:
   Codex or Pi. In a goal's detail, press `r` to read its
   [Think history](docs/design/shape-and-handoff.md#think-history), when its saved record can be verified.
   Seed Me sessions stay unchanged.
+- Show where a saved goal's seed stands in Shape (press `s` in a goal's detail, or menu
+  place 3): Seed Me's current question, a draft waiting for you, or a verified ready seed.
+  Shape only reads; answering still happens through the copied prompt.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
-**Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its
+**Answering in Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its
 claimed benefit still need proving.
 
 Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that

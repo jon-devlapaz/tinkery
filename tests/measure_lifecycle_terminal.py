@@ -88,7 +88,7 @@ def journey(width, height, kind, no_color):
         try:
             wait(lambda: '1  think' in screen.text())
             assert not calls.exists(), 'menu must not read the ledger'
-            send(b'6', 'Reading ledger…')
+            send(b'7', 'Reading ledger…')
             wait(ready.exists)
             assert 'esc back   ? help' in screen.text()
             assert 'Recorded work and attention are unknown.' in screen.text()
@@ -103,7 +103,7 @@ def journey(width, height, kind, no_color):
             wait(lambda: 'Reading ledger…' in screen.text())
             if kind == 'cancel':
                 send(b'\x1b', '1  think')
-                send(b'6', 'Finishing the previous read…')
+                send(b'7', 'Finishing the previous read…')
                 send(b'?', 'Right now')
                 assert calls.read_text() == 'read\n', 'reopen during cleanup queued a read'
                 # Both application quit routes while Measure owns a stopping process.
@@ -114,7 +114,7 @@ def journey(width, height, kind, no_color):
                 if with_helper:
                     assert_owned_stopped()
                     send(b'q', '1  think')
-                    send(b'6', 'Existing report')
+                    send(b'7', 'Existing report')
                     reads = 2
                     assert calls.read_text() == 'read\n' * reads
                     assert_owned_stopped()

@@ -1413,7 +1413,7 @@ fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
         !substrate.join("measure-ran").exists(),
         "measure stays behind its action"
     );
-    h.handle_key(key(KeyCode::Char('6')));
+    h.handle_key(key(KeyCode::Char('7')));
     let watchdog = Instant::now() + Duration::from_secs(5);
     while matches!(&h.view, View::Measure(r) if r.local_help() && !r.failed()) {
         assert!(Instant::now() < watchdog, "explicit read did not finish");

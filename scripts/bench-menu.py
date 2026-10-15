@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from vt_screen import Screen  # noqa: E402
 
-PLACES = ['think', 'tend', 'approve', 'watch', 'taste', 'measure']
+PLACES = ['think', 'tend', 'shape', 'approve', 'watch', 'taste', 'measure']
 TEND_LINE = 'Choose a saved goal and copy a prompt to continue.'
 WIDTH, HEIGHT = 100, 30
 

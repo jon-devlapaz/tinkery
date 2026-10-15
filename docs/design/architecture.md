@@ -24,10 +24,11 @@ ideas; the area entry points below contain navigation only.
 | menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [#118](https://github.com/jon-devlapaz/tinkery/issues/118), still needs approval |
 | think | `src/think/` | [think](../research/shared/backlog.md#think) |
 | tend | `src/tend/` | [#123](https://github.com/jon-devlapaz/tinkery/issues/123) |
+| shape | `src/shape.rs` | [#149](https://github.com/jon-devlapaz/tinkery/issues/149) built; [#150](https://github.com/jon-devlapaz/tinkery/issues/150) next |
 | measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) owned responsive reader |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/think_record.rs`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
-Shape, the Seed Me step, is in the first release (operator decision, 2026-10-15) and gets its
+Shape, the Seed Me step, is in the first release (operator decision, 2026-10-15) and has its
 own module; see [Shape](shape-and-handoff.md#shape). Approve, watch and taste also get their
 own modules when built. There are no exceptions
 to the dependency rule: think hands a saved goal to tend only through `seed_me`.
@@ -61,7 +62,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
-| `menu.rs` | The menu: the six places and navigation between them. |
+| `menu.rs` | The menu: the seven places and navigation between them, including Esc from Shape back to the Tend it came from. |
 | `measure.rs` | The ledger's read-only report, display safety limits, failure facts and safe two-layer disclosure. |
 | `measure/reader.rs` | One reader across visits: request ownership, deadline, bounded pipes, process-group cancellation and cleanup-first shutdown. |
 | `measure/viewport.rs` | Incremental machine-sized diagnostic scrolling over bounded, grapheme-safe source segments; no subprocess or navigation policy. |
@@ -73,7 +74,8 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `tend/graph.rs` | Graf adapter: path-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
-| `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, and the continuation prompt (shared). |
+| `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, the continuation prompt, and (in `shaping.rs`) where a seed stands from the helper's `read` and `status` (shared). |
+| `shape.rs` | Shape's list of goals waiting for a seed and one session's read-only view: the goal as confirmed, one stage and one next step; reads off the paint path. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
@@ -139,6 +141,11 @@ interprets ledger identity (3 and 6). Linking state stays separate from graph dr
 The graf adapter hides topology, static layout and pointer geometry; garden framing
 keeps the footer independent of that renderer (2, 3 and 6). The module map and public
 contracts preserve diagnostics 1, 4 and 7. No new design score is claimed.
+
+For #149, Shape is its own phase; Tend reaches it only through the menu, which keeps the
+Tend view to restore (diagnostics 1, 3 and 7). Every Seed Me helper field Shape needs is read
+in `seed_me/shaping.rs`, so a Seed Me format change stays in one module (3 and 6). No new
+score is claimed.
 
 For #143, the confirmed-session format becomes shared so Think writes and Tend
 reads through one owner (diagnostics 1, 3 and 6). The menu retains one history

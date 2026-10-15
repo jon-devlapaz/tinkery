@@ -132,7 +132,8 @@ impl Drop for Receipt {
         let _ = self.stop_viewer();
     }
 }
-fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String, String> {
+/// Run one helper command with a 10-second limit and capped output; stdout on success.
+pub(super) fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String, String> {
     let mut child = Command::new("python3")
         .arg(script)
         .args(args)
