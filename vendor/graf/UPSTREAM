@@ -35,6 +35,10 @@ Omitted upstream files:
 - cliff.toml, deny.toml: upstream release and dependency-audit configuration.
 - .git checkout metadata is not copied.
 
+Round 2 rendering:
+- src/render.rs: leave gaps in straight edges around unrelated rings; no routing
+  or topology changes. Seeded geometry and Tend buffer tests cover the masking.
+
 Step 3d integration:
 - src/render.rs: sort visible node indices before painting rings, so overlapping
   nodes paint deterministically instead of depending on HashSet iteration order.

@@ -123,7 +123,36 @@ def journey(width, height, kind='garden'):
             assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
             assert 'I can read' not in screen.text(), screen.text()
             ordinary()
-            if kind in ('link-keyboard', 'link-mouse', 'linked-rings'):
+            if kind == 'held-lock':
+                link_root = root / 'TEST-links'
+                link_root.mkdir()
+                link_file = link_root / 'needs.json'
+                saved = b'{"version":1,"needs":[]}'
+                link_file.write_bytes(saved)
+                with (link_root / 'needs.lock').open('w') as lock:
+                    fcntl.flock(lock, fcntl.LOCK_EX)
+                    send(b'l', LINK_KEYS)
+                    send(b'j', 'Calm theme needs Clear next step')
+                    start = time.monotonic()
+                    send(b'\r', "Links couldn't be saved, so nothing changed. F1 then h for details.")
+                    assert time.monotonic()-start < 3
+                    send(b'\x1bOP', 'Right now')
+                    send(b'h', 'another Tinkery is saving links')
+                    send(b'\x1b', 'Right now')
+                    send(b'\x1b', GARDEN_KEYS)
+                    for back in [b'\x1b', b'\x1b[21~']:
+                        send(b'l', LINK_KEYS)
+                        send(b'j', 'Calm theme needs Clear next step')
+                        start = time.monotonic()
+                        send(b'\r'+back, '1  think')
+                        assert time.monotonic()-start < 3
+                        assert link_file.read_bytes() == saved
+                        send(b'2', GARDEN_KEYS)
+                wait(lambda: selected(0))
+                move(b'j', 1)
+                move(b'k', 0)
+                assert link_file.read_bytes() == saved, 'Refusal must never queue a later save'
+            elif kind in ('link-keyboard', 'link-mouse', 'linked-rings'):
                 send(b'l', LINK_KEYS)
                 assert 'Calm theme needs …' in screen.text(), screen.text()
                 if kind == 'link-mouse':
@@ -273,7 +302,7 @@ def journey(width, height, kind='garden'):
             wait(lambda: process.poll() is not None)
             assert process.returncode == 0
             assert not (root/'provider-was-run').exists()
-            if kind not in ('link-keyboard', 'link-mouse', 'linked-rings'):
+            if kind not in ('link-keyboard', 'link-mouse', 'linked-rings', 'held-lock'):
                 assert not (root/'TEST-links').exists(), 'Navigation must not create a links store'
             assert {str(p): p.read_bytes() for p in sessions.rglob('*') if p.is_file()} == before
             name = 'garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu' if kind == 'garden' else 'garden/'+kind
@@ -288,6 +317,7 @@ for size in [(80,24), (100,30), (160,40), (320,40)]: journey(*size)
 journey(80, 24, 'whole-graph')
 for size in [(80,24), (100,30), (160,40), (320,40)]: journey(*size, 'drag-scroll')
 journey(80, 24, 'unreadable')
+journey(100, 30, 'held-lock')
 for size in [(80,24), (100,30), (160,40)]:
     journey(*size, 'link-keyboard')
     journey(*size, 'link-mouse')

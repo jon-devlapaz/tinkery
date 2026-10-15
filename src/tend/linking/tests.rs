@@ -81,6 +81,132 @@ fn start_self_pick_cancel_commit_and_toggle_return_to_source() {
     assert_eq!(tend.selected_line(76, None).1, "goal saved · time unknown");
 }
 
+#[test]
+fn stale_same_edge_intents_survive_both_orders_and_concurrent_instances() {
+    for linked in [true, false] {
+        for order in [0, 1, 2] {
+            let (tmp, mut a) = fixture();
+            let (_other, mut b) = fixture();
+            b.needs = needs::Store::new(Ok(tmp.path().join("TEST-links")));
+            if !linked {
+                a.needs.toggle("id-0", "id-1").unwrap();
+            }
+            for tend in [&mut a, &mut b] {
+                tend.start_link();
+                tend.selected = 1;
+                assert_eq!(tend.link_verb(), if linked { "link" } else { "unlink" });
+            }
+            if order == 1 {
+                std::mem::swap(&mut a, &mut b);
+            }
+            std::thread::scope(|scope| {
+                let first = scope.spawn(|| a.commit_link());
+                if order != 2 {
+                    first.join().unwrap();
+                }
+                b.commit_link();
+            });
+            assert_eq!(
+                a.needs
+                    .read()
+                    .into_links()
+                    .unwrap()
+                    .contains("id-0", "id-1"),
+                linked
+            );
+            let message = if linked {
+                "Already linked."
+            } else {
+                "Already unlinked."
+            };
+            assert!(a.notice == message || b.notice == message);
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn matching_intent_keeps_read_only_file_bytes_permissions_and_timestamp() {
+    use std::os::unix::fs::PermissionsExt;
+    for linked in [true, false] {
+        let (tmp, mut tend) = fixture();
+        let root = tmp.path().join("TEST-links");
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("needs.json");
+        let bytes = if linked {
+            "{ \"version\": 1, \"needs\": [{\"goal\":\"id-0\",\"needs\":\"id-1\"}] }\n"
+        } else {
+            "{ \"version\": 1, \"needs\": [] }\n"
+        };
+        // Capture the opposite screen intent, then let another instance satisfy it.
+        tend.start_link();
+        tend.selected = 1;
+        if !linked {
+            tend.links = Ok(tend.needs.toggle("id-0", "id-1").unwrap());
+        }
+        fs::write(&path, bytes).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+        let before = fs::metadata(&path).unwrap();
+        tend.commit_link();
+        assert_eq!(
+            tend.notice,
+            if linked {
+                "Already linked."
+            } else {
+                "Already unlinked."
+            }
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes.as_bytes());
+        let after = fs::metadata(&path).unwrap();
+        assert_eq!(after.permissions().mode(), before.permissions().mode());
+        assert_eq!(after.modified().unwrap(), before.modified().unwrap());
+    }
+}
+
+#[test]
+fn held_lock_refuses_within_deadline_and_never_saves_after_release_or_cancel() {
+    let (tmp, mut tend) = fixture();
+    let root = tmp.path().join("TEST-links");
+    fs::create_dir_all(&root).unwrap();
+    let bytes = br#"{"version":1,"needs":[]}"#;
+    fs::write(root.join("needs.json"), bytes).unwrap();
+    let lock = fs::File::create(root.join("needs.lock")).unwrap();
+    lock.lock().unwrap();
+    let release = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        drop(lock);
+    });
+    tend.start_link();
+    tend.selected = 1;
+    let start = std::time::Instant::now();
+    tend.commit_link();
+    let elapsed = start.elapsed();
+    release.join().unwrap();
+    assert!(elapsed < std::time::Duration::from_secs(3), "{elapsed:?}");
+    assert_eq!(
+        tend.notice,
+        "Links couldn't be saved, so nothing changed. F1 then h for details."
+    );
+    assert!(!tend.is_linking());
+    tend.apply(
+        &Ok(Found {
+            sessions: tend.all_sessions.clone(),
+            unreadable: 0,
+        }),
+        true,
+        2,
+    );
+    tend.how = true;
+    assert!(
+        tend.help_text(None)
+            .contains("another Tinkery is saving links")
+    );
+    tend.start_link();
+    tend.selected = 1;
+    tend.cancel_link();
+    assert_eq!(fs::read(root.join("needs.json")).unwrap(), bytes);
+}
+
 #[cfg(unix)]
 #[test]
 fn read_only_links_refuse_save_and_keep_bytes_and_permissions() {

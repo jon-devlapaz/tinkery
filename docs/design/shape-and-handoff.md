@@ -27,18 +27,22 @@ detail. The plain-text terminal exit receipt may include recovery locations.
 
 Tend shows all discovered active saved goals as one graph, with no paging or node cap. Every goal has the same hollow Braille ring: size is unknown.
 Quiet lines join needs whose two ends are active and uniquely identified; missing,
-ambiguous or ended ends draw no line. The selected line below still names those needs.
+ambiguous or ended ends draw no line. A straight line leaves a gap around unrelated
+rings rather than implying a junction; there is no path routing. The selected line below still names those needs.
 There are no known sizes or merges. Seed Me sessions stay read-only; explicit linking
 writes only Tend's own links.
 Ended sessions are left out; `N ended not shown` shares the muted incomplete-read
 note row with `Links couldn't be read. F1 then h for details.` when links are
-unavailable. Applicable notes join with ` · ` and remain through navigation.
+unavailable, including when there are no active goals. Applicable notes join with
+` · ` and remain through navigation. An unreadable-links refusal replaces that
+note rather than saying the same thing twice.
 If every readable session is ended, tend says `No active goals. N ended not shown.
 Confirm a goal in think to start one.` rather than claiming no sessions exist.
 
 Labels use only the first saved-goal line, including old unstructured goals. They
-sit above or below their rings, clipped with `…` to avoid overlapping labels; a label
-with no room is omitted. The selected label starts with `› `; its label and ring
+sit above or below their rings, clipped with `…` to avoid overlapping labels. The
+selected goal's label gets room first and always shows; colliding others are clipped
+or omitted, never interleaved. The selected label starts with `› `; its label and ring
 are bold, and jade with colour. Other labels are muted and rings are ink. No label
 is italic.
 
@@ -60,8 +64,10 @@ drag empty space to pan, and scroll to zoom. Help, detail and reading/empty/unav
 states ignore graph input.
 
 Tend places goals in deterministic, identity-ordered slots shaped to the available
-canvas; Graf draws the graph without a physics thread. Moving goals, panning and
-zooming write nothing. An unchanged graph keeps positions and viewport through
+canvas, with initial slot spacing of at least 12 columns and 6 rows instead of
+squeezing every ring into view. Crowded gardens need selection-following, pan or zoom;
+not every label is visible at once. Graf draws the graph without a physics thread.
+Moving goals, panning and zooming write nothing. An unchanged graph keeps positions and viewport through
 refresh. Changed nodes, labels or links rebuild the static layout, resetting manual
 goal positions while retaining zoom and pan; following selection may pan again.
 Resizing reflows the slots to the new canvas, retaining relative zoom and pan.
@@ -92,7 +98,9 @@ states offer only `esc back`.
 
 In the garden, `l` starts “this goal needs …”. The source keeps its `›` mark;
 movement picks another goal, marked `→`. Enter or one left press on that goal
-adds the need, or removes an existing need. Picking the source does nothing.
+adds the need, or removes an existing need. Commit preserves the displayed link or
+unlink intent even if another instance changed the file. An already satisfied intent
+keeps the file intact and says `Already linked.` or `Already unlinked.` Picking the source does nothing.
 The key bar becomes `↑↓←→ pick   enter link   esc cancel` (`enter unlink` for an
 existing need); the bottom line names the source and picked goal. Esc cancels
 without writing. Commit or cancellation returns selection to the source. Session
@@ -103,7 +111,11 @@ Missing or ambiguous identity and unavailable links change nothing. Ordinary
 refusals are one muted line: `This goal can't be linked yet.` or
 `Links couldn't be read, so nothing changed. F1 then h for details.` A write failure
 says `Links couldn't be saved, so nothing changed. F1 then h for details.`
-The exact reason appears only in technical help beside the session path.
+The exact reason appears only in technical help beside the session path and survives
+a pending discovery refresh while the refusal is shown. Waiting for another writer's
+lock is bounded to about two seconds; a timeout uses the save-failure refusal and
+technical help says `another Tinkery is saving links`. Nothing is queued to save
+later after refusal or cancellation.
 
 ## Needs store
 
@@ -120,12 +132,13 @@ Entries are sorted by goal id then needed id, so equivalent sets write identical
 A missing file is normally empty. If this view last read a nonempty link set and the
 file disappears, reads and saves refuse rather than recreating it and losing known
 links. Bad JSON, unsupported versions, invalid or duplicate entries and IO errors
-remain unreadable, with a persistent note and a plain refusal; a toggle cannot overwrite
-them. Existing read-only files or files this process cannot open for writing are
-refused without changing their bytes or permissions.
+remain unreadable, with a persistent note or a plain refusal; an edit cannot overwrite
+them. A requested change to an existing read-only file or a file this process cannot
+open for writing is refused without changing bytes or permissions. A matching no-op
+needs no write access and preserves the file's exact bytes, permissions and timestamp.
 
-A toggle rejects self-links and unreadable stores, then holds an exclusive lock on a
-sibling `needs.lock` across a fresh read, the add/remove and atomic replacement through
+An edit rejects self-links and unreadable stores, then acquires an exclusive lock on a
+sibling `needs.lock` within the deadline, across a fresh read, the intended add/remove and atomic replacement through
 a same-folder temporary file. The empty lock file stays in the links folder so
 cooperating simultaneous writers always lock the same file; navigation creates neither
 file. This preserves other successful saves and changes since a previous read, but
@@ -168,14 +181,22 @@ goals, clamped selection, pointer identity, double-click timing, drag/zoom/pan a
 preservation. Store and linking tests cover unreadable-byte preservation, exact ids,
 duplicate-id refusal, derived readiness, cancel/self-pick and add/remove. Reversion-probed
 regressions cover read-only and deleted-file refusals, 32 rounds of eight concurrent
-writers, persistent unreadable-link notes, the F10 detail footer and distinct labels
-for 40 short goals (unlinked and chained) at 80×24, 100×30, 160×40 and 320×40. Discovery,
+writers, same-edge stale intents in both orders and concurrent instances, matching
+no-op byte preservation, bounded lock refusal with retained technical details,
+single unreadable-link wording and empty-view notes. Graph probes cover straight-line
+gaps in the three-goal repro and seeded larger cases, minimum ring spacing for 40
+short goals (unlinked and chained) at 80×24, 100×30, 160×40 and 320×40, and every
+selected label without overlapping cells for 40 short goals at 40×12 and 60 long
+mixed-Unicode goals at 100×30 and 160×40. The older full-fit label-count expectation
+is replaced by spacing and navigable identity, not a claim that every label fits.
+The F10 detail footer remains covered. Discovery,
 help, copying and receipt tests retain their state and handoff guards.
 
 PTY journeys show keyboard and mouse linking, restart persistence, keyboard and mouse
 unlinking, and a needs line between two rings at 80×24, 100×30 and 160×40. Selection,
 click/double-click, keyboard zoom/pan, drag and scroll also run at 320×40, alongside
 exact detail text, repeatable prompt bytes and exit routes. A 30-goal journey checks
-selection without paging. All use stubs and temporary TEST roots, make no provider
+selection without paging. A held-lock journey checks the timeout refusal and technical
+help, queued Esc/F10 exits and no save after release. All use stubs and temporary TEST roots, make no provider
 calls and check Seed Me fixture bytes stay unchanged. These prove mechanics, not
 operator acceptance or goal quality.

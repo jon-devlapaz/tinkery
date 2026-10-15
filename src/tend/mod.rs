@@ -119,7 +119,9 @@ impl Tend {
         }
         self.cancel_link();
         self.links = self.needs.read().into_links();
-        self.link_error = self.links.as_ref().err().cloned();
+        if self.notice.is_empty() {
+            self.link_error = self.links.as_ref().err().cloned();
+        }
         self.seen = version;
         self.pending = false;
         match outcome {
@@ -374,7 +376,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             .wrap(Wrap { trim: false }),
             area,
         );
-        if tend.ended > 0 {
+        if tend.ended > 0 || tend.links.is_err() {
             garden::render_note(frame, tend, area, palette);
         }
         return;

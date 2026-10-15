@@ -98,11 +98,55 @@ pub struct EdgeData {
 
 struct GraphEdgesShape<'a> {
     edges: &'a [EdgeData],
+    nodes: &'a [NodeRenderData],
+}
+
+fn visible_edge_segments(edge: &EdgeData, nodes: &[NodeRenderData]) -> Vec<EdgeData> {
+    let (dx, dy) = (edge.x2 - edge.x1, edge.y2 - edge.y1);
+    let length2 = dx * dx + dy * dy;
+    if length2 == 0.0 {
+        return vec![edge.clone()];
+    }
+    let mut cuts = vec![(1.0, 1.0)];
+    for node in nodes {
+        if (node.x, node.y) == (edge.x1, edge.y1) || (node.x, node.y) == (edge.x2, edge.y2) {
+            continue;
+        }
+        let (x, y) = (node.x - edge.x1, node.y - edge.y1);
+        let t = (x * dx + y * dy) / length2;
+        let distance2 = (x - t * dx).powi(2) + (y - t * dy).powi(2);
+        let radius = node.radius + 1.5 + f64::from(edge.thickness) * 0.2;
+        if distance2 >= radius * radius {
+            continue;
+        }
+        let half = ((radius * radius - distance2) / length2).sqrt();
+        cuts.push(((t - half).clamp(0.0, 1.0), (t + half).clamp(0.0, 1.0)));
+    }
+    cuts.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut from: f64 = 0.0;
+    let mut segments = Vec::new();
+    for (start, end) in cuts {
+        if start > from {
+            segments.push(EdgeData {
+                x1: edge.x1 + from * dx,
+                y1: edge.y1 + from * dy,
+                x2: edge.x1 + start * dx,
+                y2: edge.y1 + start * dy,
+                ..edge.clone()
+            });
+        }
+        from = from.max(end);
+    }
+    segments
 }
 
 impl Shape for GraphEdgesShape<'_> {
     fn draw(&self, painter: &mut Painter) {
-        for edge in self.edges {
+        for edge in self
+            .edges
+            .iter()
+            .flat_map(|edge| visible_edge_segments(edge, self.nodes))
+        {
             if edge.thickness <= 1 {
                 Line {
                     x1: edge.x1,
@@ -1017,7 +1061,10 @@ pub fn draw_graph_view(
             settings.visual.canvas_marker,
         ))
         .paint(move |ctx| {
-            ctx.draw(&GraphEdgesShape { edges: edges_ref });
+            ctx.draw(&GraphEdgesShape {
+                edges: edges_ref,
+                nodes: nodes_ref,
+            });
             ctx.layer();
             ctx.draw(&GraphNodesShape {
                 nodes: nodes_ref,
@@ -2240,6 +2287,85 @@ mod dim_tests {
             cache.edges.iter().all(|e| e.color != Color::DarkGray),
             "all edges are within the lit neighborhood"
         );
+    }
+}
+
+#[cfg(test)]
+mod crossing_tests {
+    use super::*;
+
+    fn ring(x: f64, y: f64) -> NodeRenderData {
+        NodeRenderData {
+            x,
+            y,
+            radius: 3.0,
+            color: Color::White,
+            extra_tag_colors: vec![],
+            is_selected: false,
+            is_hovered: false,
+            selection_ring_color: Color::White,
+            shape: NodeShape::Circle,
+            filled: false,
+            dimmed: false,
+            grow_ring: false,
+        }
+    }
+
+    #[test]
+    fn edge_segments_never_intersect_unrelated_rings_in_three_goal_and_seeded_cases() {
+        for count in [3, 16, 60] {
+            for seed in 1..=12u64 {
+                let nodes: Vec<_> = (0..count)
+                    .map(|i| ring((i % 10) as f64 * 30.0, (i / 10) as f64 * 30.0))
+                    .collect();
+                let mut random = seed;
+                for trial in 0..100 {
+                    random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
+                    let a = if trial == 0 {
+                        0
+                    } else {
+                        random as usize % count
+                    };
+                    let b = if trial == 0 {
+                        2
+                    } else {
+                        (random >> 32) as usize % count
+                    };
+                    if a == b {
+                        continue;
+                    }
+                    let edge = EdgeData {
+                        x1: nodes[a].x,
+                        y1: nodes[a].y,
+                        x2: nodes[b].x,
+                        y2: nodes[b].y,
+                        color: Color::White,
+                        thickness: 1,
+                    };
+                    let segments = visible_edge_segments(&edge, &nodes);
+                    if count == 3 && trial == 0 {
+                        assert_eq!(segments.len(), 2);
+                    }
+                    for line in segments {
+                        for (index, node) in nodes.iter().enumerate() {
+                            if index == a || index == b {
+                                continue;
+                            }
+                            let (dx, dy) = (line.x2 - line.x1, line.y2 - line.y1);
+                            let t = (((node.x - line.x1) * dx + (node.y - line.y1) * dy)
+                                / (dx * dx + dy * dy))
+                                .clamp(0.0, 1.0);
+                            let distance =
+                                (node.x - line.x1 - t * dx).hypot(node.y - line.y1 - t * dy);
+                            assert!(
+                                distance > node.radius,
+                                "count={count} seed={seed} trial={trial} node={index}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

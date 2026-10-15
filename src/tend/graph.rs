@@ -176,12 +176,14 @@ impl GraphView {
         let rows = ((count as f64 * height * 2.4 / width).sqrt().round() as usize).clamp(1, count);
         let columns = count.div_ceil(rows);
         let world_per_row = settings.physics.ideal_distance / 6.0;
+        let column_spacing = (width / columns as f64).max(12.0);
+        let row_spacing = (height / rows as f64).max(6.0);
         for (slot, &index) in indices.iter().enumerate() {
             let node = &mut state.simulation.get_graph_mut()[index];
-            node.location.x = (((slot % columns) as f64 + 0.5) / columns as f64 - 0.5) as f32
-                * (width * world_per_row * graf::viewport::CELL_ASPECT) as f32;
-            node.location.y = (0.5 - ((slot / columns) as f64 + 0.5) / rows as f64) as f32
-                * (height * world_per_row) as f32;
+            node.location.x = ((slot % columns) as f64 + 0.5 - columns as f64 / 2.0) as f32
+                * (column_spacing * world_per_row * graf::viewport::CELL_ASPECT) as f32;
+            node.location.y = (rows as f64 / 2.0 - (slot / columns) as f64 - 0.5) as f32
+                * (row_spacing * world_per_row) as f32;
             node.old_location = node.location;
         }
         state.graph_bounds = graf::render::compute_graph_bounds(state.simulation.get_graph());
@@ -427,8 +429,8 @@ impl GraphView {
             .collect();
         nodes.sort_by_key(|(node, _, _)| {
             (
-                node.data.id != source,
                 node.data.id != selected,
+                node.data.id != source,
                 node.data.id.clone(),
             )
         });
@@ -458,6 +460,11 @@ impl GraphView {
                     .clamp(i32::from(self.area.x), i32::from(self.area.right() - width))
                     as u16;
                 for row in [y - 3, y + 2] {
+                    let row = if node.data.id == selected {
+                        row.clamp(i32::from(self.area.y), i32::from(self.area.bottom() - 1))
+                    } else {
+                        row
+                    };
                     if row < i32::from(self.area.y) || row >= i32::from(self.area.bottom()) {
                         continue;
                     }

@@ -124,6 +124,81 @@ fn needs_suffix_truncates_headline_and_refusals_stay_muted() {
 }
 
 #[test]
+fn unreadable_link_refusal_and_note_say_it_once() {
+    for at_commit in [false, true] {
+        let tmp = tempfile::Builder::new()
+            .prefix("tinkery-TEST-single-note-")
+            .tempdir()
+            .unwrap();
+        let mut tend = tend(2);
+        if at_commit {
+            tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().join("TEST-links")));
+            tend.start_link();
+            tend.selected = 1;
+            tend.needs = crate::tend::needs::Store::new(Err("TEST unreadable".into()));
+            tend.commit_link();
+        } else {
+            tend.start_link();
+        }
+        for _ in 0..2 {
+            let buffer = paint(&mut tend, 100, 30, true);
+            let lines: Vec<_> = (0..30).map(|y| line(&buffer, y)).collect();
+            assert_eq!(
+                lines
+                    .iter()
+                    .filter(|s| s.contains("Links couldn't be read"))
+                    .count(),
+                1
+            );
+            assert_eq!(lines.iter().filter(|s| s.contains("F1 then h")).count(), 1);
+            tend.step_selection(true);
+        }
+    }
+}
+
+#[test]
+fn empty_goal_view_discloses_unreadable_links() {
+    for (width, height) in [(40, 12), (80, 24), (100, 30)] {
+        for ended in [false, true] {
+            let tmp = tempfile::Builder::new()
+                .prefix("tinkery-TEST-empty-note-")
+                .tempdir()
+                .unwrap();
+            let path = tmp.path().join("needs.json");
+            std::fs::write(&path, "{broken").unwrap();
+            let mut tend = tend(0);
+            tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().to_path_buf()));
+            tend.apply(
+                &Ok(crate::tend::Found {
+                    sessions: vec![],
+                    unreadable: 0,
+                }),
+                true,
+                1,
+            );
+            tend.ended = usize::from(ended);
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal
+                .draw(|f| {
+                    super::super::render(f, &mut tend, body(width, height), Palette::new(true))
+                })
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            assert!(
+                line(buffer, height - 4).starts_with("Links couldn't be read."),
+                "{buffer:?}"
+            );
+            assert!(line(buffer, 3).starts_with(if ended {
+                "No active goals."
+            } else {
+                "No Seed Me sessions yet."
+            }));
+            assert_eq!(std::fs::read_to_string(path).unwrap(), "{broken");
+        }
+    }
+}
+
+#[test]
 fn unreadable_links_have_a_persistent_muted_note_with_other_notes() {
     let tmp = tempfile::Builder::new()
         .prefix("tinkery-TEST-link-note-")

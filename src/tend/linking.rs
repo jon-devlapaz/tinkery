@@ -6,7 +6,8 @@ use unicode_width::UnicodeWidthStr;
 #[cfg(test)]
 mod tests;
 
-const UNAVAILABLE: &str = "Links couldn't be read, so nothing changed. F1 then h for details.";
+pub(super) const UNAVAILABLE: &str =
+    "Links couldn't be read, so nothing changed. F1 then h for details.";
 
 impl Tend {
     pub(crate) fn is_linking(&self) -> bool {
@@ -89,10 +90,16 @@ impl Tend {
                 return;
             }
         };
-        match self.needs.toggle(&source, &target) {
-            Ok(links) => {
+        let linked = self.link_verb() == "link";
+        match self.needs.set(&source, &target, linked) {
+            Ok((links, changed)) => {
                 self.links = Ok(links);
-                self.notice.clear();
+                self.notice = match (changed, linked) {
+                    (true, _) => "",
+                    (false, true) => "Already linked.",
+                    (false, false) => "Already unlinked.",
+                }
+                .into();
                 self.link_error = None;
                 self.cancel_link();
             }

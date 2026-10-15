@@ -1,4 +1,4 @@
-//! Tinkery-owned needs links: strict reads, explicit toggles and derived readiness.
+//! Tinkery-owned needs links: strict reads, explicit edits and derived readiness.
 //! Never edits Seed Me sessions. Unreadable stores refuse mutation; readiness uses only
 //! supplied sessions, including ended ones, and never infers identity from names or paths.
 
@@ -140,7 +140,7 @@ impl Read {
 }
 
 /// The configured needs.json destination, or why linking is unavailable. Construction does no IO.
-/// Toggles serialize across cooperating writers; a missing previously populated store is refused.
+/// Edits serialize across cooperating writers; a missing previously populated store is refused.
 pub struct Store {
     root: Result<PathBuf, String>,
     populated: Cell<bool>,
@@ -214,11 +214,12 @@ impl Store {
         Read::Readable(Links { entries })
     }
 
-    /// Add an absent link or remove a present one. Refuses invalid ids, self-links and unreadable
-    /// stores unchanged, including a missing previously populated file. Holds an exclusive sibling
-    /// lock across re-reading and atomic replacement. Refuses existing files we cannot write.
+    /// Set the requested intent (`linked` adds); return links and whether they changed.
+    /// Matching files stay intact. Refuses invalid ids, self-links and unreadable stores unchanged,
+    /// including a missing previously populated file. Waits at most two seconds for a sibling lock
+    /// across re-reading and atomic replacement. Refuses changes to files we cannot write.
     /// Returns the resulting links; IO failures are explicit and no partial file is published.
-    pub fn toggle(&self, goal: &str, needs: &str) -> Result<Links, String> {
+    pub fn set(&self, goal: &str, needs: &str, linked: bool) -> Result<(Links, bool), String> {
         if !valid_id(goal) || !valid_id(needs) {
             return Err("Cannot link goals without nonempty, control-free session ids.".into());
         }
@@ -235,7 +236,22 @@ impl Store {
                 .create(true)
                 .truncate(false)
                 .open(root.join("needs.lock"))?;
-            lock.lock()?;
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            loop {
+                match lock.try_lock() {
+                    Ok(()) => break,
+                    Err(std::fs::TryLockError::WouldBlock) => {
+                        if std::time::Instant::now() >= deadline {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::TimedOut,
+                                "another Tinkery is saving links",
+                            ));
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    Err(std::fs::TryLockError::Error(error)) => return Err(error),
+                }
+            }
             Ok(lock)
         })()
         .map_err(|error| format!("Cannot save needs.json: {error}"))?;
@@ -244,8 +260,13 @@ impl Store {
             goal: goal.into(),
             needs: needs.into(),
         };
-        if !links.entries.remove(&link) {
+        if links.contains(goal, needs) == linked {
+            return Ok((links, false));
+        }
+        if linked {
             links.entries.insert(link);
+        } else {
+            links.entries.remove(&link);
         }
         let file = File {
             version: 1,
@@ -280,7 +301,14 @@ impl Store {
         write().map_err(|error| format!("Cannot save needs.json: {error}"))?;
         self.populated.set(!links.entries.is_empty());
         drop(lock);
-        Ok(links)
+        Ok((links, true))
+    }
+
+    /// Test fixture convenience; production callers must supply the displayed intent.
+    #[cfg(test)]
+    pub(crate) fn toggle(&self, goal: &str, needs: &str) -> Result<Links, String> {
+        let linked = !self.read().into_links()?.contains(goal, needs);
+        self.set(goal, needs, linked).map(|(links, _)| links)
     }
 }
 
