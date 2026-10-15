@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     Palette,
-    think_record::{self, Event, History, Unavailable},
+    think_record::{self, Event, History, MadeIn, Unavailable},
 };
 use crossterm::event::KeyCode;
 use ratatui::{Frame, layout::Rect, text::Line, widgets::Paragraph};
@@ -143,6 +143,7 @@ impl View {
                     }
                 }
                 add(&mut blocks, "Confirmed goal", history.goal);
+                add(&mut blocks, "Made in", made_in(&history.made_in));
                 self.body = Page::new(blocks);
                 self.details = Page::plain(&history.details);
             }
@@ -232,6 +233,17 @@ impl View {
     }
 }
 
+/// Where the goal was made, by folder name; the full path stays in How it works.
+fn made_in(made_in: &MadeIn) -> String {
+    match made_in {
+        MadeIn::Repo(root) => root.file_name().map_or_else(
+            || root.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        ),
+        MadeIn::NoRepo => "not in a repository".into(),
+        MadeIn::Unknown => "repo unknown".into(),
+    }
+}
 fn add(blocks: &mut Vec<(String, bool)>, label: &str, text: String) {
     if !blocks.is_empty() {
         blocks.push((String::new(), false));

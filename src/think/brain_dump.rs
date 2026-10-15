@@ -185,6 +185,8 @@ struct Handoff {
     record_root: Option<std::path::PathBuf>,
     /// The think record written with the save, or why it wasn't.
     record: Option<Result<std::path::PathBuf, String>>,
+    /// The repository Tinkery was started in; the review shows it and the record keeps it.
+    repo: Option<crate::repo::Repo>,
 }
 
 impl Default for BrainDump {
@@ -733,10 +735,12 @@ impl BrainDump {
         let config = self.handoff.config.clone();
         let voice = self.voice.is_some();
         let record_root = self.handoff.record_root.clone();
+        let repo = self.handoff.repo.clone();
         Box::new(move || {
             let mut dump = Self::with_mode(host.clone(), real);
             dump.handoff.config = config.as_ref().map(seed_me::Config::fresh);
             dump.handoff.record_root = record_root.clone();
+            dump.handoff.repo = repo.clone();
             if voice {
                 dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
             }

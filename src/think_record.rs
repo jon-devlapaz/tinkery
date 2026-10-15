@@ -9,7 +9,7 @@
 
 mod read;
 
-pub use read::{History, RecordedTurn, Unavailable, read};
+pub use read::{History, MadeIn, RecordedTurn, Unavailable, read};
 
 use crate::goal::Part;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ use std::{
 };
 
 /// The record format's version. Renaming or removing a field changes it.
-pub const SCHEMA: u8 = 2;
+pub const SCHEMA: u8 = 3;
 
 /// Where records go for a user whose home is `home` (the `HOME` variable). Only a default: the
 /// operator may point Tinkery elsewhere with `--record-root`, and nothing here creates the
@@ -154,6 +154,9 @@ pub struct Session<'a> {
     pub goal: &'a str,
     /// The Seed Me session folder the goal was saved in.
     pub seed_me_session: &'a Path,
+    /// The repository root Tinkery was started in, or `None` outside one. Where the goal was
+    /// made, never what it is about.
+    pub repo: Option<&'a Path>,
     /// When the save read back.
     pub confirmed: SystemTime,
 }
@@ -195,6 +198,14 @@ pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
         .to_str()
         .ok_or("The saved session path is not valid UTF-8.")?;
     let saved_id = crate::seed_me::session_id(&session_path, session.goal)?;
+    let repo = session
+        .repo
+        .map(|root| {
+            root.to_str()
+                .filter(|_| root.is_absolute())
+                .ok_or("The repository path must be absolute and valid UTF-8.")
+        })
+        .transpose()?;
     let id = session_id(&session_path);
     let started = session.turns.first().map_or(session.confirmed, |t| t.at);
     let record = serde_json::json!({
@@ -209,6 +220,7 @@ pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
         "seed_me_session": id,
         "seed_me_session_path": session_path_text,
         "seed_me_session_id": saved_id,
+        "repo": repo,
         "turns": session.turns.iter().map(|t| TurnOut { at: utc(t.at, ':'), event: &t.event }).collect::<Vec<_>>(),
         "checks": session.checks,
         "goal": session.goal,
@@ -356,6 +368,7 @@ mod tests {
             checks: vec![serde_json::json!({"check": "TEST"})],
             goal: "I TEST.\nWhy: because.",
             seed_me_session: &session_path,
+            repo: None,
             confirmed: at(1_791_844_800),
         };
         let path = write(&root, &session).unwrap();
@@ -366,7 +379,11 @@ mod tests {
         assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
         let record: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(record["schema"], 2);
+        assert_eq!(record["schema"], 3);
+        assert!(
+            record["repo"].is_null(),
+            "outside a repository the record says none"
+        );
         assert_eq!(
             record["seed_me_session_path"],
             session_path.canonicalize().unwrap().to_str().unwrap()
@@ -389,5 +406,39 @@ mod tests {
             1,
             "no temp file left behind"
         );
+    }
+
+    #[test]
+    fn records_the_repository_it_was_made_in_and_refuses_a_relative_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let session_path = dir.path().join("TEST-sessions/one");
+        std::fs::create_dir_all(&session_path).unwrap();
+        std::fs::write(
+            session_path.join("ledger.json"),
+            serde_json::json!({"schema_version": 1, "session_id": "TEST-id", "goal": "I TEST."})
+                .to_string(),
+        )
+        .unwrap();
+        let repo = dir.path().join("TEST-repo");
+        let origin = Origin::simulated();
+        let session = |repo| Session {
+            origin: &origin,
+            turns: &[],
+            checks: vec![],
+            goal: "I TEST.",
+            seed_me_session: &session_path,
+            repo,
+            confirmed: at(1_791_844_800),
+        };
+        let root = dir.path().join("TEST-records");
+        let path = write(&root, &session(Some(&repo))).unwrap();
+        let record: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(record["repo"], repo.to_str().unwrap());
+        let relative = write(
+            &dir.path().join("TEST-other"),
+            &session(Some(Path::new("TEST-repo"))),
+        );
+        assert!(relative.unwrap_err().contains("absolute"));
     }
 }

@@ -99,6 +99,16 @@ impl BrainDump {
         self.handoff.record_root = Some(root);
         self
     }
+    /// Records `repo` as where a confirmed goal was made, and shows it on the review screen
+    /// before `confirm`. `None` (outside a repository) shows nothing and records none.
+    pub fn with_repo(mut self, repo: Option<crate::repo::Repo>) -> Self {
+        self.handoff.repo = repo;
+        self
+    }
+    /// The repository this think was started in, if any.
+    pub(crate) fn repo(&self) -> Option<&crate::repo::Repo> {
+        self.handoff.repo.as_ref()
+    }
     /// True when a goal can be saved here: real mode with Seed Me. Practice never saves, so it
     /// never offers review.
     pub(super) fn can_save(&self) -> bool {
@@ -139,6 +149,7 @@ impl BrainDump {
                 checks: checks::recorded(&self.diagnostics()),
                 goal,
                 seed_me_session: &receipt.session,
+                repo: self.handoff.repo.as_ref().map(crate::repo::Repo::root),
                 confirmed: std::time::SystemTime::now(),
             },
         )
@@ -444,6 +455,15 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     let rows =
         Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
     let mut body = format!("You are confirming\n{}", review.affirmation.goal);
+    // The record keeps where the goal was made, so the person sees it before confirming.
+    if let Some(repo) = app
+        .handoff
+        .repo
+        .as_ref()
+        .filter(|_| app.handoff.record_root.is_some())
+    {
+        body.push_str(&format!("\n\nmade in {}", repo.name()));
+    }
     if !review.affirmation.other_goals.is_empty() {
         body.push_str(&format!(
             "\n\nalso in your dump: {}",

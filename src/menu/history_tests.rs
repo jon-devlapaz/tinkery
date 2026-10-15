@@ -26,6 +26,7 @@ fn home() -> (tempfile::TempDir, Home, PathBuf, Vec<u8>) {
             checks: vec![],
             goal,
             seed_me_session: &session,
+            repo: None,
             confirmed: SystemTime::now(),
         },
     )

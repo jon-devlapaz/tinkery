@@ -10,17 +10,22 @@ HOST='''#!/usr/bin/env python3
 import json,sys
 from pathlib import Path
 with Path('provider-calls').open('a') as log: log.write('call\\n')
-r=json.load(sys.stdin)
+raw=sys.stdin.read()
+with Path('provider-requests').open('a',encoding='utf-8') as log: log.write(' '.join(sys.argv)+raw+'\\n')
+r=json.loads(raw)
 if r.get('kind')=='meaning-preservation': print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)
 if r.get('kind')=='question-continuity':print('{"repeated":[]}');sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='judge a PR ready for human review as restaurateur while both the harness and codebase compound',why='I retain final judgment',done_when='a PR is ready for human review',must=['human taste'],must_not=['cook','show cost unless it is way off','build a dashboard']),open=['why'],supports=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']],misfits=[],questions=[dict(target='why',id='open',text='Which UI or consequential design checkpoints remain unresolved?')],alternatives=[])))
 '''
 def helper(*args):
  p=subprocess.run(['python3',str(HELPER),*map(str,args)],capture_output=True,text=True,check=True);return json.loads(p.stdout)
-def journey(width,height,home=False,menu_only=False,home_case='absolute',session_case='explicit'):
+def journey(width,height,home=False,menu_only=False,home_case='absolute',session_case='explicit',in_repo=False):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-goal-') as directory:
   cwd=Path(directory);root=cwd/'TEST-sessions' if session_case!='default' else cwd/'TEST-home/.local/share/seed-me/sessions'
   records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
+  # Inside a repository, start from a nested folder: Tinkery names the root; stores stay outside it.
+  repo=cwd/'TEST-repo';run=repo/'nested' if in_repo else cwd
+  if in_repo:(repo/'.git').mkdir(parents=True);run.mkdir()
   root_args=[] if session_case=='default' else ['--seed-session-root',str(root) if session_case=='explicit' else 'TEST-sessions']
   # Observe even short-lived helper/provider Python launches without changing the official helper.
   python=cwd/'python3'
@@ -31,7 +36,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
   if home_case=='unset':environment.pop('HOME')
   elif home_case=='empty':environment['HOME']=''
   elif home_case=='relative':environment['HOME']='TEST-relative-home'
-  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--link-root',str(cwd/'TEST-links'),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=environment)
+  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--link-root',str(cwd/'TEST-links'),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=run,env=environment)
   raw=bytearray()
   def feed():
    data=os.read(master,65536);raw.extend(data);screen.feed(data)
@@ -62,7 +67,10 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    raise AssertionError(f'Stale modal still visible: {text}')
   def send(data,text):os.write(master,data);await_text(text)
   try:
-   if home: await_text('think');send(b'1',"What's on your mind?")
+   if home:
+    await_text('think');title=screen.text().splitlines()[1]
+    assert ('tinkery  in TEST-repo' in title)==in_repo and (' in ' in title)==in_repo,title
+    send(b'1',"What's on your mind?")
    else: await_text("What's on your mind?")
    assert not root.exists() and not records.exists()
    dump='  PR ready for human review. restaurateur, not cook. Café 👩‍💻; harness and codebase both compound. Cost only when it\'s way off; no dashboard.  '
@@ -71,7 +79,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    # Unsent words block review, and the screen says why; clearing them clears the reason.
    send(b'x\x07','unsent');assert 'Send (F2) or clear your unsent words, then review.' in right(),screen.text()
    os.write(master,b'\x7f');absent('unsent')
-   send(b'\x07','type confirm');assert "type confirm to save the goal and its record. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists() and not records.exists()
+   send(b'\x07','type confirm');assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists() and not records.exists()
    # A refused Enter says why where the confirm prompt was: scroll first, or type the word.
    send(b'\r','Enter.');shown=' '.join(right().split());assert 'Read to the end first: PgDn scrolls. Then type confirm and Enter.' in shown or 'Type confirm, then Enter. Nothing saved.' in shown,screen.text()
    os.write(master,b'\x1bOQ');time.sleep(.1);assert not root.exists() and not records.exists(),'Opening/Enter/F2 implied consent'
@@ -100,8 +108,11 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    written=list(records.iterdir());assert len(written)==1,written
    record=json.loads(written[0].read_text());record_bytes=written[0].read_bytes()
    assert written[0].name.endswith('_'+session.name+'.json'),written[0].name
-   assert record['schema']==2 and record['origin']=='live' and record['model']=='test/model' and record['seed_me_session']==session.name
+   assert record['schema']==3 and record['origin']=='live' and record['model']=='test/model' and record['seed_me_session']==session.name
    assert Path(record['seed_me_session_path']) == session
+   assert (Path(record['repo']).resolve()==repo.resolve()) if in_repo else record['repo'] is None,record['repo']
+   assert 'TEST-repo' not in (run/'provider-requests').read_text(),'the repository reached the provider'
+   assert 'TEST-repo' not in (session/'ledger.json').read_text(),'the repository reached the Seed Me ledger'
    assert record['goal']==ledger['goal'],(record['goal'],ledger['goal'])
    assert [t['kind'] for t in record['turns']]==['words','asked'],record['turns']
    assert record['turns'][0]['text']==dump and record['turns'][1]['id']=='open'
@@ -111,7 +122,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert failed.returncode!=0 and 'seed-contract.md' in failed.stderr
    assert helper('read',session)['status']=='active'
    saved=(session/'ledger.json').read_bytes()
-   calls=(cwd/'provider-calls').read_bytes()
+   calls=(run/'provider-calls').read_bytes()
    launches=(cwd/'python-launches').read_bytes()
    initialized=[args for args in map(ast.literal_eval,launches.decode().splitlines()) if len(args)>1 and args[1]=='init']
    expected_root=str(root.resolve()) if session_case=='relative' else str(root)
@@ -127,7 +138,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     "Read the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\n"
     "Follow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.")
    assert base64.b64decode(matches[-1]).decode()==expected,(base64.b64decode(matches[-1]).decode(),expected)
-   assert descendants()==owned and (cwd/'provider-calls').read_bytes()==calls
+   assert descendants()==owned and (run/'provider-calls').read_bytes()==calls
    assert (cwd/'python-launches').read_bytes()==launches
    assert (session/'ledger.json').read_bytes()==saved and len(list(root.iterdir()))==1
    assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
@@ -179,7 +190,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert (session/'ledger.json').read_bytes()==saved
    assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
    assert helper('status',session)['viewer']=='started earlier, not running now'
-   assert not descendants() and (cwd/'provider-calls').read_bytes()==calls
+   assert not descendants() and (run/'provider-calls').read_bytes()==calls
    assert (cwd/'python-launches').read_bytes()==launches
    os.write(master,b'\x1b[21~');deadline=time.monotonic()+10
    while process.poll() is None and time.monotonic()<deadline:
@@ -191,7 +202,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert ('Think record: '+str(written[0])).encode() in bytes(raw),bytes(raw)[-2000:]
    assert helper('status',session)['viewer']=='started earlier, not running now'
    assert helper('read',session)['status']=='active';assert not (session/'seed-contract.md').exists()
-   print(json.dumps(dict(width=width,height=height,provider='stub',helper='official',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['c','s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_stopped=True,session_root='isolated temporary directory',home_case=home_case,session_case=session_case)))
+   print(json.dumps(dict(width=width,height=height,provider='stub',helper='official',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['c','s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_stopped=True,session_root='isolated temporary directory',home_case=home_case,session_case=session_case,in_repo=in_repo)))
   finally:
    if process.poll() is None:process.kill();process.wait()
    # If an assertion failed, stop only the viewer recorded by this TEST session.
@@ -213,3 +224,4 @@ for home_case in ['unset','empty','relative']:
 for home in [False,True]:
  for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size,home=home)
  journey(80,24,home=home,menu_only=True)
+ for size in [(80,24),(100,30)]:journey(*size,home=home,in_repo=True)

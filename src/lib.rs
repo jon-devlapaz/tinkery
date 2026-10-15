@@ -2,7 +2,7 @@
 //!
 //! Each place in the menu is a phase with its own module (`think`, `tend`, `measure`); the menu
 //! is the only module that knows them all. Phases never use each other: anything two of them
-//! share (`goal`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
+//! share (`goal`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
 #![deny(missing_docs, unreachable_pub)]
 
@@ -11,6 +11,7 @@ use ratatui::style::{Color, Modifier, Style};
 pub mod goal;
 pub mod measure;
 pub mod menu;
+pub mod repo;
 pub mod seed_me;
 pub mod tend;
 pub mod think;

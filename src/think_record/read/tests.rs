@@ -75,6 +75,7 @@ fn record(root: &Path, session: &Path, seconds: u64) -> PathBuf {
             checks: vec![serde_json::json!({"check": "TEST", "passed": true})],
             goal: GOAL,
             seed_me_session: session,
+            repo: None,
             confirmed: UNIX_EPOCH + Duration::from_secs(seconds),
         },
     )
@@ -308,6 +309,7 @@ fn missing_session_identity_is_never_inferred_when_reading_or_writing() {
             checks: vec![],
             goal: GOAL,
             seed_me_session: &session,
+            repo: None,
             confirmed: UNIX_EPOCH,
         },
     )
@@ -356,10 +358,56 @@ fn unavailable_session_refuses_record_write_without_creating_record_root() {
             checks: vec![],
             goal: GOAL,
             seed_me_session: &missing,
+            repo: None,
             confirmed: UNIX_EPOCH,
         },
     )
     .unwrap_err();
     assert!(error.contains("TEST-missing-session"));
     assert!(!root.exists());
+}
+
+#[test]
+fn where_a_goal_was_made_reads_back_and_older_records_say_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-a");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &session, 10);
+    assert_eq!(read(&root, &session, GOAL).unwrap().made_in, MadeIn::NoRepo);
+    amend(&path, |value| value["repo"] = "/TEST/repo-root".into());
+    let history = read(&root, &session, GOAL).unwrap();
+    assert_eq!(history.made_in, MadeIn::Repo("/TEST/repo-root".into()));
+    assert!(history.details.contains("Repository: /TEST/repo-root"));
+    amend(&path, |value| {
+        value["schema"] = 2.into();
+        value.as_object_mut().unwrap().remove("repo");
+    });
+    let history = read(&root, &session, GOAL).unwrap();
+    assert_eq!(
+        history.made_in,
+        MadeIn::Unknown,
+        "schema 2 is still readable"
+    );
+    assert!(history.details.contains("Repository: not recorded"));
+}
+
+#[test]
+fn a_current_record_without_a_usable_repository_field_is_unreadable() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-a");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &session, 10);
+    for change in [
+        |v: &mut serde_json::Value| {
+            v.as_object_mut().unwrap().remove("repo");
+        },
+        |v: &mut serde_json::Value| v["repo"] = "TEST-relative".into(),
+        |v: &mut serde_json::Value| v["repo"] = 7.into(),
+    ] {
+        let original = fs::read(&path).unwrap();
+        amend(&path, change);
+        let error = read(&root, &session, GOAL).unwrap_err();
+        assert!(error.details.contains("recorded repository"), "{error:?}");
+        fs::write(&path, original).unwrap();
+    }
 }

@@ -56,7 +56,8 @@ Today, Tinkery can:
 - Help you think through a dump and explicitly save a confirmed goal. Confirming
   saves that goal, unchanged, as a Seed Me session in
   `~/.local/share/seed-me/sessions/`, and writes a think record to
-  `~/.local/share/tinkery/think/`.
+  `~/.local/share/tinkery/think/`. Started inside a Git repository, Tinkery names it
+  on the menu and the record keeps where the goal was made.
 - Show active saved goals as rings in Tend's graph, with lines for what they need.
   Link or unlink goals, open their detail and copy a continuation prompt to Claude,
   Codex or Pi. In a goal's detail, press `r` to read its

@@ -12,6 +12,7 @@ fn outcome(label: &str) -> Outcome {
     Ok(History {
         turns: vec![],
         goal: label.into(),
+        made_in: MadeIn::Unknown,
         details: label.into(),
     })
 }
@@ -117,6 +118,7 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
             },
         }],
         goal: "Goal exactly.\nMust not: rewrite.".into(),
+        made_in: MadeIn::Repo("/TEST/private/TEST-repo".into()),
         details: "/TEST/private-record.json\nMODEL-ONLY-HERE".into(),
     }));
     let body = screen(&mut view, (100, 30), false, false);
@@ -125,6 +127,25 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
     assert!(body.contains("Goal exactly.") && body.contains("Must not: rewrite."));
     assert!(!body.contains("MODEL") && !body.contains("/TEST"));
     assert!(screen(&mut view, (100, 30), true, true).contains("MODEL-ONLY-HERE"));
+    assert!(body.contains("Made in") && body.contains("TEST-repo"));
+}
+
+#[test]
+fn where_a_goal_was_made_is_said_plainly_and_never_guessed() {
+    for (made_in, said) in [
+        (MadeIn::NoRepo, "not in a repository"),
+        (MadeIn::Unknown, "repo unknown"),
+    ] {
+        let mut view = View::waiting();
+        view.finish(Ok(History {
+            turns: vec![],
+            goal: "Goal.".into(),
+            made_in,
+            details: String::new(),
+        }));
+        let body = screen(&mut view, (100, 30), false, false);
+        assert!(body.contains("Made in") && body.contains(said), "{body}");
+    }
 }
 
 #[test]

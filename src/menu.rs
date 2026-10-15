@@ -74,6 +74,7 @@ pub struct Home {
     record_root: Result<PathBuf, String>,
     history_reader: tend::history::Reader,
     measure: measure::Reader,
+    repo: Option<crate::repo::Repo>,
 }
 
 enum View {
@@ -114,6 +115,7 @@ impl Home {
             record_root: crate::think_record::default_root(std::env::var_os("HOME").as_deref()),
             history_reader: tend::history::Reader::default(),
             measure: measure::Reader::default(),
+            repo: None,
         }
     }
 
@@ -128,6 +130,12 @@ impl Home {
     /// The Seed Me skill tend's continuation prompt names.
     pub fn with_seed_me(mut self, skill: PathBuf) -> Self {
         self.seed_me = Some(skill);
+        self
+    }
+
+    /// The repository Tinkery was started in, named once on the menu; `None` shows nothing.
+    pub fn with_repo(mut self, repo: Option<crate::repo::Repo>) -> Self {
+        self.repo = repo;
         self
     }
 
@@ -155,6 +163,7 @@ impl Home {
             home.record_root = Ok(root.to_path_buf());
         }
         home.key_bar = dump.key_bar_on();
+        home.repo = dump.repo().cloned();
         home.seed_me = dump.saved().map(|r| r.skill.clone());
         if let Some(receipt) = dump.finish_handoff() {
             home.receipts.push(receipt);
@@ -643,8 +652,12 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
         View::Think(_) => unreachable!(),
     };
+    let mut title = vec![Span::styled(title, palette.ink)];
+    if let (View::Menu, Some(repo)) = (&home.view, &home.repo) {
+        title.push(Span::styled(format!("  in {}", repo.name()), palette.muted));
+    }
     frame.render_widget(
-        Paragraph::new(title).style(palette.ink),
+        Paragraph::new(Line::from(title)),
         Rect::new(2, 1, area.width.saturating_sub(6), 1),
     );
     if area.width >= 4 {

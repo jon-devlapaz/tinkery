@@ -44,6 +44,13 @@ underneath it. Paste still does nothing. Esc closes; ?/F1 and the corner help cl
 toggle it; q, Ctrl-C and F10 retain their explicit quit routes. Closing restores the
 same selection. Other places own their help behavior.
 
+Started inside a Git repository, the menu names it once beside the title, muted:
+`tinkery  in <folder>`. Outside one, nothing is shown: no prompt, warning or offer to
+create one. The root is found by looking for `.git` (a folder, or a worktree's file)
+from the launch folder upward; no `git` command runs and nothing inside is read
+([#153](https://github.com/jon-devlapaz/tinkery/issues/153)). The repository names
+where the operator is, never what a goal is about, and grants nothing.
+
 Digits or arrows plus Enter open a place; home `q` quits. Think's
 [exit contract](think.md#sending-and-leaving) guards unsaved work. The binary
 opens this menu with `--home`; without it, think opens directly. The separate

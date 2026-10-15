@@ -25,9 +25,17 @@ fn records(root: &Path) -> Vec<std::path::PathBuf> {
 }
 /// A practice-host session with a dump, a skip, its undo and an answer, writing records to `root`.
 fn session(root: &Path) -> BrainDump {
-    let mut a = BrainDump::with_host(Arc::new(Simulated))
+    session_with(Arc::new(Simulated), root, None)
+}
+fn session_with(
+    host: Arc<dyn BoardHost>,
+    root: &Path,
+    repo: Option<crate::repo::Repo>,
+) -> BrainDump {
+    let mut a = BrainDump::with_host(host)
         .with_seed_me("/missing/SKILL.md".into(), None)
-        .with_record_root(root.to_path_buf());
+        .with_record_root(root.to_path_buf())
+        .with_repo(repo);
     a.paste(DUMP);
     a.submit();
     settle(&mut a);
@@ -85,7 +93,8 @@ fn a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal()
     assert!(name.ends_with("Z_20261012-TEST.json"), "{name}");
     let record: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&files[0]).unwrap()).unwrap();
-    assert_eq!(record["schema"], 2);
+    assert_eq!(record["schema"], 3);
+    assert!(record["repo"].is_null(), "no repository was given");
     assert_eq!(record["origin"], "simulated");
     assert_eq!(record["seed_me_session"], "20261012-TEST");
     assert_eq!(
@@ -380,4 +389,65 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
         assert_eq!(record["turns"][0]["text"], name);
     }
     assert_eq!(std::fs::read(alpha_file).unwrap(), alpha_bytes);
+}
+
+/// The practice reading, keeping every request exactly as it would leave for a model.
+#[derive(Default)]
+struct Spy(std::sync::Mutex<Vec<String>>);
+impl BoardHost for Spy {
+    fn reshape(
+        &self,
+        request: BoardRequest,
+        cancelled: &std::sync::atomic::AtomicBool,
+    ) -> Result<Guess, String> {
+        self.0
+            .lock()
+            .unwrap()
+            .push(serde_json::to_string(&request).unwrap());
+        Simulated.reshape(request, cancelled)
+    }
+}
+
+#[test]
+fn the_repository_is_shown_before_confirm_kept_in_the_record_and_never_sent_to_the_model() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo_root = dir.path().join("TEST-repo-made-here");
+    std::fs::create_dir_all(repo_root.join(".git")).unwrap();
+    let repo = crate::repo::Repo::enclosing(&repo_root);
+    let root = dir.path().join("TEST-records");
+    let spy = Arc::new(Spy::default());
+    let mut a = session_with(spy.clone(), &root, repo);
+    a.review_goal();
+    let screen = snapshot(100, 30, &mut a, true).unwrap();
+    assert!(screen.contains("made in TEST-repo-made-here"), "{screen}");
+    let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    assert!(
+        !shown.contains("TEST-repo"),
+        "the goal itself never names the repository"
+    );
+    save(&mut a, Ok(receipt(dir.path(), &shown)));
+    let files = records(&root);
+    let record: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&files[0]).unwrap()).unwrap();
+    assert_eq!(record["repo"], repo_root.to_str().unwrap());
+    assert_eq!(
+        a.fresh_factory()().repo().map(crate::repo::Repo::root),
+        Some(repo_root.as_path()),
+        "the next goal from the menu keeps where Tinkery was started"
+    );
+    let sent = spy.0.lock().unwrap();
+    assert!(!sent.is_empty(), "the session made readings");
+    assert!(
+        sent.iter().all(|r| !r.contains("TEST-repo")),
+        "the repository reached a model request"
+    );
+}
+
+#[test]
+fn without_a_repository_review_says_nothing_about_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut a = session(&dir.path().join("TEST-records"));
+    a.review_goal();
+    let screen = snapshot(100, 30, &mut a, true).unwrap();
+    assert!(!screen.contains("made in"), "{screen}");
 }
