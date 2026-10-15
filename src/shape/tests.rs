@@ -160,13 +160,16 @@ fn failures_and_missing_setup_are_said_plainly_with_the_reason_in_help() {
     failed.open.as_mut().unwrap().reading =
         Reading::Done(Err("Seed Me helper refused: no ledger".into()));
     let text = screen(&mut failed, 100, 30, true);
-    assert!(text.contains("Shape couldn't read this session."), "{text}");
-    assert!(!text.contains("no ledger"), "{text}");
     assert!(
-        failed
-            .help_text()
-            .contains("Seed Me helper refused: no ledger")
+        text.contains("Seed Me refused to read this session: no ledger"),
+        "{text}"
     );
+    assert!(text.contains("Next: Esc goes back"), "{text}");
+    failed.open.as_mut().unwrap().reading = Reading::Done(Err("Cannot locate Seed Me: x".into()));
+    let text = screen(&mut failed, 100, 30, true);
+    assert!(text.contains("Shape couldn't read this session."), "{text}");
+    assert!(!text.contains("Cannot locate"), "{text}");
+    assert!(failed.help_text().contains("Cannot locate Seed Me: x"));
     assert!(failed.help_text().contains("/tmp/TEST-shape/session"));
 }
 

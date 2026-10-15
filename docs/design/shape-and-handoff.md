@@ -245,7 +245,9 @@ The screen shows the confirmed goal exactly as the ledger records it, in ink, th
 
 An open question comes before a seed, so a reopened decision is never hidden behind an
 older draft. Each state ends with one `Next:` line; until answering is built, that points
-to tend's `c`. A missing `--seed-me` or a helper failure says so, with the reason and paths
+to tend's `c`, in the words Tend's detail uses for the same stage. When Seed Me's helper
+refuses a session, Shape shows Seed Me's first line of reason, such as a ledger saved in
+another format. A missing `--seed-me` or another failure says so; reasons and paths are
 under F1. Reads run off the paint path. Shape writes nothing, copies nothing, calls no
 model and leaves the continuation prompt unchanged. `status` probes a viewer URL that the
 session records, which is a local read.

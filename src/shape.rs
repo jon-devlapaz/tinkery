@@ -288,11 +288,18 @@ fn render_open(frame: &mut Frame, scroll: &mut u16, open: &Opened, area: Rect, p
             None,
             Text::styled("Reading where this seed stands.", palette.muted),
         ),
-        Reading::Done(Err(_)) => (
+        Reading::Done(Err(error)) => (
             None,
             plain(
-                "Shape couldn't read this session. F1 shows why.",
-                "Next: Esc goes back.",
+                &match error
+                    .strip_prefix("Seed Me helper refused: ")
+                    .and_then(|reason| reason.lines().next())
+                    .filter(|reason| !reason.trim().is_empty())
+                {
+                    Some(reason) => format!("Seed Me refused to read this session: {reason}"),
+                    None => "Shape couldn't read this session. F1 shows why.".into(),
+                },
+                "Next: Esc goes back; F1 shows where the session is.",
                 palette,
             ),
         ),
@@ -364,7 +371,7 @@ fn standing(stage: &Shaped, palette: Palette) -> Text<'static> {
         }
         Shaped::Waiting => plain(
             "Seed Me hasn't asked its next question yet.",
-            &format!("Next: continue with Seed Me; {CONTINUE}"),
+            &format!("Next: shape it into a seed with Seed Me; {CONTINUE}"),
             palette,
         ),
         Shaped::Drafted { revision } => plain(
@@ -372,7 +379,7 @@ fn standing(stage: &Shaped, palette: Palette) -> Text<'static> {
                 Some(r) => format!("Seed draft {r} is waiting for you to confirm it."),
                 None => "A seed draft is waiting for you to confirm it.".into(),
             },
-            &format!("Next: read and confirm it with Seed Me; {CONTINUE}"),
+            &format!("Next: confirm the seed draft with Seed Me; {CONTINUE}"),
             palette,
         ),
         Shaped::Ready { revision } => plain(

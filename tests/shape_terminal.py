@@ -132,7 +132,7 @@ def journey(width, height, case, no_color=False):
                     'ready': 'Seed ready: you confirmed r1, and it still matches.',
                     'stale': "Seed Me can't verify it: the seed changed after revision r1 was confirmed.",
                     'ended': 'This session has ended (stopped).',
-                    'unreadable': "Shape couldn't read this session.",
+                    'unreadable': 'Seed Me refused to read this session:',
                 }[case]
                 send(b's', expected)
                 assert screen.text().splitlines()[-1].strip() == SHAPE_KEYS, screen.text()
