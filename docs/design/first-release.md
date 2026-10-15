@@ -1,9 +1,9 @@
 # First complete release
 
-The release boundary is **think → tend → approve → watch → taste → measure**
+The release boundary is **think → tend → shape → approve → watch → taste → measure**
 (tend replaced the operator's original shape list on 2026-10-14,
-[#123](https://github.com/jon-devlapaz/tinkery/issues/123); shape returns later as the
-Seed Me step). The north star is **useful, verified changes per operator hour**,
+[#123](https://github.com/jon-devlapaz/tinkery/issues/123); the operator put shape, the
+Seed Me step, back in this release on 2026-10-15). The north star is **useful, verified changes per operator hour**,
 from [the constitution](../yohaku.md). A useful result meets the original goal,
 passes its required checks and is accepted by the operator.
 
@@ -21,6 +21,7 @@ the tend row reflects the replacement above:
 | --- | --- | --- |
 | Think | Refine a dump and explicitly save its confirmed goal | Repeatable quality checks and operator recognition on permitted examples |
 | Tend | Show saved goals in a read-only garden, open detail and copy a continuation prompt | Trace the same goal through the existing external workflow |
+| Shape | Copy a continuation prompt; the interview runs outside Tinkery | Run Seed Me's interview on a confirmed goal and end with a seed the operator confirms |
 | Approve | Placeholder | Show the exact pending decision and a deliberate approval handoff |
 | Watch | Placeholder | Show trustworthy progress and the next action for one job |
 | Taste | Placeholder | Compare a result and its checks with the original goal |
@@ -36,7 +37,7 @@ Sources: [current scope](../../README.md), [menu](menu.md),
 
 ## Finish line
 
-- [ ] A real change travels through all six places without the operator having to
+- [ ] A real change travels through all seven places without the operator having to
   reconstruct or re-explain the goal at a handoff.
 - [ ] Original words and the confirmed goal survive exactly. Goal confirmation,
   seed confirmation, intake approval and implementation permission stay distinct.
@@ -54,7 +55,8 @@ and success threshold before live work. This is a practical release check, not a
 statistical claim about all work. Establish the comparison baseline before using
 the new full-loop views on the trial tasks.
 
-Keep the existing manual agent handoff for this release. An integrated launcher,
+Shape runs the Seed Me step inside Tinkery, each agent step started by an explicit
+operator key. Keep the existing manual handoff for implementation. An integrated launcher,
 automatic approval or merge, multi-run dashboard and the Think convenience
 proposals are outside this release unless real use reveals a specific blocker.
 The [Substrate absorption decision](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
@@ -76,12 +78,15 @@ requires issue evidence and review/merge where code is involved.
 | M3. Approve | The displayed revision and required decision agree with the existing approval mechanism | [R6](first-release-issues.md#r6) |
 | M4. Watch | One external job has a reliable state, source freshness and next action | [R7](first-release-issues.md#r7) |
 | M5. Taste | The operator can judge the exact result against the goal and supporting checks | [R8](first-release-issues.md#r8) |
-| M6. Prove saved attention | All six places work together and a permitted trial demonstrates useful improvement | [R9](first-release-issues.md#r9), [R10](first-release-issues.md#r10) |
+| M7. Shape | A confirmed goal becomes a confirmed seed inside Tinkery, with Seed Me's session as the only record | [R11](first-release-issues.md#r11) |
+| M6. Prove saved attention | All seven places work together and a permitted trial demonstrates useful improvement | [R9](first-release-issues.md#r9), [R10](first-release-issues.md#r10) |
 
 ```mermaid
 flowchart TD
     Done58["#58 reviewed, merged and checked"] --> R1["R1: fake evaluation"]
     Done58 --> R2["R2: map existing records"]
+    Done58 --> R11["R11: Shape"]
+    R11 --> R6
     R1 --> R3["R3: budgeted live evaluation"]
     R3 --> R4["R4 / #109: human baseline"]
     R2 --> Design["Accept revised identity/reader design"]
@@ -94,6 +99,7 @@ flowchart TD
     R5 --> R9["R9 / #115: Measure"]
     R4 --> R10["R10 / #116: complete journey and trial"]
     R6 --> R10
+    R11 --> R10
     R7 --> R10
     R8 --> R10
     R9 --> R10

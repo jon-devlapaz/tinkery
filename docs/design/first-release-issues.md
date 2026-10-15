@@ -1,6 +1,6 @@
 # First-release tasks
 
-R1–R10 and I1/I2 are stable local labels, not GitHub issue numbers. R1–R3 are
+R1–R11 and I1/I2 are stable local labels, not GitHub issue numbers. R1–R3 are
 done; the selected release tasks below are published, unassigned and
 `needs-approval`. GitHub owns their scope, completion checks and blocking links.
 This page is an index, not a second task specification.
@@ -94,3 +94,9 @@ open decisions and completion evidence.
 
 Published: [#116](https://github.com/jon-devlapaz/tinkery/issues/116) · needs approval. See the issue for scope, dependencies,
 open decisions and completion evidence.
+
+<a id="r11"></a>
+## R11 — Turn a confirmed goal into a seed in Shape
+
+Added by the operator on 2026-10-15 · M7 · not yet published. The [Shape design](shape-and-handoff.md#shape)
+is a proposal; its issue, scope and completion checks still need publication and approval.
