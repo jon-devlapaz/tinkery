@@ -18,6 +18,7 @@ fn key(code: KeyCode) -> KeyEvent {
 
 fn sess(id: &str, stage: Stage, updated: &str) -> Session {
     Session {
+        id: Some(id.into()),
         path: PathBuf::from(format!("/TEST/{id}")),
         goal: format!("goal {id}"),
         stage,
@@ -96,6 +97,7 @@ fn home(source: Source) -> Home {
         Box::new(BrainDump::default),
         Ok(PathBuf::from("/TEST/sessions")),
         PathBuf::from("/TEST/no-substrate"),
+        Err("TEST links unavailable".into()),
     )
     .with_discovery_source(source)
 }
@@ -106,7 +108,7 @@ fn screen(h: &mut Home) -> String {
 fn garden(count: usize) -> Home {
     let mut h = home(Arc::new(|_| panic!("input and painting never read")))
         .with_seed_me("/TEST/SKILL.md".into());
-    let mut tend = Tend::new();
+    let mut tend = Tend::new(Err("TEST links unavailable".into()));
     tend.apply(
         &found(
             (0..count)
@@ -135,6 +137,24 @@ fn press(h: &mut Home, column: u16, row: u16, now: Instant) {
         Rect::new(0, 0, 100, 30),
         now,
     );
+}
+
+fn goal_point(h: &mut Home, name: &str) -> (u16, u16) {
+    let frame = screen(h);
+    let (row, line) = frame
+        .lines()
+        .enumerate()
+        .skip(3)
+        .take(23)
+        .find(|(_, line)| line.contains(name))
+        .unwrap_or_else(|| panic!("{name}: {frame}"));
+    let col = line[..line.find(name).unwrap()].chars().count();
+    ((col + name.chars().count() / 2) as u16, row as u16)
+}
+
+fn press_goal(h: &mut Home, name: &str, now: Instant) {
+    let (x, y) = goal_point(h, name);
+    press(h, x, y, now);
 }
 
 #[test]
@@ -184,20 +204,32 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
         }
     }
     let now = Instant::now();
-    for (index, column, row) in [(0, 3, 3), (1, 24, 3), (2, 45, 3), (3, 66, 3), (4, 14, 7)] {
-        press(&mut h, column, row, now);
+    for (index, &stage) in stages.iter().enumerate() {
+        press_goal(
+            &mut h,
+            &format!("goal {index}"),
+            now + Duration::from_secs(index as u64),
+        );
         assert_eq!(selected(&h), index);
         h.handle_key(key(KeyCode::Enter));
         let View::Tend(tend) = &h.view else { panic!() };
         assert!(tend.detail);
-        assert_eq!(tend.current().unwrap().stage, stages[index]);
+        assert_eq!(tend.current().unwrap().stage, stage);
         h.handle_key(key(KeyCode::Esc));
     }
 }
 
 #[test]
 fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-ended-notes-")
+        .tempdir()
+        .unwrap();
     let mut h = garden(0);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().join("TEST-links")));
     for count in [1, 2] {
         for unreadable in [0, 1] {
             let View::Tend(tend) = &mut h.view else {
@@ -249,7 +281,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
 #[test]
 fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
     for stage in [Stage::GoalSaved, Stage::Ended] {
-        let mut tend = Tend::new();
+        let mut tend = Tend::new(Err("TEST links unavailable".into()));
         tend.want = Some(("/TEST/alias".into(), Some("/TEST/target".into())));
         tend.apply(
             &found(vec![
@@ -271,7 +303,7 @@ fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
 }
 
 #[test]
-fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
+fn garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize() {
     let mut h = garden(23);
     h.handle_key(key(KeyCode::Down));
     assert_eq!(selected(&h), 1, "the pre-render stride defaults to one");
@@ -279,11 +311,11 @@ fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
     for (code, expected) in [
         (KeyCode::Right, 2),
         (KeyCode::Char('j'), 3),
-        (KeyCode::Down, 7),
+        (KeyCode::Down, 4),
         (KeyCode::Up, 3),
-        (KeyCode::Up, 3),
-        (KeyCode::Left, 2),
-        (KeyCode::Char('k'), 1),
+        (KeyCode::Up, 2),
+        (KeyCode::Left, 1),
+        (KeyCode::Char('k'), 0),
         (KeyCode::Left, 0),
         (KeyCode::Left, 0),
     ] {
@@ -292,7 +324,7 @@ fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
     }
     snapshot(80, 24, &mut h, true).unwrap();
     h.handle_key(key(KeyCode::Down));
-    assert_eq!(selected(&h), 3, "resize changes the stride after render");
+    assert_eq!(selected(&h), 1, "resize never changes selection order");
     for _ in 0..30 {
         h.handle_key(key(KeyCode::Right));
     }
@@ -334,22 +366,117 @@ fn garden_keys_step_clamp_and_use_the_last_rendered_columns() {
 }
 
 #[test]
+fn linking_routes_keys_and_single_click_and_help_guards_hidden_actions() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-link-input-")
+        .tempdir()
+        .unwrap();
+    let root = tmp.path().join("TEST-links");
+    let mut h = garden(7);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    tend.needs = tend::needs::Store::new(Ok(root.clone()));
+    for (width, height) in [(80, 24), (100, 30), (160, 40)] {
+        snapshot(width, height, &mut h, true).unwrap();
+        h.handle_key(key(KeyCode::Char('l')));
+        let frame = snapshot(width, height, &mut h, true).unwrap();
+        assert!(
+            frame.contains("↑↓←→ pick   enter link   esc cancel"),
+            "{frame}"
+        );
+        h.handle_key(key(KeyCode::Enter)); // self-pick
+        h.handle_key(key(KeyCode::Right));
+        let frame = snapshot(width, height, &mut h, true).unwrap();
+        assert!(
+            frame.contains("› goal 0") && frame.contains("→ goal 1"),
+            "{frame}"
+        );
+        assert!(frame.contains("goal 0 needs goal 1"), "{frame}");
+        h.handle_key(key(KeyCode::F(1)));
+        for code in [KeyCode::Char('l'), KeyCode::Enter, KeyCode::Right] {
+            h.handle_key(key(code));
+        }
+        assert_eq!(selected(&h), 1);
+        h.handle_key(key(KeyCode::Esc));
+        h.handle_key(key(KeyCode::Esc));
+        assert_eq!(selected(&h), 0);
+        assert!(!root.exists());
+    }
+    screen(&mut h);
+    h.handle_key(key(KeyCode::Char('l')));
+    press_goal(&mut h, "goal 1", Instant::now());
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.is_linking() && !tend.detail);
+    assert_eq!(selected(&h), 0);
+    assert!(tend.needs.read().into_links().unwrap().contains("0", "1"));
+    h.handle_key(key(KeyCode::Char('l')));
+    h.handle_key(key(KeyCode::Char('j')));
+    assert!(screen(&mut h).contains("enter unlink"));
+    h.handle_key(key(KeyCode::Enter));
+    assert_eq!(selected(&h), 0);
+    assert!(screen(&mut h).contains("l link"));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.needs.read().into_links().unwrap().contains("0", "1"));
+}
+
+#[test]
+fn link_key_is_ignored_outside_garden_and_repeated_presses_do_not_start_linking() {
+    for state in [
+        "detail",
+        "help",
+        "how",
+        "reading",
+        "wanted",
+        "unavailable",
+        "empty",
+        "repeat",
+    ] {
+        let mut h = garden(2);
+        if matches!(state, "help" | "how") {
+            h.handle_key(key(KeyCode::F(1)));
+            if state == "how" {
+                h.handle_key(key(KeyCode::Char('h')));
+            }
+        }
+        let View::Tend(tend) = &mut h.view else {
+            panic!()
+        };
+        match state {
+            "detail" => tend.detail = true,
+            "reading" => tend.pending = true,
+            "wanted" => tend.want = Some(("/TEST/wanted".into(), None)),
+            "unavailable" => tend.error = Some("TEST unavailable".into()),
+            "empty" => tend.sessions.clear(),
+            _ => {}
+        }
+        let mut event = key(KeyCode::Char('l'));
+        if state == "repeat" {
+            event.kind = KeyEventKind::Repeat;
+        }
+        h.handle_key(event);
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert!(!tend.is_linking() && tend.notice.is_empty(), "{state}");
+    }
+}
+
+#[test]
 fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
     let now = Instant::now();
     for (elapsed, opens) in [(499, true), (500, true), (501, false)] {
         let mut h = garden(7);
         screen(&mut h);
-        // Second cell at 100 columns, including its two ring rows.
-        press(&mut h, 24, 4, now);
+        // Hit the ring through its displayed label.
+        press_goal(&mut h, "goal 1", now);
         assert_eq!(selected(&h), 1);
-        press(&mut h, 24, 5, now + Duration::from_millis(elapsed));
+        press_goal(&mut h, "goal 1", now + Duration::from_millis(elapsed));
         let View::Tend(tend) = &h.view else { panic!() };
         assert_eq!(tend.detail, opens);
     }
     let mut h = garden(7);
     screen(&mut h);
-    press(&mut h, 24, 3, now);
-    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    press_goal(&mut h, "goal 1", now);
+    press_goal(&mut h, "goal 2", now + Duration::from_millis(100));
     let View::Tend(tend) = &h.view else { panic!() };
     assert!(
         !tend.detail && tend.selected == 2,
@@ -362,7 +489,7 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     let now = Instant::now();
     let mut h = garden(7);
     screen(&mut h);
-    press(&mut h, 24, 3, now);
+    press_goal(&mut h, "goal 1", now);
     let View::Tend(tend) = &mut h.view else {
         panic!()
     };
@@ -371,13 +498,13 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     tend.apply(&found(sessions), true, 2);
     assert_eq!(tend.selected, 2);
     screen(&mut h);
-    press(&mut h, 24, 3, now + Duration::from_millis(100));
+    press_goal(&mut h, "goal 0", now + Duration::from_millis(100));
     let View::Tend(tend) = &h.view else { panic!() };
     assert!(!tend.detail && tend.current().unwrap().path == Path::new("/TEST/0"));
-    // The same identity moving to another cell still counts as a double press.
+    // The same identity moving to another position still counts as a double press.
     let mut h = garden(7);
     screen(&mut h);
-    press(&mut h, 24, 3, now);
+    press_goal(&mut h, "goal 1", now);
     let View::Tend(tend) = &mut h.view else {
         panic!()
     };
@@ -385,7 +512,7 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
     tend.apply(&found(sessions), true, 2);
     screen(&mut h);
-    press(&mut h, 45, 3, now + Duration::from_millis(100));
+    press_goal(&mut h, "goal 1", now + Duration::from_millis(100));
     let View::Tend(tend) = &h.view else { panic!() };
     assert!(tend.detail && tend.current().unwrap().path == Path::new("/TEST/1"));
 }
@@ -419,9 +546,9 @@ fn garden_presses_ignore_blank_rows_help_detail_and_discovery_states() {
             _ => {}
         }
         let detail = tend.detail;
-        let row = if state == "garden" { 6 } else { 3 };
-        press(&mut h, 24, row, now);
-        press(&mut h, 24, row, now + Duration::from_millis(100));
+        let row = if state == "garden" { 26 } else { 3 };
+        press(&mut h, 0, row, now);
+        press(&mut h, 0, row, now + Duration::from_millis(100));
         let View::Tend(tend) = &h.view else { panic!() };
         assert_eq!(tend.selected, 0, "{state}");
         assert_eq!(tend.detail, detail, "{state}");
@@ -724,7 +851,7 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
     let frame = screen(&mut h);
     assert!(frame.contains("goal a"), "{frame}");
     assert!(
-        frame.contains("↑↓←→ move   enter open   esc back"),
+        frame.contains("↑↓←→ move   enter open   l link   esc back"),
         "{frame}"
     );
 }
@@ -784,6 +911,41 @@ fn late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail(
         "selection follows identity"
     );
     assert_eq!(tend.current().unwrap().goal, "EDITED elsewhere");
+}
+
+#[test]
+fn landed_discovery_does_not_cancel_or_redirect_link_picking() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-link-refresh-")
+        .tempdir()
+        .unwrap();
+    let sessions = vec![
+        sess("a", Stage::GoalSaved, ""),
+        sess("b", Stage::GoalSaved, ""),
+    ];
+    let gate = Gate::new(found(sessions.clone()));
+    gate.release(4);
+    let mut h = home(gate.source());
+    h.link_root = Ok(tmp.path().join("TEST-links"));
+    h.open(1);
+    settle(&mut h);
+    h.handle_key(key(KeyCode::Char('l')));
+    h.handle_key(key(KeyCode::Right));
+    let mut newer = sessions;
+    newer.reverse();
+    gate.set(found(newer));
+    h.discovery.request(h.sessions_root.as_deref().unwrap());
+    settle(&mut h);
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(tend.is_linking());
+    assert_eq!(tend.current().unwrap().id.as_deref(), Some("b"));
+    assert!(screen(&mut h).contains("goal a needs goal b"));
+    h.handle_key(key(KeyCode::Enter));
+    h.tick();
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert!(!tend.is_linking());
+    assert_eq!(tend.current().unwrap().id.as_deref(), Some("a"));
+    assert!(tend.needs.read().into_links().unwrap().contains("a", "b"));
 }
 
 #[test]
@@ -868,9 +1030,14 @@ fn counts_are_exact_only_after_complete_current_reads() {
         sess("b", Stage::SeedReady, "2026-10-08T10:00:00Z"),
         sess("c", Stage::Ended, "2026-10-07T10:00:00Z"),
     ];
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-count-notes-")
+        .tempdir()
+        .unwrap();
     let gate = Gate::new(found(sessions.clone()));
     gate.release(1);
     let mut h = home(gate.source());
+    h.link_root = Ok(tmp.path().join("TEST-links"));
     assert_eq!(h.count(1), None, "not known before any read");
     settle(&mut h);
     assert_eq!(
@@ -938,6 +1105,7 @@ fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
         Box::new(BrainDump::default),
         Ok(tmp.path().to_path_buf()),
         tmp.path().join("no-substrate"),
+        Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
     assert_eq!(h.count(1), Some("1".into()));
@@ -1005,9 +1173,80 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
         Box::new(BrainDump::default),
         Ok(tmp.path().to_path_buf()),
         tmp.path().join("no-substrate"),
+        Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
     assert_eq!(h.count(1), Some((total - total / 5).to_string()));
+}
+
+#[test]
+fn equal_timestamps_have_path_order_independent_of_creation_order() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-sort-")
+        .tempdir()
+        .unwrap();
+    for name in ["z", "a", "m"] {
+        write_session(tmp.path(), name, "2026-10-09T10:00:00Z");
+    }
+    let found = scan(tmp.path()).unwrap();
+    assert_eq!(
+        found
+            .sessions
+            .iter()
+            .map(|s| s.goal.as_str())
+            .collect::<Vec<_>>(),
+        ["goal a", "goal m", "goal z"]
+    );
+}
+
+#[test]
+fn shifted_graph_view_keys_work_but_modified_actions_stay_blocked() {
+    for ch in ['H', 'J', 'K', 'L', '+', '=', '-'] {
+        let mut plain = garden(7);
+        let mut shifted = garden(7);
+        let before = screen(&mut shifted);
+        screen(&mut plain);
+        plain.handle_key(key(KeyCode::Char(ch)));
+        shifted.handle_key(KeyEvent::new(KeyCode::Char(ch), KeyModifiers::SHIFT));
+        let after = screen(&mut shifted);
+        assert_ne!(before, after, "{ch}");
+        assert_eq!(screen(&mut plain), after, "{ch}");
+        assert_eq!(selected(&shifted), 0);
+    }
+    let mut h = garden(7);
+    let before = screen(&mut h);
+    for modifiers in [
+        KeyModifiers::CONTROL,
+        KeyModifiers::ALT,
+        KeyModifiers::SHIFT | KeyModifiers::CONTROL,
+    ] {
+        for ch in ['H', 'J', 'K', 'L', '+', '=', '-', 'l', 'c'] {
+            h.handle_key(KeyEvent::new(KeyCode::Char(ch), modifiers));
+            assert_eq!(screen(&mut h), before);
+        }
+    }
+    for code in [KeyCode::Char('l'), KeyCode::Enter, KeyCode::Down] {
+        h.handle_key(KeyEvent::new(code, KeyModifiers::SHIFT));
+        assert_eq!(screen(&mut h), before);
+    }
+    assert!(h.take_copy_request().is_none());
+}
+
+#[test]
+fn graph_selection_keys_reveal_the_goal_after_panning_it_offscreen() {
+    let mut h = garden(7);
+    screen(&mut h);
+    for _ in 0..80 {
+        h.handle_key(key(KeyCode::Char('H')));
+    }
+    assert!(!screen(&mut h).contains("› goal 0"));
+    h.handle_key(key(KeyCode::Up)); // clamped at newest, but reveal it again
+    assert!(screen(&mut h).contains("› goal 0"));
+    for _ in 0..80 {
+        h.handle_key(key(KeyCode::Char('H')));
+    }
+    h.handle_key(key(KeyCode::Down));
+    assert!(screen(&mut h).contains("› goal 1"));
 }
 
 #[test]
@@ -1053,6 +1292,7 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
         Box::new(BrainDump::default),
         Err(reason.into()),
         PathBuf::from("/TEST/no-substrate"),
+        Err("TEST links unavailable".into()),
     )
     .with_discovery_source(Arc::new(|_| panic!("No root must never reach a source")));
     h.tick();
@@ -1077,6 +1317,67 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
 }
 
 #[test]
+fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-link-wiring-")
+        .tempdir()
+        .unwrap();
+    let sessions = tmp.path().join("TEST-sessions");
+    write_session(&sessions, "goal", "2026-10-09T10:00:00Z");
+    let links = tmp.path().join("TEST-links");
+    fs::create_dir_all(&links).unwrap();
+    let bytes = b"TEST deliberately unreadable; navigation must leave it alone";
+    fs::write(links.join("needs.json"), bytes).unwrap();
+    for receipt in [false, true] {
+        let mut h = if receipt {
+            Home::from_receipt(
+                BrainDump::default(),
+                &sessions.join("goal"),
+                true,
+                Ok(links.clone()),
+            )
+        } else {
+            Home::new(
+                Box::new(BrainDump::default),
+                Ok(sessions.clone()),
+                tmp.path().join("no-substrate"),
+                Ok(links.clone()),
+            )
+        };
+        for _ in 0..2 {
+            h.open(1);
+            settle(&mut h);
+            let View::Tend(tend) = &h.view else { panic!() };
+            assert_eq!(tend.sessions.len(), 1);
+            assert!(
+                matches!(tend.needs.read(), tend::needs::Read::Unreadable(ref reason)
+                if reason == "Cannot read links: needs.json is not valid JSON.")
+            );
+            assert_eq!(fs::read(links.join("needs.json")).unwrap(), bytes);
+            h.handle_key(key(KeyCode::Esc));
+        }
+    }
+}
+
+#[test]
+fn unavailable_linking_does_not_stop_tend_reading_sessions() {
+    let reason = "TEST linking unavailable; pass --link-root PATH";
+    let mut h = home(Arc::new(|_| {
+        found(vec![sess("goal", Stage::GoalSaved, "")])
+    }));
+    h.link_root = Err(reason.into());
+    h.open(1);
+    settle(&mut h);
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.sessions.len(), 1);
+    assert!(tend.error.is_none());
+    assert_eq!(
+        tend.needs.read(),
+        tend::needs::Read::Unreadable(reason.into())
+    );
+}
+
+#[test]
 fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
     let tmp = tempfile::tempdir().unwrap();
     let substrate = tmp.path().join("substrate");
@@ -1091,6 +1392,7 @@ fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
         Box::new(BrainDump::default),
         Ok(tmp.path().join("sessions")),
         substrate.clone(),
+        Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
     for code in [

@@ -197,6 +197,35 @@ fn reading_a_session_never_guesses() {
 }
 
 #[test]
+fn session_identity_comes_only_from_a_nonempty_control_free_ledger_string() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-id-")
+        .tempdir()
+        .unwrap();
+    for (value, expected) in [
+        (Some(json!("TEST-id")), Some("TEST-id")),
+        (Some(json!("  verbatim 界  ")), Some("  verbatim 界  ")),
+        (None, None),
+        (Some(json!(null)), None),
+        (Some(json!(42)), None),
+        (Some(json!("")), None),
+        (Some(json!("bad\nline")), None),
+        (Some(json!("bad\u{7f}")), None),
+        (Some(json!("bad\u{85}")), None),
+    ] {
+        let mut ledger = json!({"status":"active", "goal":"Not the session id"});
+        if let Some(value) = value {
+            ledger["session_id"] = value;
+        }
+        fs::write(tmp.path().join("ledger.json"), ledger.to_string()).unwrap();
+        let Record::Session(session) = read(tmp.path()) else {
+            panic!("readable ledger")
+        };
+        assert_eq!(session.id.as_deref(), expected);
+    }
+}
+
+#[test]
 fn default_root_is_under_the_given_home() {
     for home in [None, Some(""), Some("TEST-relative"), Some(".")] {
         let error = default_root(home.map(std::ffi::OsStr::new)).unwrap_err();

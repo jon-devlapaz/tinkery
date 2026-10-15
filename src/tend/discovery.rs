@@ -63,6 +63,7 @@ pub fn scan(root: &Path) -> Outcome {
         tend::timestamp(&b.updated)
             .cmp(&tend::timestamp(&a.updated))
             .then_with(|| b.updated.cmp(&a.updated))
+            .then_with(|| a.path.cmp(&b.path))
     });
     Ok(found)
 }
