@@ -95,12 +95,12 @@ def journey(width, height, kind, no_color):
         try:
             wait(lambda: '1  think' in screen.text())
             if kind == 'success':
-                send(b'6', 'Existing report')
+                send(b'7', 'Existing report')
                 assert SUCCESS.strip() in '\n'.join(line.strip() for line in screen.text().splitlines())
                 assert 'Ledger report unavailable' not in screen.text()
                 send(b'q', '1  think')
             else:
-                send(b'6', 'Ledger report unavailable')
+                send(b'7', 'Ledger report unavailable')
                 assert EXPLANATIONS[kind] in screen.text(), screen.text()
                 assert 'Recorded work and attention are unknown.' in screen.text()
                 assert 'esc back   ? help' in screen.text()
@@ -148,12 +148,12 @@ def journey(width, height, kind, no_color):
                 if kind != 'failed':
                     assert screen.text() == summary
                 send(b'\x1b', '1  think')
-                send(b'6', 'Ledger report unavailable')
+                send(b'7', 'Ledger report unavailable')
                 send(b'\x1bOP', 'Right now')
                 send(b'h', 'How it works')
                 send(b'q', '1  think')
                 assert process.poll() is None
-                send(b'6', 'Ledger report unavailable')
+                send(b'7', 'Ledger report unavailable')
                 send(b'?', 'Right now')
                 send(b'?', 'Ledger report unavailable')
                 send(b'q', '1  think')

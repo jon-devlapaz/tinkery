@@ -1,7 +1,7 @@
-//! The home menu: the operator's six places, in pipeline order.
+//! The home menu: the operator's seven places, in pipeline order.
 //!
-//! think · tend · approve · watch · taste · measure. Four are touches, two are views. Only think, tend and
-//! measure are built; the others say so plainly. Nothing here starts or steers an agent.
+//! think · tend · shape · approve · watch · taste · measure. Five are touches, two are views. Only think,
+//! tend, shape and measure are built; the others say so plainly. Nothing here starts or steers an agent.
 
 use std::{
     path::{Path, PathBuf},
@@ -11,6 +11,7 @@ use std::{
 
 use crate::{
     Palette, measure,
+    shape::{Leave, Shape},
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump, Exit},
 };
@@ -25,13 +26,14 @@ use ratatui::{
 };
 
 /// Name, one-line purpose, and whether the place exists yet.
-pub const PLACES: [(&str, &str, bool); 6] = [
+pub const PLACES: [(&str, &str, bool); 7] = [
     ("think", "Make your intention a clear goal.", true),
     (
         "tend",
         "Choose a saved goal and copy a prompt to continue.",
         true,
     ),
+    ("shape", "See where a saved goal's seed stands.", true),
     (
         "approve",
         "Decide whether the plan is ready. Not built yet.",
@@ -79,6 +81,8 @@ enum View {
     Menu,
     Think(Box<BrainDump>),
     Tend(Box<Tend>),
+    /// Shape, and the tend it was opened from, restored as it was when Shape is left.
+    Shape(Box<Shape>, Option<Box<Tend>>),
     Measure(measure::Reading),
     Soon(usize),
 }
@@ -190,6 +194,7 @@ impl Home {
         }
         self.discovery.poll();
         self.sync_tend();
+        self.sync_shape();
         self.update_stall(now);
         if let Some(result) = self.history_reader.poll()
             && let View::Tend(tend) = &mut self.view
@@ -236,6 +241,24 @@ impl Home {
             return;
         }
         tend.apply(&landed.outcome, self.discovery.fresh(), version);
+    }
+
+    /// Hand Shape's list the sessions once a read asked for after it opened has landed, and let
+    /// an open session's read finish.
+    fn sync_shape(&mut self) {
+        let View::Shape(shape, _) = &mut self.view else {
+            return;
+        };
+        shape.tick();
+        if shape.wants_sessions()
+            && self.discovery.fresh()
+            && let Some(landed) = self.discovery.landed()
+        {
+            shape.offer(match &landed.outcome {
+                Ok(found) => Ok(&found.sessions),
+                Err(error) => Err(error.clone()),
+            });
+        }
     }
 
     /// Let tend say when the read it waits on is taking a while. A check on the tick that
@@ -334,10 +357,15 @@ impl Home {
                 self.request_sessions();
                 View::Tend(Box::new(Tend::new(self.link_root.clone())))
             }
-            5 => View::Measure(measure::Reading::new(&self.substrate_dir)),
+            2 => {
+                self.request_sessions();
+                View::Shape(Box::new(Shape::list()), None)
+            }
+            6 => View::Measure(measure::Reading::new(&self.substrate_dir)),
             other => View::Soon(other),
         };
         self.sync_tend();
+        self.sync_shape();
     }
 
     /// One key press, routed to the open place or the menu. Releases are ignored.
@@ -359,7 +387,7 @@ impl Home {
                 || key.kind == KeyEventKind::Repeat
                     && matches!(
                         key.code,
-                        KeyCode::Char('c' | 'r' | 'l')
+                        KeyCode::Char('c' | 'r' | 'l' | 's')
                             | KeyCode::F(1)
                             | KeyCode::F(10)
                             | KeyCode::Enter
@@ -456,6 +484,10 @@ impl Home {
                 }
             }
         }
+        if matches!(self.view, View::Shape(..)) {
+            self.shape_key(key);
+            return;
+        }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') || key.code == KeyCode::F(10) {
             self.quit = true;
@@ -486,7 +518,7 @@ impl Home {
         }
         match &mut self.view {
             View::Menu => match key.code {
-                KeyCode::Char(c @ '1'..='6') => self.open(c as usize - '1' as usize),
+                KeyCode::Char(c @ '1'..='7') => self.open(c as usize - '1' as usize),
                 KeyCode::Down | KeyCode::Char('j') => {
                     self.selected = (self.selected + 1) % PLACES.len()
                 }
@@ -508,6 +540,16 @@ impl Home {
                 }
                 KeyCode::Esc => self.view = View::Menu,
                 KeyCode::Char('c') if tend.detail => tend.copy_prompt(self.seed_me.as_deref()),
+                KeyCode::Char('s')
+                    if tend.detail && tend.current().is_some_and(|s| s.stage.can_copy()) =>
+                {
+                    let shape =
+                        Shape::session(self.seed_me.as_deref(), &tend.current().unwrap().path);
+                    let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) else {
+                        unreachable!()
+                    };
+                    self.view = View::Shape(Box::new(shape), Some(tend));
+                }
                 KeyCode::Down | KeyCode::Char('j') if tend.detail => {
                     tend.scroll = tend.scroll.saturating_add(1)
                 }
@@ -544,7 +586,40 @@ impl Home {
                     self.view = View::Menu;
                 }
             }
-            View::Think(_) => {}
+            View::Think(_) | View::Shape(..) => {}
+        }
+    }
+
+    /// Shape's keys: F10 for the menu, F1 or ? for help, Esc steps back (to the tend it came
+    /// from, as it was). Held keys don't repeat an open. Nothing here writes or runs.
+    fn shape_key(&mut self, key: KeyEvent) {
+        if key.modifiers != KeyModifiers::NONE
+            || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::Enter)
+        {
+            return;
+        }
+        match key.code {
+            KeyCode::F(10) => {
+                self.view = View::Menu;
+                self.help = false;
+            }
+            KeyCode::F(1) | KeyCode::Char('?') => self.help = !self.help,
+            KeyCode::Esc if self.help => self.help = false,
+            _ if self.help => {}
+            _ => {
+                let View::Shape(shape, _) = &mut self.view else {
+                    return;
+                };
+                if shape.key(key, self.seed_me.as_deref()) == Leave::Back {
+                    let View::Shape(_, back) = std::mem::replace(&mut self.view, View::Menu) else {
+                        unreachable!()
+                    };
+                    if let Some(tend) = back {
+                        self.view = View::Tend(tend);
+                        self.sync_tend();
+                    }
+                }
+            }
         }
     }
 
@@ -609,6 +684,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
     let title = match &home.view {
         View::Menu => "tinkery".to_string(),
         View::Tend(_) => "tinkery › tend".into(),
+        View::Shape(..) => "tinkery › shape".into(),
         View::Measure(_) => "tinkery › measure".into(),
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
         View::Think(_) => unreachable!(),
@@ -637,6 +713,15 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         return;
     }
     if home.help && !matches!(home.view, View::Menu) {
+        if let View::Shape(shape, _) = &home.view {
+            frame.render_widget(
+                Paragraph::new(shape.help_text())
+                    .wrap(Wrap { trim: false })
+                    .style(palette.ink),
+                body,
+            );
+            return;
+        }
         if let View::Tend(tend) = &mut home.view {
             let p = Paragraph::new(tend.help_text(home.seed_me.as_deref()))
                 .wrap(Wrap { trim: false })
@@ -648,7 +733,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             frame.render_widget(p.scroll((tend.help_scroll, 0)), body);
             return;
         }
-        let help = "Right now\n1–6 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, measure and unbuilt places.";
+        let help = "Right now\n1–7 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   where a saved goal's seed stands (read-only)\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -712,6 +797,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             }
         }
         View::Tend(tend) => tend::render(frame, tend, body, palette),
+        View::Shape(shape, _) => shape.render(frame, body, palette),
         View::Measure(reading) => reading.render(frame, body, palette, home.help),
         View::Soon(i) => frame.render_widget(
             Paragraph::new(format!("{}\n\nNot built yet. Esc goes back.", PLACES[*i].1))
@@ -747,7 +833,7 @@ fn render_menu_help(frame: &mut Frame, palette: Palette) {
         Line::default(),
         action("↑ ↓", "Choose a place"),
         action("Enter", "Open it"),
-        action("1–6", "Open directly"),
+        action("1–7", "Open directly"),
         Line::default(),
         action("q", "Quit Tinkery"),
         Line::default(),
@@ -840,13 +926,15 @@ mod tests {
     }
 
     #[test]
-    fn home_shows_six_places_and_only_counts_what_exists() {
+    fn home_shows_seven_places_and_only_counts_what_exists() {
         let tmp = tempfile::tempdir().unwrap();
         session(tmp.path(), "a", "active", "2026-10-09T10:00:00Z", None);
         let mut h = home(tmp.path());
         settle(&mut h);
         let screen = snapshot(100, 30, &mut h, true).unwrap();
-        for name in ["think", "tend", "approve", "watch", "taste", "measure"] {
+        for name in [
+            "think", "tend", "shape", "approve", "watch", "taste", "measure",
+        ] {
             assert!(screen.contains(name), "{name} missing:\n{screen}");
         }
         assert!(screen.contains("tinkery"));
@@ -865,13 +953,13 @@ mod tests {
                 assert_eq!(screen.lines().last().unwrap().trim(), bar, "{screen}");
                 assert_eq!(screen.matches(bar).count(), 1);
                 assert_eq!(
-                    screen.lines().nth(17).unwrap(),
+                    screen.lines().nth(19).unwrap(),
                     format!("     {}", PLACES[0].1)
                 );
                 h.handle_key(key(KeyCode::Down));
                 let screen = snapshot(width, height, &mut h, no_color).unwrap();
                 assert_eq!(
-                    screen.lines().nth(17).unwrap(),
+                    screen.lines().nth(19).unwrap(),
                     format!("     {}", PLACES[1].1)
                 );
                 assert!(screen.lines().nth(height as usize - 3).unwrap().is_empty());
@@ -883,7 +971,7 @@ mod tests {
                         .contains(bar)
                 );
                 h.handle_key(key(KeyCode::Esc));
-                h.handle_key(key(KeyCode::Char('3')));
+                h.handle_key(key(KeyCode::Char('4')));
                 assert!(
                     !snapshot(width, height, &mut h, no_color)
                         .unwrap()
@@ -905,7 +993,7 @@ mod tests {
                 for (index, (name, _, _)) in PLACES.iter().enumerate() {
                     assert!(rows[4 + index * 2].starts_with(&format!("  {}  {name}", index + 1)));
                 }
-                assert_eq!(rows[17], format!("     {}", PLACES[0].1));
+                assert_eq!(rows[19], format!("     {}", PLACES[0].1));
                 assert!(screen.contains("Choose a place") && screen.contains("Esc     Close help"));
                 let panel_content = |row: &str| {
                     row.chars()
@@ -921,7 +1009,7 @@ mod tests {
                     Some(width as usize - 40)
                 );
                 assert!(rows[15].contains('└'));
-                assert!(rows[16].is_empty());
+                assert_eq!(rows[16], "  7  measure");
                 assert!(!screen.contains("↑↓ move   enter open"));
                 assert!(!screen.contains("Inside think"));
                 h.handle_key(key(KeyCode::Esc));
@@ -970,6 +1058,7 @@ mod tests {
             KeyCode::Char('4'),
             KeyCode::Char('5'),
             KeyCode::Char('6'),
+            KeyCode::Char('7'),
             KeyCode::Enter,
             KeyCode::Down,
             KeyCode::Up,
@@ -1027,6 +1116,7 @@ mod tests {
         let descriptions = [
             "Make your intention a clear goal.",
             "Choose a saved goal and copy a prompt to continue.",
+            "See where a saved goal's seed stands.",
             "Decide whether the plan is ready. Not built yet.",
             "Follow the work’s progress. Not built yet.",
             "Decide whether the result meets your goal. Not built yet.",
@@ -1037,7 +1127,7 @@ mod tests {
                 let mut h = home(tmp.path());
                 for description in descriptions {
                     let screen = snapshot(width, height, &mut h, no_color).unwrap();
-                    assert_eq!(screen.lines().nth(17).unwrap().trim(), description);
+                    assert_eq!(screen.lines().nth(19).unwrap().trim(), description);
                     assert_eq!(screen.matches(description).count(), 1);
                     assert!(matches!(h.view, View::Menu));
                     assert!(!h.quit && h.take_copy_request().is_none());
@@ -1068,9 +1158,10 @@ mod tests {
                 assert_eq!(rows[1].find("tinkery"), Some(2));
                 assert_eq!(rows[4], "  1  think");
                 assert_eq!(rows[6], "  2  tend         10");
-                assert_eq!(rows[14], "  6  measure");
-                assert!(rows[15].is_empty() && rows[16].is_empty());
-                assert_eq!(rows[17], format!("     {}", PLACES[0].1));
+                assert_eq!(rows[8], "  3  shape");
+                assert_eq!(rows[16], "  7  measure");
+                assert!(rows[17].is_empty() && rows[18].is_empty());
+                assert_eq!(rows[19], format!("     {}", PLACES[0].1));
                 assert_eq!(rows[height as usize - 2].find('↑'), Some(2));
                 assert!(
                     rows[height as usize - 1].is_empty(),
@@ -1081,10 +1172,45 @@ mod tests {
     }
 
     #[test]
+    fn s_in_tend_detail_opens_shape_and_esc_restores_the_same_detail() {
+        let tmp = tempfile::tempdir().unwrap();
+        session(tmp.path(), "a", "active", "2026-10-09T10:00:00Z", None);
+        let mut h = home(tmp.path());
+        h.open(1);
+        settle(&mut h);
+        h.handle_key(key(KeyCode::Char('s')));
+        assert!(matches!(h.view, View::Tend(_)), "the garden has no s");
+        h.handle_key(key(KeyCode::Enter));
+        let mut held = key(KeyCode::Char('s'));
+        held.kind = KeyEventKind::Repeat;
+        h.handle_key(held);
+        assert!(matches!(h.view, View::Tend(_)), "a held key opens nothing");
+        h.handle_key(key(KeyCode::Char('s')));
+        assert!(matches!(h.view, View::Shape(..)));
+        let screen = snapshot(100, 30, &mut h, true).unwrap();
+        assert!(screen.contains("tinkery › shape"), "{screen}");
+        assert!(screen.contains("isn't set up here"), "{screen}");
+        h.handle_key(key(KeyCode::Esc));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert!(tend.detail);
+        assert!(tend.current().unwrap().path.ends_with("a"));
+        fs::write(tmp.path().join("a/ledger.json"), r#"{"status": "active"}"#).unwrap();
+        h.handle_key(key(KeyCode::Esc));
+        h.open(1);
+        settle(&mut h);
+        h.handle_key(key(KeyCode::Enter));
+        h.handle_key(key(KeyCode::Char('s')));
+        assert!(
+            matches!(h.view, View::Tend(_)),
+            "no s when the stage is unknown"
+        );
+    }
+
+    #[test]
     fn digits_open_places_and_esc_returns_home() {
         let tmp = tempfile::tempdir().unwrap();
         let mut h = home(tmp.path());
-        h.handle_key(key(KeyCode::Char('3')));
+        h.handle_key(key(KeyCode::Char('4')));
         assert!(
             snapshot(100, 30, &mut h, true)
                 .unwrap()
@@ -1347,7 +1473,7 @@ mod tests {
             assert!(screen.contains("Next: shape it into a seed with Seed Me."));
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "c copy prompt   r history   esc back   F10 menu"
+                "c copy prompt   s shape   r history   esc back   F10 menu"
             );
             for _ in 0..2 {
                 h.handle_key(key(KeyCode::Char('c')));

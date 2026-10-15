@@ -1413,7 +1413,7 @@ fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
         !substrate.join("measure-ran").exists(),
         "measure stays behind its action"
     );
-    h.handle_key(key(KeyCode::Char('6')));
+    h.handle_key(key(KeyCode::Char('7')));
     assert!(
         substrate.join("measure-ran").exists(),
         "explicit opening still runs it"

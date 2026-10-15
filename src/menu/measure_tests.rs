@@ -9,7 +9,7 @@ fn home(root: &Path) -> Home {
         root.join("missing"),
         Ok(root.join("TEST-links")),
     );
-    home.open(5);
+    home.open(6);
     home
 }
 
@@ -82,7 +82,7 @@ fn failure_help_ignores_menu_shortcuts_and_releases() {
     let mut h = home(root.path());
     press(&mut h, KeyCode::F(1));
     let before = snapshot(100, 30, &mut h, false).unwrap();
-    for code in [KeyCode::Char('1'), KeyCode::Char('6'), KeyCode::Enter] {
+    for code in [KeyCode::Char('1'), KeyCode::Char('7'), KeyCode::Enter] {
         press(&mut h, code);
         assert_eq!(snapshot(100, 30, &mut h, false).unwrap(), before);
     }

@@ -100,4 +100,5 @@ open decisions and completion evidence.
 
 Added by the operator on 2026-10-15 · M7. Published: [#149](https://github.com/jon-devlapaz/tinkery/issues/149)
 (read-only Shape) and [#150](https://github.com/jon-devlapaz/tinkery/issues/150) (answering and seed
-confirmation, blocked by #149) · needs approval. The [Shape design](shape-and-handoff.md#shape) is a proposal.
+confirmation, blocked by #149) · both approved by the operator on 2026-10-15, with the
+[Shape design](shape-and-handoff.md#shape). #150 still needs a separate provider budget for any live trial.
