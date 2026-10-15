@@ -49,6 +49,64 @@ Digits or arrows plus Enter open a place; home `q` quits. Think's
 opens this menu with `--home`; without it, think opens directly. The separate
 installed launcher passes `--home`.
 
+## Measure failure and recovery
+
+Measure still requests the installed ledger report synchronously, only when deliberately
+opened. This slice changes failure presentation, not subprocess lifecycle: a stuck read
+can still block input until it returns ([#120](https://github.com/jon-devlapaz/tinkery/issues/120)).
+Successful reports retain their existing text, scrolling and help behavior.
+
+A failed read says “Ledger report unavailable”, gives a plain-language cause when
+supported by the evidence, and says recorded work and attention are unknown. Missing
+Python, an unavailable target module, an unavailable directory, other launch failures
+and unsuccessful exits stay distinguishable. Ambiguous diagnostics get the generic
+launch/exit explanation, not an installation diagnosis or a zero-activity claim.
+The ordinary view contains no paths, raw errors or Python implementation details.
+Missing prerequisites are described as something Tinkery couldn’t find or load.
+Its fixed muted key bar is `esc back   ? help`; complete summary text wraps and
+can scroll if needed.
+
+F1 or ? opens failure-specific “Right now” help, not menu instructions. `h` opens
+“How it works”: the attempted command, working directory, exit status or complete
+launch error, and complete stderr. Empty stderr explicitly says no error details
+were returned. Details warn that paths/output may be private before sharing. Unsafe
+control/bidirectional formatting characters and invalid UTF-8 bytes are visibly escaped,
+not interpreted or silently discarded; ordinary Unicode and line breaks remain readable.
+Opening help starts no read, writes no log and uploads nothing.
+
+| Key | Failure summary | Help | How it works |
+| --- | --- | --- | --- |
+| F1 / ? | Open help | Close help | Close help |
+| h | Nothing | Technical details | Return to help |
+| Esc | Menu | Close help | Return to help |
+| q | Menu | Menu | Menu |
+| ↑↓ / j k / PgUp / PgDn | Scroll summary | Scroll help | Scroll details |
+| F10 / Ctrl-C | Quit Tinkery | Quit Tinkery | Quit Tinkery |
+
+Help owns its scroll position; it cannot move the hidden summary. Switching help
+layers resets help scrolling; closing restores the summary position. Each failure/help
+view keeps its return/close instructions only in the fixed footer. Technical help
+uses `esc back   h help   ?/F1 close   q menu`, naming back and help separately.
+Scroll and quit shortcuts appear once in the help body, not again in the footer.
+Wrapped content and scroll limits follow resizing, including 80×24; NO_COLOR
+retains meaning. Failure scroll positions and wrapped-row
+indexes use machine-sized integers, so diagnostics can extend past 65,535 rows. A
+cached viewport indexes source segments and gives Ratatui only a bounded local
+offset. Reflow follows width/text changes; logical lines that themselves exceed
+Ratatui's row range are segmented at grapheme boundaries, retaining all source text.
+Other places' navigation and Measure's existing F10/Ctrl-C quit routes are unchanged.
+
+Measure's [terminal journeys](../../tests) use fake commands and
+temporary TEST roots at 80×24, 100×30, 160×40 and 320×40, with and without NO_COLOR.
+They cover missing executable/module/directory, failed launch, nonzero exit, empty and
+multiline stderr, complete long Unicode diagnostics, safe controls, resize, recovery,
+no extra read from help and unchanged source fixtures. Rust tests also cover ambiguous
+diagnoses, invalid bytes, wide Unicode, help ownership and quit routes. Large-output
+regressions reach the end of 70,000-line diagnostics and a Unicode line wrapping
+past 65,535 rows, cross segment boundaries, scroll back and resize. Ordinary wrapped
+output is compared against the original Paragraph renderer. Reversion
+probes protect disclosure/wrapping, safe rendering and visible working recovery.
+
 ## Direction, not built behavior
 
 The menu is a human front door, not a settings maze or an agent control panel.

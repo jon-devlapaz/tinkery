@@ -1,5 +1,50 @@
 # Findings
 
+## Measure failure/recovery dogfood, October 14, 2026 (#119)
+
+[Captured terminal screens and fixture checks](2026-10-14-measure-dogfood.json)
+cover commit `d17aab109ae93d61a7f2e26d4bae456dad95cbb0`, including #140's session-root
+fix. The artifact records the tested binary's SHA-256. These are AI-driven real-PTY
+walkthroughs with synthetic ledger commands, not human usability trials or real
+ledger validation. Screen-cell text is retained; terminal colour/style is not.
+
+Two walkthroughs started at 80×24 with NO_COLOR and 160×40 with colour enabled,
+then resized to 100×30 and 80×24 respectively. Each opened Measure four times:
+large failed read, successful retry, empty-stderr failure, then help/exit checks.
+The fixture contained 70,000 numbered Unicode lines, a final marker, unsafe
+terminal/bidirectional controls and an invalid byte.
+
+Observed in both runs:
+- The ordinary failure showed unknown activity and `esc back`, without paths.
+- Existing two-layer help disclosed the command, directory and status. Unsafe
+  bytes stayed visible as escapes; the privacy warning preceded the details.
+- PgDn reached row 69,999 and the final marker; PgUp returned to the start.
+  Recovery instructions remained visible at the tail and after resizing.
+- Esc stepped details → help → summary → menu. F1/? closed help; q returned
+  directly to the menu. Reopening after changing the fake reader showed success.
+- Four explicit opens caused exactly four fake-reader invocations; help,
+  scrolling and resizing caused none. Source hashes were unchanged, no session
+  root was created, and menu q exited successfully. Provider calls: zero.
+
+The initial harness expected the tail to stay pinned when shrinking the viewport.
+The screen instead preserved its top-row anchor; another PgDn reached the tail.
+The corrected run records both screens. No production change was needed for resizing.
+Final inspection separately caught three invisible bidi marks (U+061C/U+200E/U+200F).
+A new assertion failed before the fix and when it was reverted; all 12 Unicode
+Bidi_Control characters are now covered. The retained walkthrough was refreshed
+after that fix, with those three marks and ordinary Arabic text included.
+
+Separate mechanics verification passed: 389 Rust tests (one existing ignored frame
+measurement), 36 Node tests, all 18 Python scripts with 44 unittest cases and 56
+Measure PTY journeys across four sizes/both colour modes; formatting and Clippy.
+Ten deliberate protection-reversion probes failed as intended, then passed with
+the protections restored. An earlier suite overlapped a new test edit and stopped
+at formatting; the final frozen-source full rerun passed.
+
+No application defect was observed in these bounded walkthroughs. They do not
+establish human recognition, colour appearance or nonblocking subprocess behavior:
+a stuck read can still block input until it returns; lifecycle remains #120.
+
 ## Think dogfood, October 12, 2026
 
 [Read the report](2026-10-12-think-dogfood-report.pdf).

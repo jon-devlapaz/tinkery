@@ -24,7 +24,7 @@ ideas; the area entry points below contain navigation only.
 | menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [#118](https://github.com/jon-devlapaz/tinkery/issues/118), still needs approval |
 | think | `src/think/` | [think](../research/shared/backlog.md#think) |
 | tend | `src/tend/` | [#123](https://github.com/jon-devlapaz/tinkery/issues/123) |
-| measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119), [#120](https://github.com/jon-devlapaz/tinkery/issues/120), both need approval |
+| measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) lifecycle still needs approval |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
 Shape returns later as the Seed Me step with its own module; its entry point is
@@ -61,7 +61,8 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
 | `menu.rs` | The menu: the six places and navigation between them. |
-| `measure.rs` | The ledger's read-only report. |
+| `measure.rs` | The ledger's read-only report, failure facts and safe two-layer disclosure. |
+| `measure/viewport.rs` | Machine-sized diagnostic scrolling over bounded, grapheme-safe source segments; no subprocess or navigation policy. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
 | `tend/garden.rs` | The garden's deterministic pages, hollow rings, labels and cell hit-testing. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
@@ -111,6 +112,13 @@ No new score is claimed.
 On 2026-10-14, [#123](https://github.com/jon-devlapaz/tinkery/issues/123) keeps one
 module per phase and holds diagnostics 1 and 7: each module retains a one-sentence
 job and the map shows the garden and future Seed Me boundary.
+
+For #119, Measure owns failure classification, diagnostic escaping and its reading/help
+state; the menu only routes navigation. This preserves diagnostics 3 and 6 by keeping
+ledger error interpretation out of callers, and 1 and 7 by retaining one phase boundary.
+The diagnostic viewport hides Ratatui's local scroll limit and reflow cache within
+Measure (3 and 6); callers still see one reading. It does not change subprocess
+ownership or claim a new design score.
 
 ## Limits enforced by `tests/architecture.rs`
 
