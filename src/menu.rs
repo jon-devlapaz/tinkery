@@ -76,13 +76,8 @@ enum View {
     Menu,
     Think(Box<BrainDump>),
     Tend(Box<Tend>),
-    Measure(Reading),
+    Measure(measure::Reading),
     Soon(usize),
-}
-
-struct Reading {
-    body: String,
-    scroll: u16,
 }
 
 impl Home {
@@ -310,10 +305,7 @@ impl Home {
                 self.request_sessions();
                 View::Tend(Box::new(Tend::new()))
             }
-            5 => View::Measure(Reading {
-                body: measure::ledger_report(&self.substrate_dir),
-                scroll: 0,
-            }),
+            5 => View::Measure(measure::Reading::new(&self.substrate_dir)),
             other => View::Soon(other),
         };
         self.sync_tend();
@@ -380,6 +372,15 @@ impl Home {
             self.quit = true;
             return;
         }
+        if let View::Measure(reading) = &mut self.view
+            && reading.failed()
+        {
+            if reading.key(key, &mut self.help) {
+                self.help = false;
+                self.view = View::Menu;
+            }
+            return;
+        }
         if matches!(key.code, KeyCode::Char('?') | KeyCode::F(1)) {
             self.help = !self.help;
             return;
@@ -444,18 +445,11 @@ impl Home {
                 }
                 _ => {}
             },
-            View::Measure(reading) => match key.code {
-                KeyCode::Esc | KeyCode::Char('q') => self.view = View::Menu,
-                KeyCode::Down | KeyCode::Char('j') => {
-                    reading.scroll = reading.scroll.saturating_add(1)
+            View::Measure(reading) => {
+                if reading.key(key, &mut self.help) {
+                    self.view = View::Menu;
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    reading.scroll = reading.scroll.saturating_sub(1)
-                }
-                KeyCode::PageDown => reading.scroll = reading.scroll.saturating_add(10),
-                KeyCode::PageUp => reading.scroll = reading.scroll.saturating_sub(10),
-                _ => {}
-            },
+            }
             View::Soon(_) => {
                 if matches!(key.code, KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter) {
                     self.view = View::Menu;
@@ -541,6 +535,12 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         );
     }
     let body = body(area);
+    if let View::Measure(reading) = &mut home.view
+        && reading.failed()
+    {
+        reading.render(frame, body, palette, home.help);
+        return;
+    }
     if home.help && !matches!(home.view, View::Menu) {
         if let View::Tend(tend) = &mut home.view {
             let p = Paragraph::new(tend.help_text(home.seed_me.as_deref()))
@@ -617,12 +617,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             }
         }
         View::Tend(tend) => tend::render(frame, tend, body, palette),
-        View::Measure(reading) => frame.render_widget(
-            Paragraph::new(reading.body.as_str())
-                .style(palette.ink)
-                .scroll((reading.scroll, 0)),
-            body,
-        ),
+        View::Measure(reading) => reading.render(frame, body, palette, home.help),
         View::Soon(i) => frame.render_widget(
             Paragraph::new(format!("{}\n\nNot built yet. Esc goes back.", PLACES[*i].1))
                 .style(palette.muted),
@@ -697,6 +692,8 @@ pub fn snapshot(
         .join("\n"))
 }
 
+#[cfg(test)]
+mod measure_tests;
 #[cfg(test)]
 mod menu_tests;
 #[cfg(test)]
