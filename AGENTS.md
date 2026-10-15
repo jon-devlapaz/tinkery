@@ -55,7 +55,7 @@ maps individual modules to their responsibilities.
 | Goal composition, validation, shared rendering | `src/goal/`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
 | Review, saving, tend, continuation | `src/think/brain_dump/goal_view.rs`, `src/tend/`, `src/seed_me/` | [tend and handoff](docs/design/shape-and-handoff.md) |
 | Local voice and setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
-| Rendering and input primitives | `vendor/pinstar/`, `src/lib.rs` | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md) |
+| Rendering, graph and input primitives | `vendor/pinstar/`, `vendor/graf/`, `src/lib.rs` | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md), [Graf API](vendor/graf/API.md) |
 | Tests | inline Rust tests, `tests/`, `voice/*.test.mjs` | relevant tests; `tests/vt_screen.py` is a helper |
 
 ## Cold setup

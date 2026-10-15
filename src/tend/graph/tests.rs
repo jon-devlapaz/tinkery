@@ -114,6 +114,31 @@ fn identical_inputs_draw_identical_buffers_and_selection_has_colour_independent_
 }
 
 #[test]
+fn static_graph_never_starts_a_physics_worker() {
+    let (_tmp, mut tend) = fixture(7);
+    paint(&mut tend, true);
+    for key in ['+', '-', 'H', 'J', 'K', 'L'] {
+        tend.adjust_view(key);
+        paint(&mut tend, true);
+        let state = tend.graph.state.as_ref().unwrap().read();
+        assert!(!state.physics_worker_active);
+        assert!(state.is_settled);
+        assert_eq!(state.alpha, 0.0);
+    }
+    tend.links = Ok(tend.needs.toggle("id-0", "id-1").unwrap());
+    paint(&mut tend, true);
+    assert!(
+        !tend
+            .graph
+            .state
+            .as_ref()
+            .unwrap()
+            .read()
+            .physics_worker_active
+    );
+}
+
+#[test]
 fn duplicate_titles_resolve_edges_by_exact_identity_and_ended_missing_ambiguous_needs_draw_none() {
     let (_tmp, mut tend) = fixture(5);
     let mut sessions = tend.sessions.clone();

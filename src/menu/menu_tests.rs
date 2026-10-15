@@ -1187,6 +1187,39 @@ fn equal_timestamps_have_path_order_independent_of_creation_order() {
 }
 
 #[test]
+fn shifted_graph_view_keys_work_but_modified_actions_stay_blocked() {
+    for ch in ['H', 'J', 'K', 'L', '+', '=', '-'] {
+        let mut plain = garden(7);
+        let mut shifted = garden(7);
+        let before = screen(&mut shifted);
+        screen(&mut plain);
+        plain.handle_key(key(KeyCode::Char(ch)));
+        shifted.handle_key(KeyEvent::new(KeyCode::Char(ch), KeyModifiers::SHIFT));
+        let after = screen(&mut shifted);
+        assert_ne!(before, after, "{ch}");
+        assert_eq!(screen(&mut plain), after, "{ch}");
+        assert_eq!(selected(&shifted), 0);
+    }
+    let mut h = garden(7);
+    let before = screen(&mut h);
+    for modifiers in [
+        KeyModifiers::CONTROL,
+        KeyModifiers::ALT,
+        KeyModifiers::SHIFT | KeyModifiers::CONTROL,
+    ] {
+        for ch in ['H', 'J', 'K', 'L', '+', '=', '-', 'l', 'c'] {
+            h.handle_key(KeyEvent::new(KeyCode::Char(ch), modifiers));
+            assert_eq!(screen(&mut h), before);
+        }
+    }
+    for code in [KeyCode::Char('l'), KeyCode::Enter, KeyCode::Down] {
+        h.handle_key(KeyEvent::new(code, KeyModifiers::SHIFT));
+        assert_eq!(screen(&mut h), before);
+    }
+    assert!(h.take_copy_request().is_none());
+}
+
+#[test]
 fn graph_selection_keys_reveal_the_goal_after_panning_it_offscreen() {
     let mut h = garden(7);
     screen(&mut h);

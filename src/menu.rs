@@ -330,7 +330,12 @@ impl Home {
             return;
         }
         if matches!(self.view, View::Tend(_)) {
-            if key.modifiers != KeyModifiers::NONE
+            let shifted_view_key = key.modifiers == KeyModifiers::SHIFT
+                && matches!(
+                    key.code,
+                    KeyCode::Char('H' | 'J' | 'K' | 'L' | '+' | '=' | '-')
+                );
+            if key.modifiers != KeyModifiers::NONE && !shifted_view_key
                 || key.kind == KeyEventKind::Repeat
                     && matches!(
                         key.code,

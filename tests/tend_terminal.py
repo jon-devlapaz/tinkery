@@ -29,13 +29,17 @@ def journey(width, height, kind='garden'):
                   ('ready', 'active', 'status: confirmed for intake'),
                   ('ended', 'completed', 'status: confirmed for intake')]
         states += [(f'goal-{i:02}', 'active', None) for i in range(4, count)]
+        if kind == 'linked-rings':
+            states = states[:2] + states[3:4]
+            labels = labels[:2] + labels[3:4]
+            count = len(states)
         for i, (name, status, seed) in enumerate(states):
             path = sessions / name
             path.mkdir(parents=True)
             (path / 'ledger.json').write_text(json.dumps(dict(session_id=name, status=status, goal=labels[i]+'\n'+GOAL,
                 updated_at=(now-timedelta(hours=i)).isoformat())))
             if seed: (path / 'seed-contract.md').write_text(seed+'\n# Synthetic fixture only\n')
-        ended_goal = labels.pop(3)
+        ended_goal = labels.pop(next(i for i, (_, status, _) in enumerate(states) if status == 'completed'))
         count -= 1
         if kind == 'unreadable':
             broken = sessions / 'unreadable'
@@ -119,7 +123,7 @@ def journey(width, height, kind='garden'):
             assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
             assert 'I can read' not in screen.text(), screen.text()
             ordinary()
-            if kind in ('link-keyboard', 'link-mouse'):
+            if kind in ('link-keyboard', 'link-mouse', 'linked-rings'):
                 send(b'l', LINK_KEYS)
                 assert 'Calm theme needs …' in screen.text(), screen.text()
                 if kind == 'link-mouse':
@@ -134,6 +138,27 @@ def journey(width, height, kind='garden'):
                 link_file = root / 'TEST-links' / 'needs.json'
                 expected = dict(version=1, needs=[dict(goal='saved', needs='drafted')])
                 assert json.loads(link_file.read_text()) == expected
+                if kind == 'linked-rings':
+                    # Finish selection-following before dragging, then separate the two rings.
+                    move(b'j', 1)
+                    a, b = [position(label) for label in labels]
+                    x, y = b[0]+len(labels[1])//2, b[1]
+                    target_x, target_y = a[0]+len(labels[0])//2+width//3, a[1]
+                    os.write(master, (f'\x1b[<0;{x+1};{y+1}M'
+                                      f'\x1b[<32;{target_x+1};{target_y+1}M'
+                                      f'\x1b[<0;{target_x+1};{target_y+1}m').encode())
+                    wait(lambda: selected(1)
+                         and abs(position(labels[1])[0]+len(labels[1])//2-target_x) <= 2
+                         and abs(position(labels[1])[1]-target_y) <= 1)
+                    move(b'k', 0)
+                    a, b = [position(label) for label in labels]
+                    x = round((a[0]+len(labels[0])/2 + b[0]+len(labels[1])/2)/2)
+                    y = round((a[1]+b[1])/2)+3
+                    assert all(any('\u2801' <= screen.cells[row][col] <= '\u28ff'
+                                   for row in range(y-1, y+2))
+                               for col in range(x-2, x+3)), screen.text()
+                    if width == 100:
+                        print('TEST linked rings 100×30 screen:\n'+screen.text())
                 send(b'\x1b[21~', '1  think')
                 os.write(master, b'\x1b[21~')
                 wait(lambda: process.poll() is not None)
@@ -145,8 +170,12 @@ def journey(width, height, kind='garden'):
                 wait(lambda: selected(0) and 'needs Clear next step · not ready' in screen.text().splitlines()[height-3])
                 ordinary()
                 send(b'l', LINK_KEYS)
-                send(b'j', UNLINK_KEYS)
-                send(b'\r', GARDEN_KEYS)
+                if kind == 'link-mouse':
+                    column, row = position(labels[1])
+                    os.write(master, click(column+len(labels[1])//2, row))
+                else:
+                    send(b'j', UNLINK_KEYS)
+                    send(b'\r', GARDEN_KEYS)
                 wait(lambda: selected(0) and 'needs Clear next step' not in screen.text())
                 assert json.loads(link_file.read_text()) == dict(version=1, needs=[])
             elif kind == 'whole-graph':
@@ -154,6 +183,14 @@ def journey(width, height, kind='garden'):
                 assert 'page ' not in screen.text(), screen.text()
                 assert selected(count-1), screen.text()
             elif kind == 'drag-scroll':
+                for key in [b'+', b'-', b'=', b'-', b'H', b'L', b'J', b'K']:
+                    view_before = garden_lines()
+                    os.write(master, key)
+                    try:
+                        wait(lambda: garden_lines() != view_before)
+                    except AssertionError as error:
+                        raise AssertionError(f'view key {key!r}: {error}') from error
+                    assert GARDEN_KEYS in screen.text() and not (root/'TEST-links').exists()
                 column, row = position(labels[0])
                 x, y = column+len(labels[0])//2, row
                 view_before = garden_lines()
@@ -234,7 +271,7 @@ def journey(width, height, kind='garden'):
             wait(lambda: process.poll() is not None)
             assert process.returncode == 0
             assert not (root/'provider-was-run').exists()
-            if kind not in ('link-keyboard', 'link-mouse'):
+            if kind not in ('link-keyboard', 'link-mouse', 'linked-rings'):
                 assert not (root/'TEST-links').exists(), 'Navigation must not create a links store'
             assert {str(p): p.read_bytes() for p in sessions.rglob('*') if p.is_file()} == before
             name = 'garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu' if kind == 'garden' else 'garden/'+kind
@@ -252,3 +289,4 @@ journey(80, 24, 'unreadable')
 for size in [(80,24), (100,30), (160,40)]:
     journey(*size, 'link-keyboard')
     journey(*size, 'link-mouse')
+    journey(*size, 'linked-rings')

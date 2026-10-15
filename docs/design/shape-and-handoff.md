@@ -25,33 +25,43 @@ detail. The plain-text terminal exit receipt may include recovery locations.
 
 ## Tend: garden and detail
 
-Tend shows the saved goals discovery has landed, newest first in a deterministic
-staggered grid. Every goal has the same hollow Braille ring: size is unknown.
-Needs appear below the garden, not as drawn edges. There are no known sizes or merges.
-Seed Me sessions stay read-only; explicit linking writes only Tend's own links.
+Tend shows all discovered active saved goals as one graph, with no paging or node cap. Every goal has the same hollow Braille ring: size is unknown.
+Quiet lines join needs whose two ends are active and uniquely identified; missing,
+ambiguous or ended ends draw no line. The selected line below still names those needs.
+There are no known sizes or merges. Seed Me sessions stay read-only; explicit linking
+writes only Tend's own links.
 Ended sessions are left out; `N ended not shown` shares the muted incomplete-read
 note row, joined with ` · ` when both apply.
 If every readable session is ended, tend says `No active goals. N ended not shown.
 Confirm a goal in think to start one.` rather than claiming no sessions exist.
 
-Only the first saved-goal line sits above each ring, centred and clipped with `…`
-so labels never overlap. Old unstructured goals use their first line too. The selected
-label always starts with `› ` and is bold; with colour, its label and ring are jade.
-Other labels are muted and rings are ink. No label is italic.
+Labels use only the first saved-goal line, including old unstructured goals. They
+sit above or below their rings, clipped with `…` to avoid overlapping labels; a label
+with no room is omitted. The selected label starts with `› `; its label and ring
+are bold, and jade with colour. Other labels are muted and rings are ink. No label
+is italic.
 
 Below the garden, the selected line shows the first goal line in ink, then status
 and relative time in muted text, then `needs Quiet garden, Local records · not ready`
 or `needs Local records · ready` when it has needs. Unresolved needs say `1 need not found`
 (or `N needs not found`); no needs adds nothing. The headline truncates before the suffix.
-The page follows selection; `page N of M` appears in the suffix only with multiple
-pages. A muted refusal uses the otherwise blank row between that line and the key bar.
+A muted refusal uses the otherwise blank row between that line and the key bar.
 
-Right / `j` and Left / `k` step through goals and clamp at either end. Down / Up move
-by the last rendered column count, staying put at the top and clamping at the last
-goal. The garden key bar is `↑↓←→ move   enter open   l link   esc back`, which fits at 80 columns.
-A left press in a goal cell's label row or either ring row selects it; a second
-press on the same session path within 500 ms opens detail. Blank rows, other areas,
-help, detail and reading/empty/unavailable states ignore garden presses.
+Right / Down / `j` select the next goal in discovery's newest-first order;
+Left / Up / `k` select the previous one, clamping at either end. Up/Down do not
+follow screen rows or graph neighbours. Selection pans an offscreen goal into view
+without resetting zoom. The garden key bar is
+`↑↓←→ move   enter open   l link   esc back`, which fits at 80 columns.
+`+` / `=` zoom in, `-` zooms out; uppercase `H J K L` pan left/down/up/right.
+A left press on a ring or label selects that exact session path; another press on
+the same path within 500 ms opens detail. Drag a ring or label to move the goal,
+drag empty space to pan, and scroll to zoom. Help, detail and reading/empty/unavailable
+states ignore graph input.
+
+Graf lays out components deterministically, with no physics thread. Moving goals,
+panning and zooming write nothing. An unchanged graph keeps positions and viewport
+through refresh. Changed nodes, labels or links rebuild the static layout, resetting
+manual goal positions while retaining zoom and pan; following selection may pan again.
 
 Enter opens the exact stored goal block line by line, using the receipt's shared
 renderer without `Saved.`. In detail, ↑↓ / `j k` or PgUp/PgDn scroll; `c` copies the
@@ -136,18 +146,22 @@ Seed Me fixture is external and pinned by CI, not vendored or edited here.
 ## Rationale and verification
 
 [#123](https://github.com/jon-devlapaz/tinkery/issues/123) records the calm-view
-research: few nodes and few link types; the force-directed whole-graph view was
-mostly decorative. This supports the quiet garden, not a comparative user-study claim.
+research: few nodes and few link types; a force-directed whole-graph view was mostly
+decorative. [#127](https://github.com/jon-devlapaz/tinkery/issues/127) uses a static
+graph so needs are visible without automatic motion. This is a design choice,
+not a comparative user-study claim.
 
-Regression coverage includes deterministic layout and label separation, symmetric
-identical hollow rings, paper background, colour and no-colour selection cues,
-selected-line status/time, paging and singular/plural unreadable notes. Input tests
-cover clamped grid movement, mouse selection and double-press timing, path identity
-after late reads, help/detail/discovery guards and unchanged copy/exit behavior.
-Existing tests retain blocked-discovery responsiveness, state distinctions, exact
-multiline preservation, repeatable prompt bytes, no ordinary-view paths,
-ended-session guards and receipt `s` navigation. Link tests cover cancel, self-pick,
-add/remove, identity refusal, unreadable-byte preservation and help guards. Keyboard
-and single-click PTY linking journeys prove restart persistence and unlinking at
-80×24, 100×30 and 160×40. PTY handoff and garden journeys also run at 320×40.
-All use stubs and temporary TEST roots and check Seed Me fixture bytes stay unchanged.
+Rust regressions cover deterministic layout and overlapping-ring paint order, hollow
+rings, needs lines, palette and no-colour selection weight, no physics worker, uncapped
+goals, clamped selection, pointer identity, double-click timing, drag/zoom/pan and refresh
+preservation. Store and linking tests cover unreadable-byte preservation, exact ids,
+duplicate-id refusal, derived readiness, cancel/self-pick and add/remove. Discovery,
+help, copying and receipt tests retain their state and handoff guards.
+
+PTY journeys show keyboard and mouse linking, restart persistence, keyboard and mouse
+unlinking, and a needs line between two rings at 80×24, 100×30 and 160×40. Selection,
+click/double-click, keyboard zoom/pan, drag and scroll also run at 320×40, alongside
+exact detail text, repeatable prompt bytes and exit routes. A 30-goal journey checks
+selection without paging. All use stubs and temporary TEST roots, make no provider
+calls and check Seed Me fixture bytes stay unchanged. These prove mechanics, not
+operator acceptance or goal quality.

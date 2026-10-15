@@ -55,8 +55,9 @@ Today, Tinkery can:
   saves that goal, unchanged, as a Seed Me session in
   `~/.local/share/seed-me/sessions/`, and writes a think record to
   `~/.local/share/tinkery/think/`.
-- Show saved goals in Tend's garden, link what they need, open their detail and
-  copy a continuation prompt to Claude, Codex or Pi. Seed Me sessions stay unchanged.
+- Show active saved goals as rings in Tend's graph, with lines for what they need.
+  Link or unlink goals, open their detail and copy a continuation prompt to Claude,
+  Codex or Pi. Seed Me sessions stay unchanged.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
 **Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its

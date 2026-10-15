@@ -5,7 +5,7 @@ The six places follow the operator's work:
 | Key | Place | Today |
 | --- | --- | --- |
 | 1 | think | Dump, refine, review and explicitly save a goal |
-| 2 | tend | Saved-goal garden, needs links and manual continuation |
+| 2 | tend | Active-goal graph, needs links and manual continuation |
 | 3 | approve | Placeholder; no sequence approval reader |
 | 4 | watch | Placeholder; no live multi-run view |
 | 5 | taste | Placeholder; no end-report/review integration |
@@ -52,8 +52,7 @@ installed launcher passes `--home`.
 ## Measure failure and recovery
 
 Measure still requests the installed ledger report synchronously, only when deliberately
-opened. This slice changes failure presentation, not subprocess lifecycle: a stuck read
-can still block input until it returns ([#120](https://github.com/jon-devlapaz/tinkery/issues/120)).
+opened. A stuck read can still block input until it returns ([#120](https://github.com/jon-devlapaz/tinkery/issues/120)).
 Successful reports retain their existing text, scrolling and help behavior.
 
 A failed read says “Ledger report unavailable”, gives a plain-language cause when
