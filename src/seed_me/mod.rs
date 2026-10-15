@@ -32,6 +32,9 @@ pub fn default_root(home: Option<&OsStr>) -> Result<PathBuf, String> {
 /// Returns an absolute path without creating it; helpers must receive this same destination.
 pub fn resolve_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
     match explicit {
+        Some(root) if root.as_os_str().is_empty() => {
+            Err("--seed-session-root needs a location outside a repository".into())
+        }
         Some(root) if root.is_absolute() => Ok(root),
         Some(root) => std::env::current_dir()
             .map(|cwd| cwd.join(root))

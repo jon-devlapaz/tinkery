@@ -49,6 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "--seed-session-root" => {
                 seed_session_root = Some(PathBuf::from(
                     args.next()
+                        .filter(|root| !root.is_empty())
                         .ok_or("--seed-session-root needs a location outside a repository")?,
                 ));
             }

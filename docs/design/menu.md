@@ -66,7 +66,8 @@ Session defaults require an absolute, nonempty `HOME`. Missing, empty or relativ
 claim. Tend's technical help names `--seed-session-root PATH`. Practice and snapshots
 remain usable; live drafting refuses the unsafe default before starting a host or helper.
 An explicit session root also works in practice. Relative explicit roots are captured
-against the launch directory; discovery and saving receive the same absolute destination.
+against the launch directory and an empty one is refused; discovery and saving receive the
+same absolute destination.
 The separate `--record-root` requirement is unchanged and cannot select a session root.
 
 Painting, the count and navigation read in-memory state only. One owned, read-only

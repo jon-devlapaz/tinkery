@@ -80,6 +80,17 @@ class SessionRootTests(unittest.TestCase):
                     self.assertEqual(before, sentinel.read_bytes())
         self.assertFalse(self.called.exists())
 
+    def test_empty_explicit_root_is_refused_instead_of_using_the_current_folder(self):
+        records = self.root / 'TEST-records'
+        for args in (['--home', '--snapshot'], self.live_args() + ['--record-root', records]):
+            with self.subTest(args=args):
+                result = self.run_cli(args + ['--seed-session-root', ''], str(self.root / 'TEST-home'))
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn('--seed-session-root needs a location', result.stderr)
+                self.assertEqual([], list(self.cwd.iterdir()))
+                self.assertFalse(records.exists())
+                self.assertFalse(self.called.exists())
+
     def test_live_refuses_missing_session_root_before_host_or_helper_access(self):
         for home in (None, '', 'TEST-relative-home'):
             for entry in ([], ['--home']):

@@ -207,3 +207,9 @@ fn default_root_is_under_the_given_home() {
         Path::new("/TEST/home/.local/share/seed-me/sessions")
     );
 }
+
+#[test]
+fn an_empty_explicit_root_never_means_the_current_folder() {
+    let error = resolve_root(Some(PathBuf::new())).unwrap_err();
+    assert!(error.contains("--seed-session-root"), "{error}");
+}
