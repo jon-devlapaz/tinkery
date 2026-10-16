@@ -33,7 +33,11 @@ pub const PLACES: [(&str, &str, bool); 7] = [
         "Choose a saved goal and copy a prompt to continue.",
         true,
     ),
-    ("shape", "See where a saved goal's seed stands.", true),
+    (
+        "shape",
+        "Answer Seed Me's questions and confirm a seed.",
+        true,
+    ),
     (
         "approve",
         "Decide whether the plan is ready. Not built yet.",
@@ -77,6 +81,7 @@ pub struct Home {
     history_reader: tend::history::Reader,
     measure: measure::Reader,
     repo: Option<crate::repo::Repo>,
+    shape_agent: Option<Arc<crate::shape::Agent>>,
 }
 
 enum View {
@@ -120,7 +125,14 @@ impl Home {
             history_reader: tend::history::Reader::default(),
             measure: measure::Reader::default(),
             repo: None,
+            shape_agent: None,
         }
+    }
+
+    /// The model Shape answers and drafts through; without one, Shape only reads. Starts nothing.
+    pub fn with_shape_agent(mut self, agent: Option<Arc<crate::shape::Agent>>) -> Self {
+        self.shape_agent = agent;
+        self
     }
 
     /// Replace the reader for a selected root; never override a root refusal.
@@ -156,13 +168,15 @@ impl Home {
         session: &Path,
         open_tend: bool,
         link_root: Result<PathBuf, String>,
+        shape_agent: Option<Arc<crate::shape::Agent>>,
     ) -> Self {
         let (default_root, substrate) = Self::default_paths();
         let root = session
             .parent()
             .map(|path| Ok(path.to_path_buf()))
             .unwrap_or(default_root);
-        let mut home = Self::new(dump.fresh_factory(), root, substrate, link_root);
+        let mut home = Self::new(dump.fresh_factory(), root, substrate, link_root)
+            .with_shape_agent(shape_agent);
         if let Some(root) = dump.record_root() {
             home.record_root = Ok(root.to_path_buf());
         }
@@ -330,10 +344,13 @@ impl Home {
         (!self.receipts.is_empty()).then(|| self.receipts.join("\n"))
     }
 
-    /// Bracketed paste. Only think takes text; elsewhere a paste does nothing.
+    /// Bracketed paste. Think, and Shape while it takes words, take text; elsewhere a paste
+    /// does nothing.
     pub fn paste(&mut self, text: &str) {
-        if let View::Think(dump) = &mut self.view {
-            dump.paste(text);
+        match &mut self.view {
+            View::Think(dump) => dump.paste(text),
+            View::Shape(shape, _) if !self.help => shape.paste(text),
+            _ => {}
         }
     }
 
@@ -387,7 +404,10 @@ impl Home {
             }
             2 => {
                 self.request_sessions();
-                View::Shape(Box::new(Shape::list()), None)
+                View::Shape(
+                    Box::new(Shape::list().with_agent(self.shape_agent.clone())),
+                    None,
+                )
             }
             6 => View::Measure(Box::new(
                 self.measure.open(&self.substrate_dir, Instant::now()),
@@ -582,7 +602,8 @@ impl Home {
                     if tend.detail && tend.current().is_some_and(|s| s.stage.can_copy()) =>
                 {
                     let shape =
-                        Shape::session(self.seed_me.as_deref(), &tend.current().unwrap().path);
+                        Shape::session(self.seed_me.as_deref(), &tend.current().unwrap().path)
+                            .with_agent(self.shape_agent.clone());
                     let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) else {
                         unreachable!()
                     };
@@ -629,11 +650,16 @@ impl Home {
         }
     }
 
-    /// Shape's keys: F10 for the menu, F1 or ? for help, Esc steps back (to the tend it came
-    /// from, as it was). Held keys don't repeat an open. Nothing here writes or runs.
+    /// Shape's keys: F10 for the menu, F1 (or ? when Shape isn't taking words) for help, Esc
+    /// steps back (to the tend it came from, as it was). Held keys don't repeat an open, a save or
+    /// a confirmation. Shift types capitals. Only Shape's own named keys write or run.
     fn shape_key(&mut self, key: KeyEvent) {
-        if key.modifiers != KeyModifiers::NONE
-            || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::Enter)
+        let typing = matches!(&self.view, View::Shape(shape, _) if shape.takes_text());
+        let shifted_char =
+            key.modifiers == KeyModifiers::SHIFT && matches!(key.code, KeyCode::Char(_));
+        if key.modifiers != KeyModifiers::NONE && !shifted_char
+            || key.kind == KeyEventKind::Repeat
+                && matches!(key.code, KeyCode::Enter | KeyCode::F(2) | KeyCode::F(3))
         {
             return;
         }
@@ -641,6 +667,11 @@ impl Home {
             KeyCode::F(10) => {
                 self.view = View::Menu;
                 self.help = false;
+            }
+            KeyCode::Char('?') if typing && !self.help => {
+                if let View::Shape(shape, _) = &mut self.view {
+                    shape.key(key, self.seed_me.as_deref());
+                }
             }
             KeyCode::F(1) | KeyCode::Char('?') => self.help = !self.help,
             KeyCode::Esc if self.help => self.help = false,
@@ -776,7 +807,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             frame.render_widget(p.scroll((tend.help_scroll, 0)), body);
             return;
         }
-        let help = "Right now\n1–7 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   where a saved goal's seed stands (read-only)\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        let help = "Right now\n1–7 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -1159,7 +1190,7 @@ mod tests {
         let descriptions = [
             "Make your intention a clear goal.",
             "Choose a saved goal and copy a prompt to continue.",
-            "See where a saved goal's seed stands.",
+            "Answer Seed Me's questions and confirm a seed.",
             "Decide whether the plan is ready. Not built yet.",
             "Follow the work’s progress. Not built yet.",
             "Decide whether the result meets your goal. Not built yet.",

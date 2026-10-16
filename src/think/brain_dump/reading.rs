@@ -11,27 +11,7 @@ pub(super) fn prompt(seed_me_shaping: &str) -> String {
     assemble(PROMPT).replace("{seed_me_shaping}", seed_me_shaping)
 }
 
-/// A prompt file as the model reads it. Notes (lines starting with `#`) are dropped, lines in a
-/// paragraph are joined with one space, and each blank line becomes one newline.
-pub(super) fn assemble(file: &str) -> String {
-    let mut prompt = String::new();
-    let mut in_paragraph = false;
-    for line in file.lines().filter(|l| !l.starts_with('#')) {
-        if line.is_empty() {
-            if !prompt.is_empty() {
-                prompt.push('\n');
-            }
-            in_paragraph = false;
-        } else {
-            if in_paragraph {
-                prompt.push(' ');
-            }
-            prompt.push_str(line);
-            in_paragraph = true;
-        }
-    }
-    prompt
-}
+pub(super) use crate::pi::assemble;
 
 /// The fields of a reading the decoder reads. The prompt's schema line names the same fields, less
 /// three that older replies carried (`uncertain`, `framings`, `outcome`); `prompt_tests` keeps the

@@ -24,9 +24,9 @@ ideas; the area entry points below contain navigation only.
 | menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [#118](https://github.com/jon-devlapaz/tinkery/issues/118), still needs approval |
 | think | `src/think/` | [think](../research/shared/backlog.md#think) |
 | tend | `src/tend/` | [#123](https://github.com/jon-devlapaz/tinkery/issues/123) |
-| shape | `src/shape.rs` | [#149](https://github.com/jon-devlapaz/tinkery/issues/149) built; [#150](https://github.com/jon-devlapaz/tinkery/issues/150) next |
+| shape | `src/shape.rs`, `src/shape/` | [#149](https://github.com/jon-devlapaz/tinkery/issues/149) and [#150](https://github.com/jon-devlapaz/tinkery/issues/150) built |
 | measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) owned responsive reader |
-| shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/seed_me/`, `src/think_record.rs`, `src/voice/` | [shared](../research/shared/backlog.md) |
+| shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/pi.rs`, `src/seed_me/`, `src/think_record.rs`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
 Shape, the Seed Me step, is in the first release (operator decision, 2026-10-15) and has its
 own module; see [Shape](shape-and-handoff.md#shape). Approve, watch and taste also get their
@@ -61,6 +61,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | --- | --- |
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
+| `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools, the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The menu: the seven places and navigation between them, including Esc from Shape back to the Tend it came from. |
 | `measure.rs` | The ledger's read-only report, display safety limits, failure facts and safe two-layer disclosure. |
@@ -74,8 +75,9 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `tend/graph.rs` | Graf adapter: path-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
-| `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, the continuation prompt, and (in `shaping.rs`) where a seed stands from the helper's `read` and `status` (shared). |
-| `shape.rs` | Shape's list of goals waiting for a seed and one session's read-only view: the goal as confirmed, one stage and one next step; reads off the paint path. |
+| `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, the continuation prompt, (in `shaping.rs`) where a seed stands from the helper's `read` and `status`, and (in `answering.rs`) answers, questions, the seed draft and seed confirmation through the helper (shared). |
+| `shape.rs` | Shape's list of goals waiting for a seed and one session's view: the goal as confirmed, one stage, the operator's words and one next step; reads and steps run off the paint path. |
+| `shape/step.rs`, `shape/prompt.txt` | Shape's agent step: the budget check, the model's input and prompt, decoding its reply into a question or seed text, and the helper calls that record it. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
@@ -88,7 +90,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | Think's review screen, original pane, dictation input, and where everything goes on screen with help words, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
-| `think/drafting.rs` | The Pi call boundary: one bounded, cancellable request, optionally limited by a call budget. |
+| `think/drafting.rs` | Think's Pi host: its model settings and Seed Me working-draft instructions, over the shared `pi.rs` boundary. |
 | `think_record.rs`, `think_record/read.rs` | The shared confirmed-session format, its one write, and exact-session history attribution; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
@@ -158,6 +160,12 @@ loop restores the terminal before draining Measure on normal exit or I/O error. 
 incremental viewport indexing and prepared shared display text avoid rebuilding all
 output on a frame. The module map and interface promises preserve 1, 4 and 7. No shared
 reader framework or new design score is claimed.
+
+For #150, the Pi process boundary and call budget move from Think into shared `pi.rs`, so Think
+and Shape reach a model through one owner without either phase naming the other (diagnostics 3
+and 6). Seed Me's write rules stay in `seed_me/answering.rs`, so Shape knows no helper command or
+ledger field (3 and 6); Shape's step owns only its prompt and reply (1). The map shows the new
+modules (7). No new score is claimed.
 
 For #153, `repo.rs` hides how a repository is found behind one shared question
 (diagnostics 2 and 6); `main.rs` asks it once and hands the answer to the menu and

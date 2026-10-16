@@ -1,5 +1,6 @@
-//! Where one session's seed stands, read only through Seed Me's helper (`read` and `status`).
-//! Read-only: it never publishes, confirms or ends anything, and keeps no copy of the ledger.
+//! Where one session's seed stands, read only through Seed Me's helper (`read` and `status`),
+//! plus the seed draft's text when one waits for confirmation. Read-only: it never publishes,
+//! confirms or ends anything, and keeps no copy of the ledger.
 
 use serde_json::Value;
 use std::path::Path;
@@ -11,6 +12,8 @@ pub struct Shaping {
     pub goal: Option<String>,
     /// Where the seed stands.
     pub stage: Shaped,
+    /// The ledger version this was read at; a change made from what's shown must name it.
+    pub version: Option<u64>,
 }
 
 /// Where a session's seed stands. Each says only what Seed Me's files show; nothing is guessed.
@@ -18,6 +21,8 @@ pub struct Shaping {
 pub enum Shaped {
     /// Seed Me's current question, as the ledger records it. The ledger keeps no options.
     Question {
+        /// The node's id, which an answer settles.
+        id: String,
         /// The node's label, or its id when it has none.
         title: String,
         /// The question, or the decision to make when no question is recorded.
@@ -33,6 +38,8 @@ pub enum Shaped {
     Drafted {
         /// The draft's revision label, when it has one.
         revision: Option<String>,
+        /// The draft exactly as saved, when it could be read.
+        text: Option<String>,
     },
     /// A confirmed seed that `status` verifies against this session's confirmation record.
     Ready {
@@ -77,7 +84,11 @@ pub fn read(skill: &Path, session: &Path) -> Result<Shaping, String> {
     };
     let ledger = call("read")?;
     let status = call("status")?;
-    Ok(classify(&ledger, &status))
+    let mut shaping = classify(&ledger, &status);
+    if let Shaped::Drafted { text, .. } = &mut shaping.stage {
+        *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
+    }
+    Ok(shaping)
 }
 
 /// Where the seed stands, from the helper's `read` and `status` output. An open question comes
@@ -94,9 +105,11 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         .get("goal")
         .and_then(Value::as_str)
         .map(str::to_owned);
+    let version = ledger.get("version").and_then(Value::as_u64);
     let unknown = |what: &str| Shaping {
         goal: goal.clone(),
         stage: Shaped::Unknown { what: what.into() },
+        version,
     };
     let Some(state) = text(status, "status") else {
         return unknown("Seed Me reported no session status.");
@@ -105,6 +118,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         return Shaping {
             goal,
             stage: Shaped::Ended { status: state },
+            version,
         };
     }
     if goal.as_deref().is_none_or(|g| g.trim().is_empty()) {
@@ -135,11 +149,13 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         return Shaping {
             goal,
             stage: Shaped::Question {
-                title: text(node, "label").unwrap_or(id),
+                title: text(node, "label").unwrap_or_else(|| id.clone()),
+                id,
                 ask,
                 found,
                 suggestion: text(node, "recommendation"),
             },
+            version,
         };
     }
     let seed = status.get("seed").filter(|s| !s.is_null());
@@ -147,12 +163,16 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         return Shaping {
             goal,
             stage: Shaped::Waiting,
+            version,
         };
     };
     let revision = text(seed, "revision");
     let handoff = status.get("handoff");
     let stage = match seed.get("line_1").and_then(Value::as_str) {
-        Some("status: draft") => Shaped::Drafted { revision },
+        Some("status: draft") => Shaped::Drafted {
+            revision,
+            text: None,
+        },
         Some("status: simulated") => Shaped::Practice,
         Some("status: confirmed for intake") => {
             match handoff
@@ -171,7 +191,11 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             what: "The seed's first line isn't one Seed Me writes.".into(),
         },
     };
-    Shaping { goal, stage }
+    Shaping {
+        goal,
+        stage,
+        version,
+    }
 }
 
 #[cfg(test)]
@@ -203,6 +227,7 @@ mod tests {
         assert_eq!(
             shaped.stage,
             Shaped::Question {
+                id: "storage".into(),
                 title: "Where records live".into(),
                 ask: "Keep records local or synced?".into(),
                 found: vec![
@@ -220,6 +245,7 @@ mod tests {
         assert_eq!(
             shaped.stage,
             Shaped::Question {
+                id: "storage".into(),
                 title: "storage".into(),
                 ask: "storage choice".into(),
                 found: vec![],
@@ -268,6 +294,7 @@ mod tests {
                 status(None, drafted, Value::Null),
                 Shaped::Drafted {
                     revision: Some("r1".into()),
+                    text: None,
                 },
             ),
             (
