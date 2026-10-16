@@ -17,7 +17,7 @@ build, private data use, provider budget or merge.
 Baseline checked on October 12, 2026 against main at `4f520b2`, including #58;
 the tend row reflects the replacement above:
 
-| Place | Available now | Needed for this release |
+| Place | Available at baseline (2026-10-12) | Needed for this release |
 | --- | --- | --- |
 | Think | Refine a dump and explicitly save its confirmed goal | Repeatable quality checks and operator recognition on permitted examples |
 | Tend | Show saved goals in a read-only garden, open detail and copy a continuation prompt | Trace the same goal through the existing external workflow |

@@ -1,8 +1,8 @@
 # First-release tasks
 
-R1–R11 and I1/I2 are stable local labels, not GitHub issue numbers. R1–R3 are
-done; the selected release tasks below are published, unassigned and
-`needs-approval`. GitHub owns their scope, completion checks and blocking links.
+R1–R11 and I1/I2 are stable local labels, not GitHub issue numbers. R1–R3 and R11
+are done; the remaining tasks below are published and `needs-approval`.
+GitHub owns their scope, completion checks and blocking links.
 This page is an index, not a second task specification.
 
 Publication does not accept the revised R2/binding design or authorize
@@ -98,7 +98,8 @@ open decisions and completion evidence.
 <a id="r11"></a>
 ## R11 — Turn a confirmed goal into a seed in Shape
 
-Added by the operator on 2026-10-15 · M7. Published: [#149](https://github.com/jon-devlapaz/tinkery/issues/149)
-(read-only Shape) and [#150](https://github.com/jon-devlapaz/tinkery/issues/150) (answering and seed
-confirmation, blocked by #149) · both approved by the operator on 2026-10-15, with the
-[Shape design](shape-and-handoff.md#shape). #150 still needs a separate provider budget for any live trial.
+Added by the operator on 2026-10-15 · M7. Done: [#149](https://github.com/jon-devlapaz/tinkery/issues/149)
+(read-only Shape) by [PR #152](https://github.com/jon-devlapaz/tinkery/pull/152) and
+[#150](https://github.com/jon-devlapaz/tinkery/issues/150) (answering and seed confirmation)
+by [PR #157](https://github.com/jon-devlapaz/tinkery/pull/157), with the
+[Shape design](shape-and-handoff.md#shape). A live trial needs its own provider budget.

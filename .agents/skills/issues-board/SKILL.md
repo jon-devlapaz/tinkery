@@ -56,7 +56,7 @@ unaccepted design.
 ## Approval
 
 The board shows decisions; it doesn't make them. A card's lane is never approval to build.
-- In tinkery, approval is the `approved` label ([AGENTS.md](../../../AGENTS.md#work-intake)).
+- In tinkery, the `approved` label records the operator's explicit decision for that issue ([work intake](../../../AGENTS.md#work-intake)); quote that decision when you start.
 - The other repos have no such label. There, approval is the operator's explicit word for that issue,
   in the issue or the thread. Quote it when you start.
 

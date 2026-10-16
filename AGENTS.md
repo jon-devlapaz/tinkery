@@ -19,7 +19,8 @@ This is the working guide, subordinate to the constitution. Read
   confirmation is not seed confirmation or implementation permission.
 - Work from a GitHub issue on a branch and open a PR. Merge it yourself once its issue is
   approved (or the operator asked for the change) and CI is green with no conflicts. If the
-  operator requests draft-only issues, leave them uncreated and identify the approved task instead.
+  operator asks for drafts only, show the issue or PR drafts and create or merge nothing
+  until they say so.
 - No model/provider calls without an explicit budget. Default budget is zero.
   Examples named `live_*` and eval commands are not part of the zero-call suite.
 - Never record real audio. Voice tests use fake engines/recorders, not native addons.
