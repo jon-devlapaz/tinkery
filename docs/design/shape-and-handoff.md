@@ -357,8 +357,9 @@ that found nothing is flagged, not refused; the operator may pick the folder in 
   path. The folder is where Think recorded the goal was made, else the repository Tinkery started
   in, else where it started. It is found with the session read, so `F2` is never offered first.
   `F4` opens a `Folder:` box holding the current path; Enter adds a newline and F4 uses an existing
-  absolute folder (or `~/…`). The exact edited path is used, including line breaks and trailing
-  whitespace; it is not trimmed. Esc keeps the one shown, and a missing folder is refused with
+  absolute folder (or `~/…`). The exact edited path is tried first, including line breaks and
+  trailing whitespace; if no folder is there, the path without surrounding whitespace is tried, so
+  a pasted path ending in a line break still works. Esc keeps the one shown, and a missing folder is refused with
   the shown one kept. The pick lasts while this Shape stays open and is written nowhere; each
   step's receipts name it.
 - **Findings are saved in the ledger.** Each `found` entry becomes a Seed Me receipt (`checked`,

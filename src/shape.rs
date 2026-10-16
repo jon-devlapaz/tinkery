@@ -385,7 +385,7 @@ impl Shape {
                 (
                     now,
                     format!(
-                        "{failure}Session: {}\n{skill}\n{model}{reads}",
+                        "{failure}{model}{reads}\nSession: {}\n{skill}",
                         open.session.display()
                     ),
                 )
@@ -406,8 +406,8 @@ impl Shape {
              Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt."
         };
         let editing = if self.takes_text() {
-            "\nArrows move the cursor; Home/End move along a line. Shift selects; Ctrl+Left/Right move by word.\n\
-             Ctrl+W or Alt+Backspace deletes a word. Ctrl+U undoes; Ctrl+R redoes. PgUp/PgDn scroll the reading."
+            "\nArrows, Home/End and Ctrl+Left/Right move; Shift selects; Ctrl+W or Alt+Backspace deletes a word.\n\
+             Ctrl+U undoes, Ctrl+R redoes; PgUp/PgDn scroll the reading."
         } else {
             ""
         };
@@ -619,19 +619,21 @@ impl Opened {
     }
 
     /// Use the folder the operator typed for the next steps, or say why not and keep the one shown.
-    /// `~/` means the home folder; anything else must be an absolute path to a folder.
+    /// `~/` means the home folder; anything else must be an absolute path to a folder. The exact
+    /// text is tried first, then without surrounding whitespace, so a pasted line break still works.
     fn pick(&mut self, typed: &str) -> Option<(String, Option<String>)> {
         let home = || std::env::var_os("HOME").map(PathBuf::from);
-        let path = match typed.strip_prefix("~/") {
-            Some(rest) => home().map(|home| home.join(rest)),
-            None if typed == "~" => home(),
-            None => Some(PathBuf::from(typed)),
-        };
-        match path
+        let folder = |typed: &str| {
+            match typed.strip_prefix("~/") {
+                Some(rest) => home().map(|home| home.join(rest)),
+                None if typed == "~" => home(),
+                None => Some(PathBuf::from(typed)),
+            }
             .filter(|p| p.is_absolute())
             .and_then(|p| p.canonicalize().ok())
             .filter(|p| p.is_dir())
-        {
+        };
+        match folder(typed).or_else(|| folder(typed.trim())) {
             Some(folder) => {
                 self.folder = Folder::Known(folder);
                 None

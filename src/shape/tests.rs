@@ -819,6 +819,28 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
 }
 
 #[test]
+fn a_pasted_folder_with_a_trailing_line_break_is_used() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("TEST-pasted");
+    std::fs::create_dir(&folder).unwrap();
+    let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
+    shape.key(key(KeyCode::F(4)), None);
+    shape.key(
+        KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
+        None,
+    );
+    shape.key(
+        KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
+        None,
+    );
+    shape.paste(&format!("  {}\r\n", folder.display()));
+    shape.key(key(KeyCode::F(4)), None);
+    let open = shape.open.as_ref().unwrap();
+    assert!(open.notice.is_none(), "the pasted folder was refused");
+    assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
+}
+
+#[test]
 fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
     use ratatui::style::Modifier;
     for (width, height) in [(80, 24), (100, 30), (80, 14)] {

@@ -671,7 +671,9 @@ impl Home {
                     | KeyCode::Enter
                     | KeyCode::Tab
             );
-        if key.modifiers != KeyModifiers::NONE && !editor_key
+        let shifted_char =
+            key.modifiers == KeyModifiers::SHIFT && matches!(key.code, KeyCode::Char(_));
+        if key.modifiers != KeyModifiers::NONE && !editor_key && !shifted_char
             || key.kind == KeyEventKind::Repeat
                 && (matches!(key.code, KeyCode::F(2..=5)) || key.code == KeyCode::Enter && !typing)
         {
@@ -1282,6 +1284,12 @@ mod tests {
         let screen = snapshot(100, 30, &mut h, true).unwrap();
         assert!(screen.contains("tinkery › shape"), "{screen}");
         assert!(screen.contains("isn't set up here"), "{screen}");
+        // A terminal may report ? with Shift; it still opens and closes help.
+        let shifted = KeyEvent::new(KeyCode::Char('?'), KeyModifiers::SHIFT);
+        h.handle_key(shifted);
+        assert!(h.help, "Shift+? opens help");
+        h.handle_key(shifted);
+        assert!(!h.help, "Shift+? closes help");
         h.handle_key(key(KeyCode::Esc));
         let View::Tend(tend) = &h.view else { panic!() };
         assert!(tend.detail);
