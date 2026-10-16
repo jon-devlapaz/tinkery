@@ -4,11 +4,8 @@ description: "Conduct a retrospective on a coding session."
 disable-model-invocation: true
 ---
 
-## In Tinkery
-
-[AGENTS.md](../../../AGENTS.md) holds the guardrails and `docs/design/` holds design rules.
-Tinkery has no `CODING_STANDARDS.md` and no reviewer agent: propose those changes to
-`docs/design/` or an automated check instead.
+In Tinkery, rules live in [AGENTS.md](../../../AGENTS.md) and `docs/design/`; there is no
+`CODING_STANDARDS.md` or reviewer agent.
 
 The user has asked for a **retrospective**. You are suggesting improvements to the coding agent's **environment** to improve future runs.
 
