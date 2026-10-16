@@ -417,9 +417,52 @@ fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
         assert_eq!(text.matches("Next:").count(), 0, "{text}");
         assert_eq!(text.lines().last().unwrap().trim(), "esc stop");
     }
-    // F5 waits until the step is done.
+    // F5 waits until the step is done, and help says what Esc does now.
     shape.key(key(KeyCode::F(5)), None);
     assert!(shape.open.as_ref().unwrap().so_far.is_none());
+    assert!(
+        shape
+            .help_text()
+            .contains("A step is running. Esc stops it.\nEsc stop · F10 menu")
+    );
+}
+
+#[test]
+fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
+    let dir = tempfile::tempdir().unwrap();
+    let found = (1..=6)
+        .map(|i| {
+            format!(
+                "src/TEST/{i}.rs:{i}: this path prints the helper's error verbatim, stderr included"
+            )
+        })
+        .collect();
+    let tall = Shaped::Question {
+        id: "storage".into(),
+        title: "Where records live".into(),
+        ask: "Keep records local or synced?".into(),
+        found,
+        suggestion: Some("Local, matching the README.".into()),
+    };
+    let mut shape = reading(done(tall).with_agent(Some(agent(1))), dir.path());
+    shape.paste("TEST first line\nTEST last line");
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(text.contains("Keep records local or synced?"), "{text}");
+    assert!(
+        text.contains("  your answer\n  TEST first line\n  TEST last line▏"),
+        "{text}"
+    );
+    assert_eq!(
+        text.lines().last().unwrap().trim(),
+        "↑↓ scroll  F2 save answer and look into next  F5 so far  esc back  F10 menu"
+    );
+    // Scrolling moves only the reading; the answer stays where it is.
+    for _ in 0..30 {
+        shape.key(key(KeyCode::Down), None);
+    }
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(text.contains("F4 picks another folder."), "{text}");
+    assert!(text.contains("TEST last line▏"), "{text}");
 }
 
 #[test]
@@ -651,4 +694,47 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
         text.contains("Nothing found: this seed records nothing checked in the repository."),
         "{text}"
     );
+}
+
+#[test]
+fn so_far_scrolls_on_a_short_screen_and_always_says_how_to_close() {
+    let mut shape = done(Shaped::Waiting);
+    shape.key(key(KeyCode::F(5)), None);
+    let text = screen(&mut shape, 80, 14, true);
+    assert!(text.contains("Your goal, as you confirmed it"), "{text}");
+    assert!(text.contains("↑↓ scroll · F5 close"), "{text}");
+    for _ in 0..20 {
+        shape.key(key(KeyCode::Down), None);
+    }
+    let text = screen(&mut shape, 80, 14, true);
+    assert!(text.contains("TEST format: Markdown"), "{text}");
+    assert!(text.contains("↑↓ scroll · F5 close"), "{text}");
+    shape.key(key(KeyCode::F(5)), None);
+    assert!(
+        shape.open.as_ref().unwrap().so_far.is_none(),
+        "F5 didn't close its page"
+    );
+}
+
+#[test]
+fn a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    let answer = (1..=20)
+        .map(|i| format!("TEST line {i}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    shape.paste(&answer);
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(text.contains("Keep records local or synced?"), "{text}");
+    assert!(text.contains("TEST line 20▏"), "{text}");
+    shape.key(key(KeyCode::F(2)), None);
+    assert!(
+        shape.open.as_ref().unwrap().running.is_some(),
+        "no step started"
+    );
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(text.contains("Keep records local or synced?"), "{text}");
+    assert!(text.contains("Saving your answer."), "{text}");
+    assert_eq!(text.lines().last().unwrap().trim(), "esc stop");
 }

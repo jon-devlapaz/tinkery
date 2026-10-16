@@ -335,6 +335,7 @@ impl Shape {
     pub fn help_text(&self) -> String {
         let agent = self.agent.as_deref();
         let back = match &self.open {
+            Some(open) if open.running.is_some() => "Esc stop · F10 menu",
             Some(open) if open.so_far_ready() => "Esc back · F5 so far · F10 menu",
             _ => "Esc back · F10 menu",
         };
@@ -366,6 +367,7 @@ impl Shape {
                     _ => String::new(),
                 };
                 let now = match (agent, open.typing()) {
+                    _ if open.running.is_some() => "A step is running. Esc stops it.",
                     _ if open.choosing.is_some() => {
                         "Type the folder the next step should read. Enter uses it; Esc keeps the one shown."
                     }
@@ -460,7 +462,13 @@ impl Shape {
                     keys.push("F5 so far".to_owned());
                 }
                 keys.extend(["esc back".to_owned(), "F10 menu".to_owned()]);
-                keys.join("   ")
+                // Esc and F10 are never cut off: a full bar closes up before it runs out of room.
+                let bar = keys.join("   ");
+                if bar.width() > frame.area().width.saturating_sub(4) as usize {
+                    keys.join("  ")
+                } else {
+                    bar
+                }
             }
             (None, Some(Some(Ok(sessions)))) if !sessions.is_empty() => {
                 "↑↓ move   enter open   esc back".into()
@@ -761,19 +769,32 @@ fn render_so_far(
             lines.push(Line::from(spans));
         }
     }
-    lines.push(Line::default());
-    lines.push(Line::styled("F5 close", palette.ink));
     let page = Paragraph::new(lines).wrap(Wrap { trim: false });
-    let max = page
-        .line_count(area.width)
-        .saturating_sub(area.height as usize) as u16;
-    *scroll = (*scroll).min(max);
-    frame.render_widget(page.scroll((*scroll, 0)), area);
+    // How to close stays on the page's last row, even when the rest scrolls.
+    let rows = page.line_count(area.width) as u16;
+    let height = area.height.saturating_sub(2);
+    *scroll = (*scroll).min(rows.saturating_sub(height));
+    frame.render_widget(page.scroll((*scroll, 0)), Rect { height, ..area });
+    let close = if rows > height {
+        "↑↓ scroll · F5 close"
+    } else {
+        "F5 close"
+    };
+    frame.render_widget(
+        Paragraph::new(close).style(palette.ink),
+        Rect {
+            y: area.y + rows.min(height) + 1,
+            height: 1,
+            ..area
+        }
+        .intersection(area),
+    );
 }
 
-/// The goal's first line (or, when one waits, the seed draft) comes first and scrolls when it
-/// doesn't fit; where the seed stands, the operator's words and any next step follow it and stay
-/// in view. Returns whether the top scrolls, so the key bar offers scrolling only then.
+/// What to read (the goal's first line, or the seed draft when one waits, then where the seed
+/// stands) comes first and scrolls when it doesn't fit; the words box, what was said and any next
+/// step follow it and stay in view. Returns whether the reading scrolls, so the key bar offers
+/// scrolling only then.
 fn render_open(
     frame: &mut Frame,
     scroll: &mut u16,
@@ -789,21 +810,20 @@ fn render_open(
     if area.width == 0 || area.height == 0 {
         return false;
     }
-    let (top, stand) = match &open.reading {
+    let (reading, input) = match &open.reading {
         _ if open.skill.is_none() => (
-            None,
             plain(
                 "Shape reads sessions through Seed Me, which isn't set up here.",
                 "Next: start Tinkery with --shape-pi, --model and --seed-me.",
                 palette,
             ),
+            Text::default(),
         ),
         Reading::NotStarted | Reading::Waiting(_) => (
-            None,
             Text::styled("Reading where this seed stands.", palette.muted),
+            Text::default(),
         ),
         Reading::Done(Err(error)) => (
-            None,
             plain(
                 &match error
                     .strip_prefix("Seed Me helper refused: ")
@@ -816,6 +836,7 @@ fn render_open(
                 "Next: Esc goes back; F1 shows where the session is.",
                 palette,
             ),
+            Text::default(),
         ),
         Reading::Done(Ok(shaping)) => {
             let top = match &shaping.stage {
@@ -904,7 +925,13 @@ fn render_open(
                     running: None,
                 },
             };
-            (top, standing(&shaping.stage, stand, palette))
+            let (said, input) = standing(&shaping.stage, stand, palette);
+            let mut reading = top.unwrap_or_default();
+            if !reading.lines.is_empty() && !said.lines.is_empty() {
+                reading.lines.push(Line::default());
+            }
+            reading.lines.extend(said.lines);
+            (reading, input)
         }
     };
     let rows = |text: &Text<'static>| {
@@ -912,31 +939,35 @@ fn render_open(
             .wrap(Wrap { trim: false })
             .line_count(area.width) as u16
     };
-    let stand_rows = rows(&stand);
-    let Some(top) = top else {
-        frame.render_widget(Paragraph::new(stand).wrap(Wrap { trim: false }), area);
-        return false;
-    };
-    // One blank row between the top and where the seed stands.
-    let top_rows = rows(&top);
-    let height = top_rows.min(area.height.saturating_sub(stand_rows + 1).max(1));
-    *scroll = (*scroll).min(top_rows - height);
+    let (read_rows, input_rows) = (rows(&reading), rows(&input));
+    let gap = u16::from(read_rows > 0 && input_rows > 0);
+    // The words box keeps its end (the cursor) in view, leaving at least a row to read.
+    // It never takes more than half the screen from what there is to read.
+    let input_height =
+        input_rows
+            .min(area.height.saturating_sub(
+                gap + read_rows.min(area.height / 2).max(u16::from(read_rows > 0)),
+            ));
+    let height = read_rows.min(area.height.saturating_sub(input_height + gap));
+    *scroll = (*scroll).min(read_rows - height);
     frame.render_widget(
-        Paragraph::new(top)
+        Paragraph::new(reading)
             .wrap(Wrap { trim: false })
             .scroll((*scroll, 0)),
         Rect { height, ..area },
     );
     frame.render_widget(
-        Paragraph::new(stand).wrap(Wrap { trim: false }),
+        Paragraph::new(input)
+            .wrap(Wrap { trim: false })
+            .scroll((input_rows - input_height, 0)),
         Rect {
-            y: area.y + height + 1,
-            height: area.height.saturating_sub(height + 1),
+            y: area.y + height + gap,
+            height: input_height,
             ..area
         }
         .intersection(area),
     );
-    top_rows > height
+    read_rows > height
 }
 
 /// The seed draft for reading: a muted `Seed draft rN` header in place of the file's `status:`
@@ -951,7 +982,7 @@ fn seed_view(seed: &str, revision: Option<&str>, palette: Palette) -> Text<'stat
         Line::default(),
     ];
     let mut header = true;
-    for line in seed.split('\n') {
+    for line in seed.trim_end_matches('\n').split('\n') {
         header &= !line.trim().is_empty();
         if header && (line.starts_with("status:") || line.starts_with("revision:")) {
             continue;
@@ -1036,12 +1067,13 @@ struct Words<'a> {
     own_line: bool,
 }
 
-/// Where the seed stands, in plain words. Seed Me's label is muted and its question is the one
+/// Where the seed stands, in plain words, as what to read and then what to act with (the words box,
+/// what was said and the next step). Seed Me's label is muted and its question is the one
 /// thing to act on (jade); its suggestion is a guess (italic). The operator's words are in ink.
 /// At most one Next line: none when the key bar already names the one next action and nothing
 /// was said, and a notice's own next step replaces the stage's. While a step runs, the question and the words
 /// stay, muted, under what the step is doing.
-fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
+fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, Text<'static>) {
     const CONTINUE: &str = "tend's c copies the prompt to continue.";
     let Stand {
         acts,
@@ -1052,6 +1084,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
     } = stand;
     let calm = running.is_some();
     let mut lines = Vec::new();
+    let mut flag = None;
     let next = match stage {
         Shaped::Question {
             title,
@@ -1119,8 +1152,9 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
                     palette.ink,
                 ));
             }
+            // Beside the words box, so a long seed can't scroll it away.
             if !calm && text.as_deref().is_some_and(|t| t.contains(NOTHING_FOUND)) {
-                lines.push(Line::styled(
+                flag = Some(Line::styled(
                     "Nothing found: this seed records nothing checked in the repository.",
                     palette.ink,
                 ));
@@ -1180,7 +1214,8 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
         gap(&mut lines);
         lines.push(Line::styled(reads, palette.ink));
     }
-    let worded = words.is_some();
+    // What the operator acts with stays in view beneath what they read.
+    let mut input: Vec<Line<'static>> = flag.into_iter().collect();
     if let Some(Words {
         label,
         typed,
@@ -1188,9 +1223,9 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
     }) = words
     {
         let style = if calm { palette.muted } else { palette.ink };
-        gap(&mut lines);
+        gap(&mut input);
         if own_line {
-            lines.push(Line::styled(label.to_owned(), style));
+            input.push(Line::styled(label.to_owned(), style));
         }
         let typed = if calm {
             typed.to_owned()
@@ -1203,30 +1238,29 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
                 (false, 0) => label.to_owned(),
                 (false, _) => " ".repeat(label.width()),
             };
-            lines.push(Line::from(vec![
+            input.push(Line::from(vec![
                 Span::styled(lead, palette.muted),
                 Span::styled(row.to_owned(), style),
             ]));
         }
         if acts && !calm && matches!(stage, Shaped::Drafted { .. }) {
-            lines.push(Line::default());
-            lines.push(Line::styled(
+            input.push(Line::default());
+            input.push(Line::styled(
                 "Confirming the seed is not approval to build.",
                 palette.ink,
             ));
         }
     }
     if let Some(running) = running {
-        gap(&mut lines);
-        lines.push(running);
-        return Text::from(lines);
+        gap(&mut input);
+        input.push(running);
+        return (Text::from(lines), Text::from(input));
     }
-    let noticed = notice.is_some();
     let next = match notice {
         Some((said, own)) => {
             if !said.is_empty() {
-                gap(&mut lines);
-                lines.push(Line::styled(said.to_owned(), palette.ink));
+                gap(&mut input);
+                input.push(Line::styled(said.to_owned(), palette.ink));
             }
             own.or(next)
         }
@@ -1234,12 +1268,10 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
         None => next.filter(|_| !acts),
     };
     if let Some(next) = next {
-        if matches!(stage, Shaped::Question { .. }) || worded || noticed {
-            gap(&mut lines);
-        }
-        lines.push(Line::styled(next, palette.ink));
+        gap(&mut input);
+        input.push(Line::styled(next, palette.ink));
     }
-    Text::from(lines)
+    (Text::from(lines), Text::from(input))
 }
 
 fn clipped(text: &str, width: usize) -> String {

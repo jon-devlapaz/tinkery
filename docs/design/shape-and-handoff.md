@@ -262,13 +262,18 @@ out and the rest is one key away. The operator approved the constitution's wordi
 2026-10-16.
 
 - **Layout.** Under the menu frame (`tinkery › shape`, `?`), content starts at the body's top row,
-  at most 76 columns wide. Where the seed stands follows the goal's first line (or the seed draft)
-  directly, so nothing moves while the operator types. When the top doesn't fit, it scrolls and the
-  rest stays in view; only then does the key bar offer `↑↓ scroll`.
+  at most 76 columns wide. What to read (the goal's first line or the seed draft, then where the
+  seed stands) comes first; the words box, anything said and any `Next:` follow it directly, so
+  nothing moves while the operator types. When the reading doesn't fit, it scrolls and the words box
+  stays in view with its end (the cursor, or what a running step is doing), never taking more than
+  half the screen from the reading; only then does the key bar offer `↑↓ scroll`. A seed's
+  `Nothing found` flag sits beside the words box so a long seed can't scroll it away. A key bar too wide
+  for the screen closes up to two spaces between keys rather than cut off Esc or F10.
 - **F5 "So far"** is a full page like F1 help, with no key bar: the whole goal exactly as
   confirmed, then each settled decision after it (`label: answer`) in ledger order. Only answers
   settled with `user` authority are marked `(you)`; others show Seed Me's authority word, such as
-  `(delegated)`. `F5` or Esc closes it, ↑↓ scrolls it, and it takes no words. It is offered once a
+  `(delegated)`. `F5` or Esc closes it, ↑↓ scrolls it (`↑↓ scroll · F5 close` stays on its last
+  row), and it takes no words. It is offered once a
   read lands and not while a step runs. F1's "Right now" lists it.
 - **One next step, said once.** When the key bar names the stage's one action (a question or no
   question yet, with a model, or a seed draft to confirm), there is no `Next:` line. Every other
@@ -278,7 +283,7 @@ out and the rest is one key away. The operator approved the constitution's wordi
   to build.
 - **While a step runs,** the label, the question and the typed words stay, muted, under one line of
   what the step is doing (`Saving your answer.`, then `Answer saved. Looking in NAME for the next
-  question.`) and a muted count of seconds. The key bar is `esc stop`.
+  question.`) and a muted count of seconds. The key bar is `esc stop`, and F1 says a step is running.
 - **The seed draft** is shown under a muted `Seed draft rN` header in place of the file's own
   `status:` and `revision:` lines, with `#` heading marks shown as bold text. Every other line is
   shown as written. This is display only: `seed-contract.md` is never changed by showing it.
@@ -390,6 +395,11 @@ label; no `Next:` line repeats the key bar's one action; the question and the ty
 in view while a step runs; and the seed draft shows no raw frontmatter while `seed-contract.md`
 stays byte-identical. Reversion probes went red for: the goal altered on F5, the answer hidden
 during a step, a `Next:` line repeating the key bar, and rendering that changed the seed file.
+Dogfooding at 80×24 with a long goal and four findings then showed the answer box pushed below
+the screen, `F10 menu` cut off the key bar and `F5 close` scrolled out of sight. A review
+dogfood added a 20-line answer hiding what a running step was doing. Tests for each went red
+when their fix was reverted. Still open for #163: arrows don't scroll within a long answer, and a
+growing words box pulls itself up the screen.
 
 [#123](https://github.com/jon-devlapaz/tinkery/issues/123) records the calm-view
 research: few nodes and few link types; a force-directed whole-graph view was mostly
