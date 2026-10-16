@@ -42,7 +42,7 @@ on human discovery; hiding everything is not the goal.
 
 ## Information hierarchy
 
-Separate **steps** (ordered actions) from **reference** (rules/facts consulted on demand).
+Separate **steps** (ordered actions) from **reference** (rules and facts consulted on demand).
 A document may contain either or both. Place material at the needed level:
 
 1. In-file steps: what to do, in order.
@@ -62,13 +62,13 @@ End each step with a checkable, exhaustive completion criterion:
 - **Clarity** distinguishes done from not-done. Vague bounds invite premature
   completion, pulled by visible later steps. Sharpen the bound first. Only if it
   remains fuzzy **and rushing is observed**, hide later steps across a real context
-  boundary (handoff/subagent dispatch); an inline call doesn't clear context.
+  boundary (a handoff or subagent dispatch); an inline call doesn't clear context.
 - **Demand** drives legwork: “every modified model accounted for” requires more than
   “produce a change list.” Exhaustiveness also binds flat reference (“every rule applied”).
 
 ## When to split
 
-Split only when the added context/human indexing load earns its cost:
+Split only when the benefit outweighs the added context load or human indexing work:
 
 - **Sequence:** separate later steps when they demonstrably rush the current one;
   merging sequences can reintroduce that pull.
@@ -79,7 +79,7 @@ Split only when the added context/human indexing load earns its cost:
 Use compact, familiar concepts as behavioral hooks: _fog of war_, _tracer bullets_,
 _red_. Define coined terms clearly, but prefer pretrained concepts over paying for
 new definitions. Repeat the token, not the explanation: it anchors execution in the
-body and discovery in pointers/prompts.
+body and discovery through pointers and prompts.
 
 Replace repeated phrases with sharper hooks: “fast, deterministic, low-overhead” →
 _tight_; “a loop you believe in” → _red_, an observable gate. A hook must beat the

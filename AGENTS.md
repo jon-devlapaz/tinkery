@@ -10,26 +10,28 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
 - Check changeability: name the [architecture diagnostics](docs/design/architecture.md#design-score)
   moved. Module and `pub` comments state promises and refusals, not implementation;
   the build requires them.
-- Preserve operator originals verbatim; readings are guesses. Keep the confirmed
-  goal unchanged through saving and handoff.
-- Navigation/copying never launch agents. Goal confirmation is neither seed
+- Preserve operator originals verbatim; readings are guesses.
+  Keep the displayed, confirmed goal unchanged through saving and handoff.
+- Navigation and copying never launch agents. Goal confirmation is neither seed
   confirmation nor implementation permission.
-- Use an issue, branch and PR. Merge approved/operator-requested work only with green
-  CI and no conflicts. Drafts-only requests permit neither creation nor merging.
-- Model/provider calls require an explicit budget; default zero. `live_*` examples
-  and eval commands are outside zero-call verification.
-- Never record real audio; voice tests use fake engines/recorders, never native addons.
+- Work from an issue on a branch and open a PR. Merge it yourself once the issue is approved
+  (or the operator asked for the change), CI is green and there are no conflicts.
+  If the operator asks for drafts only, create and merge nothing until they say so.
+- Model and provider calls require an explicit budget. The default is zero.
+  `live_*` examples and eval commands are outside zero-call verification.
+- Never record real audio; voice tests use fake engines and recorders, never native addons.
 - Use temporary TEST roots. Never write to `~/.local/share/seed-me` or
   `~/.local/share/tinkery`, or change operator sessions, installs, launcher, Pi,
   Pi Voice or the operator's Seed Me checkout.
-- Read relevant tests/design before implementation; update changed decisions.
+- Read relevant tests and design before implementation; update changed decisions.
   Add regressions, prove important protections fail when reverted, then restore them.
   Backlog proposals confer neither shipped behavior nor build permission.
 - For agent-facing docs, use `writing-for-agents`: one rule per authoritative home,
-  task detail behind pointers. Preserve safeguards and runnable commands.
+  task detail behind pointers.
+  Preserve safeguards and runnable commands; brevity is not permission to weaken them.
   `tests/test_documentation.py` checks links, headings, paths, options and reachability.
-- At rest: fetched `main` matching `origin/main`, clean, no stashes, extra worktrees
-  or leftover branches. Report open PRs instead of cleaning them up. Delete only
+- At rest, keep a clean `main` matching `origin/main` after a fetch, with no stashes,
+  extra worktrees or leftover branches. Report open PRs instead of cleaning them up. Delete only
   merged branches (`git branch -d`); never force-delete branches, drop stashes or
   remove worktrees for cleanliness.
 
@@ -45,25 +47,26 @@ maps modules to responsibilities.
 | Menu, discovery, Measure | [menu](docs/design/menu.md) |
 | Think | [think](docs/design/think.md) |
 | Think evaluations | [think evaluation](docs/design/think-evaluation.md) |
-| Goal composition/validation/rendering | [goal block](docs/design/goal-block.md) |
+| Goal composition, validation and rendering | [goal block](docs/design/goal-block.md) |
 | Saving, Tend, Shape, continuation | [tend and handoff](docs/design/shape-and-handoff.md) |
 | Voice/setup | [voice](docs/design/voice.md) |
 
 ## Cold setup
 
-Fresh Debian/Ubuntu clone with Bash and Git:
+Fresh Debian or Ubuntu clone with Bash and Git:
 
 ```bash
 ./scripts/cloud-setup.sh
 ```
 
-Installs missing prerequisites, stable Rust/rustfmt/Clippy and Node; checks out CI's
-Seed Me ref in `.ci-seed-me` and prints exports. Reruns refuse dirty/unrelated fixtures;
-Git-local excludes keep bytecode untracked without fixture edits. Downloads only
-packages/Git, not providers, microphones, native voice engines or speech models.
-Apt may need root/sudo.
+The script installs missing prerequisites, stable Rust with rustfmt and Clippy, and Node.
+It checks out CI's Seed Me ref in `.ci-seed-me` and prints exports.
+It refuses dirty or unrelated fixture checkouts rather than resetting them; rerunning is safe.
+Git-local excludes keep bytecode untracked without fixture edits. It downloads only
+packages and Git repositories, not providers, microphones, native voice engines or speech models.
+Apt may need root or sudo.
 
-CI uses stable Rust on Ubuntu/macOS; use that updated stable for Clippy.
+CI uses stable Rust on Ubuntu and macOS; use that updated stable for Clippy.
 Never alter operator toolchains without approval. On macOS, provision Rust, Python 3
 and Node separately (bootstrap refuses macOS), then clone Seed Me into `.ci-seed-me`
 at `.github/workflows/ci.yml`'s ref. No other developer's files are needed.
@@ -102,7 +105,7 @@ cargo +stable clippy --workspace --all-targets --locked -- -D warnings
 <!-- full-check:end -->
 
 [Try it](README.md#try-it) without the installed launcher. `--snapshot` prints
-100×30 without terminal mode/providers; `NO_COLOR=1`/`--no-color` retain non-color
+100×30 without terminal mode or provider calls; `NO_COLOR=1` or `--no-color` retain non-color
 cues. [Terminal setup](docs/terminal-setup.md#launch) has isolated real-drafting instructions.
 
 ## Work intake
@@ -116,7 +119,7 @@ Unapproved work stays `needs-approval`. `approved` records scoped operator permi
 never grants it; material scope changes return to `needs-approval`. Publication, design
 acceptance, implementation, data use and budget are separate decisions.
 
-One branch/PR per approved slice; link the issue and stay within its scope. Close with
-completion evidence or an explicit reason. Report Rust/Node/Python counts, PTY
-journeys/sizes, failures and reversion probes separately from operator dogfood:
+Use one branch and PR per approved slice; link the issue and stay within its scope. Close with
+completion evidence or an explicit reason. Report Rust, Node and Python counts, PTY
+journeys and sizes, failures and reversion probes separately from operator dogfood:
 stubs prove mechanics, not real-dump goal quality.

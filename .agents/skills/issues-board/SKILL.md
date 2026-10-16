@@ -18,7 +18,7 @@ Fields:
 ## Access
 
 Requires `gh` with `project` scope (`gh auth status`). Cloud sessions cannot reach
-Projects (GraphQL/user REST blocked): use the operator's Mac, e.g. Remote Control,
+Projects (GraphQL and user-level REST are blocked): use the operator's Mac, e.g. Remote Control,
 never workarounds.
 
 ```bash
@@ -37,7 +37,7 @@ Issue state is absent.
 ## Automations already on
 
 Closing sets Done; never set Done yourself, especially on open issues: auto-close is on.
-Auto-added sub-issues lack Lane/Release; fill both.
+Auto-added sub-issues lack Lane and Release; fill both.
 
 ## Reading the board
 
@@ -49,27 +49,28 @@ unaccepted designs.
 ## Approval
 
 Lanes never authorize building. In tinkery, follow [work intake](../../../AGENTS.md#work-intake);
-elsewhere there is no `approved` label: require the operator's explicit issue/thread
-permission. Quote the decision when starting.
+elsewhere there is no `approved` label: require the operator's explicit permission
+in the issue or thread. Quote the decision when starting.
 
 ## Changing the board
 
 Change fields only; editing, labelling or closing issues requires operator permission.
 
-- **Start approved work:** Now / In Progress, one issue per thread/branch. Skip existing
-  In Progress cards: another agent owns them.
+- **Start approved work:** set Lane to Now and Status to In Progress.
+  Keep one issue per thread or branch. Skip existing In Progress cards: another agent owns them.
 - **Finish:** merged PR closes the issue; automation sets Done, leaving Lane unchanged.
 - **Unblock:** move Blocked → Next only when all native blockers close; report remaining body gates.
 - **Propose:** only the operator moves unapproved cards to Now or acts on Close?.
 - **New issue:** add to board; set Release from its tinkery milestone or definitions above.
-  Lane is Blocked with an open native blocker, otherwise Now if approved/started,
+  Lane is Blocked with an open native blocker, otherwise Now if approved and started,
   Needs your call if awaiting approval, Later if outside the release.
 
-Within Next, prefer most downstream unblockings, then earlier milestone; ask on ties.
+Within Next, prefer the item that unblocks the most others, then the earlier milestone.
+Ask if they are still tied.
 
 ## Filing issues
 
-1. Name the Tinkery place/release work served; otherwise don't file. Search all seven
+1. Name the Tinkery place or release work served; otherwise don't file. Search all seven
    repos for open duplicates: `gh search issues --owner jon-devlapaz --state open "<key words>"`.
    Extend an existing issue rather than duplicate it.
 2. File where code changes; keep unready ideas in the [parked backlog](../../../docs/research/shared/backlog.md).
@@ -80,11 +81,11 @@ Within Next, prefer most downstream unblockings, then earlier milestone; ask on 
 4. Show the draft; publish only on the operator's word. Publication is not approval.
 5. Tinkery triage: `needs-approval`, exactly one `area:` and one kind (`bug`, `enhancement`,
    `documentation`, `research`), release milestone where relevant, native blocking links.
-   Form dropdowns don't apply labels; priority is separate. Add board Lane/Release.
+   Form dropdowns don't apply labels; priority is separate. Add board Lane and Release.
 
 ## Parallel work
 
 Only approved, mutually non-blocking items with separate writer areas may run in
 parallel. In tinkery, separate `area:` labels; one integrator owns shared menu, CLI
-and architecture checks. Elsewhere, no shared file/module. Give each a thread,
+and architecture checks. Elsewhere, no shared file or module. Give each a thread,
 branch and In Progress status so others skip it.

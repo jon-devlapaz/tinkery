@@ -19,12 +19,12 @@ unrequested changes. Tinkery's rules live in [AGENTS.md](../../../AGENTS.md) and
 ## Checks
 
 - **Navigation:** if discovery was slow or dependencies hidden, identify a missing pointer.
-- **Automation:** read existing check commands and CI first. An unwired/broken check is
-  the finding, not a reason to reinvent it. No hook/CI running lint, types or tests is
-  itself a gap. Mechanical violations (syntax, banned APIs, imports, file locations)
-  require deterministic checks in the cheapest existing linter/hook/CI boundary,
+- **Automation:** read existing check commands and CI first. An unwired or broken check is
+  the finding, not a reason to reinvent it. If neither a hook nor CI runs lint, types or tests,
+  that is itself a gap. Mechanical violations (syntax, banned APIs, imports, file locations)
+  require deterministic checks in the cheapest existing linter, hook or CI boundary,
   not prose rules. Reserve review guidance for genuine judgment calls.
-- **Context:** review large project/global steering files for rules better enforced
+- **Context:** review large project and global steering files for rules better enforced
   by automation or consulted during review. Delete no-ops; disclose task-specific detail.
 - **Tool economy:** identify expensive, repetitive or token-heavy calls, CLIs and MCP tools.
 - **Access:** identify missing evidence sources, such as captured server logs or read-only
@@ -32,8 +32,8 @@ unrequested changes. Tinkery's rules live in [AGENTS.md](../../../AGENTS.md) and
 
 ## Reference
 
-Implementation carries exploration/debugging context; review starts from a diff.
+Implementation carries context from exploration and debugging; review starts from a diff.
 Put judgment-oriented standards in review, keeping implementation's always-loaded
-`AGENTS.md`/`CLAUDE.md` sparse and pointer-led. Prefer existing docs for reference;
+`AGENTS.md` and `CLAUDE.md` sparse and pointer-led. Prefer existing docs for reference;
 add navigation if a standards file exceeds 1,000 lines. Use skills for discoverable
 reference or user-invoked commands, following writing-for-agents invocation guidance.
