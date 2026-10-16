@@ -8,18 +8,18 @@ judgments and times. Nothing here is a quality score.
 
 ## Plan
 
-Status: **proposed, not permitted.** No baseline call runs until the operator
-records each choice below.
+Status: **permitted.** The operator approved every choice below on 2026-10-16,
+in the [project thread](https://claude.ai/code/project/chan_01HpLSkmbLdxh9PX1LVX2D7Y?thread=cmsg_01HpLSkmbLdxh9PX1LVX2D7YPKqTjBRmwTbi2qAnC7XvTw).
 
-| Choice | Proposed | Operator's decision |
+| Choice | Plan | Operator's decision |
 | --- | --- | --- |
-| Tasks | [#176](https://github.com/jon-devlapaz/tinkery/issues/176), [#177](https://github.com/jon-devlapaz/tinkery/issues/177), [#154](https://github.com/jon-devlapaz/tinkery/issues/154): small, bounded Tinkery changes with fake-only tests | unknown |
-| Workflow | Today's: say the change in Think, confirm the goal, copy it to Pi, Pi opens a PR, CI runs, the operator reviews and accepts or asks for a correction | unknown |
-| Budget | Up to 5 Think drafting calls per task; Pi implementation on the operator's existing subscription, cost recorded as subscription | unknown |
-| Threshold for #116 | The trial wins if active minutes per accepted change fall by at least a third, with no task lost that the baseline accepted | unknown |
+| Tasks | [#176](https://github.com/jon-devlapaz/tinkery/issues/176), [#177](https://github.com/jon-devlapaz/tinkery/issues/177), [#154](https://github.com/jon-devlapaz/tinkery/issues/154): small, bounded Tinkery changes with fake-only tests | approved |
+| Workflow | Today's: say the change in Think, confirm the goal, copy it to Pi, Pi opens a PR, CI runs, the operator reviews and accepts or asks for a correction | approved |
+| Budget | Up to 5 Think drafting calls per task; Pi implementation on the operator's existing subscription, cost recorded as subscription | approved |
+| Threshold for #116 | The trial wins if active minutes per accepted change fall by at least a third, with no task lost that the baseline accepted | approved |
 
-Each task still needs its own implementation approval. Choosing a task here
-approves only its use as a sample.
+Choosing these tasks also approved building each one as a sample, through the
+workflow above.
 
 ## How to record
 
