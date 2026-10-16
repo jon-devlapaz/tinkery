@@ -1227,11 +1227,9 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
         if own_line {
             input.push(Line::styled(label.to_owned(), style));
         }
-        let typed = if calm {
-            typed.to_owned()
-        } else {
-            format!("{typed}▏")
-        };
+        // Display only: a CR or CRLF from a paste breaks the row too; the words stay as typed.
+        let typed = typed.replace("\r\n", "\n").replace('\r', "\n");
+        let typed = if calm { typed } else { format!("{typed}▏") };
         for (i, row) in typed.split('\n').enumerate() {
             let lead = match (own_line, i) {
                 (true, _) => String::new(),

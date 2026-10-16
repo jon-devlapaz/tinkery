@@ -738,3 +738,19 @@ fn a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing() {
     assert!(text.contains("Saving your answer."), "{text}");
     assert_eq!(text.lines().last().unwrap().trim(), "esc stop");
 }
+
+#[test]
+fn a_pasted_cr_breaks_the_row_on_screen_and_the_words_stay_as_pasted() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    shape.paste("TEST one\rTEST two\r\nTEST three");
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(
+        text.contains("  TEST one\n  TEST two\n  TEST three▏"),
+        "{text}"
+    );
+    assert_eq!(
+        shape.open.as_ref().unwrap().typed,
+        "TEST one\rTEST two\r\nTEST three"
+    );
+}
