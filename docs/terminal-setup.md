@@ -142,7 +142,8 @@ only Enter or a picked-goal click saves that change. Seed Me sessions stay uncha
 `--thinking` sets Pi's reasoning level (default `low`).
 
 Shape makes no model call unless you add `--shape-budget CALLS`; each `F2` agent step is one
-call, through Pi with read-only tools, until the budget is spent.
+call, through Pi with read-only tools in the folder Shape shows (`F4` picks another), until the
+budget is spent.
 
 A send makes at most two provider calls: one shaping call and one decision review,
 both before the reading is shown, with no automatic retry. Some sends make none, such as a new dump that first asks how its words fit.

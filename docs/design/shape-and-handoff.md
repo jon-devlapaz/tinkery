@@ -271,13 +271,14 @@ Built in [#150](https://github.com/jon-devlapaz/tinkery/issues/150). With `--sha
   scrolling and help write nothing; held `F2`/`F3` don't repeat. Letters, capitals and `?` are
   words while a box is shown.
 - **The agent step** runs Pi with an explicit model and Pi's read-only tools (`read`, `grep`,
-  `find`, `ls`): it reads files and runs no commands. It starts in the folder Think recorded the
-  goal was made in, else where Tinkery started. Its input is the confirmed goal, the questions
+  `find`, `ls`): it reads files and runs no commands. It starts in the folder shown on screen
+  (see [Grounding](#grounding-in-the-repository)). Its input is the confirmed goal, the questions
   the operator answered in Think (from the [think record](think.md#think-record), when it can
-  be attributed), and Seed Me's editable ledger. It replies with the next question (with what it
-  checked and saw, and a suggestion) or the seed's `You are confirming` text; anything else is a
-  model error. The prompt lives in `src/shape/prompt.txt`, one rule per line, and is not yet
-  tuned by an eval or live trial.
+  be attributed), `found_so_far` (every finding already saved) and Seed Me's editable ledger.
+  Every reply carries `found` entries (what it checked, with paths and lines, and what it saw),
+  with the next question and a suggestion, or with the seed's `You are confirming` text;
+  anything else is a model error. The prompt lives in `src/shape/prompt.txt`, one rule per line,
+  and is not yet tuned by an eval.
 - **Budget.** `--shape-budget CALLS` sets how many steps this run may make; the default is zero.
   Each step is one call, counted before Pi starts. With none left, `F2` refuses before saving
   anything and says how to allow calls.
@@ -287,10 +288,10 @@ Built in [#150](https://github.com/jon-devlapaz/tinkery/issues/150). With `--sha
   typed answer and reads again. It never overwrites.
 - **The seed.** Tinkery writes `seed-contract.md` as a draft: `status: draft`, a title from the
   goal's first line, `revision: rN` (one past the previous draft; a confirmed seed is never
-  replaced), the model's text under `## You are confirming`, then `session.py seed decisions`
-  output word for word. The model never writes the decisions; text that would add a heading,
-  fence, status, revision or confirmation line is refused. No seed is drafted while a decision
-  is open.
+  replaced), the model's text under `## You are confirming`, then `## What's true today` from the
+  saved findings, then `session.py seed decisions` output word for word. The model never writes
+  either section; text that would add a heading, fence, status, revision or confirmation line is
+  refused. No seed is drafted while a decision is open.
 - **Seed confirmation** goes only through `seed confirm --revision rN`, with the operator's
   typed words as `--source`. Nothing the model replies can confirm, and Seed Me refuses a
   practice session's confirmation. Confirming is not approval to build.
@@ -299,6 +300,37 @@ Built in [#150](https://github.com/jon-devlapaz/tinkery/issues/150). With `--sha
   saved), a stale version (the fresh read's own next step), or a helper refusal (Seed Me's first
   line). Esc stops a running step; a helper call already started finishes, and Shape reads again.
   A stopped model call still counts against the budget, and the notice says so.
+
+### Grounding in the repository
+
+Built in [#159](https://github.com/jon-devlapaz/tinkery/issues/159), so the building agent
+doesn't start blind. Operator defaults (2026-10-16): file tools only, no git commands; a step
+that found nothing is flagged, not refused; the operator may pick the folder in Shape.
+
+- **Which folder.** While a step is offered (a current question, or none asked yet), Shape shows
+  `The step reads files in NAME. F4 picks another folder.` above the words box; F1 gives the full
+  path. The folder is where Think recorded the goal was made, else the repository Tinkery started
+  in, else where it started. It is found with the session read, so `F2` is never offered first.
+  `F4` opens a `Folder:` box holding the current path; Enter uses an existing absolute folder (or
+  `~/…`), Esc keeps the one shown, and a missing folder is refused with the shown one kept. The
+  pick lasts while this Shape stays open and is written nowhere; each step's receipts name it.
+- **Findings are saved in the ledger.** Each `found` entry becomes a Seed Me receipt (`checked`,
+  `at`, `observed`, and `check: read-only file tools in FOLDER`). A question's findings go on its
+  decision node and show beside it as `What I found: PATH:LINE: what was seen`. The seed step's
+  findings, which the prompt asks to include the blast radius (files, modules and tests the change
+  touches, and what could break), become settled facts (`authority: evidence`, an observation
+  claim), so `seed decisions` lists them too. No Seed Me contract change was needed: its ledger
+  holds facts with receipts, and its seed contract already asks for evidence with receipts and
+  dates beyond the required sections.
+- **Later steps build on them.** `found_so_far` lists every saved finding except the confirmed
+  goal's own provenance, and the prompt asks the step to re-check only what it relies on.
+- **`## What's true today`** lists the same findings word for word, grouped by how they were
+  checked: `- PATH:LINE: what was seen (observed DATE)`. Whitespace inside a finding collapses to
+  one line so no finding can start a heading. With none it says
+  `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
+- **Nothing found is flagged.** A question with no findings shows
+  `Nothing found: this question records nothing checked in the repository.`; a seed whose section
+  records none shows the same for the seed. Neither is refused.
 
 The three confirmations stay separate screens with separate words: Think's typed `confirm`
 for the goal, Shape's `F3` with the operator's own words for the seed, and approval (not built).
@@ -315,6 +347,13 @@ decisions, and a practice session's confirmation. Reversion probes went red for:
 without the key, answering from the current rather than the shown version, a changed goal, a
 step that confirms its own draft, decisions not from `seed decisions`, and saving before the
 budget check. These prove mechanics with stubs, not the quality of real questions or seeds.
+
+Grounding (#159) extends the same journeys: before the first `F2` the folder is shown, F1 names
+its path and `F4` picks another, whose path both steps then start in; the second step's input
+carries the first step's saved finding; and the seed's `What's true today` section equals the
+saved receipts word for word, directly above the `seed decisions` block that `seed confirm`
+accepts. A case with no findings shows both flags. Rust tests cover the section's grouping,
+one-line collapse, the goal's provenance left out, and the folder refusals.
 
 [#123](https://github.com/jon-devlapaz/tinkery/issues/123) records the calm-view
 research: few nodes and few link types; a force-directed whole-graph view was mostly

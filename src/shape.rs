@@ -5,7 +5,9 @@
 //! the seed draft, a ready seed, or an honest unknown or failure, with one next step. Opening,
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
 //! and starts the agent step (`F2`), or confirms a seed with the operator's own words (`F3`); see
-//! [`step`]. Each finished step is followed by a fresh read, so the screen shows what Seed Me holds.
+//! [`step`]. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
+//! another for this run. Each finished step is followed by a fresh read, so the screen shows what
+//! Seed Me holds.
 
 pub use step::Agent;
 
@@ -16,6 +18,7 @@ use crate::{
     goal::confirmed::goal_block,
     seed_me::{
         Session, Stage,
+        answering::NOTHING_FOUND,
         shaping::{self, Shaped, Shaping},
     },
 };
@@ -64,16 +67,30 @@ struct Opened {
     running: Option<Running>,
     /// What the running step is doing, in plain words.
     doing: &'static str,
+    /// The folder the next step reads.
+    folder: Folder,
+    /// A folder being typed after `F4`, until Enter uses it or Esc keeps the one shown.
+    choosing: Option<String>,
 }
 
+/// Which folder the next step reads: not known until a read with an agent lands, then where
+/// Think says the goal was made, or the operator's pick.
+enum Folder {
+    Unknown,
+    Known(PathBuf),
+}
+
+/// A read of the session, with the folder a step would read when there's an agent. Both land
+/// together, so a step is never offered before its folder is shown.
 enum Reading {
-    Waiting(mpsc::Receiver<Result<Shaping, String>>),
+    NotStarted,
+    Waiting(mpsc::Receiver<(Result<Shaping, String>, Option<PathBuf>)>),
     Done(Result<Shaping, String>),
 }
 
 impl Shape {
-    /// Shape opened on one session; starts its read through the helper beside `skill` off the
-    /// paint path, or says plainly that Seed Me isn't configured.
+    /// Shape opened on one session; its first [`Shape::tick`] starts its read through the helper
+    /// beside `skill` off the paint path, or it says plainly that Seed Me isn't configured.
     pub fn session(skill: Option<&Path>, session: &Path) -> Self {
         Self {
             list: None,
@@ -90,21 +107,25 @@ impl Shape {
         self
     }
 
-    /// Whether keys now type words (an answer or seed confirmation), so letters aren't commands.
+    /// Whether keys now type words (an answer, seed confirmation or folder), so letters aren't
+    /// commands.
     pub fn takes_text(&self) -> bool {
         self.agent.is_some()
             && self
                 .open
                 .as_ref()
-                .is_some_and(|open| open.typing().is_some())
+                .is_some_and(|open| open.choosing.is_some() || open.typing().is_some())
     }
 
-    /// Bracketed paste: the words go into the answer or confirmation exactly as pasted.
+    /// Bracketed paste: the words go into the folder, answer or confirmation exactly as pasted.
     pub fn paste(&mut self, text: &str) {
         if self.takes_text()
             && let Some(open) = &mut self.open
         {
-            open.typed.push_str(text);
+            match &mut open.choosing {
+                Some(folder) => folder.push_str(text),
+                None => open.typed.push_str(text),
+            }
         }
     }
 
@@ -155,14 +176,23 @@ impl Shape {
                 open.typed.clear();
             }
             open.notice = said(result);
-            let fresh = Opened::start(open.skill.as_deref(), &open.session.clone());
-            open.reading = fresh.reading;
+            open.reading = Reading::NotStarted;
+        }
+        if let Some(open) = &mut self.open
+            && let Reading::NotStarted = open.reading
+        {
+            open.begin(self.agent.clone());
         }
         if let Some(open) = &mut self.open
             && let Reading::Waiting(receiver) = &open.reading
         {
             match receiver.try_recv() {
-                Ok(result) => open.reading = Reading::Done(result),
+                Ok((result, folder)) => {
+                    open.reading = Reading::Done(result);
+                    if let (Folder::Unknown, Some(folder)) = (&open.folder, folder) {
+                        open.folder = Folder::Known(folder);
+                    }
+                }
                 Err(mpsc::TryRecvError::Empty) => {}
                 Err(mpsc::TryRecvError::Disconnected) => {
                     open.reading = Reading::Done(Err("The read stopped unexpectedly.".into()))
@@ -185,6 +215,21 @@ impl Shape {
                 }
                 return Leave::Stay;
             }
+            if let Some(folder) = &mut open.choosing {
+                match key.code {
+                    KeyCode::Char(c) => folder.push(c),
+                    KeyCode::Backspace => {
+                        folder.pop();
+                    }
+                    KeyCode::Enter => {
+                        let typed = open.choosing.take().unwrap_or_default();
+                        open.notice = open.pick(&typed);
+                    }
+                    KeyCode::Esc => open.choosing = None,
+                    _ => {}
+                }
+                return Leave::Stay;
+            }
             if let (Some(agent), Some(typing)) = (&self.agent, open.typing()) {
                 match key.code {
                     KeyCode::Char(c) => {
@@ -201,6 +246,15 @@ impl Shape {
                     }
                     _ => {}
                 }
+            }
+            if key.code == KeyCode::F(4)
+                && self.agent.is_some()
+                && open.offers_step()
+                && let Folder::Known(folder) = &open.folder
+            {
+                open.choosing = Some(folder.display().to_string());
+                open.notice = None;
+                return Leave::Stay;
             }
             if key.code == KeyCode::F(2)
                 && let Some(agent) = &self.agent
@@ -274,7 +328,16 @@ impl Shape {
                         )
                     },
                 );
+                let reads = match (agent, &open.folder) {
+                    (Some(_), Folder::Known(folder)) => {
+                        format!("\nThe next step reads files in: {}", folder.display())
+                    }
+                    _ => String::new(),
+                };
                 let now = match (agent, open.typing()) {
+                    _ if open.choosing.is_some() => {
+                        "Type the folder the next step should read. Enter uses it; Esc keeps the one shown."
+                    }
                     (Some(_), Some(t)) if t.key == KeyCode::F(2) => {
                         "Type your answer. F2 saves it and looks into the next question (one model call)."
                     }
@@ -286,7 +349,7 @@ impl Shape {
                 (
                     now,
                     format!(
-                        "{failure}Session: {}\n{skill}\n{model}",
+                        "{failure}Session: {}\n{skill}\n{model}{reads}",
                         open.session.display()
                     ),
                 )
@@ -315,6 +378,9 @@ impl Shape {
     pub fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         let keys = match (&self.open, &self.list) {
             (Some(open), _) if open.running.is_some() => "esc stop".to_owned(),
+            (Some(open), _) if open.choosing.is_some() => {
+                "enter use this folder   esc cancel".to_owned()
+            }
             (Some(open), _) => match (&self.agent, open.typing(), &open.reading) {
                 (Some(_), Some(t), _) if t.key == KeyCode::F(2) => {
                     "↑↓ scroll   F2 save answer and look into next   esc back   F10 menu".into()
@@ -452,11 +518,66 @@ impl Opened {
         }
     }
 
-    /// Start what `act` asks, or say why not. Refuses empty words and an exhausted budget
-    /// before anything is written or called.
+    /// Whether this stage offers an agent step (a question to answer, or none asked yet).
+    fn offers_step(&self) -> bool {
+        matches!(
+            &self.reading,
+            Reading::Done(Ok(Shaping {
+                stage: Shaped::Question { .. } | Shaped::Waiting,
+                ..
+            }))
+        )
+    }
+
+    /// Use the folder the operator typed for the next steps, or say why not and keep the one shown.
+    /// `~/` means the home folder; anything else must be an absolute path to a folder.
+    fn pick(&mut self, typed: &str) -> Option<(String, Option<String>)> {
+        let typed = typed.trim();
+        let home = || std::env::var_os("HOME").map(PathBuf::from);
+        let path = match typed.strip_prefix("~/") {
+            Some(rest) => home().map(|home| home.join(rest)),
+            None if typed == "~" => home(),
+            None => Some(PathBuf::from(typed)),
+        };
+        match path
+            .filter(|p| p.is_absolute())
+            .and_then(|p| p.canonicalize().ok())
+            .filter(|p| p.is_dir())
+        {
+            Some(folder) => {
+                self.folder = Folder::Known(folder);
+                None
+            }
+            None => Some((
+                format!(
+                    "There's no folder at {typed}, so the step still reads {}.",
+                    self.folder_name().unwrap_or_default()
+                ),
+                None,
+            )),
+        }
+    }
+
+    /// The name of the folder the next step reads, once known.
+    fn folder_name(&self) -> Option<String> {
+        let Folder::Known(folder) = &self.folder else {
+            return None;
+        };
+        Some(folder.file_name().map_or_else(
+            || folder.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        ))
+    }
+
+    /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget and a
+    /// folder not yet known before anything is written or called.
     fn act(&mut self, act: Act, agent: &Arc<Agent>) {
         let words = self.typed.clone();
         let refuse = |said: &str| Some((said.to_owned(), None));
+        let folder = match &self.folder {
+            Folder::Known(folder) => Some(folder.clone()),
+            _ => None,
+        };
         self.notice = match &act {
             Act::Answer { .. } if words.trim().is_empty() => {
                 refuse("Type your answer first; nothing was saved.")
@@ -468,22 +589,27 @@ impl Opened {
                 answer_saved: false,
                 why: Why::Budget(agent.limit()),
             })),
+            Act::Answer { .. } | Act::Look(_) if folder.is_none() => {
+                refuse("Shape is still finding which folder the step reads; nothing was saved.")
+            }
             _ => None,
         };
         let (Some(skill), None) = (&self.skill, &self.notice) else {
             return;
         };
+        let folder = folder.unwrap_or_default();
         let (work, doing) = match act {
             Act::Answer { id, expected } => (
                 Work::Answer {
                     id,
                     words,
                     expected,
+                    folder,
                 },
                 "Saving your answer, then looking into the next question. Esc stops the looking.",
             ),
             Act::Look(expected) => (
-                Work::Look { expected },
+                Work::Look { expected, folder },
                 "Looking into the next question. Esc stops it.",
             ),
             Act::Confirm(revision) => (
@@ -500,22 +626,39 @@ impl Opened {
         ));
     }
 
-    fn start(skill: Option<&Path>, session: &Path) -> Self {
+    /// Read the session off the paint path and, with an agent, find the folder its step reads.
+    fn begin(&mut self, agent: Option<Arc<Agent>>) {
         let (sender, receiver) = mpsc::channel();
-        if let Some(skill) = skill {
-            let (skill, session) = (skill.to_path_buf(), session.to_path_buf());
+        if let Some(skill) = self.skill.clone() {
+            let session = self.session.clone();
             std::thread::spawn(move || {
-                let _ = sender.send(shaping::read(&skill, &session));
+                let read = shaping::read(&skill, &session);
+                let folder = match (&agent, &read) {
+                    (
+                        Some(agent),
+                        Ok(Shaping {
+                            goal: Some(goal), ..
+                        }),
+                    ) => Some(agent.folder(&session, goal)),
+                    _ => None,
+                };
+                let _ = sender.send((read, folder));
             });
         }
+        self.reading = Reading::Waiting(receiver);
+    }
+
+    fn start(skill: Option<&Path>, session: &Path) -> Self {
         Self {
             session: session.to_path_buf(),
             skill: skill.map(Path::to_path_buf),
-            reading: Reading::Waiting(receiver),
+            reading: Reading::NotStarted,
             typed: String::new(),
             notice: None,
             running: None,
             doing: "",
+            folder: Folder::Unknown,
+            choosing: None,
         }
     }
 }
@@ -549,7 +692,7 @@ fn render_open(
                 .map(|goal| goal_block(goal.to_owned(), palette)),
             Text::styled(open.doing, palette.muted),
         ),
-        Reading::Waiting(_) => (
+        Reading::NotStarted | Reading::Waiting(_) => (
             None,
             Text::styled("Reading where this seed stands.", palette.muted),
         ),
@@ -578,16 +721,37 @@ fn render_open(
                     .as_deref()
                     .map(|goal| goal_block(goal.to_owned(), palette)),
             };
-            let words = if agent {
-                open.typing().map(|t| (t.label, open.typed.as_str()))
-            } else {
-                None
+            let name = open.folder_name();
+            let (words, notice) = match &open.choosing {
+                Some(typed) => (
+                    Some(("Folder: ", typed.as_str())),
+                    Some((
+                        "",
+                        Some(format!(
+                            "Next: Enter uses this folder; Esc keeps {}.",
+                            name.as_deref().unwrap_or_default()
+                        )),
+                    )),
+                ),
+                None => (
+                    if agent {
+                        open.typing().map(|t| (t.label, open.typed.as_str()))
+                    } else {
+                        None
+                    },
+                    open.notice
+                        .as_ref()
+                        .map(|(said, next)| (said.as_str(), next.clone())),
+                ),
             };
-            let notice = open
-                .notice
-                .as_ref()
-                .map(|(said, next)| (said.as_str(), next.as_deref()));
-            (top, standing(&shaping.stage, agent, words, notice, palette))
+            let reads = (agent && open.offers_step()).then(|| match &name {
+                Some(name) => format!("The step reads files in {name}. F4 picks another folder."),
+                None => "Finding which folder the step reads.".into(),
+            });
+            (
+                top,
+                standing(&shaping.stage, agent, reads, words, notice, palette),
+            )
         }
     };
     let stand_rows = Paragraph::new(stand.clone())
@@ -669,8 +833,9 @@ fn plain(said: &str, next: &str, palette: Palette) -> Text<'static> {
 fn standing(
     stage: &Shaped,
     agent: bool,
+    reads: Option<String>,
     words: Option<(&str, &str)>,
-    notice: Option<(&str, Option<&str>)>,
+    notice: Option<(&str, Option<String>)>,
     palette: Palette,
 ) -> Text<'static> {
     const CONTINUE: &str = "tend's c copies the prompt to continue.";
@@ -684,6 +849,12 @@ fn standing(
             ..
         } => {
             lines.push(Line::styled(format!("{title}: {ask}"), palette.jade));
+            if found.is_empty() {
+                lines.push(Line::styled(
+                    "Nothing found: this question records nothing checked in the repository.",
+                    palette.ink,
+                ));
+            }
             for (i, entry) in found.iter().enumerate() {
                 // A label per entry, not a hanging indent: wrapped lines return to the margin.
                 let label = if i == 0 {
@@ -716,7 +887,7 @@ fn standing(
                 format!("Next: shape it into a seed with Seed Me; {CONTINUE}")
             }
         }
-        Shaped::Drafted { revision, .. } => {
+        Shaped::Drafted { revision, text } => {
             lines.push(Line::styled(
                 match revision {
                     Some(r) => format!("Seed draft {r} is waiting for you to confirm it."),
@@ -724,6 +895,12 @@ fn standing(
                 },
                 palette.ink,
             ));
+            if text.as_deref().is_some_and(|t| t.contains(NOTHING_FOUND)) {
+                lines.push(Line::styled(
+                    "Nothing found: this seed records nothing checked in the repository.",
+                    palette.ink,
+                ));
+            }
             match (agent, revision) {
                 (true, Some(r)) => format!(
                     "Next: read the seed, type your own words, then F3 confirms {r}. It is not approval to build."
@@ -770,6 +947,9 @@ fn standing(
             format!("Next: continue with Seed Me; {CONTINUE}")
         }
     };
+    if let Some(reads) = reads {
+        lines.push(Line::styled(reads, palette.ink));
+    }
     if let Some((label, typed)) = words {
         // Each typed line shows as its own row, so a pasted line break is never hidden.
         lines.push(Line::default());
@@ -786,15 +966,18 @@ fn standing(
             ]));
         }
     }
+    let noticed = notice.is_some();
     let next = match notice {
         Some((said, own)) => {
-            lines.push(Line::default());
-            lines.push(Line::styled(said.to_owned(), palette.ink));
-            own.map_or(next, str::to_owned)
+            if !said.is_empty() {
+                lines.push(Line::default());
+                lines.push(Line::styled(said.to_owned(), palette.ink));
+            }
+            own.unwrap_or(next)
         }
         None => next,
     };
-    if matches!(stage, Shaped::Question { .. }) || words.is_some() || notice.is_some() {
+    if matches!(stage, Shaped::Question { .. }) || words.is_some() || noticed {
         lines.push(Line::default());
     }
     lines.push(Line::styled(next, palette.ink));
