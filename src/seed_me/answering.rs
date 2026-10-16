@@ -645,15 +645,32 @@ mod tests {
         let folder = tempfile::tempdir().unwrap();
         std::fs::create_dir(folder.path().join("src")).unwrap();
         std::fs::write(folder.path().join("src/lib.rs"), "one\ntwo\nthree\n").unwrap();
-        let outside = folder.path().parent().unwrap().join("tinkery-TEST-outside.rs");
+        let outside = folder
+            .path()
+            .parent()
+            .unwrap()
+            .join("tinkery-TEST-outside.rs");
         std::fs::write(&outside, "one\n").unwrap();
         let why = |checked: &str| unfound(checked, folder.path());
         assert_eq!(why("src/lib.rs:3"), None);
         assert_eq!(why("read src/lib.rs:2-3 and grep"), None);
-        assert_eq!(why("the README, by eye"), None, "not a citation, so not judged");
-        assert_eq!(why("src/lib.rs:2-4").as_deref(), Some("src/lib.rs has 3 lines, not 4"));
-        assert_eq!(why("src/lib.rs:9").as_deref(), Some("src/lib.rs has 3 lines, not 9"));
-        assert_eq!(why("src/gone.rs:1").as_deref(), Some("src/gone.rs isn't in the folder"));
+        assert_eq!(
+            why("the README, by eye"),
+            None,
+            "not a citation, so not judged"
+        );
+        assert_eq!(
+            why("src/lib.rs:2-4").as_deref(),
+            Some("src/lib.rs has 3 lines, not 4")
+        );
+        assert_eq!(
+            why("src/lib.rs:9").as_deref(),
+            Some("src/lib.rs has 3 lines, not 9")
+        );
+        assert_eq!(
+            why("src/gone.rs:1").as_deref(),
+            Some("src/gone.rs isn't in the folder")
+        );
         assert_eq!(
             why("../tinkery-TEST-outside.rs:1").as_deref(),
             Some("../tinkery-TEST-outside.rs is outside the folder")
