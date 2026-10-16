@@ -313,9 +313,7 @@ fn look(
             Ok(Done::Asked)
         }
         Next::Seed { confirming, found } => {
-            let grounded = answering::ground(skill, session, expected, &found, folder)
-                .map_err(refused(answer_saved))?;
-            answering::draft_seed(skill, session, grounded, &confirming)
+            answering::draft_seed(skill, session, expected, &confirming, &found, folder)
                 .map_err(refused(answer_saved))?;
             Ok(Done::Drafted)
         }

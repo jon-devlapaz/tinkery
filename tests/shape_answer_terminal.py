@@ -4,7 +4,8 @@ The full journey confirms a goal in Think, opens Shape from tend, sees which fol
 picks another, looks into the first question, answers it, sees the second step build on the saved
 finding, and confirms the drafted seed with its "What's true today" section. Short cases cover the zero budget, a stale version, a
 model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
-practice session's confirmation, and steps that found nothing."""
+seed finding that looks like a secret, a practice session's confirmation, a citation that isn't in the folder,
+and steps that found nothing."""
 import fcntl, importlib.util, json, os, select, signal, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
@@ -185,6 +186,8 @@ def full_journey(width, height):
             before = files(run.sessions)
             target = cwd / 'TEST-target\nfolder'
             target.mkdir()
+            # The question's citation is in the folder; the seed's src/main.rs:12 is not (#161).
+            (target / 'README.md').write_text('# TEST\n\nLocal only.\n')
             run.open_shape()
             run.wait("Seed Me hasn't asked its next question yet.")
             run.wait('F2 look into the next question')
@@ -210,6 +213,7 @@ def full_journey(width, height):
             assert files(run.sessions) == before and run.calls() == [], 'Shape wrote or called before F2'
             run.send(F2, 'Where records live Keep records local or synced?')
             run.wait('What I found: README.md:3: says local only')
+            assert 'citation not found' not in run.flat(), run.screen.text()
             run.wait('F2 save answer and look into next')
             calls = run.calls()
             assert len(calls) == 1, calls
@@ -236,6 +240,8 @@ def full_journey(width, height):
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
+            # A long temporary path can push the rest of the flag below the fold; the seed file is checked in full below.
+            run.wait('citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
@@ -255,11 +261,14 @@ def full_journey(width, height):
             today = ("## What's true today\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}:\n"
                      f"- README.md:3: says local only (observed {date})\n"
+                     f"Checked by read-only file tools in {' '.join(str(target).split())}; "
+                     "citation not found: src/main.rs isn't in the folder:\n"
                      f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
             assert today + helper.decisions_block(ledger) in seed, seed
-            fact = next(n for n in ledger['nodes'] if n['kind'] == 'fact')
-            assert (fact['status'], fact['authority'], fact['answer']) == (
-                'settled', 'evidence', 'the refusal path; the change touches it'), fact
+            # Each finding appears once: the seed step's findings never become ledger facts (#161).
+            assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
+            for checked in ('README.md:3', 'src/main.rs:12'):
+                assert seed.count(checked) == 1, seed
             # Returning rereads the same session, including the garden's stage, without work.
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
@@ -314,11 +323,16 @@ def case(name, width=100, height=30):
             replies = [{**QUESTION, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model tries to confirm':
             replies = [{'next': 'confirm', 'revision': 'r1', 'source': 'yes'}]
+        if name == 'seed secret':
+            question = False
+            replies = [{**SEED, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model writes decisions':
             question = False
             replies = [{'next': 'seed', 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
         if name in ('practice confirmation', 'multiline confirmation'):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
+        if name == 'unfound citation':
+            replies = [{**QUESTION, 'id': 'Sync'}]
         if name == 'nothing found':
             replies = [{**QUESTION, 'found': []}, {'next': 'seed', 'confirming': 'Fine.'}]
         session = make(sessions, question=question, operator=operator)
@@ -357,6 +371,10 @@ def case(name, width=100, height=30):
                 run.wait("still counts against this run's budget.")
                 assert helper.load(session)['nodes'][1]['answer'] == 'Local.'
                 assert not (session / 'seed-contract.md').exists()
+            elif name == 'unfound citation':
+                run.wait('Keep records local or synced?')
+                run.type('Local.')
+                run.send(F2, "What I found: README.md:3: says local only (citation not found: README.md isn't in the folder)")
             elif name == 'nothing found':
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
@@ -403,6 +421,7 @@ def case(name, width=100, height=30):
                     'helper refusal': 'Your answer is saved. Seed Me refused: receipt appears to contain a secret',
                     'model tries to confirm': "Looking into the next question failed: The model's reply wasn't a question or a seed draft.",
                     'model writes decisions': "The drafted seed text didn't fit Seed Me's format, so nothing was saved.",
+                    'seed secret': 'A finding appears to contain a secret, so no seed was drafted',
                 }[name]
                 run.send(F2, expected)
                 assert run.flat().count('Next:') == 1, run.screen.text()
@@ -411,8 +430,8 @@ def case(name, width=100, height=30):
                     run.wait('Next: start Tinkery with --shape-budget CALLS')
                     run.wait('your answer Local.')
                     assert files(sessions) == before and run.calls() == [], 'Zero budget wrote or called'
-                elif name == 'model writes decisions':
-                    assert not (session / 'seed-contract.md').exists(), 'A model-written decisions block was saved'
+                elif name in ('model writes decisions', 'seed secret'):
+                    assert not (session / 'seed-contract.md').exists(), 'A model-written decisions block or a secret was saved'
                 else:
                     run.wait('Next: F2 looks into the next question.')
                     assert ledger['nodes'][1]['answer'] == 'Local.', ledger['nodes']
@@ -428,7 +447,7 @@ def case(name, width=100, height=30):
 for size in [(100, 30), (80, 24)]:
     full_journey(*size)
 for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
-             'model writes decisions', 'practice confirmation', 'nothing found']:
+             'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found']:
     case(name)
 case('zero budget', 80, 24)
 for size in [(100, 30), (80, 24)]:

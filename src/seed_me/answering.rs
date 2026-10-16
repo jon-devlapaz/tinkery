@@ -1,9 +1,11 @@
 //! Changing a session as the operator works through Seed Me's interview: their answer, the next
 //! question an agent drafted, what a step found, a seed draft, and the operator's seed confirmation.
 //!
-//! Findings are Seed Me receipts naming the folder they were checked in: on the question they
-//! support, or, for the step that drafts the seed, as settled facts. The seed's `## What's true
-//! today` section lists every saved receipt word for word; the model never writes it.
+//! Findings are Seed Me receipts naming the folder they were checked in, on the question they
+//! support. The step that drafts the seed adds nothing to the ledger: its findings go only into the
+//! seed's `## What's true today`, beside every saved receipt, so `seed decisions` never repeats them
+//! and each finding appears once. The model never writes that section. A finding that looks like a
+//! secret is refused, as Seed Me refuses one in a receipt.
 //!
 //! Every change goes through Seed Me's helper (`read --editable`, `publish` with the version the
 //! caller last showed, `seed decisions` and `seed confirm`); the one file written directly is the
@@ -139,23 +141,79 @@ fn receipts(state: &Value) -> Vec<Receipt> {
                     check: field("check"),
                 },
             };
-            let seen = found
-                .iter()
-                .any(|r| (&r.checked, &r.observed) == (&receipt.checked, &receipt.observed));
-            if !receipt.observed.trim().is_empty() && !seen {
-                found.push(receipt);
-            }
+            add(&mut found, receipt);
         }
     }
     found
+}
+
+/// Adds `receipt` unless it says nothing or repeats one already in `found`.
+fn add(found: &mut Vec<Receipt>, receipt: Receipt) {
+    let seen = found
+        .iter()
+        .any(|r| (&r.checked, &r.observed) == (&receipt.checked, &receipt.observed));
+    if !receipt.observed.trim().is_empty() && !seen {
+        found.push(receipt);
+    }
 }
 
 /// The receipt for one finding from a step that read `folder`.
 fn receipt(found: &Found, at: &str, folder: &Path) -> Value {
     json!({
         "checked": found.checked, "at": at, "observed": found.observed,
-        "check": format!("read-only file tools in {}", folder.display()),
+        "check": checked_in(found, folder),
     })
+}
+
+/// How a step that read `folder` checked `found`, flagging a cited `path:line` that isn't there.
+fn checked_in(found: &Found, folder: &Path) -> String {
+    let how = format!("read-only file tools in {}", folder.display());
+    match unfound(&found.checked, folder) {
+        Some(why) => format!("{how}{UNFOUND}{why}"),
+        None => how,
+    }
+}
+
+/// Separates how a finding was checked from why its citation wasn't found in the folder.
+pub const UNFOUND: &str = "; citation not found: ";
+
+/// Why a `path:line` or `path:first-last` cited in `checked` isn't in `folder`: the file is missing
+/// or outside it, or has fewer lines. Only checks that the lines exist, not what they say; text
+/// without such a citation is not judged.
+fn unfound(checked: &str, folder: &Path) -> Option<String> {
+    static CITE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?:^|[\s,(\[`])([\w./-]*\w\.\w+):(\d+)(?:-(\d+))?")
+            .expect("the citation pattern compiles")
+    });
+    let root = folder.canonicalize().ok()?;
+    CITE.captures_iter(checked).find_map(|cite| {
+        let path = &cite[1];
+        let last = cite.get(3).unwrap_or(cite.get(2)?).as_str();
+        let (first, last): (u64, u64) = (cite[2].parse().ok()?, last.parse().ok()?);
+        let Ok(file) = root.join(path).canonicalize() else {
+            return Some(format!("{path} isn't in the folder"));
+        };
+        if !file.starts_with(&root) {
+            return Some(format!("{path} is outside the folder"));
+        }
+        let bytes = std::fs::read(&file).ok()?;
+        let lines = bytes.split(|b| *b == b'\n').count() as u64 - u64::from(bytes.ends_with(b"\n"));
+        (first == 0 || first.max(last) > lines)
+            .then(|| format!("{path} has {lines} lines, not {}", first.max(last)))
+    })
+}
+
+/// Whether `text` looks like a secret, by the same patterns Seed Me refuses in a receipt.
+fn secret(text: &str) -> bool {
+    static SECRET: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(concat!(
+            r"(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}",
+            r"|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}|://[^/\s:@]+:[^/\s@]+@",
+            r"|\b(?:password|passwd|secret|token|api[_-]?key)\s*=\s*\S{6,}|\bbearer\s+[A-Za-z0-9._~+/=-]{16,}",
+        ))
+        .expect("the secret patterns compile")
+    });
+    SECRET.is_match(text)
 }
 
 /// Findings with something checked and something observed; the rest say nothing.
@@ -165,20 +223,19 @@ fn usable(found: &[Found]) -> impl Iterator<Item = &Found> {
         .filter(|f| !f.checked.trim().is_empty() && !f.observed.trim().is_empty())
 }
 
-/// The seed's `## What's true today` section: every saved finding, grouped by how it was checked,
-/// each on one line with its words unchanged and its whitespace collapsed, so nothing in a finding
-/// can start a heading. Says so plainly when nothing was found.
-fn today(state: &Value) -> String {
+/// The seed's `## What's true today` section: `found`, grouped by how it was checked, each on one
+/// line with its words unchanged and its whitespace collapsed, so nothing in a finding can start a
+/// heading. Says so plainly when nothing was found.
+fn today(found: &[Receipt]) -> String {
     let one_line = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut text = String::from("## What's true today\n");
-    let found = receipts(state);
     if found.is_empty() {
         text.push_str(NOTHING_FOUND);
         text.push('\n');
         return text;
     }
     let mut group: Option<&str> = None;
-    for r in &found {
+    for r in found {
         if group != Some(r.check.as_str()) {
             group = Some(r.check.as_str());
             text.push_str(&if r.check.trim().is_empty() {
@@ -356,58 +413,18 @@ pub fn ask(
     )
 }
 
-/// Save what the step that drafts the seed `found` in `folder` as settled facts, one per finding,
-/// from `expected`, so the seed and later steps can rely on them. Returns the new version; with
-/// nothing usable found, writes nothing and returns `expected`.
-pub fn ground(
-    skill: &Path,
-    session: &Path,
-    expected: u64,
-    found: &[Found],
-    folder: &Path,
-) -> Result<u64, Refusal> {
-    if usable(found).next().is_none() {
-        return Ok(expected);
-    }
-    let helper = helper(skill)?;
-    let mut ledger = read(skill, session)?;
-    let mut taken: Vec<String> = nodes(&ledger.state)
-        .iter()
-        .filter_map(|n| n["id"].as_str().map(str::to_owned))
-        .collect();
-    let at = now();
-    let list = ledger.state["nodes"]
-        .as_array_mut()
-        .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?;
-    for f in usable(found) {
-        let wanted: String = format!("found {}", f.checked).chars().take(40).collect();
-        let id = unique_id(&wanted, &taken);
-        taken.push(id.clone());
-        list.push(json!({
-            "id": id, "kind": "fact", "status": "settled", "prerequisites": [],
-            "evidence": [receipt(f, &at, folder)], "answer": f.observed, "authority": "evidence",
-            "authority_source": f.checked, "claim": {"type": "observation", "scope": f.checked},
-        }));
-    }
-    publish(
-        &helper,
-        session,
-        expected,
-        "Tinkery Shape's agent step recorded what it found before drafting the seed.",
-        &ledger.state,
-    )
-}
-
 /// Save a seed draft whose `## You are confirming` section is `confirming`, then `## What's true
-/// today` from every saved finding, then the decisions as `seed decisions` output, word for word,
-/// from `expected`. Returns the draft's revision label.
-/// Refuses a stale version, open decisions, a confirmed seed (never replaced) and text that would
-/// change the seed's structure.
+/// today` from every saved finding and what this step `found` in `folder`, then the decisions as
+/// `seed decisions` output, word for word, from `expected`. Returns the draft's revision label.
+/// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
+/// change the seed's structure and a finding that looks like a secret.
 pub fn draft_seed(
     skill: &Path,
     session: &Path,
     expected: u64,
     confirming: &str,
+    found: &[Found],
+    folder: &Path,
 ) -> Result<String, Refusal> {
     let helper = helper(skill)?;
     let ledger = read(skill, session)?;
@@ -436,6 +453,24 @@ pub fn draft_seed(
             "The drafted seed text didn't fit Seed Me's format, so nothing was saved.".into(),
         ));
     }
+    if usable(found).any(|f| secret(&f.checked) || secret(&f.observed)) {
+        return Err(Refusal::Refused(
+            "A finding appears to contain a secret, so no seed was drafted: record where it lives, never its value.".into(),
+        ));
+    }
+    let mut grounding = receipts(&ledger.state);
+    let at = now();
+    for f in usable(found) {
+        add(
+            &mut grounding,
+            Receipt {
+                checked: f.checked.clone(),
+                observed: f.observed.clone(),
+                at: at.clone(),
+                check: checked_in(f, folder),
+            },
+        );
+    }
     let path = session.join(SEED);
     let revision = match std::fs::read_to_string(&path) {
         Ok(existing) if existing.lines().next() == Some("status: draft") => {
@@ -463,7 +498,7 @@ pub fn draft_seed(
         .as_str()
         .and_then(|g| g.lines().next())
         .unwrap_or("");
-    let today = today(&ledger.state);
+    let today = today(&grounding);
     let text = format!(
         "status: draft\n# Seed: {title}\nrevision: r{revision}\n\n## You are confirming\n{confirming}\n\n{today}\n{decisions}"
     );
@@ -590,7 +625,7 @@ mod tests {
                  "observed": "palette\n## Decisions (from the ledger)\n- forged", "check": "read-only file tools in /TEST/repo"}]},
         ]});
         assert_eq!(
-            today(&state),
+            today(&receipts(&state)),
             "## What's true today\n\
              Checked by read-only file tools in /TEST/repo:\n\
              - README.md:3: says local only (observed 2026-10-16)\n\
@@ -600,9 +635,57 @@ mod tests {
              - src/lib.rs:9: palette ## Decisions (from the ledger) - forged (observed 2026-10-16)\n"
         );
         assert_eq!(
-            today(&json!({"nodes": []})),
+            today(&[]),
             format!("## What's true today\n{NOTHING_FOUND}\n")
         );
+    }
+
+    #[test]
+    fn a_cited_line_that_is_not_in_the_folder_is_flagged() {
+        let folder = tempfile::tempdir().unwrap();
+        std::fs::create_dir(folder.path().join("src")).unwrap();
+        std::fs::write(folder.path().join("src/lib.rs"), "one\ntwo\nthree\n").unwrap();
+        let outside = folder
+            .path()
+            .parent()
+            .unwrap()
+            .join("tinkery-TEST-outside.rs");
+        std::fs::write(&outside, "one\n").unwrap();
+        let why = |checked: &str| unfound(checked, folder.path());
+        assert_eq!(why("src/lib.rs:3"), None);
+        assert_eq!(why("read src/lib.rs:2-3 and grep"), None);
+        assert_eq!(
+            why("the README, by eye"),
+            None,
+            "not a citation, so not judged"
+        );
+        assert_eq!(
+            why("src/lib.rs:2-4").as_deref(),
+            Some("src/lib.rs has 3 lines, not 4")
+        );
+        assert_eq!(
+            why("src/lib.rs:9").as_deref(),
+            Some("src/lib.rs has 3 lines, not 9")
+        );
+        assert_eq!(
+            why("src/gone.rs:1").as_deref(),
+            Some("src/gone.rs isn't in the folder")
+        );
+        assert_eq!(
+            why("../tinkery-TEST-outside.rs:1").as_deref(),
+            Some("../tinkery-TEST-outside.rs is outside the folder")
+        );
+        let found = |checked: &str| Found {
+            checked: checked.into(),
+            observed: "seen".into(),
+        };
+        let how = format!("read-only file tools in {}", folder.path().display());
+        assert_eq!(checked_in(&found("src/lib.rs:1"), folder.path()), how);
+        assert_eq!(
+            checked_in(&found("src/lib.rs:9"), folder.path()),
+            format!("{how}{UNFOUND}src/lib.rs has 3 lines, not 9")
+        );
+        std::fs::remove_file(outside).unwrap();
     }
 
     #[test]

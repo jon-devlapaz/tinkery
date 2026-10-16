@@ -2,6 +2,7 @@
 //! plus the seed draft's text when one waits for confirmation. Read-only: it never publishes,
 //! confirms or ends anything, and keeps no copy of the ledger.
 
+use super::answering::UNFOUND;
 use serde_json::Value;
 use std::path::Path;
 
@@ -172,11 +173,19 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             .flatten()
             .filter_map(|entry| match entry {
                 Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
-                Value::Object(_) => match (text(entry, "checked"), text(entry, "observed")) {
-                    (Some(checked), Some(observed)) => Some(format!("{checked}: {observed}")),
-                    (None, observed) => observed,
-                    (Some(_), None) => None,
-                },
+                Value::Object(_) => {
+                    let unfound = text(entry, "check")
+                        .and_then(|c| c.split_once(UNFOUND).map(|(_, why)| why.to_owned()))
+                        .map(|why| format!(" (citation not found: {why})"))
+                        .unwrap_or_default();
+                    match (text(entry, "checked"), text(entry, "observed")) {
+                        (Some(checked), Some(observed)) => {
+                            Some(format!("{checked}: {observed}{unfound}"))
+                        }
+                        (None, observed) => observed,
+                        (Some(_), None) => None,
+                    }
+                }
                 _ => None,
             })
             .collect();

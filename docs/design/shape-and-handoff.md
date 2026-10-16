@@ -279,8 +279,9 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   Seed Me's editable ledger. Replies require `found` entries (checks, paths, lines
   and observations) plus a next question and suggestion, or seed `You are confirming` text;
-  anything else is a model error. `src/shape/prompt.txt` has one rule per line;
-  it is not eval-tuned.
+  anything else is a model error. `src/shape/prompt.txt` has one rule per line.
+  It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
+  a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
   Exhaustion refuses F2 before saving anything and explains how to allow calls.
 - Tinkery, never the model, calls helpers. Answers and questions use `read --editable`
@@ -315,13 +316,18 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Each `found` becomes a Seed Me receipt: `checked`, `at`, `observed`,
   `check: read-only file tools in FOLDER`. Question findings attach to its decision
   and display `What I found: PATH:LINE: what was seen`. Seed findings include blast
-  radius (files, modules, tests and breakage) and become settled evidence-authority
-  observation facts, included in `seed decisions`. Use the existing ledger and contract.
+  radius (files, modules, tests and breakage) and go only into the seed, never the
+  ledger, so each appears once and later steps don't see them in `found_so_far`.
+  A seed finding that looks like a secret refuses the draft, as Seed Me refuses one in a receipt.
 - `found_so_far` excludes only confirmed-goal provenance; recheck relied-on findings.
 - `## What's true today` groups verbatim findings by check method as
   `- PATH:LINE: what was seen (observed DATE)`, collapsing internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
+- A finding citing `PATH:LINE` or `PATH:FIRST-LAST` that the folder lacks (missing, outside
+  it, or too few lines) is flagged, not refused: its check ends `; citation not found: WHY`,
+  questions show `(citation not found: WHY)` and the seed groups it under that check.
+  This proves the lines exist, not what they say.
 - Questions or seeds with no findings display `Nothing found: this question records nothing
   checked in the repository.` (seed wording for seeds), flagged rather than refused.
 
