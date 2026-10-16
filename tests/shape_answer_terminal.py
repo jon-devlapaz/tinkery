@@ -2,7 +2,7 @@
 
 The full journey confirms a goal in Think, opens Shape from tend, looks into the first question,
 answers it and confirms the drafted seed. Short cases cover the zero budget, a stale version, a
-model failure, a helper refusal, a reply that tries to confirm or to write the decisions, and a
+model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, and a
 practice session's confirmation."""
 import fcntl, importlib.util, json, os, select, signal, struct, subprocess, tempfile, termios, time
 from pathlib import Path
@@ -29,6 +29,9 @@ if 'ledger' in r:
     replies.write_text(json.dumps(queue))
     if reply == 'FAIL':
         sys.exit(3)
+    if reply == 'SLOW':
+        import time
+        time.sleep(60)
     print(reply if isinstance(reply, str) else json.dumps(reply))
     sys.exit(0)
 with pathlib.Path('think-calls.jsonl').open('a') as f:
@@ -232,6 +235,8 @@ def case(name, width=100, height=30):
             budget = None
         if name == 'model failure':
             replies = ['FAIL']
+        if name == 'stop':
+            replies = ['SLOW']
         if name == 'helper refusal':
             replies = [{**QUESTION, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model tries to confirm':
@@ -262,6 +267,18 @@ def case(name, width=100, height=30):
                 run.wait('Your answer: Local.')
                 assert files(sessions) == before, 'A stale answer was written'
                 assert run.calls() == [], 'A stale answer still called the model'
+            elif name == 'stop':
+                run.wait('Keep records local or synced?')
+                run.type('Local.')
+                run.send(F2, 'Saving your answer, then looking into the next question. Esc stops the looking.')
+                run.wait('Must not: Run agents.')
+                deadline = time.monotonic() + 10
+                while not run.calls() and time.monotonic() < deadline:
+                    time.sleep(.05)
+                run.send(b'\x1b', 'Your answer is saved. Stopped before the next step finished.')
+                run.wait('Next: F2 looks into the next question.')
+                assert helper.load(session)['nodes'][1]['answer'] == 'Local.'
+                assert not (session / 'seed-contract.md').exists()
             elif name == 'practice confirmation':
                 run.wait('Seed draft r1 is waiting for you to confirm it.')
                 run.type('I confirm r1.')
@@ -305,7 +322,7 @@ def case(name, width=100, height=30):
 
 for size in [(100, 30), (80, 24)]:
     full_journey(*size)
-for name in ['zero budget', 'stale', 'model failure', 'helper refusal', 'model tries to confirm',
+for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
              'model writes decisions', 'practice confirmation']:
     case(name)
 case('zero budget', 80, 24)

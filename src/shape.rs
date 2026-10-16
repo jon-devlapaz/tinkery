@@ -62,6 +62,8 @@ struct Opened {
     /// What the last key or step did, when it needs saying, and its own next step if any.
     notice: Option<(String, Option<String>)>,
     running: Option<Running>,
+    /// What the running step is doing, in plain words.
+    doing: &'static str,
 }
 
 enum Reading {
@@ -467,15 +469,25 @@ impl Opened {
         let (Some(skill), None) = (&self.skill, &self.notice) else {
             return;
         };
-        let work = match act {
-            Act::Answer { id, expected } => Work::Answer {
-                id,
-                words,
-                expected,
-            },
-            Act::Look(expected) => Work::Look { expected },
-            Act::Confirm(revision) => Work::Confirm { revision, words },
+        let (work, doing) = match act {
+            Act::Answer { id, expected } => (
+                Work::Answer {
+                    id,
+                    words,
+                    expected,
+                },
+                "Saving your answer, then looking into the next question. Esc stops the looking.",
+            ),
+            Act::Look(expected) => (
+                Work::Look { expected },
+                "Looking into the next question. Esc stops it.",
+            ),
+            Act::Confirm(revision) => (
+                Work::Confirm { revision, words },
+                "Confirming the seed with your words.",
+            ),
         };
+        self.doing = doing;
         self.running = Some(Running::start(
             work,
             skill.clone(),
@@ -499,6 +511,7 @@ impl Opened {
             typed: String::new(),
             notice: None,
             running: None,
+            doing: "",
         }
     }
 }
@@ -525,12 +538,12 @@ fn render_open(
                 palette,
             ),
         ),
-        _ if open.running.is_some() => (
-            None,
-            Text::styled(
-                "Working: Seed Me's helper and, when the key said so, one model call. Esc stops it.",
-                palette.muted,
-            ),
+        Reading::Done(Ok(shaping)) if open.running.is_some() => (
+            shaping
+                .goal
+                .as_deref()
+                .map(|goal| goal_block(goal.to_owned(), palette)),
+            Text::styled(open.doing, palette.muted),
         ),
         Reading::Waiting(_) => (
             None,
@@ -751,11 +764,20 @@ fn standing(
         }
     };
     if let Some((label, typed)) = words {
+        // Each typed line shows as its own row, so a pasted line break is never hidden.
         lines.push(Line::default());
-        lines.push(Line::from(vec![
-            Span::styled(label.to_owned(), palette.muted),
-            Span::styled(format!("{typed}▏"), palette.ink),
-        ]));
+        let typed = format!("{typed}▏");
+        for (i, row) in typed.split('\n').enumerate() {
+            let lead = if i == 0 {
+                label.to_owned()
+            } else {
+                " ".repeat(label.width())
+            };
+            lines.push(Line::from(vec![
+                Span::styled(lead, palette.muted),
+                Span::styled(row.to_owned(), palette.ink),
+            ]));
+        }
     }
     let next = match notice {
         Some((said, own)) => {

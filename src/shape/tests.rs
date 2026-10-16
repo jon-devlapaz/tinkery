@@ -274,6 +274,8 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     assert!(open.running.is_none(), "a step started with no budget");
     assert_eq!(open.typed, "Local? Yes\nkept");
     let text = screen(&mut shape, 100, 30, true);
+    assert!(text.contains("Your answer: Local? Yes\n"), "{text}");
+    assert!(text.contains("             kept▏"), "{text}");
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(
         flat.contains("No model calls are left: this run's budget is 0."),
