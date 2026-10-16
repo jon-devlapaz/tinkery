@@ -1,6 +1,6 @@
 ---
 name: issues-board
-description: Use when picking, starting, finishing or reporting on Tinkery work, or asked what's going on: read and update the cross-repo GitHub Projects board.
+description: Use when filing, picking, starting, finishing or reporting on Tinkery work, or asked what's going on: manage issues across Tinkery's repos and its GitHub Projects board.
 ---
 
 # Tinkery issues board
@@ -76,6 +76,24 @@ Change board fields only. Editing, labelling or closing an issue needs the opera
 
 **Picking within Next**: prefer the item that unblocks the most others, then the earlier milestone. If
 it's still a tie, ask.
+
+## Filing issues
+
+Every issue serves Tinkery. Before drafting, name the place it improves (think, tend, shape, approve,
+watch, taste, measure) or the release work it unblocks. If you can't, it doesn't get an issue.
+
+1. Search all seven repos for an open duplicate:
+   `gh search issues --owner jon-devlapaz --state open "<key words>"`. Extend an existing issue
+   rather than filing a second one.
+2. File it where the code changes. An idea not yet ready to be a task goes in the
+   [parked backlog](../../../docs/research/shared/backlog.md) instead.
+3. Draft it with the Bounded task form's headings
+   ([task.yml](../../../.github/ISSUE_TEMPLATE/task.yml)) in every repo. Outside tinkery, open the
+   body with `Serves Tinkery: <place or release work>`.
+4. Show the draft to the operator. Publish only on their word
+   ([work intake](../../../AGENTS.md#work-intake)); publication is not approval.
+5. After publishing: in tinkery, `needs-approval` plus one `area:` label, one kind and the milestone.
+   Then add the native blocked-by links, and add the issue to the board with a Lane and a Release.
 
 ## Parallel work
 
