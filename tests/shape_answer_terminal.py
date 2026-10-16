@@ -240,7 +240,8 @@ def full_journey(width, height):
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
-            run.wait("citation not found: src/main.rs isn't in the folder")
+            # A long temporary path can push the rest of the flag below the fold; the seed file is checked in full below.
+            run.wait('citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)

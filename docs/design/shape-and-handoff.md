@@ -279,8 +279,9 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   Seed Me's editable ledger. Replies require `found` entries (checks, paths, lines
   and observations) plus a next question and suggestion, or seed `You are confirming` text;
-  anything else is a model error. `src/shape/prompt.txt` has one rule per line;
-  it is not eval-tuned.
+  anything else is a model error. `src/shape/prompt.txt` has one rule per line.
+  It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
+  a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
   Exhaustion refuses F2 before saving anything and explains how to allow calls.
 - Tinkery, never the model, calls helpers. Answers and questions use `read --editable`
