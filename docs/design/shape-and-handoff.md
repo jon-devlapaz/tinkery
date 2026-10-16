@@ -80,7 +80,10 @@ Resizing reflows the slots to the new canvas, retaining relative zoom and pan.
 Enter opens the exact stored goal block line by line, using the receipt's shared
 renderer without `Saved.`. In detail, ↑↓ / `j k` or PgUp/PgDn scroll; `c` copies the
 continuation prompt when the stored stage permits it; `s` opens [Shape](#shape) on the
-same stages; `r` opens Think history.
+same stages; `r` opens Think history. Returning from Shape requests a fresh session
+read and restores that same goal's detail, so its next step and the garden's stage
+reflect the saved draft or confirmation. Ended or unreadable sessions no longer show
+as active goals. Returning writes nothing and calls no model.
 Esc goes detail → garden →
 menu; F10 goes to menu. F1 opens help; `h` shows technical details.
 
@@ -263,10 +266,12 @@ out and the rest is one key away. The operator approved the constitution's wordi
 
 - **Layout.** Under the menu frame (`tinkery › shape`, `?`), content starts at the body's top row,
   at most 76 columns wide. What to read (the goal's first line or the seed draft, then where the
-  seed stands) comes first; the words box, anything said and any `Next:` follow it directly, so
-  nothing moves while the operator types. When the reading doesn't fit, it scrolls and the words box
-  stays in view with its end (the cursor, or what a running step is doing), never taking more than
-  half the screen from the reading; only then does the key bar offer `↑↓ scroll`. A seed's
+  seed stands) comes first; the words box, anything said and any `Next:` follow it directly.
+  When the reading doesn't fit, it scrolls and the words box stays in view with its cursor
+  (or what a running step is doing), never taking more than half the screen from the reading.
+  The editor follows cursor movement through long or wrapped words, including after resize.
+  Only an overflowing reading offers `pgup/dn read` while editing, or `↑↓ scroll` without an editor.
+  On an overflowing question the save key shortens to `F2 save + look`. A seed's
   `Nothing found` flag sits beside the words box so a long seed can't scroll it away. A key bar too wide
   for the screen closes up to two spaces between keys rather than cut off Esc or F10.
 - **F5 "So far"** is a full page like F1 help, with no key bar: the whole goal exactly as
@@ -278,9 +283,13 @@ out and the rest is one key away. The operator approved the constitution's wordi
 - **One next step, said once.** When the key bar names the stage's one action (a question or no
   question yet, with a model, or a seed draft to confirm), there is no `Next:` line. Every other
   state, and any notice such as a failure, keeps exactly one.
-- **The words box** is titled `your answer` or `your words` on its own line, as in Think, with each
-  typed line as its own row. Under a seed's box one line says confirming the seed is not approval
-  to build.
+- **The words box** is titled `your answer`, `your words` or `Folder:` on its own line.
+  All three use the existing ratatui-textarea editor: arrows move the cursor, Home/End move
+  along a line, Ctrl+Left/Right move by word, Shift extends selection, Ctrl+W or Alt+Backspace
+  deletes a word, and Enter adds a newline. PgUp/PgDn scroll only the reading. Ctrl+U undoes
+  and Ctrl+R redoes. Pasted CR and CRLF display as line breaks without changing the raw words;
+  editing and selection preserve untouched line endings. Under a seed's box one line says
+  confirming the seed is not approval to build.
 - **While a step runs,** the label, the question and the typed words stay, muted, under one line of
   what the step is doing (`Saving your answer.`, then `Answer saved. Looking in NAME for the next
   question.`) and a muted count of seconds. The key bar is `esc stop`, and F1 says a step is running.
@@ -328,6 +337,12 @@ Built in [#150](https://github.com/jon-devlapaz/tinkery/issues/150). With `--sha
 - **Seed confirmation** goes only through `seed confirm --revision rN`, with the operator's
   typed words as `--source`. Nothing the model replies can confirm, and Seed Me refuses a
   practice session's confirmation. Confirming is not approval to build.
+  **Operator decision, 2026-10-16:** multiline confirmation is not needed now. The editor still
+  accepts line breaks, but F3 refuses CR or LF with `Put your confirming words on one line;
+  nothing was confirmed.`, retaining the words and writing and calling nothing. Seed Me writes
+  the words as one `Confirmed by:` line in the seed file; neither its helper nor its contract is
+  changed. This is an approved deviation from #163's multiline F3 "Done when": the F3 journey
+  edits and confirms one-line words instead, with separate multiline-refusal coverage.
 - **Failures** each say what happened, then one `Next:`: no budget (start with
   `--shape-budget`), a model error or stop (`F2` tries the step again; a saved answer stays
   saved), a stale version (the fresh read's own next step), or a helper refusal (Seed Me's first
@@ -344,9 +359,12 @@ that found nothing is flagged, not refused; the operator may pick the folder in 
   `The step reads files in NAME. F4 picks another folder.` above the words box; F1 gives the full
   path. The folder is where Think recorded the goal was made, else the repository Tinkery started
   in, else where it started. It is found with the session read, so `F2` is never offered first.
-  `F4` opens a `Folder:` box holding the current path; Enter uses an existing absolute folder (or
-  `~/…`), Esc keeps the one shown, and a missing folder is refused with the shown one kept. The
-  pick lasts while this Shape stays open and is written nowhere; each step's receipts name it.
+  `F4` opens a `Folder:` box holding the current path; Enter adds a newline and F4 uses an existing
+  absolute folder (or `~/…`). The exact edited path is tried first, including line breaks and
+  trailing whitespace; if no folder is there, the path without surrounding whitespace is tried, so
+  a pasted path ending in a line break still works. Esc keeps the one shown, and a missing folder is refused with
+  the shown one kept. The pick lasts while this Shape stays open and is written nowhere; each
+  step's receipts name it.
 - **Findings are saved in the ledger.** Each `found` entry becomes a Seed Me receipt (`checked`,
   `at`, `observed`, and `check: read-only file tools in FOLDER`). A question's findings go on its
   decision node and show beside it as `What I found: PATH:LINE: what was seen`. The seed step's
@@ -398,8 +416,24 @@ during a step, a `Next:` line repeating the key bar, and rendering that changed 
 Dogfooding at 80×24 with a long goal and four findings then showed the answer box pushed below
 the screen, `F10 menu` cut off the key bar and `F5 close` scrolled out of sight. A review
 dogfood added a 20-line answer hiding what a running step was doing. Tests for each went red
-when their fix was reverted. Still open for #163: arrows don't scroll within a long answer, and a
-growing words box pulls itself up the screen.
+when their fix was reverted.
+
+Returning from Shape (#165) is checked in the same 80×24 and 100×30 journeys after
+both drafting and confirming: Tend's detail names the current next step, and its garden
+shows `seed drafted` or `seed ready`. All TEST files and stub call counts stay unchanged
+through the return. Reverting the refresh makes the confirmation journey fail to show
+`Next: the seed is ready for intake.`; the protection was restored afterward.
+
+The editor (#163) extends those journeys with cursor correction, word deletion, selection,
+an Enter newline and raw CR/CRLF saved exactly by F2; F4 selects a real multiline folder and
+both stub steps run in that exact folder. F3 saves edited one-line words. Repeat F2/F3 events,
+multiline F3 refusals and all intermediate editing leave records and call counts unchanged.
+Rust regressions cover cursor-following at 80×14, 80×24 and 100×30, with and without colour,
+half-body reading space, raw line-ending provenance across selection, undo and redo, and
+multiline folder names including trailing whitespace. Reversion probes went red for normalized
+raw line endings, ignored cursor motion, starting a step from typing, held F2 and held F3 acting,
+multiline F3 starting a step, trimmed folder paths and words displacing more than half the reading.
+Each protection was restored afterward. These are stub mechanics, not dogfood.
 
 [#123](https://github.com/jon-devlapaz/tinkery/issues/123) records the calm-view
 research: few nodes and few link types; a force-directed whole-graph view was mostly

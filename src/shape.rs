@@ -13,6 +13,7 @@
 pub use step::Agent;
 
 mod step;
+mod words;
 
 use crate::{
     Palette,
@@ -22,7 +23,7 @@ use crate::{
         shaping::{self, Shaped, Shaping},
     },
 };
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -36,6 +37,7 @@ use std::{
 use step::{Done, Failure, Running, Why, Work};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+use words::Words;
 
 /// The widest Shape's open view gets, so lines stay readable on a wide terminal.
 const WIDTH: u16 = 76;
@@ -64,7 +66,7 @@ struct Opened {
     skill: Option<PathBuf>,
     reading: Reading,
     /// The operator's words being typed: an answer, or the words that confirm a seed.
-    typed: String,
+    typed: Words,
     /// What the last key or step did, when it needs saying, and its own next step if any.
     notice: Option<(String, Option<String>)>,
     running: Option<Running>,
@@ -72,8 +74,8 @@ struct Opened {
     doing: Doing,
     /// The folder the next step reads.
     folder: Folder,
-    /// A folder being typed after `F4`, until Enter uses it or Esc keeps the one shown.
-    choosing: Option<String>,
+    /// A folder being typed after `F4`, until F4 uses it or Esc keeps the one shown.
+    choosing: Option<Words>,
     /// The "So far" page's scroll while `F5` shows it.
     so_far: Option<u16>,
 }
@@ -125,7 +127,9 @@ impl Shape {
     pub fn takes_text(&self) -> bool {
         self.agent.is_some()
             && self.open.as_ref().is_some_and(|open| {
-                open.so_far.is_none() && (open.choosing.is_some() || open.typing().is_some())
+                open.so_far.is_none()
+                    && open.running.is_none()
+                    && (open.choosing.is_some() || open.typing().is_some())
             })
     }
 
@@ -135,8 +139,8 @@ impl Shape {
             && let Some(open) = &mut self.open
         {
             match &mut open.choosing {
-                Some(folder) => folder.push_str(text),
-                None => open.typed.push_str(text),
+                Some(folder) => folder.insert(text),
+                None => open.typed.insert(text),
             }
         }
     }
@@ -218,6 +222,11 @@ impl Shape {
     /// next question, or just look) and `F3` (confirm the seed with the typed words) write or call
     /// a model, and only with an agent.
     pub fn key(&mut self, key: KeyEvent, skill: Option<&Path>) -> Leave {
+        if key.kind == KeyEventKind::Release
+            || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::F(2..=5))
+        {
+            return Leave::Stay;
+        }
         if let Some(open) = &mut self.open {
             if let Some(scroll) = &mut open.so_far {
                 match key.code {
@@ -240,16 +249,14 @@ impl Shape {
             }
             if let Some(folder) = &mut open.choosing {
                 match key.code {
-                    KeyCode::Char(c) => folder.push(c),
-                    KeyCode::Backspace => {
-                        folder.pop();
-                    }
-                    KeyCode::Enter => {
-                        let typed = open.choosing.take().unwrap_or_default();
-                        open.notice = open.pick(&typed);
+                    KeyCode::F(4) if key.modifiers.is_empty() => {
+                        let typed = open.choosing.take().unwrap();
+                        open.notice = open.pick(typed.text());
                     }
                     KeyCode::Esc => open.choosing = None,
-                    _ => {}
+                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(5),
+                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(5),
+                    _ => folder.key(key),
                 }
                 return Leave::Stay;
             }
@@ -259,19 +266,15 @@ impl Shape {
             }
             if let (Some(agent), Some(typing)) = (&self.agent, open.typing()) {
                 match key.code {
-                    KeyCode::Char(c) => {
-                        open.typed.push(c);
-                        return Leave::Stay;
-                    }
-                    KeyCode::Backspace => {
-                        open.typed.pop();
-                        return Leave::Stay;
-                    }
-                    code if code == typing.key => {
+                    code if code == typing.key && key.modifiers.is_empty() => {
                         open.act(typing.act, agent);
                         return Leave::Stay;
                     }
-                    _ => {}
+                    KeyCode::Esc | KeyCode::F(_) | KeyCode::PageDown | KeyCode::PageUp => {}
+                    _ => {
+                        open.typed.key(key);
+                        return Leave::Stay;
+                    }
                 }
             }
             if key.code == KeyCode::F(4)
@@ -279,7 +282,7 @@ impl Shape {
                 && open.offers_step()
                 && let Folder::Known(folder) = &open.folder
             {
-                open.choosing = Some(folder.display().to_string());
+                open.choosing = Some(Words::new(&folder.display().to_string()));
                 open.notice = None;
                 return Leave::Stay;
             }
@@ -369,20 +372,20 @@ impl Shape {
                 let now = match (agent, open.typing()) {
                     _ if open.running.is_some() => "A step is running. Esc stops it.",
                     _ if open.choosing.is_some() => {
-                        "Type the folder the next step should read. Enter uses it; Esc keeps the one shown."
+                        "Type the folder the next step should read. Enter adds a line; F4 uses it; Esc keeps the one shown."
                     }
                     (Some(_), Some(t)) if t.key == KeyCode::F(2) => {
-                        "Type your answer. F2 saves it and looks into the next question (one model call)."
+                        "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call)."
                     }
                     (Some(_), Some(_)) => {
-                        "Read the seed, type your own words, then F3 confirms it. It is not approval to build."
+                        "Read the seed, type your confirming words on one line, then F3 confirms it. Enter adds a line while editing. It is not approval to build."
                     }
                     _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
                 };
                 (
                     now,
                     format!(
-                        "{failure}Session: {}\n{skill}\n{model}{reads}",
+                        "{failure}{model}{reads}\nSession: {}\n{skill}",
                         open.session.display()
                     ),
                 )
@@ -402,7 +405,13 @@ impl Shape {
             "Shape only reads. It writes nothing, copies nothing and starts nothing. \
              Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt."
         };
-        format!("Right now\n{now}\n{back}\n\nF1 close\n\n{promise}\n\nHow it works\n{how}")
+        let editing = if self.takes_text() {
+            "\nArrows, Home/End and Ctrl+Left/Right move; Shift selects; Ctrl+W or Alt+Backspace deletes a word.\n\
+             Ctrl+U undoes, Ctrl+R redoes; PgUp/PgDn scroll the reading."
+        } else {
+            ""
+        };
+        format!("Right now\n{now}{editing}\n{back}\n\nF1 close\n\n{promise}\n\nHow it works\n{how}")
     }
 
     /// Draws Shape in `area`, with its key bar on the terminal's last row. The "So far" page,
@@ -418,7 +427,7 @@ impl Shape {
             return;
         }
         let agent = self.agent.is_some();
-        let overflow = match &self.open {
+        let overflow = match &mut self.open {
             Some(open) => render_open(frame, &mut self.scroll, open, agent, area, palette),
             None => {
                 self.render_list(frame, area, palette);
@@ -428,13 +437,21 @@ impl Shape {
         let keys = match (&self.open, &self.list) {
             (Some(open), _) if open.running.is_some() => "esc stop".to_owned(),
             (Some(open), _) if open.choosing.is_some() => {
-                "enter use this folder   esc cancel".to_owned()
+                format!(
+                    "{}enter newline   F4 use folder   esc cancel",
+                    if overflow { "pgup/dn read   " } else { "" }
+                )
             }
             (Some(open), _) => {
                 let action = match (&self.agent, open.typing(), &open.reading) {
-                    (Some(_), Some(t), _) if t.key == KeyCode::F(2) => {
-                        Some("F2 save answer and look into next".to_owned())
-                    }
+                    (Some(_), Some(t), _) if t.key == KeyCode::F(2) => Some(
+                        if overflow {
+                            "F2 save + look"
+                        } else {
+                            "F2 save answer and look into next"
+                        }
+                        .to_owned(),
+                    ),
                     (
                         Some(_),
                         Some(Typing {
@@ -455,7 +472,14 @@ impl Shape {
                 };
                 let mut keys = Vec::new();
                 if overflow {
-                    keys.push("↑↓ scroll".to_owned());
+                    keys.push(
+                        if open.typing().is_some() && agent {
+                            "pgup/dn read"
+                        } else {
+                            "↑↓ scroll"
+                        }
+                        .to_owned(),
+                    );
                 }
                 keys.extend(action);
                 if open.so_far_ready() {
@@ -595,20 +619,21 @@ impl Opened {
     }
 
     /// Use the folder the operator typed for the next steps, or say why not and keep the one shown.
-    /// `~/` means the home folder; anything else must be an absolute path to a folder.
+    /// `~/` means the home folder; anything else must be an absolute path to a folder. The exact
+    /// text is tried first, then without surrounding whitespace, so a pasted line break still works.
     fn pick(&mut self, typed: &str) -> Option<(String, Option<String>)> {
-        let typed = typed.trim();
         let home = || std::env::var_os("HOME").map(PathBuf::from);
-        let path = match typed.strip_prefix("~/") {
-            Some(rest) => home().map(|home| home.join(rest)),
-            None if typed == "~" => home(),
-            None => Some(PathBuf::from(typed)),
-        };
-        match path
+        let folder = |typed: &str| {
+            match typed.strip_prefix("~/") {
+                Some(rest) => home().map(|home| home.join(rest)),
+                None if typed == "~" => home(),
+                None => Some(PathBuf::from(typed)),
+            }
             .filter(|p| p.is_absolute())
             .and_then(|p| p.canonicalize().ok())
             .filter(|p| p.is_dir())
-        {
+        };
+        match folder(typed).or_else(|| folder(typed.trim())) {
             Some(folder) => {
                 self.folder = Folder::Known(folder);
                 None
@@ -637,7 +662,7 @@ impl Opened {
     /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget and a
     /// folder not yet known before anything is written or called.
     fn act(&mut self, act: Act, agent: &Arc<Agent>) {
-        let words = self.typed.clone();
+        let words = self.typed.text().to_owned();
         let refuse = |said: &str| Some((said.to_owned(), None));
         let folder = match &self.folder {
             Folder::Known(folder) => Some(folder.clone()),
@@ -646,6 +671,9 @@ impl Opened {
         self.notice = match &act {
             Act::Answer { .. } if words.trim().is_empty() => {
                 refuse("Type your answer first; nothing was saved.")
+            }
+            Act::Confirm(_) if words.contains(['\n', '\r']) => {
+                refuse("Put your confirming words on one line; nothing was confirmed.")
             }
             Act::Confirm(_) if words.trim().is_empty() => {
                 refuse("Type your words first; nothing was confirmed.")
@@ -712,7 +740,7 @@ impl Opened {
             session: session.to_path_buf(),
             skill: skill.map(Path::to_path_buf),
             reading: Reading::NotStarted,
-            typed: String::new(),
+            typed: Words::new(""),
             notice: None,
             running: None,
             doing: Doing::Look,
@@ -798,7 +826,7 @@ fn render_so_far(
 fn render_open(
     frame: &mut Frame,
     scroll: &mut u16,
-    open: &Opened,
+    open: &mut Opened,
     agent: bool,
     area: Rect,
     palette: Palette,
@@ -850,13 +878,7 @@ fn render_open(
             };
             let name = open.folder_name();
             let typing = open.typing().filter(|_| agent);
-            let words = |typed| {
-                typing.as_ref().map(|t| Words {
-                    label: t.label,
-                    typed,
-                    own_line: true,
-                })
-            };
+            let words = || typing.as_ref().map(|t| t.label);
             let acts = typing.is_some()
                 || agent
                     && matches!(
@@ -881,7 +903,7 @@ fn render_open(
                     Stand {
                         acts,
                         reads: None,
-                        words: words(open.typed.as_str()),
+                        words: words(),
                         notice: None,
                         running: Some(Line::from(vec![
                             Span::styled(said, palette.ink),
@@ -892,18 +914,14 @@ fn render_open(
                         ])),
                     }
                 }
-                (None, Some(typed)) => Stand {
+                (None, Some(_)) => Stand {
                     acts,
                     reads: None,
-                    words: Some(Words {
-                        label: "Folder: ",
-                        typed,
-                        own_line: false,
-                    }),
+                    words: Some("Folder:"),
                     notice: Some((
                         "",
                         Some(format!(
-                            "Next: Enter uses this folder; Esc keeps {}.",
+                            "Next: F4 uses this folder; Esc keeps {}.",
                             name.as_deref().unwrap_or_default()
                         )),
                     )),
@@ -917,7 +935,7 @@ fn render_open(
                         }
                         None => "Finding which folder the step reads.".into(),
                     }),
-                    words: words(open.typed.as_str()),
+                    words: words(),
                     notice: open
                         .notice
                         .as_ref()
@@ -939,33 +957,69 @@ fn render_open(
             .wrap(Wrap { trim: false })
             .line_count(area.width) as u16
     };
-    let (read_rows, input_rows) = (rows(&reading), rows(&input));
+    let label = if open.choosing.is_some() {
+        Some("Folder:")
+    } else {
+        open.typing().filter(|_| agent).map(|t| t.label)
+    };
+    let split = label.and_then(|label| input.lines.iter().position(|l| l.to_string() == label));
+    let (before, after) = match split {
+        Some(i) => (
+            Text::from(input.lines[..=i].to_vec()),
+            Text::from(input.lines[i + 1..].to_vec()),
+        ),
+        None => (Text::default(), input),
+    };
+    let editor = split.map(|_| open.choosing.as_mut().unwrap_or(&mut open.typed));
+    let editor_rows = editor.as_ref().map_or(0, |words| words.rows(area.width));
+    let (read_rows, before_rows, after_rows) = (rows(&reading), rows(&before), rows(&after));
+    let input_rows = before_rows
+        .saturating_add(editor_rows)
+        .saturating_add(after_rows);
     let gap = u16::from(read_rows > 0 && input_rows > 0);
-    // The words box keeps its end (the cursor) in view, leaving at least a row to read.
-    // It never takes more than half the screen from what there is to read.
+    // Reserve at least half the body for a long reading. The editor scrolls to its caret;
+    // labels and consequences stay outside that viewport, even while a step is running.
     let input_height =
         input_rows
             .min(area.height.saturating_sub(
                 gap + read_rows.min(area.height / 2).max(u16::from(read_rows > 0)),
             ));
     let height = read_rows.min(area.height.saturating_sub(input_height + gap));
-    *scroll = (*scroll).min(read_rows - height);
+    *scroll = (*scroll).min(read_rows.saturating_sub(height));
     frame.render_widget(
         Paragraph::new(reading)
             .wrap(Wrap { trim: false })
             .scroll((*scroll, 0)),
         Rect { height, ..area },
     );
+    let mut input_area = Rect {
+        y: area.y + height + gap,
+        height: input_height,
+        ..area
+    }
+    .intersection(area);
+    let after_height = after_rows.min(input_height.saturating_sub(u16::from(editor.is_some())));
+    let before_height =
+        before_rows.min(input_height.saturating_sub(after_height + u16::from(editor.is_some())));
     frame.render_widget(
-        Paragraph::new(input)
-            .wrap(Wrap { trim: false })
-            .scroll((input_rows - input_height, 0)),
+        Paragraph::new(before).wrap(Wrap { trim: false }),
         Rect {
-            y: area.y + height + gap,
-            height: input_height,
-            ..area
-        }
-        .intersection(area),
+            height: before_height,
+            ..input_area
+        },
+    );
+    input_area.y += before_height;
+    input_area.height = input_height.saturating_sub(before_height + after_height);
+    if let Some(editor) = editor {
+        editor.render(frame, input_area, palette, open.running.is_some());
+    }
+    input_area.y += input_area.height;
+    input_area.height = after_height;
+    frame.render_widget(
+        Paragraph::new(after)
+            .wrap(Wrap { trim: false })
+            .scroll((after_rows.saturating_sub(after_height), 0)),
+        input_area,
     );
     read_rows > height
 }
@@ -1051,20 +1105,12 @@ struct Stand<'a> {
     acts: bool,
     /// Which folder the next step reads, when a step is offered.
     reads: Option<String>,
-    /// The operator's words being typed.
-    words: Option<Words<'a>>,
+    /// The editor's label, when this stage takes words.
+    words: Option<&'a str>,
     /// What the last key or step said, and its own next step if any.
     notice: Option<(&'a str, Option<String>)>,
     /// What a running step is doing; everything else then stays, muted.
     running: Option<Line<'static>>,
-}
-
-/// A words box: its label, then the typed words, each typed line as its own row.
-struct Words<'a> {
-    label: &'a str,
-    typed: &'a str,
-    /// The label on its own line (an answer or seed words), or before the words (a folder).
-    own_line: bool,
 }
 
 /// Where the seed stands, in plain words, as what to read and then what to act with (the words box,
@@ -1216,31 +1262,10 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
     }
     // What the operator acts with stays in view beneath what they read.
     let mut input: Vec<Line<'static>> = flag.into_iter().collect();
-    if let Some(Words {
-        label,
-        typed,
-        own_line,
-    }) = words
-    {
+    if let Some(label) = words {
         let style = if calm { palette.muted } else { palette.ink };
         gap(&mut input);
-        if own_line {
-            input.push(Line::styled(label.to_owned(), style));
-        }
-        // Display only: a CR or CRLF from a paste breaks the row too; the words stay as typed.
-        let typed = typed.replace("\r\n", "\n").replace('\r', "\n");
-        let typed = if calm { typed } else { format!("{typed}▏") };
-        for (i, row) in typed.split('\n').enumerate() {
-            let lead = match (own_line, i) {
-                (true, _) => String::new(),
-                (false, 0) => label.to_owned(),
-                (false, _) => " ".repeat(label.width()),
-            };
-            input.push(Line::from(vec![
-                Span::styled(lead, palette.muted),
-                Span::styled(row.to_owned(), style),
-            ]));
-        }
+        input.push(Line::styled(label.to_owned(), style));
         if acts && !calm && matches!(stage, Shaped::Drafted { .. }) {
             input.push(Line::default());
             input.push(Line::styled(

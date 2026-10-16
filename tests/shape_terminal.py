@@ -160,11 +160,13 @@ def journey(width, height, case, no_color=False):
                 keys = {'question': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
                         'drafted': 'F3 confirm seed r1   F5 so far   esc back   F10 menu',
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
-                # Scrolling is offered only when something doesn't fit.
-                bar = screen.text().splitlines()[-1].strip()
-                assert bar in (keys, '↑↓ scroll   ' + keys), screen.text()
-                # The key bar names the one next action on a question or a draft, so no Next line does.
+                # Scrolling is offered only on overflow; arrows belong to an active editor.
                 acts = case in ('question', 'drafted')
+                scroll_keys = ('pgup/dn read   ' + keys.replace('F2 save answer and look into next', 'F2 save + look')
+                               if acts else '↑↓ scroll   ' + keys)
+                bar = screen.text().splitlines()[-1].strip()
+                assert bar in (keys, scroll_keys), screen.text()
+                # The key bar names the one next action on a question or a draft, so no Next line does.
                 assert flat().count('Next:') == (0 if acts else 1), screen.text()
                 if case == 'drafted':
                     assert 'status: draft' not in screen.text() and 'Seed draft r1' in screen.text()
@@ -183,8 +185,20 @@ def journey(width, height, case, no_color=False):
                 if case == 'unreadable':
                     send(b'\x1bOP', 'What went wrong')
                     send(b'\x1b', keys)
-                send(b'\x1b', DETAIL_KEYS)
-                shows_goal()
+                # Return now waits for fresh discovery, not the cached detail's footer.
+                if case == 'ended':
+                    send(b'\x1b', 'No active goals. 1 ended not shown.')
+                    assert GOAL.splitlines()[0] not in flat(), screen.text()
+                elif case == 'unreadable':
+                    send(b'\x1b', 'Saved session unavailable. F1 then h for details.')
+                    assert GOAL.splitlines()[0] not in flat(), screen.text()
+                else:
+                    next_step = ('Next: confirm the seed draft with Seed Me.' if case == 'drafted' else
+                                 'Next: the seed is ready for intake.' if case in ('ready', 'stale') else
+                                 'Next: shape it into a seed with Seed Me.')
+                    send(b'\x1b', 'tinkery › tend')
+                    wait(lambda: next_step in flat())
+                    shows_goal()
             assert files(sessions) == before, 'Shape changed a session file'
             assert not (cwd / 'provider-was-run').exists()
             assert not (cwd / 'TEST-records').exists() and not (cwd / 'TEST-links').exists()
