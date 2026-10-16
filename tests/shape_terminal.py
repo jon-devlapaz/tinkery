@@ -58,7 +58,8 @@ def journey(width, height, case, no_color=False):
         sessions = cwd / 'TEST-sessions'
         if case == 'list':
             make(sessions, 'question')
-            seed(make(sessions, 'drafted', goal='Drafted goal\n' + GOAL, question=False))
+            drafted_session = make(sessions, 'drafted', goal='Drafted goal\n' + GOAL, question=False)
+            seed(drafted_session)
             seed(make(sessions, 'ready', goal='Ready goal\n' + GOAL, question=False), confirm=True)
         else:
             session = make(sessions, case, question=case in ('question', 'ended', 'unreadable'))
@@ -117,7 +118,11 @@ def journey(width, height, case, no_color=False):
                 os.write(master, drafted.encode())
                 send(b'\r', 'Seed draft r1 is waiting for you to confirm it.')
                 shows_goal('Drafted goal')
+                # Confirmed elsewhere while open: back at the list, Shape reads again and drops it.
+                helper.confirm_seed(drafted_session, 'r1', 'TEST fixture only: confirm r1')
+                before = files(sessions)
                 send(b'\x1b', LIST_KEYS)
+                wait(lambda: 'Drafted goal' not in screen.text() and 'goal saved' in screen.text())
                 send(b'\x1b', '3  shape')
             else:
                 send(b'2', 'enter open')

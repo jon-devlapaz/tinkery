@@ -680,7 +680,11 @@ impl Home {
                 let View::Shape(shape, _) = &mut self.view else {
                     return;
                 };
-                if shape.key(key, self.seed_me.as_deref()) == Leave::Back {
+                let leave = shape.key(key, self.seed_me.as_deref());
+                if shape.wants_sessions() {
+                    self.request_sessions();
+                }
+                if leave == Leave::Back {
                     let View::Shape(_, back) = std::mem::replace(&mut self.view, View::Menu) else {
                         unreachable!()
                     };

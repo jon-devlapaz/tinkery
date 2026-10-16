@@ -216,7 +216,20 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert!(text.contains("isn't set up here"), "{text}");
     assert!(shape.help_text().contains("/tmp/TEST-shape/drafted"));
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
+    // Back at the list, Shape reads again: a goal whose seed was confirmed meanwhile leaves it.
+    assert!(shape.wants_sessions());
+    shape.offer(Ok(&sessions));
     assert!(screen(&mut shape, 100, 30, true).contains("› drafted goal"));
+    let mut moved = sessions.clone();
+    moved[2].stage = Stage::SeedReady;
+    assert_eq!(shape.key(key(KeyCode::Enter), None), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
+    shape.offer(Ok(&moved));
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(
+        text.contains("› saved goal") && !text.contains("drafted goal"),
+        "{text}"
+    );
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Back);
     let mut empty = Shape::list();
     empty.offer(Ok(&sessions[1..2]));

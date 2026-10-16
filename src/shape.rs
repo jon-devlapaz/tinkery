@@ -127,14 +127,16 @@ impl Shape {
     /// The sessions a read found, or why it failed. Only goals waiting for a seed are listed.
     pub fn offer(&mut self, read: Result<&[Session], String>) {
         if self.list.is_some() {
-            self.list = Some(Some(read.map(|sessions| {
+            let listed: Result<Vec<Session>, String> = read.map(|sessions| {
                 sessions
                     .iter()
                     .filter(|s| matches!(s.stage, Stage::GoalSaved | Stage::SeedDrafted))
                     .cloned()
                     .collect()
-            })));
-            self.selected = 0;
+            });
+            let count = listed.as_ref().map_or(0, Vec::len);
+            self.selected = self.selected.min(count.saturating_sub(1));
+            self.list = Some(Some(listed));
         }
     }
 
@@ -214,7 +216,9 @@ impl Shape {
             }
             match key.code {
                 KeyCode::Esc if self.list.is_some() => {
+                    // A step may have moved this goal on (a confirmed seed leaves the list).
                     self.open = None;
+                    self.list = Some(None);
                     self.scroll = 0;
                 }
                 KeyCode::Esc => return Leave::Back,
@@ -643,7 +647,9 @@ fn said(result: Result<Done, Failure>) -> Option<(String, Option<String>)> {
         ),
         Why::Refused(reason) => (format!("{saved}{reason}"), None),
         Why::Stopped => (
-            format!("{saved}Stopped before the next step finished."),
+            format!(
+                "{saved}Stopped before the next step finished. The model call it started still counts against this run's budget."
+            ),
             None,
         ),
     })
@@ -679,10 +685,11 @@ fn standing(
         } => {
             lines.push(Line::styled(format!("{title}: {ask}"), palette.jade));
             for (i, entry) in found.iter().enumerate() {
+                // A label per entry, not a hanging indent: wrapped lines return to the margin.
                 let label = if i == 0 {
                     "What I found: "
                 } else {
-                    "              "
+                    "Also found: "
                 };
                 lines.push(Line::styled(format!("{label}{entry}"), palette.ink));
             }

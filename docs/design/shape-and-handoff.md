@@ -239,7 +239,7 @@ The screen shows the confirmed goal exactly as the ledger records it, in ink, th
 
 | Seed Me reports | Shape says |
 | --- | --- |
-| A current question | Its label and question in jade, `What I found:` for each evidence entry, and `Suggestion:` in italic. The ledger keeps no options, so none are shown. |
+| A current question | Its label and question in jade, `What I found:` for the first evidence entry and `Also found:` for each later one (a label per entry, so wrapped lines never fake an indent), and `Suggestion:` in italic. The ledger keeps no options, so none are shown. |
 | No question, no seed | Seed Me hasn't asked its next question yet |
 | A draft seed | The draft and its revision wait for confirmation |
 | A confirmed seed that `status` verifies | `Seed ready`, with the confirmed revision |
@@ -298,6 +298,7 @@ Built in [#150](https://github.com/jon-devlapaz/tinkery/issues/150). With `--sha
   `--shape-budget`), a model error or stop (`F2` tries the step again; a saved answer stays
   saved), a stale version (the fresh read's own next step), or a helper refusal (Seed Me's first
   line). Esc stops a running step; a helper call already started finishes, and Shape reads again.
+  A stopped model call still counts against the budget, and the notice says so.
 
 The three confirmations stay separate screens with separate words: Think's typed `confirm`
 for the goal, Shape's `F3` with the operator's own words for the seed, and approval (not built).
