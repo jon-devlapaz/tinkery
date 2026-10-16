@@ -183,7 +183,7 @@ def full_journey(width, height):
             assert goal == record['goal']
             run.send(F10, '3  shape')
             before = files(run.sessions)
-            target = cwd / 'TEST-target'
+            target = cwd / 'TEST-target\nfolder'
             target.mkdir()
             run.open_shape()
             run.wait("Seed Me hasn't asked its next question yet.")
@@ -195,10 +195,14 @@ def full_journey(width, height):
             # Help may run past a short screen; the Rust tests check it names the full path.
             run.send(F1, 'The next step reads files in:')
             run.send(b'\x1b', 'F2 look into the next question')
-            run.send(b'\x1bOS', 'Next: Enter uses this folder')
+            run.send(b'\x1bOS', 'Next: F4 uses this folder')
             assert f'Folder:{cwd}' in squashed(), run.screen.text()
-            os.write(run.master, b'/TEST-target')
-            run.send(b'\r', 'The step reads files in TEST-target.')
+            os.write(run.master, b'/TEST-targat')
+            # Fix inside the folder, and prove Enter edits rather than applying it.
+            run.send(b'\x1b[D' * 2 + b'\x1b[3~e\x1b[F\rfolder', 'enter newline')
+            run.wait('TEST-target folder')
+            assert files(run.sessions) == before and run.calls() == [], 'Folder editing wrote or called'
+            run.send(b'\x1bOS', 'The step reads files in TEST-targetfolder.')
             # Opening, scrolling and help write nothing and call no model.
             run.send(b'\x1b[B', 'F2 look into the next question')
             run.send(F1, 'Model calls left this run: 2 of 2.')
@@ -217,8 +221,17 @@ def full_journey(width, height):
             assert calls[0]['input']['found_so_far'] == [], calls[0]['input']
             # Typing writes nothing; capitals and ? are words, not commands.
             before = files(run.sessions)
-            run.type('Local? Yes, Keep it local.')
-            assert files(run.sessions) == before and len(run.calls()) == 1, 'Typing wrote or called'
+            before_all = files(cwd)
+            run.type('Local? Yes, Keep it remote.')
+            run.send(b'\x1b[D\x17local', 'Local? Yes, Keep it local.')
+            run.send(b'\x1b[F\rOnly on this machine.', 'Only on this machine.')
+            run.send(b'\x1b[200~\rTEST CR\r\nTEST CRLF\x1b[201~', 'TEST CRLF')
+            answer = 'Local? Yes, Keep it local.\nOnly on this machine.\rTEST CR\r\nTEST CRLF'
+            # Kitty repeat events must not act, even with nonempty edited words.
+            run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Type your answer. Enter adds a line.')
+            run.wait('Model calls left this run: 1 of 2.')
+            run.send(b'\x1b', 'TEST CRLF')
+            assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 1, 'Typing, paste, editing or held F2 wrote or called'
             if width == 100:
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
@@ -227,7 +240,7 @@ def full_journey(width, height):
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
             answered = next(n for n in ledger['nodes'] if n['id'] == 'storage')
-            assert answered['answer'] == 'Local? Yes, Keep it local.' and answered['authority'] == 'user', answered
+            assert answered['answer'] == answer and answered['authority'] == 'user', answered
             seed = (session / 'seed-contract.md').read_text()
             assert seed.endswith(helper.decisions_block(ledger)), seed
             assert 'MODEL-INVENTED' not in seed, seed
@@ -240,20 +253,27 @@ def full_journey(width, height):
             # The seed's grounding is the saved findings, word for word, before the decisions.
             date = ledger['nodes'][1]['evidence'][0]['at'][:10]
             today = ("## What's true today\n"
-                     f"Checked by read-only file tools in {target}:\n"
+                     f"Checked by read-only file tools in {' '.join(str(target).split())}:\n"
                      f"- README.md:3: says local only (observed {date})\n"
                      f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
             assert today + helper.decisions_block(ledger) in seed, seed
             fact = next(n for n in ledger['nodes'] if n['kind'] == 'fact')
             assert (fact['status'], fact['authority'], fact['answer']) == (
                 'settled', 'evidence', 'the refusal path; the change touches it'), fact
-            run.type('Yes, I confirm r1.')
+            before = files(run.sessions)
+            before_all = files(cwd)
+            run.type('Yes, I reject r1.')
+            run.send(b'\x1b[D' * 4 + b'\x17confirm', 'Yes, I confirm r1.')
+            run.send(b'\x1b[H' + b'\x1b[1;2C' * 3 + b'Indeed', 'Indeed, I confirm r1.')
+            run.send(b'\x1b[13;1:2~' * 3 + F1, 'Read the seed, type your confirming words on one line')
+            run.send(b'\x1b', 'Indeed, I confirm r1.')
+            assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held F3 wrote or called'
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
             assert status['seed']['line_1'] == 'status: confirmed for intake', status
             assert status['handoff']['verified'] is True, status
             confirmation = json.loads((session / 'seed-confirmation.json').read_text())
-            assert confirmation['source'] == 'Yes, I confirm r1.', confirmation
+            assert confirmation['source'] == 'Indeed, I confirm r1.', confirmation
             assert helper.load(session)['goal'] == goal, 'The confirmed goal changed'
             assert len(run.calls()) == 2, 'Confirmation called a model'
             run.send(b'\x1b', 's shape')
@@ -282,12 +302,12 @@ def case(name, width=100, height=30):
         if name == 'model writes decisions':
             question = False
             replies = [{'next': 'seed', 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
-        if name == 'practice confirmation':
-            question, operator = False, 'simulated'
+        if name in ('practice confirmation', 'multiline confirmation'):
+            question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'nothing found':
             replies = [{**QUESTION, 'found': []}, {'next': 'seed', 'confirming': 'Fine.'}]
         session = make(sessions, question=question, operator=operator)
-        if name == 'practice confirmation':
+        if name in ('practice confirmation', 'multiline confirmation'):
             (session / 'seed-contract.md').write_text(
                 'status: draft\n# TEST\nrevision: r1\n\n## You are confirming\nTEST.\n\n'
                 + helper.decisions_block(helper.load(session)))
@@ -331,6 +351,24 @@ def case(name, width=100, height=30):
                 ledger = helper.load(session)
                 assert helper.decisions_block(ledger) in (session / 'seed-contract.md').read_text()
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
+            elif name == 'multiline confirmation':
+                run.wait('Seed draft r1')
+                before = files(cwd)
+                # Both typed LF and pasted CR/CRLF refuse without normalizing the words.
+                for ending in ('\n', '\r', '\r\n'):
+                    if ending == '\n':
+                        run.type('I confirm')
+                        run.send(b'\rr1.', 'r1.')
+                    else:
+                        run.send(b'\x1b[200~' + ('I confirm' + ending + 'r1.').encode() + b'\x1b[201~', 'r1.')
+                    run.send(F3, 'Put your confirming words on one line; nothing was confirmed.')
+                    assert files(cwd) == before, 'Multiline F3 wrote a file'
+                    assert run.calls() == [], 'Multiline F3 called a model'
+                    run.wait('your words I confirm r1.')
+                    # CRLF is one editor newline, like CR and LF.
+                    run.send(b'\x7f' * 13 + F1, 'Read the seed, type your confirming words on one line')
+                    run.send(b'\x1b', 'your words')
+                assert not (session / 'seed-confirmation.json').exists()
             elif name == 'practice confirmation':
                 run.wait('Seed draft r1')
                 run.type('I confirm r1.')
@@ -378,3 +416,5 @@ for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 
              'model writes decisions', 'practice confirmation', 'nothing found']:
     case(name)
 case('zero budget', 80, 24)
+for size in [(100, 30), (80, 24)]:
+    case('multiline confirmation', *size)

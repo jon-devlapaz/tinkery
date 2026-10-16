@@ -655,11 +655,25 @@ impl Home {
     /// a confirmation. Shift types capitals. Only Shape's own named keys write or run.
     fn shape_key(&mut self, key: KeyEvent) {
         let typing = matches!(&self.view, View::Shape(shape, _) if shape.takes_text());
-        let shifted_char =
-            key.modifiers == KeyModifiers::SHIFT && matches!(key.code, KeyCode::Char(_));
-        if key.modifiers != KeyModifiers::NONE && !shifted_char
+        let editor_key = typing
+            && !self.help
+            && matches!(
+                key.code,
+                KeyCode::Char(_)
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Home
+                    | KeyCode::End
+                    | KeyCode::Backspace
+                    | KeyCode::Delete
+                    | KeyCode::Enter
+                    | KeyCode::Tab
+            );
+        if key.modifiers != KeyModifiers::NONE && !editor_key
             || key.kind == KeyEventKind::Repeat
-                && matches!(key.code, KeyCode::Enter | KeyCode::F(2) | KeyCode::F(3))
+                && (matches!(key.code, KeyCode::F(2..=5)) || key.code == KeyCode::Enter && !typing)
         {
             return;
         }

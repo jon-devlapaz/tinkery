@@ -343,10 +343,10 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     shape.key(key(KeyCode::F(2)), None);
     let open = shape.open.as_ref().unwrap();
     assert!(open.running.is_none(), "a step started with no budget");
-    assert_eq!(open.typed, "Local? Yes\nkept");
+    assert_eq!(open.typed.text(), "Local? Yes\nkept");
     let text = screen(&mut shape, 100, 30, true);
     assert!(
-        text.contains("  your answer\n  Local? Yes\n  kept▏"),
+        text.contains("  your answer\n  Local? Yes\n  kept"),
         "{text}"
     );
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -449,20 +449,20 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("Keep records local or synced?"), "{text}");
     assert!(
-        text.contains("  your answer\n  TEST first line\n  TEST last line▏"),
+        text.contains("  your answer\n  TEST first line\n  TEST last line"),
         "{text}"
     );
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "↑↓ scroll  F2 save answer and look into next  F5 so far  esc back  F10 menu"
+        "pgup/dn read   F2 save + look   F5 so far   esc back   F10 menu"
     );
     // Scrolling moves only the reading; the answer stays where it is.
     for _ in 0..30 {
-        shape.key(key(KeyCode::Down), None);
+        shape.key(key(KeyCode::PageDown), None);
     }
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("F4 picks another folder."), "{text}");
-    assert!(text.contains("TEST last line▏"), "{text}");
+    assert!(text.contains("TEST last line"), "{text}");
 }
 
 #[test]
@@ -498,7 +498,7 @@ fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
         assert!(!text.contains(raw), "{raw} shown:\n{text}");
     }
     assert!(
-        text.contains("  your words\n  ▏\n\n  Confirming the seed is not approval to build."),
+        text.contains("  your words\n\n\n  Confirming the seed is not approval to build."),
         "{text}"
     );
     shape.key(key(KeyCode::F(2)), None);
@@ -597,17 +597,17 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
         // A long folder path wraps, so compare without the wrapping whitespace.
         let squashed: String = text.split_whitespace().collect();
         assert!(
-            squashed.contains(&format!("Folder:{}▏", first.display())),
+            squashed.contains(&format!("Folder:{}", first.display())),
             "{text}"
         );
         assert!(
-            text.contains("Next: Enter uses this folder; Esc keeps TEST-first."),
+            text.contains("Next: F4 uses this folder; Esc keeps TEST-first."),
             "{text}"
         );
         assert_eq!(text.matches("Next:").count(), 1, "{text}");
         assert_eq!(
             text.lines().last().unwrap().trim(),
-            "enter use this folder   esc cancel"
+            "enter newline   F4 use folder   esc cancel"
         );
         // Esc keeps the folder shown; the typed answer is untouched.
         shape.key(key(KeyCode::Char('x')), None);
@@ -618,7 +618,7 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
         // A folder that isn't there is refused and the shown one stays.
         shape.key(key(KeyCode::F(4)), None);
         shape.paste("-missing");
-        shape.key(key(KeyCode::Enter), None);
+        shape.key(key(KeyCode::F(4)), None);
         let text = screen(&mut shape, 100, 30, true);
         let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
         assert!(
@@ -632,7 +632,7 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
             shape.key(key(KeyCode::Backspace), None);
         }
         shape.paste(&other.display().to_string());
-        shape.key(key(KeyCode::Enter), None);
+        shape.key(key(KeyCode::F(4)), None);
         let text = screen(&mut shape, 100, 30, true);
         assert!(
             text.contains("The step reads files in TEST-other."),
@@ -727,7 +727,7 @@ fn a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing() {
     shape.paste(&answer);
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("Keep records local or synced?"), "{text}");
-    assert!(text.contains("TEST line 20▏"), "{text}");
+    assert!(text.contains("TEST line 20"), "{text}");
     shape.key(key(KeyCode::F(2)), None);
     assert!(
         shape.open.as_ref().unwrap().running.is_some(),
@@ -746,11 +746,141 @@ fn a_pasted_cr_breaks_the_row_on_screen_and_the_words_stay_as_pasted() {
     shape.paste("TEST one\rTEST two\r\nTEST three");
     let text = screen(&mut shape, 80, 24, true);
     assert!(
-        text.contains("  TEST one\n  TEST two\n  TEST three▏"),
+        text.contains("  TEST one\n  TEST two\n  TEST three"),
         "{text}"
     );
     assert_eq!(
-        shape.open.as_ref().unwrap().typed,
+        shape.open.as_ref().unwrap().typed.text(),
         "TEST one\rTEST two\r\nTEST three"
     );
+}
+
+#[test]
+fn multiline_confirmation_is_refused_before_a_step_and_keeps_the_words() {
+    for words in [
+        "TEST yes\nrevision r1",
+        "TEST yes\rrevision r1",
+        "TEST yes\r\nrevision r1",
+        "\n",
+        "\r",
+        "\r\n",
+    ] {
+        let mut shape = done(Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some("TEST seed".into()),
+        })
+        .with_agent(Some(agent(0)));
+        shape.paste(words);
+        shape.key(key(KeyCode::F(3)), None);
+        let open = shape.open.as_ref().unwrap();
+        assert!(
+            open.running.is_none(),
+            "a multiline confirmation started a step"
+        );
+        assert_eq!(open.typed.text(), words);
+        assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
+        let shown = screen(&mut shape, 80, 24, true);
+        assert!(
+            shown.contains("Put your confirming words on one line; nothing was confirmed."),
+            "{shown}"
+        );
+    }
+}
+
+#[test]
+fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["TEST folder\nnext", "TEST CR\rnext", "TEST CRLF\r\nnext\n "] {
+        let folder = dir.path().join(name);
+        std::fs::create_dir(&folder).unwrap();
+        let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
+        shape.key(key(KeyCode::F(4)), None);
+        shape.key(
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
+            None,
+        );
+        shape.key(
+            KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            None,
+        );
+        shape.paste(folder.to_str().unwrap());
+        shape.key(key(KeyCode::Enter), None);
+        assert!(
+            shape.open.as_ref().unwrap().choosing.is_some(),
+            "Enter applied the folder"
+        );
+        shape.key(key(KeyCode::Backspace), None);
+        shape.key(key(KeyCode::F(4)), None);
+        let open = shape.open.as_ref().unwrap();
+        assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
+        assert!(open.notice.is_none(), "the exact folder was refused");
+        assert!(open.running.is_none());
+    }
+}
+
+#[test]
+fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
+    use ratatui::style::Modifier;
+    for (width, height) in [(80, 24), (100, 30), (80, 14)] {
+        for no_color in [false, true] {
+            let mut stage = question();
+            if let Shaped::Question { found, .. } = &mut stage {
+                *found = (0..30)
+                    .map(|i| format!("TEST evidence {i}: {}", "reading ".repeat(12)))
+                    .collect();
+            }
+            let mut shape = done(stage).with_agent(Some(agent(0)));
+            shape.paste(
+                &(0..40)
+                    .map(|i| format!("TEST row {i}: 界 {}", "long ".repeat(20)))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            );
+            // Resize down from a larger viewport, then return from the end to the beginning.
+            screen(&mut shape, width + 20, height + 6, no_color);
+            shape.key(
+                KeyEvent::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::ALT),
+                None,
+            );
+            shape.key(key(KeyCode::Home), None);
+            let backend = ratatui::backend::TestBackend::new(width, height);
+            let mut terminal = ratatui::Terminal::new(backend).unwrap();
+            terminal
+                .draw(|f| {
+                    shape.render(
+                        f,
+                        Rect::new(2, 3, width - 4, height - 4),
+                        Palette::new(no_color),
+                    )
+                })
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            let cursor = (3..height - 1)
+                .flat_map(|y| (2..width - 2).map(move |x| (x, y)))
+                .find(|&(x, y)| buffer[(x, y)].modifier.contains(Modifier::REVERSED))
+                .expect("the editor's cursor was hidden");
+            assert_eq!(
+                buffer[cursor].symbol(),
+                "T",
+                "cursor did not return to TEST row 0"
+            );
+            assert!(
+                cursor.1 >= 3 + (height - 4) / 2,
+                "the editor displaced more than half the reading"
+            );
+            assert_eq!(shape.scroll, 0, "arrows scrolled the reading");
+            shape.key(key(KeyCode::PageDown), None);
+            assert_eq!(shape.scroll, 5, "PgDn did not scroll the reading");
+            let shown = screen(&mut shape, width, height, no_color);
+            assert!(shown.contains("TEST row 0"), "{shown}");
+            assert!(
+                shown.lines().last().unwrap().contains("pgup/dn read"),
+                "{shown}"
+            );
+            assert!(
+                shown.lines().last().unwrap().contains("F10 menu"),
+                "{shown}"
+            );
+        }
+    }
 }

@@ -160,11 +160,13 @@ def journey(width, height, case, no_color=False):
                 keys = {'question': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
                         'drafted': 'F3 confirm seed r1   F5 so far   esc back   F10 menu',
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
-                # Scrolling is offered only when something doesn't fit.
-                bar = screen.text().splitlines()[-1].strip()
-                assert bar in (keys, '↑↓ scroll   ' + keys), screen.text()
-                # The key bar names the one next action on a question or a draft, so no Next line does.
+                # Scrolling is offered only on overflow; arrows belong to an active editor.
                 acts = case in ('question', 'drafted')
+                scroll_keys = ('pgup/dn read   ' + keys.replace('F2 save answer and look into next', 'F2 save + look')
+                               if acts else '↑↓ scroll   ' + keys)
+                bar = screen.text().splitlines()[-1].strip()
+                assert bar in (keys, scroll_keys), screen.text()
+                # The key bar names the one next action on a question or a draft, so no Next line does.
                 assert flat().count('Next:') == (0 if acts else 1), screen.text()
                 if case == 'drafted':
                     assert 'status: draft' not in screen.text() and 'Seed draft r1' in screen.text()

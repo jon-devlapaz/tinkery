@@ -77,6 +77,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
 | `seed_me/` | Every fact about Seed Me: saving a confirmed goal through its helper, reading a session's files and stage, the continuation prompt, (in `shaping.rs`) where a seed stands from the helper's `read` and `status`, and (in `answering.rs`) answers, questions, findings, the seed draft and seed confirmation through the helper (shared). |
 | `shape.rs` | Shape's list of goals waiting for a seed and one session's view: the goal as confirmed, one stage, the folder a step reads, the operator's words and one next step; reads and steps run off the paint path. |
+| `shape/words.rs` | Shape's in-memory textarea adapter: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
 | `shape/step.rs`, `shape/prompt.txt` | Shape's agent step: the budget check, the folder it reads, the model's input and prompt, decoding its reply into findings with a question or seed text, and the helper calls that record them. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |

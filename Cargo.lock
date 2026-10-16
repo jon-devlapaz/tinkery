@@ -2537,6 +2537,7 @@ dependencies = [
  "pinstar",
  "proc-macro2",
  "ratatui",
+ "ratatui-textarea",
  "serde",
  "serde_json",
  "syn 2.0.119",
