@@ -80,7 +80,10 @@ Resizing reflows the slots to the new canvas, retaining relative zoom and pan.
 Enter opens the exact stored goal block line by line, using the receipt's shared
 renderer without `Saved.`. In detail, ↑↓ / `j k` or PgUp/PgDn scroll; `c` copies the
 continuation prompt when the stored stage permits it; `s` opens [Shape](#shape) on the
-same stages; `r` opens Think history.
+same stages; `r` opens Think history. Returning from Shape requests a fresh session
+read and restores that same goal's detail, so its next step and the garden's stage
+reflect the saved draft or confirmation. Ended or unreadable sessions no longer show
+as active goals. Returning writes nothing and calls no model.
 Esc goes detail → garden →
 menu; F10 goes to menu. F1 opens help; `h` shows technical details.
 
@@ -414,6 +417,12 @@ Dogfooding at 80×24 with a long goal and four findings then showed the answer b
 the screen, `F10 menu` cut off the key bar and `F5 close` scrolled out of sight. A review
 dogfood added a 20-line answer hiding what a running step was doing. Tests for each went red
 when their fix was reverted.
+
+Returning from Shape (#165) is checked in the same 80×24 and 100×30 journeys after
+both drafting and confirming: Tend's detail names the current next step, and its garden
+shows `seed drafted` or `seed ready`. All TEST files and stub call counts stay unchanged
+through the return. Reverting the refresh makes the confirmation journey fail to show
+`Next: the seed is ready for intake.`; the protection was restored afterward.
 
 The editor (#163) extends those journeys with cursor correction, word deletion, selection,
 an Enter newline and raw CR/CRLF saved exactly by F2; F4 selects a real multiline folder and

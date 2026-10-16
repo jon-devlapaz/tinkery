@@ -259,8 +259,8 @@ impl Home {
         }
     }
 
-    /// Show the newest landed read in tend. While a saved session's detail is open
-    /// nothing is replaced under the reader; the list catches up when they go back.
+    /// Show the newest landed read in tend. Detail stays fixed unless explicitly requested
+    /// again on return from Shape; that return waits for the fresh read.
     fn sync_tend(&mut self) {
         let View::Tend(tend) = &mut self.view else {
             return;
@@ -270,7 +270,10 @@ impl Home {
             return;
         };
         let version = self.discovery.version();
-        if tend.seen == version || ((tend.detail || tend.is_linking()) && tend.want.is_none()) {
+        if tend.seen == version
+            || ((tend.detail || tend.is_linking())
+                && (tend.want.is_none() || !self.discovery.fresh()))
+        {
             return;
         }
         tend.apply(&landed.outcome, self.discovery.fresh(), version);
@@ -593,6 +596,7 @@ impl Home {
                 KeyCode::Enter if tend.is_linking() => tend.commit_link(),
                 KeyCode::Esc if tend.detail => {
                     tend.detail = false;
+                    tend.want = None;
                     tend.scroll = 0;
                     tend.notice.clear();
                 }
@@ -651,7 +655,7 @@ impl Home {
     }
 
     /// Shape's keys: F10 for the menu, F1 (or ? when Shape isn't taking words) for help, Esc
-    /// steps back (to the tend it came from, as it was). Held keys don't repeat an open, a save or
+    /// steps back (to the same Tend detail, freshly read). Held keys don't repeat an open, a save or
     /// a confirmation. Shift types capitals. Only Shape's own named keys write or run.
     fn shape_key(&mut self, key: KeyEvent) {
         let typing = matches!(&self.view, View::Shape(shape, _) if shape.takes_text());
@@ -704,8 +708,10 @@ impl Home {
                     let View::Shape(_, back) = std::mem::replace(&mut self.view, View::Menu) else {
                         unreachable!()
                     };
-                    if let Some(tend) = back {
+                    if let Some(mut tend) = back {
+                        tend.want = tend.current().map(|s| (s.path.clone(), None));
                         self.view = View::Tend(tend);
+                        self.request_sessions();
                         self.sync_tend();
                     }
                 }
@@ -1304,6 +1310,52 @@ mod tests {
             matches!(h.view, View::Tend(_)),
             "no s when the stage is unknown"
         );
+    }
+
+    #[test]
+    fn returning_from_shape_rereads_the_same_detail_and_garden_stage() {
+        for (seed, stage, next) in [
+            (
+                "status: draft",
+                Stage::SeedDrafted,
+                "confirm the seed draft with Seed Me",
+            ),
+            (
+                "status: confirmed for intake",
+                Stage::SeedReady,
+                "the seed is ready for intake",
+            ),
+        ] {
+            let tmp = tempfile::tempdir().unwrap();
+            session(tmp.path(), "a", "active", "2026-10-09T10:00:00Z", None);
+            let mut h = home(tmp.path());
+            h.open(1);
+            settle(&mut h);
+            h.handle_key(key(KeyCode::Enter));
+            h.handle_key(key(KeyCode::Char('s')));
+            assert!(matches!(h.view, View::Shape(..)));
+            session(
+                tmp.path(),
+                "a",
+                "active",
+                "2026-10-09T11:00:00Z",
+                Some(seed),
+            );
+            // A newer goal must not steal selection while the same detail refreshes.
+            session(tmp.path(), "b", "active", "2026-10-09T12:00:00Z", None);
+            h.handle_key(key(KeyCode::Esc));
+            settle(&mut h);
+            let View::Tend(tend) = &h.view else { panic!() };
+            assert!(tend.detail);
+            assert!(tend.current().unwrap().path.ends_with("a"));
+            assert_eq!(tend.current().unwrap().stage, stage);
+            let screen = snapshot(80, 24, &mut h, true).unwrap();
+            assert!(screen.contains(next), "{screen}");
+            h.handle_key(key(KeyCode::Esc));
+            let screen = snapshot(80, 24, &mut h, true).unwrap();
+            assert!(screen.contains(stage.label()), "{screen}");
+            assert!(h.take_copy_request().is_none());
+        }
     }
 
     #[test]

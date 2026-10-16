@@ -185,8 +185,20 @@ def journey(width, height, case, no_color=False):
                 if case == 'unreadable':
                     send(b'\x1bOP', 'What went wrong')
                     send(b'\x1b', keys)
-                send(b'\x1b', DETAIL_KEYS)
-                shows_goal()
+                # Return now waits for fresh discovery, not the cached detail's footer.
+                if case == 'ended':
+                    send(b'\x1b', 'No active goals. 1 ended not shown.')
+                    assert GOAL.splitlines()[0] not in flat(), screen.text()
+                elif case == 'unreadable':
+                    send(b'\x1b', 'Saved session unavailable. F1 then h for details.')
+                    assert GOAL.splitlines()[0] not in flat(), screen.text()
+                else:
+                    next_step = ('Next: confirm the seed draft with Seed Me.' if case == 'drafted' else
+                                 'Next: the seed is ready for intake.' if case in ('ready', 'stale') else
+                                 'Next: shape it into a seed with Seed Me.')
+                    send(b'\x1b', 'tinkery › tend')
+                    wait(lambda: next_step in flat())
+                    shows_goal()
             assert files(sessions) == before, 'Shape changed a session file'
             assert not (cwd / 'provider-was-run').exists()
             assert not (cwd / 'TEST-records').exists() and not (cwd / 'TEST-links').exists()

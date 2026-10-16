@@ -206,7 +206,8 @@ and when `l` starts picking; only an explicit commit writes them. See
 Painting, the count and garden movement read in-memory state only. One owned, read-only
 worker scans the sessions root (never more than one at a time; requests made while it
 runs coalesce into one follow-up). It starts on the first tick, and again when think
-returns to the menu and when tend is deliberately reopened. Nothing watches files or
+returns to the menu, tend is deliberately reopened, or Shape returns to Tend's detail.
+Nothing watches files or
 keeps an index; a rescan is a rescan.
 
 | Read | Meaning | Shown |
@@ -224,7 +225,9 @@ is not shown as “no sessions” while a newer read runs; tend says it is readi
 
 In tend, a late read keeps the selected session by path, never by row, and cannot
 reopen an exited view. While a saved session's detail is open or a need is being
-picked, nothing is replaced underneath it; the garden catches up afterward. From a receipt, `s` waits for a read that can
+picked, nothing is replaced underneath it; the garden catches up afterward. The explicit
+return from Shape is an exception: the same goal's detail waits for the requested fresh
+read, then its next step and garden stage catch up together. From a receipt, `s` waits for a read that can
 contain that session and then opens its detail; a read that began before the save is
 not treated as “unavailable”. Measure's subprocess still starts only when Measure is deliberately opened and its
 previous reader has finished cleanup.

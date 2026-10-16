@@ -260,6 +260,15 @@ def full_journey(width, height):
             fact = next(n for n in ledger['nodes'] if n['kind'] == 'fact')
             assert (fact['status'], fact['authority'], fact['answer']) == (
                 'settled', 'evidence', 'the refusal path; the change touches it'), fact
+            # Returning rereads the same session, including the garden's stage, without work.
+            before_return = files(cwd)
+            run.send(b'\x1b', 'tinkery › tend')
+            run.wait('Next: confirm the seed draft with Seed Me.')
+            run.send(b'\x1b', 'seed drafted')
+            run.send(b'\r', 'Next: confirm the seed draft with Seed Me.')
+            assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from draft wrote or called'
+            run.send(b's', 'Seed draft r1')
+            run.wait('F3 confirm seed r1')
             before = files(run.sessions)
             before_all = files(cwd)
             run.type('Yes, I reject r1.')
@@ -276,10 +285,16 @@ def full_journey(width, height):
             assert confirmation['source'] == 'Indeed, I confirm r1.', confirmation
             assert helper.load(session)['goal'] == goal, 'The confirmed goal changed'
             assert len(run.calls()) == 2, 'Confirmation called a model'
-            run.send(b'\x1b', 's shape')
+            before_return = files(cwd)
+            run.send(b'\x1b', 'tinkery › tend')
+            run.wait('Next: the seed is ready for intake.')
+            run.send(b'\x1b', 'seed ready')
+            run.send(b'\r', 'Next: the seed is ready for intake.')
+            assert ' '.join(goal.split()) in run.flat(), 'Return changed the displayed goal'
+            assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from confirmation wrote or called'
             print(f'Shape answering full journey passed at {width}x{height}: folder shown and picked, '
                   f'think answer and saved findings in the input, 2 stub calls, grounded seed confirmed '
-                  f'and handoff verified')
+                  f'and handoff verified; Tend detail and garden refreshed after draft and confirmation')
         finally:
             run.close()
 
