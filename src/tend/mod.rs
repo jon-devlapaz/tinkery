@@ -256,7 +256,7 @@ impl Tend {
             );
         }
         let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_copy()) {
-            "\nc copy prompt to continue in Claude, Codex or Pi\ns shape: see where its seed stands"
+            "\nc copy prompt to continue in Claude, Codex or Pi\ns shape: answer its questions and confirm its seed"
         } else {
             ""
         };

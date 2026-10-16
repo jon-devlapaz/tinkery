@@ -2,9 +2,10 @@
 //!
 //! Think saves a confirmed goal through [`Config::confirm`]; tend reads sessions through
 //! [`read`] and copies [`continuation_prompt`]; shape reads where a seed stands through
-//! [`shaping::read`]. None of them knows a Seed Me file name, helper
+//! [`shaping::read`] and changes it, as the operator answers, through [`answering`]. None of them knows a Seed Me file name, helper
 //! command or ledger field, so a change to Seed Me's format is a change to this module only.
 
+pub mod answering;
 mod save;
 mod session;
 pub mod shaping;

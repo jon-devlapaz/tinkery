@@ -6,7 +6,7 @@ The seven places follow the operator's work:
 | --- | --- | --- |
 | 1 | think | Dump, refine, review and explicitly save a goal |
 | 2 | tend | Active-goal graph, needs links, Think history and manual continuation |
-| 3 | shape | Read-only: where a saved goal's seed stands ([Shape](shape-and-handoff.md#shape)) |
+| 3 | shape | Where a saved goal's seed stands; with a model and budget, answer Seed Me's questions and confirm the seed ([Shape](shape-and-handoff.md#shape)) |
 | 4 | approve | Placeholder; no sequence approval reader |
 | 5 | watch | Placeholder; no live multi-run view |
 | 6 | taste | Placeholder; no end-report/review integration |

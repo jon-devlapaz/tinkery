@@ -1,4 +1,5 @@
-"""Shape journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls."""
+"""Shape reading journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls.
+Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py."""
 import fcntl, importlib.util, os, select, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
@@ -57,7 +58,8 @@ def journey(width, height, case, no_color=False):
         sessions = cwd / 'TEST-sessions'
         if case == 'list':
             make(sessions, 'question')
-            seed(make(sessions, 'drafted', goal='Drafted goal\n' + GOAL, question=False))
+            drafted_session = make(sessions, 'drafted', goal='Drafted goal\n' + GOAL, question=False)
+            seed(drafted_session)
             seed(make(sessions, 'ready', goal='Ready goal\n' + GOAL, question=False), confirm=True)
         else:
             session = make(sessions, case, question=case in ('question', 'ended', 'unreadable'))
@@ -116,7 +118,11 @@ def journey(width, height, case, no_color=False):
                 os.write(master, drafted.encode())
                 send(b'\r', 'Seed draft r1 is waiting for you to confirm it.')
                 shows_goal('Drafted goal')
+                # Confirmed elsewhere while open: back at the list, Shape reads again and drops it.
+                helper.confirm_seed(drafted_session, 'r1', 'TEST fixture only: confirm r1')
+                before = files(sessions)
                 send(b'\x1b', LIST_KEYS)
+                wait(lambda: 'Drafted goal' not in screen.text() and 'goal saved' in screen.text())
                 send(b'\x1b', '3  shape')
             else:
                 send(b'2', 'enter open')
@@ -135,7 +141,9 @@ def journey(width, height, case, no_color=False):
                     'unreadable': 'Seed Me refused to read this session:',
                 }[case]
                 send(b's', expected)
-                assert screen.text().splitlines()[-1].strip() == SHAPE_KEYS, screen.text()
+                keys = {'question': '↑↓ scroll   F2 save answer and look into next   esc back   F10 menu',
+                        'drafted': '↑↓ scroll   F3 confirm seed r1   esc back   F10 menu'}.get(case, SHAPE_KEYS)
+                assert screen.text().splitlines()[-1].strip() == keys, screen.text()
                 assert flat().count('Next:') == 1, screen.text()
                 if case != 'unreadable':
                     shows_goal()
@@ -148,7 +156,7 @@ def journey(width, height, case, no_color=False):
                 assert str(cwd) not in screen.text(), screen.text()
                 if case == 'unreadable':
                     send(b'\x1bOP', 'What went wrong')
-                    send(b'\x1b', SHAPE_KEYS)
+                    send(b'\x1b', keys)
                 send(b'\x1b', DETAIL_KEYS)
                 shows_goal()
             assert files(sessions) == before, 'Shape changed a session file'

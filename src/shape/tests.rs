@@ -1,6 +1,7 @@
 use super::*;
 use crate::seed_me::shaping::{Shaped, Shaping};
 use crossterm::event::KeyModifiers;
+use std::sync::Arc;
 
 const GOAL: &str = "TEST I can shape a goal calmly.\nWhy: I lose the thread between tools.\nDone when: I see the next question.\nMust: Keep my words.\nMust not: Run agents.";
 
@@ -11,6 +12,7 @@ fn done(stage: Shaped) -> Shape {
     open.reading = Reading::Done(Ok(Shaping {
         goal: Some(GOAL.into()),
         stage,
+        version: Some(3),
     }));
     shape
 }
@@ -44,6 +46,7 @@ fn key(code: KeyCode) -> KeyEvent {
 #[test]
 fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
     let question = Shaped::Question {
+        id: "storage".into(),
         title: "Where records live".into(),
         ask: "Keep records local or synced?".into(),
         found: vec![
@@ -64,6 +67,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
         (
             Shaped::Drafted {
                 revision: Some("r2".into()),
+                text: None,
             },
             "Seed draft r2 is waiting for you to confirm it.",
         ),
@@ -118,6 +122,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
 fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too() {
     for no_color in [false, true] {
         let mut shape = done(Shaped::Question {
+            id: "t".into(),
             title: "T".into(),
             ask: "Q?".into(),
             found: vec![],
@@ -211,7 +216,20 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert!(text.contains("isn't set up here"), "{text}");
     assert!(shape.help_text().contains("/tmp/TEST-shape/drafted"));
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
+    // Back at the list, Shape reads again: a goal whose seed was confirmed meanwhile leaves it.
+    assert!(shape.wants_sessions());
+    shape.offer(Ok(&sessions));
     assert!(screen(&mut shape, 100, 30, true).contains("› drafted goal"));
+    let mut moved = sessions.clone();
+    moved[2].stage = Stage::SeedReady;
+    assert_eq!(shape.key(key(KeyCode::Enter), None), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
+    shape.offer(Ok(&moved));
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(
+        text.contains("› saved goal") && !text.contains("drafted goal"),
+        "{text}"
+    );
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Back);
     let mut empty = Shape::list();
     empty.offer(Ok(&sessions[1..2]));
@@ -222,4 +240,150 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert!(failed.help_text().contains("TEST read failed"));
     let mut direct = done(Shaped::Waiting);
     assert_eq!(direct.key(key(KeyCode::Esc), None), Leave::Back);
+}
+
+fn agent(budget: usize) -> Arc<Agent> {
+    Arc::new(
+        Agent::new(
+            "/tmp/TEST-shape/never-run-pi".into(),
+            "test/model".into(),
+            "low".into(),
+            None,
+            crate::pi::CallBudget::new(budget),
+            None,
+        )
+        .unwrap(),
+    )
+}
+
+fn question() -> Shaped {
+    Shaped::Question {
+        id: "storage".into(),
+        title: "Where records live".into(),
+        ask: "Keep records local or synced?".into(),
+        found: vec![],
+        suggestion: None,
+    }
+}
+
+#[test]
+fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_starting() {
+    let mut shape = done(question()).with_agent(Some(agent(0)));
+    assert!(shape.takes_text());
+    assert_eq!(shape.key(key(KeyCode::F(2)), None), Leave::Stay);
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(
+        text.contains("Type your answer first; nothing was saved."),
+        "{text}"
+    );
+    for c in "Local? Yes".chars() {
+        shape.key(key(KeyCode::Char(c)), None);
+    }
+    shape.key(key(KeyCode::Backspace), None);
+    shape.key(key(KeyCode::Char('s')), None);
+    shape.paste("\nkept");
+    shape.key(key(KeyCode::F(2)), None);
+    let open = shape.open.as_ref().unwrap();
+    assert!(open.running.is_none(), "a step started with no budget");
+    assert_eq!(open.typed, "Local? Yes\nkept");
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(text.contains("Your answer: Local? Yes\n"), "{text}");
+    assert!(text.contains("             kept▏"), "{text}");
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        flat.contains("No model calls are left: this run's budget is 0."),
+        "{text}"
+    );
+    assert!(
+        flat.contains("Next: start Tinkery with --shape-budget CALLS"),
+        "{text}"
+    );
+    assert_eq!(text.matches("Next:").count(), 1, "{text}");
+    assert_eq!(
+        text.lines().last().unwrap().trim(),
+        "↑↓ scroll   F2 save answer and look into next   esc back   F10 menu"
+    );
+}
+
+#[test]
+fn without_an_agent_shape_only_reads_and_letters_scroll() {
+    let mut shape = done(question());
+    assert!(!shape.takes_text());
+    shape.key(key(KeyCode::Char('j')), None);
+    assert!(shape.open.as_ref().unwrap().typed.is_empty());
+    assert_eq!(shape.scroll, 1);
+    shape.key(key(KeyCode::F(2)), None);
+    assert!(shape.open.as_ref().unwrap().running.is_none());
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(text.contains("tend's c copies the prompt"), "{text}");
+}
+
+#[test]
+fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
+    let seed =
+        "status: draft\n# Seed: TEST\nrevision: r2\n\n## You are confirming\nTEST seed body.\n";
+    let mut shape = done(Shaped::Drafted {
+        revision: Some("r2".into()),
+        text: Some(seed.into()),
+    })
+    .with_agent(Some(agent(1)));
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(text.contains("TEST seed body."), "{text}");
+    assert!(!text.contains("Must not: Run agents."), "{text}");
+    assert!(
+        text.contains("F3 confirms r2. It is not approval to build."),
+        "{text}"
+    );
+    shape.key(key(KeyCode::F(2)), None);
+    shape.key(key(KeyCode::F(3)), None);
+    assert!(shape.open.as_ref().unwrap().running.is_none());
+    assert!(
+        screen(&mut shape, 100, 30, true).contains("Type your words first; nothing was confirmed.")
+    );
+}
+
+#[test]
+fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
+    use step::{Next, decode};
+    let asked = decode(
+        "Here it is:\n```json\n{\"next\":\"question\",\"id\":\"Storage\",\"question\":\"Local?\",\"found\":[{\"checked\":\"README.md:3\",\"observed\":\"local only\"},{\"checked\":1}],\"suggestion\":null}\n```",
+    )
+    .unwrap();
+    let Next::Question(ask) = asked else {
+        panic!("{asked:?}")
+    };
+    assert_eq!(
+        (ask.id.as_str(), ask.label.as_str(), ask.gate.as_str()),
+        ("Storage", "Local?", "Local?")
+    );
+    assert_eq!(ask.found.len(), 1);
+    assert_eq!(ask.suggestion, None);
+    assert_eq!(
+        decode("{\"next\":\"seed\",\"confirming\":\" Build it. \"}").unwrap(),
+        Next::Seed("Build it.".into())
+    );
+    for reply in [
+        "{\"next\":\"confirm\",\"revision\":\"r1\"}",
+        "{\"next\":\"question\"}",
+        "{\"next\":\"seed\"}",
+        "no json",
+        "",
+    ] {
+        assert!(decode(reply).is_err(), "{reply}");
+    }
+}
+
+#[test]
+fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
+    let prompt = step::prompt();
+    let mut named = std::collections::BTreeSet::new();
+    for piece in prompt.split('"').skip(1).step_by(2) {
+        if prompt.contains(&format!("\"{piece}\":")) {
+            named.insert(piece.to_owned());
+        }
+    }
+    let decoded: std::collections::BTreeSet<_> =
+        step::FIELDS.iter().map(|f| f.to_string()).collect();
+    assert_eq!(named, decoded);
+    assert!(!prompt.contains("# "), "notes reached the prompt");
 }

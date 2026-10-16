@@ -1335,6 +1335,7 @@ fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
                 &sessions.join("goal"),
                 true,
                 Ok(links.clone()),
+                None,
             )
         } else {
             Home::new(

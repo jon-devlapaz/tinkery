@@ -3,8 +3,8 @@
 Tend replaces the shape list after the operator chose Replace on 2026-10-14
 ([#123](https://github.com/jon-devlapaz/tinkery/issues/123)). [Shape](#shape) returns
 as its own place in the first release (operator decision, 2026-10-15). It reads where a
-seed stands; until answering is built, the Seed Me step happens outside Tinkery through
-the copied continuation prompt.
+seed stands and, with a model and a budget, runs the Seed Me interview to a confirmed seed;
+the copied continuation prompt remains the way to continue outside Tinkery.
 
 ## Receipt
 
@@ -239,7 +239,7 @@ The screen shows the confirmed goal exactly as the ledger records it, in ink, th
 
 | Seed Me reports | Shape says |
 | --- | --- |
-| A current question | Its label and question in jade, `What I found:` for each evidence entry, and `Suggestion:` in italic. The ledger keeps no options, so none are shown. |
+| A current question | Its label and question in jade, `What I found:` for the first evidence entry and `Also found:` for each later one (a label per entry, so wrapped lines never fake an indent), and `Suggestion:` in italic. The ledger keeps no options, so none are shown. |
 | No question, no seed | Seed Me hasn't asked its next question yet |
 | A draft seed | The draft and its revision wait for confirmation |
 | A confirmed seed that `status` verifies | `Seed ready`, with the confirmed revision |
@@ -247,25 +247,74 @@ The screen shows the confirmed goal exactly as the ledger records it, in ink, th
 | A practice seed, an ended session or an unrecognised state | That, plainly |
 
 An open question comes before a seed, so a reopened decision is never hidden behind an
-older draft. Each state ends with one `Next:` line; until answering is built, that points
-to tend's `c`, in the words Tend's detail uses for the same stage. When Seed Me's helper
-refuses a session, Shape shows Seed Me's first line of reason, such as a ledger saved in
-another format. A missing `--seed-me` or another failure says so; reasons and paths are
-under F1. Reads run off the paint path. Shape writes nothing, copies nothing, calls no
-model and leaves the continuation prompt unchanged. `status` probes a viewer URL that the
-session records, which is a local read.
+older draft. Each state ends with one `Next:` line. Without a model (no `--shape-pi`) it
+points to tend's `c`, in the words Tend's detail uses for the same stage; with one, it names
+Shape's own key (below). When Seed Me's helper refuses a session, Shape shows Seed Me's first
+line of reason, such as a ledger saved in another format. A missing `--seed-me` or another
+failure says so; reasons and paths are under F1. Reads run off the paint path. Opening,
+reading and scrolling write nothing, copy nothing, call no model and leave the continuation
+prompt unchanged. `status` probes a viewer URL that the session records, which is a local read.
 
 ### Answering and confirming
 
-Approved as [#150](https://github.com/jon-devlapaz/tinkery/issues/150), after #149: one key
-that names both saves an answer and starts the next agent step through Pi with read-only
-tools; Tinkery makes every helper call itself, and the model never does.
-Seed Me's `expected_version` refuses a stale write, so Shape never overwrites another
-writer. The seed's decisions come from `seed decisions`. The stale-confirmation fix
-([seed-me #3](https://github.com/jon-devlapaz/seed-me/issues/3)) was verified and closed on
-2026-10-15; CI pins that Seed Me commit.
+Built in [#150](https://github.com/jon-devlapaz/tinkery/issues/150). With `--shape-pi`,
+`--model` and `--seed-me`, three stages take one key each; every other stage stays read-only.
+
+| Stage | Words box | Key | What the key does |
+| --- | --- | --- | --- |
+| A current question | `Your answer:` | `F2 save answer and look into next` | Saves the answer, then one agent step |
+| No question, no seed | none | `F2 look into the next question` | One agent step |
+| A seed draft (shown in place of the goal) | `Your words:` | `F3 confirm seed rN` | Confirms that revision with the typed words |
+
+- **One key per question.** `F2` saves the operator's answer exactly as typed (settled with
+  `user` authority) and starts the agent step, so a question costs one key. Typing, paste,
+  scrolling and help write nothing; held `F2`/`F3` don't repeat. Letters, capitals and `?` are
+  words while a box is shown.
+- **The agent step** runs Pi with an explicit model and Pi's read-only tools (`read`, `grep`,
+  `find`, `ls`): it reads files and runs no commands. It starts in the folder Think recorded the
+  goal was made in, else where Tinkery started. Its input is the confirmed goal, the questions
+  the operator answered in Think (from the [think record](think.md#think-record), when it can
+  be attributed), and Seed Me's editable ledger. It replies with the next question (with what it
+  checked and saw, and a suggestion) or the seed's `You are confirming` text; anything else is a
+  model error. The prompt lives in `src/shape/prompt.txt`, one rule per line, and is not yet
+  tuned by an eval or live trial.
+- **Budget.** `--shape-budget CALLS` sets how many steps this run may make; the default is zero.
+  Each step is one call, counted before Pi starts. With none left, `F2` refuses before saving
+  anything and says how to allow calls.
+- **Tinkery makes every helper call.** The model never calls the helper. Answers and new
+  questions go through `read --editable` and `publish` with the version the operator was shown
+  (or the step started from); a stale version is refused by the helper, Shape says so, keeps the
+  typed answer and reads again. It never overwrites.
+- **The seed.** Tinkery writes `seed-contract.md` as a draft: `status: draft`, a title from the
+  goal's first line, `revision: rN` (one past the previous draft; a confirmed seed is never
+  replaced), the model's text under `## You are confirming`, then `session.py seed decisions`
+  output word for word. The model never writes the decisions; text that would add a heading,
+  fence, status, revision or confirmation line is refused. No seed is drafted while a decision
+  is open.
+- **Seed confirmation** goes only through `seed confirm --revision rN`, with the operator's
+  typed words as `--source`. Nothing the model replies can confirm, and Seed Me refuses a
+  practice session's confirmation. Confirming is not approval to build.
+- **Failures** each say what happened, then one `Next:`: no budget (start with
+  `--shape-budget`), a model error or stop (`F2` tries the step again; a saved answer stays
+  saved), a stale version (the fresh read's own next step), or a helper refusal (Seed Me's first
+  line). Esc stops a running step; a helper call already started finishes, and Shape reads again.
+  A stopped model call still counts against the budget, and the notice says so.
+
+The three confirmations stay separate screens with separate words: Think's typed `confirm`
+for the goal, Shape's `F3` with the operator's own words for the seed, and approval (not built).
+Shape never changes the confirmed goal.
 
 ## Rationale and verification
+
+Shape answering (#150) is covered by `tests/shape_answer_terminal.py`: a stub Pi and real Seed
+Me helper sessions in TEST roots go from Think's confirmed goal to a confirmed seed at 100×30
+and 80×24, with `status` reporting the seed confirmed and `handoff.verified: true`, and the
+first step's input carrying Think's answered question. Cases cover the zero budget, a stale
+version, a model failure, a helper refusal, a reply that tries to confirm or to write the
+decisions, and a practice session's confirmation. Reversion probes went red for: a step started
+without the key, answering from the current rather than the shown version, a changed goal, a
+step that confirms its own draft, decisions not from `seed decisions`, and saving before the
+budget check. These prove mechanics with stubs, not the quality of real questions or seeds.
 
 [#123](https://github.com/jon-devlapaz/tinkery/issues/123) records the calm-view
 research: few nodes and few link types; a force-directed whole-graph view was mostly

@@ -141,6 +141,9 @@ starts [linking or unlinking a need](design/shape-and-handoff.md#linking-needs);
 only Enter or a picked-goal click saves that change. Seed Me sessions stay unchanged.
 `--thinking` sets Pi's reasoning level (default `low`).
 
+Shape makes no model call unless you add `--shape-budget CALLS`; each `F2` agent step is one
+call, through Pi with read-only tools, until the budget is spent.
+
 A send makes at most two provider calls: one shaping call and one decision review,
 both before the reading is shown, with no automatic retry. Some sends make none, such as a new dump that first asks how its words fit.
 F3 opens the review. Scroll to its end (PgDn), then type `confirm` and Enter to

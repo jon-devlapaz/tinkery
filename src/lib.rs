@@ -11,6 +11,7 @@ use ratatui::style::{Color, Modifier, Style};
 pub mod goal;
 pub mod measure;
 pub mod menu;
+pub mod pi;
 pub mod repo;
 pub mod seed_me;
 pub mod shape;

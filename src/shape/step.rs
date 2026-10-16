@@ -1,0 +1,357 @@
+//! Shape's agent step: one operator key, then (when it says so) one model call through Pi with
+//! read-only tools, and the helper calls that record the result.
+//!
+//! The model only investigates and drafts words: the next question, or what the seed confirms.
+//! Tinkery saves the operator's answer, adds the question, inserts `seed decisions` into the seed
+//! and confirms a seed itself, each through Seed Me's helper. The model is never asked to confirm
+//! anything, and nothing it replies can confirm a seed. Each step counts against the call budget
+//! before Pi starts; with none left it refuses before writing anything.
+
+use crate::{
+    pi::{self, Call, CallBudget, Request},
+    seed_me::answering::{self, Ask, Found, Refusal},
+    think_record::{self, Event, MadeIn},
+};
+use serde_json::{Value, json};
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
+    time::Duration,
+};
+
+const PROMPT: &str = include_str!("prompt.txt");
+
+/// The fields of the model's reply that [`decode`] reads; the prompt's examples name the same.
+#[cfg(test)]
+pub(super) const FIELDS: &[&str] = &[
+    "next",
+    "id",
+    "label",
+    "question",
+    "gate",
+    "found",
+    "checked",
+    "observed",
+    "suggestion",
+    "confirming",
+];
+
+/// How Shape reaches a model: Pi with an explicit model and read-only tools, a call budget shared
+/// for the whole run (zero unless the operator sets one), and where Think's records are.
+pub struct Agent {
+    call: Call,
+    budget: Arc<CallBudget>,
+    records: Option<PathBuf>,
+}
+
+impl Agent {
+    /// Pi at `program` with `model` and `thinking` (empty for Pi's default), starting in `folder`
+    /// unless Think recorded where a goal was made; `budget` limits every step. Refuses a vague
+    /// model. Starts nothing.
+    pub fn new(
+        program: PathBuf,
+        model: String,
+        thinking: String,
+        folder: Option<PathBuf>,
+        budget: Arc<CallBudget>,
+        records: Option<PathBuf>,
+    ) -> Result<Self, String> {
+        if !pi::explicit_model(&model) {
+            return Err("Use an explicit --model provider/model-id.".into());
+        }
+        Ok(Self {
+            call: Call {
+                program,
+                model,
+                thinking,
+                read_only_tools: true,
+                folder,
+                timeout: Duration::from_secs(300),
+            },
+            budget,
+            records,
+        })
+    }
+
+    /// Model calls this run may still make.
+    pub fn remaining(&self) -> usize {
+        self.budget.remaining()
+    }
+
+    /// The run's call limit.
+    pub fn limit(&self) -> usize {
+        self.budget.limit()
+    }
+}
+
+/// What one key asked for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Work {
+    /// Save the operator's answer to question `id`, then look into the next question.
+    Answer {
+        id: String,
+        words: String,
+        expected: u64,
+    },
+    /// Look into the next question (or the seed) from version `expected`.
+    Look { expected: u64 },
+    /// Confirm seed `revision` with the operator's own words.
+    Confirm { revision: String, words: String },
+}
+
+/// What a finished step did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Done {
+    /// A new question is current.
+    Asked,
+    /// A seed draft was saved.
+    Drafted,
+    /// The seed is confirmed.
+    Confirmed,
+}
+
+/// Why a step stopped short, and whether the operator's answer was saved before it did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct Failure {
+    pub(super) answer_saved: bool,
+    pub(super) why: Why,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Why {
+    /// Another writer changed the session first; nothing more was written.
+    Stale,
+    /// No model calls are left.
+    Budget(usize),
+    /// The model call failed or its reply couldn't be used.
+    Model(String),
+    /// Seed Me refused.
+    Refused(String),
+    /// The operator stopped it.
+    Stopped,
+}
+
+/// A running step, off the paint path. Dropping it asks the step to stop; a model call stops
+/// promptly, and a helper call already started finishes.
+pub(super) struct Running {
+    cancelled: Arc<AtomicBool>,
+    result: mpsc::Receiver<Result<Done, Failure>>,
+}
+
+impl Running {
+    /// Start `work` on `session`.
+    pub(super) fn start(work: Work, skill: PathBuf, session: PathBuf, agent: Arc<Agent>) -> Self {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let flag = cancelled.clone();
+        let (sender, result) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = sender.send(run(&work, &skill, &session, &agent, &flag));
+        });
+        Self { cancelled, result }
+    }
+
+    /// The result, once it lands. Never blocks.
+    pub(super) fn poll(&self) -> Option<Result<Done, Failure>> {
+        match self.result.try_recv() {
+            Ok(result) => Some(result),
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => Some(Err(Failure {
+                answer_saved: false,
+                why: Why::Model("The step stopped unexpectedly.".into()),
+            })),
+        }
+    }
+
+    /// Ask the step to stop.
+    pub(super) fn stop(&self) {
+        self.cancelled.store(true, Ordering::Relaxed);
+    }
+}
+
+impl Drop for Running {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
+    move |refusal| Failure {
+        answer_saved,
+        why: match refusal {
+            Refusal::Stale => Why::Stale,
+            Refusal::Refused(reason) => Why::Refused(reason),
+        },
+    }
+}
+
+fn run(
+    work: &Work,
+    skill: &Path,
+    session: &Path,
+    agent: &Agent,
+    cancelled: &AtomicBool,
+) -> Result<Done, Failure> {
+    match work {
+        Work::Answer {
+            id,
+            words,
+            expected,
+        } => {
+            if agent.remaining() == 0 {
+                return Err(Failure {
+                    answer_saved: false,
+                    why: Why::Budget(agent.limit()),
+                });
+            }
+            let version =
+                answering::answer(skill, session, *expected, id, words).map_err(refused(false))?;
+            look(skill, session, version, agent, cancelled, true)
+        }
+        Work::Look { expected } => look(skill, session, *expected, agent, cancelled, false),
+        Work::Confirm { revision, words } => {
+            answering::confirm_seed(skill, session, revision, words).map_err(refused(false))?;
+            Ok(Done::Confirmed)
+        }
+    }
+}
+
+fn look(
+    skill: &Path,
+    session: &Path,
+    expected: u64,
+    agent: &Agent,
+    cancelled: &AtomicBool,
+    answer_saved: bool,
+) -> Result<Done, Failure> {
+    let fail = |why| Failure { answer_saved, why };
+    if agent.remaining() == 0 {
+        return Err(fail(Why::Budget(agent.limit())));
+    }
+    let ledger = answering::read(skill, session).map_err(refused(answer_saved))?;
+    if ledger.version() != expected {
+        return Err(fail(Why::Stale));
+    }
+    let goal = ledger.goal().unwrap_or("").to_owned();
+    let (settled, folder) = think(agent.records.as_deref(), session, &goal);
+    let input = json!({
+        "goal": goal,
+        "answered_in_think": settled,
+        "ledger": serde_json::from_str::<Value>(&ledger.context()).unwrap_or(Value::Null),
+    });
+    let call = Call {
+        folder: folder.or_else(|| agent.call.folder.clone()),
+        ..agent.call.clone()
+    };
+    let reply = call
+        .complete(
+            Some(&agent.budget),
+            Request::SeedStep,
+            serde_json::to_vec(&input).unwrap_or_default(),
+            prompt(),
+            cancelled,
+        )
+        .map_err(|error| {
+            if cancelled.load(Ordering::Relaxed) {
+                fail(Why::Stopped)
+            } else {
+                fail(Why::Model(error))
+            }
+        })?;
+    match decode(&reply).map_err(|e| fail(Why::Model(e)))? {
+        Next::Question(ask) => {
+            answering::ask(skill, session, expected, &ask).map_err(refused(answer_saved))?;
+            Ok(Done::Asked)
+        }
+        Next::Seed(confirming) => {
+            answering::draft_seed(skill, session, expected, &confirming)
+                .map_err(refused(answer_saved))?;
+            Ok(Done::Drafted)
+        }
+    }
+}
+
+/// The system prompt for one step.
+pub(super) fn prompt() -> String {
+    pi::assemble(PROMPT)
+}
+
+/// The questions Think's record says the operator answered for this exact session and goal, and
+/// where the goal was made. Nothing when no record can be attributed.
+fn think(records: Option<&Path>, session: &Path, goal: &str) -> (Vec<Value>, Option<PathBuf>) {
+    let Some(read) = records.and_then(|root| think_record::read(root, session, goal).ok()) else {
+        return (Vec::new(), None);
+    };
+    let settled = read
+        .turns
+        .iter()
+        .filter_map(|turn| match &turn.event {
+            Event::Answered {
+                question, answer, ..
+            }
+            | Event::ScopeAnswered {
+                question, answer, ..
+            } => Some(json!({"question": question, "answer": answer})),
+            _ => None,
+        })
+        .collect();
+    let folder = match read.made_in {
+        MadeIn::Repo(path) => Some(path),
+        _ => None,
+    };
+    (settled, folder)
+}
+
+/// What the model proposed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Next {
+    /// The next question.
+    Question(Ask),
+    /// The seed's "You are confirming" text.
+    Seed(String),
+}
+
+/// The model's reply as one JSON object (surrounding prose or a code fence is tolerated).
+/// Refuses anything else, including a reply that asks to confirm: only the operator confirms.
+pub(super) fn decode(reply: &str) -> Result<Next, String> {
+    let unusable = || "The model's reply wasn't a question or a seed draft.".to_owned();
+    let (start, end) = (reply.find('{').ok_or_else(unusable)?, reply.rfind('}'));
+    let value: Value =
+        serde_json::from_str(&reply[start..=end.ok_or_else(unusable)?]).map_err(|_| unusable())?;
+    let text = |key: &str| {
+        value[key]
+            .as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+    };
+    match value["next"].as_str() {
+        Some("question") => {
+            let question = text("question").ok_or_else(unusable)?;
+            let found = value["found"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|f| {
+                    Some(Found {
+                        checked: f["checked"].as_str()?.trim().to_owned(),
+                        observed: f["observed"].as_str()?.trim().to_owned(),
+                    })
+                })
+                .collect();
+            Ok(Next::Question(Ask {
+                id: text("id").unwrap_or_else(|| "question".into()),
+                label: text("label").unwrap_or_else(|| question.clone()),
+                gate: text("gate").unwrap_or_else(|| question.clone()),
+                question,
+                found,
+                suggestion: text("suggestion"),
+            }))
+        }
+        Some("seed") => Ok(Next::Seed(text("confirming").ok_or_else(unusable)?)),
+        _ => Err(unusable()),
+    }
+}

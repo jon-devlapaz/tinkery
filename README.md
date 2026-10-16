@@ -65,10 +65,12 @@ Today, Tinkery can:
   Seed Me sessions stay unchanged.
 - Show where a saved goal's seed stands in Shape (press `s` in a goal's detail, or menu
   place 3): Seed Me's current question, a draft waiting for you, or a verified ready seed.
-  Shape only reads; answering still happens through the copied prompt.
+  With real drafting and `--shape-budget CALLS`, answer each question with one key (`F2`
+  saves it and lets an agent with read-only tools look into the next) and confirm the seed
+  in your own words (`F3`). The budget defaults to zero.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
-**Answering in Shape, Approve, Watch and Taste aren’t built yet.** The complete journey and its
+**Approve, Watch and Taste aren’t built yet.** The complete journey and its
 claimed benefit still need proving.
 
 Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that
