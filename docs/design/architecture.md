@@ -173,6 +173,12 @@ For #153, `repo.rs` hides how a repository is found behind one shared question
 Think, so no phase looks for `.git` itself (3). The think record owns the field and its
 schema bump; Tend reads it through the shared reader (1 and 7). No new score is claimed.
 
+For #169, `seed_me/session.rs` exposes a declared, unchecked seed stage rather than
+claiming verified readiness from a file header (diagnostics 3 and 6). Tend gets the
+honest label and next step through that shared boundary; Shape's existing helper-backed
+verification remains the only seed-ready claim. The public stage promise is explicit
+(4); no new worker, parser or cross-phase dependency is introduced. No new score is claimed.
+
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today | Lowered by |

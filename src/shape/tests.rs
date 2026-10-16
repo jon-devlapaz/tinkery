@@ -250,7 +250,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert!(screen(&mut shape, 100, 30, true).contains("Reading your sessions."));
     let sessions = [
         session("saved", Stage::GoalSaved),
-        session("ready", Stage::SeedReady),
+        session("ready", Stage::SeedUnchecked),
         session("drafted", Stage::SeedDrafted),
         session("ended", Stage::Ended),
         session("unknown", Stage::Unknown),
@@ -279,7 +279,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     shape.offer(Ok(&sessions));
     assert!(screen(&mut shape, 100, 30, true).contains("› drafted goal"));
     let mut moved = sessions.clone();
-    moved[2].stage = Stage::SeedReady;
+    moved[2].stage = Stage::SeedUnchecked;
     assert_eq!(shape.key(key(KeyCode::Enter), None), Leave::Stay);
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
     shape.offer(Ok(&moved));

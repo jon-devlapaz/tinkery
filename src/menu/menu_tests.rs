@@ -162,7 +162,7 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
     let stages = [
         Stage::GoalSaved,
         Stage::SeedDrafted,
-        Stage::SeedReady,
+        Stage::SeedUnchecked,
         Stage::Unknown,
         Stage::Simulated,
     ];
@@ -940,12 +940,12 @@ fn shape_return_waits_for_fresh_discovery_and_cannot_reopen_exited_detail() {
         if leave_detail {
             h.handle_key(key(KeyCode::Esc));
         }
-        gate.set(found(vec![sess("a", Stage::SeedReady, "")]));
+        gate.set(found(vec![sess("a", Stage::SeedUnchecked, "")]));
         gate.release(1);
         settle(&mut h);
         let View::Tend(tend) = &h.view else { panic!() };
         assert_eq!(tend.detail, !leave_detail, "a late read reopened detail");
-        assert_eq!(tend.current().unwrap().stage, Stage::SeedReady);
+        assert_eq!(tend.current().unwrap().stage, Stage::SeedUnchecked);
         assert!(tend.want.is_none());
         assert_eq!(gate.peak.load(SeqCst), 1);
     }
@@ -1065,7 +1065,7 @@ fn a_late_receipt_target_does_not_resurrect_an_exited_visit() {
 fn counts_are_exact_only_after_complete_current_reads() {
     let sessions = vec![
         sess("a", Stage::GoalSaved, "2026-10-09T10:00:00Z"),
-        sess("b", Stage::SeedReady, "2026-10-08T10:00:00Z"),
+        sess("b", Stage::SeedUnchecked, "2026-10-08T10:00:00Z"),
         sess("c", Stage::Ended, "2026-10-07T10:00:00Z"),
     ];
     let tmp = tempfile::Builder::new()

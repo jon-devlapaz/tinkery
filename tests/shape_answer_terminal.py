@@ -287,9 +287,9 @@ def full_journey(width, height):
             assert len(run.calls()) == 2, 'Confirmation called a model'
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
-            run.wait('Next: the seed is ready for intake.')
-            run.send(b'\x1b', 'seed ready')
-            run.send(b'\r', 'Next: the seed is ready for intake.')
+            run.wait('Next: check the seed with Seed Me.')
+            run.send(b'\x1b', 'seed needs checking')
+            run.send(b'\r', 'Next: check the seed with Seed Me.')
             assert ' '.join(goal.split()) in run.flat(), 'Return changed the displayed goal'
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from confirmation wrote or called'
             print(f'Shape answering full journey passed at {width}x{height}: folder shown and picked, '

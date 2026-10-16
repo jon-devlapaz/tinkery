@@ -91,8 +91,14 @@ menu; F10 goes to menu. F1 opens help; `h` shows technical details.
 | --- | --- | --- |
 | Confirmed goal | goal saved | Shape it into a seed with Seed Me |
 | Draft seed contract | seed drafted | Confirm the seed draft with Seed Me |
-| Seed confirmed for intake | seed ready | The seed is ready for intake |
+| Seed declares confirmation for intake | seed needs checking | Check the seed with Seed Me |
 | Ended session | ended | None; copying is unavailable |
+
+File-only discovery does not verify seed confirmation. Even an unchanged, legitimately
+confirmed seed says `seed needs checking` in Tend; a missing confirmation receipt or
+changed seed cannot claim readiness there. Copying and opening Shape remain available.
+Shape's helper-backed status read alone can say the seed is ready. Discovery invokes
+no helper and duplicates no verification rules ([#169](https://github.com/jon-devlapaz/tinkery/issues/169)).
 
 Unknown and practice stages remain distinct, never mislabeled ready. The menu's
 [discovery contract](menu.md#session-discovery) owns refresh and completeness rules.
@@ -234,7 +240,7 @@ The operator accepted this design and approved both slices on 2026-10-15.
 
 Built in [#149](https://github.com/jon-devlapaz/tinkery/issues/149). In a goal's detail in
 Tend, `s shape` sits beside `c copy prompt` and appears on the same stages (goal saved, seed
-drafted, seed ready). Esc returns to that same detail. Menu place 3 lists only goals waiting
+drafted, seed needs checking). Esc returns to that same detail. Menu place 3 lists only goals waiting
 for a seed (goal saved or seed drafted); Enter opens the same screen and Esc returns to the
 list. A held `s` or Enter opens nothing.
 
@@ -420,9 +426,11 @@ when their fix was reverted.
 
 Returning from Shape (#165) is checked in the same 80×24 and 100×30 journeys after
 both drafting and confirming: Tend's detail names the current next step, and its garden
-shows `seed drafted` or `seed ready`. All TEST files and stub call counts stay unchanged
-through the return. Reverting the refresh makes the confirmation journey fail to show
-`Next: the seed is ready for intake.`; the protection was restored afterward.
+shows `seed drafted` or, since #169, `seed needs checking`. All TEST files and stub call
+counts stay unchanged through the return. At #168, reverting the refresh made the
+confirmation journey fail to show `Next: the seed is ready for intake.`; the protection
+was restored afterward. #169 retains that refresh check with the honest unchecked label
+and `Next: check the seed with Seed Me.`
 
 The editor (#163) extends those journeys with cursor correction, word deletion, selection,
 an Enter newline and raw CR/CRLF saved exactly by F2; F4 selects a real multiline folder and

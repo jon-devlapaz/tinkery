@@ -558,7 +558,7 @@ mod tests {
         for stage in [
             Stage::GoalSaved,
             Stage::SeedDrafted,
-            Stage::SeedReady,
+            Stage::SeedUnchecked,
             Stage::Unknown,
             Stage::Simulated,
         ] {

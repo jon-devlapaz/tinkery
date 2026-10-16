@@ -266,9 +266,9 @@ def journey(width, height, kind='garden'):
                 wait(lambda: selected(1))
                 move(b'k', 0)
             for index, next_line in enumerate(['Next: shape it into a seed with Seed Me.',
-                    'Next: confirm the seed draft with Seed Me.', 'Next: the seed is ready for intake.']
+                    'Next: confirm the seed draft with Seed Me.', 'Next: check the seed with Seed Me.']
                     if kind == 'garden' else []):
-                label = ['goal saved', 'seed drafted', 'seed ready'][index]
+                label = ['goal saved', 'seed drafted', 'seed needs checking'][index]
                 wait(lambda: label in screen.text().splitlines()[height-3])
                 send(b'\r', 'esc back   F10 menu')
                 assert 'Saved.' not in screen.text()
