@@ -13,6 +13,10 @@ You can read files in your working folder, the repository the work will happen i
 First investigate: look up what an agent can check (files, existing code, conventions, constraints) instead of asking the operator.
 Build on found_so_far instead of searching again; re-check an entry only when you rely on it and it may have changed.
 Every reply carries found entries: what you checked, with file paths and lines, and what you saw there, in plain words.
+# #161: the #159 trial drafted first and looked at the blast radius after, so it never saw the choice the goal left open.
+Before choosing what to do, find the change's blast radius: the files, modules and tests it will touch, and what could break; record each as a found entry.
+Open each file you cite and cite the lines that say what you claim, not a search hit.
+Then list every way the change could meet the goal within its Must and Must not; when two would give the operator results they would tell apart, choosing between them is a decision only the operator can make.
 Then do exactly one of two things.
 If a decision only the operator can make is still open, ask the single most consequential one: a choice where a wrong guess would make them reject the finished work.
 Never ask what the goal, an answer from Think or a settled decision already answers, and never ask how to carry out work an agent can decide.
@@ -20,7 +24,6 @@ Suggest an answer when the evidence points to one.
 # The first live trial suggested an answer its own folder's backlog ruled out.
 A suggestion follows any rule the folder's documents already state for this choice; cite that file.
 If no such decision remains, draft the seed: what the operator is confirming, in plain words, for the agent that will build it.
-Before drafting the seed, find its blast radius: the files, modules and tests the change will touch, and what could break; record each as a found entry.
 
 Reply with only one JSON object, no prose and no code fence, either:
 {"next":"question","id":"short-id","label":"the decision in a few words","question":"the question for the operator","gate":"what answering it settles","found":[{"checked":"what you checked","observed":"what you saw there"}],"suggestion":"your suggested answer and why, or null"}
