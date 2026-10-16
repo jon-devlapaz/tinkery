@@ -2538,6 +2538,7 @@ dependencies = [
  "proc-macro2",
  "ratatui",
  "ratatui-textarea",
+ "regex",
  "serde",
  "serde_json",
  "syn 2.0.119",

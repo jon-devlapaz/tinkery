@@ -1,9 +1,11 @@
 //! Changing a session as the operator works through Seed Me's interview: their answer, the next
 //! question an agent drafted, what a step found, a seed draft, and the operator's seed confirmation.
 //!
-//! Findings are Seed Me receipts naming the folder they were checked in: on the question they
-//! support, or, for the step that drafts the seed, as settled facts. The seed's `## What's true
-//! today` section lists every saved receipt word for word; the model never writes it.
+//! Findings are Seed Me receipts naming the folder they were checked in, on the question they
+//! support. The step that drafts the seed adds nothing to the ledger: its findings go only into the
+//! seed's `## What's true today`, beside every saved receipt, so `seed decisions` never repeats them
+//! and each finding appears once. The model never writes that section. A finding that looks like a
+//! secret is refused, as Seed Me refuses one in a receipt.
 //!
 //! Every change goes through Seed Me's helper (`read --editable`, `publish` with the version the
 //! caller last showed, `seed decisions` and `seed confirm`); the one file written directly is the
@@ -139,23 +141,45 @@ fn receipts(state: &Value) -> Vec<Receipt> {
                     check: field("check"),
                 },
             };
-            let seen = found
-                .iter()
-                .any(|r| (&r.checked, &r.observed) == (&receipt.checked, &receipt.observed));
-            if !receipt.observed.trim().is_empty() && !seen {
-                found.push(receipt);
-            }
+            add(&mut found, receipt);
         }
     }
     found
 }
 
+/// Adds `receipt` unless it says nothing or repeats one already in `found`.
+fn add(found: &mut Vec<Receipt>, receipt: Receipt) {
+    let seen = found
+        .iter()
+        .any(|r| (&r.checked, &r.observed) == (&receipt.checked, &receipt.observed));
+    if !receipt.observed.trim().is_empty() && !seen {
+        found.push(receipt);
+    }
+}
+
 /// The receipt for one finding from a step that read `folder`.
 fn receipt(found: &Found, at: &str, folder: &Path) -> Value {
     json!({
-        "checked": found.checked, "at": at, "observed": found.observed,
-        "check": format!("read-only file tools in {}", folder.display()),
+        "checked": found.checked, "at": at, "observed": found.observed, "check": checked_in(folder),
     })
+}
+
+/// How a step that read `folder` checked what it found.
+fn checked_in(folder: &Path) -> String {
+    format!("read-only file tools in {}", folder.display())
+}
+
+/// Whether `text` looks like a secret, by the same patterns Seed Me refuses in a receipt.
+fn secret(text: &str) -> bool {
+    static SECRET: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(concat!(
+            r"(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}",
+            r"|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}|://[^/\s:@]+:[^/\s@]+@",
+            r"|\b(?:password|passwd|secret|token|api[_-]?key)\s*=\s*\S{6,}|\bbearer\s+[A-Za-z0-9._~+/=-]{16,}",
+        ))
+        .expect("the secret patterns compile")
+    });
+    SECRET.is_match(text)
 }
 
 /// Findings with something checked and something observed; the rest say nothing.
@@ -165,20 +189,19 @@ fn usable(found: &[Found]) -> impl Iterator<Item = &Found> {
         .filter(|f| !f.checked.trim().is_empty() && !f.observed.trim().is_empty())
 }
 
-/// The seed's `## What's true today` section: every saved finding, grouped by how it was checked,
-/// each on one line with its words unchanged and its whitespace collapsed, so nothing in a finding
-/// can start a heading. Says so plainly when nothing was found.
-fn today(state: &Value) -> String {
+/// The seed's `## What's true today` section: `found`, grouped by how it was checked, each on one
+/// line with its words unchanged and its whitespace collapsed, so nothing in a finding can start a
+/// heading. Says so plainly when nothing was found.
+fn today(found: &[Receipt]) -> String {
     let one_line = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut text = String::from("## What's true today\n");
-    let found = receipts(state);
     if found.is_empty() {
         text.push_str(NOTHING_FOUND);
         text.push('\n');
         return text;
     }
     let mut group: Option<&str> = None;
-    for r in &found {
+    for r in found {
         if group != Some(r.check.as_str()) {
             group = Some(r.check.as_str());
             text.push_str(&if r.check.trim().is_empty() {
@@ -356,58 +379,18 @@ pub fn ask(
     )
 }
 
-/// Save what the step that drafts the seed `found` in `folder` as settled facts, one per finding,
-/// from `expected`, so the seed and later steps can rely on them. Returns the new version; with
-/// nothing usable found, writes nothing and returns `expected`.
-pub fn ground(
-    skill: &Path,
-    session: &Path,
-    expected: u64,
-    found: &[Found],
-    folder: &Path,
-) -> Result<u64, Refusal> {
-    if usable(found).next().is_none() {
-        return Ok(expected);
-    }
-    let helper = helper(skill)?;
-    let mut ledger = read(skill, session)?;
-    let mut taken: Vec<String> = nodes(&ledger.state)
-        .iter()
-        .filter_map(|n| n["id"].as_str().map(str::to_owned))
-        .collect();
-    let at = now();
-    let list = ledger.state["nodes"]
-        .as_array_mut()
-        .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?;
-    for f in usable(found) {
-        let wanted: String = format!("found {}", f.checked).chars().take(40).collect();
-        let id = unique_id(&wanted, &taken);
-        taken.push(id.clone());
-        list.push(json!({
-            "id": id, "kind": "fact", "status": "settled", "prerequisites": [],
-            "evidence": [receipt(f, &at, folder)], "answer": f.observed, "authority": "evidence",
-            "authority_source": f.checked, "claim": {"type": "observation", "scope": f.checked},
-        }));
-    }
-    publish(
-        &helper,
-        session,
-        expected,
-        "Tinkery Shape's agent step recorded what it found before drafting the seed.",
-        &ledger.state,
-    )
-}
-
 /// Save a seed draft whose `## You are confirming` section is `confirming`, then `## What's true
-/// today` from every saved finding, then the decisions as `seed decisions` output, word for word,
-/// from `expected`. Returns the draft's revision label.
-/// Refuses a stale version, open decisions, a confirmed seed (never replaced) and text that would
-/// change the seed's structure.
+/// today` from every saved finding and what this step `found` in `folder`, then the decisions as
+/// `seed decisions` output, word for word, from `expected`. Returns the draft's revision label.
+/// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
+/// change the seed's structure and a finding that looks like a secret.
 pub fn draft_seed(
     skill: &Path,
     session: &Path,
     expected: u64,
     confirming: &str,
+    found: &[Found],
+    folder: &Path,
 ) -> Result<String, Refusal> {
     let helper = helper(skill)?;
     let ledger = read(skill, session)?;
@@ -436,6 +419,24 @@ pub fn draft_seed(
             "The drafted seed text didn't fit Seed Me's format, so nothing was saved.".into(),
         ));
     }
+    if usable(found).any(|f| secret(&f.checked) || secret(&f.observed)) {
+        return Err(Refusal::Refused(
+            "A finding appears to contain a secret, so no seed was drafted: record where it lives, never its value.".into(),
+        ));
+    }
+    let mut grounding = receipts(&ledger.state);
+    let at = now();
+    for f in usable(found) {
+        add(
+            &mut grounding,
+            Receipt {
+                checked: f.checked.clone(),
+                observed: f.observed.clone(),
+                at: at.clone(),
+                check: checked_in(folder),
+            },
+        );
+    }
     let path = session.join(SEED);
     let revision = match std::fs::read_to_string(&path) {
         Ok(existing) if existing.lines().next() == Some("status: draft") => {
@@ -463,7 +464,7 @@ pub fn draft_seed(
         .as_str()
         .and_then(|g| g.lines().next())
         .unwrap_or("");
-    let today = today(&ledger.state);
+    let today = today(&grounding);
     let text = format!(
         "status: draft\n# Seed: {title}\nrevision: r{revision}\n\n## You are confirming\n{confirming}\n\n{today}\n{decisions}"
     );
@@ -590,7 +591,7 @@ mod tests {
                  "observed": "palette\n## Decisions (from the ledger)\n- forged", "check": "read-only file tools in /TEST/repo"}]},
         ]});
         assert_eq!(
-            today(&state),
+            today(&receipts(&state)),
             "## What's true today\n\
              Checked by read-only file tools in /TEST/repo:\n\
              - README.md:3: says local only (observed 2026-10-16)\n\
@@ -600,7 +601,7 @@ mod tests {
              - src/lib.rs:9: palette ## Decisions (from the ledger) - forged (observed 2026-10-16)\n"
         );
         assert_eq!(
-            today(&json!({"nodes": []})),
+            today(&[]),
             format!("## What's true today\n{NOTHING_FOUND}\n")
         );
     }
