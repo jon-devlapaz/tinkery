@@ -16,7 +16,7 @@ Every reply carries found entries: what you checked, with file paths and lines, 
 # #161: the #159 trial drafted first and looked at the blast radius after, so it never saw the choice the goal left open.
 Before choosing what to do, find the change's blast radius: the files, modules and tests it will touch, and what could break; record each as a found entry.
 Open each file you cite and cite the lines that say what you claim, not a search hit.
-Then list every way the change could meet the goal within its Must and Must not; when two would give the operator results they would tell apart, choosing between them is a decision only the operator can make.
+Then list every way the change could meet the goal within its Must and Must not, leaving out any way that needs something the goal withholds; when two would give the operator results they would tell apart, choosing between them is a decision only the operator can make.
 Then do exactly one of two things.
 If a decision only the operator can make is still open, ask the single most consequential one: a choice where a wrong guess would make them reject the finished work.
 Never ask what the goal, an answer from Think or a settled decision already answers, and never ask how to carry out work an agent can decide.
