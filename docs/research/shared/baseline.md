@@ -1,0 +1,53 @@
+# Human baseline
+
+The record for [#109](https://github.com/jon-devlapaz/tinkery/issues/109): what
+one accepted, checked change costs the operator today, before Tinkery's full-loop
+views exist. [#116](https://github.com/jon-devlapaz/tinkery/issues/116) repeats it
+with those views and compares. Every value starts unknown; only the operator fills
+judgments and times. Nothing here is a quality score.
+
+## Plan
+
+Status: **proposed, not permitted.** No baseline call runs until the operator
+records each choice below.
+
+| Choice | Proposed | Operator's decision |
+| --- | --- | --- |
+| Tasks | [#176](https://github.com/jon-devlapaz/tinkery/issues/176), [#177](https://github.com/jon-devlapaz/tinkery/issues/177), [#154](https://github.com/jon-devlapaz/tinkery/issues/154): small, bounded Tinkery changes with fake-only tests | unknown |
+| Workflow | Today's: say the change in Think, confirm the goal, copy it to Pi, Pi opens a PR, CI runs, the operator reviews and accepts or asks for a correction | unknown |
+| Budget | Up to 5 Think drafting calls per task; Pi implementation on the operator's existing subscription, cost recorded as subscription | unknown |
+| Threshold for #116 | The trial wins if active minutes per accepted change fall by at least a third, with no task lost that the baseline accepted | unknown |
+
+Each task still needs its own implementation approval. Choosing a task here
+approves only its use as a sample.
+
+## How to record
+
+Per task, the operator notes minutes at the end of each active stretch, by kind:
+
+- **explaining:** saying or typing what they want, including repeats;
+- **deciding:** answering questions, confirming the goal, approving;
+- **reviewing:** reading the PR, checks and result;
+- **correcting:** asking for and checking a correction.
+
+Waiting is noted separately. Session timestamps are not attention. A forgotten
+stretch stays unknown, never estimated.
+
+The agent records, from the record itself: the goal's exact words, whether the
+saved and handed-off goal stayed identical, the PR's final revision and its checks.
+The operator alone records whether the goal kept their meaning and the verdict.
+Private dump text stays local; this file keeps only summaries and references.
+
+## Results
+
+| Task | Goal kept meaning (operator) | Goal exact through handoff | Final revision and checks | Verdict | Active min (explain/decide/review/correct) | Waiting min | Corrections | Repeated explanations | Cost |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| #176 | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown |
+| #177 | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown |
+| #154 | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown |
+
+Accepted, checked changes per active operator hour: unknown until every row has a
+verdict and recorded minutes. Failed or abandoned tasks stay in the table with
+their effort.
+
+Operator confirms this baseline is suitable for #116: unknown.
