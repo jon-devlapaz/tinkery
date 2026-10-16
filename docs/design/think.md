@@ -105,10 +105,11 @@ so (`type confirm` → `save goal and record`), so the write rides a labelled ac
 ([Yohaku article 4](../yohaku.md#the-articles)). Sessions that end without confirming
 (Esc, F10, quit, crash) leave no record. This is the operator's chosen boundary.
 
-A record holds `schema` (2), the tinkery version, `origin` (`live` for Pi,
+A record holds `schema` (3), the tinkery version, `origin` (`live` for Pi,
 `simulated` otherwise), model, thinking level and a hash of both system prompts, the
 start (first turn) and confirm times, the Seed Me folder name, canonical session path
-and source-owned session ID, every `turn` in the order
+and source-owned session ID, `repo` (the absolute root of the Git repository Tinkery
+was started in, or `null` outside one), every `turn` in the order
 it happened (`words`, `asked`, `answered`, `skipped`, `restored`, `scope_asked`,
 `scope_answered`, each with its time and the person's words verbatim), every F5 check
 as it already serializes, and the goal block exactly as confirmed. A check keeps the
@@ -118,6 +119,12 @@ visit has its own Pi diagnostic history, so a new goal cannot collect a previous
 goal's replies. Reusing the model settings starts no process and rereads no file;
 all sends in the current goal remain in its own history. The record folder is
 preserved when standalone Think returns to the menu and opens another goal.
+
+`repo` says where the goal was made, never what it is about. When it will be
+recorded, review shows `made in <folder>` under the goal before `confirm`, so nothing
+is saved that the person hasn't seen ([Yohaku article 4](../yohaku.md#the-articles)).
+It stays out of the goal, the Seed Me ledger and every model request; the operator's
+words and Tinkery's observations stay apart (article 3).
 
 The shared `src/think_record.rs` owns the format; `Conversation` keeps the turns. The record is
 written after Seed Me's save reads back, so a failed save writes none. If the record

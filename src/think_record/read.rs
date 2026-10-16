@@ -1,5 +1,5 @@
 //! Read one saved conversation without changing its files. Attribution requires a complete scan,
-//! one current-format record with the exact session path and Seed Me identity, and an unchanged goal.
+//! one schema-2 or schema-3 record with the exact session path and Seed Me identity, and an unchanged goal.
 //! Older records cannot prove that connection; malformed files cannot hide a possible duplicate.
 
 use super::{Event, SCHEMA, session_id};
@@ -28,8 +28,22 @@ pub struct History {
     pub turns: Vec<RecordedTurn>,
     /// The exact confirmed goal, checked against the current saved session.
     pub goal: String,
+    /// Where the goal was made, as recorded.
+    pub made_in: MadeIn,
     /// Source, model and check information for technical help, kept apart from the conversation.
     pub details: String,
+}
+
+/// The repository a confirmed goal was made in, as its record says. Where it was made, never
+/// what it is about.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MadeIn {
+    /// Started inside the repository rooted here.
+    Repo(PathBuf),
+    /// Started outside any repository.
+    NoRepo,
+    /// Recorded before Tinkery kept this (schema 2).
+    Unknown,
 }
 
 /// Why no history can be attributed safely; this does not invalidate the saved goal.
@@ -73,6 +87,8 @@ struct SavedRecord {
     seed_me_session: String,
     seed_me_session_path: Option<PathBuf>,
     seed_me_session_id: Option<String>,
+    #[serde(default)]
+    repo: Option<PathBuf>,
     turns: Vec<RecordedTurn>,
     checks: Vec<serde_json::Value>,
     goal: String,
@@ -177,14 +193,24 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             "Open the saved goal again before reading its history.",
         ));
     }
+    let made_in = match (record.schema, record.repo) {
+        (2, _) => MadeIn::Unknown,
+        (_, Some(root)) => MadeIn::Repo(root),
+        (_, None) => MadeIn::NoRepo,
+    };
     let details = format!(
         concat!(
-            "Think record: {}\nSession: {}\nSession ID: {}\nFormat: {}\nTinkery: {}\n",
+            "Think record: {}\nSession: {}\nSession ID: {}\nRepository: {}\nFormat: {}\nTinkery: {}\n",
             "Origin: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n\nChecks:\n{}"
         ),
         path.display(),
         selected.0.display(),
         selected.1,
+        match &made_in {
+            MadeIn::Repo(root) => root.display().to_string(),
+            MadeIn::NoRepo => "none".into(),
+            MadeIn::Unknown => "not recorded".into(),
+        },
         record.schema,
         record.tinkery,
         record.origin,
@@ -198,6 +224,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
     Ok(History {
         turns: record.turns,
         goal: record.goal,
+        made_in,
         details,
     })
 }
@@ -259,8 +286,17 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
     let value: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|error| Unavailable::unreadable(path, error))?;
     match value.get("schema").and_then(serde_json::Value::as_u64) {
-        Some(1) => {}
-        Some(schema) if schema == u64::from(SCHEMA) => {}
+        Some(1 | 2) => {}
+        Some(schema) if schema == u64::from(SCHEMA) => match value.get("repo") {
+            Some(serde_json::Value::Null) => {}
+            Some(serde_json::Value::String(root)) if Path::new(root).is_absolute() => {}
+            _ => {
+                return Err(Unavailable::unreadable(
+                    path,
+                    "the recorded repository is missing or not an absolute path",
+                ));
+            }
+        },
         Some(schema) => {
             return Err(Unavailable::new(
                 "Think history uses an unsupported format.",
@@ -279,7 +315,7 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
     }
     let record: SavedRecord =
         serde_json::from_value(value).map_err(|error| Unavailable::unreadable(path, error))?;
-    if record.schema == SCHEMA
+    if record.schema >= 2
         && record
             .seed_me_session_id
             .as_ref()

@@ -109,6 +109,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sessions_root.as_ref().map_err(Clone::clone)?;
     }
     let goal_skill = seed_me.clone();
+    // Where Tinkery was started; found by looking for `.git`, never by running git.
+    let repo = std::env::current_dir()
+        .ok()
+        .and_then(|dir| tinkery::repo::Repo::enclosing(&dir));
     if home_menu {
         let make_dump: Box<dyn Fn() -> BrainDump> = if shape_pi {
             let host = Arc::new(
@@ -126,8 +130,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let skill = goal_skill.clone().unwrap();
             let root = sessions_root.clone().ok();
             let records = record_root.clone()?;
+            let repo = repo.clone();
             Box::new(move || {
-                let dump = BrainDump::with_host(host.clone()).with_record_root(records.clone());
+                let dump = BrainDump::with_host(host.clone())
+                    .with_record_root(records.clone())
+                    .with_repo(repo.clone());
                 match &root {
                     Some(root) => dump.with_seed_me(skill.clone(), Some(root.clone())),
                     None => dump,
@@ -141,7 +148,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             Box::new(move || make_dump().with_voice(Box::new(tinkery::voice::ProcessHost::new())))
         };
-        let mut menu = Home::new(make_dump, sessions_root, substrate_dir, link_root.clone());
+        let mut menu =
+            Home::new(make_dump, sessions_root, substrate_dir, link_root.clone()).with_repo(repo);
         if let Ok(root) = &record_root {
             menu = menu.with_record_root(root.clone());
         }
@@ -176,7 +184,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?
             .with_thinking(thinking.as_deref().unwrap_or("low"))?,
         );
-        let dump = BrainDump::with_host(host).with_record_root(record_root?);
+        let dump = BrainDump::with_host(host)
+            .with_record_root(record_root?)
+            .with_repo(repo);
         Intake::Brain(Box::new(match sessions_root {
             Ok(root) => dump.with_seed_me(goal_skill.unwrap(), Some(root)),
             Err(_) => dump,

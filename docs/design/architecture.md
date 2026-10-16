@@ -61,6 +61,7 @@ requirements. A complete factory and improved outcomes are not shipped claims.
 | --- | --- |
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
+| `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The menu: the seven places and navigation between them, including Esc from Shape back to the Tend it came from. |
 | `measure.rs` | The ledger's read-only report, display safety limits, failure facts and safe two-layer disclosure. |
 | `measure/reader.rs` | One reader across visits: request ownership, deadline, bounded pipes, process-group cancellation and cleanup-first shutdown. |
@@ -157,6 +158,11 @@ loop restores the terminal before draining Measure on normal exit or I/O error. 
 incremental viewport indexing and prepared shared display text avoid rebuilding all
 output on a frame. The module map and interface promises preserve 1, 4 and 7. No shared
 reader framework or new design score is claimed.
+
+For #153, `repo.rs` hides how a repository is found behind one shared question
+(diagnostics 2 and 6); `main.rs` asks it once and hands the answer to the menu and
+Think, so no phase looks for `.git` itself (3). The think record owns the field and its
+schema bump; Tend reads it through the shared reader (1 and 7). No new score is claimed.
 
 ## Limits enforced by `tests/architecture.rs`
 

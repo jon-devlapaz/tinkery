@@ -1425,3 +1425,17 @@ fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
         "explicit opening still runs it"
     );
 }
+
+#[test]
+fn the_menu_names_the_repository_once_and_says_nothing_outside_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("TEST-repo-here");
+    std::fs::create_dir_all(root.join(".git")).unwrap();
+    let mut h = home(Arc::new(|_| found(vec![]))).with_repo(crate::repo::Repo::enclosing(&root));
+    let menu = screen(&mut h);
+    let title = menu.lines().nth(1).unwrap();
+    assert!(title.contains("tinkery  in TEST-repo-here"), "{title}");
+    assert_eq!(menu.matches("TEST-repo-here").count(), 1, "{menu}");
+    let mut plain = home(Arc::new(|_| found(vec![])));
+    assert!(!screen(&mut plain).contains(" in "));
+}
