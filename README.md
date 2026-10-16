@@ -2,127 +2,75 @@
 
 ## The big idea
 
-Tinkery is a calm substrate for agentic work: the place where a messy thought
-becomes useful, checked work done by agents—without losing what you meant or
-taking control away from you.
-
-Agents do the repeatable work here, but none starts without you. It isn’t meant
-to be another busy dashboard. It should show what matters now, one next step,
-and how to leave.
+A calm substrate where a messy thought becomes useful, checked agent work without
+losing your words or control. Nothing runs without you: one next step, with a way out.
 
 ## The journey
 
-Imagine you say: “I want customers to find their invoices more easily.”
-
-Tinkery’s intended journey is:
-
 **Think → Tend → Shape → Approve → work happens → Watch → Taste → Measure**
 
-| Place | What it helps you do |
+| Place | Purpose |
 | --- | --- |
-| **Think** | Work out what you actually want. It offers a reading and asks one question at a time. |
-| **Tend** | Choose a saved goal in a quiet garden and open its detail. |
-| **Shape** | Turn a confirmed goal into a seed by running Seed Me’s interview inside Tinkery. |
-| **Approve** | Understand exactly what decision is needed and what you’re authorizing. |
-| **Watch** | See what’s happening, what’s blocked and what needs your attention. |
-| **Taste** | Compare the result with your original goal. You decide whether it’s useful or needs correction. |
-| **Measure** | See whether the process produced accepted, checked results with less effort from you. |
+| **Think** | Clarify what you want: one reading, one question at a time. |
+| **Tend** | Choose a saved goal and open its detail. |
+| **Shape** | Run Seed Me's interview to turn the goal into a seed. |
+| **Approve** | Understand the decision and exactly what you're authorizing. |
+| **Watch** | See progress, blockers and decisions needing your attention. |
+| **Taste** | Compare the result with your original goal; accept or correct it. |
+| **Measure** | Judge accepted, checked results against your effort. |
 
-Once you confirm the goal, it stays unchanged through the handoffs. Suggestions
-and guesses must never masquerade as your words. Your original words remain
-intact.
-
-This is the direction, not a claim that every place is built.
+This is the intended journey, not all shipped behavior. Originals remain verbatim;
+confirmed goals stay unchanged through handoffs. Readings and suggestions are guesses.
 
 ## What Tinkery builds on
 
-The work happens in Tinkery, but some records belong to the tools it builds on.
+Seed Me owns saved goals, working briefs and separate decisions; external SDLC owns
+implementation/check/review orchestration; GitHub holds issues, PRs, checks and reviews.
+You authorize work and judge results. Tinkery connects these records, not competing approvals.
 
-- **Seed Me** keeps the saved goal, working brief and separate decisions.
-- **SDLC** organizes the external implementation, checks and review process.
-- **GitHub** holds issues, proposed code changes, checks and reviews.
-- **You** supply permission and judge whether the result meets your intent.
-
-Tinkery should connect those records and explain them—not invent a competing set
-of approvals.
-
-Confirming a goal, confirming a brief and approving implementation are different
-decisions. Copying a prompt approves none of them.
+Goal confirmation, brief confirmation and implementation approval are separate.
+Copying a prompt authorizes none of them and starts no agent. Voice is local dictation.
 
 ## What works today
 
-Today, Tinkery can:
+- **Think:** clarify a dump and explicitly save the confirmed goal, unchanged, to
+  `~/.local/share/seed-me/sessions/` with a record in `~/.local/share/tinkery/think/`.
+  When started in Git, the menu names the repository and the record keeps its origin.
+- **Tend:** active goals form a needs graph. Link/unlink goals, open detail, or copy
+  continuation prompts for Claude, Codex or Pi without changing Seed Me sessions.
+  Press `r` in detail for [Think history](docs/design/shape-and-handoff.md#think-history)
+  when its saved record verifies.
+- **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
+  waiting draft or verified ready seed. Real drafting requires `--shape-budget CALLS`
+  (default zero). `F2` saves an answer and lets an agent investigate the next with
+  read-only tools; `F3` confirms the seed in your words. `F5` shows the whole goal and decisions.
+- **Measure:** reads an existing ledger report or says unavailable.
 
-- Help you think through a dump and explicitly save a confirmed goal. Confirming
-  saves that goal, unchanged, as a Seed Me session in
-  `~/.local/share/seed-me/sessions/`, and writes a think record to
-  `~/.local/share/tinkery/think/`. Started inside a Git repository, Tinkery names it
-  on the menu and the record keeps where the goal was made.
-- Show active saved goals as rings in Tend's graph, with lines for what they need.
-  Link or unlink goals, open their detail and copy a continuation prompt to Claude,
-  Codex or Pi. In a goal's detail, press `r` to read its
-  [Think history](docs/design/shape-and-handoff.md#think-history), when its saved record can be verified.
-  Seed Me sessions stay unchanged.
-- Show where a saved goal's seed stands in Shape (press `s` in a goal's detail, or menu
-  place 3): Seed Me's current question, a draft waiting for you, or a verified ready seed.
-  With real drafting and `--shape-budget CALLS`, answer each question with one key (`F2`
-  saves it and lets an agent with read-only tools look into the next) and confirm the seed
-  in your own words (`F3`). The budget defaults to zero. `F5` shows your whole goal and the
-  decisions so far.
-- Show an existing ledger report in Measure, or say it’s unavailable.
-
-**Approve, Watch and Taste aren’t built yet.** The complete journey and its
-claimed benefit still need proving.
-
-Nothing runs by itself. Copying a prompt starts no agent. Voice is dictation that
-stays on your machine.
+**Approve, Watch and Taste aren't built.** The complete journey and its benefit remain unproven.
 
 ## Where we’re going next
 
-The foundation is trustworthy connections.
+[Goal-to-run binding](docs/design/job-records.md#goal-to-run-identity-prerequisite)
+is an **unaccepted, unimplemented proposal**: verify permanent SDLC run identity first,
+then explicitly bind a goal to one exact run. Never infer matches from names; a shared
+reader verifies identities and current evidence. Recreating a name must not reuse
+identity; the first binding is immutable, detects duplicates and defers changes/relocation.
 
-If two jobs have similar names, Tinkery must not guess which one belongs to your
-goal. So we’re proposing:
-
-1. A permanent serial number for each external run.
-2. An explicitly confirmed connection between your saved goal and that exact run.
-3. A shared reader that checks those identities and brings back current evidence.
-
-First check whether SDLC already provides permanent run identity; recreating a
-run under the same name must not reuse it. The first binding version creates one
-immutable connection and detects duplicates; changing or relocating it is deferred.
-
-That would let Approve, Watch and Taste all talk about the same work, rather than
-loosely related files. The [binding design](docs/design/job-records.md#goal-to-run-identity-prerequisite)
-remains an unaccepted proposal, not implemented behavior.
-
-We also intend to bring useful Substrate responsibilities into Tinkery, rather
-than permanently requiring a separate Substrate aggregation service. That
-migration is planned, not finished. Today’s Measure still uses its ledger report.
-
-The [first-release plan](docs/design/first-release.md) and
-[task index](docs/design/first-release-issues.md) explain the path. The published
-tasks organize that direction; publication does not approve their implementation.
-Speculative ideas stay in the [parked backlog](docs/research/shared/backlog.md).
+Absorbing useful Substrate responsibilities is planned, not complete; Measure still
+uses its ledger. See the [first-release plan](docs/design/first-release.md) and
+[task index](docs/design/first-release-issues.md). Published tasks are not implementation
+permission; unpublished ideas belong in the [parked backlog](docs/research/shared/backlog.md).
 
 ## What success means
 
-Not “more agents running” or “more code generated.”
-
-**Success means useful, verified changes per hour of your attention.**
-
-You should explain yourself less, recover after interruptions, understand
-failures, and retain the final judgment. Missing evidence should say unknown,
-not pretend everything is green.
-
-Active effort is different from elapsed session time. Passing checks is different
-from your acceptance. We still need a separately permitted baseline and trial to
-show that the complete workflow helps; improvement is a goal, not a measured
-claim today.
+**Useful, verified changes per hour of your attention**, not agent/code volume.
+Active effort is not elapsed time; passing checks is not your acceptance. Unknown
+evidence stays unknown. Improvement needs a separately permitted baseline and trial;
+it is not a measured claim.
 
 ## Try it
 
-On a fresh Debian/Ubuntu clone:
+Fresh Debian/Ubuntu clone:
 
 ```bash
 ./scripts/cloud-setup.sh
@@ -130,21 +78,18 @@ export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
 cargo +stable run --locked -- --home
 ```
 
-Think is practice: no model calls, no goals saved. Tend saves needs only when you
-explicitly link or unlink. F2 sends, Enter adds a line,
-F1 helps, F10 returns to the menu. Add `--snapshot` to print the screen as text.
+Think is practice: no model calls or saved goals. Tend writes needs only on explicit
+link/unlink. F2 sends, Enter adds a line, F1 helps, F10 returns to the menu.
+Add `--snapshot` for text output.
 
-Real drafting needs `--shape-pi --model provider/model-id --seed-me PATH` and an
-explicitly authorized budget; it can incur provider charges. `--help` lists every
-option. See [terminal setup](docs/terminal-setup.md#launch) for an isolated trial.
+Real drafting requires `--shape-pi --model provider/model-id --seed-me PATH` and an
+explicitly authorized budget; provider charges may apply. `--help` lists options.
+[Terminal setup](docs/terminal-setup.md#launch) gives an isolated trial.
 
 ## Read next
 
-- [docs/yohaku.md](docs/yohaku.md): the constitution and the meaning of calm.
-- [AGENTS.md](AGENTS.md): macOS setup, the full test run, and rules for changing Tinkery.
-- [First-release plan](docs/design/first-release.md): milestones and the finish line.
-- [Task index](docs/design/first-release-issues.md): authoritative issue links and dependencies.
-- [docs/design/](docs/design/principles.md): current decisions and clearly marked proposals.
-- [Parked ideas](docs/research/shared/backlog.md): one home for unpublished proposals.
+- [Constitution](docs/yohaku.md): governing principles.
+- [Working guide](AGENTS.md): macOS setup, verification and contribution rules.
+- [Design](docs/design/principles.md): decisions and marked proposals.
 
 GPL-3.0-only; see [LICENSE](LICENSE).
