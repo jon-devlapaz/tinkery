@@ -17,8 +17,9 @@ This is the working guide, subordinate to the constitution. Read
   is a guess. The displayed, confirmed goal stays unchanged through saving and handoff.
 - Nothing runs by itself: navigation and copying never launch agents. Explicit goal
   confirmation is not seed confirmation or implementation permission.
-- Work from a GitHub issue on a branch; open a PR, **never merge**. If the operator
-  requests draft-only issues, leave them uncreated and identify the approved task instead.
+- Work from a GitHub issue on a branch and open a PR. Merge it yourself once its issue is
+  approved (or the operator asked for the change) and CI is green with no conflicts. If the
+  operator requests draft-only issues, leave them uncreated and identify the approved task instead.
 - No model/provider calls without an explicit budget. Default budget is zero.
   Examples named `live_*` and eval commands are not part of the zero-call suite.
 - Never record real audio. Voice tests use fake engines/recorders, not native addons.
@@ -145,7 +146,7 @@ relevant and native blocking links. Its dropdowns do not apply labels automatica
 priority is a separate triage decision. Unapproved work stays `needs-approval`.
 `approved` summarizes an explicit scoped operator decision, never creates permission;
 material scope changes return to `needs-approval`. Publication, design acceptance,
-implementation, data use, provider budget and merge permission remain separate.
+implementation, data use and provider budget remain separate.
 
 Each approved slice gets one branch and PR, inherits the guardrails above and stays
 bounded by its issue. Closing requires completion evidence or an explicit reason

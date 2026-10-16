@@ -82,8 +82,9 @@ Colour is never the only signal. With `NO_COLOR`, the same meanings carry throug
 - **Prove behaviour, not effort.** Test what the operator sees and does. Add a reversion probe for anything that
   protects an article above.
 - **Keep the design true.** When a decision changes, update `docs/design/` in the same PR.
-- **Never merge your own work.** Open a PR; the operator decides.
+- **Merge only what the operator approved.** Open a PR, and merge it once the work is approved and its checks pass.
 
 When unsure, choose the version of the change that leaves more empty space and the operator more in control.
 
 *Amended by the operator on 2026-10-15: Tinkery is the substrate where agentic work happens, not only its front door.*
+*Amended by the operator on 2026-10-16: agents may merge approved work once its checks pass.*
