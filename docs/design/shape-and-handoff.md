@@ -426,9 +426,11 @@ when their fix was reverted.
 
 Returning from Shape (#165) is checked in the same 80×24 and 100×30 journeys after
 both drafting and confirming: Tend's detail names the current next step, and its garden
-shows `seed drafted` or `seed ready`. All TEST files and stub call counts stay unchanged
-through the return. Reverting the refresh makes the confirmation journey fail to show
-`Next: the seed is ready for intake.`; the protection was restored afterward.
+shows `seed drafted` or, since #169, `seed needs checking`. All TEST files and stub call
+counts stay unchanged through the return. At #168, reverting the refresh made the
+confirmation journey fail to show `Next: the seed is ready for intake.`; the protection
+was restored afterward. #169 retains that refresh check with the honest unchecked label
+and `Next: check the seed with Seed Me.`
 
 The editor (#163) extends those journeys with cursor correction, word deletion, selection,
 an Enter newline and raw CR/CRLF saved exactly by F2; F4 selects a real multiline folder and

@@ -203,7 +203,7 @@ def journey(width, height, case, no_color=False):
                     assert GOAL.splitlines()[0] not in flat(), screen.text()
                 else:
                     next_step = ('Next: confirm the seed draft with Seed Me.' if case == 'drafted' else
-                                 'Next: the seed is ready for intake.' if case in ('ready', 'stale') else
+                                 'Next: check the seed with Seed Me.' if case in ('ready', 'stale') else
                                  'Next: shape it into a seed with Seed Me.')
                     send(b'\x1b', 'tinkery › tend')
                     wait(lambda: next_step in flat())

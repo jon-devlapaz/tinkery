@@ -940,12 +940,12 @@ fn shape_return_waits_for_fresh_discovery_and_cannot_reopen_exited_detail() {
         if leave_detail {
             h.handle_key(key(KeyCode::Esc));
         }
-        gate.set(found(vec![sess("a", Stage::SeedReady, "")]));
+        gate.set(found(vec![sess("a", Stage::SeedUnchecked, "")]));
         gate.release(1);
         settle(&mut h);
         let View::Tend(tend) = &h.view else { panic!() };
         assert_eq!(tend.detail, !leave_detail, "a late read reopened detail");
-        assert_eq!(tend.current().unwrap().stage, Stage::SeedReady);
+        assert_eq!(tend.current().unwrap().stage, Stage::SeedUnchecked);
         assert!(tend.want.is_none());
         assert_eq!(gate.peak.load(SeqCst), 1);
     }

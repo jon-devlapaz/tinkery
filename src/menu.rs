@@ -1322,8 +1322,8 @@ mod tests {
             ),
             (
                 "status: confirmed for intake",
-                Stage::SeedReady,
-                "the seed is ready for intake",
+                Stage::SeedUnchecked,
+                "check the seed with Seed Me",
             ),
         ] {
             let tmp = tempfile::tempdir().unwrap();
