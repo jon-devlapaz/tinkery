@@ -67,7 +67,8 @@ Today, Tinkery can:
   place 3): Seed Me's current question, a draft waiting for you, or a verified ready seed.
   With real drafting and `--shape-budget CALLS`, answer each question with one key (`F2`
   saves it and lets an agent with read-only tools look into the next) and confirm the seed
-  in your own words (`F3`). The budget defaults to zero.
+  in your own words (`F3`). The budget defaults to zero. `F5` shows your whole goal and the
+  decisions so far.
 - Show an existing ledger report in Measure, or say it’s unavailable.
 
 **Approve, Watch and Taste aren’t built yet.** The complete journey and its

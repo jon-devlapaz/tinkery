@@ -21,7 +21,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         mpsc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const PROMPT: &str = include_str!("prompt.txt");
@@ -159,6 +159,8 @@ pub(super) enum Why {
 /// promptly, and a helper call already started finishes.
 pub(super) struct Running {
     cancelled: Arc<AtomicBool>,
+    saved: Arc<AtomicBool>,
+    started: Instant,
     result: mpsc::Receiver<Result<Done, Failure>>,
 }
 
@@ -166,12 +168,28 @@ impl Running {
     /// Start `work` on `session`.
     pub(super) fn start(work: Work, skill: PathBuf, session: PathBuf, agent: Arc<Agent>) -> Self {
         let cancelled = Arc::new(AtomicBool::new(false));
-        let flag = cancelled.clone();
+        let saved = Arc::new(AtomicBool::new(false));
+        let (flag, answered) = (cancelled.clone(), saved.clone());
         let (sender, result) = mpsc::channel();
         std::thread::spawn(move || {
-            let _ = sender.send(run(&work, &skill, &session, &agent, &flag));
+            let _ = sender.send(run(&work, &skill, &session, &agent, &flag, &answered));
         });
-        Self { cancelled, result }
+        Self {
+            cancelled,
+            saved,
+            started: Instant::now(),
+            result,
+        }
+    }
+
+    /// Whether the operator's answer is saved yet; only an answer step ever saves one.
+    pub(super) fn saved(&self) -> bool {
+        self.saved.load(Ordering::Relaxed)
+    }
+
+    /// How long the step has run.
+    pub(super) fn elapsed(&self) -> Duration {
+        self.started.elapsed()
     }
 
     /// The result, once it lands. Never blocks.
@@ -214,6 +232,7 @@ fn run(
     session: &Path,
     agent: &Agent,
     cancelled: &AtomicBool,
+    saved: &AtomicBool,
 ) -> Result<Done, Failure> {
     match work {
         Work::Answer {
@@ -230,6 +249,7 @@ fn run(
             }
             let version =
                 answering::answer(skill, session, *expected, id, words).map_err(refused(false))?;
+            saved.store(true, Ordering::Relaxed);
             look(skill, session, version, folder, agent, cancelled, true)
         }
         Work::Look { expected, folder } => {

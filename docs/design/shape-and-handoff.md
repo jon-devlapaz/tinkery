@@ -235,25 +235,58 @@ drafted, seed ready). Esc returns to that same detail. Menu place 3 lists only g
 for a seed (goal saved or seed drafted); Enter opens the same screen and Esc returns to the
 list. A held `s` or Enter opens nothing.
 
-The screen shows the confirmed goal exactly as the ledger records it, in ink, then one of:
+The screen shows the confirmed goal's first line in ink, then one of:
 
 | Seed Me reports | Shape says |
 | --- | --- |
-| A current question | Its label and question in jade, `What I found:` for the first evidence entry and `Also found:` for each later one (a label per entry, so wrapped lines never fake an indent), and `Suggestion:` in italic. The ledger keeps no options, so none are shown. |
+| A current question | Its label (muted) and its question in jade, `What I found:` for the first evidence entry and `Also found:` for each later one (a label per entry, so wrapped lines never fake an indent), and `Suggestion:` in italic. The ledger keeps no options, so none are shown. |
 | No question, no seed | Seed Me hasn't asked its next question yet |
-| A draft seed | The draft and its revision wait for confirmation |
+| A draft seed | The draft, in place of the goal, under a muted `Seed draft rN` header (see [The screen](#the-screen)) |
 | A confirmed seed that `status` verifies | `Seed ready`, with the confirmed revision |
 | A confirmed seed that `status` can't verify | Seed Me's own reason, such as the seed changing after confirmation |
 | A practice seed, an ended session or an unrecognised state | That, plainly |
 
 An open question comes before a seed, so a reopened decision is never hidden behind an
-older draft. Each state ends with one `Next:` line. Without a model (no `--shape-pi`) it
-points to tend's `c`, in the words Tend's detail uses for the same stage; with one, it names
-Shape's own key (below). When Seed Me's helper refuses a session, Shape shows Seed Me's first
+older draft. Each state says its next step once. Without a model (no `--shape-pi`) a `Next:`
+line points to tend's `c`, in the words Tend's detail uses for the same stage; with one, the key
+bar names Shape's own key (below). When Seed Me's helper refuses a session, Shape shows Seed Me's first
 line of reason, such as a ledger saved in another format. A missing `--seed-me` or another
 failure says so; reasons and paths are under F1. Reads run off the paint path. Opening,
 reading and scrolling write nothing, copy nothing, call no model and leave the continuation
 prompt unchanged. `status` probes a viewer URL that the session records, which is a local read.
+
+### The screen
+
+Built in [#162](https://github.com/jon-devlapaz/tinkery/issues/162), so the one question stands
+out and the rest is one key away. The operator approved the constitution's wording change on
+2026-10-16.
+
+- **Layout.** Under the menu frame (`tinkery › shape`, `?`), content starts at the body's top row,
+  at most 76 columns wide. What to read (the goal's first line or the seed draft, then where the
+  seed stands) comes first; the words box, anything said and any `Next:` follow it directly, so
+  nothing moves while the operator types. When the reading doesn't fit, it scrolls and the words box
+  stays in view with its end (the cursor, or what a running step is doing), never taking more than
+  half the screen from the reading; only then does the key bar offer `↑↓ scroll`. A seed's
+  `Nothing found` flag sits beside the words box so a long seed can't scroll it away. A key bar too wide
+  for the screen closes up to two spaces between keys rather than cut off Esc or F10.
+- **F5 "So far"** is a full page like F1 help, with no key bar: the whole goal exactly as
+  confirmed, then each settled decision after it (`label: answer`) in ledger order. Only answers
+  settled with `user` authority are marked `(you)`; others show Seed Me's authority word, such as
+  `(delegated)`. `F5` or Esc closes it, ↑↓ scrolls it (`↑↓ scroll · F5 close` stays on its last
+  row), and it takes no words. It is offered once a
+  read lands and not while a step runs. F1's "Right now" lists it.
+- **One next step, said once.** When the key bar names the stage's one action (a question or no
+  question yet, with a model, or a seed draft to confirm), there is no `Next:` line. Every other
+  state, and any notice such as a failure, keeps exactly one.
+- **The words box** is titled `your answer` or `your words` on its own line, as in Think, with each
+  typed line as its own row. Under a seed's box one line says confirming the seed is not approval
+  to build.
+- **While a step runs,** the label, the question and the typed words stay, muted, under one line of
+  what the step is doing (`Saving your answer.`, then `Answer saved. Looking in NAME for the next
+  question.`) and a muted count of seconds. The key bar is `esc stop`, and F1 says a step is running.
+- **The seed draft** is shown under a muted `Seed draft rN` header in place of the file's own
+  `status:` and `revision:` lines, with `#` heading marks shown as bold text. Every other line is
+  shown as written. This is display only: `seed-contract.md` is never changed by showing it.
 
 ### Answering and confirming
 
@@ -262,9 +295,9 @@ Built in [#150](https://github.com/jon-devlapaz/tinkery/issues/150). With `--sha
 
 | Stage | Words box | Key | What the key does |
 | --- | --- | --- | --- |
-| A current question | `Your answer:` | `F2 save answer and look into next` | Saves the answer, then one agent step |
+| A current question | `your answer` | `F2 save answer and look into next` | Saves the answer, then one agent step |
 | No question, no seed | none | `F2 look into the next question` | One agent step |
-| A seed draft (shown in place of the goal) | `Your words:` | `F3 confirm seed rN` | Confirms that revision with the typed words |
+| A seed draft (shown in place of the goal) | `your words` | `F3 confirm seed rN` | Confirms that revision with the typed words |
 
 - **One key per question.** `F2` saves the operator's answer exactly as typed (settled with
   `user` authority) and starts the agent step, so a question costs one key. Typing, paste,
@@ -354,6 +387,19 @@ carries the first step's saved finding; and the seed's `What's true today` secti
 saved receipts word for word, directly above the `seed decisions` block that `seed confirm`
 accepts. A case with no findings shows both flags. Rust tests cover the section's grouping,
 one-line collapse, the goal's provenance left out, and the folder refusals.
+
+The calmer screen (#162) is covered by Rust tests and both PTY suites at 100×30 and 80×24,
+with and without colour: only the goal's first line is on screen and F5 shows the whole goal
+byte for byte with the operator's decision marked `(you)`; the question is jade under a muted
+label; no `Next:` line repeats the key bar's one action; the question and the typed answer stay
+in view while a step runs; and the seed draft shows no raw frontmatter while `seed-contract.md`
+stays byte-identical. Reversion probes went red for: the goal altered on F5, the answer hidden
+during a step, a `Next:` line repeating the key bar, and rendering that changed the seed file.
+Dogfooding at 80×24 with a long goal and four findings then showed the answer box pushed below
+the screen, `F10 menu` cut off the key bar and `F5 close` scrolled out of sight. A review
+dogfood added a 20-line answer hiding what a running step was doing. Tests for each went red
+when their fix was reverted. Still open for #163: arrows don't scroll within a long answer, and a
+growing words box pulls itself up the screen.
 
 [#123](https://github.com/jon-devlapaz/tinkery/issues/123) records the calm-view
 research: few nodes and few link types; a force-directed whole-graph view was mostly
