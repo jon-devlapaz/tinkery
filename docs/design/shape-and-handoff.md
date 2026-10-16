@@ -22,7 +22,7 @@ The plain-text exit receipt may include recovery locations.
 ## Tend: garden and detail
 
 Tend displays every discovered active goal in one static graph, without paging or
-node cap. Equal hollow Braille rings mean size unknown; there are no sizes or merges.
+node cap. Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
 Needs lines join only active, uniquely identified endpoints. Missing, ambiguous or
 ended endpoints draw no line; the selected-line summary still names them. Straight
 lines leave gaps around unrelated rings, never implied junctions or routed paths.
@@ -35,46 +35,47 @@ unreadable-links refusal replaces, rather than repeats, the note. If all readabl
 sessions ended, say `No active goals. N ended not shown. Confirm a goal in think to
 start one.`, not that no sessions exist.
 
-Labels use the first saved-goal line, including unstructured goals. Above/below
-rings, they clip with `…` or disappear rather than overlap/interleave. The selected
-label gets space first and always appears, prefixed `› `; label and ring are bold,
-jade with colour. Other labels are muted, rings ink; none is italic.
+Labels use the first saved-goal line, including unstructured goals. They sit above
+or below rings, clipped with `…` or omitted rather than overlapping or interleaving.
+The selected label gets space first and always appears, prefixed `› `; its label
+and ring are bold, jade with colour. Other labels are muted and rings use ink;
+none is italic.
 
 The selected-line footer shows the first goal line in ink, status and relative time
 muted, then needs and readiness, e.g. `needs Local records · ready`.
-Unresolved ids say `1 need not found` / `N needs not found`; no needs adds nothing.
-Short summaries retain status/time. If these crowd the headline, show headline,
-readiness and `F1 needs`; scrollable Help retains full titles. Ambiguous source
+Unresolved ids say `1 need not found` or `N needs not found`; no needs adds nothing.
+Short summaries retain status and time. If these crowd the headline, show the
+headline, readiness and `F1 needs`; scrollable Help retains full titles. Ambiguous source
 identity says `readiness unknown` and attributes no needs. Refusals use the blank
 row before the key bar.
 
 | Input | Action |
 | --- | --- |
-| Right / Down / `j`; Left / Up / `k` | Next/previous in discovery's newest-first order, clamped; not graph neighbours |
-| Enter | Open detail |
-| `+` / `=`; `-` | Zoom in/out |
-| `H J K L` | Pan left/down/up/right |
-| Left press on ring/label | Select exact session path; second press within 500 ms opens it |
-| Drag ring/label; drag empty space; scroll | Move goal; pan; zoom |
+| Right, Down or `j`; Left, Up or `k` | Select next or previous in discovery's newest-first order, clamped; not graph neighbours. |
+| Enter | Open detail. |
+| `+` or `=`; `-` | Zoom in; zoom out. |
+| `H J K L` | Pan left, down, up or right. |
+| Left press on a ring or label | Select its exact session path; a second press within 500 ms opens it. |
+| Drag a ring or label; drag empty space; scroll | Move the goal; pan; zoom. |
 
 The key bar is `↑↓←→ move   enter open   l link   esc back` (fits 80 columns).
 Selection pans offscreen goals into view without resetting zoom. Help, detail,
-history and reading/empty/unavailable states ignore graph input.
+history, reading, empty and unavailable states ignore graph input.
 
 Graf uses deterministic identity-ordered slots adapted to the canvas, initially
 at least 12 columns × 6 rows apart, without a physics thread. Crowded gardens
-require navigation/pan/zoom, not simultaneous labels. Moving, panning and zooming
-write nothing. Refresh preserves positions/viewport for an unchanged graph;
-changed nodes, labels or links rebuild slots and reset manual positions but keep
-zoom/pan. Resize reflows slots with relative zoom/pan retained. Following selection
-may pan again.
+require navigation, panning or zooming, not simultaneous labels. Moving, panning
+and zooming write nothing. Refresh preserves positions and viewport for an unchanged
+graph. Changed nodes, labels or links rebuild slots and reset manual positions but
+keep zoom and pan. Resize reflows slots with relative zoom and pan retained.
+Following selection may pan again.
 
 Detail uses the receipt's shared renderer for the exact stored goal, without
-`Saved.`. ↑↓ / `j k` and PgUp/PgDn scroll; `c` copies on permitted stages, `s`
+`Saved.`. ↑↓, `j k`, PgUp or PgDn scroll; `c` copies on permitted stages, `s`
 opens Shape on those stages, and `r` opens history. Esc goes detail → garden →
-menu; F10 goes to menu; F1 opens help, `h` technical details. Returning from Shape
+menu; F10 goes to the menu. F1 opens help; `h` opens technical details. Returning from Shape
 requests a fresh read and restores this goal's detail; next step and garden stage
-update together. Ended/unreadable sessions disappear from active goals. Returning
+update together. Ended or unreadable sessions disappear from active goals. Returning
 writes nothing and calls no model.
 
 | Stored state | Label | Detail next step |
@@ -90,8 +91,8 @@ claim readiness. Copying and Shape remain available; only Shape's helper-backed
 status read can say ready. Discovery invokes no helper or duplicate verification.
 Unknown and practice stages stay distinct.
 
-[Session discovery](menu.md#session-discovery) owns refresh/completeness. Pending
-empty views say reading/still reading; failed reads say unavailable with F1 then
+[Session discovery](menu.md#session-discovery) owns refresh and completeness.
+Pending empty views say reading or still reading; failed reads say unavailable with F1 then
 `h`. Only complete current empty reads say no sessions. Incomplete reads retain
 valid goals with an unreadable-record count and missing-sessions warning. If none
 are readable, say nothing can be listed, not “no sessions”. Reading, unavailable
@@ -99,14 +100,14 @@ and empty views offer only `esc back`.
 
 ## Think history
 
-Detail's `r history` shows original words, questions, answers, skips/restores and
+Detail's `r history` shows original words, questions, answers, skips, restores and
 the exact confirmed goal in recorded order. A recorded repository adds `Made in`
 and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
 shows the full path, `none` or `not recorded`, plus model information and checks.
-Labels are muted, operator words ink. Display escapes unsafe terminal controls
+Labels are muted; operator words use ink. Display escapes unsafe terminal controls
 without changing stored words.
 
-↑↓ / `j k`, PgUp/PgDn and Home/End scroll width-wrapped history, including Unicode
+↑↓, `j k`, PgUp, PgDn, Home and End scroll width-wrapped history, including Unicode
 beyond 65,535 rows. Help scrolls independently. Esc goes details → help → history
 → same saved goal; F10 goes to menu. A fixed footer keeps return instructions
 visible. Opening, scrolling and help call no model, copy nothing and write nothing.
@@ -114,82 +115,82 @@ visible. Opening, scrolling and help call no model, copy nothing and write nothi
 `--record-root` selects existing records without requiring `--shape-pi`, defaulting
 to the saving folder. One background reader lasts the menu's lifetime. Pending
 requests coalesce; leaving discards results. A stuck read occupies that worker,
-never navigation or a replacement worker. Reopening explicitly requests a read.
+but never blocks navigation or starts another. Reopening explicitly requests a read.
 
-The shared reader requires one schema-2/3 record matching canonical session path,
+The shared reader requires one schema-2 or schema-3 record matching canonical session path,
 Seed Me session ID and exact confirmed goal, then rechecks the selected session.
-Duplicate matches refuse selection. Matching schema-1 records lack exact attribution:
-no migration or text guess. Unreadable/unsupported JSON may hide another match,
-so prevents selection. Each file is limited to 16 MiB; oversized records are
+Duplicate matches refuse selection. Matching schema-1 records lack exact attribution;
+never migrate or guess from text. Unreadable or unsupported JSON may hide another
+match, so it prevents selection. Each file is limited to 16 MiB; oversized records are
 unavailable, never partial. Missing, unreadable and conflicting history explain
 the gap without changing the goal. Session moves and unfinished-session recording
 are outside this feature.
 
 ## Linking needs
 
-Garden `l` starts “this goal needs …”: source retains `›`, movement marks a target
-`→`. Enter or one left press adds/removes the need; picking the source does nothing.
+Garden `l` starts “this goal needs …”. The source retains `›`; movement marks a
+target `→`. Enter or one left press adds or removes the need; picking the source does nothing.
 The key bar becomes `↑↓←→ pick   enter link   esc cancel` (`enter unlink` for an
 existing edge); the bottom line names both goals. Commit preserves the displayed
-add/remove intent despite concurrent changes. Already satisfied intent preserves
-the file and says `Already linked.` / `Already unlinked.` Esc before commit writes
-nothing. Commit/cancel reselects the source; discovery refresh waits until picking
+intent to add or remove despite concurrent changes. Already satisfied intent preserves
+the file and says `Already linked.` or `Already unlinked.` Esc before commit writes
+nothing. Committing or cancelling reselects the source; discovery refresh waits until picking
 ends. Detail, history, help and reading states ignore `l`.
 
-Missing/ambiguous identity or unavailable links changes nothing. Muted refusals:
+Missing or ambiguous identity, or unavailable links, changes nothing. Muted refusals are:
 `This goal can't be linked yet.`,
 `Links couldn't be read, so nothing changed. F1 then h for details.`, or
 `Links couldn't be saved, so nothing changed. F1 then h for details.`
 Technical help retains the exact reason and session path through pending refresh.
-Lock waiting is synchronous, bounded to about two seconds. Timeout uses save
-failure and technical reason `another Tinkery is saving links`. Queued Esc/F10
+Lock waiting is synchronous, bounded to about two seconds. Timeout reports a save
+failure with technical reason `another Tinkery is saving links`. Queued Esc or F10
 cannot cancel an in-flight save that obtains the lock before deadline; navigation
 follows it. Timeout refuses outright; later lock release never retries.
 
 ## Needs store
 
 `--link-root PATH` selects `needs.json` (default `~/.local/share/tinkery/tend`,
-requiring absolute HOME). Tend never writes Seed Me files. Navigation/copying
+requiring absolute HOME). Tend never writes Seed Me files. Navigation and copying
 create no links; landed session reads and starting a pick refresh cached links.
 Painting reads only the cache.
 
-Version 1: `{"version":1,"needs":[{"goal":"id","needs":"id"}]}`. IDs are ledger
-nonempty, control-free `session_id`s, never titles/folders. Missing/invalid IDs
-remain readable but unlinkable. Sorting by goal id then needed id makes equivalent
+Version 1 is `{"version":1,"needs":[{"goal":"id","needs":"id"}]}`. IDs are nonempty,
+control-free ledger `session_id`s, never titles or folders. Missing or invalid IDs
+leave sessions readable but unlinkable. Sorting by goal id then needed id makes equivalent
 sets byte-identical.
 
 Missing files normally mean empty. After this view read nonempty links, disappearance
-refuses reads/saves rather than losing known links. Bad JSON, unsupported versions,
-invalid/duplicate entries and IO errors remain unreadable; edits cannot overwrite
-them. Changes to read-only/unwritable existing files refuse without changing bytes
+refuses reads and saves rather than losing known links. Bad JSON, unsupported
+versions, invalid or duplicate entries and IO errors remain unreadable; edits cannot
+overwrite them. Changes to read-only or unwritable existing files refuse without changing bytes
 or permissions. Matching no-ops need no write access and preserve exact bytes,
 permissions and timestamp.
 
-Edits reject self-links/unreadable stores, acquire exclusive sibling `needs.lock`
-within deadline, then fresh-read, apply intent and atomically replace via a same-folder
-temporary file. The empty lock file remains so cooperating writers lock the same
+Edits reject self-links and unreadable stores, acquire an exclusive sibling
+`needs.lock` within the deadline, reread, apply intent and atomically replace
+through a same-folder temporary file. The empty lock file remains so cooperating writers lock the same
 file. Navigation creates neither file. This preserves concurrent saves, not changes
 from external tools ignoring the lock.
 
 Readiness uses links and all readable sessions, including ended ones. Found needs
-use first goal lines; unresolved/duplicate IDs are counted without guessing.
+use first goal lines; unresolved or duplicate IDs are counted without guessing.
 Duplicate source IDs have no attributable needs or positive readiness. Ready means
 at least one need, all uniquely found and ended. No needs, missing needs and unknown
 stages are not ready.
 
 ## Continuation contract
 
-One receipt/detail formatter names the skill and existing session, requests
-`session.py read` and `status` before mutation, preserves the confirmed goal and
-decisions/context, and stops on inactive sessions. It asks Seed Me to draft
+One formatter serves receipt and detail. It names the skill and existing session,
+requests `session.py read` and `status` before mutation, preserves the confirmed
+goal, decisions and context, and stops on inactive sessions. It asks Seed Me to draft
 `seed-contract.md` there and obtain explicit confirmation of the displayed revision.
 It neither initializes a replacement nor grants implementation permission. The
 operator pastes it manually into an authorized harness; prompts need paths even
 when ordinary UI does not.
 
-Use official Seed Me helpers, not another schema. Capture/check the destination
-before helper access, always pass `init --root`, and retain it for retries/fresh
-dumps: no second implicit HOME default. [Discovery](menu.md#session-discovery)
+Use official Seed Me helpers, not another schema. Capture and check the destination
+before helper access, always pass `init --root`, and retain it for retries and fresh
+dumps. Never use a second implicit HOME default. [Discovery](menu.md#session-discovery)
 owns root selection. Recovery errors stay explicit. Tests use temporary roots;
 the external CI-pinned Seed Me fixture is neither vendored nor edited here.
 
@@ -198,7 +199,7 @@ the external CI-pinned Seed Me fixture is neither vendored nor edited here.
 Think settles intent; Shape investigates facts, then asks one decision at a time
 with evidence and a suggestion, ending in an operator-confirmed seed.
 
-- Seed Me alone owns session/ledger/contract. Reads/writes use its helper (`read`,
+- Seed Me alone owns the session, ledger and contract. Reads and writes use its helper (`read`,
   `publish`, `status`, `seed confirm`); propose Seed Me changes in its repository.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
@@ -211,53 +212,53 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
 
 Tend detail offers `s shape` beside copying on goal-saved, seed-drafted and
 seed-needs-checking stages; Esc returns there. Menu place 3 lists only goal-saved
-or seed-drafted sessions; Enter opens, Esc returns to the list. Held `s`/Enter
+or seed-drafted sessions. Enter opens one; Esc returns to the list. Held `s` or Enter
 opens nothing.
 
 The screen starts with the confirmed goal's first line in ink:
 
 | Seed Me reports | Shape shows |
 | --- | --- |
-| Current question | Muted label, jade question, `What I found:` for first evidence entry, `Also found:` for each subsequent entry, italic `Suggestion:`. Each entry gets a label; ledger has no options, so show none. |
+| Current question | Show a muted label, jade question, `What I found:` for the first evidence entry, `Also found:` for each subsequent entry, and italic `Suggestion:`. Each entry gets a label; the ledger has no options, so show none. |
 | No question or seed | Seed Me hasn't asked its next question yet |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status` | `Seed ready` and revision |
 | Unverifiable confirmation | Seed Me's reason, e.g. changed seed |
-| Practice, ended, unrecognised | That state plainly |
+| Practice, ended, unrecognised | Name that state plainly. |
 
 Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
 Tend's `c` with its stage wording; with a model, the key bar names the action.
 Helper refusals show Seed Me's first reason line; missing `--seed-me` and other
-failures are explicit, with reasons/paths in F1. Reads stay off paint paths.
-Opening, reading and scrolling write/copy nothing, call no model and leave prompts
+failures are explicit, with reasons and paths in F1. Reads stay off paint paths.
+Opening, reading and scrolling write or copy nothing, call no model and leave prompts
 unchanged. `status` probes the session's recorded viewer URL as a local read.
 
 ### The screen
 
 - Under `tinkery › shape` and `?`, content begins at the body top, at most 76 columns
-  wide. Reading (goal headline/draft then stage) precedes words, notices and `Next:`.
-  Overflow scrolls while the words box/cursor or running status stays visible,
-  occupying at most half the body. Cursor following survives long/wrapped
+  wide. The goal headline or draft, then stage, precedes words, notices and `Next:`.
+  Overflow scrolls while the words box and cursor, or running status, stay visible,
+  occupying at most half the body. Cursor following survives long or wrapped
   words and resize. Only overflow offers `pgup/dn read` while editing or `↑↓ scroll`
   otherwise; overflowing questions shorten the save key to `F2 save + look`.
   Seed `Nothing found` stays beside words. Crowded bars reduce gaps to two spaces,
-  never cut Esc/F10.
+  never cut Esc or F10.
 - F5 **So far** is a full help-like page without a key bar: the entire confirmed
   goal unchanged, then settled `label: answer` decisions in ledger order. Only
   `user` authority shows `(you)`; others show their authority, e.g. `(delegated)`.
-  F5/Esc closes, ↑↓ scrolls; fixed last row says `↑↓ scroll · F5 close`.
+  F5 or Esc closes it; ↑↓ scrolls. The fixed last row says `↑↓ scroll · F5 close`.
   It accepts no words, appears after a read, never during a step; F1 lists it.
 - Say the next step once: omit `Next:` when the key bar names the stage action;
   other states and failure notices keep exactly one.
 - Words boxes use ratatui-textarea, titled `your answer`, `your words` or `Folder:`.
-  Arrows, Home/End, Ctrl+Left/Right move; Shift selects; Ctrl+W/Alt+Backspace delete
-  a word; Enter inserts newline; Ctrl+U undoes, Ctrl+R redoes. PgUp/PgDn scroll
-  only reading. Pasted CR/CRLF display as breaks; edits preserve untouched raw
-  endings. Under seed words, say seed confirmation is not approval to build.
+  Arrows, Home, End, Ctrl+Left and Ctrl+Right move the cursor; Shift selects.
+  Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline; Ctrl+U undoes
+  and Ctrl+R redoes. PgUp and PgDn scroll only the reading. Pasted CR and CRLF
+  display as breaks; edits preserve untouched raw endings. Under seed words, say seed confirmation is not approval to build.
 - Running steps keep label, question and typed words muted, with one status
   (`Saving your answer.`, then `Answer saved. Looking in NAME for the next question.`),
   elapsed seconds and `esc stop`. F1 says a step is running.
-- Draft display replaces file `status:`/`revision:` lines with `Seed draft rN` and
+- Draft display replaces file `status:` and `revision:` lines with `Seed draft rN` and
   shows `#` headings bold. All other lines remain as written; display never edits
   `seed-contract.md`.
 
@@ -272,34 +273,34 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 | Draft replacing goal | `your words` | `F3 confirm seed rN`: confirm displayed revision with typed words |
 
 - F2 saves exact answer bytes with `user` authority. Typing, paste, scrolling and
-  help write nothing; held F2/F3 never repeat. Letters, capitals and `?` remain words.
+  help write nothing; held F2 or F3 never repeats. Letters, capitals and `?` remain words.
 - Pi runs one explicitly selected model with read-only `read`, `grep`, `find`, `ls`
-  tools, no commands, in the [shown folder](#grounding-in-the-repository). Input:
-  confirmed goal, attributable Think answers, every `found_so_far` finding and
-  Seed Me's editable ledger. Replies require `found` entries (checks, paths/lines,
-  observations) plus a next question/suggestion or seed `You are confirming` text;
+  tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
+  the confirmed goal, attributable Think answers, every `found_so_far` finding and
+  Seed Me's editable ledger. Replies require `found` entries (checks, paths, lines
+  and observations) plus a next question and suggestion, or seed `You are confirming` text;
   anything else is a model error. `src/shape/prompt.txt` has one rule per line;
   it is not eval-tuned.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
   Exhaustion refuses F2 before saving anything and explains how to allow calls.
-- Tinkery, never the model, calls helpers. Answers/questions use `read --editable`
-  and `publish` with the displayed/start version. Stale versions refuse, retain
+- Tinkery, never the model, calls helpers. Answers and questions use `read --editable`
+  and `publish` with the displayed version or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
 - Tinkery drafts `seed-contract.md`: `status: draft`, goal-headline title,
   `revision: rN` one past the previous draft (never replace a confirmed seed),
   model text under `## You are confirming`, saved findings under
   `## What's true today`, then `session.py seed decisions` output verbatim.
-  The model writes neither latter section. Refuse injected headings, fences,
+  The model writes neither findings nor decisions. Refuse injected headings, fences,
   status, revision or confirmation lines. Never draft with an open decision.
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
   Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
-  CR/LF with `Put your confirming words on one line; nothing was confirmed.`,
-  retaining words and writing/calling nothing. The editor accepts breaks, but
-  confirmation is one `Confirmed by:` line; Seed Me's contract/helper is unchanged.
+  CR or LF with `Put your confirming words on one line; nothing was confirmed.`
+  It retains words and neither writes nor calls. The editor accepts breaks, but
+  confirmation is one `Confirmed by:` line. Seed Me's contract and helper are unchanged.
   Confirming is not approval to build.
-- Failures name what happened and one `Next:`: budget → `--shape-budget`;
-  model error/stop → F2 retry (saved answers stay saved); stale version → fresh
-  stage action; helper refusal → Seed Me's first line. Esc stops a step; an
+- Failures name what happened and one `Next:`. Budget exhaustion points to
+  `--shape-budget`; a model error or stop offers F2 retry (saved answers stay saved);
+  a stale version offers the fresh stage action; a helper refusal shows Seed Me's first line. Esc stops a step; an
   already-started helper finishes, then rereads. Stopped model calls still count,
   disclosed in the notice.
 
@@ -309,20 +310,19 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   else launch repo, else launch folder. Show `The step reads files in NAME. F4 picks
   another folder.` above words; F1 has the path. F4 opens `Folder:` with the current
   path. Enter inserts newline; F4 accepts an existing absolute folder or `~/…`.
-  Try exact bytes first, including breaks/trailing whitespace, then surrounding-
-  whitespace-trimmed path only if absent. Esc/missing folder keeps the previous
-  choice. Selection lasts only this Shape visit, writes nowhere; step receipts name it.
+  Try exact bytes first, including breaks and trailing whitespace; only if absent,
+  try trimming surrounding whitespace. Esc keeps the previous choice; missing folders are refused. Selection lasts only this Shape visit, writes nowhere; step receipts name it.
 - Each `found` becomes a Seed Me receipt: `checked`, `at`, `observed`,
   `check: read-only file tools in FOLDER`. Question findings attach to its decision
   and display `What I found: PATH:LINE: what was seen`. Seed findings include blast
-  radius (files/modules/tests and breakage) and become settled evidence-authority
-  observation facts, included in `seed decisions`. Use existing ledger/contract.
+  radius (files, modules, tests and breakage) and become settled evidence-authority
+  observation facts, included in `seed decisions`. Use the existing ledger and contract.
 - `found_so_far` excludes only confirmed-goal provenance; recheck relied-on findings.
 - `## What's true today` groups verbatim findings by check method as
   `- PATH:LINE: what was seen (observed DATE)`, collapsing internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
-- No-findings questions/seeds display `Nothing found: this question records nothing
+- Questions or seeds with no findings display `Nothing found: this question records nothing
   checked in the repository.` (seed wording for seeds), flagged rather than refused.
 
 Think's typed `confirm`, Shape's F3 with operator words and future approval remain
@@ -330,13 +330,10 @@ separate screens and decisions.
 
 ## Rationale and verification
 
-[Tests](../../tests) and inline Rust regressions own mechanics coverage: exact
-words/goals, no implicit calls/writes, budget-before-save, stale-version refusal,
-source-owned confirmation/decisions, read-only grounding, safe rendering, editor
-provenance, graph identity, concurrent links, readiness, refresh and exit routes.
-PTYs use stubs and temporary TEST roots, preserve Seed Me fixture bytes and cover
+[Tests](../../tests) cover these contracts with stubs and temporary TEST roots.
+PTYs preserve Seed Me fixture bytes and cover
 80×24, 100×30, 160×40 and 320×40 where applicable, including NO_COLOR. These establish
-mechanics, not operator acceptance or real goal/question/seed quality. Lock timeout
+mechanics, not operator acceptance or the quality of real goals, questions or seeds. Lock timeout
 coverage does not establish pre-deadline cancellation; matching read-only no-op
 preservation has no dedicated reversion probe. Static graphs are a design choice,
 not a comparative user-study result.
