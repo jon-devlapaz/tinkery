@@ -2,8 +2,8 @@
 
 ## The big idea
 
-A calm substrate where a messy thought becomes useful, checked agent work without
-losing your words or control. Nothing runs without you: one next step, with a way out.
+Tinkery is a calm substrate where a messy thought becomes useful, checked agent work,
+without losing your words or your control. Nothing runs without you: one next step, with a way out.
 
 ## The journey
 
@@ -44,8 +44,9 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Press `r` in detail for [Think history](docs/design/shape-and-handoff.md#think-history)
   when its saved record verifies.
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
-  waiting draft or verified ready seed. Real drafting requires `--shape-budget CALLS`
-  (default zero). `F2` saves an answer and lets an agent investigate the next with
+  waiting draft or verified ready seed. With real drafting set up
+  ([terminal setup](docs/terminal-setup.md#launch)), `--shape-budget CALLS` (default zero)
+  allows agent steps. `F2` saves an answer and lets an agent investigate the next with
   read-only tools; `F3` confirms the seed in your words. `F5` shows the whole goal and decisions.
 - **Measure:** reads an existing ledger report or says unavailable.
 
