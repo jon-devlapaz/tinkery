@@ -19,8 +19,8 @@ permissions remain below; these safeguards do not approve any proposal.
 - Release tasks: [R4–R10 and I2](../../design/first-release-issues.md).
 - Think exclusions: [#117](https://github.com/jon-devlapaz/tinkery/issues/117).
 - Implicit session-root refusal: [#118](https://github.com/jon-devlapaz/tinkery/issues/118).
-- Measure failure presentation: [#119](https://github.com/jon-devlapaz/tinkery/issues/119); responsive reads: [#120](https://github.com/jon-devlapaz/tinkery/issues/120). Both need approval; neither authorizes a backend migration.
-- Existing Shape proposal: [#106](https://github.com/jon-devlapaz/tinkery/issues/106); no duplicate was created.
+- Measure failure presentation: [#119](https://github.com/jon-devlapaz/tinkery/issues/119); responsive reads: [#120](https://github.com/jon-devlapaz/tinkery/issues/120). Neither authorizes a backend migration.
+- Existing Shape proposal: [#106](https://github.com/jon-devlapaz/tinkery/issues/106), closed as not planned.
 - Historical dogfood findings stay in [findings](../../../findings/README.md),
   with their completed issue links. Closed issue bodies and metadata are unchanged.
 - I1 run identity and R6 expected-input approval enforcement remain conditional

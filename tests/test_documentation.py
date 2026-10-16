@@ -132,12 +132,13 @@ class DocumentationTests(unittest.TestCase):
         for area in ("think", "menu", "measure"):
             self.assertFalse((REPO / f"docs/research/{area}/backlog.md").exists())
         shared = prose("docs/research/shared/backlog.md")
-        self.assertIn("Both need approval; neither authorizes a backend migration.", shared)
+        self.assertIn("Neither authorizes a backend migration.", shared)
+        self.assertIn("https://github.com/jon-devlapaz/tinkery/issues/118", shared)
         architecture = list(relative_links("docs/design/architecture.md"))
         self.assertIn(("../research/shared/backlog.md#think",
                        "docs/research/shared/backlog.md", "think"), architecture)
         source = prose("docs/design/architecture.md")
-        for issue in (118, 119, 120):
+        for issue in (119, 120):
             self.assertIn(f"https://github.com/jon-devlapaz/tinkery/issues/{issue}", source)
 
     def test_think_history_has_one_home_and_compatible_anchors(self):

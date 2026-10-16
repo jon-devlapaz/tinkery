@@ -21,7 +21,7 @@ ideas; the area entry points below contain navigation only.
 
 | Area | Code | Work entry point |
 | --- | --- | --- |
-| menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [#118](https://github.com/jon-devlapaz/tinkery/issues/118), still needs approval |
+| menu (also lists approve, watch and taste, which aren't built) | `src/menu.rs` | [parked backlog](../research/shared/backlog.md) |
 | think | `src/think/` | [think](../research/shared/backlog.md#think) |
 | tend | `src/tend/` | [#123](https://github.com/jon-devlapaz/tinkery/issues/123) |
 | shape | `src/shape.rs`, `src/shape/` | [#149](https://github.com/jon-devlapaz/tinkery/issues/149) and [#150](https://github.com/jon-devlapaz/tinkery/issues/150) built |

@@ -22,7 +22,7 @@ Tinkery’s intended journey is:
 | --- | --- |
 | **Think** | Work out what you actually want. It offers a reading and asks one question at a time. |
 | **Tend** | Choose a saved goal in a quiet garden and open its detail. |
-| **Shape** | Turn a confirmed goal into a seed by running Seed Me’s interview inside Tinkery. Today it shows where a seed stands; answering comes next. |
+| **Shape** | Turn a confirmed goal into a seed by running Seed Me’s interview inside Tinkery. |
 | **Approve** | Understand exactly what decision is needed and what you’re authorizing. |
 | **Watch** | See what’s happening, what’s blocked and what needs your attention. |
 | **Taste** | Compare the result with your original goal. You decide whether it’s useful or needs correction. |
@@ -101,9 +101,9 @@ than permanently requiring a separate Substrate aggregation service. That
 migration is planned, not finished. Today’s Measure still uses its ledger report.
 
 The [first-release plan](docs/design/first-release.md) and
-[task index](docs/design/first-release-issues.md) explain the path. The twelve
-published tasks organize that direction; publication does not approve their
-implementation. Speculative ideas stay in the [parked backlog](docs/research/shared/backlog.md).
+[task index](docs/design/first-release-issues.md) explain the path. The published
+tasks organize that direction; publication does not approve their implementation.
+Speculative ideas stay in the [parked backlog](docs/research/shared/backlog.md).
 
 ## What success means
 
