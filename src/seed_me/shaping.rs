@@ -27,7 +27,7 @@ pub enum Shaped {
         title: String,
         /// The question, or the decision to make when no question is recorded.
         ask: String,
-        /// The node's evidence, one entry per line.
+        /// The node's evidence, one entry per line: what was checked, then what was observed.
         found: Vec<String>,
         /// Seed Me's suggestion, when one is recorded.
         suggestion: Option<String>,
@@ -142,7 +142,11 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             .flatten()
             .filter_map(|entry| match entry {
                 Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
-                Value::Object(_) => text(entry, "observed"),
+                Value::Object(_) => match (text(entry, "checked"), text(entry, "observed")) {
+                    (Some(checked), Some(observed)) => Some(format!("{checked}: {observed}")),
+                    (None, observed) => observed,
+                    (Some(_), None) => None,
+                },
                 _ => None,
             })
             .collect();

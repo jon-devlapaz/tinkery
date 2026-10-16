@@ -1,9 +1,10 @@
-"""Shape answering journeys (#150): a stub Pi, real Seed Me helper sessions in TEST roots, no model calls.
+"""Shape answering journeys (#150, #159): a stub Pi, real Seed Me helper sessions in TEST roots, no model calls.
 
-The full journey confirms a goal in Think, opens Shape from tend, looks into the first question,
-answers it and confirms the drafted seed. Short cases cover the zero budget, a stale version, a
-model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, and a
-practice session's confirmation."""
+The full journey confirms a goal in Think, opens Shape from tend, sees which folder the step reads and
+picks another, looks into the first question, answers it, sees the second step build on the saved
+finding, and confirms the drafted seed with its "What's true today" section. Short cases cover the zero budget, a stale version, a
+model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
+practice session's confirmation, and steps that found nothing."""
 import fcntl, importlib.util, json, os, select, signal, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
@@ -19,11 +20,13 @@ F1, F2, F3, F10 = b'\x1bOP', b'\x1bOQ', b'\x1bOR', b'\x1b[21~'
 # Think's requests get a reading with one question; Shape's steps pop the next scripted reply.
 HOST = r'''#!/usr/bin/env python3
 import json, pathlib, sys
+import os
 r = json.load(sys.stdin)
+home = pathlib.Path(os.environ['TINKERY_TEST_DIR'])
 if 'ledger' in r:
-    with pathlib.Path('shape-calls.jsonl').open('a') as f:
-        f.write(json.dumps({'argv': sys.argv[1:], 'input': r}) + '\n')
-    replies = pathlib.Path('shape-replies.json')
+    with (home / 'shape-calls.jsonl').open('a') as f:
+        f.write(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'input': r}) + '\n')
+    replies = home / 'shape-replies.json'
     queue = json.loads(replies.read_text())
     reply = queue.pop(0)
     replies.write_text(json.dumps(queue))
@@ -34,7 +37,7 @@ if 'ledger' in r:
         time.sleep(60)
     print(reply if isinstance(reply, str) else json.dumps(reply))
     sys.exit(0)
-with pathlib.Path('think-calls.jsonl').open('a') as f:
+with (home / 'think-calls.jsonl').open('a') as f:
     f.write(json.dumps(r) + '\n')
 if r.get('kind') == 'decision-review':
     reply = [dict(part=d['part'], text=d['text'], answers=d['answers'], question=d['question'], covers=[i])
@@ -56,6 +59,7 @@ QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
             'suggestion': 'Local, matching the README.'}
 # The model also offers decisions of its own; Tinkery must ignore them and insert `seed decisions`.
 SEED = {'next': 'seed', 'confirming': 'Refusals stay calm and records stay local.',
+        'found': [{'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
         'Done when: Shape shows the next question.\nMust: Keep my words.\nMust not: Run agents.')
@@ -103,7 +107,8 @@ class Run:
                 '--link-root', str(cwd / 'TEST-links'), '--pi-command', str(host)]
         if budget is not None:
             args += ['--shape-budget', str(budget)]
-        env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}
+        env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node',
+               'TINKERY_TEST_DIR': str(cwd)}
         self.process = subprocess.Popen(args, stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                         cwd=cwd, env=env)
 
@@ -178,16 +183,29 @@ def full_journey(width, height):
             assert goal == record['goal']
             run.send(F10, '3  shape')
             before = files(run.sessions)
+            target = cwd / 'TEST-target'
+            target.mkdir()
             run.open_shape()
             run.wait("Seed Me hasn't asked its next question yet.")
             run.wait('F2 look into the next question')
+            # Before the first step, Shape says which folder it reads; F4 picks another.
+            run.wait(f'The step reads files in {cwd.name}. F4 picks another folder.')
+            # A long temporary path can wrap mid-word, so paths are compared without whitespace.
+            squashed = lambda: ''.join(run.screen.text().split())
+            # Help may run past a short screen; the Rust tests check it names the full path.
+            run.send(F1, 'The next step reads files in:')
+            run.send(b'\x1b', 'F2 look into the next question')
+            run.send(b'\x1bOS', 'Next: Enter uses this folder')
+            assert f'Folder:{cwd}' in squashed(), run.screen.text()
+            os.write(run.master, b'/TEST-target')
+            run.send(b'\r', 'The step reads files in TEST-target.')
             # Opening, scrolling and help write nothing and call no model.
             run.send(b'\x1b[B', 'F2 look into the next question')
             run.send(F1, 'Model calls left this run: 2 of 2.')
             run.send(b'\x1b', 'F2 look into the next question')
             assert files(run.sessions) == before and run.calls() == [], 'Shape wrote or called before F2'
             run.send(F2, 'Where records live: Keep records local or synced?')
-            run.wait('What I found: says local only')
+            run.wait('What I found: README.md:3: says local only')
             run.wait('F2 save answer and look into next')
             calls = run.calls()
             assert len(calls) == 1, calls
@@ -195,6 +213,8 @@ def full_journey(width, height):
             assert argv[argv.index('--tools') + 1] == 'read,grep,find,ls' and '--no-tools' not in argv, argv
             assert calls[0]['input']['answered_in_think'] == [
                 {'question': 'May refusals show private text?', 'answer': 'never'}], calls[0]['input']
+            assert calls[0]['cwd'] == str(target), calls[0]['cwd']
+            assert calls[0]['input']['found_so_far'] == [], calls[0]['input']
             # Typing writes nothing; capitals and ? are words, not commands.
             before = files(run.sessions)
             run.type('Local? Yes, Keep it local.')
@@ -210,6 +230,21 @@ def full_journey(width, height):
             assert seed.endswith(helper.decisions_block(ledger)), seed
             assert 'MODEL-INVENTED' not in seed, seed
             assert len(run.calls()) == 2
+            # The second step built on the saved finding, in the folder the operator picked.
+            second = run.calls()[1]
+            assert second['cwd'] == str(target), second['cwd']
+            assert second['input']['found_so_far'] == [
+                {'checked': 'README.md:3', 'observed': 'says local only'}], second['input']
+            # The seed's grounding is the saved findings, word for word, before the decisions.
+            date = ledger['nodes'][1]['evidence'][0]['at'][:10]
+            today = ("## What's true today\n"
+                     f"Checked by read-only file tools in {target}:\n"
+                     f"- README.md:3: says local only (observed {date})\n"
+                     f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
+            assert today + helper.decisions_block(ledger) in seed, seed
+            fact = next(n for n in ledger['nodes'] if n['kind'] == 'fact')
+            assert (fact['status'], fact['authority'], fact['answer']) == (
+                'settled', 'evidence', 'the refusal path; the change touches it'), fact
             run.type('Yes, I confirm r1.')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
@@ -220,8 +255,9 @@ def full_journey(width, height):
             assert helper.load(session)['goal'] == goal, 'The confirmed goal changed'
             assert len(run.calls()) == 2, 'Confirmation called a model'
             run.send(b'\x1b', 's shape')
-            print(f'Shape answering full journey passed at {width}x{height}: think answer in prompt, '
-                  f'2 stub calls, seed confirmed and handoff verified')
+            print(f'Shape answering full journey passed at {width}x{height}: folder shown and picked, '
+                  f'think answer and saved findings in the input, 2 stub calls, grounded seed confirmed '
+                  f'and handoff verified')
         finally:
             run.close()
 
@@ -246,6 +282,8 @@ def case(name, width=100, height=30):
             replies = [{'next': 'seed', 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
         if name == 'practice confirmation':
             question, operator = False, 'simulated'
+        if name == 'nothing found':
+            replies = [{**QUESTION, 'found': []}, {'next': 'seed', 'confirming': 'Fine.'}]
         session = make(sessions, question=question, operator=operator)
         if name == 'practice confirmation':
             (session / 'seed-contract.md').write_text(
@@ -280,6 +318,15 @@ def case(name, width=100, height=30):
                 run.wait("still counts against this run's budget.")
                 assert helper.load(session)['nodes'][1]['answer'] == 'Local.'
                 assert not (session / 'seed-contract.md').exists()
+            elif name == 'nothing found':
+                run.wait('Keep records local or synced?')
+                run.type('Local.')
+                run.send(F2, 'Nothing found: this question records nothing checked in the repository.')
+                run.type('Yes.')
+                run.send(F2, 'Nothing found: this seed records nothing checked in the repository.')
+                ledger = helper.load(session)
+                assert helper.decisions_block(ledger) in (session / 'seed-contract.md').read_text()
+                assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             elif name == 'practice confirmation':
                 run.wait('Seed draft r1 is waiting for you to confirm it.')
                 run.type('I confirm r1.')
@@ -324,6 +371,6 @@ def case(name, width=100, height=30):
 for size in [(100, 30), (80, 24)]:
     full_journey(*size)
 for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
-             'model writes decisions', 'practice confirmation']:
+             'model writes decisions', 'practice confirmation', 'nothing found']:
     case(name)
 case('zero budget', 80, 24)

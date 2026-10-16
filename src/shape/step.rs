@@ -1,9 +1,10 @@
 //! Shape's agent step: one operator key, then (when it says so) one model call through Pi with
 //! read-only tools, and the helper calls that record the result.
 //!
-//! The model only investigates and drafts words: the next question, or what the seed confirms.
-//! Tinkery saves the operator's answer, adds the question, inserts `seed decisions` into the seed
-//! and confirms a seed itself, each through Seed Me's helper. The model is never asked to confirm
+//! The model only investigates and drafts words: what it found, with the next question or what the
+//! seed confirms. It reads only the folder the operator was shown. Tinkery saves the operator's
+//! answer, the question and the findings, builds the seed's `What's true today` and decisions from
+//! the ledger, and confirms a seed itself, each through Seed Me's helper. The model is never asked to confirm
 //! anything, and nothing it replies can confirm a seed. Each step counts against the call budget
 //! before Pi starts; with none left it refuses before writing anything.
 
@@ -86,19 +87,38 @@ impl Agent {
     pub fn limit(&self) -> usize {
         self.budget.limit()
     }
+
+    /// The folder a step for `session` reads unless the operator picks another: where Think
+    /// recorded `goal` was made, else the folder this agent was given, else where Tinkery started.
+    /// Reads Think's records; blocks, so run it off the paint path.
+    pub(super) fn folder(&self, session: &Path, goal: &str) -> PathBuf {
+        let made_in = self
+            .records
+            .as_deref()
+            .and_then(|root| think_record::read(root, session, goal).ok())
+            .and_then(|read| match read.made_in {
+                MadeIn::Repo(path) => Some(path),
+                _ => None,
+            });
+        made_in
+            .or_else(|| self.call.folder.clone())
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| PathBuf::from("."))
+    }
 }
 
 /// What one key asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Work {
-    /// Save the operator's answer to question `id`, then look into the next question.
+    /// Save the operator's answer to question `id`, then look into the next question in `folder`.
     Answer {
         id: String,
         words: String,
         expected: u64,
+        folder: PathBuf,
     },
-    /// Look into the next question (or the seed) from version `expected`.
-    Look { expected: u64 },
+    /// Look into the next question (or the seed) from version `expected`, reading `folder`.
+    Look { expected: u64, folder: PathBuf },
     /// Confirm seed `revision` with the operator's own words.
     Confirm { revision: String, words: String },
 }
@@ -200,6 +220,7 @@ fn run(
             id,
             words,
             expected,
+            folder,
         } => {
             if agent.remaining() == 0 {
                 return Err(Failure {
@@ -209,9 +230,11 @@ fn run(
             }
             let version =
                 answering::answer(skill, session, *expected, id, words).map_err(refused(false))?;
-            look(skill, session, version, agent, cancelled, true)
+            look(skill, session, version, folder, agent, cancelled, true)
         }
-        Work::Look { expected } => look(skill, session, *expected, agent, cancelled, false),
+        Work::Look { expected, folder } => {
+            look(skill, session, *expected, folder, agent, cancelled, false)
+        }
         Work::Confirm { revision, words } => {
             answering::confirm_seed(skill, session, revision, words).map_err(refused(false))?;
             Ok(Done::Confirmed)
@@ -223,6 +246,7 @@ fn look(
     skill: &Path,
     session: &Path,
     expected: u64,
+    folder: &Path,
     agent: &Agent,
     cancelled: &AtomicBool,
     answer_saved: bool,
@@ -236,14 +260,15 @@ fn look(
         return Err(fail(Why::Stale));
     }
     let goal = ledger.goal().unwrap_or("").to_owned();
-    let (settled, folder) = think(agent.records.as_deref(), session, &goal);
+    let settled = think(agent.records.as_deref(), session, &goal);
     let input = json!({
         "goal": goal,
         "answered_in_think": settled,
+        "found_so_far": ledger.findings(),
         "ledger": serde_json::from_str::<Value>(&ledger.context()).unwrap_or(Value::Null),
     });
     let call = Call {
-        folder: folder.or_else(|| agent.call.folder.clone()),
+        folder: Some(folder.to_path_buf()),
         ..agent.call.clone()
     };
     let reply = call
@@ -263,11 +288,14 @@ fn look(
         })?;
     match decode(&reply).map_err(|e| fail(Why::Model(e)))? {
         Next::Question(ask) => {
-            answering::ask(skill, session, expected, &ask).map_err(refused(answer_saved))?;
+            answering::ask(skill, session, expected, &ask, folder)
+                .map_err(refused(answer_saved))?;
             Ok(Done::Asked)
         }
-        Next::Seed(confirming) => {
-            answering::draft_seed(skill, session, expected, &confirming)
+        Next::Seed { confirming, found } => {
+            let grounded = answering::ground(skill, session, expected, &found, folder)
+                .map_err(refused(answer_saved))?;
+            answering::draft_seed(skill, session, grounded, &confirming)
                 .map_err(refused(answer_saved))?;
             Ok(Done::Drafted)
         }
@@ -279,14 +307,13 @@ pub(super) fn prompt() -> String {
     pi::assemble(PROMPT)
 }
 
-/// The questions Think's record says the operator answered for this exact session and goal, and
-/// where the goal was made. Nothing when no record can be attributed.
-fn think(records: Option<&Path>, session: &Path, goal: &str) -> (Vec<Value>, Option<PathBuf>) {
+/// The questions Think's record says the operator answered for this exact session and goal.
+/// Nothing when no record can be attributed.
+fn think(records: Option<&Path>, session: &Path, goal: &str) -> Vec<Value> {
     let Some(read) = records.and_then(|root| think_record::read(root, session, goal).ok()) else {
-        return (Vec::new(), None);
+        return Vec::new();
     };
-    let settled = read
-        .turns
+    read.turns
         .iter()
         .filter_map(|turn| match &turn.event {
             Event::Answered {
@@ -297,12 +324,7 @@ fn think(records: Option<&Path>, session: &Path, goal: &str) -> (Vec<Value>, Opt
             } => Some(json!({"question": question, "answer": answer})),
             _ => None,
         })
-        .collect();
-    let folder = match read.made_in {
-        MadeIn::Repo(path) => Some(path),
-        _ => None,
-    };
-    (settled, folder)
+        .collect()
 }
 
 /// What the model proposed.
@@ -310,8 +332,11 @@ fn think(records: Option<&Path>, session: &Path, goal: &str) -> (Vec<Value>, Opt
 pub(super) enum Next {
     /// The next question.
     Question(Ask),
-    /// The seed's "You are confirming" text.
-    Seed(String),
+    /// The seed's "You are confirming" text, and what the step found.
+    Seed {
+        confirming: String,
+        found: Vec<Found>,
+    },
 }
 
 /// The model's reply as one JSON object (surrounding prose or a code fence is tolerated).
@@ -328,20 +353,20 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
             .filter(|s| !s.is_empty())
             .map(str::to_owned)
     };
+    let found = value["found"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|f| {
+            Some(Found {
+                checked: f["checked"].as_str()?.trim().to_owned(),
+                observed: f["observed"].as_str()?.trim().to_owned(),
+            })
+        })
+        .collect();
     match value["next"].as_str() {
         Some("question") => {
             let question = text("question").ok_or_else(unusable)?;
-            let found = value["found"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|f| {
-                    Some(Found {
-                        checked: f["checked"].as_str()?.trim().to_owned(),
-                        observed: f["observed"].as_str()?.trim().to_owned(),
-                    })
-                })
-                .collect();
             Ok(Next::Question(Ask {
                 id: text("id").unwrap_or_else(|| "question".into()),
                 label: text("label").unwrap_or_else(|| question.clone()),
@@ -351,7 +376,10 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                 suggestion: text("suggestion"),
             }))
         }
-        Some("seed") => Ok(Next::Seed(text("confirming").ok_or_else(unusable)?)),
+        Some("seed") => Ok(Next::Seed {
+            confirming: text("confirming").ok_or_else(unusable)?,
+            found,
+        }),
         _ => Err(unusable()),
     }
 }

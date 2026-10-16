@@ -360,7 +360,20 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     assert_eq!(ask.suggestion, None);
     assert_eq!(
         decode("{\"next\":\"seed\",\"confirming\":\" Build it. \"}").unwrap(),
-        Next::Seed("Build it.".into())
+        Next::Seed {
+            confirming: "Build it.".into(),
+            found: vec![],
+        }
+    );
+    let Next::Seed { found, .. } = decode(
+        "{\"next\":\"seed\",\"confirming\":\"Build it.\",\"found\":[{\"checked\":\"src/lib.rs:9\",\"observed\":\"the palette\"}]}",
+    )
+    .unwrap() else {
+        panic!("not a seed")
+    };
+    assert_eq!(
+        (found[0].checked.as_str(), found[0].observed.as_str()),
+        ("src/lib.rs:9", "the palette")
     );
     for reply in [
         "{\"next\":\"confirm\",\"revision\":\"r1\"}",
@@ -386,4 +399,132 @@ fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
         step::FIELDS.iter().map(|f| f.to_string()).collect();
     assert_eq!(named, decoded);
     assert!(!prompt.contains("# "), "notes reached the prompt");
+}
+
+/// `shape` with its next step's folder already found.
+fn reading(mut shape: Shape, folder: &Path) -> Shape {
+    shape.open.as_mut().unwrap().folder = Folder::Known(folder.to_path_buf());
+    shape
+}
+
+#[test]
+fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
+    let dir = tempfile::tempdir().unwrap();
+    let (first, other) = (dir.path().join("TEST-first"), dir.path().join("TEST-other"));
+    std::fs::create_dir_all(&first).unwrap();
+    std::fs::create_dir_all(&other).unwrap();
+    for stage in [question(), Shaped::Waiting] {
+        let mut shape = reading(done(stage).with_agent(Some(agent(1))), &first);
+        let text = screen(&mut shape, 80, 24, true);
+        assert!(
+            text.contains("The step reads files in TEST-first. F4 picks another folder."),
+            "{text}"
+        );
+        assert!(shape.help_text().contains(&format!(
+            "The next step reads files in: {}",
+            first.display()
+        )));
+        shape.key(key(KeyCode::F(4)), None);
+        assert!(shape.takes_text());
+        let text = screen(&mut shape, 80, 24, true);
+        // A long folder path wraps, so compare without the wrapping whitespace.
+        let squashed: String = text.split_whitespace().collect();
+        assert!(
+            squashed.contains(&format!("Folder:{}▏", first.display())),
+            "{text}"
+        );
+        assert!(
+            text.contains("Next: Enter uses this folder; Esc keeps TEST-first."),
+            "{text}"
+        );
+        assert_eq!(text.matches("Next:").count(), 1, "{text}");
+        assert_eq!(
+            text.lines().last().unwrap().trim(),
+            "enter use this folder   esc cancel"
+        );
+        // Esc keeps the folder shown; the typed answer is untouched.
+        shape.key(key(KeyCode::Char('x')), None);
+        shape.key(key(KeyCode::Esc), None);
+        assert!(shape.open.is_some(), "Esc while choosing left Shape");
+        assert!(screen(&mut shape, 80, 24, true).contains("reads files in TEST-first."));
+        assert!(shape.open.as_ref().unwrap().typed.is_empty());
+        // A folder that isn't there is refused and the shown one stays.
+        shape.key(key(KeyCode::F(4)), None);
+        shape.paste("-missing");
+        shape.key(key(KeyCode::Enter), None);
+        let text = screen(&mut shape, 100, 30, true);
+        let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(
+            flat.contains("so the step still reads TEST-first."),
+            "{text}"
+        );
+        assert!(text.contains("reads files in TEST-first."), "{text}");
+        // An existing folder is used for the next step.
+        shape.key(key(KeyCode::F(4)), None);
+        for _ in 0..first.display().to_string().chars().count() + 20 {
+            shape.key(key(KeyCode::Backspace), None);
+        }
+        shape.paste(&other.display().to_string());
+        shape.key(key(KeyCode::Enter), None);
+        let text = screen(&mut shape, 100, 30, true);
+        assert!(
+            text.contains("The step reads files in TEST-other."),
+            "{text}"
+        );
+        assert!(matches!(
+            &shape.open.as_ref().unwrap().folder,
+            Folder::Known(f) if *f == other.canonicalize().unwrap()
+        ));
+    }
+}
+
+#[test]
+fn no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_is_known() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut read_only = reading(done(question()), dir.path());
+    assert!(!screen(&mut read_only, 100, 30, true).contains("F4"));
+    read_only.key(key(KeyCode::F(4)), None);
+    assert!(read_only.open.as_ref().unwrap().choosing.is_none());
+    let seed = Shaped::Drafted {
+        revision: Some("r1".into()),
+        text: Some("status: draft\n".into()),
+    };
+    let mut drafted = reading(done(seed).with_agent(Some(agent(1))), dir.path());
+    assert!(!screen(&mut drafted, 100, 30, true).contains("F4"));
+    let mut finding = done(Shaped::Waiting).with_agent(Some(agent(1)));
+    assert!(screen(&mut finding, 100, 30, true).contains("Finding which folder the step reads."));
+    finding.key(key(KeyCode::F(2)), None);
+    assert!(finding.open.as_ref().unwrap().running.is_none());
+    assert!(screen(&mut finding, 100, 30, true).contains("still finding which folder"));
+}
+
+#[test]
+fn a_question_or_seed_with_nothing_found_is_flagged() {
+    let mut shape = done(question());
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(
+        text.contains("Nothing found: this question records nothing checked in the repository."),
+        "{text}"
+    );
+    let mut grounded = done(Shaped::Question {
+        id: "storage".into(),
+        title: "Where records live".into(),
+        ask: "Keep records local or synced?".into(),
+        found: vec!["README.md:3 says local only".into()],
+        suggestion: None,
+    });
+    assert!(!screen(&mut grounded, 100, 30, true).contains("Nothing found"));
+    let seed = format!(
+        "status: draft\n# Seed: TEST\nrevision: r1\n\n## You are confirming\nTEST.\n\n## What's true today\n{}\n",
+        crate::seed_me::answering::NOTHING_FOUND
+    );
+    let mut drafted = done(Shaped::Drafted {
+        revision: Some("r1".into()),
+        text: Some(seed),
+    });
+    let text = screen(&mut drafted, 80, 24, true);
+    assert!(
+        text.contains("Nothing found: this seed records nothing checked in the repository."),
+        "{text}"
+    );
 }
