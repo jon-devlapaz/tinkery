@@ -160,13 +160,47 @@ fn add(found: &mut Vec<Receipt>, receipt: Receipt) {
 /// The receipt for one finding from a step that read `folder`.
 fn receipt(found: &Found, at: &str, folder: &Path) -> Value {
     json!({
-        "checked": found.checked, "at": at, "observed": found.observed, "check": checked_in(folder),
+        "checked": found.checked, "at": at, "observed": found.observed,
+        "check": checked_in(found, folder),
     })
 }
 
-/// How a step that read `folder` checked what it found.
-fn checked_in(folder: &Path) -> String {
-    format!("read-only file tools in {}", folder.display())
+/// How a step that read `folder` checked `found`, flagging a cited `path:line` that isn't there.
+fn checked_in(found: &Found, folder: &Path) -> String {
+    let how = format!("read-only file tools in {}", folder.display());
+    match unfound(&found.checked, folder) {
+        Some(why) => format!("{how}{UNFOUND}{why}"),
+        None => how,
+    }
+}
+
+/// Separates how a finding was checked from why its citation wasn't found in the folder.
+pub const UNFOUND: &str = "; citation not found: ";
+
+/// Why a `path:line` or `path:first-last` cited in `checked` isn't in `folder`: the file is missing
+/// or outside it, or has fewer lines. Only checks that the lines exist, not what they say; text
+/// without such a citation is not judged.
+fn unfound(checked: &str, folder: &Path) -> Option<String> {
+    static CITE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?:^|[\s,(\[`])([\w./-]*\w\.\w+):(\d+)(?:-(\d+))?")
+            .expect("the citation pattern compiles")
+    });
+    let root = folder.canonicalize().ok()?;
+    CITE.captures_iter(checked).find_map(|cite| {
+        let path = &cite[1];
+        let last = cite.get(3).unwrap_or(cite.get(2)?).as_str();
+        let (first, last): (u64, u64) = (cite[2].parse().ok()?, last.parse().ok()?);
+        let Ok(file) = root.join(path).canonicalize() else {
+            return Some(format!("{path} isn't in the folder"));
+        };
+        if !file.starts_with(&root) {
+            return Some(format!("{path} is outside the folder"));
+        }
+        let bytes = std::fs::read(&file).ok()?;
+        let lines = bytes.split(|b| *b == b'\n').count() as u64 - u64::from(bytes.ends_with(b"\n"));
+        (first == 0 || first.max(last) > lines)
+            .then(|| format!("{path} has {lines} lines, not {}", first.max(last)))
+    })
 }
 
 /// Whether `text` looks like a secret, by the same patterns Seed Me refuses in a receipt.
@@ -433,7 +467,7 @@ pub fn draft_seed(
                 checked: f.checked.clone(),
                 observed: f.observed.clone(),
                 at: at.clone(),
-                check: checked_in(folder),
+                check: checked_in(f, folder),
             },
         );
     }
@@ -604,6 +638,37 @@ mod tests {
             today(&[]),
             format!("## What's true today\n{NOTHING_FOUND}\n")
         );
+    }
+
+    #[test]
+    fn a_cited_line_that_is_not_in_the_folder_is_flagged() {
+        let folder = tempfile::tempdir().unwrap();
+        std::fs::create_dir(folder.path().join("src")).unwrap();
+        std::fs::write(folder.path().join("src/lib.rs"), "one\ntwo\nthree\n").unwrap();
+        let outside = folder.path().parent().unwrap().join("tinkery-TEST-outside.rs");
+        std::fs::write(&outside, "one\n").unwrap();
+        let why = |checked: &str| unfound(checked, folder.path());
+        assert_eq!(why("src/lib.rs:3"), None);
+        assert_eq!(why("read src/lib.rs:2-3 and grep"), None);
+        assert_eq!(why("the README, by eye"), None, "not a citation, so not judged");
+        assert_eq!(why("src/lib.rs:2-4").as_deref(), Some("src/lib.rs has 3 lines, not 4"));
+        assert_eq!(why("src/lib.rs:9").as_deref(), Some("src/lib.rs has 3 lines, not 9"));
+        assert_eq!(why("src/gone.rs:1").as_deref(), Some("src/gone.rs isn't in the folder"));
+        assert_eq!(
+            why("../tinkery-TEST-outside.rs:1").as_deref(),
+            Some("../tinkery-TEST-outside.rs is outside the folder")
+        );
+        let found = |checked: &str| Found {
+            checked: checked.into(),
+            observed: "seen".into(),
+        };
+        let how = format!("read-only file tools in {}", folder.path().display());
+        assert_eq!(checked_in(&found("src/lib.rs:1"), folder.path()), how);
+        assert_eq!(
+            checked_in(&found("src/lib.rs:9"), folder.path()),
+            format!("{how}{UNFOUND}src/lib.rs has 3 lines, not 9")
+        );
+        std::fs::remove_file(outside).unwrap();
     }
 
     #[test]
