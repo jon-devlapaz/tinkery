@@ -162,7 +162,7 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
     let stages = [
         Stage::GoalSaved,
         Stage::SeedDrafted,
-        Stage::SeedReady,
+        Stage::SeedUnchecked,
         Stage::Unknown,
         Stage::Simulated,
     ];
@@ -1065,7 +1065,7 @@ fn a_late_receipt_target_does_not_resurrect_an_exited_visit() {
 fn counts_are_exact_only_after_complete_current_reads() {
     let sessions = vec![
         sess("a", Stage::GoalSaved, "2026-10-09T10:00:00Z"),
-        sess("b", Stage::SeedReady, "2026-10-08T10:00:00Z"),
+        sess("b", Stage::SeedUnchecked, "2026-10-08T10:00:00Z"),
         sess("c", Stage::Ended, "2026-10-07T10:00:00Z"),
     ];
     let tmp = tempfile::Builder::new()

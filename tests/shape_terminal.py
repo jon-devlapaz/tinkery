@@ -141,8 +141,17 @@ def journey(width, height, case, no_color=False):
                 wait(lambda: 'Drafted goal' not in screen.text() and 'goal saved' in screen.text())
                 send(b'\x1b', '3  shape')
             else:
+                before_tend = files(sessions)
                 send(b'2', 'enter open')
+                if case in ('ready', 'stale'):
+                    assert 'seed needs checking' in flat(), screen.text()
+                    assert 'seed ready' not in flat().lower(), screen.text()
                 send(b'\r', DETAIL_KEYS)
+                if case in ('ready', 'stale'):
+                    assert 'Next: check the seed with Seed Me.' in flat(), screen.text()
+                    assert 'ready for intake' not in flat(), screen.text()
+                    assert files(sessions) == before_tend, 'Tend changed confirmation evidence'
+                    assert not (cwd / 'provider-was-run').exists()
                 if case == 'ended':
                     helper.end(next(sessions.iterdir()), 'stopped', 'TEST fixture', no_viewer='TEST fixture')
                 if case == 'unreadable':

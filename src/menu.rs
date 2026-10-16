@@ -1433,7 +1433,7 @@ mod tests {
         assert_eq!(
             got,
             vec![
-                ("goal new", "seed ready"),
+                ("goal new", "seed needs checking"),
                 ("goal draft", "seed drafted"),
                 ("goal old", "goal saved")
             ]
@@ -1545,7 +1545,7 @@ mod tests {
             vec![
                 Stage::GoalSaved,
                 Stage::SeedDrafted,
-                Stage::SeedReady,
+                Stage::SeedUnchecked,
                 Stage::Ended
             ]
         );
@@ -1565,7 +1565,7 @@ mod tests {
             for (id, label) in [
                 ("saved", "goal saved"),
                 ("drafted", "seed drafted"),
-                ("ready", "seed ready"),
+                ("ready", "seed needs checking"),
             ] {
                 let selected = snapshot(w, height, &mut h, false).unwrap();
                 let line = selected.lines().nth(height as usize - 3).unwrap();
@@ -1685,7 +1685,7 @@ mod tests {
                 "ready",
                 "active",
                 Some("status: confirmed for intake"),
-                Some("Next: the seed is ready for intake."),
+                Some("Next: check the seed with Seed Me."),
             ),
             ("stopped", "stopped", None, None),
             (

@@ -9,15 +9,15 @@ use std::{
 
 use serde_json::Value;
 
-/// How far a session has come, from Seed Me's own files.
+/// The stage declared by Seed Me's files, not verification of a seed's confirmation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     /// Active, with a confirmed goal and no seed contract yet.
     GoalSaved,
     /// Active, with a seed contract still in draft.
     SeedDrafted,
-    /// Active, with a seed contract confirmed for intake.
-    SeedReady,
+    /// Active, with a seed declaring confirmation; only the helper can verify it.
+    SeedUnchecked,
     /// Completed or stopped; nothing to continue.
     Ended,
     /// The files say something this module doesn't recognise. Never guessed.
@@ -33,7 +33,7 @@ impl Stage {
             ("completed" | "stopped", _) => Self::Ended,
             ("active", None) => Self::GoalSaved,
             ("active", Some("status: draft")) => Self::SeedDrafted,
-            ("active", Some("status: confirmed for intake")) => Self::SeedReady,
+            ("active", Some("status: confirmed for intake")) => Self::SeedUnchecked,
             ("active", Some("status: simulated")) => Self::Simulated,
             _ => Self::Unknown,
         }
@@ -43,7 +43,7 @@ impl Stage {
         match self {
             Self::GoalSaved => "goal saved",
             Self::SeedDrafted => "seed drafted",
-            Self::SeedReady => "seed ready",
+            Self::SeedUnchecked => "seed needs checking",
             Self::Ended => "ended",
             Self::Unknown => "status unknown",
             Self::Simulated => "practice seed",
@@ -51,14 +51,17 @@ impl Stage {
     }
     /// Whether the continuation prompt applies: only a live session with a real goal.
     pub fn can_copy(self) -> bool {
-        matches!(self, Self::GoalSaved | Self::SeedDrafted | Self::SeedReady)
+        matches!(
+            self,
+            Self::GoalSaved | Self::SeedDrafted | Self::SeedUnchecked
+        )
     }
     /// What Seed Me does next at this stage; none when there is nothing to continue.
     pub fn next(self) -> Option<&'static str> {
         match self {
             Self::GoalSaved => Some("Next: shape it into a seed with Seed Me."),
             Self::SeedDrafted => Some("Next: confirm the seed draft with Seed Me."),
-            Self::SeedReady => Some("Next: the seed is ready for intake."),
+            Self::SeedUnchecked => Some("Next: check the seed with Seed Me."),
             _ => None,
         }
     }
@@ -73,7 +76,7 @@ pub struct Session {
     pub path: PathBuf,
     /// The confirmed goal as recorded, or a plain placeholder when none is.
     pub goal: String,
-    /// How far it has come.
+    /// Its declared stage; seed confirmation has not been verified by this file read.
     pub stage: Stage,
     /// The ledger's last update time as Seed Me wrote it; empty when absent.
     pub updated: String,
@@ -174,6 +177,38 @@ pub fn session_id(path: &Path, goal: &str) -> Result<String, String> {
 #[cfg(test)]
 mod identity_tests {
     use super::*;
+
+    #[test]
+    fn file_only_seed_status_never_claims_verified_readiness() {
+        let root = tempfile::tempdir().unwrap();
+        let ledger = root.path().join("ledger.json");
+        fs::write(
+            &ledger,
+            r#"{"schema_version":1,"session_id":"TEST-id","status":"active","goal":"TEST goal"}"#,
+        )
+        .unwrap();
+        let seed = root.path().join("seed-contract.md");
+        fs::write(&seed, "status: confirmed for intake\n# TEST changed seed\n").unwrap();
+        for confirmation in [None, Some("not JSON"), Some(r#"{"revision":"r1"}"#)] {
+            if let Some(text) = confirmation {
+                fs::write(root.path().join("seed-confirmation.json"), text).unwrap();
+            }
+            let before = fs::read(&seed).unwrap();
+            let Record::Session(session) = read(root.path()) else {
+                panic!("the declared stage must remain readable");
+            };
+            assert_eq!(session.stage.label(), "seed needs checking");
+            assert_eq!(
+                session.stage.next(),
+                Some("Next: check the seed with Seed Me.")
+            );
+            assert!(
+                session.stage.can_copy(),
+                "manual continuation stays available"
+            );
+            assert_eq!(fs::read(&seed).unwrap(), before);
+        }
+    }
 
     #[test]
     fn identity_comes_from_the_same_saved_goal_and_never_from_the_folder_name() {
