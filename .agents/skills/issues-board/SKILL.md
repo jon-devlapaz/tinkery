@@ -5,21 +5,21 @@ description: Use when filing, picking, starting, finishing or reporting on Tinke
 
 # Tinkery issues board
 
-Board: https://github.com/users/jon-devlapaz/projects/1 (owner `jon-devlapaz`, number `1`).
-It holds the open issues of tinkery, tink-sdlc, seed-me, tink-route, tink, tink-substrate and tink-skills.
+Board: https://github.com/users/jon-devlapaz/projects/1 (`jon-devlapaz`, `1`), holding
+open issues from tinkery, tink-sdlc, seed-me, tink-route, tink, tink-substrate and tink-skills.
 
 Fields:
-- **Lane**: Now, Needs your call, Next, Blocked, Later, Close?
-- **Release**: M1–M6 match tinkery's milestones of the same name. M7 Shape is R11 (#149, #150).
-  *Supports the trial* is work in another repo that #116's real-work trial runs through.
-  *Off the release line* is everything else.
-- **Status** (built in): Todo, In Progress, Done
+- **Lane:** Now, Needs your call, Next, Blocked, Later, Close?
+- **Release:** M1–M6 match tinkery milestones; M7 Shape is R11 (#149, #150).
+  *Supports the trial* means another repo's work used by #116's trial;
+  *Off the release line* means everything else.
+- **Status:** Todo, In Progress, Done.
 
 ## Access
 
-Needs `gh` logged in with the `project` scope (`gh auth status` lists it). Cloud sessions can't reach
-Projects (GraphQL and user-level REST are blocked there): run these commands on the operator's Mac,
-for example through a Remote Control session, and never try workarounds.
+Requires `gh` with `project` scope (`gh auth status`). Cloud sessions cannot reach
+Projects (GraphQL and user-level REST are blocked): use the operator's Mac, e.g. Remote Control,
+never workarounds.
 
 ```bash
 gh project item-list 1 --owner jon-devlapaz --format json --limit 200            # the default limit (30) misses items
@@ -31,76 +31,61 @@ gh project item-add 1 --owner jon-devlapaz --url https://github.com/jon-devlapaz
 gh api repos/jon-devlapaz/REPO/issues/N/dependencies/blocked_by --jq '.[] | "\(.number) \(.state)"'
 ```
 
-In item-list JSON, fields are lowercase keys (`.lane`, `.release`, `.status`), `.labels` can be null
-(use `(.labels // [])`), and issue state isn't included.
+JSON keys are `.lane`, `.release`, `.status`; use `(.labels // [])` for nullable labels.
+Issue state is absent.
 
 ## Automations already on
 
-- Closing an issue sets its Status to Done. Don't set Done yourself.
-- **Auto-close issue** is on: setting Done on an open issue may close it. Never set Done on an open issue.
-- Auto-added sub-issues arrive with no Lane or Release; fill both in.
+Closing sets Done; never set Done yourself, especially on open issues: auto-close is on.
+Auto-added sub-issues lack Lane and Release; fill both.
 
 ## Reading the board
 
-When asked what's going on, answer in this order and skip Done items:
-1. Needs your call, and Close? (the operator acts on both)
-2. Now
-3. Next
-4. Blocked, each with what it waits on
-5. Later, as a count
-
-What an item waits on comes from its native blocked-by links *and* the gates named in its body
-("Context and dependencies", "Open decisions and permissions"). Name any gate still open, such as an
-unaccepted design.
+Skip Done. Report in order: Needs your call and Close? (operator decisions), Now,
+Next, Blocked with its blockers, then Later as a count. Check native blocked-by links
+**and** body gates (Context and dependencies; Open decisions and permissions), including
+unaccepted designs.
 
 ## Approval
 
-The board shows decisions; it doesn't make them. A card's lane is never approval to build.
-- In tinkery, the `approved` label records the operator's decision ([work intake](../../../AGENTS.md#work-intake)). Quote it when you start.
-- The other repos have no such label. There, approval is the operator's explicit word for that issue,
-  in the issue or the thread. Quote it when you start.
+Lanes never authorize building. In tinkery, follow [work intake](../../../AGENTS.md#work-intake);
+elsewhere there is no `approved` label: require the operator's explicit permission
+in the issue or thread. Quote the decision when starting.
 
 ## Changing the board
 
-Change board fields only. Editing, labelling or closing an issue needs the operator's word.
-- **Start** approved work: Lane Now, Status In Progress. One issue per thread or branch. Skip a card
-  that is already In Progress: another agent owns it.
-- **Finish**: the merged PR closes the issue, and the automation sets Done. The lane stays as it was.
-- **Unblock**: when every native blocker is closed, move the card from Blocked to Next. If gates in its
-  body are still open, say so when you report it.
-- **Propose, don't act**: only the operator moves an unapproved card into Now or acts on Close?.
-- **New issue**: add it, then set Lane and Release.
-  - Lane: Blocked if it has an open native blocker. Otherwise Now if it is approved and started, Needs
-    your call if it waits on approval, and Later if it doesn't belong to the release.
-  - Release: the tinkery milestone if it has one, else the definitions above.
+Change fields only; editing, labelling or closing issues requires operator permission.
 
-**Picking within Next**: prefer the item that unblocks the most others, then the earlier milestone. If
-it's still a tie, ask.
+- **Start approved work:** set Lane to Now and Status to In Progress.
+  Keep one issue per thread or branch. Skip existing In Progress cards: another agent owns them.
+- **Finish:** merged PR closes the issue; automation sets Done, leaving Lane unchanged.
+- **Unblock:** move Blocked → Next only when all native blockers close; report remaining body gates.
+- **Propose:** only the operator moves unapproved cards to Now or acts on Close?.
+- **New issue:** add to board; set Release from its tinkery milestone or definitions above.
+  Lane is Blocked with an open native blocker, otherwise Now if approved and started,
+  Needs your call if awaiting approval, Later if outside the release.
+
+Within Next, prefer the item that unblocks the most others, then the earlier milestone.
+Ask if they are still tied.
 
 ## Filing issues
 
-Every issue serves Tinkery. Before drafting, name the place it improves (think, tend, shape, approve,
-watch, taste, measure) or the release work it unblocks. If you can't, it doesn't get an issue.
-
-1. Search all seven repos for an open duplicate:
-   `gh search issues --owner jon-devlapaz --state open "<key words>"`. Extend an existing issue
-   rather than filing a second one.
-2. File it where the code changes. An idea not yet ready to be a task goes in the
-   [parked backlog](../../../docs/research/shared/backlog.md) instead.
-3. Draft it with the Bounded task form's headings
-   ([task.yml](../../../.github/ISSUE_TEMPLATE/task.yml)) in every repo. Outside tinkery, open the
-   body with `Serves Tinkery: <place or release work>`.
-4. Show the draft to the operator. Publish only on their word
-   ([work intake](../../../AGENTS.md#work-intake)); publication is not approval.
-5. After publishing: in tinkery, `needs-approval` plus one `area:` label, one kind and the milestone.
-   Then add the native blocked-by links, and add the issue to the board with a Lane and a Release.
+1. Name the Tinkery place or release work served; otherwise don't file. Search all seven
+   repos for open duplicates: `gh search issues --owner jon-devlapaz --state open "<key words>"`.
+   Extend an existing issue rather than duplicate it.
+2. File where code changes; keep unready ideas in the [parked backlog](../../../docs/research/shared/backlog.md).
+   Review proposals before publication; replace published local specs with issue links,
+   preserving design contracts and historical findings.
+3. Use [Bounded task headings](../../../.github/ISSUE_TEMPLATE/task.yml) in every repo;
+   outside tinkery start with `Serves Tinkery: <place or release work>`.
+4. Show the draft; publish only on the operator's word. Publication is not approval.
+5. Tinkery triage: `needs-approval`, exactly one `area:` and one kind (`bug`, `enhancement`,
+   `documentation`, `research`), release milestone where relevant, native blocking links.
+   Form dropdowns don't apply labels; priority is separate. Add board Lane and Release.
 
 ## Parallel work
 
-Run items in parallel only when all of these hold:
-- each is approved
-- none blocks another
-- they don't share a writer area. In tinkery, that means the same `area:` label. One integrator owns
-  the shared menu, CLI and architecture checks. In other repos, it means the same file or module.
-
-Give each its own thread and branch, and mark each In Progress so other agents skip it.
+Only approved, mutually non-blocking items with separate writer areas may run in
+parallel. In tinkery, separate `area:` labels; one integrator owns shared menu, CLI
+and architecture checks. Elsewhere, no shared file or module. Give each a thread,
+branch and In Progress status so others skip it.

@@ -1,107 +1,85 @@
 # Working on Tinkery
 
-**Read [docs/yohaku.md](docs/yohaku.md) first.** It is Tinkery's constitution and
-wins in conflicts with this file, design docs or briefs. Only the operator amends
-it; report factual discrepancies rather than editing it.
-
-This is the working guide, subordinate to the constitution. Read
-[README.md](README.md) for what works today.
+**Read [docs/yohaku.md](docs/yohaku.md) first:** the constitution wins over guides,
+designs and briefs. Only the operator amends it; report discrepancies, never edit it.
+[README.md](README.md) describes shipped behavior.
 
 ## Guardrails
 
-- Yohaku: show only what is needed now. Say each thing once, in plain words.
-- Structure: does this make the code simpler to change? State which design diagnostics in
-  [architecture](docs/design/architecture.md) it moves. Interface comments say what a module
-  or `pub` item promises and refuses, not how it works; the build refuses a `pub` item without one.
-- The operator's words are authoritative. Preserve originals verbatim; a reading
-  is a guess. The displayed, confirmed goal stays unchanged through saving and handoff.
-- Nothing runs by itself: navigation and copying never launch agents. Explicit goal
-  confirmation is not seed confirmation or implementation permission.
-- Work from a GitHub issue on a branch and open a PR. Merge it yourself once its issue is
-  approved (or the operator asked for the change) and CI is green with no conflicts. If the
-  operator asks for drafts only, create and merge nothing until they say so.
-- No model/provider calls without an explicit budget. Default budget is zero.
-  Examples named `live_*` and eval commands are not part of the zero-call suite.
-- Never record real audio. Voice tests use fake engines/recorders, not native addons.
-- Tests use temporary TEST roots. Never write to `~/.local/share/seed-me` or
+- Subtract first; say each thing once, plainly.
+- Check changeability: name the [architecture diagnostics](docs/design/architecture.md#design-score)
+  moved. Module and `pub` comments state promises and refusals, not implementation;
+  the build requires them.
+- Preserve operator originals verbatim; readings are guesses.
+  Keep the displayed, confirmed goal unchanged through saving and handoff.
+- Navigation and copying never launch agents. Goal confirmation is neither seed
+  confirmation nor implementation permission.
+- Work from an issue on a branch and open a PR. Merge it yourself once the issue is approved
+  (or the operator asked for the change), CI is green and there are no conflicts.
+  If the operator asks for drafts only, create and merge nothing until they say so.
+- Model and provider calls require an explicit budget. The default is zero.
+  `live_*` examples and eval commands are outside zero-call verification.
+- Never record real audio; voice tests use fake engines and recorders, never native addons.
+- Use temporary TEST roots. Never write to `~/.local/share/seed-me` or
   `~/.local/share/tinkery`, or change operator sessions, installs, launcher, Pi,
-  Pi Voice, or the operator's Seed Me checkout.
-- Read relevant tests before changing behavior. Add regression tests and verify
-  important protections go red when reverted. Restore the protection afterward.
-- Read the relevant design below before implementation; update it when decisions
-  change. Backlog proposals are not shipped behavior or build permission.
-- When refining agent-facing docs, use `writing-for-agents` if available: subtract
-  first, keep one authoritative home per rule, and link task-specific detail.
+  Pi Voice or the operator's Seed Me checkout.
+- Read relevant tests and design before implementation; update changed decisions.
+  Add regressions, prove important protections fail when reverted, then restore them.
+  Backlog proposals confer neither shipped behavior nor build permission.
+- For agent-facing docs, use `writing-for-agents`: one rule per authoritative home,
+  task detail behind pointers.
   Preserve safeguards and runnable commands; brevity is not permission to weaken them.
-  `tests/test_documentation.py` fails when a link, heading, repository path or
-  documented option no longer exists, or a page can't be reached from `AGENTS.md`.
-- Leave the repository at rest ("git equanimity"): on `main`, matching `origin/main`
-  after a fetch, clean, with no stashes, extra worktrees or leftover branches.
-  While a PR is open, say so instead of cleaning it up. Delete only merged
-  branches (`git branch -d`); never force-delete, drop stashes or remove worktrees
-  to look clean.
+  `tests/test_documentation.py` checks links, headings, paths, options and reachability.
+- At rest, keep a clean `main` matching `origin/main` after a fetch, with no stashes,
+  extra worktrees or leftover branches. Report open PRs instead of cleaning them up. Delete only
+  merged branches (`git branch -d`); never force-delete branches, drop stashes or
+  remove worktrees for cleanliness.
 
 ## Layout and design entry points
 
-Read the design for the task, not every page. [Architecture](docs/design/architecture.md#modules-today)
-maps individual modules to their responsibilities.
+Read only the task's design; [architecture](docs/design/architecture.md#modules-today)
+maps modules to responsibilities.
 
-| Work | Code | Read first |
-| --- | --- | --- |
-| CLI, terminal loop, snapshots | `src/main.rs` | [principles](docs/design/principles.md) |
-| Module boundaries, design limits | `tests/architecture.rs` | [architecture](docs/design/architecture.md) |
-| Menu, session discovery, measure | `src/menu.rs`, `src/tend/discovery.rs`, `src/measure.rs` | [menu](docs/design/menu.md) |
-| Think: conversation, prompts, views, drafting, records, cards | `src/think/` | [think](docs/design/think.md) |
-| Think evaluation runner | `examples/think_eval.rs` | [think evaluation](docs/design/think-evaluation.md) |
-| Goal composition, validation, shared rendering | `src/goal/`, `src/think/brain_dump/board.rs` | [goal block](docs/design/goal-block.md) |
-| Review, saving, tend, shape, continuation | `src/think/brain_dump/goal_view.rs`, `src/tend/`, `src/shape.rs`, `src/seed_me/` | [tend and handoff](docs/design/shape-and-handoff.md) |
-| Local voice and setup | `src/voice/`, `voice/setup.mjs`, `voice/helper.mjs` | [voice](docs/design/voice.md) |
-| Rendering, graph and input primitives | `vendor/pinstar/`, `vendor/graf/`, `src/lib.rs` | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md), [Graf API](vendor/graf/API.md) |
-| Tests | inline Rust tests, `tests/`, `voice/*.test.mjs` | relevant tests; `tests/vt_screen.py` is a helper |
+| Work | Read first |
+| --- | --- |
+| CLI, rendering, graph, input | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md), [Graf API](vendor/graf/API.md) |
+| Module boundaries | [architecture](docs/design/architecture.md) |
+| Menu, discovery, Measure | [menu](docs/design/menu.md) |
+| Think | [think](docs/design/think.md) |
+| Think evaluations | [think evaluation](docs/design/think-evaluation.md) |
+| Goal composition, validation and rendering | [goal block](docs/design/goal-block.md) |
+| Saving, Tend, Shape, continuation | [tend and handoff](docs/design/shape-and-handoff.md) |
+| Voice/setup | [voice](docs/design/voice.md) |
 
 ## Cold setup
 
-From the clone's root, on a fresh Debian/Ubuntu Linux box with Bash and Git:
+Fresh Debian or Ubuntu clone with Bash and Git:
 
 ```bash
 ./scripts/cloud-setup.sh
 ```
 
-The script installs missing build/Python prerequisites, stable Rust with rustfmt
-and Clippy, and Node if missing. It checks out the **same Seed Me commit as CI**
-into ignored `.ci-seed-me/` and prints shell exports. It refuses dirty or unrelated
-fixture checkouts rather than resetting them; rerunning is safe. A local Git exclude
-ignores generated Python bytecode without changing tracked Seed Me files.
-It fetches only packages and Git repositories: no providers, microphones, native
-voice engines or speech models. Missing apt packages need root or sudo.
+The script installs missing prerequisites, stable Rust with rustfmt and Clippy, and Node.
+It checks out CI's Seed Me ref in `.ci-seed-me` and prints exports.
+It refuses dirty or unrelated fixture checkouts rather than resetting them; rerunning is safe.
+Git-local excludes keep bytecode untracked without fixture edits. It downloads only
+packages and Git repositories, not providers, microphones, native voice engines or speech models.
+Apt may need root or sudo.
 
-CI uses **stable Rust** on Ubuntu and macOS. Local Clippy must use the same updated
-stable toolchain, not an older default. The setup script updates stable in the
-fresh cloud box. On another development machine, arrange that toolchain explicitly
-before checking; do not alter an operator installation without approval.
-
-On macOS, provision Rust (stable, rustfmt, Clippy), Python 3 and Node separately;
-the Linux bootstrap deliberately refuses to install there. Clone Seed Me into
-`.ci-seed-me`, check out the fixture `ref` in `.github/workflows/ci.yml`, then use
-the exports below. No access to another developer's files is needed.
+CI uses stable Rust on Ubuntu and macOS; use that updated stable for Clippy.
+Never alter operator toolchains without approval. On macOS, provision Rust, Python 3
+and Node separately (bootstrap refuses macOS), then clone Seed Me into `.ci-seed-me`
+at `.github/workflows/ci.yml`'s ref. No other developer's files are needed.
 
 ## Full zero-call verification
 
-CI runs documentation contracts instead of runtime checks only for modified files
-on [the classifier's prose allowlist](scripts/ci-scope.py): the constitution, design and
-research pages. Fenced, indented or recognized inline command examples in either revision
-(`mermaid` and `text` fences excepted), mixed paths, unknown paths, setup, instruction, and
-CI changes retain full checks. Pull requests run the cold clone only when setup may change,
-and a newer push cancels the pull request's unfinished run. Routing failures block the
-always-running `CI ready` gate, which checks the exact expected job results.
-[Regression tests](tests/test_ci_scope.py) cover routing and failure handling.
-The full verification block below remains authoritative for code changes.
+Run this exact block from the repository root after setup; cold-clone CI runs it
+when setup may change. [CI routing](scripts/ci-scope.py) and its
+[regressions](tests/test_ci_scope.py) define prose-only exceptions and fail-closed gates;
+code changes require the full block.
 
-Run this exact block from the repository root after setup. Cold-clone CI executes
-this block in a fresh Ubuntu container whenever setup may change; keep it runnable, not illustrative.
-Node is needed **only** for `voice/*.test.mjs`. Voice PTYs run with no Node; the
-invalid `TINKERY_NODE` below is deliberate and must remain set for the journeys.
-Python runs the real binary in a PTY with stub providers and temporary session roots.
+Node is only for `voice/*.test.mjs`. Keep the invalid `TINKERY_NODE` for voice PTYs;
+Python journeys use the real binary, stub providers and temporary roots.
 
 <!-- full-check:start -->
 ```bash
@@ -126,30 +104,22 @@ cargo +stable clippy --workspace --all-targets --locked -- -D warnings
 ```
 <!-- full-check:end -->
 
-For interactive practice, see [README](README.md#try-it); the installed launcher
-is not needed. `--snapshot` prints a 100×30 view without terminal mode or provider
-calls. `NO_COLOR=1` or `--no-color` preserves non-color cues. Real drafting requires
-explicit `--shape-pi`, `--model` and `--seed-me` plus operator-authorized budget;
-[terminal setup](docs/terminal-setup.md#launch) has an isolated trial example.
+[Try it](README.md#try-it) without the installed launcher. `--snapshot` prints
+100×30 without terminal mode or provider calls; `NO_COLOR=1` or `--no-color` retain non-color
+cues. [Terminal setup](docs/terminal-setup.md#launch) has isolated real-drafting instructions.
 
 ## Work intake
 
-Concrete tasks live in GitHub Issues; unpublished ideas have one home in the
+[Issues-board](.agents/skills/issues-board/SKILL.md) owns filing, triage, board operations
+and parallel-work rules. Concrete tasks live in issues; unpublished proposals in the
 [parked backlog](docs/research/shared/backlog.md), grouped by
-[area](docs/design/architecture.md#phases-and-the-dependency-rule). Review proposals
-with the operator before publication; replace published local specifications with
-issue links while retaining design contracts and historical findings.
+[area](docs/design/architecture.md#phases-and-the-dependency-rule).
 
-Use the Bounded task issue form. Triage applies exactly one `area:` label and one
-kind (`bug`, `enhancement`, `documentation`, `research`), a release milestone where
-relevant and native blocking links. Its dropdowns do not apply labels automatically;
-priority is a separate triage decision. Unapproved work stays `needs-approval`.
-`approved` summarizes an explicit scoped operator decision, never creates permission;
-material scope changes return to `needs-approval`. Publication, design acceptance,
-implementation, data use and provider budget remain separate.
+Unapproved work stays `needs-approval`. `approved` records scoped operator permission,
+never grants it; material scope changes return to `needs-approval`. Publication, design
+acceptance, implementation, data use and budget are separate decisions.
 
-Each approved slice gets one branch and PR, inherits the guardrails above and stays
-bounded by its issue. Closing requires completion evidence or an explicit reason
-such as superseded/not planned. Link the issue and report observed Rust/Node/Python
-test counts, PTY journeys/sizes, failures and reversion probes separately from
-operator dogfood. Stub tests establish mechanics, not goal quality on real dumps.
+Use one branch and PR per approved slice; link the issue and stay within its scope. Close with
+completion evidence or an explicit reason. Report Rust, Node and Python counts, PTY
+journeys and sizes, failures and reversion probes separately from operator dogfood:
+stubs prove mechanics, not real-dump goal quality.
