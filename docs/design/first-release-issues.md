@@ -99,7 +99,4 @@ open decisions and completion evidence.
 ## R11 — Turn a confirmed goal into a seed in Shape
 
 Added by the operator on 2026-10-15 · M7. Done: [#149](https://github.com/jon-devlapaz/tinkery/issues/149)
-(read-only Shape) by [PR #152](https://github.com/jon-devlapaz/tinkery/pull/152) and
-[#150](https://github.com/jon-devlapaz/tinkery/issues/150) (answering and seed confirmation)
-by [PR #157](https://github.com/jon-devlapaz/tinkery/pull/157), with the
-[Shape design](shape-and-handoff.md#shape). A live trial needs its own provider budget.
+and [#150](https://github.com/jon-devlapaz/tinkery/issues/150), with the [Shape design](shape-and-handoff.md#shape).
