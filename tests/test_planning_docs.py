@@ -5,18 +5,18 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = {
-    "## Starting point": "45dbefa6ba2710a3ae5e4ab5eb07cf9219402bffbd79c601e5b71a0751e85c19",
-    "## Finish line": "eea5bd71b2be43a26b1502d7e18b9a3ef5c8bad19a13589137c4b1b074885d70",
-    "## Milestones and dependencies": "5ec0b234038b981f1e93f70ff2f6fc5c3e16f18077213dd72cb66af76029c29b",
-    "## How to measure the benefit": "cf87d09453c50f53449199b105b97e95b511ac3c5bd697b52d09ceb7ddb5bc1f"
+    "## Starting point": "615e9097e5b1b6760d1981683a377151943242e1a110295a5c6d7e6e96649d1c",
+    "## Finish line": "de6423ca3f9415290ffb59f3139fb0663407885bbdd814b38630eab07d07a040",
+    "## Milestones and dependencies": "65181baf4aec0af7f08a9f35067750e15b059aaff7fc1fa97ada6f7398152ec2",
+    "## How to measure the benefit": "be2dd6a3e8aa7f9730efaeec4cb270680a4dd3ec417c209232fd77468e94fe5c"
 }
 PROPOSALS = {
-    "### Context menu and send aliases (C4–C6, C9)": "c6e1492e229317cef4081de5dcdea416a58eb0dea80aaedb59f5a0c3481b4fd5",
-    "### Evidence on demand (C13)": "3d69bd3b847475c34e28291d15bf66b3a353dbee256838b8b0341ce79103aeb6",
-    "### Multiple-choice answers": "1e47e1d7372b78b06f3651bb479b6ffcf8d56321cabe2bf50c4d6827128c3552",
-    "### Scratch-space spike — design only": "2b4f5bc10f2c02e613988a61c546a73cb741e36b0ea6846cba70d0c5cf2af584",
-    "### A calm dark theme": "b283b75afcf28b3209d4dd442526bd65b4392361f4c74ef08e378d75988dff99",
-    "### Absorb substrate: keep runs and learn from them": "1996982b57faf5a9e80918ea3b6418542019535f9278d2728065be6698de67db"
+    "### Context menu and send aliases (C4–C6, C9)": "199481341352a47adbf97c63bc8854e69f525fdc3454832acd31f63829cc0bd8",
+    "### Evidence on demand (C13)": "519068b07737d26f852c68dc33ef466209f4b4f0d6133868e6064fc4d54f64e9",
+    "### Multiple-choice answers": "c202b31904276cacb4481d046aa9c9fd2027719d44438479dab41e6ca261c7d0",
+    "### Scratch-space spike — design only": "d292219249213ef242741b6756cda4dc3f69dd180879919ffc3929babbd86780",
+    "### A calm dark theme": "95dc883b2cf66fc39c806d107cde8abfe56bf054e87cf16bbb3a4b673b2fee49",
+    "### Absorb substrate: keep runs and learn from them": "65e57e40b33d9389af884bc7006dbfc8dc9aabee586573469beeaa7f03a65788"
 }
 
 

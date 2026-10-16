@@ -28,32 +28,26 @@ ideas; the area entry points below contain navigation only.
 | measure | `src/measure.rs` | [#119](https://github.com/jon-devlapaz/tinkery/issues/119) failure presentation; [#120](https://github.com/jon-devlapaz/tinkery/issues/120) owned responsive reader |
 | shared | `src/lib.rs` (palette, sizes), `src/goal/`, `src/pi.rs`, `src/seed_me/`, `src/think_record.rs`, `src/voice/` | [shared](../research/shared/backlog.md) |
 
-Shape, the Seed Me step, is in the first release (operator decision, 2026-10-15) and has its
-own module; see [Shape](shape-and-handoff.md#shape). Approve, watch and taste also get their
-own modules when built. There are no exceptions
-to the dependency rule: think hands a saved goal to tend only through `seed_me`.
+[Shape](shape-and-handoff.md#shape) is a first-release phase. Approve, watch and taste
+get separate modules when built. No dependency exceptions: Think hands saved goals
+to Tend only through `seed_me`.
 
 ## Factory boundaries
 
-The operator-supplied [factory principles](https://x.com/zachlloydtweets/status/2110505938604134737)
-are context for these boundaries, not new requirements or implementation permission:
+[Factory principles](https://x.com/zachlloydtweets/status/2110505938604134737) are
+context, not requirements or permission. Tinkery versions prompts, model boundaries,
+tests and CI; external SDLC owns implementation orchestration. Tinkery neither
+configures nor verifies whole-factory permissions, automations or sandboxes.
 
-- **Factory as code:** Tinkery versions its prompts, model-call boundary, tests and
-  CI. External SDLC owns implementation orchestration; Tinkery does not yet
-  configure or verify the whole factory's permissions, automations and sandboxes.
-- **Models and harnesses:** Think uses an explicitly selected provider/model
-  through Pi. Continuing in Claude, Codex or Pi is a
-  [manual handoff](shape-and-handoff.md#continuation-contract), not interchangeable
-  execution inside Tinkery. Model choice does not establish open-weight model
-  compatibility or comparative quality.
-- **Owned evidence:** [Think records](think.md#think-record) keep confirmed-session
-  words, turns, checks, model identity, prompt fingerprint and the exact goal in
-  local JSON. Unconfirmed sessions leave no record; this is not complete factory
-  telemetry. Connecting a goal to the exact external run and its evidence remains
-  an [unaccepted design](job-records.md#goal-to-run-identity-prerequisite).
+Pi uses an explicitly selected provider/model; [manual continuation](shape-and-handoff.md#continuation-contract)
+in Claude/Codex/Pi is not interchangeable integrated execution. Selection establishes
+neither open-weight compatibility nor comparative quality.
 
-The [release plan](first-release.md) owns the remaining journey and its evidence
-requirements. A complete factory and improved outcomes are not shipped claims.
+[Think records](think.md#think-record) retain confirmed-session evidence, not
+unconfirmed sessions or complete factory telemetry. Exact external-run linkage
+remains [unaccepted](job-records.md#goal-to-run-identity-prerequisite).
+[Release evidence](first-release.md) is required before claiming a complete factory
+or improved outcomes.
 
 ## Modules today
 
@@ -119,65 +113,28 @@ is how many pass, times 1.25. Each PR that changes structure says which rows it 
 | 7 | Can a newcomer see the boundaries without reading code? | Yes: this page |
 | 8 | Is design improvement part of ordinary work? | Yes |
 
-**Recorded score: 10/10** (2026-10-12, after #39; first scored at 2d25a7c, 5/10).
-This is a dated assessment, not a fresh measurement. Remaining debt:
-`brain_dump.rs`'s narrow interface over a large amount of routing.
-Paste reliability improves diagnostics 3 and 6 by keeping raw/display mapping in
-Note and using conversation staging for both encoded-size preview and sending.
-It preserves the simple editor interface and documented promises in diagnostics
-2 and 4. Cached preview size stays inside Think's input/reply routing, preserving
-those boundaries; the request boundary now has one definition in drafting (3 and 6).
-No new score is claimed.
-On 2026-10-14, [#123](https://github.com/jon-devlapaz/tinkery/issues/123) keeps one
-module per phase and holds diagnostics 1 and 7: each module retains a one-sentence
-job and the map shows the garden and future Seed Me boundary.
+**Recorded score: 10/10** (2026-10-12, after #39), not a fresh measurement.
+Remaining debt: `brain_dump.rs`'s narrow interface over substantial routing.
 
-For #119, Measure owns failure classification, diagnostic escaping and its reading/help
-state; the menu only routes navigation. This preserves diagnostics 3 and 6 by keeping
-ledger error interpretation out of callers, and 1 and 7 by retaining one phase boundary.
-The diagnostic viewport hides Ratatui's local scroll limit and reflow cache within
-Measure (3 and 6); callers still see one reading. It does not change subprocess
-ownership or claim a new design score.
+Boundary checks for future changes:
 
-For #127, Tend owns the link format, refusals and derived readiness; Seed Me alone
-interprets ledger identity (3 and 6). Linking state stays separate from graph drawing.
-The graf adapter hides topology, static layout and pointer geometry; garden framing
-keeps the footer independent of that renderer (2, 3 and 6). The module map and public
-contracts preserve diagnostics 1, 4 and 7. No new design score is claimed.
+- Raw/display offsets belong to Note; encoded-size preview/send share conversation
+  staging and one drafting request boundary (2, 3, 4, 6).
+- Measure owns classification, safe disclosure, viewport/reflow and process cleanup;
+  menu only routes open/cancel/poll/shutdown. Restore terminal before cleanup on
+  exit/error. Prepared bounded display avoids full per-frame rebuilding (1–4, 6, 7).
+- Tend owns links/readiness; Seed Me owns ledger identity. Linking, graph geometry
+  and garden footer stay separate (1–4, 6, 7).
+- Menu alone connects Shape/Tend and retains the return view. Shared `pi.rs` owns
+  process/budget, `seed_me/` owns helper fields/write rules, Shape owns prompt/reply
+  (1, 3, 6, 7).
+- Shared Think records own format/attribution; Think writes, Tend reads, menu retains
+  the reader. Shared `repo.rs` finds the root once for callers (1–3, 6, 7).
+- File-only session discovery exposes unchecked seed declarations; only helper-backed
+  Shape verification claims seed-ready (3, 4, 6).
 
-For #149, Shape is its own phase; Tend reaches it only through the menu, which keeps the
-Tend view to restore (diagnostics 1, 3 and 7). Every Seed Me helper field Shape needs is read
-in `seed_me/shaping.rs`, so a Seed Me format change stays in one module (3 and 6). No new
-score is claimed.
-
-For #143, the confirmed-session format becomes shared so Think writes and Tend
-reads through one owner (diagnostics 1, 3 and 6). The menu retains one history
-reader across visits; Tend owns its view. The map exposes these boundaries (7);
-no phase reaches into another and no new score is claimed.
-
-For #120, Measure's reader hides process ownership, limits and cancellation across visits
-(3 and 6); the menu routes a small open/cancel/poll/shutdown interface (2). The terminal
-loop restores the terminal before draining Measure on normal exit or I/O error. Bounded,
-incremental viewport indexing and prepared shared display text avoid rebuilding all
-output on a frame. The module map and interface promises preserve 1, 4 and 7. No shared
-reader framework or new design score is claimed.
-
-For #150, the Pi process boundary and call budget move from Think into shared `pi.rs`, so Think
-and Shape reach a model through one owner without either phase naming the other (diagnostics 3
-and 6). Seed Me's write rules stay in `seed_me/answering.rs`, so Shape knows no helper command or
-ledger field (3 and 6); Shape's step owns only its prompt and reply (1). The map shows the new
-modules (7). No new score is claimed.
-
-For #153, `repo.rs` hides how a repository is found behind one shared question
-(diagnostics 2 and 6); `main.rs` asks it once and hands the answer to the menu and
-Think, so no phase looks for `.git` itself (3). The think record owns the field and its
-schema bump; Tend reads it through the shared reader (1 and 7). No new score is claimed.
-
-For #169, `seed_me/session.rs` exposes a declared, unchecked seed stage rather than
-claiming verified readiness from a file header (diagnostics 3 and 6). Tend gets the
-honest label and next step through that shared boundary; Shape's existing helper-backed
-verification remains the only seed-ready claim. The public stage promise is explicit
-(4); no new worker, parser or cross-phase dependency is introduced. No new score is claimed.
+This documentation condensation improves boundary visibility (7); it changes no
+module, enforced limit or measured score.
 
 ## Limits enforced by `tests/architecture.rs`
 

@@ -2,256 +2,189 @@
 
 ## Shipped experience
 
-A blank box asks what's on your mind. Type or paste without choosing fields,
-kinds or cards. Nothing interprets the text until F2. Enter stays a newline.
-The original remains intact on the left; one reading, titled “I think you mean…”,
-and at most one question in focus sit on the right. No second reading.
-If interpretations compete, ask the question that decides between them.
+One blank writing box: type/paste without fields, kinds or cards. Only F2 interprets;
+Enter is newline. Originals stay intact on the left, one “I think you mean…” reading
+and at most one focused question on the right. Competing interpretations get a
+disambiguating question, not a second reading.
 
 ### Questions
 
-The reading follows the [goal-block contract](goal-block.md). Ask about
-consequential missing intent, not facts an agent could discover. Once the
-required parts are present, ask the most consequential open decision: a choice only
-the person can make whose answers would change a goal line (a boundary, a scope, what
-happens to protected things). The reading lists decisions as typed items (part, text,
-two or more answers, and an optional linked question). Each keeps its part open, so it blocks "Nothing I'm unsure
-about" until an answer settles it, and travels to review and the seed. Review
-shows its linked question once; an unasked or unlinked choice stays an "Open
-decision" note. Alternatives remain in the handoff even when a question replaces
-the note on screen. A decision without two answers or a known part is ignored.
-After each reading, a separate review call sees only the person's words, their
-answers, the draft parts and shaping decisions (not the template) and names decisions the draft settled
-silently: a target or scope, a boundary on deleting, sending or overwriting, what
-happens to protected things, persistence, whose rules apply. Its decisions join the
-reading's in the reading's decoder; the recorded reply stays as the model sent it.
-For the same choice, the review explicitly names the shaping decision indices it covers; only valid references to the same part replace those entries.
-Uncovered choices remain, including different choices about the same part. No
-text-similarity or same-part rule guesses that two decisions are the same. Once
-required parts are present after the reading's cleanup, its top question is asked first.
-A Why or Done-when removed as a duplicate still needs its specific missing-part
-question before a review decision. A
-failed or unreadable review leaves the reading as it was. It stops once the target
-and any irreversible boundary are settled: no edge cases the person's rules already
-cover and no questions about how an action is carried out (a live trial asked
-"whole folders or just files?" after the real decision was answered). Each answer
-lands in the one part it answers rather than being repeated across parts.
+Use the [goal-block contract](goal-block.md). Ask consequential missing intent,
+not discoverable facts. Once required parts exist, ask the most consequential
+operator-only choice that would change a goal line: target, scope, boundary or
+protected things. Decisions contain part, text, at least two answers and optional
+question link. Invalid parts/answer counts are ignored. Open decisions block
+“Nothing I'm unsure about” and travel to review/seed. Review shows a linked
+question once; otherwise an Open decision note. Alternatives survive handoff even
+when a question replaces the note.
 
-Questions stop when no decision is left; the [known early-stop gap](#open-work-only)
-remains open. Unresolved notes carry only open intent, never status disclaimers. Statements about who produced evidence, which tests ran,
-or a historical failure not reproduced stay in the intact originals. The reading
-prompt does not turn that context into goal requirements or unfinished intent;
-explicit requirements and undecided success checks or permission boundaries still
-belong in the goal or its open questions. Answers and added dumps remain distinct
-exact sources. Sending refines the reading; refining a ready reading does not start
-a new dump. Skipped questions stay skipped;
-Ctrl-Z can restore a skip. Separate goals stay visibly aside, not in each other's
-constraints. Deferred items remain context for the seed.
+After shaping, separate review sees only words, answers, draft parts and shaping
+decisions, never the template. It finds silently settled choices about scope,
+irreversible actions, protected things, persistence or whose rules apply. The
+reading decoder joins decisions; raw recorded replies stay unchanged. Only explicit
+valid same-part shaping indices let review replace decisions. Uncovered choices
+remain, even on the same part; no similarity/same-part deduplication. After cleanup,
+ask the top shaping question first when required parts exist. Deduplicated Why/Done
+when still needs its missing-part question before review choices. Failed/unreadable
+review leaves shaping intact.
 
-Constraint-polarity errors remain possible; decision coverage remains a model
-judgment, not proof that choices mean the same thing. See the
-[bounded #64 evidence](../../findings/README.md#goal-history-and-review-regression-check-64).
+Stop when target and irreversible boundaries are settled: no already-covered edge
+cases or implementation questions. Answers belong only to their part. The
+[early-stop gap](#open-work-only) remains. Notes hold open intent, not evidence/status
+disclaimers. Evidence authorship, test history and unreproduced failures stay in
+originals, not invented requirements. Explicit requirements and undecided success
+checks/permissions still belong in goals/questions.
 
-The original is plain ink by default. Exact cited spans are validated invisibly;
-uncited words are not implicitly rejected.
+Answers/added dumps remain separate exact sources. Sending refines even a ready
+reading, never starts another dump. Skips persist; Ctrl-Z restores. Separate goals
+stay aside, not in each other's constraints; deferred items remain seed context.
+Constraint-polarity errors remain possible; decision coverage is a model
+judgment, not proof that choices mean the same thing. See [#64 evidence](../../findings/README.md#goal-history-and-review-regression-check-64).
+Originals are plain ink; exact cited spans validate invisibly, and uncited words
+are not implicitly rejected.
 
 ### Model calls
 
-Budget at most two calls per live send: one shaping call, then one decision review.
-Some sends ask about scope without calling a model. Nothing runs after the reading
-appears, and nothing retries automatically. Practice and the documented suite use
-fakes. [Historical evaluation](#decision-review-evidence-34) is evidence, not a
-general quality guarantee.
+At most two per live send: shaping then decision review. Scope questions may use
+none. No calls after display or automatic retries. Practice/verification use fakes;
+[historical evals](#decision-review-evidence-34) promise no general quality.
 
-Both prompts live in `src/think/brain_dump/prompts/`, one rule per line, with a note
-naming the eval or live-trial finding behind each tuned rule; notes never reach the
-model. A test holds the bytes sent to Pi equal to a recorded copy, and another holds
-each prompt's field names equal to its decoder's, so a wording change is deliberate
-and needs an eval and the operator's budget.
+`src/think/brain_dump/prompts/` holds one rule per line and a finding/eval note per
+tuned rule; notes never reach models. Tests pin sent Pi bytes and decoder field
+names. Prompt changes require deliberate eval and operator budget.
 
 ### Readiness and review
 
-When no question is in focus (none left, skipped, or a part asked twice), one
-muted line says which of three states holds:
+With no focused question (none left, skipped or part asked twice), one muted line:
 
 | State | Line |
 | --- | --- |
-| Goal ready | Nothing I'm unsure about. Review when you're ready. |
-| A required part is missing | Still missing: Done when. Review when you're ready. (names the part) |
-| Required parts present, something else open | Some parts remain open for the seed. Review when you're ready. |
+| Ready | Nothing I'm unsure about. Review when you're ready. |
+| Required part missing | Still missing: Done when. Review when you're ready. (name first missing part: who, outcome, why, done when) |
+| Required parts present, other intent open | Some parts remain open for the seed. Review when you're ready. |
 
-The missing line names only the first missing part in the order who, outcome, why,
-done when. Without any composed goal it drops “Review when you're ready.” F1 help
-uses the same first sentence, then offers F3 only when a composed goal exists and can be
-saved (practice or no Seed Me: says saving needs real mode and Seed Me; no goal: type
-it, then F2 sends). If the first reading was cancelled or never applied, help says
-F2 tries again. Only goal content decides the state, including sent words not yet
-applied and any skipped question still unanswered; recording or
-unsent text does not change it. Review still lists everything open.
+Without a composed goal omit the review invitation. F1 uses the same first sentence,
+offers F3 only with a saveable goal; practice/no Seed Me explains real-mode/Seed Me
+requirement, no goal says type then F2, unapplied/cancelled first reading says F2
+retry. State depends only on goal content, including sent-but-unapplied words and
+unanswered skips, never recording/unsent text. Review lists all open intent.
 
-Review is deliberate (F3), then typed `confirm` plus Enter. It freezes the displayed
-goal; [the receipt](shape-and-handoff.md) follows only successful saving. Review can
-carry remaining questions and missing parts into the seed: readiness is not needed
-to save, and saving is not seed or implementation approval.
+F3 deliberately reviews; typed `confirm`+Enter freezes the displayed goal and,
+after successful save, shows [receipt](shape-and-handoff.md). Missing parts/questions
+may travel to seed: readiness is not required to save, nor is saving seed or
+implementation approval.
 
 ## Think record
 
-The same typed `confirm` also writes a **think record**: one pretty-printed JSON file
-per confirmed session in `~/.local/share/tinkery/think/` (`--record-root` overrides it),
-named `<UTC confirm time>_<Seed Me session id>.json`. With no `--record-root` and an
-unset, empty or relative `HOME`, `--shape-pi` refuses to start and says to pass one,
-rather than writing under the current folder. The review prompt and key bar say
-so (`type confirm` → `save goal and record`), so the write rides a labelled action
-([Yohaku article 4](../yohaku.md#the-articles)). Sessions that end without confirming
-(Esc, F10, quit, crash) leave no record. This is the operator's chosen boundary.
+Typed `confirm` also writes one pretty JSON `<UTC confirm time>_<Seed Me session id>.json`
+in `~/.local/share/tinkery/think/`, overridden by `--record-root`. Without an explicit
+root, unset/empty/relative HOME refuses `--shape-pi` startup, asking for one rather
+than writing under cwd. Review/bar label `type confirm` → `save goal and record`
+discloses the write. Unconfirmed exits/crashes leave no record.
 
-A record holds `schema` (3), the tinkery version, `origin` (`live` for Pi,
-`simulated` otherwise), model, thinking level and a hash of both system prompts, the
-start (first turn) and confirm times, the Seed Me folder name, canonical session path
-and source-owned session ID, `repo` (the absolute root of the Git repository Tinkery
-was started in, or `null` outside one), every `turn` in the order
-it happened (`words`, `asked`, `answered`, `skipped`, `restored`, `scope_asked`,
-`scope_answered`, each with its time and the person's words verbatim), every F5 check
-as it already serializes, and the goal block exactly as confirmed. A check keeps the
-model's `raw` reply only when it rejected, where F5 shows it; a passing check's reply
-is already in its decoded `candidate`, so its `raw` is `null`. Each Think
-visit has its own Pi diagnostic history, so a new goal cannot collect a previous
-goal's replies. Reusing the model settings starts no process and rereads no file;
-all sends in the current goal remain in its own history. The record folder is
-preserved when standalone Think returns to the menu and opens another goal.
+Schema 3 retains version, origin (`live` for Pi, else `simulated`), model/thinking,
+both prompts' hash, first-turn/confirm times, session folder/canonical path/source
+ID, launch Git root `repo` (or null), exact confirmed goal, every ordered timed verbatim
+turn (`words`, `asked`, `answered`, `skipped`, `restored`, `scope_asked`,
+`scope_answered`) and existing serialized F5 checks. Rejected checks retain `raw`;
+passing checks use decoded `candidate`, `raw: null`. Each Think visit gets separate
+Pi diagnostic history: reused settings start no process/file read and cannot mix
+goals. Standalone return/reentry preserves the record folder.
 
-`repo` says where the goal was made, never what it is about. When it will be
-recorded, review shows `made in <folder>` under the goal before `confirm`, so nothing
-is saved that the person hasn't seen ([Yohaku article 4](../yohaku.md#the-articles)).
-It stays out of the goal, the Seed Me ledger and every model request; the operator's
-words and Tinkery's observations stay apart (article 3).
+`repo` means made in, not about. Review shows `made in <folder>` before confirm.
+It never enters the goal, Seed Me ledger or model requests: observations stay
+separate from operator words.
 
-The shared `src/think_record.rs` owns the format; `Conversation` keeps the turns. The record is
-written after Seed Me's save reads back, so a failed save writes none. If the record
-can't be written the goal stays saved and the receipt says the record wasn't written;
-the reason and path stay in How it works.
-Think never reads a record back. The record is not a ledger: that word is Seed Me's
-`ledger.json`. Tend's deliberate [history view](shape-and-handoff.md#think-history)
-reads it without supplying model context. Gap flags and the eval harness reading
-records are separate slices.
+Shared `src/think_record.rs` owns format; Conversation owns turns. Write only after
+Seed Me save/readback succeeds. Record failure leaves goal saved and a receipt
+notice; reason/path live in How it works. Think never reads records. This is not
+Seed Me's `ledger.json`. Tend's deliberate [history](shape-and-handoff.md#think-history)
+adds no model context. Eval record reading/gap flags are separate slices.
 
 ## Interaction contracts
 
 ### Reading
 
-When the reading overflows, a muted `PgUp/PgDn scroll reading` line stays below it.
-The existing keys and mouse wheel reveal the whole reading before review; Every key
-also names the keyboard route. The hint disappears when the reading fits, including
-after a resize. Scrolling changes no goal text or original words
-([#117](https://github.com/jon-devlapaz/tinkery/issues/117)).
+Overflow keeps muted `PgUp/PgDn scroll reading` below the reading; keys/wheel reveal
+all before review and Every key names the keyboard route. Hide hint when fitting,
+including resize. Scrolling changes no goal/original text.
 
 ### Help
 
-The state-aware muted bar uses F2, F3, F6, F8 and F10 labels that agree with help.
-It never offers a key the current mode refuses: F3 appears only in real mode with Seed Me.
-Empty-box help says “Type, then F2 sends it.” F1 opens a bounded overlay on the
-reading side; originals and drafts stay intact. Right now leads with the current
-state, F1 opens Every key, and `h` opens How it works.
+Muted bar/help agree on F2/F3/F6/F8/F10, offering only permitted actions (F3 only
+real mode with Seed Me). Empty help says “Type, then F2 sends it.” F1 opens bounded
+reading-side help without changing originals/drafts: Right now, F1 Every key,
+`h` How it works. Jade layer title, bold ink headings/keys, muted labels/border.
+Short pages fit content; long pages scroll under fixed title/navigation. Scroll
+hint only on overflow; empty technical sections add no gap before Last result.
 
-Jade names the layer; headings and keys are bold ink, labels and the thin border
-muted. Short help fits its content. Long pages scroll beneath a fixed title and
-close/back/scroll keys; Scroll appears only on overflow. Empty technical sections
-add no spacing before Last result.
-
-Esc first cancels an active voice take, otherwise closes or returns from How it
-works. Reading cancellation remains available after closing help. While help is
-open, typing, paste and hidden send/review/voice actions do nothing. F10 keeps the
-unsaved-loss guard, Ctrl-C keeps cancellation, Ctrl-D keeps its explicit Why route,
-and `b` changes the key-bar preference without revealing the bar beneath help.
-Literal `?` remains text while writing. On review the bar reads
-`type confirm save goal and record` when a record will be written.
+Esc first cancels voice, else closes/backs from technical help; reading cancellation
+remains after help closes. Help blocks typing/paste/hidden send/review/voice.
+F10 retains loss guard, Ctrl-C cancellation, Ctrl-D Why, `b` changes preference
+without revealing hidden bar. `?` is text while writing. Review bar says
+`type confirm save goal and record` when recording.
 
 ### Editing and focus
 
-- **Focus:** Tab or Shift-Tab switches between writing and the left original once
-  one exists. Typing returns to writing and clears the original's selection.
-  Letters are never commands in either surface; F8 skips and F9 copies.
-- **Selection:** Shift with arrows, Home or End and mouse drag select by logical
-  position and whole graphemes. Ctrl-A selects only the active surface. In writing,
-  typing, Enter, Backspace, Delete and paste replace the selection as one edit.
-  The writing box has no numeric request-size cap. Allocation refusal leaves the
-  previous text and selection intact; finite regression fixtures do not promise
-  unlimited memory or responsiveness.
-- **Cards:** Ctrl-E extracts a selection; F7 or Ctrl-X shows/hides the cards.
-  While they cover the original, it holds no selection and cannot be copied.
-- **Copy and dictation:** Ctrl-C copies the active surface's nonempty selection;
-  otherwise it cancels a running request or does nothing. It never leaves think.
-  Dictation never deletes a selection.
+- Tab/Shift-Tab toggles writing/original once present. Typing returns to writing
+  and clears original selection. Letters never command; F8 skips, F9 copies.
+- Shift+arrows/Home/End and drag select logical whole graphemes; Ctrl-A selects
+  active surface only. Writing input/Enter/deletion/paste replaces selection as
+  one edit. No numeric editor-size cap; allocation refusal preserves text/selection.
+  Finite fixtures promise neither unlimited memory nor responsiveness.
+- Ctrl-E extracts; F7/Ctrl-X toggles cards. Covered originals have no selection/copy.
+- Ctrl-C copies a nonempty active selection, else cancels a request or does nothing,
+  never exits. Dictation never deletes selection.
 
 ### Original bytes and display
 
-The writing box, sources and extracted cards retain received UTF-8 exactly,
-including CRLF, CR, tabs and controls. Copying uses base64 OSC 52, not executable
-source bytes. Terminal clipboard support and permission remain host capabilities.
-LF starts a row; CR displays as ␍, tab as ⇥, ASCII controls as control pictures,
-and C1 controls as �. CRLF remains one grapheme. These marks are display only.
-Each wrapped cell maps to a raw grapheme offset for motion, selection, highlights
-and fake/local voice preview; no substring search reconstructs source offsets.
-Editor and original scroll rows use machine-sized integers, not terminal u16
-coordinates. Only the visible viewport is narrowed to terminal coordinates.
+Writing/sources/cards retain received UTF-8, including CRLF/CR/tabs/controls. Copy
+uses base64 OSC 52, not executable source. Clipboard support/permission is the
+host's. LF starts rows; CR → ␍, tab → ⇥, ASCII controls → control pictures, C1 → �;
+CRLF is one grapheme. Display-only marks map cells to raw grapheme offsets for
+motion, selection, highlighting and voice preview, never substring reconstruction.
+Rows use machine-sized integers; only visible viewport narrows to terminal coordinates.
 
-The terminal paste envelope is a separate boundary. A literal ESC `[201~` closes
-bracketed paste and cannot be represented inside that envelope. Crossterm decodes
-invalid UTF-8 with replacement characters before delivering a Paste string.
-Tinkery retains that received string, not unavailable pre-decoding bytes. Tests
-use valid UTF-8 and a complete envelope, including executable OSC sentinels whose
-raw bytes survive copying and sending but never execute during display.
+Literal ESC `[201~` ends bracketed paste and cannot occur inside its envelope.
+Crossterm replaces invalid UTF-8 before Paste delivery; retain received strings,
+not unavailable predecode bytes. Valid-UTF-8 complete-envelope tests include OSC
+sentinels: bytes survive send/copy, never execute on display.
 
 ### Sending and leaving
 
-- The encoded shaping request still has a 32 KiB boundary, including metadata,
-  history and a waiting reply's refreshed reading. One shared preview prepares and
-  measures the final outgoing request, whether the waiting reading grows or shrinks.
-  Idle frames reuse the size until a key, paste, mouse event, extraction, voice
-  insertion or reply arrives. A waiting reply that cannot be applied leaves the preview
-  size unknown.
-  F2 keeps the previous reading on that failure and still sends one retry.
-  Preflight is transactional:
-  refusal starts no host and commits neither local words nor the waiting reply.
-  If a fitting replacement exists, Ctrl-A then Ctrl-C copies the full draft;
-  deliberate replacement and F2 sends once. If retained context alone cannot
-  fit, editing new words cannot fix this conversation. F1 explains copy-out:
-  copy local words, Tab to the original pane, Ctrl-PgUp/PgDn between originals,
-  and Ctrl-A then Ctrl-C for each. Copying does not prune history or start over.
-- Provider input/context rejection, rate limits, timeout and output overflow are
-  separate failures. Shaping failure keeps committed originals and the previous
-  reading. Failed, unreadable or oversized decision review is best-effort and
-  does not discard an otherwise valid shaping result; Why names the skipped review.
-  Nothing retries, chunks, summarizes or sends automatically.
-- When there is nothing to send or retry, F2 shows “Write something, then F2
-  sends it.” on the normal screen, both before a first reading and while refining
-  one. It sends no request and saves nothing. The next input clears the notice;
-  the empty screen has no permanent warning.
-- **Refusals:** a key that does nothing says why, and what to do instead, where
-  the person is looking: on the status row under the writing box, or in place of
-  the confirm instruction on review. Every refusal goes through one route
-  (`refuse`), fits two rows of the narrowest pane, and wins the status row over
-  “Thinking…” and receipts. The next key or paste clears it from the screen; it
-  stays as Last result in How it works. Review names its own blocker (unsent
-  words, a waiting reply, a reading still coming), and Enter on an unread review
-  says to scroll with PgDn; confirm still saves only from the end.
-- **A save that didn't finish** shows “Handoff not complete. F1 then h shows
-  why; Enter retries.” in the same place; the reason stays as Last result. The
-  review's message rows grow to fit, so Back always keeps a row of its own.
-- Esc from idle writing and F10 guard unsaved work. With `--home` they return
-  to the menu; standalone think exits before a goal is saved and opens the menu
-  after saving. Esc still cancels voice or a reading first, closes overlays,
-  returns from review, clears original selection/focus, or declines the loss prompt.
-- F4 originals and F5 why are help-only, not permanent bar clutter.
-- Local dictation inserts editable text, never auto-sends; see [voice](voice.md).
-- Answering does not switch the original away from the dump.
+- Encoded shaping request limit is 32 KiB including metadata/history and waiting
+  reply's refreshed reading. One shared preview measures final payload, growing
+  or shrinking; idle frames reuse it until input/extraction/voice/reply. Unapplicable
+  replies make size unknown; F2 preserves old reading and sends one retry.
+  Transactional preflight refusal starts no host and commits neither words nor
+  waiting reply. A fitting replacement can be copied whole with Ctrl-A/Ctrl-C,
+  deliberately replaced and sent once. If retained context alone exceeds limit,
+  new words cannot fix it. F1 explains copying local words and originals via Tab,
+  Ctrl-PgUp/PgDn, Ctrl-A/Ctrl-C. Copying never prunes/restarts.
+- Distinguish provider input/context rejection, rate limit, timeout and overflow.
+  Shaping failure preserves committed originals/prior reading. Failed/unreadable/
+  oversized review is best-effort; keep valid shaping, explain skipped review in
+  Why. Never automatically retry, chunk, summarize or send.
+- Nothing to send/retry: F2 says “Write something, then F2 sends it.” on initial
+  or refining screen, without request/save. Next input clears it; no permanent warning.
+- One `refuse` route explains ineffective keys and recovery under writing or in
+  review's confirm slot. At most two narrow-pane rows; it overrides Thinking/receipts.
+  Next key/paste clears display but Last result retains it. Review names unsent
+  words/waiting reply/in-progress reading; Enter before reading end says PgDn.
+  Confirmation saves only from the end.
+- Unfinished save says “Handoff not complete. F1 then h shows why; Enter retries.”;
+  Last result retains reason. Review messages grow, leaving Back its own row.
+- Idle Esc/F10 guard unsaved work. `--home` returns to menu; standalone exits before
+  save, opens menu after save. Esc first cancels voice/reading, closes overlays,
+  leaves review, clears original selection/focus or declines loss prompt.
+- F4 originals/F5 why stay help-only. [Local voice](voice.md) inserts editable words,
+  never sends. Answering keeps the original dump visible.
 
 ## Open work only
 
-The [parked backlog](../research/shared/backlog.md#think) owns remaining proposals,
-including the ["Like X" early-stop gap](../research/shared/backlog.md#like-x-early-stop).
-Extracted-card shortcuts remain in technical help; they are not the proposed scratch
-space.
+[Backlog](../research/shared/backlog.md#think) owns proposals, including
+[“Like X” early stop](../research/shared/backlog.md#like-x-early-stop). Help-only
+extracted cards are not the proposed scratch space.
 
 ## Decision-review evidence (#34)
 
