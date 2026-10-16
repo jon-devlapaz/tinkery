@@ -11,11 +11,11 @@ SOURCE = {
     "Attention and cost": "2dcb0184eb635869774112ffc16e156fa5179b3c0345b1d341d8176529be45e2"
 }
 PROPOSAL = {
-    "Goal-to-run identity prerequisite": "bf9feccb0fff2ac725c01858a1d3cebf65456576eee059cc3a1bcb6f55b4ae18",
-    "Changes, conflicts and interruption": "a774d6f85f268f33a5fc7ebcfb517ea7980009cc873cd0018d47ae553ca86104",
-    "Proposed R5: one explicit read": "8f352334ac48ddc0be49ddd457708bbf7bdd51090fc784939f5b8642a5fa0274",
-    "Proposed R6: external approval handoff": "711a6bbad8404d3cd94f97f77351600f19bb7ea16f5a304c5cc933a7fc7a093b",
-    "Evidence and checks": "8294f34f0f3ed86be78848c6ecb62b81dd0983f6ec2940d28f92b16c2afb0f3f"
+    "Goal-to-run identity prerequisite": "1ae773db465de0ab2e7e77f73b18d18841cde91c610e38a85f0cfdad698daec9",
+    "Changes, conflicts and interruption": "a81c58ee42848744fe40f180dc77e4d13c2f51442200f25fb600e85b3713f720",
+    "Proposed R5: one explicit read": "9176f2eafee686208966692e6e701384d21b2894a95271edf065a4762d79ba75",
+    "Proposed R6: external approval handoff": "8bab68c0ab263c24ee4252ae48c51ce6ad63c924ffcd6da5df0da5e81c06a0ad",
+    "Evidence and checks": "7da90f7549f4a2a172cc5612558e19f75914dda9d9720d2ccc7df13a578faaba"
 }
 CITATIONS = "76d64a8e045bc169c9db8d5cb57c9adc109a460ef893c51a302f767104d9d0d9"
 

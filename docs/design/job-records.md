@@ -1,18 +1,16 @@
 # One job through the existing records
 
-Design proposal based on [#63's source survey](../research/shared/job-record-survey.md), following
-[yohaku](../yohaku.md). **Revised design proposal; not accepted or implemented.**
-The operator authorized this design-only revision, not the binding writer or R5.
-Publication of I2 [#110](https://github.com/jon-devlapaz/tinkery/issues/110) and R5
-[#111](https://github.com/jon-devlapaz/tinkery/issues/111) does not accept this
-contract; both issues remain `needs-approval`.
+This follows [#63's survey](../research/shared/job-record-survey.md) and [yohaku](../yohaku.md).
+**Revised design proposal; not accepted or implemented.** Authorization covered
+design, not the binding writer or R5. I2 [#110](https://github.com/jon-devlapaz/tinkery/issues/110)
+and R5 [#111](https://github.com/jon-devlapaz/tinkery/issues/111) are published;
+both issues remain `needs-approval`.
 
-The later [Substrate absorption decision](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
-makes Tinkery the owner of the shared reader. Seed Me, SDLC and GitHub still own
-their records and decisions. Substrate's inspected formats are compatibility
-inputs, not the permanent aggregation service. First establish an explicit
-[goal-to-run binding](#goal-to-run-identity-prerequisite); then R5 can read one linked job.
-A matching title, seed path or manually selected pair is not a verified link.
+[Substrate absorption](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
+makes Tinkery the shared-reader owner. Seed Me, SDLC and GitHub retain their records
+and decisions. Substrate formats are compatibility inputs, not a permanent service.
+R5 requires [explicit binding](#goal-to-run-identity-prerequisite), never matching
+titles, seed paths or a manually selected pair.
 
 ## What was inspected
 
@@ -28,127 +26,107 @@ See [historical source evidence](../research/shared/job-record-survey.md#trace-o
 
 ## Goal-to-run identity prerequisite
 
-This is an unaccepted design proposal, not implementation permission. Two
-capabilities must be verified before R5. Refresh the source survey first: an
-existing capability needs evidence, not redundant implementation. Any missing
-capability needs its own approved slice:
+Refresh the survey before building. Verify existing capabilities instead of
+reimplementing them. Missing capabilities need separate approval; this proposal
+grants no implementation permission or provider budget.
 
-1. **SDLC owns run-instance identity.** Its run record must expose a persistent,
-   globally unique, immutable run ID that survives stage changes and interruption.
-   Recreating a run under the same slug creates a different ID. A source-owned,
-   explicit adoption operation may identify a legacy run without executing or
-   approving it. Neither capability was established by the original survey; propose and
-   verify it in SDLC rather than assigning IDs from Tinkery's reader.
-2. **I2: Tinkery owns initial binding creation and duplicate detection.** An
-   explicit confirmation connects one saved goal/session to one identified run.
-   It creates one immutable local binding under an explicitly selected job-record
-   root outside repository history and operator session folders. It modifies no
-   Think record, Seed Me ledger or SDLC decision. Binding revisions, relocation,
-   retargeting and migration are deferred, not prerequisites for this initial slice.
-   This identity record is not a second execution or measurement ledger.
+1. **SDLC owns run-instance identity.** IDs must be persistent, globally unique and
+   immutable across stages and interruption. Recreating a slug gets a new ID.
+   Explicit source-owned legacy adoption may assign identity without execution or
+   approval. Neither capability was established by the survey. Verify or propose
+   them in SDLC; never assign IDs in the reader.
+2. **I2 owns initial binding and duplicate detection.** Explicit confirmation connects
+   a saved goal and session to an identified run in one immutable local record.
+   Require selected storage outside repository history and operator sessions.
+   Modify no Think record, Seed Me ledger or SDLC decision. Revisions, relocation,
+   retargeting and migration are deferred. This is not another execution or measurement ledger.
 
-**Relationship key.** Within the selected job-record root, the key is the pair
-`(Seed Me session ID, globally unique SDLC run ID)`. Another session or run has
-another key, even with identical goal text, seed bytes or slug. A matching key
-with different frozen goal/seed identity is a conflict, not a new job or update.
-With the same identity and stored locators, duplicate detection returns the
-existing job reference without writing; opening a view belongs to its caller.
-Different locators require the deferred relocation capability and are refused.
-Uniqueness is scoped to this root, not across every root on the machine. Conflicting,
-unreadable or unsupported records that prevent proving uniqueness cause refusal;
-never choose the newest record or skip a possible duplicate silently.
+Within that root, the relationship key is `(Seed Me session ID, globally unique SDLC run ID)`.
+Identical text, seeds or slugs cannot collapse different keys. The same key with a
+different frozen identity conflicts. Matching identity and locators return the
+existing reference without writing; the caller owns opening. Different locators
+refuse pending relocation support. Uniqueness covers this root only. Conflicting,
+unreadable or unsupported records that prevent proving uniqueness refuse creation.
+Never skip possible duplicates or pick the newest.
 
-The binding has a **format version**, but no binding revision or predecessor
-chain. Its captured evidence describes creation, not perpetual currentness:
+The binding has a format version, not revisions or predecessors. Creation evidence
+does not prove the sources are still current:
 
-| Binding content | Promise |
+| Field | Contract |
 | --- | --- |
-| Format version and job ID | Tinkery owns the format; unsupported versions fail explicitly |
-| Relationship key, source locators, origin-node ID and run slug | Source IDs establish identity; locators and slug find the records, never replace ID checks |
-| Exact confirmed goal and its UTF-8 SHA-256 | Freeze the whole block; compare with the ledger goal and settled origin answer, not a reconstructed headline |
-| Selected seed revision label and content SHA-256; run's seed reference/digest | Freeze which seed this run uses; require the actual run copy and declared digest to match the selected seed at creation |
-| Captured ledger version/revision/digest and run-record digest | Evidence of the records reviewed at creation, not whole-file equality requirements on every later read |
-| Optional Think-record locator and digest | Require its goal/session to agree when supplied; absence does not prove that no goal was saved |
-| Creation time and explicit-link provenance | Record the action and retained source authority/provenance without inventing a human; this is not authenticated implementation permission |
+| Format version, job ID | Tinkery owns the format; unsupported versions fail explicitly. |
+| Relationship key, locators, origin-node ID, slug | Source IDs establish identity; locators and slugs only find it. |
+| Exact confirmed goal and UTF-8 SHA-256 | Compare the whole block with the ledger goal and settled origin answer, not a reconstructed headline. |
+| Selected seed revision and content SHA-256; run seed reference and digest | The actual run copy and declared digest must match the selected seed at creation. |
+| Ledger version, revision and digest; run-record digest | These describe creation, not later whole-file equality requirements. |
+| Optional Think locator and digest | Supplied records must agree on goal and session; absence doesn't prove no goal was saved. |
+| Creation time, explicit-link provenance | Retain actual source authority and action. Invent no human or authenticated implementation permission. |
 
-**Write boundary.** Before confirmation, show the exact goal, session, seed
-revision and run being linked, with the destination available in technical help.
-Capture the selected records and re-read their IDs, versions and byte digests
-against what was reviewed. Refuse observed changes or unavailable sources; leaving
-writes nothing. Compare the ledger goal and settled origin answer byte-for-byte;
-require resolved seed confirmation. Verify any supplied Think record, the selected
-seed and run copy. A matching hash
-proves bytes, not semantic fidelity or who confirmed them. A legacy run without
-source-owned identity remains unbound. The operator entry point and explicit
-storage-root configuration still need review before I2 implementation approval.
+**Write boundary.** Before confirmation, show the exact goal, session, seed revision
+and run, with the destination in technical help. Capture reviewed sources, then
+reread IDs, versions and byte digests. Refuse changes or unavailability. Leaving
+writes nothing. Require byte-equal ledger goal and settled origin answer, resolved
+seed confirmation, and a verified supplied Think record, selected seed and run copy.
+Hash equality proves bytes, not meaning or confirmer identity. Legacy runs without
+source identity remain unbound. The entry point and root configuration still need
+review before I2 approval.
 
-Publish the complete initial binding atomically with uniqueness enforced for the
-relationship key, including concurrent creators. No partial record is readable as
-valid; no existing binding is overwritten. A losing creator returns the valid
-matching reference or a conflict, never a second job. A missing destination refuses
-creation; there is no default to session folders or repository history. Source
-files are not an atomic cross-tool snapshot: refuse observed changes on the final
-validation, record the captured evidence and require R5 to validate again. Do not
-claim that publication locks sources or prevents a change after the last read.
-No selection, navigation, copying, read or reader retry creates or repairs a binding.
+Atomically publish complete initial records with concurrent key uniqueness.
+Neither partial validity nor overwrite is allowed. Losing creators return a valid
+matching reference or conflict, never a second job. A missing destination refuses;
+never default to session folders or history. Sources aren't a cross-tool atomic
+snapshot. Final validation refuses observed changes, records captured evidence
+and requires R5 revalidation. Publication cannot lock sources or prevent later
+changes. Selection, navigation, copying, reads and retries never create or repair bindings.
 
-**Read boundary for R5.** Resolve only stored locators and verify the relationship
-IDs, origin/goal and run's bound seed reference/digest against the frozen identity.
-A changed run ID under the same slug or a different goal/seed connection is a
-conflict or outdated relationship; do not borrow its evidence. A missing or moved
-source is unavailable, not permission to search, relocate or retarget. Report the
-reason and the absence of an implemented update/relocation route; preserve all
-binding bytes. Repeated creation cannot repair a binding or bypass that refusal.
+**R5 read boundary.** Use stored locators only. Check relationship IDs, origin and
+goal, and the run's bound seed reference and digest against frozen identity.
+A changed ID under the same slug, or changed goal or seed, means a conflict or
+outdated relationship. Never borrow its evidence. Missing or moved sources mean
+unavailable, not permission to search, relocate or retarget. Explain missing update
+or relocation routes and preserve bytes. Repeated creation cannot bypass refusal.
 
-Ledger decision/version changes, stage progress, candidate changes and whole
-run-record digest changes do not by themselves invalidate relationship identity.
-Read current decisions and checks through source-owned freshness rules, separately
-from creation evidence. A newer source seed is reported as different from the
-bound run copy, not substituted for it; if that copy and declared connection still
-match the binding, it remains the historical seed used by this run. Never treat
-captured ledger/run digests as current approvals. If a required identity component
-cannot be checked, keep that connection unknown even if other sources are readable.
+Ledger decisions and versions, stage or candidate progress, and whole run digest
+changes do not alone invalidate identity. Apply source-owned freshness to current
+checks and decisions separately from creation evidence. Report newer source seeds
+as different; never substitute for the bound copy. A still-matching copy remains
+the historical seed. Captured digests never prove current approval. Unverifiable
+required identity stays unknown despite other readable sources.
 
-A PR reference must explicitly belong to the identified run; disagreeing references
-remain conflicting. Read PR checks with their repository, number and result
-revision, not as permanent binding approval. No PR yet means no result evidence,
-not success. Missing, unreadable, unsupported, outdated and conflicting bindings
-and evidence stay distinct. Failed/interrupted execution is source state, not a
-reason to create another binding.
+PR references must explicitly belong to the run; disagreements conflict. Checks
+include repository, number and result revision, never permanent binding approval.
+No PR means no result evidence, not success. Missing, unreadable, unsupported,
+outdated and conflicting evidence remain distinct. Failed or interrupted execution
+does not justify another binding.
 
-**Prerequisite completion.** Test temporary synthetic sources for valid initial
-creation, identical titles/seeds on different sessions, same-slug/different runs,
-legacy identity absence, repeated and concurrent creation, conflicting identity
-under the same key, observed changes before publication, unsupported formats,
-partial-write failure, missing destination and leaving without writing. Test
-revision/relocation refusal with existing bytes unchanged. Include normal ledger
-and stage progress that preserves identity but changes source evidence, and a
-changed run seed/goal that must not inherit the relationship. Reversion probes
-protect confirmation, source-change detection, ID checks and duplicate prevention.
-Provide a generated initial binding and linked-job fixtures for R5; existing
-unlinked fixtures remain negative cases. This contract remains unaccepted;
-I2 is a published proposal needing separate approval. These planned checks grant
-no implementation or provider budget.
+**Completion tests.** Use temporary synthetic sources to cover valid creation;
+identical titles and seeds across sessions; same-slug runs with different IDs;
+legacy ID absence; repeated and concurrent creation; same-key conflicts;
+prepublication source changes; unsupported formats; partial-write failure; missing
+destinations; and leaving without writing. Test revision and relocation refusal
+without changing bytes. Distinguish normal ledger and stage progress from changed
+run goals or seeds. Reversion probes protect confirmation, source-change detection,
+ID checks and duplicate prevention. Generate initial binding and linked-job fixtures
+for R5; unlinked fixtures stay negative cases.
 
 ## Changes, conflicts and interruption
 
-| What changed or failed | What the existing tools establish | What the proposed view should say/do |
-| --- | --- | --- |
-| Seed Me evidence or a decision changes | Version checks reject conflicting publication; dependent settlements need reopening/revalidation; history remains. `review_flags` is derived and does not erase decisions | Show the concern and the original decision. Never silently choose a replacement |
-| Original seed changes after SDLC copied it | SDLC binds its own copy. Changing the original does **not** stale that run's approvals; rebinding or editing the copy does. [Regression test][D-seed-tests] | Show which copy was used and any observed difference; do not call it the latest seed or silently rebind it |
-| Plan, specification, brief, stage context or checklist changes | Relevant stage input digests change; approvals become stale. A full run's earlier artifact can stale later gates too | Show the first available gate needing review; preserve earlier receipts as history |
-| Candidate, check policy, test lock, manual receipt or verification log changes | Current verification can become stale; a new failed verification replaces a pass. [Tests][D-protocol-tests] | Show failure/staleness and the source's next step; do not reuse a prior green result |
-| PR head and checkout differ; local and remote checks disagree | Substrate reports the mismatch. Both observations can be true for different revisions | Name both revisions and sources; do not combine them into a green job |
-| GitHub review remains approved after changes | Dismissal of stale approvals depends on repository rules; the current reader does not inspect those rules or review commit identities. [GitHub rules][G-protection] | Report GitHub's observed state, never “this candidate is approved” from that field alone |
-| Verification stops mid-run | A `running` receipt with no active writer becomes `interrupted`; an active writer means `running`. A lock file's mere existence is insufficient | Offer the external next step to inspect the log and rerun; never rerun on navigation |
-| Application/harness stops | Explicit checkout + run locates SDLC state; list status isolates invalid runs. Substrate's selected work file, saved handoff and prepared tools bindings support recovery | Re-read the chosen records. No inspected ID resumes an in-flight agent; a still-active Seed Me session also does not prove a worker is running |
-| Source disappears, cannot be parsed, or has an unsupported version | Source-specific error or unavailable state; other sources may remain readable | Keep verified facts visible, mark this gap plainly, and offer one repair/refresh step. No automatic downgrade to an older successful record |
+| Source event | Required interpretation |
+| --- | --- |
+| Seed Me evidence or decisions change | Version checks reject conflicts; dependents need reopening or revalidation. Preserve history and the original decision alongside the concern. Derived `review_flags` never erase or silently replace decisions. |
+| The original seed changes | SDLC binds its copy. Original changes alone do not stale approvals, but rebinding or editing the copy does. Name the used copy and differences; never silently rebind or call it latest. [Test][D-seed-tests] |
+| The plan, specification, brief, context or checklist changes | Input digests stale relevant gates, possibly later gates in a full run. Show the first available review gate; retain old receipts as history. |
+| The candidate, check policy, test lock, manual receipt or log changes | Verification may stale; a new failure replaces a pass. Show the source's next step, never reuse prior green. [Tests][D-protocol-tests] |
+| PR head and checkout, or local and remote checks, differ | Name revisions and sources. Both observations may hold; never combine them into green. |
+| GitHub review remains approved | Stale-dismissal rules and review commit identities aren't inspected. Report the observation, not candidate approval. [Rules][G-protection] |
+| Verification stops | `running` without an active writer becomes `interrupted`; an active writer stays running. Lock-file existence alone proves nothing. Offer an external log inspection and rerun step; navigation never reruns. |
+| The harness or application stops | Find SDLC state by explicit checkout and run; listing isolates invalid runs. Work files, handoffs and tools bindings aid recovery, but no inspected ID resumes agents. An active Seed Me session doesn't prove a worker is running. Reread selected records. |
+| A source is missing, unparseable or unsupported | Keep other verified facts, name the gap and offer one repair or refresh. Never fall back to older success. |
 
-Snapshot times mean “read at,” not “unchanged since.” The shared reader collects
-sources separately and validates the binding as well as each source's freshness.
-Refresh before any consequential external action; if identities change while
-reviewing, show that and require review of the current material.
-No aggregate “approved,” “done” or “safe to resume” flag is justified here.
+Read times mean “read at,” not “unchanged since.” Collect sources separately and
+validate the binding and each freshness rule. Refresh before consequential external
+actions; identity changes require review of current material. No aggregate approved,
+done or safe-to-resume flag is justified.
 
 ## Attention and cost
 
@@ -156,90 +134,70 @@ See [historical source evidence](../research/shared/job-record-survey.md#attenti
 
 ## Proposed R5: one explicit read
 
-After design acceptance and the [identity prerequisites](#goal-to-run-identity-prerequisite)
-are implemented, reviewed and verified, R5 reads one existing binding. Tinkery's
-shared reader owns source selection, binding validation, bounded collection and
-typed evidence for all phases. Seed Me owns its session/decisions, SDLC owns run
-and gate freshness, and GitHub owns remote PR observations. No phase imports
-another; phase callers neither parse source formats nor recalculate SDLC gates.
+Before R5, accept the design and implement, review and verify the
+[prerequisites](#goal-to-run-identity-prerequisite). R5 reads one existing binding. The shared reader owns
+selection, validation, bounded collection and typed evidence. Phases import no
+other phase, parse no source formats and recalculate no SDLC gates. Seed Me owns
+decisions, SDLC owns freshness, and GitHub owns remote observations.
 
-R5 must work without an installed Substrate package or its `surface --json`
-service. Existing Substrate work/tools records may supply explicitly selected
-legacy references, but cannot replace a verified binding. Port useful source
-reading behavior behind Tinkery-owned boundaries, not the whole dashboard,
+Require no installed Substrate or `surface --json` service. Explicit legacy work
+or tools references cannot replace a binding. Port useful readers, not the dashboard,
 launcher, preparation pipeline or measurement service. Preserve source version,
-identity, revision and read time, and full decision source/reason/history for
-later Approve and Taste views. Never reduce these to one aggregate green flag.
+identity, revision, read time and full decision source, reason and history for
+Approve and Taste. Never reduce these to aggregate green.
 
-The explicit read names its sources and any execution/network access: Git/`gh`
-may contact GitHub, and a selected SDLC status helper executes checkout code.
-“Read-only” is not permission to execute discovered code. Use only already
-permitted helpers/locations; no automatic trust, setup, transcript discovery,
-watcher or reader launch on navigation. A disallowed source stays unavailable.
-Local contract tests use fakes and temporary TEST roots, not network or providers.
+Explicit reads disclose sources and execution or network access. Git and `gh` can
+contact GitHub; selected SDLC status helpers execute checkout code. Read-only is
+not execution permission. Use only already-permitted helpers and locations.
+Never automatically trust, set up, discover transcripts, watch files or launch
+readers on navigation. Disallowed sources stay unavailable. Tests use fakes and
+TEST roots, not network or providers.
 
-An absent or invalid binding says “Goal connection unknown” and keeps source
-facts separate. This refusal is required negative coverage, **not successful R5
-completion**. The positive fixture must trace the exact bound goal through its
-seed and separate decisions to the identified run, matching checks and result
-reference. Reopening the same binding performs no write or external retry; late
-results cannot overwrite a different job or reopen a departed view.
+An invalid or absent binding says “Goal connection unknown” and separates facts.
+This is required negative coverage, not successful R5 completion. Positive fixtures
+trace the exact goal through its seed and separate decisions to the identified
+run, matching checks and result. Reopening performs no write or external retry.
+Late results cannot overwrite another job or reopen departed views.
 
-Run retention, lesson proposals, binding creation and phase UI are separate
-slices. Reader recovery does not promise that an external run survives deletion
-of its worktree; report missing records, and leave retention to its explicit action.
-The R6 expected-input approval gap is separate from this read-only identity work.
-
-Architecture diagnostics: the proposal clarifies source ownership and simpler
-callers (rows 1, 2, 3 and 6), and makes the new boundary visible (row 7). This
-design-only revision changes no modules, limits or measured score. Neither design
-acceptance nor prerequisite completion automatically approves R5 implementation.
+Retention, lessons, binding creation and phase UI are separate slices. Reader
+recovery cannot preserve deleted-worktree runs: report missing records and leave
+retention to an explicit action. R6 expected-input approval is separate.
+Design or prerequisite completion never approves R5 implementation.
 
 ## Proposed R6: external approval handoff
 
-For the first pending decision, show the exact source document/revision and what
-that decision permits. Keep these actions distinct:
+Show the first pending decision's exact source, revision and permission. Goal
+confirmation saves the goal; seed confirmation accepts the intake revision;
+an SDLC stage decision approves current inputs or requests changes; GitHub review
+and release belong to the forge and operator. Keep these decisions distinct.
 
-- Goal confirmation saves that goal.
-- Seed confirmation accepts the displayed intake revision.
-- An SDLC stage decision approves its current inputs, or requests changes.
-- GitHub review and release decisions belong to the forge and operator.
+One explicit copy handoff names the checkout, run, stage, current evidence and
+source review command. Copying neither runs nor approves. The operator decides
+externally with their actual reviewer, source and reason; refresh reads the receipt.
+Never invent approval words or approve the goal, seed, stages and release together.
 
-Offer one explicit **copy handoff** action for the selected external workflow.
-Copying does not execute it or record approval. The handoff names the checkout,
-run, stage, current evidence and source-owned review command; the operator makes
-the decision there and supplies their actual reviewer/source/reason. A refresh
-afterward reads the new receipt. Never prefill invented approval words or mark
-the goal, seed, stages and release approved together.
+**Separate approval-binding gap:** inspected `decide` hashes inputs at execution,
+accepting no expected digest of previously displayed documents. Inputs can change
+after copying or rereading. External rereview is possible, but approval of the
+displayed revision is not guaranteed. R6 needs separately approved upstream rejection of
+changed expected digests; refresh before or after cannot supply it. [Writer][D-writer]
 
-**Approval binding gap, separate from job identity:** at the inspected revision,
-the `decide` helper hashes inputs when the command runs.
-It accepts no expected digest for the documents the operator previously saw.
-Inputs can change between a copied handoff, rereading and that command. External
-human rereview is available; guaranteed approval of the same displayed revision
-is not. R6's same-revision completion check therefore needs an upstream command
-that rejects a changed expected input digest, as a separately approved dependency. A refresh before or
-after `decide` cannot supply that missing guarantee. [Decision writer][D-writer]
-
-Source operations that would write or run are outside this reader: Seed Me
-`init`/`publish`/`seed confirm`/`end` and viewer startup; SDLC `new`/`decide`/`mark`/
-`verify`/`lock-tests`/`stage` (stage can commit and create a worktree); Substrate
-`init`/`prepare`/`workflow`, ledger updates/scheduling and archives; GitHub
-review/merge. `actions.*.allowed` in SDLC means a local precondition permits a
-command, not that the operator authorized it. R6 adds no hidden execution or
-release authority. Missing authentic review identity, changed inputs or an
-unresolved link returns the operator to the external owner with the reason.
+The reader excludes Seed Me `init`, `publish`, `seed confirm`, `end` and viewer
+startup; SDLC `new`, `decide`, `mark`, `verify`, `lock-tests` and `stage` (which can
+commit and create a worktree); Substrate `init`, `prepare`, `workflow`, ledger
+scheduling, updates and archives; and GitHub review or merge.
+SDLC `actions.*.allowed` is a precondition, never authorization. R6 adds no hidden
+execution or release authority. Missing authentic review identity, changed inputs
+or unresolved links return to the external owner with a reason.
 
 ## Evidence and checks
 
-The [fixture notes](../../tests/fixtures/job-records/README.md) state which bytes
-are source-shaped records and which are proposed display expectations. They
-cover current, missing, unreadable, outdated, failed, interrupted and conflicting
-evidence, but no implemented goal-to-run binding. Those fixtures and the original
-source checks establish consistency only, not a production reader or real outcome.
-This revision specifies the additional prerequisite checks above; it executes no
-binding writer, reader, approval action or live trial. Historical upstream
-validation is not fresh validation of this revision.
+[Fixture notes](../../tests/fixtures/job-records/README.md) distinguish source-shaped
+records from proposed display expectations. Fixtures cover current, missing,
+unreadable, outdated, failed, interrupted and conflicting states, but no implemented
+binding. They establish consistency, not production reading or outcomes.
+Prerequisite tests remain planned; no binding writer, reader, approval or live trial
+runs here. Historical upstream checks are not fresh validation.
 
 [D-writer]: https://github.com/jon-devlapaz/tink-sdlc/blob/8ffa2bdf2743c8904c5eebd27c8ff2f45ec972a3/assets/_system/scripts/sdlc.py#L377-L402
 [D-seed-tests]: https://github.com/jon-devlapaz/tink-sdlc/blob/8ffa2bdf2743c8904c5eebd27c8ff2f45ec972a3/tests/test_sdlc_stage.py#L257-L284

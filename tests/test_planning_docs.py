@@ -5,18 +5,18 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = {
-    "## Starting point": "45dbefa6ba2710a3ae5e4ab5eb07cf9219402bffbd79c601e5b71a0751e85c19",
-    "## Finish line": "eea5bd71b2be43a26b1502d7e18b9a3ef5c8bad19a13589137c4b1b074885d70",
-    "## Milestones and dependencies": "5ec0b234038b981f1e93f70ff2f6fc5c3e16f18077213dd72cb66af76029c29b",
-    "## How to measure the benefit": "cf87d09453c50f53449199b105b97e95b511ac3c5bd697b52d09ceb7ddb5bc1f"
+    "## Starting point": "019bbfbc2b2ccc0399342bd55d5b13fe3c71b7f58b1604866dff20b20f7f0cd3",
+    "## Finish line": "94c980fbbf4410cdbaf3c70ea882bcb6dc9b6fa8d244e376f269c11c8eb53384",
+    "## Milestones and dependencies": "de8be8aa36be61559a00c5bdb6b92383530fef2b3b78c94981e972cfaf4366f5",
+    "## How to measure the benefit": "02169dfc426f72fb0e25b3a29209ddf5507a5db78f81ba2e532611fec7e19a54"
 }
 PROPOSALS = {
-    "### Context menu and send aliases (C4–C6, C9)": "c6e1492e229317cef4081de5dcdea416a58eb0dea80aaedb59f5a0c3481b4fd5",
-    "### Evidence on demand (C13)": "3d69bd3b847475c34e28291d15bf66b3a353dbee256838b8b0341ce79103aeb6",
-    "### Multiple-choice answers": "1e47e1d7372b78b06f3651bb479b6ffcf8d56321cabe2bf50c4d6827128c3552",
-    "### Scratch-space spike — design only": "2b4f5bc10f2c02e613988a61c546a73cb741e36b0ea6846cba70d0c5cf2af584",
-    "### A calm dark theme": "b283b75afcf28b3209d4dd442526bd65b4392361f4c74ef08e378d75988dff99",
-    "### Absorb substrate: keep runs and learn from them": "1996982b57faf5a9e80918ea3b6418542019535f9278d2728065be6698de67db"
+    "### Context menu and send aliases (C4–C6, C9)": "3cac3e0ea7fa2c754e23be7735446da9016b00b6a0ff0f4460fa13b0c0622bd0",
+    "### Evidence on demand (C13)": "8a211c583f7d1691c250df21dd7b6619f7687dfdd4914880d8bd162829916547",
+    "### Multiple-choice answers": "93520a3704106c8bbce67477a89e501408435326f5907655b24fa6c19833be4d",
+    "### Scratch-space spike — design only": "a15e1bc9afa5bc122563d5528e68ffb588a75a6524d098b4dd1d37f1e6f7619a",
+    "### A calm dark theme": "815b024ed6a9264b23cff0f39b798936b10aab5667520f3c8b1e660add88182b",
+    "### Absorb substrate: keep runs and learn from them": "b969281a1f93469e73bdd02433136c47a9b2ca2dfce446ac6e74b3fa42485cf6"
 }
 
 
@@ -39,7 +39,7 @@ class PlanningDocumentationTests(unittest.TestCase):
         safeguards = source.split("## Shared safeguards\n", 1)[1].split("\n## ", 1)[0]
         for guard in ("../../../AGENTS.md#guardrails", "explicit budget", "default is zero",
                       "Never record\nreal audio", "original words and answers verbatim",
-                      "operator data", "sessions, installs, settings", "terminal/macOS/launcher preferences",
+                      "operator data", "sessions, installs, settings", "terminal, macOS and launcher preferences",
                       "do not approve any proposal"):
             self.assertIn(guard, safeguards)
         for heading, digest in PROPOSALS.items():
@@ -48,7 +48,7 @@ class PlanningDocumentationTests(unittest.TestCase):
             contract = section.split("**Read:**")[0].strip()
             self.assertEqual(digest, hashlib.sha256(contract.encode()).hexdigest(), heading)
             self.assertIn("**Read:** [safeguards](#shared-safeguards)", section)
-        for boundary in ("or make copy/send confirm anything", "imply unused words are rejected",
+        for boundary in ("or make copying or sending confirm anything", "imply unused words are rejected",
                          "Force choices", "mix guesses with verbatim cards", "persist canvases",
                          "invent operator dumps", "break NO_COLOR", "Don't add features to substrate"):
             self.assertIn(boundary, source)
