@@ -190,10 +190,14 @@ def full_journey(width, height):
             run.wait('F2 look into the next question')
             # Before the first step, Shape says which folder it reads; F4 picks another.
             run.wait(f'The step reads files in {cwd.name}. F4 picks another folder.')
-            run.send(F1, f'The next step reads files in: {cwd}')
+            # A long temporary path can wrap mid-word, so paths are compared without whitespace.
+            squashed = lambda: ''.join(run.screen.text().split())
+            run.send(F1, 'The next step reads files in:')
+            assert f'Thenextstepreadsfilesin:{cwd}' in squashed(), run.screen.text()
             run.send(b'\x1b', 'F2 look into the next question')
-            run.send(b'\x1bOS', f'Folder: {cwd}')
-            run.send(b'/TEST-target', 'Folder: ')
+            run.send(b'\x1bOS', 'Next: Enter uses this folder')
+            assert f'Folder:{cwd}' in squashed(), run.screen.text()
+            os.write(run.master, b'/TEST-target')
             run.send(b'\r', 'The step reads files in TEST-target.')
             # Opening, scrolling and help write nothing and call no model.
             run.send(b'\x1b[B', 'F2 look into the next question')

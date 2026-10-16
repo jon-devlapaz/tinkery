@@ -427,8 +427,10 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
         shape.key(key(KeyCode::F(4)), None);
         assert!(shape.takes_text());
         let text = screen(&mut shape, 80, 24, true);
+        // A long folder path wraps, so compare without the wrapping whitespace.
+        let squashed: String = text.split_whitespace().collect();
         assert!(
-            text.contains(&format!("Folder: {}▏", first.display())),
+            squashed.contains(&format!("Folder:{}▏", first.display())),
             "{text}"
         );
         assert!(
