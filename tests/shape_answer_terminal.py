@@ -204,7 +204,7 @@ def full_journey(width, height):
             run.send(F1, 'Model calls left this run: 2 of 2.')
             run.send(b'\x1b', 'F2 look into the next question')
             assert files(run.sessions) == before and run.calls() == [], 'Shape wrote or called before F2'
-            run.send(F2, 'Where records live: Keep records local or synced?')
+            run.send(F2, 'Where records live Keep records local or synced?')
             run.wait('What I found: README.md:3: says local only')
             run.wait('F2 save answer and look into next')
             calls = run.calls()
@@ -221,8 +221,10 @@ def full_journey(width, height):
             assert files(run.sessions) == before and len(run.calls()) == 1, 'Typing wrote or called'
             if width == 100:
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
-            run.send(F2, 'Seed draft r1 is waiting for you to confirm it.')
+            run.send(F2, 'Seed draft r1')
+            run.wait('Confirming the seed is not approval to build.')
             run.wait('F3 confirm seed r1')
+            assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
             answered = next(n for n in ledger['nodes'] if n['id'] == 'storage')
             assert answered['answer'] == 'Local? Yes, Keep it local.' and answered['authority'] == 'user', answered
@@ -302,14 +304,16 @@ def case(name, width=100, height=30):
                 before = files(sessions)
                 run.send(F2, 'Another writer changed this session first, so nothing was saved.')
                 run.wait('Changed by another writer')
-                run.wait('Your answer: Local.')
+                run.wait('your answer Local.')
                 assert files(sessions) == before, 'A stale answer was written'
                 assert run.calls() == [], 'A stale answer still called the model'
             elif name == 'stop':
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
-                run.send(F2, 'Saving your answer, then looking into the next question. Esc stops the looking.')
-                run.wait('Must not: Run agents.')
+                # While the step runs, the question and the saved answer stay in view.
+                run.send(F2, f'Answer saved. Looking in {cwd.name} for the next question.')
+                run.wait('Keep records local or synced? your answer Local.')
+                run.wait('esc stop')
                 deadline = time.monotonic() + 10
                 while not run.calls() and time.monotonic() < deadline:
                     time.sleep(.05)
@@ -328,7 +332,7 @@ def case(name, width=100, height=30):
                 assert helper.decisions_block(ledger) in (session / 'seed-contract.md').read_text()
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             elif name == 'practice confirmation':
-                run.wait('Seed draft r1 is waiting for you to confirm it.')
+                run.wait('Seed draft r1')
                 run.type('I confirm r1.')
                 before = files(sessions)
                 run.send(F3, 'Seed Me refused: a simulated session cannot be confirmed')
@@ -352,7 +356,7 @@ def case(name, width=100, height=30):
                 ledger = helper.load(session)
                 if name == 'zero budget':
                     run.wait('Next: start Tinkery with --shape-budget CALLS')
-                    run.wait('Your answer: Local.')
+                    run.wait('your answer Local.')
                     assert files(sessions) == before and run.calls() == [], 'Zero budget wrote or called'
                 elif name == 'model writes decisions':
                     assert not (session / 'seed-contract.md').exists(), 'A model-written decisions block was saved'

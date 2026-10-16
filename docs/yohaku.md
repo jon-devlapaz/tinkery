@@ -60,8 +60,9 @@ knowing it will.
   change.
 - **The key bar shows only what is possible now,** muted. Help has two layers: what to do now, then every key.
 - **The operator's original stays plain ink.** No highlighting by default.
-- **The receipt and shape show the confirmed goal exactly as confirmed,** with one next step and a prompt to copy.
-  Paths live in "How it works", not on screen.
+- **The receipt shows the confirmed goal exactly as confirmed,** with one next step and a prompt to copy. Shape
+  shows the goal's first line; F5 shows the whole goal exactly as confirmed. Paths live in "How it works", not on
+  screen.
 
 ## Colour has one job each
 

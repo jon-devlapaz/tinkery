@@ -13,8 +13,9 @@ spec.loader.exec_module(helper)
 GOAL = ('I can see where my seed stands without switching tools.\n'
         'Why: I lose the thread between tools.\nDone when: Shape shows the next question.\n'
         'Must: Keep my words.\nMust not: Run agents.')
+DECIDED = 'In one file I can search.'
 DETAIL_KEYS = 'c copy prompt   s shape   r history   esc back   F10 menu'
-SHAPE_KEYS = '↑↓ scroll   esc back   F10 menu'
+SHAPE_KEYS = 'F5 so far   esc back   F10 menu'
 LIST_KEYS = '↑↓ move   enter open   esc back'
 
 
@@ -29,7 +30,9 @@ def make(root, name, goal=GOAL, question=True):
     old = helper.load(session)
     state = helper.editable(old)
     nodes = [node('goal', status='settled', answer=goal, authority='user',
-                  authority_source='TEST fixture, not real approval')]
+                  authority_source='TEST fixture, not real approval'),
+             node('notes', status='settled', label='TEST where notes go', answer=DECIDED,
+                  authority='user', authority_source='TEST fixture, not real approval')]
     if question:
         nodes.append(node('storage', status='unresolved', label='Where records live',
                           question='Keep records local or synced?',
@@ -102,6 +105,18 @@ def journey(width, height, case, no_color=False):
         def flat():
             return ' '.join(screen.text().split())
 
+        def so_far(first=''):
+            """F5's page: the whole goal byte for byte, then the operator's decision; Esc closes it."""
+            keys = screen.text().splitlines()[-1].strip()
+            send(b'\x1b[15~', 'F5 close')
+            rows = [row[2:].rstrip() for row in screen.text().splitlines()]
+            start = rows.index('Your goal, as you confirmed it') + 1
+            shown = '\n'.join(rows[start:rows.index('', start)])
+            assert shown == (first + '\n' if first else '') + GOAL, screen.text()
+            assert f'TEST where notes go: {DECIDED} (you)' in flat(), screen.text()
+            assert 'esc back' not in screen.text(), screen.text()
+            send(b'\x1b', keys)
+
         def shows_goal(first=''):
             for line in ([first] if first else []) + GOAL.splitlines():
                 assert ' '.join(line.split()) in flat(), (line, screen.text())
@@ -116,8 +131,9 @@ def journey(width, height, case, no_color=False):
                 lines = screen.text().splitlines()
                 drafted = 'j' if any('› I can see' in l for l in lines) else ''
                 os.write(master, drafted.encode())
-                send(b'\r', 'Seed draft r1 is waiting for you to confirm it.')
-                shows_goal('Drafted goal')
+                send(b'\r', 'Confirming the seed is not approval to build.')
+                assert 'status: draft' not in screen.text(), screen.text()
+                so_far('Drafted goal')
                 # Confirmed elsewhere while open: back at the list, Shape reads again and drops it.
                 helper.confirm_seed(drafted_session, 'r1', 'TEST fixture only: confirm r1')
                 before = files(sessions)
@@ -133,20 +149,30 @@ def journey(width, height, case, no_color=False):
                     (next(sessions.iterdir()) / 'ledger.json').write_text('not JSON')
                 before = files(sessions)
                 expected = {
-                    'question': 'Where records live: Keep records local or synced?',
-                    'drafted': 'Seed draft r1 is waiting for you to confirm it.',
+                    'question': 'Where records live Keep records local or synced?',
+                    'drafted': 'Confirming the seed is not approval to build.',
                     'ready': 'Seed ready: you confirmed r1, and it still matches.',
                     'stale': "Seed Me can't verify it: the seed changed after revision r1 was confirmed.",
                     'ended': 'This session has ended (stopped).',
                     'unreadable': 'Seed Me refused to read this session:',
                 }[case]
                 send(b's', expected)
-                keys = {'question': '↑↓ scroll   F2 save answer and look into next   esc back   F10 menu',
-                        'drafted': '↑↓ scroll   F3 confirm seed r1   esc back   F10 menu'}.get(case, SHAPE_KEYS)
-                assert screen.text().splitlines()[-1].strip() == keys, screen.text()
-                assert flat().count('Next:') == 1, screen.text()
+                keys = {'question': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
+                        'drafted': 'F3 confirm seed r1   F5 so far   esc back   F10 menu',
+                        'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
+                # Scrolling is offered only when something doesn't fit.
+                bar = screen.text().splitlines()[-1].strip()
+                assert bar in (keys, '↑↓ scroll   ' + keys), screen.text()
+                # The key bar names the one next action on a question or a draft, so no Next line does.
+                acts = case in ('question', 'drafted')
+                assert flat().count('Next:') == (0 if acts else 1), screen.text()
+                if case == 'drafted':
+                    assert 'status: draft' not in screen.text() and 'Seed draft r1' in screen.text()
+                elif case != 'unreadable':
+                    lines = GOAL.splitlines()
+                    assert lines[0] in flat() and lines[1] not in flat(), screen.text()
                 if case != 'unreadable':
-                    shows_goal()
+                    so_far()
                 if case == 'question':
                     assert 'What I found: README.md:3 says local only' in flat(), screen.text()
                     assert 'Suggestion: Local, matching the README.' in flat(), screen.text()

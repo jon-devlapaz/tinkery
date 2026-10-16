@@ -1,5 +1,5 @@
 use super::*;
-use crate::seed_me::shaping::{Shaped, Shaping};
+use crate::seed_me::shaping::{Decided, Shaped, Shaping};
 use crossterm::event::KeyModifiers;
 use std::sync::Arc;
 
@@ -13,6 +13,18 @@ fn done(stage: Shaped) -> Shape {
         goal: Some(GOAL.into()),
         stage,
         version: Some(3),
+        decided: vec![
+            Decided {
+                title: "TEST where records live".into(),
+                answer: "Local for now.\nSynced later if I ask.".into(),
+                authority: "user".into(),
+            },
+            Decided {
+                title: "TEST format".into(),
+                answer: "Markdown, as the README says.".into(),
+                authority: "delegated".into(),
+            },
+        ],
     }));
     shape
 }
@@ -56,10 +68,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
         suggestion: Some("Local.".into()),
     };
     let cases = [
-        (
-            question,
-            "Where records live: Keep records local or synced?",
-        ),
+        (question, "Where records live Keep records local or synced?"),
         (
             Shaped::Waiting,
             "Seed Me hasn't asked its next question yet.",
@@ -101,8 +110,10 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
             for no_color in [false, true] {
                 let mut shape = done(stage.clone());
                 let text = screen(&mut shape, width, height, no_color);
-                for line in GOAL.lines() {
-                    assert!(text.contains(line), "{line} missing:\n{text}");
+                let (first, rest) = GOAL.split_once('\n').unwrap();
+                assert!(text.contains(first), "{first} missing:\n{text}");
+                for line in rest.lines() {
+                    assert!(!text.contains(line), "{line} on screen:\n{text}");
                 }
                 let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
                 assert!(flat.contains(said), "{said} missing:\n{text}");
@@ -111,11 +122,53 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
                 assert!(!text.contains("/tmp/TEST-shape"), "{text}");
                 assert_eq!(
                     text.lines().last().unwrap().trim(),
-                    "↑↓ scroll   esc back   F10 menu"
+                    "F5 so far   esc back   F10 menu"
                 );
+                assert_eq!(so_far(&mut shape, width, height, no_color), GOAL);
             }
         }
     }
+}
+
+/// Opens "So far" with F5 and returns the goal it shows, after checking the page around it and
+/// that Esc closes it.
+fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String {
+    shape.key(key(KeyCode::F(5)), None);
+    assert!(!shape.takes_text(), "F5's page took words");
+    let text = screen(shape, width, height, no_color);
+    let rows: Vec<&str> = text.lines().map(str::trim_start).collect();
+    let start = rows
+        .iter()
+        .position(|r| *r == "Your goal, as you confirmed it")
+        .unwrap_or_else(|| panic!("no goal heading:\n{text}"));
+    let end = start + rows[start..].iter().position(|r| r.is_empty()).unwrap();
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        flat.contains(
+            "Decided TEST where records live: Local for now. Synced later if I ask. (you)"
+        ),
+        "{text}"
+    );
+    assert!(
+        flat.contains("TEST format: Markdown, as the README says. (delegated)"),
+        "a decision the operator didn't settle read as theirs:\n{text}"
+    );
+    assert!(text.contains("F5 close"), "{text}");
+    assert!(
+        !text.contains("esc back"),
+        "a key bar on F5's page:\n{text}"
+    );
+    shape.key(key(KeyCode::Char('x')), None);
+    shape.key(key(KeyCode::Esc), None);
+    assert!(
+        shape.open.as_ref().unwrap().so_far.is_none(),
+        "Esc kept F5's page"
+    );
+    assert!(
+        shape.open.as_ref().unwrap().typed.is_empty(),
+        "F5's page took a letter"
+    );
+    rows[start + 1..end].join("\n")
 }
 
 #[test]
@@ -123,7 +176,7 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
     for no_color in [false, true] {
         let mut shape = done(Shaped::Question {
             id: "t".into(),
-            title: "T".into(),
+            title: "Label T".into(),
             ask: "Q?".into(),
             found: vec![],
             suggestion: Some("S".into()),
@@ -143,7 +196,12 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
                 .unwrap()
         };
         let palette = Palette::new(no_color);
-        assert_eq!(find("T: Q?").add_modifier, palette.jade.add_modifier);
+        for (needle, style) in [("Q?", palette.jade), ("Label T", palette.muted)] {
+            assert_eq!(find(needle).add_modifier, style.add_modifier, "{needle}");
+            if !no_color {
+                assert_eq!(find(needle).fg, style.fg, "{needle}");
+            }
+        }
         assert!(
             find("Suggestion: S")
                 .add_modifier
@@ -287,8 +345,10 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     assert!(open.running.is_none(), "a step started with no budget");
     assert_eq!(open.typed, "Local? Yes\nkept");
     let text = screen(&mut shape, 100, 30, true);
-    assert!(text.contains("Your answer: Local? Yes\n"), "{text}");
-    assert!(text.contains("             kept▏"), "{text}");
+    assert!(
+        text.contains("  your answer\n  Local? Yes\n  kept▏"),
+        "{text}"
+    );
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(
         flat.contains("No model calls are left: this run's budget is 0."),
@@ -301,8 +361,65 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     assert_eq!(text.matches("Next:").count(), 1, "{text}");
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "↑↓ scroll   F2 save answer and look into next   esc back   F10 menu"
+        "F2 save answer and look into next   F5 so far   esc back   F10 menu"
     );
+}
+
+#[test]
+fn no_next_line_repeats_the_one_action_the_key_bar_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let seed = Shaped::Drafted {
+        revision: Some("r2".into()),
+        text: Some("status: draft\n# Seed: TEST\nrevision: r2\n".into()),
+    };
+    for (stage, keys) in [
+        (
+            question(),
+            "F2 save answer and look into next   F5 so far   esc back   F10 menu",
+        ),
+        (
+            Shaped::Waiting,
+            "F2 look into the next question   F5 so far   esc back   F10 menu",
+        ),
+        (seed, "F3 confirm seed r2   F5 so far   esc back   F10 menu"),
+    ] {
+        for (width, height) in [(100, 30), (80, 24)] {
+            let mut shape = reading(done(stage.clone()).with_agent(Some(agent(1))), dir.path());
+            let text = screen(&mut shape, width, height, true);
+            assert_eq!(text.matches("Next:").count(), 0, "{text}");
+            assert_eq!(text.lines().last().unwrap().trim(), keys, "{text}");
+        }
+    }
+}
+
+#[test]
+fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    shape.paste("TEST keep it local");
+    shape.key(key(KeyCode::F(2)), None);
+    assert!(
+        shape.open.as_ref().unwrap().running.is_some(),
+        "no step started"
+    );
+    for (width, height) in [(100, 30), (80, 24)] {
+        let text = screen(&mut shape, width, height, true);
+        for shown in [
+            "Where records live",
+            "Keep records local or synced?",
+            "your answer",
+            "TEST keep it local",
+            "Saving your answer.",
+        ] {
+            assert!(text.contains(shown), "{shown} missing:\n{text}");
+        }
+        assert!(!text.contains("Nothing found"), "{text}");
+        assert_eq!(text.matches("Next:").count(), 0, "{text}");
+        assert_eq!(text.lines().last().unwrap().trim(), "esc stop");
+    }
+    // F5 waits until the step is done.
+    shape.key(key(KeyCode::F(5)), None);
+    assert!(shape.open.as_ref().unwrap().so_far.is_none());
 }
 
 #[test]
@@ -331,7 +448,14 @@ fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
     assert!(text.contains("TEST seed body."), "{text}");
     assert!(!text.contains("Must not: Run agents."), "{text}");
     assert!(
-        text.contains("F3 confirms r2. It is not approval to build."),
+        text.contains("  Seed draft r2\n\n  Seed: TEST\n\n  You are confirming\n  TEST seed body."),
+        "{text}"
+    );
+    for raw in ["status:", "revision:", "#"] {
+        assert!(!text.contains(raw), "{raw} shown:\n{text}");
+    }
+    assert!(
+        text.contains("  your words\n  ▏\n\n  Confirming the seed is not approval to build."),
         "{text}"
     );
     shape.key(key(KeyCode::F(2)), None);

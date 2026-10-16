@@ -1,8 +1,9 @@
 //! Shape: where a saved goal's seed stands, and working through Seed Me's interview to a seed.
 //!
 //! Opened on one session (from tend's detail) or as a list of goals waiting for a seed (from the
-//! menu). It shows the confirmed goal exactly as recorded, then one thing: the current question,
-//! the seed draft, a ready seed, or an honest unknown or failure, with one next step. Opening,
+//! menu). It shows the confirmed goal's first line, then one thing: the current question, the seed
+//! draft, a ready seed, or an honest unknown or failure, with one next step. `F5` shows the whole
+//! goal exactly as recorded and each settled decision, and writes nothing. Opening,
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
 //! and starts the agent step (`F2`), or confirms a seed with the operator's own words (`F3`); see
 //! [`step`]. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
@@ -15,7 +16,6 @@ mod step;
 
 use crate::{
     Palette,
-    goal::confirmed::goal_block,
     seed_me::{
         Session, Stage,
         answering::NOTHING_FOUND,
@@ -25,7 +25,7 @@ use crate::{
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect},
+    layout::Rect,
     text::{Line, Span, Text},
     widgets::{Paragraph, Wrap},
 };
@@ -36,6 +36,9 @@ use std::{
 use step::{Done, Failure, Running, Why, Work};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+
+/// The widest Shape's open view gets, so lines stay readable on a wide terminal.
+const WIDTH: u16 = 76;
 
 /// Shape's screen: an optional list of goals waiting for a seed and, at most, one open session.
 pub struct Shape {
@@ -65,12 +68,22 @@ struct Opened {
     /// What the last key or step did, when it needs saying, and its own next step if any.
     notice: Option<(String, Option<String>)>,
     running: Option<Running>,
-    /// What the running step is doing, in plain words.
-    doing: &'static str,
+    /// What the running step was asked to do.
+    doing: Doing,
     /// The folder the next step reads.
     folder: Folder,
     /// A folder being typed after `F4`, until Enter uses it or Esc keeps the one shown.
     choosing: Option<String>,
+    /// The "So far" page's scroll while `F5` shows it.
+    so_far: Option<u16>,
+}
+
+/// What a running step was asked to do, so the screen can say where it is.
+#[derive(Clone, Copy)]
+enum Doing {
+    Answer,
+    Look,
+    Confirm,
 }
 
 /// Which folder the next step reads: not known until a read with an agent lands, then where
@@ -111,10 +124,9 @@ impl Shape {
     /// commands.
     pub fn takes_text(&self) -> bool {
         self.agent.is_some()
-            && self
-                .open
-                .as_ref()
-                .is_some_and(|open| open.choosing.is_some() || open.typing().is_some())
+            && self.open.as_ref().is_some_and(|open| {
+                open.so_far.is_none() && (open.choosing.is_some() || open.typing().is_some())
+            })
     }
 
     /// Bracketed paste: the words go into the folder, answer or confirmation exactly as pasted.
@@ -207,6 +219,17 @@ impl Shape {
     /// a model, and only with an agent.
     pub fn key(&mut self, key: KeyEvent, skill: Option<&Path>) -> Leave {
         if let Some(open) = &mut self.open {
+            if let Some(scroll) = &mut open.so_far {
+                match key.code {
+                    KeyCode::Esc | KeyCode::F(5) => open.so_far = None,
+                    KeyCode::Down | KeyCode::Char('j') => *scroll = scroll.saturating_add(1),
+                    KeyCode::Up | KeyCode::Char('k') => *scroll = scroll.saturating_sub(1),
+                    KeyCode::PageDown => *scroll = scroll.saturating_add(5),
+                    KeyCode::PageUp => *scroll = scroll.saturating_sub(5),
+                    _ => {}
+                }
+                return Leave::Stay;
+            }
             if open.running.is_some() {
                 if key.code == KeyCode::Esc
                     && let Some(running) = &open.running
@@ -228,6 +251,10 @@ impl Shape {
                     KeyCode::Esc => open.choosing = None,
                     _ => {}
                 }
+                return Leave::Stay;
+            }
+            if key.code == KeyCode::F(5) && open.so_far_ready() {
+                open.so_far = Some(0);
                 return Leave::Stay;
             }
             if let (Some(agent), Some(typing)) = (&self.agent, open.typing()) {
@@ -307,6 +334,10 @@ impl Shape {
     /// Help for what is on screen now: what to do, then how it works with the paths it reads.
     pub fn help_text(&self) -> String {
         let agent = self.agent.as_deref();
+        let back = match &self.open {
+            Some(open) if open.so_far_ready() => "Esc back · F5 so far · F10 menu",
+            _ => "Esc back · F10 menu",
+        };
         let (now, how) = match &self.open {
             Some(open) => {
                 let failure = match &open.reading {
@@ -369,42 +400,68 @@ impl Shape {
             "Shape only reads. It writes nothing, copies nothing and starts nothing. \
              Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt."
         };
-        format!(
-            "Right now\n{now}\nEsc back · F10 menu\n\nF1 close\n\n{promise}\n\nHow it works\n{how}"
-        )
+        format!("Right now\n{now}\n{back}\n\nF1 close\n\n{promise}\n\nHow it works\n{how}")
     }
 
-    /// Draws Shape in `area`, with its key bar on the terminal's last row.
+    /// Draws Shape in `area`, with its key bar on the terminal's last row. The "So far" page,
+    /// like help, fills the body and has no key bar.
     pub fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
+        if let Some(Opened {
+            so_far: Some(scroll),
+            reading: Reading::Done(Ok(shaping)),
+            ..
+        }) = &mut self.open
+        {
+            render_so_far(frame, scroll, shaping, area, palette);
+            return;
+        }
+        let agent = self.agent.is_some();
+        let overflow = match &self.open {
+            Some(open) => render_open(frame, &mut self.scroll, open, agent, area, palette),
+            None => {
+                self.render_list(frame, area, palette);
+                false
+            }
+        };
         let keys = match (&self.open, &self.list) {
             (Some(open), _) if open.running.is_some() => "esc stop".to_owned(),
             (Some(open), _) if open.choosing.is_some() => {
                 "enter use this folder   esc cancel".to_owned()
             }
-            (Some(open), _) => match (&self.agent, open.typing(), &open.reading) {
-                (Some(_), Some(t), _) if t.key == KeyCode::F(2) => {
-                    "↑↓ scroll   F2 save answer and look into next   esc back   F10 menu".into()
+            (Some(open), _) => {
+                let action = match (&self.agent, open.typing(), &open.reading) {
+                    (Some(_), Some(t), _) if t.key == KeyCode::F(2) => {
+                        Some("F2 save answer and look into next".to_owned())
+                    }
+                    (
+                        Some(_),
+                        Some(Typing {
+                            act: Act::Confirm(r),
+                            ..
+                        }),
+                        _,
+                    ) => Some(format!("F3 confirm seed {r}")),
+                    (
+                        Some(_),
+                        None,
+                        Reading::Done(Ok(Shaping {
+                            stage: Shaped::Waiting,
+                            ..
+                        })),
+                    ) => Some("F2 look into the next question".to_owned()),
+                    _ => None,
+                };
+                let mut keys = Vec::new();
+                if overflow {
+                    keys.push("↑↓ scroll".to_owned());
                 }
-                (
-                    Some(_),
-                    Some(Typing {
-                        act: Act::Confirm(r),
-                        ..
-                    }),
-                    _,
-                ) => {
-                    format!("↑↓ scroll   F3 confirm seed {r}   esc back   F10 menu")
+                keys.extend(action);
+                if open.so_far_ready() {
+                    keys.push("F5 so far".to_owned());
                 }
-                (
-                    Some(_),
-                    None,
-                    Reading::Done(Ok(Shaping {
-                        stage: Shaped::Waiting,
-                        ..
-                    })),
-                ) => "↑↓ scroll   F2 look into the next question   esc back   F10 menu".into(),
-                _ => "↑↓ scroll   esc back   F10 menu".into(),
-            },
+                keys.extend(["esc back".to_owned(), "F10 menu".to_owned()]);
+                keys.join("   ")
+            }
             (None, Some(Some(Ok(sessions)))) if !sessions.is_empty() => {
                 "↑↓ move   enter open   esc back".into()
             }
@@ -419,11 +476,6 @@ impl Shape {
                 1,
             ),
         );
-        let agent = self.agent.is_some();
-        match &self.open {
-            Some(open) => render_open(frame, &mut self.scroll, open, agent, area, palette),
-            None => self.render_list(frame, area, palette),
-        }
     }
 
     fn render_list(&self, frame: &mut Frame, area: Rect, palette: Palette) {
@@ -501,7 +553,7 @@ impl Opened {
                     id: id.clone(),
                     expected,
                 },
-                label: "Your answer: ",
+                label: "your answer",
             }),
             (
                 Shaped::Drafted {
@@ -512,10 +564,15 @@ impl Opened {
             ) => Some(Typing {
                 key: KeyCode::F(3),
                 act: Act::Confirm(revision.clone()),
-                label: "Your words: ",
+                label: "your words",
             }),
             _ => None,
         }
+    }
+
+    /// Whether `F5` can show the goal and decisions now: once read, and not while a step runs.
+    fn so_far_ready(&self) -> bool {
+        matches!(self.reading, Reading::Done(Ok(_))) && self.running.is_none()
     }
 
     /// Whether this stage offers an agent step (a question to answer, or none asked yet).
@@ -606,16 +663,10 @@ impl Opened {
                     expected,
                     folder,
                 },
-                "Saving your answer, then looking into the next question. Esc stops the looking.",
+                Doing::Answer,
             ),
-            Act::Look(expected) => (
-                Work::Look { expected, folder },
-                "Looking into the next question. Esc stops it.",
-            ),
-            Act::Confirm(revision) => (
-                Work::Confirm { revision, words },
-                "Confirming the seed with your words.",
-            ),
+            Act::Look(expected) => (Work::Look { expected, folder }, Doing::Look),
+            Act::Confirm(revision) => (Work::Confirm { revision, words }, Doing::Confirm),
         };
         self.doing = doing;
         self.running = Some(Running::start(
@@ -656,15 +707,73 @@ impl Opened {
             typed: String::new(),
             notice: None,
             running: None,
-            doing: "",
+            doing: Doing::Look,
             folder: Folder::Unknown,
             choosing: None,
+            so_far: None,
         }
     }
 }
 
-/// The goal (or, when one waits, the seed draft) scrolls; where the seed stands, the operator's
-/// words and the next step stay pinned beneath it.
+/// "So far": the whole goal exactly as confirmed, then each settled decision, with only the
+/// operator's own answers marked as theirs. It scrolls when it doesn't fit.
+fn render_so_far(
+    frame: &mut Frame,
+    scroll: &mut u16,
+    shaping: &Shaping,
+    area: Rect,
+    palette: Palette,
+) {
+    let mut lines = vec![Line::styled(
+        "Your goal, as you confirmed it",
+        palette.muted,
+    )];
+    match &shaping.goal {
+        Some(goal) => lines.extend(
+            goal.split('\n')
+                .map(|line| Line::styled(line.to_owned(), palette.ink)),
+        ),
+        None => lines.push(Line::styled(
+            "This session records no confirmed goal.",
+            palette.ink,
+        )),
+    }
+    if !shaping.decided.is_empty() {
+        lines.push(Line::default());
+        lines.push(Line::styled("Decided", palette.muted));
+    }
+    for decided in &shaping.decided {
+        let by = match decided.authority.as_str() {
+            "user" => "you",
+            "simulated" => "practice",
+            other => other,
+        };
+        let rows: Vec<&str> = decided.answer.split('\n').collect();
+        for (i, row) in rows.iter().enumerate() {
+            let mut spans = Vec::new();
+            if i == 0 {
+                spans.push(Span::styled(format!("{}: ", decided.title), palette.muted));
+            }
+            spans.push(Span::styled((*row).to_owned(), palette.ink));
+            if i + 1 == rows.len() {
+                spans.push(Span::styled(format!(" ({by})"), palette.muted));
+            }
+            lines.push(Line::from(spans));
+        }
+    }
+    lines.push(Line::default());
+    lines.push(Line::styled("F5 close", palette.ink));
+    let page = Paragraph::new(lines).wrap(Wrap { trim: false });
+    let max = page
+        .line_count(area.width)
+        .saturating_sub(area.height as usize) as u16;
+    *scroll = (*scroll).min(max);
+    frame.render_widget(page.scroll((*scroll, 0)), area);
+}
+
+/// The goal's first line (or, when one waits, the seed draft) comes first and scrolls when it
+/// doesn't fit; where the seed stands, the operator's words and any next step follow it and stay
+/// in view. Returns whether the top scrolls, so the key bar offers scrolling only then.
 fn render_open(
     frame: &mut Frame,
     scroll: &mut u16,
@@ -672,9 +781,13 @@ fn render_open(
     agent: bool,
     area: Rect,
     palette: Palette,
-) {
+) -> bool {
+    let area = Rect {
+        width: area.width.min(WIDTH),
+        ..area
+    };
     if area.width == 0 || area.height == 0 {
-        return;
+        return false;
     }
     let (top, stand) = match &open.reading {
         _ if open.skill.is_none() => (
@@ -684,13 +797,6 @@ fn render_open(
                 "Next: start Tinkery with --shape-pi, --model and --seed-me.",
                 palette,
             ),
-        ),
-        Reading::Done(Ok(shaping)) if open.running.is_some() => (
-            shaping
-                .goal
-                .as_deref()
-                .map(|goal| goal_block(goal.to_owned(), palette)),
-            Text::styled(open.doing, palette.muted),
         ),
         Reading::NotStarted | Reading::Waiting(_) => (
             None,
@@ -714,68 +820,150 @@ fn render_open(
         Reading::Done(Ok(shaping)) => {
             let top = match &shaping.stage {
                 Shaped::Drafted {
-                    text: Some(seed), ..
-                } => Some(Paragraph::new(seed.clone()).style(palette.ink)),
-                _ => shaping
-                    .goal
-                    .as_deref()
-                    .map(|goal| goal_block(goal.to_owned(), palette)),
+                    revision,
+                    text: Some(seed),
+                } => Some(seed_view(seed, revision.as_deref(), palette)),
+                _ => shaping.goal.as_deref().map(|goal| {
+                    Text::styled(goal.lines().next().unwrap_or("").to_owned(), palette.ink)
+                }),
             };
             let name = open.folder_name();
-            let (words, notice) = match &open.choosing {
-                Some(typed) => (
-                    Some(("Folder: ", typed.as_str())),
-                    Some((
+            let typing = open.typing().filter(|_| agent);
+            let words = |typed| {
+                typing.as_ref().map(|t| Words {
+                    label: t.label,
+                    typed,
+                    own_line: true,
+                })
+            };
+            let acts = typing.is_some()
+                || agent
+                    && matches!(
+                        shaping,
+                        Shaping {
+                            stage: Shaped::Waiting,
+                            version: Some(_),
+                            ..
+                        }
+                    );
+            let stand = match (&open.running, &open.choosing) {
+                (Some(running), _) => {
+                    let name = name.as_deref().unwrap_or_default();
+                    let said = match (open.doing, running.saved()) {
+                        (Doing::Answer, false) => "Saving your answer.".to_owned(),
+                        (Doing::Answer, true) => {
+                            format!("Answer saved. Looking in {name} for the next question.")
+                        }
+                        (Doing::Look, _) => format!("Looking in {name} for the next question."),
+                        (Doing::Confirm, _) => "Confirming the seed with your words.".to_owned(),
+                    };
+                    Stand {
+                        acts,
+                        reads: None,
+                        words: words(open.typed.as_str()),
+                        notice: None,
+                        running: Some(Line::from(vec![
+                            Span::styled(said, palette.ink),
+                            Span::styled(
+                                format!("  {}s", running.elapsed().as_secs()),
+                                palette.muted,
+                            ),
+                        ])),
+                    }
+                }
+                (None, Some(typed)) => Stand {
+                    acts,
+                    reads: None,
+                    words: Some(Words {
+                        label: "Folder: ",
+                        typed,
+                        own_line: false,
+                    }),
+                    notice: Some((
                         "",
                         Some(format!(
                             "Next: Enter uses this folder; Esc keeps {}.",
                             name.as_deref().unwrap_or_default()
                         )),
                     )),
-                ),
-                None => (
-                    if agent {
-                        open.typing().map(|t| (t.label, open.typed.as_str()))
-                    } else {
-                        None
-                    },
-                    open.notice
+                    running: None,
+                },
+                (None, None) => Stand {
+                    acts,
+                    reads: (agent && open.offers_step()).then(|| match &name {
+                        Some(name) => {
+                            format!("The step reads files in {name}. F4 picks another folder.")
+                        }
+                        None => "Finding which folder the step reads.".into(),
+                    }),
+                    words: words(open.typed.as_str()),
+                    notice: open
+                        .notice
                         .as_ref()
                         .map(|(said, next)| (said.as_str(), next.clone())),
-                ),
+                    running: None,
+                },
             };
-            let reads = (agent && open.offers_step()).then(|| match &name {
-                Some(name) => format!("The step reads files in {name}. F4 picks another folder."),
-                None => "Finding which folder the step reads.".into(),
-            });
-            (
-                top,
-                standing(&shaping.stage, agent, reads, words, notice, palette),
-            )
+            (top, standing(&shaping.stage, stand, palette))
         }
     };
-    let stand_rows = Paragraph::new(stand.clone())
-        .wrap(Wrap { trim: false })
-        .line_count(area.width) as u16;
-    let rows =
-        Layout::vertical([Constraint::Min(1), Constraint::Length(stand_rows + 1)]).split(area);
-    let (top_area, stand_area) = if top.is_some() {
-        (
-            rows[0],
-            Rect::new(rows[1].x, rows[1].y + 1, rows[1].width, rows[1].height - 1),
-        )
-    } else {
-        (Rect::default(), area)
+    let rows = |text: &Text<'static>| {
+        Paragraph::new(text.clone())
+            .wrap(Wrap { trim: false })
+            .line_count(area.width) as u16
     };
-    if let Some(block) = top {
-        let block = block.wrap(Wrap { trim: false });
-        let max = block
-            .line_count(top_area.width)
-            .saturating_sub(top_area.height as usize) as u16;
-        *scroll = (*scroll).min(max);
-        frame.render_widget(block.scroll((*scroll, 0)), top_area);
+    let stand_rows = rows(&stand);
+    let Some(top) = top else {
+        frame.render_widget(Paragraph::new(stand).wrap(Wrap { trim: false }), area);
+        return false;
+    };
+    // One blank row between the top and where the seed stands.
+    let top_rows = rows(&top);
+    let height = top_rows.min(area.height.saturating_sub(stand_rows + 1).max(1));
+    *scroll = (*scroll).min(top_rows - height);
+    frame.render_widget(
+        Paragraph::new(top)
+            .wrap(Wrap { trim: false })
+            .scroll((*scroll, 0)),
+        Rect { height, ..area },
+    );
+    frame.render_widget(
+        Paragraph::new(stand).wrap(Wrap { trim: false }),
+        Rect {
+            y: area.y + height + 1,
+            height: area.height.saturating_sub(height + 1),
+            ..area
+        }
+        .intersection(area),
+    );
+    top_rows > height
+}
+
+/// The seed draft for reading: a muted `Seed draft rN` header in place of the file's `status:`
+/// and `revision:` lines, and headings bold without their `#` marks. Every other line is shown
+/// as written. Display only: the file is never changed.
+fn seed_view(seed: &str, revision: Option<&str>, palette: Palette) -> Text<'static> {
+    let mut lines = vec![
+        Line::styled(
+            revision.map_or_else(|| "Seed draft".to_owned(), |r| format!("Seed draft {r}")),
+            palette.muted,
+        ),
+        Line::default(),
+    ];
+    let mut header = true;
+    for line in seed.split('\n') {
+        header &= !line.trim().is_empty();
+        if header && (line.starts_with("status:") || line.starts_with("revision:")) {
+            continue;
+        }
+        lines.push(
+            match line.strip_prefix("## ").or_else(|| line.strip_prefix("# ")) {
+                Some(heading) => Line::styled(heading.to_owned(), palette.ink.bold()),
+                None => Line::styled(line.to_owned(), palette.ink),
+            },
+        );
     }
-    frame.render_widget(Paragraph::new(stand).wrap(Wrap { trim: false }), stand_area);
+    Text::from(lines)
 }
 
 /// What a finished step needs to say, and its own next step when the stage's won't do.
@@ -826,19 +1014,43 @@ fn plain(said: &str, next: &str, palette: Palette) -> Text<'static> {
     ])
 }
 
-/// Where the seed stands, in plain words, ending with one next step. Seed Me's question is the
-/// one thing to act on (jade); its suggestion is a guess (italic). With an agent, the stages that
-/// take words show the operator's words in ink, and a notice from the last key or step comes
-/// before the next step, replacing it when it carries its own.
-fn standing(
-    stage: &Shaped,
-    agent: bool,
+/// What [`standing`] shows beside the stage.
+struct Stand<'a> {
+    /// The key bar names this stage's one next action, so no Next line repeats it.
+    acts: bool,
+    /// Which folder the next step reads, when a step is offered.
     reads: Option<String>,
-    words: Option<(&str, &str)>,
-    notice: Option<(&str, Option<String>)>,
-    palette: Palette,
-) -> Text<'static> {
+    /// The operator's words being typed.
+    words: Option<Words<'a>>,
+    /// What the last key or step said, and its own next step if any.
+    notice: Option<(&'a str, Option<String>)>,
+    /// What a running step is doing; everything else then stays, muted.
+    running: Option<Line<'static>>,
+}
+
+/// A words box: its label, then the typed words, each typed line as its own row.
+struct Words<'a> {
+    label: &'a str,
+    typed: &'a str,
+    /// The label on its own line (an answer or seed words), or before the words (a folder).
+    own_line: bool,
+}
+
+/// Where the seed stands, in plain words. Seed Me's label is muted and its question is the one
+/// thing to act on (jade); its suggestion is a guess (italic). The operator's words are in ink.
+/// At most one Next line: none when the key bar already names the one next action and nothing
+/// was said, and a notice's own next step replaces the stage's. While a step runs, the question and the words
+/// stay, muted, under what the step is doing.
+fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> Text<'static> {
     const CONTINUE: &str = "tend's c copies the prompt to continue.";
+    let Stand {
+        acts,
+        reads,
+        words,
+        notice,
+        running,
+    } = stand;
+    let calm = running.is_some();
     let mut lines = Vec::new();
     let next = match stage {
         Shaped::Question {
@@ -848,65 +1060,75 @@ fn standing(
             suggestion,
             ..
         } => {
-            lines.push(Line::styled(format!("{title}: {ask}"), palette.jade));
-            if found.is_empty() {
-                lines.push(Line::styled(
-                    "Nothing found: this question records nothing checked in the repository.",
-                    palette.ink,
-                ));
+            lines.push(Line::styled(title.clone(), palette.muted));
+            lines.push(Line::styled(
+                ask.clone(),
+                if calm { palette.muted } else { palette.jade },
+            ));
+            if !calm {
+                lines.push(Line::default());
+                if found.is_empty() {
+                    lines.push(Line::styled(
+                        "Nothing found: this question records nothing checked in the repository.",
+                        palette.ink,
+                    ));
+                }
+                for (i, entry) in found.iter().enumerate() {
+                    // A label per entry, not a hanging indent: wrapped lines return to the margin.
+                    let label = if i == 0 {
+                        "What I found: "
+                    } else {
+                        "Also found: "
+                    };
+                    lines.push(Line::styled(format!("{label}{entry}"), palette.ink));
+                }
+                if let Some(suggestion) = suggestion {
+                    lines.push(Line::styled(
+                        format!("Suggestion: {suggestion}"),
+                        palette.ink.italic(),
+                    ));
+                }
             }
-            for (i, entry) in found.iter().enumerate() {
-                // A label per entry, not a hanging indent: wrapped lines return to the margin.
-                let label = if i == 0 {
-                    "What I found: "
-                } else {
-                    "Also found: "
-                };
-                lines.push(Line::styled(format!("{label}{entry}"), palette.ink));
-            }
-            if let Some(suggestion) = suggestion {
-                lines.push(Line::styled(
-                    format!("Suggestion: {suggestion}"),
-                    palette.ink.italic(),
-                ));
-            }
-            if agent {
+            Some(if acts {
                 "Next: type your answer, then F2 saves it and looks into the next question.".into()
             } else {
                 format!("Next: answer it with Seed Me; {CONTINUE}")
-            }
+            })
         }
         Shaped::Waiting => {
-            lines.push(Line::styled(
-                "Seed Me hasn't asked its next question yet.",
-                palette.ink,
-            ));
-            if agent {
+            if !calm {
+                lines.push(Line::styled(
+                    "Seed Me hasn't asked its next question yet.",
+                    palette.ink,
+                ));
+            }
+            Some(if acts {
                 "Next: F2 looks into the next question.".into()
             } else {
                 format!("Next: shape it into a seed with Seed Me; {CONTINUE}")
-            }
+            })
         }
         Shaped::Drafted { revision, text } => {
-            lines.push(Line::styled(
-                match revision {
-                    Some(r) => format!("Seed draft {r} is waiting for you to confirm it."),
-                    None => "A seed draft is waiting for you to confirm it.".into(),
-                },
-                palette.ink,
-            ));
-            if text.as_deref().is_some_and(|t| t.contains(NOTHING_FOUND)) {
+            // When the draft itself is shown, its header already says this.
+            if text.is_none() {
+                lines.push(Line::styled(
+                    match revision {
+                        Some(r) => format!("Seed draft {r} is waiting for you to confirm it."),
+                        None => "A seed draft is waiting for you to confirm it.".into(),
+                    },
+                    palette.ink,
+                ));
+            }
+            if !calm && text.as_deref().is_some_and(|t| t.contains(NOTHING_FOUND)) {
                 lines.push(Line::styled(
                     "Nothing found: this seed records nothing checked in the repository.",
                     palette.ink,
                 ));
             }
-            match (agent, revision) {
-                (true, Some(r)) => format!(
-                    "Next: read the seed, type your own words, then F3 confirms {r}. It is not approval to build."
-                ),
+            Some(match (acts, revision) {
+                (true, Some(r)) => format!("Next: type your own words, then F3 confirms {r}."),
                 _ => format!("Next: confirm the seed draft with Seed Me; {CONTINUE}"),
-            }
+            })
         }
         Shaped::Ready { revision } => {
             lines.push(Line::styled(
@@ -916,71 +1138,107 @@ fn standing(
                 },
                 palette.ink,
             ));
-            "Next: the seed is ready for intake.".into()
+            Some("Next: the seed is ready for intake.".into())
         }
         Shaped::Unverified { reason } => {
             lines.push(Line::styled(
                 format!("The seed says it's confirmed, but Seed Me can't verify it: {reason}."),
                 palette.ink,
             ));
-            format!("Next: confirm the current revision with Seed Me; {CONTINUE}")
+            Some(format!(
+                "Next: confirm the current revision with Seed Me; {CONTINUE}"
+            ))
         }
         Shaped::Practice => {
             lines.push(Line::styled(
                 "This is a practice session's seed, not a real one.",
                 palette.ink,
             ));
-            "Next: confirm a goal in think to start a real one.".into()
+            Some("Next: confirm a goal in think to start a real one.".into())
         }
         Shaped::Ended { status } => {
             lines.push(Line::styled(
                 format!("This session has ended ({status}). There's nothing left to shape."),
                 palette.ink,
             ));
-            "Next: Esc goes back.".into()
+            Some("Next: Esc goes back.".into())
         }
         Shaped::Unknown { what } => {
             lines.push(Line::styled(
                 format!("Shape can't tell where this seed stands. {what}"),
                 palette.ink,
             ));
-            format!("Next: continue with Seed Me; {CONTINUE}")
+            Some(format!("Next: continue with Seed Me; {CONTINUE}"))
+        }
+    };
+    let gap = |lines: &mut Vec<Line<'static>>| {
+        if !lines.is_empty() {
+            lines.push(Line::default());
         }
     };
     if let Some(reads) = reads {
+        gap(&mut lines);
         lines.push(Line::styled(reads, palette.ink));
     }
-    if let Some((label, typed)) = words {
-        // Each typed line shows as its own row, so a pasted line break is never hidden.
-        lines.push(Line::default());
-        let typed = format!("{typed}▏");
+    let worded = words.is_some();
+    if let Some(Words {
+        label,
+        typed,
+        own_line,
+    }) = words
+    {
+        let style = if calm { palette.muted } else { palette.ink };
+        gap(&mut lines);
+        if own_line {
+            lines.push(Line::styled(label.to_owned(), style));
+        }
+        let typed = if calm {
+            typed.to_owned()
+        } else {
+            format!("{typed}▏")
+        };
         for (i, row) in typed.split('\n').enumerate() {
-            let lead = if i == 0 {
-                label.to_owned()
-            } else {
-                " ".repeat(label.width())
+            let lead = match (own_line, i) {
+                (true, _) => String::new(),
+                (false, 0) => label.to_owned(),
+                (false, _) => " ".repeat(label.width()),
             };
             lines.push(Line::from(vec![
                 Span::styled(lead, palette.muted),
-                Span::styled(row.to_owned(), palette.ink),
+                Span::styled(row.to_owned(), style),
             ]));
         }
+        if acts && !calm && matches!(stage, Shaped::Drafted { .. }) {
+            lines.push(Line::default());
+            lines.push(Line::styled(
+                "Confirming the seed is not approval to build.",
+                palette.ink,
+            ));
+        }
+    }
+    if let Some(running) = running {
+        gap(&mut lines);
+        lines.push(running);
+        return Text::from(lines);
     }
     let noticed = notice.is_some();
     let next = match notice {
         Some((said, own)) => {
             if !said.is_empty() {
-                lines.push(Line::default());
+                gap(&mut lines);
                 lines.push(Line::styled(said.to_owned(), palette.ink));
             }
-            own.unwrap_or(next)
+            own.or(next)
         }
-        None => next,
+        // The key bar already names the one next action, unless something needs saying first.
+        None => next.filter(|_| !acts),
     };
-    if matches!(stage, Shaped::Question { .. }) || words.is_some() || noticed {
-        lines.push(Line::default());
+    if let Some(next) = next {
+        if matches!(stage, Shaped::Question { .. }) || worded || noticed {
+            gap(&mut lines);
+        }
+        lines.push(Line::styled(next, palette.ink));
     }
-    lines.push(Line::styled(next, palette.ink));
     Text::from(lines)
 }
 

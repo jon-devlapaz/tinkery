@@ -14,6 +14,19 @@ pub struct Shaping {
     pub stage: Shaped,
     /// The ledger version this was read at; a change made from what's shown must name it.
     pub version: Option<u64>,
+    /// Each settled decision after the goal, in ledger order, exactly as recorded.
+    pub decided: Vec<Decided>,
+}
+
+/// One settled decision: what was decided, the answer as recorded, and who settled it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Decided {
+    /// The node's label, or its id when it has none.
+    pub title: String,
+    /// The recorded answer, byte for byte.
+    pub answer: String,
+    /// Seed Me's authority word: `user` means the operator's own words; anything else isn't.
+    pub authority: String,
 }
 
 /// Where a session's seed stands. Each says only what Seed Me's files show; nothing is guessed.
@@ -106,29 +119,46 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         .and_then(Value::as_str)
         .map(str::to_owned);
     let version = ledger.get("version").and_then(Value::as_u64);
-    let unknown = |what: &str| Shaping {
-        goal: goal.clone(),
-        stage: Shaped::Unknown { what: what.into() },
+    let nodes = ledger
+        .get("nodes")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let origin = text(ledger, "origin");
+    let decided: Vec<Decided> = nodes
+        .iter()
+        .filter(|n| {
+            text(n, "kind").as_deref() == Some("decision")
+                && text(n, "status").as_deref() == Some("settled")
+                && text(n, "id") != origin
+                && n.get("answer").and_then(Value::as_str) != goal.as_deref()
+        })
+        .filter_map(|n| {
+            Some(Decided {
+                title: text(n, "label").or_else(|| text(n, "id"))?,
+                answer: text(n, "answer")?,
+                authority: text(n, "authority").unwrap_or_else(|| "unrecorded".into()),
+            })
+        })
+        .collect();
+    let shaping = |goal: Option<String>, stage| Shaping {
+        goal,
+        stage,
         version,
+        decided: decided.clone(),
     };
+    let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
     let Some(state) = text(status, "status") else {
         return unknown("Seed Me reported no session status.");
     };
     if state != "active" {
-        return Shaping {
-            goal,
-            stage: Shaped::Ended { status: state },
-            version,
-        };
+        return shaping(goal, Shaped::Ended { status: state });
     }
     if goal.as_deref().is_none_or(|g| g.trim().is_empty()) {
         return unknown("This session has no confirmed goal.");
     }
     if let Some(id) = text(status, "current_question") {
-        let node = ledger
-            .get("nodes")
-            .and_then(Value::as_array)
-            .and_then(|nodes| nodes.iter().find(|n| text(n, "id").as_deref() == Some(&id)));
+        let node = nodes.iter().find(|n| text(n, "id").as_deref() == Some(&id));
         let Some(node) = node else {
             return unknown("Seed Me's current question isn't in its ledger.");
         };
@@ -150,25 +180,20 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 _ => None,
             })
             .collect();
-        return Shaping {
+        return shaping(
             goal,
-            stage: Shaped::Question {
+            Shaped::Question {
                 title: text(node, "label").unwrap_or_else(|| id.clone()),
                 id,
                 ask,
                 found,
                 suggestion: text(node, "recommendation"),
             },
-            version,
-        };
+        );
     }
     let seed = status.get("seed").filter(|s| !s.is_null());
     let Some(seed) = seed else {
-        return Shaping {
-            goal,
-            stage: Shaped::Waiting,
-            version,
-        };
+        return shaping(goal, Shaped::Waiting);
     };
     let revision = text(seed, "revision");
     let handoff = status.get("handoff");
@@ -195,11 +220,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             what: "The seed's first line isn't one Seed Me writes.".into(),
         },
     };
-    Shaping {
-        goal,
-        stage,
-        version,
-    }
+    shaping(goal, stage)
 }
 
 #[cfg(test)]
@@ -255,6 +276,40 @@ mod tests {
                 found: vec![],
                 suggestion: None,
             }
+        );
+    }
+
+    #[test]
+    fn settled_decisions_after_the_goal_are_read_exactly_with_who_settled_them() {
+        let mut ledger = ledger();
+        ledger["origin"] = "goal".into();
+        let nodes = ledger["nodes"].as_array_mut().unwrap();
+        nodes[0]["answer"] = "TEST goal\nWhy: it matters.".into();
+        nodes.push(
+            json!({"id": "format", "kind": "decision", "status": "settled",
+            "label": "Note format", "answer": " Markdown,\nas written. ", "authority": "user"}),
+        );
+        nodes.push(
+            json!({"id": "lint", "kind": "decision", "status": "settled",
+            "answer": "Clippy.", "authority": "delegated"}),
+        );
+        nodes.push(json!({"id": "repo", "kind": "fact", "status": "settled",
+            "answer": "A Rust crate.", "authority": "evidence"}));
+        let shaped = classify(&ledger, &status(None, Value::Null, Value::Null));
+        assert_eq!(
+            shaped.decided,
+            vec![
+                Decided {
+                    title: "Note format".into(),
+                    answer: " Markdown,\nas written. ".into(),
+                    authority: "user".into(),
+                },
+                Decided {
+                    title: "lint".into(),
+                    answer: "Clippy.".into(),
+                    authority: "delegated".into(),
+                },
+            ]
         );
     }
 
