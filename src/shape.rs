@@ -531,7 +531,7 @@ impl Shape {
                 "records"
             };
             let notice = format!(
-                "{} {records} couldn't be read. F1 shows why.",
+                "{} {records} couldn't be read. F1 or Tend shows why.",
                 self.unreadable
             );
             let height = area.height.min(2);
