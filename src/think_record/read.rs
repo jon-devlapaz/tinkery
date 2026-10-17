@@ -5,7 +5,7 @@
 mod origins;
 pub(crate) use origins::read_origins;
 
-use super::{Event, SCHEMA, session_id};
+use super::{Event, GoalConfirmation, SCHEMA, session_id};
 use crate::seed_me;
 use serde::Deserialize;
 use std::{
@@ -96,6 +96,8 @@ struct SavedRecord {
     turns: Vec<RecordedTurn>,
     checks: Vec<serde_json::Value>,
     goal: String,
+    #[serde(default)]
+    goal_confirmation: GoalConfirmation,
 }
 
 /// Reads the unique history for `session` and its exact `goal`, without writing or running
@@ -171,7 +173,8 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
     let details = format!(
         concat!(
             "Think record: {}\nSession: {}\nSession ID: {}\nRepository: {}\nFormat: {}\nTinkery: {}\n",
-            "Origin: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n\nChecks:\n{}"
+            "Origin: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n",
+            "Goal confirmer (caller-declared, not authenticated): {}\n\nChecks:\n{}"
         ),
         path.display(),
         selected.0.display(),
@@ -189,6 +192,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         record.prompt_hash.as_deref().unwrap_or("not recorded"),
         record.started,
         record.confirmed,
+        record.goal_confirmation.details(),
         serde_json::to_string_pretty(&record.checks).expect("JSON values always serialize"),
     );
     Ok(History {
@@ -335,6 +339,10 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
     }
     let record: SavedRecord =
         serde_json::from_value(value).map_err(|error| Unavailable::unreadable(path, error))?;
+    record
+        .goal_confirmation
+        .validate()
+        .map_err(|error| Unavailable::unreadable(path, error))?;
     if record.schema >= 2
         && record
             .seed_me_session_id
