@@ -240,6 +240,7 @@ impl Call {
         let stdout = read_pipe(child.stdout.take().unwrap(), overflow.clone());
         let stderr = read_pipe(child.stderr.take().unwrap(), overflow.clone());
         let started = Instant::now();
+        let mut status = None;
         let result = loop {
             let failure = if cancelled.load(Ordering::Relaxed) {
                 Some("Request cancelled.".to_owned())
@@ -259,19 +260,28 @@ impl Call {
                 break Err(error);
             }
             match child.try_wait() {
-                Ok(Some(status)) => break Ok(status),
-                Ok(None) => thread::sleep(Duration::from_millis(20)),
+                Ok(Some(exited)) => status = Some(exited),
+                Ok(None) => {}
                 Err(error) => {
                     let _ = child.kill();
                     let _ = child.wait();
                     break Err(format!("Cannot wait for Pi: {error}"));
                 }
             }
+            if let Some(status) = status
+                && writer.is_finished()
+                && stdout.is_finished()
+                && stderr.is_finished()
+            {
+                break Ok(status);
+            }
+            thread::sleep(Duration::from_millis(20));
         };
+        // Unfinished pipe workers must not extend a failed call's deadline.
+        let status = result?;
         let input_result = writer.join().map_err(|_| "Pi input writer failed.")?;
         let output = stdout.join().map_err(|_| "Pi output reader failed.")??;
         let diagnostics = stderr.join().map_err(|_| "Pi error reader failed.")??;
-        let status = result?;
         if !status.success() {
             let diagnostics = String::from_utf8_lossy(&diagnostics);
             if diagnostics.contains("429") && diagnostics.contains("rate_limit") {
@@ -324,4 +334,77 @@ fn read_pipe(
         }
         Ok(bytes)
     })
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn inherited_pipes_do_not_extend_timeout_cancel_or_overflow() {
+        for mode in ["timeout", "exited", "cancel", "overflow"] {
+            let directory = tempfile::Builder::new()
+                .prefix("tinkery-TEST-pi-")
+                .tempdir()
+                .unwrap();
+            let program = directory.path().join("pi");
+            std::fs::write(
+                &program,
+                format!(
+                    r#"#!/usr/bin/env python3
+import subprocess, sys, time
+subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(1.3)'])
+if {mode:?} == 'exited':
+    sys.exit(0)
+if {mode:?} == 'overflow':
+    print('x' * 40000, flush=True)
+time.sleep(1.3)
+"#
+                ),
+            )
+            .unwrap();
+            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+            let call = Call {
+                program,
+                model: "TEST/fake".into(),
+                thinking: String::new(),
+                read_only_tools: false,
+                folder: Some(directory.path().into()),
+                timeout: if matches!(mode, "cancel" | "overflow") {
+                    Duration::from_secs(3)
+                } else {
+                    Duration::from_millis(250)
+                },
+            };
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let cancel = if mode == "cancel" {
+                let cancelled = cancelled.clone();
+                Some(thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(150));
+                    cancelled.store(true, Ordering::Relaxed);
+                }))
+            } else {
+                None
+            };
+            let started = Instant::now();
+            let error = call
+                .complete(None, Request::Shaping, vec![], "TEST".into(), &cancelled)
+                .unwrap_err();
+            assert!(
+                started.elapsed() < Duration::from_millis(650),
+                "{mode}: waited {:?}",
+                started.elapsed()
+            );
+            let expected = match mode {
+                "cancel" => "Request cancelled.",
+                "overflow" => "Pi output exceeded 32 KiB.",
+                _ => "Pi timed out",
+            };
+            assert!(error.starts_with(expected), "{mode}: {error}");
+            if let Some(cancel) = cancel {
+                cancel.join().unwrap();
+            }
+        }
+    }
 }
