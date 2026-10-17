@@ -13,9 +13,9 @@ in the [project thread](https://claude.ai/code/project/chan_01HpLSkmbLdxh9PX1LVX
 
 | Choice | Plan | Operator's decision |
 | --- | --- | --- |
-| Tasks | [#176](https://github.com/jon-devlapaz/tinkery/issues/176), [#177](https://github.com/jon-devlapaz/tinkery/issues/177), [#154](https://github.com/jon-devlapaz/tinkery/issues/154): small, bounded Tinkery changes with fake-only tests | approved |
+| Tasks | Wordle for tink-arcade (operator's swap for #176), [#177](https://github.com/jon-devlapaz/tinkery/issues/177), [#154](https://github.com/jon-devlapaz/tinkery/issues/154): small, bounded Tinkery changes with fake-only tests | approved |
 | Workflow | Today's: say the change in Think, confirm the goal, copy it to Pi, Pi opens a PR, CI runs, the operator reviews and accepts or asks for a correction | approved |
-| Budget | Up to 5 Think drafting calls per task; Pi implementation on the operator's existing subscription, cost recorded as subscription | approved |
+| Budget | Up to 5 Think drafting calls per task; Pi implementation on the operator's existing subscription, cost recorded as subscription | approved; raised to 16 calls for Wordle |
 | Threshold for #116 | The trial wins if active minutes per accepted change fall by at least a third, with no task lost that the baseline accepted | approved |
 
 Choosing these tasks also approved building each one as a sample, through the
@@ -42,7 +42,7 @@ Private dump text stays local; this file keeps only summaries and references.
 
 | Task | Goal kept meaning (operator) | Goal exact through handoff | Final revision and checks | Verdict | Active min (explain/decide/review/correct) | Waiting min | Corrections | Repeated explanations | Cost |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| #176 | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown |
+| Wordle | yes | yes: saved and handed to Pi unchanged | [tink-arcade #22](https://github.com/jon-devlapaz/tink-arcade/pull/22) at `bcc658e`; `check_all` passed, played at 80×30 | accepted, merged | unknown | unknown | 4 operator-requested | budget raises typed after card taps (3) | 14 Think calls; Pi on subscription |
 | #177 | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown |
 | #154 | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown | unknown |
 
@@ -51,3 +51,21 @@ verdict and recorded minutes. Failed or abandoned tasks stay in the table with
 their effort.
 
 Operator confirms this baseline is suitable for #116: unknown.
+
+## Findings
+
+Wordle, 2026-10-16/17:
+
+- **Think budget.** Each answer cost two calls (draft plus review), so 5 calls fit two
+  answers. A refused review failed silently and still showed the draft.
+- **Lost session.** Think ended when its host process exited; nothing survives until
+  confirm, so all four answers were replayed (5 more calls).
+- **Readings vary.** The same first words read as empty once and "I play Wordle" once.
+  The outcome line was reworded from the operator's words; Done when stayed close.
+  An answer of "no requirement" stayed recorded as an open decision.
+- **Loose goal, no Shape.** "Works reliably" went to Pi unshaped. Pi's first build
+  passed its own tests but missed real guesses, typeable letters, Wordle key states
+  and readable colors; the operator's play and a terminal replay found them, not tests.
+- **Permission friction.** The device accepted budget raises and the build go-ahead
+  only as the operator's own typed words, not card taps.
+
