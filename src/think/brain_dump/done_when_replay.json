@@ -1,0 +1,13 @@
+{
+  "words": "### Goal\nThink's reading shows the goal headline once, without a doubled leading word.\n\n### Evidence\n- In the #176 rehearsal (2026-10-17), the dump began \"Shape's goal list says\u2026\". Think's reading headline rendered as \"Shape Shape's goal list\u2026\".\n- A related small loss: \"say that F1 or tend shows why\" lost its \"say that\".\n\n### Scope and boundaries\n- Find whether the doubling comes from the model's reading or from Tinkery's rendering, for example a label prefix joined to a headline that already starts with the same word.\n- Fix the rendering if it's Tinkery's, and add a regression. If it's the model's output, record that instead of patching the prompt blindly.\n- Preserve operator originals verbatim.\n\n### Done when\n- [ ] The cause is identified with evidence.\n- [ ] If it's in rendering: a test with a headline starting \"Shape's\" renders it once, with a reversion probe.\n- [ ] Full zero-call verification passes.\n\n",
+  "replies": [
+    {
+      "kind": "shaping",
+      "text": "{\"parts\": {\"who\": \"Think's reading\", \"outcome\": \"shows the goal headline once, without a doubled leading word\", \"why\": \"A doubled leading word changes the goal headline.\", \"done_when\": [\"The cause is identified with evidence.\", \"If it's in rendering: a test with a headline starting \\\"Shape's\\\" renders it once, with a reversion probe.\", \"Full zero-call verification passes.\"], \"must\": [\"Find whether the doubling comes from the model's reading or from Tinkery's rendering.\", \"Fix the rendering if it's Tinkery's, and add a regression.\", \"If it's the model's output, record that instead of patching the prompt blindly.\", \"Preserve operator originals verbatim.\"], \"must_not\": []}, \"other_goals\": [], \"deferred\": [], \"open\": [], \"decisions\": [], \"questions\": [], \"alternatives\": [{\"label\": \"Rendering cause: fix rendering and add a regression\", \"benefit\": \"Addresses the doubling if Tinkery's rendering causes it.\", \"cost\": \"Requires a rendering change, regression, and reversion probe.\", \"undo_cost\": \"PROVISIONAL assumption: the rendering change would need reverting.\"}, {\"label\": \"Model-output cause: record the finding\", \"benefit\": \"Avoids patching the prompt blindly.\", \"cost\": \"Records the cause without a rendering fix.\", \"undo_cost\": \"PROVISIONAL assumption: no implementation change to undo.\"}], \"unresolved_notes\": []}"
+    },
+    {
+      "kind": "decision_review",
+      "text": "{\"decisions\":[]}\n"
+    }
+  ]
+}

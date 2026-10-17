@@ -352,11 +352,11 @@ impl Guess {
 }
 
 /// Goal parts with the reading's display cleanup and duplicate-part rules applied.
-/// Review uses the same result to put missing-part questions before decision questions.
+/// Refuses unreadable Done when shapes rather than silently losing success checks.
 pub(super) fn read_parts(
     value: Option<&serde_json::Value>,
     changes: &mut Vec<String>,
-) -> GoalParts {
+) -> Result<GoalParts, String> {
     let mut parts = GoalParts::default();
     let object = value.and_then(serde_json::Value::as_object);
     if let Some(object) = object {
@@ -366,11 +366,26 @@ pub(super) fn read_parts(
     parts.outcome = display(object.and_then(|o| o.get("outcome")), "outcome", changes);
     parts.when = display(object.and_then(|o| o.get("when")), "when", changes);
     parts.why = display(object.and_then(|o| o.get("why")), "why", changes);
-    parts.done_when = display(
-        object.and_then(|o| o.get("done_when")),
-        "done_when",
-        changes,
-    );
+    let done_when = object.and_then(|o| o.get("done_when"));
+    let joined;
+    let done_when = match done_when {
+        Some(serde_json::Value::Array(values)) => {
+            let checks = values
+                .iter()
+                .map(|v| {
+                    v.as_str()
+                        .ok_or("Unreadable done_when: expected text or an array of strings")
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            joined = serde_json::Value::String(checks.join("\n"));
+            changes
+                .push("Joined done_when list with newlines; wording and raw reply retained".into());
+            Some(&joined)
+        }
+        None | Some(serde_json::Value::Null | serde_json::Value::String(_)) => done_when,
+        Some(_) => return Err("Unreadable done_when: expected text or an array of strings".into()),
+    };
+    parts.done_when = display(done_when, "done_when", changes);
     parts.must = items(object.and_then(|o| o.get("must")), "must", changes)
         .iter()
         .filter_map(|v| display(Some(v), "must", changes))
@@ -390,7 +405,7 @@ pub(super) fn read_parts(
         ));
     }
     parts.distinct_check();
-    parts
+    Ok(parts)
 }
 
 /// What the decision review sees of a reply before it is decoded: its parts and decisions as
@@ -424,7 +439,7 @@ fn reviewed(
     if obj.contains_key("uncertain") {
         changes.push("Legacy uncertainty flag ignored as a count/authority signal; all readings remain provisional".into());
     }
-    let parts = read_parts(obj.get("parts"), changes);
+    let parts = read_parts(obj.get("parts"), changes)?;
     let other_goals = items(obj.get("other_goals"), "other goals", changes)
         .iter()
         .filter_map(|v| display(Some(v), "other goal", changes))
