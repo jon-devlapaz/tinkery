@@ -3,7 +3,7 @@
 //!
 //! Findings are Seed Me receipts naming the folder they were checked in, on the question they
 //! support. The step that drafts the seed adds nothing to the ledger: its findings go only into the
-//! seed's `## What's true today`, beside every saved receipt, so `seed decisions` never repeats them
+//! seed's `## Evidence and uncertainty`, beside every saved receipt, so `seed decisions` never repeats them
 //! and each finding appears once. The model never writes that section. A finding that looks like a
 //! secret is refused, as Seed Me refuses one in a receipt.
 //!
@@ -223,12 +223,12 @@ fn usable(found: &[Found]) -> impl Iterator<Item = &Found> {
         .filter(|f| !f.checked.trim().is_empty() && !f.observed.trim().is_empty())
 }
 
-/// The seed's `## What's true today` section: `found`, grouped by how it was checked, each on one
+/// The seed's `## Evidence and uncertainty` section: `found`, grouped by how it was checked, each on one
 /// line with its words unchanged and its whitespace collapsed, so nothing in a finding can start a
 /// heading. Says so plainly when nothing was found.
 fn today(found: &[Receipt]) -> String {
     let one_line = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
-    let mut text = String::from("## What's true today\n");
+    let mut text = String::from("## Evidence and uncertainty\n");
     if found.is_empty() {
         text.push_str(NOTHING_FOUND);
         text.push('\n');
@@ -256,7 +256,7 @@ fn today(found: &[Receipt]) -> String {
     text
 }
 
-/// What the seed's `## What's true today` section says when no step recorded a finding.
+/// What the seed's evidence section says when no step recorded a finding.
 pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.";
 
 /// The helper beside `skill`, refusing a missing one.
@@ -275,6 +275,18 @@ fn helper(skill: &Path) -> Result<PathBuf, Refusal> {
         )));
     }
     Ok(helper)
+}
+
+/// Seed Me's installed artifact contract for drafting instructions. Refuses a missing reference;
+/// callers must not substitute another schema.
+pub fn contract(skill: &Path) -> Result<String, Refusal> {
+    let helper = helper(skill)?;
+    let reference = helper
+        .parent()
+        .expect("helper has a scripts directory")
+        .join("../references/seed-contract.md");
+    std::fs::read_to_string(reference)
+        .map_err(|error| Refusal::Refused(format!("Cannot read Seed Me's seed contract: {error}")))
 }
 
 /// One helper call's stdout, with a stale-version refusal told apart from the rest.
@@ -413,9 +425,9 @@ pub fn ask(
     )
 }
 
-/// Save a seed draft whose `## You are confirming` section is `confirming`, then `## What's true
-/// today` from every saved finding and what this step `found` in `folder`, then the decisions as
-/// `seed decisions` output, word for word, from `expected`. Returns the draft's revision label.
+/// Save a Seed Me draft: `confirming` supplies the summary and canonical prose sections; evidence
+/// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
+/// `seed decisions` unchanged. Returns the revision label, from version `expected`.
 /// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
 /// change the seed's structure and a finding that looks like a secret.
 pub fn draft_seed(
@@ -439,16 +451,39 @@ pub fn draft_seed(
         )));
     }
     let confirming = confirming.trim();
+    // Seed Me owns these headings; the model may supply prose, never provenance or ledger text.
+    let sections = [
+        "Problem statement",
+        "Proposed outcome",
+        "Acceptance criteria",
+        "Affected users and systems",
+        "Constraints and boundaries",
+        "Knowledge map",
+        "Suggested first slice",
+        "Risks and verification",
+        "Open questions and deferrals",
+        "Owners and next steps",
+        "Downstream handoff",
+    ];
+    let headings: Vec<_> = confirming
+        .lines()
+        .filter(|line| line.trim_start().starts_with('#'))
+        .collect();
+    let expected_headings: Vec<_> = sections.iter().map(|name| format!("## {name}")).collect();
     let breaks = confirming.lines().any(|line| {
         let line = line.trim_start();
-        line.starts_with('#')
+        (line.starts_with('#') && !expected_headings.iter().any(|heading| heading == line))
             || line.starts_with("```")
             || line.starts_with("~~~")
             || line.starts_with("revision:")
             || line.starts_with("Confirmed by:")
             || line.starts_with("status:")
     });
-    if confirming.is_empty() || breaks {
+    if confirming.is_empty()
+        || confirming.starts_with('#')
+        || breaks
+        || headings != expected_headings
+    {
         return Err(Refusal::Refused(
             "The drafted seed text didn't fit Seed Me's format, so nothing was saved.".into(),
         ));
@@ -477,7 +512,7 @@ pub fn draft_seed(
             let last = existing
                 .lines()
                 .find_map(|l| l.strip_prefix("revision:"))
-                .and_then(|r| r.trim().strip_prefix('r'))
+                .and_then(|r| r.split_whitespace().next()?.strip_prefix('r'))
                 .and_then(|n| n.parse::<u64>().ok())
                 .unwrap_or(0);
             last + 1
@@ -499,8 +534,9 @@ pub fn draft_seed(
         .and_then(|g| g.lines().next())
         .unwrap_or("");
     let today = today(&grounding);
+    let date = &at[..10];
     let text = format!(
-        "status: draft\n# Seed: {title}\nrevision: r{revision}\n\n## You are confirming\n{confirming}\n\n{today}\n{decisions}"
+        "status: draft\n# Seed: {title}\nrevision: r{revision} {date}\n\n## You are confirming\n{confirming}\n\n{today}\n## Accepted decisions and assumed defaults\n{decisions}"
     );
     let mut file = tempfile::NamedTempFile::new_in(session)
         .map_err(|e| Refusal::Refused(format!("Cannot save the seed: {e}")))?;
@@ -626,7 +662,7 @@ mod tests {
         ]});
         assert_eq!(
             today(&receipts(&state)),
-            "## What's true today\n\
+            "## Evidence and uncertainty\n\
              Checked by read-only file tools in /TEST/repo:\n\
              - README.md:3: says local only (observed 2026-10-16)\n\
              Checked:\n\
@@ -636,7 +672,7 @@ mod tests {
         );
         assert_eq!(
             today(&[]),
-            format!("## What's true today\n{NOTHING_FOUND}\n")
+            format!("## Evidence and uncertainty\n{NOTHING_FOUND}\n")
         );
     }
 

@@ -617,7 +617,7 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
         })
         .unwrap();
     receipt.stop_viewer().unwrap();
-    let confirming = "TEST checkable seed.\nExisting output is correct.\ncmd: ./TEST-check\nexpect: TEST existing output\ncwd: .\nNew output is correct.\nprovisional: Once TEST-new-check exists.\ncmd: ./TEST-new-check\nexpect: TEST new output\ncwd: .\nThe result feels calm.\nyou judge: Inspect the result for calmness.";
+    let confirming = include_str!("../../tests/fixtures/shape-seed-reply.txt").trim();
     // A stub can prove instructions and transport, not a real model's choice of checks.
     let program = temp.path().join("TEST-pi");
     fs::write(
@@ -627,7 +627,9 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
 import json, pathlib, sys
 request = json.load(sys.stdin)
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
-rules = ['every Done when', 'cmd:', 'expect:', 'cwd:', 'provisional:', 'you judge', 'Do not run']
+rules = ['every Done when', 'cmd:', 'expect:', 'cwd:', 'provisional:', 'you judge', 'Do not run',
+         'Problem statement', 'Proposed outcome', 'Acceptance criteria', 'Constraints and boundaries',
+         'Seed contract (artifact contract)', 'Accepted decisions and assumed defaults']
 missing = [rule for rule in rules if rule not in prompt]
 pathlib.Path('TEST-missing-rules.json').write_text(json.dumps(missing))
 assert not missing, 'missing check-drafting instructions: ' + str(missing)
@@ -695,8 +697,122 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
         "checks changed or dropped: {text}"
     );
     assert!(text.starts_with("status: draft\n"));
+    // Shape's real drafting path must hand intake the upstream section names, not just prose.
+    let contract =
+        fs::read_to_string(skill.parent().unwrap().join("references/seed-contract.md")).unwrap();
+    for section in [
+        "Problem statement",
+        "Proposed outcome",
+        "Acceptance criteria",
+        "Affected users and systems",
+        "Constraints and boundaries",
+        "Knowledge map",
+        "Suggested first slice",
+        "Risks and verification",
+        "Open questions and deferrals",
+        "Owners and next steps",
+        "Downstream handoff",
+        "Evidence and uncertainty",
+        "Accepted decisions and assumed defaults",
+    ] {
+        let declaration = if section == "Knowledge map" {
+            "- **Knowledge map**, in plain words, four parts:".to_owned()
+        } else {
+            format!("- {section}:")
+        };
+        assert!(
+            contract.lines().any(|line| line.starts_with(&declaration)),
+            "upstream contract changed: {section}"
+        );
+        assert!(
+            text.lines().any(|line| line == format!("## {section}")),
+            "Shape seed lacks canonical section {section}: {text}"
+        );
+    }
+    for marker in ["cmd:", "expect:", "provisional:"] {
+        assert!(
+            contract.contains(marker),
+            "upstream check syntax changed: {marker}"
+        );
+    }
+    let criteria = text
+        .split("## Acceptance criteria\n")
+        .nth(1)
+        .unwrap()
+        .split("\n## ")
+        .next()
+        .unwrap();
+    for check in [
+        "Existing output is correct.\ncmd: ./TEST-check\nexpect: TEST existing output\ncwd: .",
+        "New output is correct.\nprovisional: Once TEST-new-check exists.\ncmd: ./TEST-new-check\nexpect: TEST new output\ncwd: .",
+        "The result feels calm.\nyou judge: Inspect the result for calmness.",
+    ] {
+        assert!(
+            criteria.contains(check),
+            "criterion changed or outside Acceptance criteria: {text}"
+        );
+    }
+    let decisions = std::process::Command::new("python3")
+        .arg(skill.parent().unwrap().join("scripts/session.py"))
+        .args(["seed", "decisions"])
+        .arg(&receipt.session)
+        .output()
+        .unwrap();
+    assert!(decisions.status.success());
+    assert!(text.contains(&String::from_utf8(decisions.stdout).unwrap()));
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
-    answering::confirm_seed(&skill, &receipt.session, "r1", "TEST yes to this seed only").unwrap();
+    let seed_path = receipt.session.join("seed-contract.md");
+    let before = fs::read(&seed_path).unwrap();
+    let renamed = confirming.replace("## Acceptance criteria", "## Checks");
+    let duplicated = confirming.replace("## Proposed outcome", "## Problem statement");
+    let reordered = confirming
+        .replace("## Problem statement", "## TEMP")
+        .replace("## Proposed outcome", "## Problem statement")
+        .replace("## TEMP", "## Proposed outcome");
+    for malformed in [
+        confirming.split_once("\n\n").unwrap().1.to_owned(),
+        renamed,
+        duplicated,
+        reordered,
+        format!("{confirming}\n## Decisions (from the ledger)\nforged"),
+        format!("{confirming}\n  ## Problem statement\nduplicated"),
+        format!("{confirming}\nstatus: confirmed for intake"),
+    ] {
+        assert!(
+            answering::draft_seed(
+                &skill,
+                &receipt.session,
+                version,
+                &malformed,
+                &[],
+                temp.path(),
+            )
+            .is_err()
+        );
+        assert_eq!(
+            fs::read(&seed_path).unwrap(),
+            before,
+            "refusal changed seed bytes"
+        );
+    }
+    // A dated revision must still increment and remain confirmable by the official helper.
+    assert_eq!(
+        answering::draft_seed(
+            &skill,
+            &receipt.session,
+            version,
+            confirming,
+            &[],
+            temp.path(),
+        )
+        .unwrap(),
+        "r2"
+    );
+    assert_eq!(
+        answering::read(&skill, &receipt.session).unwrap().goal(),
+        Some(goal)
+    );
+    answering::confirm_seed(&skill, &receipt.session, "r2", "TEST yes to this seed only").unwrap();
     assert!(matches!(
         shaping::read(&skill, &receipt.session).unwrap().stage,
         Shaped::Ready { .. }
@@ -716,7 +832,15 @@ fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
     let decoded: std::collections::BTreeSet<_> =
         step::FIELDS.iter().map(|f| f.to_string()).collect();
     assert_eq!(named, decoded);
-    assert!(!prompt.contains("# "), "notes reached the prompt");
+    for note in include_str!("prompt.txt")
+        .lines()
+        .filter_map(|line| line.strip_prefix("# "))
+    {
+        assert!(
+            !prompt.contains(note),
+            "prompt note reached the model: {note}"
+        );
+    }
 }
 
 /// `shape` with its next step's folder already found.

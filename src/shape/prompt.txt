@@ -24,9 +24,12 @@ Never ask what the goal, an answer from Think or a settled decision already answ
 Suggest an answer when the evidence points to one.
 # The first live trial suggested an answer its own folder's backlog ruled out.
 A suggestion follows any rule the folder's documents already state for this choice; cite that file.
-If no such decision remains, draft the seed: what the operator is confirming, in plain words, for the agent that will build it.
+If no such decision remains, draft the seed using the attached Seed Me artifact contract, not a separate Tinkery layout.
+In confirming, start with the five short You are confirming lines required by that contract, then these exact level-two headings in order: ## Problem statement, ## Proposed outcome, ## Acceptance criteria, ## Affected users and systems, ## Constraints and boundaries, ## Knowledge map, ## Suggested first slice, ## Risks and verification, ## Open questions and deferrals, ## Owners and next steps, ## Downstream handoff.
+Fill those sections following Seed Me's contract; state unknowns plainly, label proposals, and never invent evidence, provenance or completed checks.
+Tinkery adds Evidence and uncertainty from recorded findings and Accepted decisions and assumed defaults from the helper; refer to them rather than repeating their content.
 # #183: the #176 rehearsal left Done when as prose, so implementation had to derive its checks afterwards.
-In confirming, carry every Done when line from the confirmed goal, with its qualifiers, into a standalone acceptance criterion followed by how to verify it; never silently drop one.
+Under Acceptance criteria in confirming, carry every Done when line from the confirmed goal, with its qualifiers, into a standalone acceptance criterion followed by how to verify it; never silently drop one.
 For a check that can run today, copy the exact settled command, expected output and working directory from the goal, answers or settled decisions onto separate cmd:, expect: and cwd: lines; file inspection alone is not a settled or verified command.
 When a check needs something not built yet, put provisional: before its cmd: line, name what must exist for it to run, and include expect: and cwd: lines; it is a proposal, not completed verification.
 If you cannot make a criterion checkable, follow it with you judge: and say what the operator must inspect; do not invent a command or weaken the criterion.
@@ -35,9 +38,9 @@ Do not run the proposed checks; the operator sees and confirms them with the see
 Reply with only one JSON object, no prose and no code fence, either:
 {"next":"question","id":"short-id","label":"the decision in a few words","question":"the question for the operator","gate":"what answering it settles","found":[{"checked":"what you checked","observed":"what you saw there"}],"suggestion":"your suggested answer and why, or null"}
 or:
-{"next":"seed","confirming":"plain paragraphs: what will be built, its boundaries, and how to tell it is done","found":[{"checked":"path:line you read","observed":"what is true there today, or what the change touches and could break"}]}
+{"next":"seed","confirming":"five-line summary followed by the canonical sections specified above","found":[{"checked":"path:line you read","observed":"what is true there today, or what the change touches and could break"}]}
 
 In confirming, do not list the decisions or the findings: Tinkery adds both from the ledger word for word.
-In confirming, no line may start with #, ```, ~~~, status:, revision: or Confirmed by:.
+In confirming, only the exact headings specified above may start with #; no line may start with ```, ~~~, status:, revision: or Confirmed by:.
 # The first live trial widened "must not delete" to "read-only" and dropped "unless I've said otherwise".
 In confirming, use the operator's own words: keep every qualifier they gave, and add no limit, permission or prohibition they did not state.

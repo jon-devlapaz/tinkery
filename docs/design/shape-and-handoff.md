@@ -303,7 +303,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   Seed Me's editable ledger. Replies require `found` entries (checks, paths, lines
-  and observations) plus a next question and suggestion, or seed `You are confirming` text;
+  and observations) plus a next question and suggestion, or seed summary and prose sections;
   anything else is a model error. `src/shape/prompt.txt` has one rule per line.
   It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
@@ -312,14 +312,17 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Tinkery, never the model, calls helpers. Answers and questions use `read --editable`
   and `publish` with the displayed version or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
-- Tinkery drafts `seed-contract.md`: `status: draft`, goal-headline title,
-  `revision: rN` one past the previous draft (never replace a confirmed seed),
-  model text under `## You are confirming`, saved findings under
-  `## What's true today`, then `session.py seed decisions` output verbatim.
-  The model writes neither findings nor decisions. Refuse injected headings, fences,
-  status, revision or confirmation lines. Never draft with an open decision.
-- The model's confirming text carries every confirmed `Done when` line, with its
-  qualifiers, as a standalone acceptance criterion. Each gets settled `cmd:`,
+- Seed Me's [seed contract](https://github.com/jon-devlapaz/seed-me/blob/main/skills/seed-me/references/seed-contract.md)
+  owns the draft format; Shape passes the installed reference to each step, rather
+  than defining another layout. Tinkery writes `status: draft`, the goal-headline
+  title and dated `revision: rN`, one past the previous draft (never replace a
+  confirmed seed). The model supplies the summary and canonical prose sections;
+  Tinkery supplies evidence from recorded findings and the accepted-decisions section
+  with `session.py seed decisions` output verbatim, including its helper-owned headings.
+  Refuse missing, duplicate, reordered or foreign model headings, fences, status,
+  revision or confirmation lines. Never draft with an open decision.
+- The model's Acceptance criteria section carries every confirmed `Done when` line,
+  with its qualifiers, as a standalone acceptance criterion. Each gets settled `cmd:`,
   `expect:` and `cwd:` lines, a `provisional:` proposal naming what must exist
   before its command can run, or explicit `you judge:` with what to inspect.
   Commands and expectations that can run today come from settled input, not guesses
@@ -354,7 +357,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   ledger, so each appears once and later steps don't see them in `found_so_far`.
   A seed finding that looks like a secret refuses the draft, as Seed Me refuses one in a receipt.
 - `found_so_far` excludes only confirmed-goal provenance; recheck relied-on findings.
-- `## What's true today` groups verbatim findings by check method as
+- The evidence section groups verbatim findings by check method as
   `- PATH:LINE: what was seen (observed DATE)`, collapsing internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
