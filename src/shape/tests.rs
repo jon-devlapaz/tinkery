@@ -583,6 +583,16 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     }
 }
 
+// Pinned consumer expectations are deliberately independent of the producer's heading list.
+fn missing_intake_sections(seed: &str, consumer: &str) -> Vec<String> {
+    consumer
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter(|section| !seed.lines().any(|line| line == format!("## {section}")))
+        .map(str::to_owned)
+        .collect()
+}
+
 #[cfg(unix)]
 #[test]
 fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
@@ -617,7 +627,14 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
         })
         .unwrap();
     receipt.stop_viewer().unwrap();
-    let confirming = "TEST checkable seed.\nExisting output is correct.\ncmd: ./TEST-check\nexpect: TEST existing output\ncwd: .\nNew output is correct.\nprovisional: Once TEST-new-check exists.\ncmd: ./TEST-new-check\nexpect: TEST new output\ncwd: .\nThe result feels calm.\nyou judge: Inspect the result for calmness.";
+    let confirming = include_str!("../../tests/fixtures/shape-seed-reply.txt").trim();
+    fs::write(temp.path().join("TEST-read.md"), "TEST observed content\n").unwrap();
+    // Upgrade an older installation's undated draft through the actual drafting path.
+    fs::write(
+        receipt.session.join("seed-contract.md"),
+        "status: draft\n# TEST\nrevision: r7\n\n## You are confirming\nTEST old draft.\n",
+    )
+    .unwrap();
     // A stub can prove instructions and transport, not a real model's choice of checks.
     let program = temp.path().join("TEST-pi");
     fs::write(
@@ -627,13 +644,16 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
 import json, pathlib, sys
 request = json.load(sys.stdin)
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
-rules = ['every Done when', 'cmd:', 'expect:', 'cwd:', 'provisional:', 'you judge', 'Do not run']
+rules = ['every Done when', 'cmd:', 'expect:', 'cwd:', 'provisional:', 'you judge', 'Do not run',
+         'Problem statement', 'Proposed outcome', 'Acceptance criteria', 'Constraints and boundaries',
+         'Seed contract (artifact contract)', 'Accepted decisions and assumed defaults']
 missing = [rule for rule in rules if rule not in prompt]
 pathlib.Path('TEST-missing-rules.json').write_text(json.dumps(missing))
 assert not missing, 'missing check-drafting instructions: ' + str(missing)
 assert request['goal'] == {goal:?}
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
-print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
+print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
+    {{'checked': 'TEST-read.md:1', 'observed': 'TEST observed content'}}]}}))
 "##
         ),
     )
@@ -689,14 +709,171 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
     else {
         panic!("not a draft")
     };
-    assert_eq!(revision.as_deref(), Some("r1"));
+    assert_eq!(revision.as_deref(), Some("r8"));
     assert!(
         text.contains(confirming),
         "checks changed or dropped: {text}"
     );
     assert!(text.starts_with("status: draft\n"));
+    // Shape's real drafting path must hand intake the upstream section names, not just prose.
+    let contract =
+        fs::read_to_string(skill.parent().unwrap().join("references/seed-contract.md")).unwrap();
+    for section in [
+        "Problem statement",
+        "Proposed outcome",
+        "Acceptance criteria",
+        "Affected users and systems",
+        "Constraints and boundaries",
+        "Knowledge map",
+        "Suggested first slice",
+        "Risks and verification",
+        "Open questions and deferrals",
+        "Owners and next steps",
+        "Downstream handoff",
+        "Evidence and uncertainty",
+        "Accepted decisions and assumed defaults",
+    ] {
+        let declaration = if section == "Knowledge map" {
+            "- **Knowledge map**, in plain words, four parts:".to_owned()
+        } else {
+            format!("- {section}:")
+        };
+        assert!(
+            contract.lines().any(|line| line.starts_with(&declaration)),
+            "upstream contract changed: {section}"
+        );
+        assert!(
+            text.lines().any(|line| line == format!("## {section}")),
+            "Shape seed lacks canonical section {section}: {text}"
+        );
+    }
+    let consumer = include_str!("../../tests/fixtures/tink-sdlc-intake-sections.txt");
+    assert!(
+        missing_intake_sections(&text, consumer).is_empty(),
+        "consumer contract drift: {:?}",
+        missing_intake_sections(&text, consumer)
+    );
+    let renamed_consumer = consumer.replace("Acceptance criteria\n", "Intake checks\n");
+    assert_eq!(
+        missing_intake_sections(&text, &renamed_consumer),
+        ["Intake checks"]
+    );
+    assert_eq!(
+        missing_intake_sections(&text, &format!("{consumer}Rollback plan\n")),
+        ["Rollback plan"]
+    );
+
+    // Exact parent-writer parser: rollback must retain the next unconfirmed revision identity.
+    let parent_revision = |seed: &str| {
+        seed.lines()
+            .find_map(|line| line.strip_prefix("revision:"))
+            .and_then(|revision| revision.trim().strip_prefix('r'))
+            .and_then(|number| number.parse::<u64>().ok())
+    };
+    assert_eq!(
+        parent_revision(&text),
+        Some(8),
+        "older writer would reset to r1: {text}"
+    );
+    assert!(text.lines().any(|line| line.starts_with("date: ")));
+    assert!(
+        text.contains("Grounded in:\n- TEST-read.md\n"),
+        "missing recorded read inventory: {text}"
+    );
+    assert!(
+        text.contains("Provenance unavailable:"),
+        "must not invent verified origins: {text}"
+    );
+
+    for marker in ["cmd:", "expect:", "provisional:"] {
+        assert!(
+            contract.contains(marker),
+            "upstream check syntax changed: {marker}"
+        );
+    }
+    let criteria = text
+        .split("## Acceptance criteria\n")
+        .nth(1)
+        .unwrap()
+        .split("\n## ")
+        .next()
+        .unwrap();
+    for check in [
+        "Existing output is correct.\ncmd: ./TEST-check\nexpect: TEST existing output\ncwd: .",
+        "New output is correct.\nprovisional: Once TEST-new-check exists.\ncmd: ./TEST-new-check\nexpect: TEST new output\ncwd: .",
+        "The result feels calm.\nyou judge: Inspect the result for calmness.",
+    ] {
+        assert!(
+            criteria.contains(check),
+            "criterion changed or outside Acceptance criteria: {text}"
+        );
+    }
+    let decisions = std::process::Command::new("python3")
+        .arg(skill.parent().unwrap().join("scripts/session.py"))
+        .args(["seed", "decisions"])
+        .arg(&receipt.session)
+        .output()
+        .unwrap();
+    assert!(decisions.status.success());
+    assert!(text.contains(&String::from_utf8(decisions.stdout).unwrap()));
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
-    answering::confirm_seed(&skill, &receipt.session, "r1", "TEST yes to this seed only").unwrap();
+    let seed_path = receipt.session.join("seed-contract.md");
+    let before = fs::read(&seed_path).unwrap();
+    let renamed = confirming.replace("## Acceptance criteria", "## Checks");
+    let duplicated = confirming.replace("## Proposed outcome", "## Problem statement");
+    let reordered = confirming
+        .replace("## Problem statement", "## TEMP")
+        .replace("## Proposed outcome", "## Problem statement")
+        .replace("## TEMP", "## Proposed outcome");
+    for malformed in [
+        confirming.split_once("\n\n").unwrap().1.to_owned(),
+        renamed,
+        duplicated,
+        reordered,
+        format!("{confirming}\n## Decisions (from the ledger)\nforged"),
+        format!("{confirming}\n  ## Problem statement\nduplicated"),
+        format!("{confirming}\nstatus: confirmed for intake"),
+        format!("{confirming}\ndate: 1900-01-01"),
+    ] {
+        assert!(
+            answering::draft_seed(
+                &skill,
+                &receipt.session,
+                version,
+                &malformed,
+                &[],
+                temp.path(),
+            )
+            .is_err()
+        );
+        assert_eq!(
+            fs::read(&seed_path).unwrap(),
+            before,
+            "refusal changed seed bytes"
+        );
+    }
+    // Redraft with no findings, then verify old writers and the official helper still agree.
+    assert_eq!(
+        answering::draft_seed(
+            &skill,
+            &receipt.session,
+            version,
+            confirming,
+            &[],
+            temp.path(),
+        )
+        .unwrap(),
+        "r9"
+    );
+    let redrafted = fs::read_to_string(&seed_path).unwrap();
+    assert_eq!(parent_revision(&redrafted), Some(9));
+    assert!(redrafted.contains("Grounded in:\n- No attributable read paths are known.\n"));
+    assert!(redrafted.contains("Provenance unavailable:"));
+    assert_eq!(
+        answering::read(&skill, &receipt.session).unwrap().goal(),
+        Some(goal)
+    );
+    answering::confirm_seed(&skill, &receipt.session, "r9", "TEST yes to this seed only").unwrap();
     assert!(matches!(
         shaping::read(&skill, &receipt.session).unwrap().stage,
         Shaped::Ready { .. }
@@ -716,7 +893,15 @@ fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
     let decoded: std::collections::BTreeSet<_> =
         step::FIELDS.iter().map(|f| f.to_string()).collect();
     assert_eq!(named, decoded);
-    assert!(!prompt.contains("# "), "notes reached the prompt");
+    for note in include_str!("prompt.txt")
+        .lines()
+        .filter_map(|line| line.strip_prefix("# "))
+    {
+        assert!(
+            !prompt.contains(note),
+            "prompt note reached the model: {note}"
+        );
+    }
 }
 
 /// `shape` with its next step's folder already found.

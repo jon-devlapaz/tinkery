@@ -2,7 +2,7 @@
 
 The full journey confirms a goal in Think, opens Shape from tend, sees which folder the step reads and
 picks another, looks into the first question, answers it, sees the second step build on the saved
-finding, and confirms the drafted seed with its "What's true today" section. Short cases cover the zero budget, a stale version, a
+finding, and confirms the drafted seed with Seed Me's canonical sections. Short cases cover the zero budget, a stale version, a
 model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
 seed finding that looks like a secret, a practice session's confirmation, a citation that isn't in the folder,
 and steps that found nothing."""
@@ -59,7 +59,52 @@ QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
             'found': [{'checked': 'README.md:3', 'observed': 'says local only'}],
             'suggestion': 'Local, matching the README.'}
 # The model also offers decisions of its own; Tinkery must ignore them and insert `seed decisions`.
-SEED = {'next': 'seed', 'confirming': 'Refusals stay calm and records stay local.',
+SEED_BODY = '''Refusals stay calm and records stay local.
+Build calm refusals.
+Do not build sync.
+Accepted unchanged: 0 defaults; chosen: 1 storage decision.
+No blocking unknowns or reversed decisions.
+
+## Problem statement
+Refusals are noisy; the operator loses the thread.
+
+## Proposed outcome
+Refusals stay calm and records stay local.
+
+## Acceptance criteria
+Refusals never show private text.
+you judge: Inspect refusal output for private text.
+
+## Affected users and systems
+The operator and local refusal path.
+
+## Constraints and boundaries
+Keep the operator's words. Do not run agents without permission.
+
+## Knowledge map
+What we know, with proof: see recorded evidence below.
+What we know we don't know: operator judgment of calmness.
+What we have not read: paths not listed in the evidence.
+What could surprise us: private text in a refusal; re-check when refusal code changes.
+
+## Suggested first slice
+Proposal only: inspect the local refusal path before changing it.
+cmd: git status --short
+cwd: .
+
+## Risks and verification
+Private text could leak; the proposed criterion is not completed verification.
+
+## Open questions and deferrals
+The operator judges calmness after implementation. No blocking decisions remain.
+
+## Owners and next steps
+The operator judges refusal output; implementation checks privacy.
+
+## Downstream handoff
+Carry seed-contract.md, ledger.json and seed-confirmation.json together; check session.py status for handoff.verified. This is not implementation approval.
+'''
+SEED = {'next': 'seed', 'confirming': SEED_BODY,
         'found': [{'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
@@ -132,6 +177,29 @@ class Run:
     def send(self, data, text):
         os.write(self.master, data)
         self.wait(text)
+
+    def read_until(self, text, timeout=20):
+        """Read each rendered page; reaching the bottom can hide an earlier wrapped warning."""
+        deadline = time.monotonic() + timeout
+        want = ' '.join(text.split())
+        for _ in range(80):
+            if want in self.flat() and not self.screen.synchronized:
+                return
+            before = self.screen.text()
+            os.write(self.master, b'\x1b[6~')
+            while time.monotonic() < deadline:
+                if select.select([self.master], [], [], .02)[0]:
+                    self.screen.feed(os.read(self.master, 65536))
+                if not self.screen.synchronized:
+                    if want in self.flat():
+                        return
+                    if self.screen.text() != before:
+                        break
+                if self.process.poll() is not None:
+                    raise AssertionError(f'Exited while reading {text!r}:\n{self.screen.text()}')
+            else:
+                break
+        raise AssertionError(f'{text!r} not found while reading:\n{self.screen.text()}')
 
     def type(self, words):
         os.write(self.master, words.encode())
@@ -240,8 +308,8 @@ def full_journey(width, height):
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
-            # Long paths can push the citation flag below the fold; read to the end before checking it.
-            run.send(b'\x1b[6~' * 30, 'citation not found: src/main.rs')
+            # Inspect each page: the flag can be above the bottom viewport on either CI platform.
+            run.read_until('citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
@@ -258,13 +326,16 @@ def full_journey(width, height):
                 {'checked': 'README.md:3', 'observed': 'says local only'}], second['input']
             # The seed's grounding is the saved findings, word for word, before the decisions.
             date = ledger['nodes'][1]['evidence'][0]['at'][:10]
-            today = ("## What's true today\n"
+            today = ("## Evidence and uncertainty\n"
+                     "Grounded in:\n- README.md\n\n"
+                     "Provenance unavailable: reported reads do not verify filesystem origins or unrecorded reads. "
+                     "Some recorded findings have no attributable read path.\n\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}:\n"
                      f"- README.md:3: says local only (observed {date})\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}; "
                      "citation not found: src/main.rs isn't in the folder:\n"
                      f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
-            assert today + helper.decisions_block(ledger) in seed, seed
+            assert today + '## Accepted decisions and assumed defaults\n' + helper.decisions_block(ledger) in seed, seed
             # Each finding appears once: the seed step's findings never become ledger facts (#161).
             assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             for checked in ('README.md:3', 'src/main.rs:12'):
@@ -334,7 +405,7 @@ def case(name, width=100, height=30):
         if name == 'unfound citation':
             replies = [{**QUESTION, 'id': 'Sync'}]
         if name == 'nothing found':
-            replies = [{**QUESTION, 'found': []}, {'next': 'seed', 'confirming': 'Fine.'}]
+            replies = [{**QUESTION, 'found': []}, {**SEED, 'found': []}]
         session = make(sessions, question=question, operator=operator)
         if name in ('practice confirmation', 'multiline confirmation'):
             (session / 'seed-contract.md').write_text(
