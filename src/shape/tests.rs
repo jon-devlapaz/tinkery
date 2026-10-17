@@ -583,6 +583,16 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     }
 }
 
+// Pinned consumer expectations are deliberately independent of the producer's heading list.
+fn missing_intake_sections(seed: &str, consumer: &str) -> Vec<String> {
+    consumer
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter(|section| !seed.lines().any(|line| line == format!("## {section}")))
+        .map(str::to_owned)
+        .collect()
+}
+
 #[cfg(unix)]
 #[test]
 fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
@@ -618,6 +628,13 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
         .unwrap();
     receipt.stop_viewer().unwrap();
     let confirming = include_str!("../../tests/fixtures/shape-seed-reply.txt").trim();
+    fs::write(temp.path().join("TEST-read.md"), "TEST observed content\n").unwrap();
+    // Upgrade an older installation's undated draft through the actual drafting path.
+    fs::write(
+        receipt.session.join("seed-contract.md"),
+        "status: draft\n# TEST\nrevision: r7\n\n## You are confirming\nTEST old draft.\n",
+    )
+    .unwrap();
     // A stub can prove instructions and transport, not a real model's choice of checks.
     let program = temp.path().join("TEST-pi");
     fs::write(
@@ -635,7 +652,8 @@ pathlib.Path('TEST-missing-rules.json').write_text(json.dumps(missing))
 assert not missing, 'missing check-drafting instructions: ' + str(missing)
 assert request['goal'] == {goal:?}
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
-print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
+print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
+    {{'checked': 'TEST-read.md:1', 'observed': 'TEST observed content'}}]}}))
 "##
         ),
     )
@@ -691,7 +709,7 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
     else {
         panic!("not a draft")
     };
-    assert_eq!(revision.as_deref(), Some("r1"));
+    assert_eq!(revision.as_deref(), Some("r8"));
     assert!(
         text.contains(confirming),
         "checks changed or dropped: {text}"
@@ -729,6 +747,44 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
             "Shape seed lacks canonical section {section}: {text}"
         );
     }
+    let consumer = include_str!("../../tests/fixtures/tink-sdlc-intake-sections.txt");
+    assert!(
+        missing_intake_sections(&text, consumer).is_empty(),
+        "consumer contract drift: {:?}",
+        missing_intake_sections(&text, consumer)
+    );
+    let renamed_consumer = consumer.replace("Acceptance criteria\n", "Intake checks\n");
+    assert_eq!(
+        missing_intake_sections(&text, &renamed_consumer),
+        ["Intake checks"]
+    );
+    assert_eq!(
+        missing_intake_sections(&text, &format!("{consumer}Rollback plan\n")),
+        ["Rollback plan"]
+    );
+
+    // Exact parent-writer parser: rollback must retain the next unconfirmed revision identity.
+    let parent_revision = |seed: &str| {
+        seed.lines()
+            .find_map(|line| line.strip_prefix("revision:"))
+            .and_then(|revision| revision.trim().strip_prefix('r'))
+            .and_then(|number| number.parse::<u64>().ok())
+    };
+    assert_eq!(
+        parent_revision(&text),
+        Some(8),
+        "older writer would reset to r1: {text}"
+    );
+    assert!(text.lines().any(|line| line.starts_with("date: ")));
+    assert!(
+        text.contains("Grounded in:\n- TEST-read.md\n"),
+        "missing recorded read inventory: {text}"
+    );
+    assert!(
+        text.contains("Provenance unavailable:"),
+        "must not invent verified origins: {text}"
+    );
+
     for marker in ["cmd:", "expect:", "provisional:"] {
         assert!(
             contract.contains(marker),
@@ -777,6 +833,7 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
         format!("{confirming}\n## Decisions (from the ledger)\nforged"),
         format!("{confirming}\n  ## Problem statement\nduplicated"),
         format!("{confirming}\nstatus: confirmed for intake"),
+        format!("{confirming}\ndate: 1900-01-01"),
     ] {
         assert!(
             answering::draft_seed(
@@ -795,7 +852,7 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
             "refusal changed seed bytes"
         );
     }
-    // A dated revision must still increment and remain confirmable by the official helper.
+    // Redraft with no findings, then verify old writers and the official helper still agree.
     assert_eq!(
         answering::draft_seed(
             &skill,
@@ -806,13 +863,17 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
             temp.path(),
         )
         .unwrap(),
-        "r2"
+        "r9"
     );
+    let redrafted = fs::read_to_string(&seed_path).unwrap();
+    assert_eq!(parent_revision(&redrafted), Some(9));
+    assert!(redrafted.contains("Grounded in:\n- No attributable read paths are known.\n"));
+    assert!(redrafted.contains("Provenance unavailable:"));
     assert_eq!(
         answering::read(&skill, &receipt.session).unwrap().goal(),
         Some(goal)
     );
-    answering::confirm_seed(&skill, &receipt.session, "r2", "TEST yes to this seed only").unwrap();
+    answering::confirm_seed(&skill, &receipt.session, "r9", "TEST yes to this seed only").unwrap();
     assert!(matches!(
         shaping::read(&skill, &receipt.session).unwrap().stage,
         Shaped::Ready { .. }

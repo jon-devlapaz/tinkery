@@ -181,12 +181,8 @@ pub const UNFOUND: &str = "; citation not found: ";
 /// or outside it, or has fewer lines. Only checks that the lines exist, not what they say; text
 /// without such a citation is not judged.
 fn unfound(checked: &str, folder: &Path) -> Option<String> {
-    static CITE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"(?:^|[\s,(\[`])([\w./-]*\w\.\w+):(\d+)(?:-(\d+))?")
-            .expect("the citation pattern compiles")
-    });
     let root = folder.canonicalize().ok()?;
-    CITE.captures_iter(checked).find_map(|cite| {
+    citations(checked).find_map(|cite| {
         let path = &cite[1];
         let last = cite.get(3).unwrap_or(cite.get(2)?).as_str();
         let (first, last): (u64, u64) = (cite[2].parse().ok()?, last.parse().ok()?);
@@ -201,6 +197,15 @@ fn unfound(checked: &str, folder: &Path) -> Option<String> {
         (first == 0 || first.max(last) > lines)
             .then(|| format!("{path} has {lines} lines, not {}", first.max(last)))
     })
+}
+
+/// Recorded file-and-line citations; prose alone never establishes a read path.
+fn citations(checked: &str) -> impl Iterator<Item = regex::Captures<'_>> {
+    static CITE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?:^|[\s,(\[`])([\w./-]*\w\.\w+):(\d+)(?:-(\d+))?")
+            .expect("the citation pattern compiles")
+    });
+    CITE.captures_iter(checked)
 }
 
 /// Whether `text` looks like a secret, by the same patterns Seed Me refuses in a receipt.
@@ -225,10 +230,38 @@ fn usable(found: &[Found]) -> impl Iterator<Item = &Found> {
 
 /// The seed's `## Evidence and uncertainty` section: `found`, grouped by how it was checked, each on one
 /// line with its words unchanged and its whitespace collapsed, so nothing in a finding can start a
-/// heading. Says so plainly when nothing was found.
+/// heading. Lists attributable reported read paths, not inferred or independently verified origins;
+/// missing methods, missing citations and failed citation checks remain explicit gaps.
 fn today(found: &[Receipt]) -> String {
     let one_line = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
     let mut text = String::from("## Evidence and uncertainty\n");
+    let mut paths = std::collections::BTreeSet::new();
+    let mut unattributed = false;
+    for receipt in found {
+        let reads = receipt.check.starts_with("read-only file tools in ")
+            && !receipt.check.contains(UNFOUND);
+        let cited: Vec<_> = citations(&receipt.checked)
+            .map(|cite| cite[1].to_owned())
+            .collect();
+        if reads && !cited.is_empty() {
+            paths.extend(cited);
+        } else {
+            unattributed = true;
+        }
+    }
+    text.push_str("Grounded in:\n");
+    if paths.is_empty() {
+        text.push_str("- No attributable read paths are known.\n");
+    } else {
+        for path in paths {
+            text.push_str(&format!("- {path}\n"));
+        }
+    }
+    text.push_str("\nProvenance unavailable: reported reads do not verify filesystem origins or unrecorded reads.");
+    if unattributed {
+        text.push_str(" Some recorded findings have no attributable read path.");
+    }
+    text.push_str("\n\n");
     if found.is_empty() {
         text.push_str(NOTHING_FOUND);
         text.push('\n');
@@ -476,6 +509,7 @@ pub fn draft_seed(
             || line.starts_with("```")
             || line.starts_with("~~~")
             || line.starts_with("revision:")
+            || line.starts_with("date:")
             || line.starts_with("Confirmed by:")
             || line.starts_with("status:")
     });
@@ -536,7 +570,7 @@ pub fn draft_seed(
     let today = today(&grounding);
     let date = &at[..10];
     let text = format!(
-        "status: draft\n# Seed: {title}\nrevision: r{revision} {date}\n\n## You are confirming\n{confirming}\n\n{today}\n## Accepted decisions and assumed defaults\n{decisions}"
+        "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n\n{today}\n## Accepted decisions and assumed defaults\n{decisions}"
     );
     let mut file = tempfile::NamedTempFile::new_in(session)
         .map_err(|e| Refusal::Refused(format!("Cannot save the seed: {e}")))?;
@@ -663,6 +697,10 @@ mod tests {
         assert_eq!(
             today(&receipts(&state)),
             "## Evidence and uncertainty\n\
+             Grounded in:\n\
+             - README.md\n\
+             - src/lib.rs\n\n\
+             Provenance unavailable: reported reads do not verify filesystem origins or unrecorded reads. Some recorded findings have no attributable read path.\n\n\
              Checked by read-only file tools in /TEST/repo:\n\
              - README.md:3: says local only (observed 2026-10-16)\n\
              Checked:\n\
@@ -672,8 +710,76 @@ mod tests {
         );
         assert_eq!(
             today(&[]),
-            format!("## Evidence and uncertainty\n{NOTHING_FOUND}\n")
+            format!(
+                "## Evidence and uncertainty\nGrounded in:\n- No attributable read paths are known.\n\nProvenance unavailable: reported reads do not verify filesystem origins or unrecorded reads.\n\n{NOTHING_FOUND}\n"
+            )
         );
+    }
+
+    #[test]
+    fn evidence_lists_only_attributable_reported_read_paths_once() {
+        let found = vec![
+            Receipt {
+                checked: "TEST-read.md:1 and TEST-other.rs:2-3".into(),
+                observed: "read both".into(),
+                at: "2026-10-17T00:00:00+00:00".into(),
+                check: "read-only file tools in /TEST/repo".into(),
+            },
+            Receipt {
+                checked: "TEST-read.md:2".into(),
+                observed: "read again".into(),
+                at: String::new(),
+                check: "read-only file tools in /TEST/repo".into(),
+            },
+            Receipt {
+                checked: "TEST-missing.md:1".into(),
+                observed: "not attributable".into(),
+                at: String::new(),
+                check: format!("read-only file tools in /TEST/repo{UNFOUND}missing"),
+            },
+            Receipt {
+                checked: "TEST-legacy.md:1".into(),
+                observed: "no recorded read method".into(),
+                at: String::new(),
+                check: String::new(),
+            },
+        ];
+        let evidence = today(&found);
+        let inventory = evidence
+            .split("Grounded in:\n")
+            .nth(1)
+            .expect("missing Grounded in list")
+            .split("\n\n")
+            .next()
+            .unwrap();
+        assert!(inventory.contains("- TEST-read.md\n") || inventory.ends_with("- TEST-read.md"));
+        assert!(inventory.contains("- TEST-other.rs"));
+        assert_eq!(inventory.matches("- TEST-read.md").count(), 1);
+        assert!(!inventory.contains("TEST-missing.md"));
+        assert!(!inventory.contains("TEST-legacy.md"));
+        assert!(evidence.contains("Provenance unavailable:"));
+        assert!(evidence.contains("origins"));
+        assert!(evidence.contains("no attributable read path"));
+    }
+
+    #[test]
+    fn evidence_names_unknown_grounding_instead_of_inventing_paths() {
+        for found in [
+            vec![],
+            vec![Receipt {
+                checked: "by eye".into(),
+                observed: "TEST claim".into(),
+                at: String::new(),
+                check: String::new(),
+            }],
+        ] {
+            let evidence = today(&found);
+            assert!(
+                evidence.contains("Grounded in:\n- No attributable read paths are known.\n"),
+                "{evidence}"
+            );
+            assert!(evidence.contains("Provenance unavailable:"), "{evidence}");
+        }
     }
 
     #[test]

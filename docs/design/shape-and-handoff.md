@@ -315,12 +315,13 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Seed Me's [seed contract](https://github.com/jon-devlapaz/seed-me/blob/main/skills/seed-me/references/seed-contract.md)
   owns the draft format; Shape passes the installed reference to each step, rather
   than defining another layout. Tinkery writes `status: draft`, the goal-headline
-  title and dated `revision: rN`, one past the previous draft (never replace a
-  confirmed seed). The model supplies the summary and canonical prose sections;
+  title, `revision: rN` one past the previous draft, and a separate `date:` line.
+  An older writer can still increment the revision after rollback. Never replace
+  a confirmed seed. The model supplies the summary and canonical prose sections;
   Tinkery supplies evidence from recorded findings and the accepted-decisions section
   with `session.py seed decisions` output verbatim, including its helper-owned headings.
-  Refuse missing, duplicate, reordered or foreign model headings, fences, status,
-  revision or confirmation lines. Never draft with an open decision.
+  Refuse missing, duplicate, reordered or foreign model headings, fences, metadata
+  or confirmation lines. Never draft with an open decision.
 - The model's Acceptance criteria section carries every confirmed `Done when` line,
   with its qualifiers, as a standalone acceptance criterion. Each gets settled `cmd:`,
   `expect:` and `cwd:` lines, a `provisional:` proposal naming what must exist
@@ -357,6 +358,11 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   ledger, so each appears once and later steps don't see them in `found_so_far`.
   A seed finding that looks like a secret refuses the draft, as Seed Me refuses one in a receipt.
 - `found_so_far` excludes only confirmed-goal provenance; recheck relied-on findings.
+- `Grounded in:` lists deduplicated paths cited by recorded read-only findings.
+  Missing read methods, absent citations and failed citation checks establish no
+  read path; say when none are known. These are reported reads, not verified
+  filesystem origins or an inventory of unrecorded reads; name those provenance
+  gaps rather than inventing them.
 - The evidence section groups verbatim findings by check method as
   `- PATH:LINE: what was seen (observed DATE)`, collapsing internal whitespace to
   prevent heading injection. With none:
@@ -374,6 +380,8 @@ separate screens and decisions.
 ## Rationale and verification
 
 [Tests](../../tests) cover these contracts with stubs and temporary TEST roots.
+Shape compares saved drafts with Seed Me and a [pinned consumer section list](../../tests/fixtures/tink-sdlc-intake-sections.txt),
+never an operator's consumer checkout.
 PTYs preserve Seed Me fixture bytes and cover
 80×24, 100×30, 160×40 and 320×40 where applicable, including NO_COLOR. These establish
 mechanics, not operator acceptance or the quality of real goals, questions or seeds. Lock timeout

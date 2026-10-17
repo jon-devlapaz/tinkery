@@ -304,6 +304,9 @@ def full_journey(width, height):
             # The seed's grounding is the saved findings, word for word, before the decisions.
             date = ledger['nodes'][1]['evidence'][0]['at'][:10]
             today = ("## Evidence and uncertainty\n"
+                     "Grounded in:\n- README.md\n\n"
+                     "Provenance unavailable: reported reads do not verify filesystem origins or unrecorded reads. "
+                     "Some recorded findings have no attributable read path.\n\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}:\n"
                      f"- README.md:3: says local only (observed {date})\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}; "
