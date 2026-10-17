@@ -27,9 +27,9 @@ fn operator() -> GoalConfirmation {
     }
 }
 fn declared() -> BrainDump {
-    app(serde_json::json!({"parts": parts()}))
-        .with_goal_confirmation(agent())
-        .unwrap()
+    let mut a = app(serde_json::json!({"parts": parts()}));
+    a.set_goal_confirmation(agent()).unwrap();
+    a
 }
 
 #[test]
@@ -105,11 +105,16 @@ fn new_visits_do_not_inherit_goal_authorization_and_review_cannot_be_relabelled(
     assert_eq!(fresh.handoff.confirmation, GoalConfirmation::default());
     a.review_goal();
     assert!(
-        a.with_goal_confirmation(operator())
+        a.set_goal_confirmation(operator())
             .err()
             .unwrap()
             .contains("before review")
     );
+    assert_eq!(
+        a.handoff.review.as_ref().unwrap().affirmation.confirmation,
+        agent()
+    );
+    assert_eq!(a.conversation.sources()[0].text, "An intact original");
 }
 
 #[test]
@@ -131,10 +136,13 @@ fn invalid_declared_agent_class_is_refused_by_the_think_api() {
     if let GoalConfirmation::Agent { class, .. } = &mut context {
         class.blast_radius = BlastRadius::Large;
     }
-    let error = app(serde_json::json!({"parts": parts()}))
-        .with_goal_confirmation(context)
-        .err()
-        .unwrap();
+    let mut a = app(serde_json::json!({"parts": parts()}));
+    let unsent = "  TEST unsent Café 👩‍💻\nexact words  ";
+    a.paste(unsent);
+    let error = a.set_goal_confirmation(context).unwrap_err();
+    assert_eq!(a.input.text, unsent);
+    assert_eq!(a.conversation.sources()[0].text, "An intact original");
+    assert_eq!(a.handoff.confirmation, GoalConfirmation::default());
     assert!(error.contains("two-way") && error.contains("small"));
 }
 

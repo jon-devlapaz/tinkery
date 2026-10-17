@@ -91,13 +91,14 @@ pub(super) struct Review {
 }
 impl BrainDump {
     /// Supplies caller-declared goal confirmation attribution before review. No identity or
-    /// authorization is inferred; invalid agent classes refuse. This context is for this visit
+    /// authorization is inferred; invalid or late changes refuse without losing words or review.
+    /// This context is for this visit
     /// only, never a fresh goal, seed confirmation or implementation approval. Agent saves remain
     /// blocked until the separate Seed Me integration supports delegated goal origins.
-    pub fn with_goal_confirmation(
-        mut self,
+    pub fn set_goal_confirmation(
+        &mut self,
         confirmation: record::GoalConfirmation,
-    ) -> Result<Self, String> {
+    ) -> Result<(), String> {
         confirmation.validate()?;
         if self.handoff.review.is_some()
             || self.handoff.job.is_some()
@@ -109,7 +110,7 @@ impl BrainDump {
             );
         }
         self.handoff.confirmation = confirmation;
-        Ok(self)
+        Ok(())
     }
     /// Attribution is frozen during review; otherwise it is this visit's supplied context.
     pub(super) fn goal_confirmation(&self) -> &record::GoalConfirmation {

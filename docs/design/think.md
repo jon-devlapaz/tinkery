@@ -85,8 +85,8 @@ authorization source, both classifications and their reasons. Classification is
 eligibility, not new authority; it never replaces the cited operator authorization.
 Goal confirmation, seed confirmation and implementation approval remain separate.
 
-The first slice is a typed Think API, `BrainDump::with_goal_confirmation`, supplied
-before review. It records caller-declared attribution, not authenticated identity.
+The first slice is a typed Think API, `BrainDump::set_goal_confirmation`, supplied
+before review. Refused updates preserve the current words, review and attribution. It records caller-declared attribution, not authenticated identity.
 Neither keypresses, login names nor the model producing the reading identify the
 confirmer. Without explicit context, identity is `unrecorded`, never operator.
 An explicit operator declaration names the operator and source; an agent declaration
