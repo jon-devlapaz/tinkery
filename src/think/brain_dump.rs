@@ -176,6 +176,8 @@ struct Shaping {
 #[derive(Default)]
 struct Handoff {
     config: Option<seed_me::Config>,
+    /// Caller-declared attribution for this visit only; never inherited by a fresh goal.
+    confirmation: crate::think_record::GoalConfirmation,
     review: Option<goal_view::Review>,
     job: Option<std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>>,
     receipt: Option<seed_me::Receipt>,
@@ -728,7 +730,8 @@ impl BrainDump {
         }
     }
     /// Makes a blank think with this one's host, Seed Me and voice settings, for the next visit
-    /// from the menu. Nothing from this visit's conversation carries over.
+    /// from the menu. Conversation and confirmation attribution never carry over; the new
+    /// visit needs its own explicit attribution and authorization context.
     pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {
         let host = self.host.clone();
         let real = self.real;
@@ -1627,6 +1630,8 @@ pub fn snapshot(
 #[cfg(test)]
 mod board_tests;
 pub mod checks;
+#[cfg(test)]
+mod confirmation_tests;
 mod conversation;
 mod host;
 #[cfg(test)]

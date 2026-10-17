@@ -7,7 +7,12 @@
 //! writes or supplies context to a model. The format is this module's alone; [`SCHEMA`] changes
 //! when it does.
 
+mod confirmation;
+#[cfg(test)]
+mod confirmation_tests;
 mod read;
+
+pub use confirmation::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
 
 #[cfg(test)]
 pub(crate) use read::count_reads;
@@ -181,6 +186,19 @@ pub fn hash(text: &str) -> String {
 /// directory whose saved goal still matches; its canonical path and existing Seed Me identity
 /// bind this local record to that session. Missing identity is an error, never a generated ID.
 pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
+    write_with_confirmation(root, session, &GoalConfirmation::default())
+}
+
+/// Writes the same record with explicit caller-declared goal confirmation provenance. Refuses
+/// incomplete attribution or an agent outside the two-way/small class before filesystem access.
+/// Valid metadata is not authentication or authority, and never confirms a seed or implementation.
+/// The optional schema-3 extension leaves old records readable without guessing their confirmer.
+pub fn write_with_confirmation(
+    root: &Path,
+    session: &Session<'_>,
+    confirmation: &GoalConfirmation,
+) -> Result<PathBuf, String> {
+    confirmation.validate()?;
     #[derive(Serialize)]
     struct TurnOut<'a> {
         at: String,
@@ -227,6 +245,7 @@ pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
         "turns": session.turns.iter().map(|t| TurnOut { at: utc(t.at, ':'), event: &t.event }).collect::<Vec<_>>(),
         "checks": session.checks,
         "goal": session.goal,
+        "goal_confirmation": confirmation,
     });
     let mut text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
     text.push('\n');
