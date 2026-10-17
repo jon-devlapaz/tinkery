@@ -51,9 +51,13 @@ Seed Me sessions stay read-only; linking writes only Tend's store.
 Ended sessions are omitted. `N ended not shown` and
 `Links couldn't be read. F1 then h for details.` share the muted incomplete-read
 row, joined by ` · `, even with no active goals, and survive navigation. An
-unreadable-links refusal replaces, rather than repeats, the note. If all readable
-sessions ended, say `No active goals. N ended not shown. Confirm a goal in think to
-start one.`, not that no sessions exist.
+unreadable-links refusal replaces, rather than repeats, the note. When an empty
+view's body reports unreadable sessions, the footer keeps ended and link notes
+without repeating that count. This applies to repo and all-goals views, including
+outside a repository. An incomplete empty all-goals view says `N saved records
+couldn't be read, so nothing can be listed. Esc goes back.`, never `No active goals`.
+Only when every session was readable and ended, say `No active goals. N ended not
+shown. Confirm a goal in think to start one.`, not that no sessions exist.
 
 Labels use the first saved-goal line, including unstructured goals. They sit above
 or below rings, clipped with `…` or omitted rather than overlapping or interleaving.

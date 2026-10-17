@@ -197,13 +197,25 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
         rendered.contains("1 saved record couldn't be read"),
         "{rendered}"
     );
+    assert_eq!(rendered.matches("saved record").count(), 1, "{rendered}");
+    assert!(rendered.contains("Links couldn't be read"), "{rendered}");
     assert!(rendered.contains("Press a for all goals."), "{rendered}");
     assert!(rendered.contains("1 ended not shown"), "{rendered}");
     tend.toggle_scope();
     assert_eq!(tend.current().unwrap().id.as_deref(), Some("TEST-other"));
     tend.toggle_scope();
     tend.repo_unknown = 1;
-    assert!(screen(&mut tend).contains("1 goal has no readable repo record."));
+    let rendered = screen(&mut tend);
+    assert!(rendered.contains("1 goal has no readable repo record."));
+    assert_eq!(rendered.matches("saved record").count(), 1, "{rendered}");
+    tend.repo_unknown = 0;
+    let mut incomplete = outcome.unwrap();
+    incomplete.sessions.retain(|s| s.stage != Stage::Ended);
+    incomplete.unreadable = 1;
+    tend.apply(&Ok(incomplete), true, 3);
+    let rendered = screen(&mut tend);
+    assert_eq!(rendered.matches("saved record").count(), 1, "{rendered}");
+    assert!(rendered.contains("Links couldn't be read"), "{rendered}");
 }
 
 #[test]

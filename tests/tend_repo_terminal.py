@@ -60,19 +60,29 @@ class Terminal:
         os.close(self.slave)
 
 
-def journey(width, height, no_color, place):
+def assert_incomplete(screen, unreadable):
+    text = ' '.join(line.strip() for line in screen.splitlines())
+    records = 'record' if unreadable == 1 else 'records'
+    assert 'No active goals' not in text, screen
+    assert text.count(f"{unreadable} saved {records} couldn't be read") == 1, screen
+    assert text.count('1 ended not shown') == 1, screen
+
+
+def journey(width, height, no_color, place, unreadable=1):
+    incomplete = place.startswith('incomplete')
+    outside = place in ('outside', 'incomplete-outside')
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-repo-tend-') as directory:
         root = Path(directory).resolve()
         for name in ['TEST-repo-a', 'TEST-repo-b', 'TEST-repo-empty']:
             (root / name / '.git').mkdir(parents=True)
         (root / 'TEST-records').mkdir()
         for index, (name, label) in enumerate(zip(['a', 'b', 'unknown', 'legacy', 'outside'], LABELS)):
-            if place == 'incomplete' and name not in ('a', 'b'):
+            if incomplete and name not in (('a', 'b') if place == 'incomplete' else ('a',)):
                 continue
             path = root / 'TEST-sessions' / name
             path.mkdir(parents=True)
             (path / 'ledger.json').write_text(json.dumps(dict(schema_version=1, session_id=name,
-                status='completed' if place == 'incomplete' and name == 'a' else 'active', goal=label, updated_at=f'2026-10-17T12:00:0{5-index}Z')))
+                status='completed' if incomplete and name == 'a' else 'active', goal=label, updated_at=f'2026-10-17T12:00:0{5-index}Z')))
             if name == 'unknown':
                 continue
             record = dict(schema=2 if name == 'legacy' else 3, tinkery='TEST', origin='simulated',
@@ -82,10 +92,11 @@ def journey(width, height, no_color, place):
             if name != 'legacy':
                 record['repo'] = str(root / ('TEST-repo-a' if name == 'a' else 'TEST-repo-b')) if name != 'outside' else None
             (root / 'TEST-records' / f'{name}.json').write_text(json.dumps(record))
-        if place == 'incomplete':
-            broken = root / 'TEST-sessions' / 'TEST-unreadable'
-            broken.mkdir()
-            (broken / 'ledger.json').write_text('not JSON')
+        if incomplete:
+            for index in range(unreadable):
+                broken = root / 'TEST-sessions' / f'TEST-unreadable-{index}'
+                broken.mkdir()
+                (broken / 'ledger.json').write_text('not JSON')
         if place == 'broken':
             (root / 'TEST-records' / 'TEST-broken.json').write_text('not JSON')
         host = root / 'TEST-never-pi'
@@ -93,19 +104,23 @@ def journey(width, height, no_color, place):
         host.chmod(0o755)
         before = {str(p): p.read_bytes() for folder in ['TEST-sessions', 'TEST-records']
                   for p in (root / folder).rglob('*') if p.is_file()}
-        cwd = root / {'inside': 'TEST-repo-a', 'broken': 'TEST-repo-a', 'empty': 'TEST-repo-empty', 'incomplete': 'TEST-repo-a'}.get(place, '.')
+        cwd = root / {'inside': 'TEST-repo-a', 'broken': 'TEST-repo-a', 'empty': 'TEST-repo-empty', 'incomplete': 'TEST-repo-a', 'incomplete-all': 'TEST-repo-a'}.get(place, '.')
         terminal = Terminal(root, cwd, width, height, no_color)
         try:
             terminal.wait(lambda screen: '1  think' in screen)
-            terminal.send(b'2', 'this repo · a all' if place != 'outside' else KEYS)
-            if place == 'incomplete':
-                screen = terminal.wait(lambda screen: "1 saved record couldn't be read" in screen)
-                assert 'No active goals' not in screen, screen
-                assert 'Press a for all goals.' in ' '.join(line.strip() for line in screen.splitlines()), screen
-                assert '1 ended not shown' in screen, screen
-                terminal.send(b'a', 'all · a this repo')
-                terminal.selected(LABELS[1])
-                terminal.send(b'a', 'this repo · a all')
+            terminal.send(b'2', 'this repo · a all' if not outside else 'esc back')
+            if incomplete:
+                screen = terminal.wait(lambda screen: 'saved record' in screen)
+                assert_incomplete(screen, unreadable)
+                if not outside:
+                    assert 'Press a for all goals.' in ' '.join(line.strip() for line in screen.splitlines()), screen
+                    screen = terminal.send(b'a', 'all · a this repo')
+                    if place == 'incomplete':
+                        terminal.selected(LABELS[1])
+                    else:
+                        assert_incomplete(screen, unreadable)
+                    screen = terminal.send(b'a', 'this repo · a all')
+                    assert_incomplete(screen, unreadable)
             elif place in ('empty', 'broken'):
                 empty_message = f'{5 if place == "broken" else 2} goals have no readable repo record.'
                 screen = terminal.wait(lambda screen: empty_message in screen)
@@ -128,7 +143,7 @@ def journey(width, height, no_color, place):
             else:
                 assert 'this repo' not in terminal.screen.text()
                 os.write(terminal.master, b'a')
-            if place == 'incomplete':
+            if incomplete:
                 assert not (root / 'TEST-provider-ran').exists()
                 assert not (root / 'TEST-links').exists()
                 assert {str(p): p.read_bytes() for folder in ['TEST-sessions', 'TEST-records']
@@ -138,7 +153,7 @@ def journey(width, height, no_color, place):
                 terminal.wait(lambda _: terminal.process.poll() is not None)
                 assert terminal.process.returncode == 0
                 print(json.dumps(dict(width=width, height=height, no_color=no_color,
-                    journey='repo-scope/incomplete', provider_calls=0, fixtures='temporary TEST roots')))
+                    journey='repo-scope/' + place, unreadable=unreadable, provider_calls=0, fixtures='temporary TEST roots')))
                 return
             terminal.selected(LABELS[0])
             # Navigate every goal rather than requiring all labels to fit at once.
@@ -192,5 +207,8 @@ def journey(width, height, no_color, place):
 
 for size in [(80, 24), (100, 30)]:
     for no_color in [False, True]:
+        for place in ['incomplete-outside', 'incomplete-all']:
+            for unreadable in [1, 2]:
+                journey(*size, no_color, place, unreadable)
         for place in ['incomplete', 'inside', 'outside', 'empty', 'broken']:
             journey(*size, no_color, place)
