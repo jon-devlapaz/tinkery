@@ -13,6 +13,7 @@
 
 pub use step::Agent;
 
+mod discovery_help;
 mod step;
 mod words;
 
@@ -49,6 +50,8 @@ pub struct Shape {
     list: Option<Option<Result<Vec<Session>, String>>>,
     /// Session records discovery could not read; they may hide goals from the list.
     unreadable: usize,
+    failures: Vec<crate::seed_me::ReadFailure>,
+    help_scroll: u16,
     selected: usize,
     open: Option<Opened>,
     scroll: u16,
@@ -113,6 +116,8 @@ impl Shape {
         Self {
             list: None,
             unreadable: 0,
+            failures: Vec::new(),
+            help_scroll: 0,
             selected: 0,
             open: Some(Opened::start(skill, session)),
             scroll: 0,
@@ -154,6 +159,8 @@ impl Shape {
         Self {
             list: Some(None),
             unreadable: 0,
+            failures: Vec::new(),
+            help_scroll: 0,
             selected: 0,
             open: None,
             scroll: 0,
@@ -170,6 +177,8 @@ impl Shape {
     /// Only goals waiting for a seed are listed. Failed reads discard any earlier count.
     pub fn offer(&mut self, read: Result<&[Session], String>, unreadable: usize) {
         if self.list.is_some() {
+            self.failures.clear();
+            self.help_scroll = 0;
             self.unreadable = if read.is_ok() { unreadable } else { 0 };
             let listed: Result<Vec<Session>, String> = read.map(|sessions| {
                 sessions
@@ -311,6 +320,8 @@ impl Shape {
                     self.open = None;
                     self.list = Some(None);
                     self.unreadable = 0;
+                    self.failures.clear();
+                    self.help_scroll = 0;
                     self.scroll = 0;
                 }
                 KeyCode::Esc => return Leave::Back,
@@ -402,11 +413,7 @@ impl Shape {
                 "↑↓ / j k choose a goal waiting for a seed · Enter opens it.",
                 match &self.list {
                     Some(Some(Err(error))) => format!("What went wrong:\n{error}"),
-                    Some(Some(Ok(_))) if self.unreadable > 0 => format!(
-                        "Unreadable session records: {}.\nSome ledgers could not be read as Seed Me sessions. \
-                         The list may be missing goals. Tend shows the discovery details.",
-                        self.unreadable
-                    ),
+                    Some(Some(Ok(_))) if self.unreadable > 0 => self.discovery_help(),
                     _ => "Goals whose seed is ready, ended or unknown are in tend.".into(),
                 },
             ),
@@ -531,7 +538,7 @@ impl Shape {
                 "records"
             };
             let notice = format!(
-                "{} {records} couldn't be read. F1 or Tend shows why.",
+                "{} {records} couldn't be read. F1 shows why.",
                 self.unreadable
             );
             let height = area.height.min(2);

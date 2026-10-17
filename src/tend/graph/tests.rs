@@ -25,6 +25,7 @@ fn fixture(count: usize) -> (tempfile::TempDir, Tend) {
                 })
                 .collect(),
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         1,
@@ -337,6 +338,7 @@ fn duplicate_titles_resolve_edges_by_exact_identity_and_ended_missing_ambiguous_
         &Ok(Found {
             sessions,
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         2,
@@ -471,6 +473,7 @@ fn dragging_moves_ring_empty_drag_pans_scroll_zooms_and_unchanged_refresh_preser
         &Ok(Found {
             sessions,
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         2,
@@ -533,6 +536,7 @@ fn a_quiet_line_is_painted_only_for_visible_active_ends() {
             &Ok(Found {
                 sessions,
                 unreadable: 0,
+                failures: Vec::new(),
             }),
             true,
             2,

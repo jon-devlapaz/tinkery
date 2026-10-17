@@ -247,9 +247,14 @@ or seed-drafted sessions. Enter opens one; Esc returns to the list. Held `s` or 
 opens nothing.
 
 The menu passes discovery's unreadable-record count with its readable sessions.
-Both empty and populated incomplete lists show the count and `F1 or Tend shows why`;
-F1 explains that unreadable session records may hide goals and points to Tend's
-read-only discovery details. Partial empty reads never say no goals are waiting.
+Both empty and populated incomplete lists show the count and `F1 shows why`.
+F1 lists up to eight actual failed paths and their read/parse reasons, then says
+how many more unreadable records are not listed. Reasons retain at most 512
+characters plus an ellipsis; display escapes controls without changing paths.
+PgUp/PgDn scroll the wrapped help, with close keys always visible. Inspect the
+listed files, then return to the menu and reopen Shape to read again. Fresh or
+failed reads discard earlier details. Seed-read failures still mean an unknown
+stage, not an unreadable session. Partial empty reads never say no goals are waiting.
 A complete empty read keeps `No goals are waiting for a seed.` Session eligibility
 and refresh rules are unchanged; list navigation writes nothing and calls no helper or model.
 

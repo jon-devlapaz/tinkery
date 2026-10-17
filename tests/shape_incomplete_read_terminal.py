@@ -104,12 +104,25 @@ class ShapeIncompleteReadJourney(unittest.TestCase):
                                      '#176 missing incomplete-read notice/count:\n' + captured)
                     self.assertIn("couldn't be read", actual, captured)
                     self.assertNotIn(EMPTY, actual, captured)
-                    self.assertTrue('F1' in actual or 'tend' in actual.lower(), captured)
-                    # Tend is the existing read-only route to discovery diagnostics.
+                    self.assertIn('F1 shows why.', actual, captured)
+                    self.assertNotIn('or Tend shows why', actual, captured)
+                    os.write(master, b'\x1bOP')
+                    wait(lambda: 'Unreadable session records' in flat())
+                    pages = []
+                    for _ in range(12):
+                        pages.append(screen.text())
+                        os.write(master, b'\x1b[6~')
+                        until = time.monotonic() + .08
+                        while time.monotonic() < until:
+                            if select.select([master], [], [], .02)[0]:
+                                screen.feed(os.read(master, 65536))
+                    help_text = '\n'.join(pages)
+                    compact = ''.join(help_text.split())
+                    self.assertIn(str(sessions / 'TEST-unreadable' / 'ledger.json'), compact, help_text)
+                    self.assertIn('Invalid JSON', help_text, help_text)
+                    self.assertNotIn('Tend shows the discovery details', help_text)
                     os.write(master, b'\x1b')
-                    wait(lambda: '3 shape' in flat())
-                    os.write(master, b'2')
-                    wait(lambda: 'tinkery › tend' in flat() and "couldn't be read" in flat())
+                    wait(lambda: 'tinkery › shape' in flat() and 'Unreadable session records' not in flat())
                 else:
                     self.assertIn(EMPTY, actual, captured)
                 print(f'TEST #176 PTY populated={populated} unreadable={unreadable} '

@@ -300,6 +300,9 @@ impl Home {
                 },
                 unreadable,
             );
+            if let Ok(found) = &landed.outcome {
+                shape.offer_failures(&found.failures);
+            }
         }
     }
 
@@ -704,9 +707,18 @@ impl Home {
                     shape.key(key, self.seed_me.as_deref());
                 }
             }
-            KeyCode::F(1) | KeyCode::Char('?') => self.help = !self.help,
+            KeyCode::F(1) | KeyCode::Char('?') => {
+                self.help = !self.help;
+                if let View::Shape(shape, _) = &mut self.view {
+                    shape.reset_help();
+                }
+            }
             KeyCode::Esc if self.help => self.help = false,
-            _ if self.help => {}
+            _ if self.help => {
+                if let View::Shape(shape, _) = &mut self.view {
+                    shape.scroll_help(key.code);
+                }
+            }
             _ => {
                 let View::Shape(shape, _) = &mut self.view else {
                     return;
@@ -824,13 +836,8 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         return;
     }
     if home.help && !matches!(home.view, View::Menu) {
-        if let View::Shape(shape, _) = &home.view {
-            frame.render_widget(
-                Paragraph::new(shape.help_text())
-                    .wrap(Wrap { trim: false })
-                    .style(palette.ink),
-                body,
-            );
+        if let View::Shape(shape, _) = &mut home.view {
+            shape.render_help(frame, body, palette);
             return;
         }
         if let View::Tend(tend) = &mut home.view {
