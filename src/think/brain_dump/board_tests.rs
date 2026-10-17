@@ -29,6 +29,44 @@ fn parsed(raw: &str) -> (board::Board, Vec<String>) {
     (board::Board::verify(g, &r).unwrap(), changes)
 }
 #[test]
+fn unreadable_done_when_is_refused_instead_of_losing_checks() {
+    for value in [
+        serde_json::json!({"check": "tests pass"}),
+        serde_json::json!(42),
+        serde_json::json!(true),
+        serde_json::json!(["keep this check", 42]),
+        serde_json::json!(["keep this check", null]),
+        serde_json::json!([["nested check"]]),
+    ] {
+        let raw = serde_json::json!({"parts": {"done_when": value}}).to_string();
+        let error = Guess::decode(&raw, &request(), &mut vec![]).unwrap_err();
+        assert!(error.contains("Unreadable done_when"), "{error}");
+    }
+    for value in [serde_json::Value::Null, serde_json::json!([])] {
+        let raw = serde_json::json!({"parts": {"done_when": value}}).to_string();
+        assert!(parsed(&raw).0.parts.done_when.is_none());
+    }
+}
+
+#[test]
+fn done_when_list_keeps_order_duplicates_and_wording() {
+    let checks = [
+        "  Keep Café exactly.  ",
+        "Keep the second\nline.",
+        "  Keep Café exactly.  ",
+    ];
+    let raw = serde_json::json!({"parts": {"done_when": checks}}).to_string();
+    assert_eq!(
+        Guess::decode(&raw, &request(), &mut vec![])
+            .unwrap()
+            .parts
+            .done_when
+            .as_deref(),
+        Some(checks.join("\n").as_str())
+    );
+}
+
+#[test]
 fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority() {
     let (b, changes) = parsed(
         r#"{"parts":{"who":"I","outcome":"remember books","unexpected":"ignore"},"alternatives":{"label":"Maybe","precondition":"unknown"},"misfits":[{"text":"Unsure about a relationship"}],"confirmed":true,"settled":[{"source":99}]}"#,

@@ -26,7 +26,8 @@ Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_g
 Required parts: who names the beneficiary (I for the person's own goal; name the people otherwise); outcome is what becomes true or the beneficiary's behaviour, a predicate following who with NO forced can and no repeated subject.
 Never substitute a proposed mechanism for the outcome.
 Why explains the actual problem or reason, not an echo of the request.
-Done_when is a distinct observable check, never a restatement of the goal line; if the check is missing, leave it absent and ask.
+# Live Think eval 2026-10-17: list-shaped Done when was dropped in 11/45 readings (#202).
+Done_when is a string or an array of strings: distinct observable checks, never a restatement of the goal line; if the check is missing, leave it absent and ask.
 Optional when is short; don't repeat it if already in outcome.
 # Each constraint item is shown as one goal-block line in its own words, never re-split (#19).
 Must and must_not are arrays of single constraints: what must be true and what must not happen.
