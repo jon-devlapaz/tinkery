@@ -30,9 +30,11 @@ never guess a repo; those goals remain under all. An empty repo view still offer
 readable repo record. Press a for all goals.`, not that this repo has no goals.
 Explicit no-repo records are known non-matches; older records without repo
 information are unknown. Only with no unknown active goals or unreadable sessions
-may an empty repo view say `No active goals are recorded for this repo.` Ended
-counts remain visible. Reopening Tend starts with this repo again; explicit receipt
-or Shape returns still open the exact saved goal, switching to all if necessary.
+may an empty repo view say `No active goals are recorded for this repo.` With
+unreadable sessions, say `N saved records couldn't be read; this repo may have
+active goals. Press a for all goals.` Ended counts remain visible. Reopening Tend
+starts with this repo again; explicit receipt or Shape returns still open the
+exact saved goal, switching to all if necessary.
 
 Filtering reads existing records on discovery's worker, never during painting,
 and writes nothing. Links, identity checks and readiness still use every readable

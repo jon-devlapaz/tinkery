@@ -188,6 +188,20 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
         !rendered.contains("no readable repo record"),
         "known non-matches are not unknown: {rendered}"
     );
+    let mut incomplete = outcome.clone().unwrap();
+    incomplete.unreadable = 1;
+    tend.apply(&Ok(incomplete), true, 2);
+    let rendered = screen(&mut tend);
+    assert!(!rendered.contains("No active goals"), "{rendered}");
+    assert!(
+        rendered.contains("1 saved record couldn't be read"),
+        "{rendered}"
+    );
+    assert!(rendered.contains("Press a for all goals."), "{rendered}");
+    assert!(rendered.contains("1 ended not shown"), "{rendered}");
+    tend.toggle_scope();
+    assert_eq!(tend.current().unwrap().id.as_deref(), Some("TEST-other"));
+    tend.toggle_scope();
     tend.repo_unknown = 1;
     assert!(screen(&mut tend).contains("1 goal has no readable repo record."));
 }

@@ -219,7 +219,10 @@ impl Tend {
         } else if self.unreadable == 0 {
             Some("No active goals are recorded for this repo. Press a for all goals.".into())
         } else {
-            None
+            Some(format!(
+                "{} couldn't be read; this repo may have active goals. Press a for all goals.",
+                records(self.unreadable)
+            ))
         }
     }
 
