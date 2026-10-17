@@ -215,6 +215,13 @@ seed-needs-checking stages; Esc returns there. Menu place 3 lists only goal-save
 or seed-drafted sessions. Enter opens one; Esc returns to the list. Held `s` or Enter
 opens nothing.
 
+The menu passes discovery's unreadable-record count with its readable sessions.
+Both empty and populated incomplete lists show the count and `F1 shows why`;
+F1 explains that unreadable session records may hide goals and points to Tend's
+read-only discovery details. Partial empty reads never say no goals are waiting.
+A complete empty read keeps `No goals are waiting for a seed.` Session eligibility
+and refresh rules are unchanged; list navigation writes nothing and calls no helper or model.
+
 The screen starts with the confirmed goal's first line in ink:
 
 | Seed Me reports | Shape shows |

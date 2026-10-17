@@ -279,8 +279,8 @@ impl Home {
         tend.apply(&landed.outcome, self.discovery.fresh(), version);
     }
 
-    /// Hand Shape's list the sessions once a read asked for after it opened has landed, and let
-    /// an open session's read finish.
+    /// Hand Shape the readable sessions and unreadable count from its fresh discovery result,
+    /// and let an open session's read finish.
     fn sync_shape(&mut self) {
         let View::Shape(shape, _) = &mut self.view else {
             return;
@@ -290,10 +290,14 @@ impl Home {
             && self.discovery.fresh()
             && let Some(landed) = self.discovery.landed()
         {
-            shape.offer(match &landed.outcome {
-                Ok(found) => Ok(&found.sessions),
-                Err(error) => Err(error.clone()),
-            });
+            let unreadable = landed.outcome.as_ref().map_or(0, |found| found.unreadable);
+            shape.offer(
+                match &landed.outcome {
+                    Ok(found) => Ok(&found.sessions),
+                    Err(error) => Err(error.clone()),
+                },
+                unreadable,
+            );
         }
     }
 

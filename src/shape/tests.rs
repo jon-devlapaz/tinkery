@@ -255,7 +255,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
         session("ended", Stage::Ended),
         session("unknown", Stage::Unknown),
     ];
-    shape.offer(Ok(&sessions));
+    shape.offer(Ok(&sessions), 0);
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("› saved goal") && text.contains("goal saved"),
@@ -276,13 +276,13 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
     // Back at the list, Shape reads again: a goal whose seed was confirmed meanwhile leaves it.
     assert!(shape.wants_sessions());
-    shape.offer(Ok(&sessions));
+    shape.offer(Ok(&sessions), 0);
     assert!(screen(&mut shape, 100, 30, true).contains("› drafted goal"));
     let mut moved = sessions.clone();
     moved[2].stage = Stage::SeedUnchecked;
     assert_eq!(shape.key(key(KeyCode::Enter), None), Leave::Stay);
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
-    shape.offer(Ok(&moved));
+    shape.offer(Ok(&moved), 0);
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("› saved goal") && !text.contains("drafted goal"),
@@ -290,10 +290,10 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     );
     assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Back);
     let mut empty = Shape::list();
-    empty.offer(Ok(&sessions[1..2]));
+    empty.offer(Ok(&sessions[1..2]), 0);
     assert!(screen(&mut empty, 100, 30, true).contains("No goals are waiting for a seed."));
     let mut failed = Shape::list();
-    failed.offer(Err("TEST read failed".into()));
+    failed.offer(Err("TEST read failed".into()), 0);
     assert!(screen(&mut failed, 100, 30, true).contains("couldn't be read"));
     assert!(failed.help_text().contains("TEST read failed"));
     let mut direct = done(Shaped::Waiting);
