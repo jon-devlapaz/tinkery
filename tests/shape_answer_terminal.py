@@ -178,6 +178,29 @@ class Run:
         os.write(self.master, data)
         self.wait(text)
 
+    def read_until(self, text, timeout=20):
+        """Read each rendered page; reaching the bottom can hide an earlier wrapped warning."""
+        deadline = time.monotonic() + timeout
+        want = ' '.join(text.split())
+        for _ in range(80):
+            if want in self.flat() and not self.screen.synchronized:
+                return
+            before = self.screen.text()
+            os.write(self.master, b'\x1b[6~')
+            while time.monotonic() < deadline:
+                if select.select([self.master], [], [], .02)[0]:
+                    self.screen.feed(os.read(self.master, 65536))
+                if not self.screen.synchronized:
+                    if want in self.flat():
+                        return
+                    if self.screen.text() != before:
+                        break
+                if self.process.poll() is not None:
+                    raise AssertionError(f'Exited while reading {text!r}:\n{self.screen.text()}')
+            else:
+                break
+        raise AssertionError(f'{text!r} not found while reading:\n{self.screen.text()}')
+
     def type(self, words):
         os.write(self.master, words.encode())
         self.wait(words)
@@ -285,8 +308,8 @@ def full_journey(width, height):
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
-            # Long paths can push the citation flag below the fold; read to the end before checking it.
-            run.send(b'\x1b[6~' * 30, 'citation not found: src/main.rs')
+            # Inspect each page: the flag can be above the bottom viewport on either CI platform.
+            run.read_until('citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
