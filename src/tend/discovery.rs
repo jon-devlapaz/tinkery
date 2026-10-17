@@ -6,6 +6,7 @@
 //! could not be read at all). A missing root is complete and empty: nothing exists yet.
 
 use std::{
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
     sync::{
@@ -72,8 +73,15 @@ pub fn scan(root: &Path) -> Outcome {
 pub struct Landed {
     /// What the read found, or why the root couldn't be read.
     pub outcome: Outcome,
+    /// Exact attributed session paths for the launch repo; absent outside a repo.
+    pub(crate) repo_paths: Option<HashSet<PathBuf>>,
     epoch: u64,
     active: usize,
+}
+
+struct Scanned {
+    outcome: Outcome,
+    repo_paths: Option<HashSet<PathBuf>>,
 }
 
 /// One owned worker at a time. Requests made while it runs coalesce into one follow-up.
@@ -81,7 +89,8 @@ pub struct Discovery {
     source: Source,
     root: PathBuf,
     requested: u64,
-    running: Option<(u64, PathBuf, Receiver<Outcome>, Instant)>,
+    running: Option<(u64, PathBuf, Receiver<Scanned>, Instant)>,
+    scope: Option<(PathBuf, Result<PathBuf, String>)>,
     landed: Option<Landed>,
     version: u64,
 }
@@ -94,6 +103,7 @@ impl Discovery {
             root: PathBuf::new(),
             requested: 0,
             running: None,
+            scope: None,
             landed: None,
             version: 0,
         }
@@ -106,10 +116,20 @@ impl Discovery {
         discovery.version = 1;
         discovery.landed = Some(Landed {
             outcome: Err(reason),
+            repo_paths: None,
             epoch: 1,
             active: 0,
         });
         discovery
+    }
+
+    /// Attribute the next read using existing Think records only; configuration reads nothing.
+    pub(crate) fn scope_to_repo(
+        &mut self,
+        repo: Option<PathBuf>,
+        records: Result<PathBuf, String>,
+    ) {
+        self.scope = repo.map(|repo| (repo, records));
     }
 
     /// Ask for a fresh read of `root`. Never blocks; at most one worker exists.
@@ -137,8 +157,15 @@ impl Discovery {
         let outcome = match rx.try_recv() {
             Ok(outcome) => outcome,
             Err(TryRecvError::Empty) => return false,
-            Err(TryRecvError::Disconnected) => Err("Reading sessions stopped unexpectedly.".into()),
+            Err(TryRecvError::Disconnected) => Scanned {
+                outcome: Err("Reading sessions stopped unexpectedly.".into()),
+                repo_paths: None,
+            },
         };
+        let Scanned {
+            outcome,
+            repo_paths,
+        } = outcome;
         self.running = None;
         if stale_root {
             self.start_if_idle();
@@ -153,6 +180,7 @@ impl Discovery {
         });
         self.landed = Some(Landed {
             outcome,
+            repo_paths,
             epoch,
             active,
         });
@@ -171,16 +199,44 @@ impl Discovery {
         }
         let (tx, rx) = mpsc::channel();
         let (source, root) = (self.source.clone(), self.root.clone());
+        let scope = self.scope.clone();
         let spawned = std::thread::Builder::new()
             .name("tinkery-discovery".into())
             .spawn(move || {
-                let _ = tx.send(source(&root));
+                let outcome = source(&root);
+                let repo_paths = scope.map(|(repo, records)| {
+                    outcome
+                        .as_ref()
+                        .ok()
+                        .into_iter()
+                        .flat_map(|f| &f.sessions)
+                        .filter(|session| {
+                            records
+                                .as_ref()
+                                .ok()
+                                .and_then(|root| {
+                                    crate::think_record::read(root, &session.path, &session.goal)
+                                        .ok()
+                                })
+                                .is_some_and(|history| {
+                                    history.made_in
+                                        == crate::think_record::MadeIn::Repo(repo.clone())
+                                })
+                        })
+                        .map(|session| session.path.clone())
+                        .collect()
+                });
+                let _ = tx.send(Scanned {
+                    outcome,
+                    repo_paths,
+                });
             });
         match spawned {
             Ok(_) => self.running = Some((self.requested, self.root.clone(), rx, Instant::now())),
             Err(error) => {
                 self.landed = Some(Landed {
                     outcome: Err(format!("Cannot read sessions: {error}")),
+                    repo_paths: None,
                     epoch: self.requested,
                     active: 0,
                 });

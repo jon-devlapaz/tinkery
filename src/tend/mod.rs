@@ -24,6 +24,7 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 use std::{
+    collections::HashSet,
     path::{Path, PathBuf},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -67,6 +68,9 @@ pub(super) struct Tend {
     pub(super) needs: needs::Store,
     links: Result<needs::Links, String>,
     all_sessions: Vec<Session>,
+    /// Only exact recorded repo matches; absent outside a repository.
+    pub(super) repo_paths: Option<HashSet<PathBuf>>,
+    show_all: bool,
     /// The source path stays fixed while selection picks the other goal.
     linking: Option<PathBuf>,
     link_error: Option<String>,
@@ -97,6 +101,8 @@ impl Tend {
             needs: needs::Store::new(link_root),
             links: Ok(needs::Links::default()),
             all_sessions: vec![],
+            repo_paths: None,
+            show_all: false,
             linking: None,
             link_error: None,
         }
@@ -141,13 +147,16 @@ impl Tend {
                 self.error = None;
                 self.unreadable = found.unreadable;
                 self.all_sessions = found.sessions.clone();
-                self.sessions = found
-                    .sessions
-                    .iter()
-                    .filter(|s| s.stage != Stage::Ended)
-                    .cloned()
-                    .collect();
-                self.ended = found.sessions.len() - self.sessions.len();
+                if let Some(index) = wanted_at
+                    && self
+                        .repo_paths
+                        .as_ref()
+                        .is_some_and(|paths| !paths.contains(&found.sessions[index].path))
+                {
+                    // An explicit receipt/Shape return must still open its exact goal.
+                    self.show_all = true;
+                }
+                self.filter_sessions();
                 if let Some(index) = wanted_at {
                     let path = &found.sessions[index].path;
                     let active = self.sessions.iter().position(|s| s.path == *path);
@@ -167,6 +176,68 @@ impl Tend {
             }
         }
     }
+    fn filter_sessions(&mut self) {
+        let visible = |s: &&Session| {
+            self.show_all
+                || self
+                    .repo_paths
+                    .as_ref()
+                    .is_none_or(|paths| paths.contains(&s.path))
+        };
+        self.ended = self
+            .all_sessions
+            .iter()
+            .filter(visible)
+            .filter(|s| s.stage == Stage::Ended)
+            .count();
+        self.sessions = self
+            .all_sessions
+            .iter()
+            .filter(visible)
+            .filter(|s| s.stage != Stage::Ended)
+            .cloned()
+            .collect();
+    }
+
+    fn scope_body(&self, area: Rect) -> Rect {
+        if self.can_toggle_scope() {
+            Rect::new(
+                area.x,
+                area.y.saturating_add(1),
+                area.width,
+                area.height.saturating_sub(1),
+            )
+        } else {
+            area
+        }
+    }
+
+    fn can_toggle_scope(&self) -> bool {
+        self.repo_paths.is_some()
+            && !self.pending
+            && (self.current || !self.sessions.is_empty() || self.unreadable > 0)
+            && !self.detail
+            && self.want.is_none()
+            && self.error.is_none()
+            && !self.is_linking()
+    }
+
+    /// Change only the visible garden, retaining global needs and exact selection when possible.
+    pub(super) fn toggle_scope(&mut self) {
+        if !self.can_toggle_scope() {
+            return;
+        }
+        let keep = self.current().map(|s| s.path.clone());
+        self.show_all = !self.show_all;
+        self.filter_sessions();
+        self.selected = keep
+            .and_then(|path| self.sessions.iter().position(|s| s.path == path))
+            .unwrap_or(0);
+        self.last_press = None;
+        self.graph.release();
+        self.notice.clear();
+    }
+
     /// Whether the saved-goal garden is showing, rather than detail or a discovery state.
     pub(super) fn garden_showing(&self) -> bool {
         !self.detail
@@ -189,6 +260,7 @@ impl Tend {
             self.graph.release();
             return;
         }
+        let body = self.scope_body(body);
         self.sync_graph(body);
         if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
             self.last_press = None;
@@ -266,8 +338,13 @@ impl Tend {
         } else {
             format!("\n\n{}", needs.trim_start_matches(" · "))
         };
+        let scope = if self.can_toggle_scope() {
+            "\na toggles this repo / all goals"
+        } else {
+            ""
+        };
         format!(
-            "Right now\n{}{}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
+            "Right now\n{}{}{scope}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
             } else if self.linking.is_some() {
@@ -334,8 +411,12 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             "r history   esc back   F10 menu"
         }
     } else if !tend.garden_showing() {
-        // Nothing on screen to move to or open: reading, unavailable or empty.
-        "esc back"
+        // An empty repo view still offers the way back to all goals.
+        if tend.can_toggle_scope() {
+            "a toggle goals   esc back"
+        } else {
+            "esc back"
+        }
     } else {
         "↑↓←→ move   enter open   l link   esc back"
     };
@@ -348,6 +429,21 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             1,
         ),
     );
+    if tend.can_toggle_scope() {
+        frame.render_widget(
+            Paragraph::new(if tend.show_all {
+                "all · a this repo"
+            } else {
+                "this repo · a all"
+            })
+            .style(palette.muted),
+            Rect {
+                height: 1.min(area.height),
+                ..area
+            },
+        );
+    }
+    let area = tend.scope_body(area);
     let stale_empty =
         tend.sessions.is_empty() && tend.unreadable == 0 && tend.error.is_none() && !tend.current;
     if tend.pending || tend.want.is_some() || stale_empty {
@@ -368,7 +464,9 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     }
     if tend.sessions.is_empty() {
         frame.render_widget(
-            Paragraph::new(if tend.ended > 0 {
+            Paragraph::new(if tend.repo_paths.is_some() && !tend.show_all && tend.ended == 0 && tend.unreadable == 0 {
+                "No active goals in this repo. Press a for all goals.".into()
+            } else if tend.ended > 0 {
                 format!(
                     "No active goals. {} ended not shown. Confirm a goal in think to start one.",
                     tend.ended
@@ -522,6 +620,9 @@ fn relative_time(updated: &str, now: u64) -> String {
 pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
     scan(root).map(|found| found.sessions)
 }
+
+#[cfg(test)]
+mod scope_tests;
 
 #[cfg(test)]
 mod tests {

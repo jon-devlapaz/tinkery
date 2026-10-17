@@ -21,8 +21,21 @@ The plain-text exit receipt may include recovery locations.
 
 ## Tend: garden and detail
 
-Tend displays every discovered active goal in one static graph, without paging or
-node cap. Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
+Inside a repository, Tend starts with only active goals whose attributed Think
+record names that exact repository root. A muted `this repo · a all` line offers
+`a` to show every active goal; `all · a this repo` toggles back. Outside a repo,
+all goals show without a toggle. Unknown, missing, older or conflicting records
+never guess a repo; those goals remain under all. An empty repo view still offers
+`a`. Reopening Tend starts with this repo again; explicit receipt or Shape returns
+still open the exact saved goal, switching to all if necessary.
+
+Filtering reads existing records on discovery's worker, never during painting,
+and writes nothing. Links, identity checks and readiness still use every readable
+session, including other repos and ended goals. Use all to link across repos;
+`a` does nothing during linking, detail, history, help or pending/failed reads.
+
+Tend displays the visible goals in one static graph, without paging or node cap.
+Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
 Needs lines join only active, uniquely identified endpoints. Missing, ambiguous or
 ended endpoints draw no line; the selected-line summary still names them. Straight
 lines leave gaps around unrelated rings, never implied junctions or routed paths.
@@ -95,8 +108,8 @@ Unknown and practice stages stay distinct.
 Pending empty views say reading or still reading; failed reads say unavailable with F1 then
 `h`. Only complete current empty reads say no sessions. Incomplete reads retain
 valid goals with an unreadable-record count and missing-sessions warning. If none
-are readable, say nothing can be listed, not “no sessions”. Reading, unavailable
-and empty views offer only `esc back`.
+are readable, say nothing can be listed, not “no sessions”. Reading and unavailable
+views offer only `esc back`; an empty repo view also offers `a toggle goals`.
 
 ## Think history
 
