@@ -116,13 +116,14 @@ class Run:
     def flat(self):
         return ' '.join(self.screen.text().split())
 
-    def wait(self, text, timeout=20):
+    def wait(self, text, timeout=20, *, wrapped_path=False):
         deadline = time.monotonic() + timeout
-        want = ' '.join(text.split())
+        normalize = (lambda value: ''.join(value.split())) if wrapped_path else (lambda value: ' '.join(value.split()))
+        want = normalize(text)
         while time.monotonic() < deadline:
             if select.select([self.master], [], [], .02)[0]:
                 self.screen.feed(os.read(self.master, 65536))
-            if want in self.flat() and not self.screen.synchronized:
+            if want in normalize(self.screen.text()) and not self.screen.synchronized:
                 return
             if self.process.poll() is not None:
                 break
@@ -193,17 +194,16 @@ def full_journey(width, height):
             run.wait('F2 look into the next question')
             # Before the first step, Shape says which folder it reads; F4 picks another.
             run.wait(f'The step reads files in {cwd.name}. F4 picks another folder.')
-            # A long temporary path can wrap mid-word, so paths are compared without whitespace.
-            squashed = lambda: ''.join(run.screen.text().split())
             # Help may run past a short screen; the Rust tests check it names the full path.
             run.send(F1, 'The next step reads files in:')
             run.send(b'\x1b', 'F2 look into the next question')
             run.send(b'\x1bOS', 'Next: F4 uses this folder')
-            assert f'Folder:{cwd}' in squashed(), run.screen.text()
+            # The editor may scroll off the path's start; exact destinations are checked in both calls below.
+            assert cwd.name in ''.join(run.screen.text().split('Next:')[0].split()), run.screen.text()
             os.write(run.master, b'/TEST-targat')
             # Fix inside the folder, and prove Enter edits rather than applying it.
             run.send(b'\x1b[D' * 2 + b'\x1b[3~e\x1b[F\rfolder', 'enter newline')
-            run.wait('TEST-target folder')
+            run.wait('TEST-target\nfolder', wrapped_path=True)
             assert files(run.sessions) == before and run.calls() == [], 'Folder editing wrote or called'
             run.send(b'\x1bOS', 'The step reads files in TEST-targetfolder.')
             # Opening, scrolling and help write nothing and call no model.
@@ -240,8 +240,8 @@ def full_journey(width, height):
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
-            # A long temporary path can push the rest of the flag below the fold; the seed file is checked in full below.
-            run.wait('citation not found: src/main.rs')
+            # Long paths can push the citation flag below the fold; read to the end before checking it.
+            run.send(b'\x1b[6~' * 30, 'citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
