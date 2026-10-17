@@ -277,6 +277,7 @@ impl Home {
             return;
         }
         tend.repo_paths = landed.repo_paths.clone();
+        tend.repo_unknown = landed.repo_unknown;
         tend.apply(&landed.outcome, self.discovery.fresh(), version);
     }
 

@@ -70,6 +70,8 @@ pub(super) struct Tend {
     all_sessions: Vec<Session>,
     /// Only exact recorded repo matches; absent outside a repository.
     pub(super) repo_paths: Option<HashSet<PathBuf>>,
+    /// Active goals with unknown repository attribution, not known non-matches.
+    pub(super) repo_unknown: usize,
     show_all: bool,
     /// The source path stays fixed while selection picks the other goal.
     linking: Option<PathBuf>,
@@ -102,6 +104,7 @@ impl Tend {
             links: Ok(needs::Links::default()),
             all_sessions: vec![],
             repo_paths: None,
+            repo_unknown: 0,
             show_all: false,
             linking: None,
             link_error: None,
@@ -197,6 +200,27 @@ impl Tend {
             .filter(|s| s.stage != Stage::Ended)
             .cloned()
             .collect();
+    }
+
+    fn repo_empty_message(&self) -> Option<String> {
+        if self.repo_paths.is_none() || self.show_all {
+            return None;
+        }
+        if self.repo_unknown > 0 {
+            let goals = if self.repo_unknown == 1 {
+                "goal has"
+            } else {
+                "goals have"
+            };
+            Some(format!(
+                "{} {goals} no readable repo record. Press a for all goals.",
+                self.repo_unknown
+            ))
+        } else if self.unreadable == 0 {
+            Some("No active goals are recorded for this repo. Press a for all goals.".into())
+        } else {
+            None
+        }
     }
 
     fn scope_body(&self, area: Rect) -> Rect {
@@ -464,8 +488,8 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     }
     if tend.sessions.is_empty() {
         frame.render_widget(
-            Paragraph::new(if tend.repo_paths.is_some() && !tend.show_all && tend.ended == 0 && tend.unreadable == 0 {
-                "No active goals in this repo. Press a for all goals.".into()
+            Paragraph::new(if let Some(message) = tend.repo_empty_message() {
+                message
             } else if tend.ended > 0 {
                 format!(
                     "No active goals. {} ended not shown. Confirm a goal in think to start one.",
@@ -483,7 +507,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             .wrap(Wrap { trim: false }),
             area,
         );
-        if tend.ended > 0 || tend.links.is_err() {
+        if tend.ended > 0 || tend.links.is_err() || tend.repo_unknown > 0 && tend.unreadable > 0 {
             garden::render_note(frame, tend, area, palette);
         }
         return;

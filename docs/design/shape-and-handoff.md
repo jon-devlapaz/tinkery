@@ -26,8 +26,13 @@ record names that exact repository root. A muted `this repo · a all` line offer
 `a` to show every active goal; `all · a this repo` toggles back. Outside a repo,
 all goals show without a toggle. Unknown, missing, older or conflicting records
 never guess a repo; those goals remain under all. An empty repo view still offers
-`a`. Reopening Tend starts with this repo again; explicit receipt or Shape returns
-still open the exact saved goal, switching to all if necessary.
+`a`. If any active goal lacks attributable repo information, say `N goals have no
+readable repo record. Press a for all goals.`, not that this repo has no goals.
+Explicit no-repo records are known non-matches; older records without repo
+information are unknown. Only with no unknown active goals or unreadable sessions
+may an empty repo view say `No active goals are recorded for this repo.` Ended
+counts remain visible. Reopening Tend starts with this repo again; explicit receipt
+or Shape returns still open the exact saved goal, switching to all if necessary.
 
 Filtering reads existing records on discovery's worker, never during painting,
 and writes nothing. Links, identity checks and readiness still use every readable

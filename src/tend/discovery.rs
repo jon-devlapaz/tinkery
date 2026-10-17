@@ -75,6 +75,8 @@ pub struct Landed {
     pub outcome: Outcome,
     /// Exact attributed session paths for the launch repo; absent outside a repo.
     pub(crate) repo_paths: Option<HashSet<PathBuf>>,
+    /// Active goals whose record cannot establish a repository or an explicit no-repo origin.
+    pub(crate) repo_unknown: usize,
     epoch: u64,
     active: usize,
 }
@@ -82,6 +84,7 @@ pub struct Landed {
 struct Scanned {
     outcome: Outcome,
     repo_paths: Option<HashSet<PathBuf>>,
+    repo_unknown: usize,
 }
 
 /// One owned worker at a time. Requests made while it runs coalesce into one follow-up.
@@ -117,6 +120,7 @@ impl Discovery {
         discovery.landed = Some(Landed {
             outcome: Err(reason),
             repo_paths: None,
+            repo_unknown: 0,
             epoch: 1,
             active: 0,
         });
@@ -160,11 +164,13 @@ impl Discovery {
             Err(TryRecvError::Disconnected) => Scanned {
                 outcome: Err("Reading sessions stopped unexpectedly.".into()),
                 repo_paths: None,
+                repo_unknown: 0,
             },
         };
         let Scanned {
             outcome,
             repo_paths,
+            repo_unknown,
         } = outcome;
         self.running = None;
         if stale_root {
@@ -181,6 +187,7 @@ impl Discovery {
         self.landed = Some(Landed {
             outcome,
             repo_paths,
+            repo_unknown,
             epoch,
             active,
         });
@@ -204,6 +211,7 @@ impl Discovery {
             .name("tinkery-discovery".into())
             .spawn(move || {
                 let outcome = source(&root);
+                let mut repo_unknown = 0;
                 let repo_paths = scope.map(|(repo, records)| {
                     outcome
                         .as_ref()
@@ -211,17 +219,22 @@ impl Discovery {
                         .into_iter()
                         .flat_map(|f| &f.sessions)
                         .filter(|session| {
-                            records
+                            let made_in = records
                                 .as_ref()
                                 .ok()
                                 .and_then(|root| {
                                     crate::think_record::read(root, &session.path, &session.goal)
                                         .ok()
                                 })
-                                .is_some_and(|history| {
+                                .map_or(crate::think_record::MadeIn::Unknown, |history| {
                                     history.made_in
-                                        == crate::think_record::MadeIn::Repo(repo.clone())
-                                })
+                                });
+                            if made_in == crate::think_record::MadeIn::Unknown
+                                && session.stage != Stage::Ended
+                            {
+                                repo_unknown += 1;
+                            }
+                            made_in == crate::think_record::MadeIn::Repo(repo.clone())
                         })
                         .map(|session| session.path.clone())
                         .collect()
@@ -229,6 +242,7 @@ impl Discovery {
                 let _ = tx.send(Scanned {
                     outcome,
                     repo_paths,
+                    repo_unknown,
                 });
             });
         match spawned {
@@ -237,6 +251,7 @@ impl Discovery {
                 self.landed = Some(Landed {
                     outcome: Err(format!("Cannot read sessions: {error}")),
                     repo_paths: None,
+                    repo_unknown: 0,
                     epoch: self.requested,
                     active: 0,
                 });

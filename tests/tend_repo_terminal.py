@@ -80,18 +80,22 @@ def journey(width, height, no_color, place):
             if name != 'legacy':
                 record['repo'] = str(root / ('TEST-repo-a' if name == 'a' else 'TEST-repo-b')) if name != 'outside' else None
             (root / 'TEST-records' / f'{name}.json').write_text(json.dumps(record))
+        if place == 'broken':
+            (root / 'TEST-records' / 'TEST-broken.json').write_text('not JSON')
         host = root / 'TEST-never-pi'
         host.write_text('#!/bin/sh\ntouch "' + str(root / 'TEST-provider-ran') + '"\nexit 86\n')
         host.chmod(0o755)
         before = {str(p): p.read_bytes() for folder in ['TEST-sessions', 'TEST-records']
                   for p in (root / folder).rglob('*') if p.is_file()}
-        cwd = root / {'inside': 'TEST-repo-a', 'empty': 'TEST-repo-empty'}.get(place, '.')
+        cwd = root / {'inside': 'TEST-repo-a', 'broken': 'TEST-repo-a', 'empty': 'TEST-repo-empty'}.get(place, '.')
         terminal = Terminal(root, cwd, width, height, no_color)
         try:
             terminal.wait(lambda screen: '1  think' in screen)
             terminal.send(b'2', 'this repo · a all' if place != 'outside' else KEYS)
-            if place == 'empty':
-                terminal.wait(lambda screen: 'No active goals in this repo.' in screen)
+            if place in ('empty', 'broken'):
+                empty_message = f'{5 if place == "broken" else 2} goals have no readable repo record.'
+                screen = terminal.wait(lambda screen: empty_message in screen)
+                assert 'No active goals' not in screen, screen
                 terminal.send(b'a', 'all · a this repo')
             elif place == 'inside':
                 screen = terminal.selected(LABELS[0])
@@ -143,8 +147,8 @@ def journey(width, height, no_color, place):
                 os.write(terminal.master, b'a')
                 terminal.send(b'\x1b', 'this repo · a all')
                 assert links.read_bytes() == saved_links
-            elif place == 'empty':
-                terminal.send(b'a', 'No active goals in this repo.')
+            elif place in ('empty', 'broken'):
+                terminal.send(b'a', empty_message)
             assert not (root / 'TEST-provider-ran').exists()
             assert {str(p): p.read_bytes() for folder in ['TEST-sessions', 'TEST-records']
                     for p in (root / folder).rglob('*') if p.is_file()} == before
@@ -162,5 +166,5 @@ def journey(width, height, no_color, place):
 
 for size in [(80, 24), (100, 30)]:
     for no_color in [False, True]:
-        for place in ['inside', 'outside', 'empty']:
+        for place in ['inside', 'outside', 'empty', 'broken']:
             journey(*size, no_color, place)

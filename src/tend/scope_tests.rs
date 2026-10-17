@@ -4,6 +4,21 @@ use super::*;
 use crate::think_record::{self, Origin};
 use std::{fs, sync::Arc};
 
+fn screen(tend: &mut Tend) -> String {
+    use ratatui::{Terminal, backend::TestBackend};
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    terminal
+        .draw(|frame| render(frame, tend, Rect::new(2, 3, 96, 26), Palette::new(true)))
+        .unwrap();
+    terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect()
+}
+
 #[test]
 fn attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged() {
     let dir = tempfile::tempdir().unwrap();
@@ -64,6 +79,11 @@ fn attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged() {
     let landed = discovery.landed().unwrap();
     let mut tend = Tend::new(Ok(dir.path().join("TEST-links")));
     tend.repo_paths = landed.repo_paths.clone();
+    tend.repo_unknown = landed.repo_unknown;
+    assert_eq!(
+        tend.repo_unknown, 2,
+        "missing and legacy are unknown; explicit no-repo is known"
+    );
     tend.current = true;
     tend.apply(&landed.outcome, true, 1);
     assert_eq!(tend.sessions.len(), 1);
@@ -105,8 +125,18 @@ fn attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged() {
     }
     let landed = discovery.landed().unwrap();
     tend.repo_paths = landed.repo_paths.clone();
+    tend.repo_unknown = landed.repo_unknown;
     tend.apply(&landed.outcome, true, 2);
     assert!(tend.sessions.is_empty());
+    let rendered = screen(&mut tend);
+    assert!(
+        rendered.contains("5 goals have no readable repo record. Press a for all goals."),
+        "{rendered}"
+    );
+    assert!(
+        !rendered.contains("No active goals"),
+        "unknown attribution is not absence: {rendered}"
+    );
     assert!(tend.can_toggle_scope(), "empty repo must still offer all");
     tend.toggle_scope();
     assert_eq!(tend.sessions.len(), 5);
@@ -121,6 +151,45 @@ fn attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged() {
     assert_eq!(tend.current().unwrap().id.as_deref(), Some("missing"));
     tend.toggle_scope();
     assert!(tend.detail && tend.show_all, "detail ignores a");
+}
+
+#[test]
+fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_ended_note() {
+    let mut tend = Tend::new(Err("TEST unavailable links".into()));
+    tend.repo_paths = Some([PathBuf::from("/TEST/ended")].into_iter().collect());
+    tend.current = true;
+    let outcome = Ok(Found {
+        sessions: vec![
+            Session {
+                id: Some("TEST-other".into()),
+                path: "/TEST/other".into(),
+                goal: "TEST other repo".into(),
+                stage: Stage::GoalSaved,
+                updated: String::new(),
+            },
+            Session {
+                id: Some("TEST-ended".into()),
+                path: "/TEST/ended".into(),
+                goal: "TEST ended".into(),
+                stage: Stage::Ended,
+                updated: String::new(),
+            },
+        ],
+        unreadable: 0,
+    });
+    tend.apply(&outcome, true, 1);
+    let rendered = screen(&mut tend);
+    assert!(
+        rendered.contains("No active goals are recorded for this repo. Press a for all goals."),
+        "{rendered}"
+    );
+    assert!(rendered.contains("1 ended not shown"), "{rendered}");
+    assert!(
+        !rendered.contains("no readable repo record"),
+        "known non-matches are not unknown: {rendered}"
+    );
+    tend.repo_unknown = 1;
+    assert!(screen(&mut tend).contains("1 goal has no readable repo record."));
 }
 
 #[test]
