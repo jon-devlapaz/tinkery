@@ -351,6 +351,9 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   establishes a proposal, not observed red or green. With no known invocation or a
   missing prerequisite, say `provisional:` without inventing a command; reserve
   `you judge:` for taste and product judgment. Shape never runs proposed checks.
+  Once the goal and recorded answers settle the draft, draft rather than reopening
+  settled or explicitly deferred decisions. Deferrals remain operator prerequisites,
+  not chosen alternatives; genuinely unresolved ledger decisions still block drafting.
   The operator's explicit seed confirmation settles those proposals, not permission
   to implement. This is a drafting instruction, not a semantic
   completeness validator; stub tests prove instructions and preservation, not model quality.

@@ -1028,6 +1028,192 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'found': [
 }
 
 #[test]
+fn settled_intake_drafts_without_reopening_settled_or_deferred_decisions() {
+    let prompt = step::prompt();
+    for rule in [
+        "settled or explicitly deferred decisions do not block it",
+        "Never reopen what the goal",
+        "a settled user-authority ledger answer settles",
+        "record deferred choices as operator prerequisites in Open questions and deferrals",
+        "choose no alternative",
+        "When the goal and recorded answers settle what this draft must say, draft the seed",
+        "genuinely unresolved ledger decisions still block drafting",
+    ] {
+        assert!(prompt.contains(rule), "missing settled-intake rule: {rule}");
+    }
+    assert!(!prompt.contains("If a decision only the operator can make is still open, ask"));
+}
+
+#[cfg(unix)]
+#[test]
+fn settled_intake_answer_drafts_without_reopening() {
+    assert_settled_intake_drafts(
+        "TEST Keep storage local; that choice is settled. Do not ask it again.",
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn settled_intake_deferral_drafts_without_choosing_or_confirming() {
+    assert_settled_intake_drafts(
+        "TEST Draft only. Defer local versus synced until before implementation; keep it as an operator prerequisite. Do not choose either or approve implementation.",
+    );
+}
+
+#[cfg(unix)]
+fn assert_settled_intake_drafts(words: &str) {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config, answering},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+
+    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
+        });
+    let template = include_str!("../../tests/fixtures/shape-seed-reply.txt");
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-settled-")
+        .tempdir()
+        .unwrap();
+    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: GOAL.into(),
+            outcome: "TEST draft".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    receipt.stop_viewer().unwrap();
+    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let version = answering::ask(
+        &skill,
+        &receipt.session,
+        version,
+        &answering::Ask {
+            id: "storage".into(),
+            label: "TEST Storage".into(),
+            question: "TEST Local or synced?".into(),
+            gate: "TEST Storage disposition".into(),
+            found: vec![],
+            suggestion: None,
+        },
+        temp.path(),
+    )
+    .unwrap();
+    // A real unresolved ledger decision still refuses a draft, regardless of prompt policy.
+    assert!(
+        answering::draft_seed(
+            &skill,
+            &receipt.session,
+            version,
+            template,
+            &[],
+            temp.path()
+        )
+        .is_err()
+    );
+    assert!(!receipt.session.join("seed-contract.md").exists());
+    let program = temp.path().join("TEST-pi");
+    fs::write(&program, format!(r##"#!/usr/bin/env python3
+import json, sys
+request = json.load(sys.stdin)
+assert request['goal'] == {GOAL:?}
+assert request['ledger']['current_question'] is None
+assert all(n['status'] != 'unresolved' for n in request['ledger']['nodes'])
+answer = next(n for n in request['ledger']['nodes'] if n['id'] == 'storage')
+assert answer['status'] == 'settled' and answer['authority'] == 'user'
+assert answer['answer'] == {words:?}
+assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
+prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
+# This stub proves routing instructions and helper transport, not model reasoning.
+drafts = all(rule in prompt for rule in [
+    'settled or explicitly deferred decisions do not block it',
+    'Never reopen what the goal',
+    'When the goal and recorded answers settle what this draft must say, draft the seed',
+    'record deferred choices as operator prerequisites in Open questions and deferrals',
+    'choose no alternative',
+    'genuinely unresolved ledger decisions still block drafting',
+])
+if not drafts:
+    print(json.dumps({{'next': 'question', 'id': 'reopened', 'question': 'TEST Resolve or defer storage again?', 'found': []}}))
+else:
+    body = {template:?}
+    start, end = body.index('## Open questions and deferrals\n'), body.index('## Owners and next steps\n')
+    body = body[:start] + '## Open questions and deferrals\nRecorded operator answer: ' + answer['answer'] + '\n\n' + body[end:]
+    print(json.dumps({{'next': 'seed', 'confirming': body, 'found': []}}))
+"##)).unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = Arc::new(
+        step::Agent::new(
+            program,
+            "test/stub".into(),
+            String::new(),
+            Some(temp.path().into()),
+            CallBudget::new(1),
+            None,
+        )
+        .unwrap(),
+    );
+    let running = step::Running::start(
+        step::Work::Answer {
+            id: "storage".into(),
+            words: words.into(),
+            expected: version,
+            folder: temp.path().into(),
+        },
+        skill.clone(),
+        receipt.session.clone(),
+        agent.clone(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if let Some(result) = running.poll() {
+            assert_eq!(
+                result,
+                Ok(step::Done::Drafted),
+                "settled intake reopened: {words}"
+            );
+            break;
+        }
+        assert!(Instant::now() < deadline, "stub drafting timed out");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let ledger = answering::read(&skill, &receipt.session).unwrap();
+    assert_eq!(ledger.goal(), Some(GOAL));
+    assert!(ledger.open().is_empty());
+    let context: serde_json::Value = serde_json::from_str(&ledger.context()).unwrap();
+    let answer = context["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "storage")
+        .unwrap();
+    assert_eq!(answer["answer"], words);
+    let seed = fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
+    assert!(seed.starts_with("status: draft\n"));
+    assert!(
+        seed.split("## Open questions and deferrals\n")
+            .nth(1)
+            .unwrap()
+            .split("\n## ")
+            .next()
+            .unwrap()
+            .contains(words)
+    );
+    assert!(!receipt.session.join("seed-confirmation.json").exists());
+    assert_eq!(agent.remaining(), 0);
+}
+
+#[test]
 fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
     let prompt = step::prompt();
     let mut named = std::collections::BTreeSet::new();

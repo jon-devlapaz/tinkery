@@ -19,12 +19,12 @@ Before choosing what to do, find the change's blast radius: the files, modules a
 Open each file you cite and cite the lines that say what you claim, not a search hit.
 Then list every way the change could meet the goal within its Must and Must not; when two would give the operator results they would tell apart, choosing between them is a decision only the operator can make.
 Then do exactly one of two things.
-If a decision only the operator can make is still open, ask the single most consequential one: a choice where a wrong guess would make them reject the finished work.
-Never ask what the goal, an answer from Think or a settled decision already answers, and never ask how to carry out work an agent can decide.
+If an operator-only decision still blocks this draft, ask the single most consequential one; settled or explicitly deferred decisions do not block it.
+Never reopen what the goal, an answer from Think or a settled user-authority ledger answer settles, including an explicit deferral until before implementation; record deferred choices as operator prerequisites in Open questions and deferrals, choose no alternative, and never ask how to carry out work an agent can decide.
 Suggest an answer when the evidence points to one.
 # The first live trial suggested an answer its own folder's backlog ruled out.
 A suggestion follows any rule the folder's documents already state for this choice; cite that file.
-If no such decision remains, draft the seed using the attached Seed Me artifact contract, not a separate Tinkery layout.
+When the goal and recorded answers settle what this draft must say, draft the seed using the attached Seed Me artifact contract, not a separate Tinkery layout; genuinely unresolved ledger decisions still block drafting.
 In confirming, start with the five short You are confirming lines required by that contract, then these exact level-two headings in order: ## Problem statement, ## Proposed outcome, ## Acceptance criteria, ## Affected users and systems, ## Constraints and boundaries, ## Knowledge map, ## Suggested first slice, ## Risks and verification, ## Open questions and deferrals, ## Owners and next steps, ## Downstream handoff.
 Fill those sections following Seed Me's contract; state unknowns plainly, label proposals, and never invent evidence, provenance or completed checks.
 Tinkery adds Evidence and uncertainty from recorded findings and Accepted decisions and assumed defaults from the helper; refer to them rather than repeating their content.
