@@ -583,6 +583,127 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config, answering, shaping},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-183-")
+        .tempdir()
+        .unwrap();
+    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
+        });
+    let goal = "TEST I can check a seed.\nWhy: Intake needs an eval.\nDone when: Existing output is correct.\n- New output is correct.\n- The result feels calm.\nMust: Keep my words; existing check is ./TEST-check with expected output TEST existing output in cwd .\nMust not: Build without approval.";
+    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: goal.into(),
+            outcome: "TEST checks".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    receipt.stop_viewer().unwrap();
+    let confirming = "TEST checkable seed.\nExisting output is correct.\ncmd: ./TEST-check\nexpect: TEST existing output\ncwd: .\nNew output is correct.\nprovisional: Once TEST-new-check exists.\ncmd: ./TEST-new-check\nexpect: TEST new output\ncwd: .\nThe result feels calm.\nyou judge: Inspect the result for calmness.";
+    // A stub can prove instructions and transport, not a real model's choice of checks.
+    let program = temp.path().join("TEST-pi");
+    fs::write(
+        &program,
+        format!(
+            r##"#!/usr/bin/env python3
+import json, pathlib, sys
+request = json.load(sys.stdin)
+prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
+rules = ['every Done when', 'cmd:', 'expect:', 'cwd:', 'provisional:', 'you judge', 'Do not run']
+missing = [rule for rule in rules if rule not in prompt]
+pathlib.Path('TEST-missing-rules.json').write_text(json.dumps(missing))
+assert not missing, 'missing check-drafting instructions: ' + str(missing)
+assert request['goal'] == {goal:?}
+assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
+print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': []}}))
+"##
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    for name in ["TEST-check", "TEST-new-check"] {
+        let command = temp.path().join(name);
+        fs::write(&command, "#!/bin/sh\ntouch TEST-CHECK-WAS-RUN\n").unwrap();
+        fs::set_permissions(&command, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let agent = Arc::new(
+        step::Agent::new(
+            program,
+            "test/stub".into(),
+            String::new(),
+            Some(temp.path().into()),
+            CallBudget::new(1),
+            None,
+        )
+        .unwrap(),
+    );
+    let running = step::Running::start(
+        step::Work::Look {
+            expected: version,
+            folder: temp.path().into(),
+        },
+        skill.clone(),
+        receipt.session.clone(),
+        agent.clone(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let result = loop {
+        if let Some(result) = running.poll() {
+            break result;
+        }
+        assert!(Instant::now() < deadline, "stub step timed out");
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(
+        fs::read_to_string(temp.path().join("TEST-missing-rules.json")).unwrap(),
+        "[]",
+        "stub did not receive per-criterion check instructions"
+    );
+    assert_eq!(result, Ok(step::Done::Drafted));
+    assert_eq!(agent.remaining(), 0);
+    let draft = shaping::read(&skill, &receipt.session).unwrap();
+    assert_eq!(draft.goal.as_deref(), Some(goal));
+    let Shaped::Drafted {
+        revision,
+        text: Some(text),
+    } = draft.stage
+    else {
+        panic!("not a draft")
+    };
+    assert_eq!(revision.as_deref(), Some("r1"));
+    assert!(
+        text.contains(confirming),
+        "checks changed or dropped: {text}"
+    );
+    assert!(text.starts_with("status: draft\n"));
+    assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
+    answering::confirm_seed(&skill, &receipt.session, "r1", "TEST yes to this seed only").unwrap();
+    assert!(matches!(
+        shaping::read(&skill, &receipt.session).unwrap().stage,
+        Shaped::Ready { .. }
+    ));
+    assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
+}
+
 #[test]
 fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
     let prompt = step::prompt();

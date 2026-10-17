@@ -300,6 +300,15 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   `## What's true today`, then `session.py seed decisions` output verbatim.
   The model writes neither findings nor decisions. Refuse injected headings, fences,
   status, revision or confirmation lines. Never draft with an open decision.
+- The model's confirming text carries every confirmed `Done when` line, with its
+  qualifiers, as a standalone acceptance criterion. Each gets settled `cmd:`,
+  `expect:` and `cwd:` lines, a `provisional:` proposal naming what must exist
+  before its command can run, or explicit `you judge:` with what to inspect.
+  Commands and expectations that can run today come from settled input, not guesses
+  from file inspection. Shape never runs these checks or claims they passed. They
+  remain model proposals until the operator confirms the displayed seed; confirmation
+  is not implementation approval. This is a drafting instruction, not a semantic
+  completeness validator; stub tests prove instructions and preservation, not model quality.
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
   Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
   CR or LF with `Put your confirming words on one line; nothing was confirmed.`
