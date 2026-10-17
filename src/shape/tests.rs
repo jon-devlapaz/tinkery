@@ -301,7 +301,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
 }
 
 #[test]
-fn incomplete_lists_keep_the_count_and_both_explanation_routes() {
+fn incomplete_lists_keep_the_count_and_f1_route() {
     for (width, height) in [(100, 30), (80, 24)] {
         for no_color in [false, true] {
             let mut shape = Shape::list();
@@ -309,7 +309,7 @@ fn incomplete_lists_keep_the_count_and_both_explanation_routes() {
             let text = screen(&mut shape, width, height, no_color);
             let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
             assert!(
-                flat.contains("1 record couldn't be read. F1 or Tend shows why."),
+                flat.contains("1 record couldn't be read. F1 shows why."),
                 "{text}"
             );
             assert!(!flat.contains("No goals are waiting"), "{text}");

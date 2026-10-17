@@ -176,6 +176,7 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
             },
         ],
         unreadable: 0,
+        failures: Vec::new(),
     };
     tend.apply(&Ok(outcome.clone()), true, 1);
     let rendered = screen(&mut tend);
@@ -230,6 +231,7 @@ fn outside_repo_a_does_nothing_and_keeps_every_active_goal() {
             updated: String::new(),
         }],
         unreadable: 0,
+        failures: Vec::new(),
     });
     tend.apply(&outcome, true, 1);
     tend.toggle_scope();

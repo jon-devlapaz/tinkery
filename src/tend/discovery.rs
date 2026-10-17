@@ -26,11 +26,20 @@ pub struct Found {
     pub sessions: Vec<Session>,
     /// Records that exist but could not be read; they are never guessed or counted.
     pub unreadable: usize,
+    /// At most `seed_me::MAX_READ_FAILURES` path/reason samples; the full count is `unreadable`.
+    pub failures: Vec<seed_me::ReadFailure>,
 }
 impl Found {
     /// Every record was read, so the list is the whole truth.
     pub fn complete(&self) -> bool {
         self.unreadable == 0
+    }
+
+    fn failed(&mut self, failure: seed_me::ReadFailure) {
+        self.unreadable += 1;
+        if self.failures.len() < seed_me::MAX_READ_FAILURES {
+            self.failures.push(failure);
+        }
     }
 }
 
@@ -50,14 +59,20 @@ pub fn scan(root: &Path) -> Outcome {
     };
     let mut found = Found::default();
     for entry in entries {
-        let Ok(entry) = entry else {
-            found.unreadable += 1;
-            continue;
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                found.failed(seed_me::ReadFailure::new(
+                    root.to_path_buf(),
+                    format!("Cannot read a directory entry: {error}"),
+                ));
+                continue;
+            }
         };
         match seed_me::read(&entry.path()) {
             Record::Session(session) => found.sessions.push(session),
             Record::NotASession => {}
-            Record::Unreadable => found.unreadable += 1,
+            Record::Unreadable(failure) => found.failed(failure),
         }
     }
     found.sessions.sort_by(|a, b| {

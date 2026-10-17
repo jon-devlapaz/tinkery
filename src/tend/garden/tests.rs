@@ -76,6 +76,7 @@ fn needs_suffix_truncates_headline_and_refusals_stay_muted() {
         &Ok(crate::tend::Found {
             sessions,
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         1,
@@ -150,6 +151,7 @@ fn long_needs_keep_source_and_readiness_visible_with_full_help() {
             &Ok(crate::tend::Found {
                 sessions,
                 unreadable: 0,
+                failures: Vec::new(),
             }),
             true,
             1,
@@ -227,6 +229,7 @@ fn empty_goal_view_discloses_unreadable_links() {
                 &Ok(crate::tend::Found {
                     sessions: vec![],
                     unreadable: 0,
+                    failures: Vec::new(),
                 }),
                 true,
                 1,
@@ -278,6 +281,7 @@ fn unreadable_links_have_a_persistent_muted_note_with_other_notes() {
             &Ok(crate::tend::Found {
                 sessions,
                 unreadable: 1,
+                failures: Vec::new(),
             }),
             true,
             1,
@@ -344,6 +348,7 @@ fn read_notes_share_the_muted_row_above_selection_without_changing_it() {
                 &Ok(super::super::Found {
                     sessions,
                     unreadable,
+                    failures: Vec::new(),
                 }),
                 true,
                 1,

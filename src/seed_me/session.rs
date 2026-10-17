@@ -82,6 +82,32 @@ pub struct Session {
     pub updated: String,
 }
 
+/// Maximum session failures retained by one discovery result; further failures are counted.
+pub const MAX_READ_FAILURES: usize = 8;
+
+/// One failed session read, with its actual source and reason; never a guessed session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadFailure {
+    /// The ledger or folder operation that failed, without canonicalisation that could also fail.
+    pub path: PathBuf,
+    /// The read/parse failure, bounded to 512 characters; truncated text ends with an ellipsis.
+    pub reason: String,
+}
+impl ReadFailure {
+    /// Retain a bounded reason without reading or changing the failed source.
+    pub fn new(path: PathBuf, reason: impl std::fmt::Display) -> Self {
+        let reason = reason.to_string();
+        let mut bounded: String = reason.chars().take(512).collect();
+        if reason.chars().count() > 512 {
+            bounded.push('…');
+        }
+        Self {
+            path,
+            reason: bounded,
+        }
+    }
+}
+
 /// What one folder holds.
 pub enum Record {
     /// A session that could be read.
@@ -89,25 +115,35 @@ pub enum Record {
     /// No ledger: some other folder, not counted.
     NotASession,
     /// A ledger exists but can't be read or has no status. Never guessed or counted.
-    Unreadable,
+    Unreadable(ReadFailure),
 }
 
 /// Read the session in folder `path`. Promises a `Session` only when the ledger parses and has
 /// a status; refuses to guess a stage for an active session with no goal (`Stage::Unknown`).
 pub fn read(path: &Path) -> Record {
     use std::io::ErrorKind::{NotADirectory, NotFound};
-    let text = match fs::read_to_string(path.join("ledger.json")) {
+    let ledger_path = path.join("ledger.json");
+    let text = match fs::read_to_string(&ledger_path) {
         Ok(text) => text,
         Err(error) if matches!(error.kind(), NotFound | NotADirectory) => {
             return Record::NotASession;
         }
-        Err(_) => return Record::Unreadable,
+        Err(error) => return Record::Unreadable(ReadFailure::new(ledger_path, error)),
     };
-    let Ok(ledger) = serde_json::from_str::<Value>(&text) else {
-        return Record::Unreadable;
+    let ledger = match serde_json::from_str::<Value>(&text) {
+        Ok(ledger) => ledger,
+        Err(error) => {
+            return Record::Unreadable(ReadFailure::new(
+                ledger_path,
+                format!("Invalid JSON: {error}"),
+            ));
+        }
     };
     let Some(status) = ledger.get("status").and_then(Value::as_str) else {
-        return Record::Unreadable;
+        return Record::Unreadable(ReadFailure::new(
+            ledger_path,
+            "The ledger status is missing or is not a string.",
+        ));
     };
     let id = ledger
         .get("session_id")
@@ -146,7 +182,10 @@ pub fn read(path: &Path) -> Record {
             stage,
             updated,
         }),
-        Err(_) => Record::Unreadable,
+        Err(error) => Record::Unreadable(ReadFailure::new(
+            path.to_path_buf(),
+            format!("Cannot resolve the session folder: {error}"),
+        )),
     }
 }
 

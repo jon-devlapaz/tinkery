@@ -29,6 +29,7 @@ fn found(sessions: Vec<Session>) -> Outcome {
     Ok(Found {
         sessions,
         unreadable: 0,
+        failures: Vec::new(),
     })
 }
 
@@ -241,6 +242,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
                         .map(|i| sess(&format!("ended-{i}"), Stage::Ended, "unknown"))
                         .collect(),
                     unreadable,
+                    failures: Vec::new(),
                 }),
                 true,
                 1,
@@ -1098,6 +1100,7 @@ fn counts_are_exact_only_after_complete_current_reads() {
     gate.set(Ok(Found {
         sessions: sessions.clone(),
         unreadable: 1,
+        failures: Vec::new(),
     }));
     gate.release(1);
     h.open(1);
@@ -1133,6 +1136,7 @@ fn only_unreadable_records_never_read_as_no_sessions() {
     let gate = Gate::new(Ok(Found {
         sessions: vec![],
         unreadable: 2,
+        failures: Vec::new(),
     }));
     gate.release(2);
     let mut h = home(gate.source());

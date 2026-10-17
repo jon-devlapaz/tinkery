@@ -45,6 +45,18 @@ class Terminal:
                 break
         raise AssertionError(self.screen.text())
 
+    def wait_exit(self):
+        deadline = time.monotonic() + 10
+        while True:
+            returncode = self.process.poll()
+            if returncode is not None:
+                return returncode
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise AssertionError('Process did not exit within 10 seconds:\n' + self.screen.text())
+            if select.select([self.master], [], [], min(.02, remaining))[0]:
+                self.screen.feed(os.read(self.master, 65536))
+
     def send(self, key, text):
         os.write(self.master, key)
         return self.wait(lambda screen: text in screen)
@@ -150,7 +162,7 @@ def journey(width, height, no_color, place, unreadable=1):
                         for p in (root / folder).rglob('*') if p.is_file()} == before
                 terminal.send(b'\x1b', '1  think')
                 os.write(terminal.master, b'q')
-                terminal.wait(lambda _: terminal.process.poll() is not None)
+                terminal.wait_exit()
                 assert terminal.process.returncode == 0
                 print(json.dumps(dict(width=width, height=height, no_color=no_color,
                     journey='repo-scope/' + place, unreadable=unreadable, provider_calls=0, fixtures='temporary TEST roots')))
@@ -197,7 +209,7 @@ def journey(width, height, no_color, place, unreadable=1):
                 assert not (root / 'TEST-links').exists()
             terminal.send(b'\x1b', '1  think')
             os.write(terminal.master, b'q')
-            terminal.wait(lambda _: terminal.process.poll() is not None)
+            terminal.wait_exit()
             assert terminal.process.returncode == 0
             print(json.dumps(dict(width=width, height=height, no_color=no_color,
                 journey='repo-scope/' + place, provider_calls=0, fixtures='temporary TEST roots')))
@@ -205,10 +217,11 @@ def journey(width, height, no_color, place, unreadable=1):
             terminal.close()
 
 
-for size in [(80, 24), (100, 30)]:
-    for no_color in [False, True]:
-        for place in ['incomplete-outside', 'incomplete-all']:
-            for unreadable in [1, 2]:
-                journey(*size, no_color, place, unreadable)
-        for place in ['incomplete', 'inside', 'outside', 'empty', 'broken']:
-            journey(*size, no_color, place)
+if __name__ == '__main__':
+    for size in [(80, 24), (100, 30)]:
+        for no_color in [False, True]:
+            for place in ['incomplete-outside', 'incomplete-all']:
+                for unreadable in [1, 2]:
+                    journey(*size, no_color, place, unreadable)
+            for place in ['incomplete', 'inside', 'outside', 'empty', 'broken']:
+                journey(*size, no_color, place)

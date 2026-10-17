@@ -25,6 +25,7 @@ fn fixture() -> (tempfile::TempDir, Tend) {
                 })
                 .collect(),
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         1,
@@ -192,6 +193,7 @@ fn held_lock_refuses_within_deadline_and_never_saves_after_release_or_cancel() {
         &Ok(Found {
             sessions: tend.all_sessions.clone(),
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         2,
@@ -351,6 +353,7 @@ fn all_readable_sessions_supply_readiness_missing_needs_stay_unknown() {
         &Ok(Found {
             sessions: sessions.clone(),
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         2,
@@ -367,6 +370,7 @@ fn all_readable_sessions_supply_readiness_missing_needs_stay_unknown() {
         &Ok(Found {
             sessions,
             unreadable: 1,
+            failures: Vec::new(),
         }),
         true,
         3,
@@ -396,6 +400,7 @@ fn ambiguous_source_never_inherits_needs_or_readiness() {
         &Ok(Found {
             sessions,
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         2,
@@ -423,6 +428,7 @@ fn refreshed_sessions_cancel_picking_instead_of_redirecting_the_source() {
         &Ok(Found {
             sessions,
             unreadable: 0,
+            failures: Vec::new(),
         }),
         true,
         2,
