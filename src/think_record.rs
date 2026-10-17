@@ -9,6 +9,9 @@
 
 mod read;
 
+#[cfg(test)]
+pub(crate) use read::count_reads;
+pub(crate) use read::read_origins;
 pub use read::{History, MadeIn, RecordedTurn, Unavailable, read};
 
 use crate::goal::Part;

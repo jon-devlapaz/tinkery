@@ -213,30 +213,37 @@ impl Discovery {
                 let outcome = source(&root);
                 let mut repo_unknown = 0;
                 let repo_paths = scope.map(|(repo, records)| {
-                    outcome
+                    let sessions = outcome
+                        .as_ref()
+                        .map_or(&[][..], |found| found.sessions.as_slice());
+                    let origins = records
                         .as_ref()
                         .ok()
-                        .into_iter()
-                        .flat_map(|f| &f.sessions)
-                        .filter(|session| {
-                            let made_in = records
-                                .as_ref()
-                                .ok()
-                                .and_then(|root| {
-                                    crate::think_record::read(root, &session.path, &session.goal)
-                                        .ok()
-                                })
-                                .map_or(crate::think_record::MadeIn::Unknown, |history| {
-                                    history.made_in
-                                });
+                        .and_then(|root| {
+                            if sessions.is_empty() {
+                                return Some(Vec::new());
+                            }
+                            let goals: Vec<_> = sessions
+                                .iter()
+                                .map(|session| (session.path.as_path(), session.goal.as_str()))
+                                .collect();
+                            crate::think_record::read_origins(root, &goals).ok()
+                        })
+                        .unwrap_or_else(|| {
+                            vec![crate::think_record::MadeIn::Unknown; sessions.len()]
+                        });
+                    sessions
+                        .iter()
+                        .zip(origins)
+                        .filter_map(|(session, made_in)| {
                             if made_in == crate::think_record::MadeIn::Unknown
                                 && session.stage != Stage::Ended
                             {
                                 repo_unknown += 1;
                             }
-                            made_in == crate::think_record::MadeIn::Repo(repo.clone())
+                            (made_in == crate::think_record::MadeIn::Repo(repo.clone()))
+                                .then(|| session.path.clone())
                         })
-                        .map(|session| session.path.clone())
                         .collect()
                 });
                 let _ = tx.send(Scanned {
@@ -299,3 +306,6 @@ impl Discovery {
         self.running.is_some()
     }
 }
+
+#[cfg(test)]
+mod tests;
