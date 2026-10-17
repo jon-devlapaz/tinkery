@@ -1,7 +1,47 @@
-use super::readiness_tests::{app, parts};
+use super::readiness_tests::{app, app_with_source, parts};
 use super::tests::settle;
 use super::*;
 
+#[test]
+fn possessive_subject_in_stub_outcome_is_composed_once() {
+    const ORIGINAL: &str = "Shape's goal list says when some sessions couldn't be read, instead of claiming nothing is waiting. ...";
+    for subject in ["Shape's", "Shape’s"] {
+        let headline = format!("{subject} goal list shows an incomplete-read notice");
+        let mut a = app_with_source(
+            serde_json::json!({"parts": {
+                "who": "Shape", "outcome": headline
+            }}),
+            ORIGINAL,
+        );
+        let goal = format!("{headline}.");
+        assert_eq!(a.conversation.board().unwrap().goal(), Some(goal.as_str()));
+        assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
+        for mono in [false, true] {
+            let screen = snapshot(320, 40, &mut a, mono).unwrap();
+            assert!(screen.contains(&goal));
+            assert!(!screen.contains("Shape Shape"));
+        }
+        assert!(a.copy_text().contains(&goal));
+        a.review_goal();
+        assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+        assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
+    }
+}
+#[test]
+fn subject_prefix_without_a_boundary_is_not_removed() {
+    for outcome in [
+        "Shapes stay distinct",
+        "Shape'sake stays literal",
+        "Shape’sake stays literal",
+    ] {
+        let p = GoalParts {
+            who: Some("Shape".into()),
+            outcome: Some(outcome.into()),
+            ..Default::default()
+        };
+        assert_eq!(p.goal_line().unwrap(), format!("Shape {outcome}"));
+    }
+}
 #[test]
 fn outcome_is_a_behaviour_without_forced_can() {
     let p = GoalParts {

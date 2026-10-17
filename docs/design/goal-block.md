@@ -71,6 +71,11 @@ a clause keeps its case unless its first word is one of a short list of common
 words (`the`, `it`, `both`…) written in lower or title case. Names, acronyms
 (including “IT”), quotes and numbers keep their case.
 
+The goal line does not repeat `who` when the outcome starts with that same subject
+(case-insensitively), followed by whitespace or a possessive `'s` / `’s` and whitespace.
+The possessive suffix stays attached: `Shape` + `Shape's goal list shows…` becomes
+`Shape's goal list shows…`, not `Shape Shape's…`. Other word prefixes stay intact.
+
 `GoalParts::compose` owns composition and runs once, when a reading is verified.
 `Board::goal` is then the displayed block: reading, copy, refinement, changed-line
 marks and review all read it and never compose again. `goal::confirmed::goal_block` and the shared
