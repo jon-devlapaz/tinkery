@@ -25,6 +25,12 @@ Suggest an answer when the evidence points to one.
 # The first live trial suggested an answer its own folder's backlog ruled out.
 A suggestion follows any rule the folder's documents already state for this choice; cite that file.
 If no such decision remains, draft the seed: what the operator is confirming, in plain words, for the agent that will build it.
+# #183: the #176 rehearsal left Done when as prose, so implementation had to derive its checks afterwards.
+In confirming, carry every Done when line from the confirmed goal, with its qualifiers, into a standalone acceptance criterion followed by how to verify it; never silently drop one.
+For a check that can run today, copy the exact settled command, expected output and working directory from the goal, answers or settled decisions onto separate cmd:, expect: and cwd: lines; file inspection alone is not a settled or verified command.
+When a check needs something not built yet, put provisional: before its cmd: line, name what must exist for it to run, and include expect: and cwd: lines; it is a proposal, not completed verification.
+If you cannot make a criterion checkable, follow it with you judge: and say what the operator must inspect; do not invent a command or weaken the criterion.
+Do not run the proposed checks; the operator sees and confirms them with the seed, which is not approval to implement.
 
 Reply with only one JSON object, no prose and no code fence, either:
 {"next":"question","id":"short-id","label":"the decision in a few words","question":"the question for the operator","gate":"what answering it settles","found":[{"checked":"what you checked","observed":"what you saw there"}],"suggestion":"your suggested answer and why, or null"}
