@@ -881,6 +881,152 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
 }
 
+#[cfg(unix)]
+#[test]
+fn repository_checks_are_proposed_with_sources_but_never_executed() {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config, answering, shaping},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-198-")
+        .tempdir()
+        .unwrap();
+    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
+        });
+    let goal = "TEST I can check a seed.\nWhy: Checks need evidence.\nDone when: The parsed value is new.\n- The future checker validates the result.\n- The result feels calm.\nMust: Keep my words. The proposed ./TEST-future-check does not exist yet.\nMust not: Run checks or build without approval.";
+    fs::create_dir(temp.path().join("tests")).unwrap();
+    fs::write(
+        temp.path().join("README.md"),
+        "cmd: python3 tests/check_value.py\nexpect: new value\ncwd: .\n",
+    )
+    .unwrap();
+    fs::write(temp.path().join("value.txt"), "old\n").unwrap();
+    fs::write(temp.path().join("tests/check_value.py"),
+        "from pathlib import Path\nPath('TEST-CHECK-WAS-RUN').touch()\nassert Path('value.txt').read_text().strip() == 'new'\nprint('new value')\n").unwrap();
+    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: goal.into(),
+            outcome: "TEST checks".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    receipt.stop_viewer().unwrap();
+    let program = temp.path().join("TEST-pi");
+    let template = include_str!("../../tests/fixtures/shape-seed-reply.txt");
+    fs::write(&program, format!(r##"#!/usr/bin/env python3
+import json, pathlib, sys
+request = json.load(sys.stdin)
+assert request['goal'] == {goal:?}
+assert 'python3 tests/check_value.py' not in json.dumps(request)
+assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
+prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
+source = pathlib.Path('README.md').read_text().splitlines()
+command, expected, cwd = [line.split(': ', 1)[1] for line in source]
+assert pathlib.Path('tests/check_value.py').is_file()
+assert not pathlib.Path('TEST-future-check').exists()
+# A policy-aware stub, not a claim about real-model reasoning or check quality.
+can_propose = all(rule in prompt for rule in [
+    'For a code-checkable criterion, propose', "cite the command's source", 'fail before the change'
+]) and 'file inspection alone is not a settled' not in prompt
+check = ('cmd: ' + command + '\nexpect: ' + expected + '\ncwd: ' + cwd +
+         '\nSource: README.md:1-3; proposed from repository inspection, not run.') if can_propose else (
+         'you judge: No invocation was settled; inspect tests/check_value.py yourself.')
+criteria = ('The parsed value is new.\n' + check +
+    '\nThe future checker validates the result.\nprovisional: Once the named TEST-future-check exists.\n'
+    'cmd: ./TEST-future-check\nexpect: result validated\ncwd: .\n'
+    'The result feels calm.\nyou judge: The operator inspects calmness.\n')
+body = {template:?}
+start, end = body.index('## Acceptance criteria\n'), body.index('## Affected users and systems\n')
+body = body[:start] + '## Acceptance criteria\n' + criteria + '\n' + body[end:]
+start, end = body.index('## Suggested first slice\n'), body.index('## Risks and verification\n')
+body = body[:start] + '## Suggested first slice\nProposal only: add the missing behavior, then use the check above.\n\n' + body[end:]
+body = body.replace('no repository facts were recorded.', 'reported reads are listed below.')
+print(json.dumps({{'next': 'seed', 'confirming': body, 'found': [
+    {{'checked': 'README.md:1-3', 'observed': 'documents the focused behavior check'}},
+    {{'checked': 'tests/check_value.py:1-4', 'observed': 'asserts the new value; current value.txt is old'}}]}}))
+"##)).unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = Arc::new(
+        step::Agent::new(
+            program,
+            "test/stub".into(),
+            String::new(),
+            Some(temp.path().into()),
+            CallBudget::new(1),
+            None,
+        )
+        .unwrap(),
+    );
+    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let running = step::Running::start(
+        step::Work::Look {
+            expected: version,
+            folder: temp.path().into(),
+        },
+        skill.clone(),
+        receipt.session.clone(),
+        agent.clone(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if let Some(result) = running.poll() {
+            assert_eq!(result, Ok(step::Done::Drafted));
+            break;
+        }
+        assert!(Instant::now() < deadline, "stub drafting timed out");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let seed = fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
+    let criteria = seed
+        .split("## Acceptance criteria\n")
+        .nth(1)
+        .unwrap()
+        .split("\n## ")
+        .next()
+        .unwrap();
+    assert!(criteria.contains("The parsed value is new.\ncmd: python3 tests/check_value.py\nexpect: new value\ncwd: .\nSource: README.md:1-3; proposed from repository inspection, not run."),
+        "repo-grounded code check was replaced by operator judgment: {criteria}");
+    assert!(criteria.contains("The future checker validates the result.\nprovisional:"));
+    assert!(criteria.contains("cmd: ./TEST-future-check"));
+    assert!(
+        criteria.contains("The result feels calm.\nyou judge: The operator inspects calmness.")
+    );
+    assert!(seed.starts_with("status: draft\n"));
+    assert!(!receipt.session.join("seed-confirmation.json").exists());
+    assert_eq!(
+        answering::read(&skill, &receipt.session).unwrap().goal(),
+        Some(goal)
+    );
+    assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
+    assert!(!temp.path().join("TEST-future-check").exists());
+    answering::confirm_seed(
+        &skill,
+        &receipt.session,
+        "r1",
+        "TEST yes to proposed checks, not implementation",
+    )
+    .unwrap();
+    assert!(matches!(
+        shaping::read(&skill, &receipt.session).unwrap().stage,
+        Shaped::Ready { .. }
+    ));
+    assert_eq!(agent.remaining(), 0);
+    assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
+}
+
 #[test]
 fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
     let prompt = step::prompt();

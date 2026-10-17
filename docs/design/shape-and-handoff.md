@@ -344,10 +344,15 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   with its qualifiers, as a standalone acceptance criterion. Each gets settled `cmd:`,
   `expect:` and `cwd:` lines, a `provisional:` proposal naming what must exist
   before its command can run, or explicit `you judge:` with what to inspect.
-  Commands and expectations that can run today come from settled input, not guesses
-  from file inspection. Shape never runs these checks or claims they passed. They
-  remain model proposals until the operator confirms the displayed seed; confirmation
-  is not implementation approval. This is a drafting instruction, not a semantic
+  Copy settled commands exactly. For code-checkable lines, Shape may also propose
+  concrete invocations found in repository tests, scripts or CI, with source paths
+  and lines beside each criterion. Choose a behavior-specific regression intended
+  to fail before the change, not a generic build or a check known to pass. Inspection
+  establishes a proposal, not observed red or green. With no known invocation or a
+  missing prerequisite, say `provisional:` without inventing a command; reserve
+  `you judge:` for taste and product judgment. Shape never runs proposed checks.
+  The operator's explicit seed confirmation settles those proposals, not permission
+  to implement. This is a drafting instruction, not a semantic
   completeness validator; stub tests prove instructions and preservation, not model quality.
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
   Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
