@@ -45,7 +45,7 @@ pub(super) fn render_note(frame: &mut Frame, tend: &Tend, body: Rect, palette: P
     if tend.links.is_err() && tend.notice != super::linking::UNAVAILABLE {
         notes.push("Links couldn't be read. F1 then h for details.".into());
     }
-    if tend.ended > 0 && !tend.sessions.is_empty() {
+    if tend.ended > 0 && (!tend.sessions.is_empty() || tend.repo_empty_message().is_some()) {
         notes.push(format!("{} ended not shown", tend.ended));
     }
     if tend.unreadable > 0 {

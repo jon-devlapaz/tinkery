@@ -276,6 +276,8 @@ impl Home {
         {
             return;
         }
+        tend.repo_paths = landed.repo_paths.clone();
+        tend.repo_unknown = landed.repo_unknown;
         tend.apply(&landed.outcome, self.discovery.fresh(), version);
     }
 
@@ -326,6 +328,10 @@ impl Home {
     }
 
     fn request_sessions(&mut self) {
+        self.discovery.scope_to_repo(
+            self.repo.as_ref().map(|repo| repo.root().to_path_buf()),
+            self.record_root.clone(),
+        );
         if let Some(root) = &self.sessions_root {
             self.discovery.request(root);
         }
@@ -450,7 +456,7 @@ impl Home {
                 || key.kind == KeyEventKind::Repeat
                     && matches!(
                         key.code,
-                        KeyCode::Char('c' | 'r' | 'l' | 's')
+                        KeyCode::Char('a' | 'c' | 'r' | 'l' | 's')
                             | KeyCode::F(1)
                             | KeyCode::F(10)
                             | KeyCode::Enter
@@ -595,6 +601,7 @@ impl Home {
                 _ => {}
             },
             View::Tend(tend) => match key.code {
+                KeyCode::Char('a') => tend.toggle_scope(),
                 KeyCode::Char('l') => tend.start_link(),
                 KeyCode::Esc if tend.is_linking() => tend.cancel_link(),
                 KeyCode::Enter if tend.is_linking() => tend.commit_link(),
@@ -1273,6 +1280,49 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn a_toggles_only_tend_garden_and_never_repeats_or_conflicts_with_shape() {
+        let tmp = tempfile::tempdir().unwrap();
+        for id in ["a", "b"] {
+            session(tmp.path(), id, "active", "2026-10-17T00:00:00Z", None);
+        }
+        let mut h = home(tmp.path());
+        h.open(1);
+        settle(&mut h);
+        let View::Tend(tend) = &mut h.view else {
+            panic!()
+        };
+        tend.repo_paths = Some([tend.sessions[0].path.clone()].into_iter().collect());
+        tend.toggle_scope(); // all
+        tend.toggle_scope(); // this repo
+        assert_eq!(tend.sessions.len(), 1);
+        h.handle_key(KeyEvent::new_with_kind(
+            KeyCode::Char('a'),
+            KeyModifiers::NONE,
+            KeyEventKind::Repeat,
+        ));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.sessions.len(), 1);
+        h.handle_key(key(KeyCode::Char('s')));
+        assert!(matches!(h.view, View::Tend(_)));
+        h.handle_key(key(KeyCode::F(1)));
+        h.handle_key(key(KeyCode::Char('a')));
+        h.handle_key(key(KeyCode::Esc));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.sessions.len(), 1, "help ignores a");
+        h.handle_key(key(KeyCode::Char('a')));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.sessions.len(), 2);
+        h.handle_key(key(KeyCode::Enter));
+        h.handle_key(key(KeyCode::Char('a')));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert!(tend.detail && tend.sessions.len() == 2);
+        h.handle_key(key(KeyCode::Esc));
+        h.handle_key(key(KeyCode::Char('a')));
+        let View::Tend(tend) = &h.view else { panic!() };
+        assert_eq!(tend.sessions.len(), 1);
     }
 
     #[test]
