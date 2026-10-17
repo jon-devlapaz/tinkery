@@ -37,7 +37,14 @@ starts with this repo again; explicit receipt or Shape returns still open the
 exact saved goal, switching to all if necessary.
 
 Filtering reads existing records on discovery's worker, never during painting,
-and writes nothing. Links, identity checks and readiness still use every readable
+and writes nothing. Each discovery enumerates the Think record root once and
+reads each JSON record at most once, rebuilding an in-memory attribution index;
+refreshes never reuse an earlier index. It shares history's strict validation and
+rechecks session identity and goal across the scan. Malformed or unsupported files
+make every origin unknown; duplicate paths and matching schema-1 records refuse
+attribution, never choose a winner. The index keeps paths, identities, exact goals
+and origins, not turns or checks; the 16 MiB per-file limit remains, with no total
+index-size cap. Links, identity checks and readiness still use every readable
 session, including other repos and ended goals. Use all to link across repos;
 `a` does nothing during linking, detail, history, help or pending/failed reads.
 
