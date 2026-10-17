@@ -219,7 +219,10 @@ impl Tend {
         } else if self.unreadable == 0 {
             Some("No active goals are recorded for this repo. Press a for all goals.".into())
         } else {
-            None
+            Some(format!(
+                "{} couldn't be read; this repo may have active goals. Press a for all goals.",
+                records(self.unreadable)
+            ))
         }
     }
 
@@ -490,15 +493,15 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         frame.render_widget(
             Paragraph::new(if let Some(message) = tend.repo_empty_message() {
                 message
-            } else if tend.ended > 0 {
-                format!(
-                    "No active goals. {} ended not shown. Confirm a goal in think to start one.",
-                    tend.ended
-                )
             } else if tend.unreadable > 0 {
                 format!(
                     "{} couldn't be read, so nothing can be listed. Esc goes back.",
                     records(tend.unreadable)
+                )
+            } else if tend.ended > 0 {
+                format!(
+                    "No active goals. {} ended not shown. Confirm a goal in think to start one.",
+                    tend.ended
                 )
             } else {
                 "No Seed Me sessions yet. Confirm a goal in think to start one.".into()

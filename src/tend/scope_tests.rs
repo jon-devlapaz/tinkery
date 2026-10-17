@@ -158,7 +158,7 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
     let mut tend = Tend::new(Err("TEST unavailable links".into()));
     tend.repo_paths = Some([PathBuf::from("/TEST/ended")].into_iter().collect());
     tend.current = true;
-    let outcome = Ok(Found {
+    let outcome = Found {
         sessions: vec![
             Session {
                 id: Some("TEST-other".into()),
@@ -176,8 +176,8 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
             },
         ],
         unreadable: 0,
-    });
-    tend.apply(&outcome, true, 1);
+    };
+    tend.apply(&Ok(outcome.clone()), true, 1);
     let rendered = screen(&mut tend);
     assert!(
         rendered.contains("No active goals are recorded for this repo. Press a for all goals."),
@@ -188,8 +188,34 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
         !rendered.contains("no readable repo record"),
         "known non-matches are not unknown: {rendered}"
     );
+    let mut incomplete = outcome.clone();
+    incomplete.unreadable = 1;
+    tend.apply(&Ok(incomplete), true, 2);
+    let rendered = screen(&mut tend);
+    assert!(!rendered.contains("No active goals"), "{rendered}");
+    assert!(
+        rendered.contains("1 saved record couldn't be read"),
+        "{rendered}"
+    );
+    assert_eq!(rendered.matches("saved record").count(), 1, "{rendered}");
+    assert!(rendered.contains("Links couldn't be read"), "{rendered}");
+    assert!(rendered.contains("Press a for all goals."), "{rendered}");
+    assert!(rendered.contains("1 ended not shown"), "{rendered}");
+    tend.toggle_scope();
+    assert_eq!(tend.current().unwrap().id.as_deref(), Some("TEST-other"));
+    tend.toggle_scope();
     tend.repo_unknown = 1;
-    assert!(screen(&mut tend).contains("1 goal has no readable repo record."));
+    let rendered = screen(&mut tend);
+    assert!(rendered.contains("1 goal has no readable repo record."));
+    assert_eq!(rendered.matches("saved record").count(), 1, "{rendered}");
+    tend.repo_unknown = 0;
+    let mut incomplete = outcome;
+    incomplete.sessions.retain(|s| s.stage != Stage::Ended);
+    incomplete.unreadable = 1;
+    tend.apply(&Ok(incomplete), true, 3);
+    let rendered = screen(&mut tend);
+    assert_eq!(rendered.matches("saved record").count(), 1, "{rendered}");
+    assert!(rendered.contains("Links couldn't be read"), "{rendered}");
 }
 
 #[test]

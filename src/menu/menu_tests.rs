@@ -231,7 +231,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
     };
     tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().join("TEST-links")));
     for count in [1, 2] {
-        for unreadable in [0, 1] {
+        for unreadable in [0, 1, 2] {
             let View::Tend(tend) = &mut h.view else {
                 panic!()
             };
@@ -248,12 +248,23 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
             for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
                 let frame = snapshot(width, height, &mut h, true).unwrap();
                 let text = frame.split_whitespace().collect::<Vec<_>>().join(" ");
-                assert!(text.contains(&format!("No active goals. {count} ended not shown. Confirm a goal in think to start one.")), "{frame}");
-                assert!(!text.contains("No Seed Me sessions"), "{frame}");
-                assert_eq!(text.matches("ended not shown").count(), 1);
-                if unreadable > 0 {
-                    assert!(frame.contains("1 saved record couldn't be read"), "{frame}");
+                if unreadable == 0 {
+                    assert!(text.contains(&format!("No active goals. {count} ended not shown. Confirm a goal in think to start one.")), "{frame}");
+                } else {
+                    assert!(!text.contains("No active goals"), "{frame}");
+                    let records = if unreadable == 1 { "record" } else { "records" };
+                    assert!(
+                        text.contains(&format!("{unreadable} saved {records} couldn't be read")),
+                        "{frame}"
+                    );
+                    assert_eq!(text.matches("couldn't be read").count(), 1, "{frame}");
                 }
+                assert!(!text.contains("No Seed Me sessions"), "{frame}");
+                assert!(
+                    text.contains(&format!("{count} ended not shown")),
+                    "{frame}"
+                );
+                assert_eq!(text.matches("ended not shown").count(), 1);
                 assert_eq!(frame.lines().last().unwrap().trim(), "esc back");
                 for code in [
                     KeyCode::Right,
