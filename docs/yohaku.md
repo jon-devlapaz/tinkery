@@ -26,13 +26,13 @@ or reinterprets it as fact. Tinkery's own words are visibly a guess.
 **The test:** is every original intact, and can the operator tell their words from Tinkery's at a glance?
 
 **4. Nothing runs by itself.** Tinkery starts no agent, harness or command, and writes no durable record, without
-an explicit human action. Copying is not running. Readiness is not consent.
+an explicit human action in its interface. Copying is not running. Readiness is not consent.
 **Why:** the operator decides; Tinkery prepares.
 **The test:** could this action happen without the operator pressing a key that says what it does?
 
-**5. One at a time.** One reading, one question, one next step.
+**5. One at a time.** One reading, at most one active question, one next step.
 **Why:** choices compete for attention; one clear thing invites an answer.
-**The test:** is there exactly one thing to read, one to answer, and one to do next?
+**The test:** does the screen focus on one reading, ask at most one question, and make the next step clear?
 
 **6. Never stranded.** Every screen says what comes next, in plain words, and how to leave.
 **Why:** a dead end after real effort is the most expensive moment in the tool.
@@ -50,19 +50,14 @@ knowing it will.
 
 ## How yohaku shows up today
 
-- **Think opens on one empty box,** with no suggestions while the operator writes.
-- **One voice on the right:** "I think you mean…", then the goal block, then "One thing I'm not sure about", then
-  "your answer".
-- **The goal block** (see [design/goal-block.md](design/goal-block.md)): a goal line naming who, then `Why:`,
-  `Done when:`, `Must:`, `Must not:`. A missing line becomes the next question, never an invention.
-- **"Nothing I'm unsure about"** is the stopping rule. Questions stop when the goal is whole.
-- **After an answer,** changed lines stay in full ink and unchanged lines go quiet. Nothing is added to show the
-  change.
-- **The key bar shows only what is possible now,** muted. Help has two layers: what to do now, then every key.
-- **The operator's original stays plain ink.** No highlighting by default.
-- **The receipt shows the confirmed goal exactly as confirmed,** with one next step and a prompt to copy. Shape
-  shows the goal's first line; F5 shows the whole goal exactly as confirmed. Paths live in "How it works", not on
-  screen.
+- **Think starts with the operator's words,** not suggestions. For readings, questions, stopping and help,
+  read [Think](design/think.md).
+- **Missing intent becomes a question, not an invention.** For goal structure and rendering,
+  read the [goal-block contract](design/goal-block.md).
+- **Changes speak without extra decoration.** For changed-line emphasis and controls,
+  read [principles](design/principles.md).
+- **The confirmed goal stays unchanged through saving and handoff.** For receipts, copying and Shape,
+  read [Tend and handoff](design/shape-and-handoff.md).
 
 ## Colour has one job each
 
@@ -79,11 +74,14 @@ Colour is never the only signal. With `NO_COLOR`, the same meanings carry throug
 ## For anyone changing Tinkery, human or agent
 
 - **Subtract first.** Before adding a field, a key, a check or a line on screen, ask what can be removed.
-- **Ask the operator only what only they can decide.** If running something could answer it, run it.
+- **Ask the operator only what only they can decide.** Investigate discoverable facts within the work and
+  budget they authorized; ask before going beyond them.
 - **Prove behaviour, not effort.** Test what the operator sees and does. Add a reversion probe for anything that
   protects an article above.
-- **Keep the design true.** When a decision changes, update `docs/design/` in the same PR.
-- **Merge only what the operator approved.** Open a PR, and merge it once the work is approved and its checks pass.
+- **Move each correction left.** When the operator corrects an agent, make the mistake impossible in the code,
+  or else a check that fails. Write a rule only when neither can hold it; review is the last resort.
+- **Keep the design true and the operator in control.** For design updates, verification and approved-work
+  issue, branch and PR rules, follow the [working guide](../AGENTS.md#guardrails).
 
 When unsure, choose the version of the change that leaves more empty space and the operator more in control.
 
