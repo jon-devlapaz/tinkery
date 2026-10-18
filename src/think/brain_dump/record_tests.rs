@@ -69,6 +69,92 @@ fn receipt(root: &Path, goal: &str) -> seed_me::Receipt {
     receipt
 }
 
+/// Replays decoded recorded candidates, not invented raw provider replies.
+fn stacker_226_replay(sends: usize) -> BrainDump {
+    struct Frozen {
+        candidates: Vec<serde_json::Value>,
+    }
+    impl BoardHost for Frozen {
+        fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+            Guess::decode(
+                &self.candidates[request.sources.len() - 1].to_string(),
+                &request,
+                &mut vec![],
+            )
+        }
+    }
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/fixtures/stacker-226.json")).unwrap();
+    let candidates = fixture["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|c| c["candidate"].as_object().map(|_| c["candidate"].clone()))
+        .collect();
+    let mut a = BrainDump::with_host(Arc::new(Frozen { candidates }));
+    let originals: Vec<_> = fixture["turns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["text"].as_str().or(t["answer"].as_str()))
+        .take(sends)
+        .collect();
+    for original in &originals {
+        a.paste(original);
+        a.submit();
+        settle(&mut a);
+    }
+    assert_eq!(a.conversation.sources().len(), sends);
+    for (source, original) in a.conversation.sources().iter().zip(originals) {
+        assert_eq!(source.text, original);
+    }
+    a
+}
+
+#[test]
+fn frozen_stacker_226_done_question_is_open_not_either_or() {
+    let a = stacker_226_replay(2);
+    let q = a.conversation.focused_question().unwrap();
+    assert_eq!(q.target, Some(Part::DoneWhen));
+    assert!(!q.text.contains(" or "), "binary Done when: {}", q.text);
+}
+
+#[test]
+fn frozen_stacker_226_short_done_answer_does_not_stop() {
+    let mut a = stacker_226_replay(3);
+    assert!(
+        !a.goal_ready(),
+        "one-line product availability was treated as done"
+    );
+    assert_eq!(
+        a.conversation.focused_question().unwrap().target,
+        Some(Part::DoneWhen)
+    );
+    assert_eq!(
+        a.conversation.board().unwrap().parts.done_when.as_deref(),
+        Some("stacker available to tink-arcade")
+    );
+    for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
+        assert!(
+            !snapshot(w, h, &mut a, true)
+                .unwrap()
+                .contains("Nothing I'm unsure about")
+        );
+    }
+}
+
+#[test]
+fn frozen_stacker_226_explicit_criteria_can_settle() {
+    let a = stacker_226_replay(4);
+    assert!(a.goal_ready());
+    assert_eq!(
+        a.conversation.board().unwrap().parts.done_when.as_deref(),
+        Some(
+            "stacker available to tink-arcade\nmatches the tink-arcade style\nhas working sounds\nplays like the real game"
+        )
+    );
+}
+
 #[test]
 fn recorded_stacker_done_when_items_survive_reading_review_and_save() {
     fn visible_items(a: &mut BrainDump, width: u16, height: u16, mono: bool) {
