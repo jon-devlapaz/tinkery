@@ -71,10 +71,6 @@ Refusals are noisy; the operator loses the thread.
 ## Proposed outcome
 Refusals stay calm and records stay local.
 
-## Acceptance criteria
-Refusals never show private text.
-you judge: Inspect refusal output for private text.
-
 ## Affected users and systems
 The operator and local refusal path.
 
@@ -105,6 +101,8 @@ The operator judges refusal output; implementation checks privacy.
 Carry seed-contract.md, ledger.json and seed-confirmation.json together; check session.py status for handoff.verified. This is not implementation approval.
 '''
 SEED = {'next': 'seed', 'confirming': SEED_BODY,
+        'checks': [{'statement': 'Refusals never show private text.', 'kind': 'judge',
+                    'source': 'TEST goal', 'how_to_judge': 'Inspect refusal output for private text.'}],
         'found': [{'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
@@ -399,7 +397,7 @@ def case(name, width=100, height=30):
             replies = [{**SEED, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model writes decisions':
             question = False
-            replies = [{'next': 'seed', 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
+            replies = [{**SEED, 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
         if name in ('practice confirmation', 'multiline confirmation'):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'unfound citation':

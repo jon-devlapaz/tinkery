@@ -26,9 +26,10 @@ spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 CONFIRMATION = 'TEST confirmation of r1 only; not operator approval or permission to build.'
-GOAL = ('TEST I can check a seed.\nWhy: TEST independent checks survive handoff.\n'
-        'Done when: Existing output is correct; new output is correct; the result feels calm.\n'
-        'Must: Keep the agreed checks.\nMust not: Build without approval.')
+# Original copied verbatim from /tmp/tinkery-TEST-stacker-KZcCiq/sessions/
+# 37bc32a6-e13d-4558-ab44-6d00fabbd54a/seed-contract.md; never edit that evidence.
+ORIGINAL = (REPO / 'tests/fixtures/stacker-r1-seed-contract.md').read_text()
+GOAL = ORIGINAL.split('- goal [user] ', 1)[1].split(' (source:', 1)[0]
 
 
 def command(argv, cwd, env, expected=0):
@@ -49,9 +50,13 @@ def shape(root, env):
         'id': 'goal', 'kind': 'decision', 'prerequisites': [], 'evidence': [],
         'owner': 'TEST fixture', 'gate': 'TEST only', 'status': 'settled',
         'answer': GOAL, 'authority': 'user', 'authority_source': 'TEST fixture, not operator approval'}])
+    for identifier, answer in [('stacker-fairness', 'skill'), ('stacker-checkpoint', 'aim for the top')]:
+        state['nodes'].append({'id': identifier, 'kind': 'decision', 'prerequisites': [], 'evidence': [],
+            'owner': 'TEST fixture', 'gate': 'TEST only', 'status': 'settled', 'answer': answer,
+            'authority': 'user', 'authority_source': 'TEST replay of recorded Stacker decision, not new approval'})
     helper.publish(session, state, old['version'], 'TEST fixture only')
-    body = (REPO / 'tests/fixtures/shape-seed-reply.txt').read_text()
-    (root / 'TEST-reply.json').write_text(json.dumps({'next': 'seed', 'confirming': body, 'found': []}))
+    reply = json.loads((REPO / 'tests/fixtures/stacker-r1-reply.json').read_text())
+    (root / 'TEST-reply.json').write_text(json.dumps(reply))
     host = root / 'TEST-pi'
     host.write_text(f'#!{sys.executable}\n'
                     'import json, os, pathlib, sys\n'
@@ -128,6 +133,36 @@ def handoff(root, env, session):
     def sdlc(*args, expected=0):
         return command([sys.executable, runtime, *args], project, env, expected)
 
+    # Replay the recorded Stacker reply first: all three records, no invented executable checks.
+    original_files = {name: (session / name).read_bytes() for name in (
+        'seed-contract.md', 'ledger.json', 'seed-confirmation.json', 'seed-checks.json')}
+    sdlc('new', 'stacker-r1')
+    sdlc('stage', 'stacker-r1', '1', '--here', '--seed-contract', str(session / 'seed-contract.md'))
+    stacker_run = project / 'runs/stacker-r1'
+    assert (stacker_run / 'seed-contract.md').read_bytes() == original_files['seed-contract.md']
+    stacker_checks = json.loads((stacker_run / 'seed-checks.json').read_text())['items']
+    assert [(i['kind'], i['locked']) for i in stacker_checks] == [
+        ('attestation', True), ('provisional', True), ('provisional', True)]
+    assert [i['description'] for i in stacker_checks] == [
+        r['statement'] for r in json.loads(original_files['seed-checks.json'])]
+    assert {name: (session / name).read_bytes() for name in original_files} == original_files
+    print('Real Stacker r1: judge + two provisional records imported and locked; no checks promoted')
+
+    # Separate synthetic command records exercise verify mechanics, not Stacker quality.
+    session = helper.create(root / 'TEST-command-sessions')
+    old = helper.load(session)
+    state = helper.editable(old)
+    state.update(goal='TEST command enforcement', origin='goal', current_question=None, nodes=[{
+        'id': 'goal', 'kind': 'decision', 'prerequisites': [], 'evidence': [],
+        'owner': 'TEST fixture', 'gate': 'TEST only', 'status': 'settled',
+        'answer': 'TEST command enforcement', 'authority': 'user', 'authority_source': 'TEST fixture only'}])
+    helper.publish(session, state, old['version'], 'TEST command enforcement fixture')
+    helper.set_checks(session, json.loads((REPO / 'tests/fixtures/shape-checks.json').read_text()))
+    body = (REPO / 'tests/fixtures/shape-seed-reply.txt').read_text().replace(
+        '## Affected users and systems', helper.checks_block(helper.read_checks(session)) + '## Affected users and systems', 1)
+    (session / 'seed-contract.md').write_text('status: draft\n# TEST commands\nrevision: r1\n\n## You are confirming\n'
+        + body + '\n## Accepted decisions and assumed defaults\n' + helper.decisions_block(helper.load(session)))
+    helper.confirm_seed(session, 'r1', CONFIRMATION)
     sdlc('new', 'test-handoff')
     run = project / 'runs/test-handoff'
     worker = {'argv': [sys.executable, '-c', 'print("TEST worker check passes")'], 'timeout_seconds': 5}
@@ -136,7 +171,7 @@ def handoff(root, env, session):
         'id': 'worker', 'description': 'TEST worker-written check', 'verify': 'TEST success', 'check': worker}]}))
     seed = session / 'seed-contract.md'
     confirmed = {name: (session / name).read_bytes()
-                 for name in ('seed-contract.md', 'ledger.json', 'seed-confirmation.json')}
+                 for name in ('seed-contract.md', 'ledger.json', 'seed-confirmation.json', 'seed-checks.json')}
     # Stage 1 is the real intake. --here prevents worktrees; it prints a prompt, not an agent launch.
     sdlc('stage', 'test-handoff', '1', '--here', '--seed-contract', str(seed))
     assert (run / 'seed-contract.md').read_bytes() == confirmed['seed-contract.md']

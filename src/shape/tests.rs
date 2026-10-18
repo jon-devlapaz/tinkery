@@ -556,14 +556,15 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     assert_eq!(ask.found.len(), 1);
     assert_eq!(ask.suggestion, None);
     assert_eq!(
-        decode("{\"next\":\"seed\",\"confirming\":\" Build it. \"}").unwrap(),
+        decode("{\"next\":\"seed\",\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}]}").unwrap(),
         Next::Seed {
             confirming: "Build it.".into(),
+            checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
             found: vec![],
         }
     );
     let Next::Seed { found, .. } = decode(
-        "{\"next\":\"seed\",\"confirming\":\"Build it.\",\"found\":[{\"checked\":\"src/lib.rs:9\",\"observed\":\"the palette\"}]}",
+        "{\"next\":\"seed\",\"confirming\":\"Build it.\",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[{\"checked\":\"src/lib.rs:9\",\"observed\":\"the palette\"}]}",
     )
     .unwrap() else {
         panic!("not a seed")
@@ -581,6 +582,187 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     ] {
         assert!(decode(reply).is_err(), "{reply}");
     }
+}
+
+#[test]
+fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
+    use crate::seed_me::{Affirmed, Config, answering};
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-214-")
+        .tempdir()
+        .unwrap();
+    let skill =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md");
+    let mut receipt = Config::new(skill.clone(), Some(root.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: GOAL.into(),
+            outcome: "TEST Stacker".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not approval".into(),
+        })
+        .unwrap();
+    receipt.stop_viewer().unwrap();
+    let original = include_str!("../../tests/fixtures/stacker-r1-seed-contract.md");
+    let legacy = original
+        .split_once("## You are confirming\n")
+        .unwrap()
+        .1
+        .split_once("## Evidence and uncertainty\n")
+        .unwrap()
+        .0
+        .trim();
+    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let reply: serde_json::Value =
+        serde_json::from_str(include_str!("../../tests/fixtures/stacker-r1-reply.json")).unwrap();
+    assert!(
+        answering::draft_seed(
+            &skill,
+            &receipt.session,
+            version,
+            legacy,
+            &reply["checks"],
+            &[],
+            root.path()
+        )
+        .is_err()
+    );
+    answering::draft_seed(
+        &skill,
+        &receipt.session,
+        version,
+        reply["confirming"].as_str().unwrap(),
+        &reply["checks"],
+        &[],
+        root.path(),
+    )
+    .unwrap();
+    let stored: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(receipt.session.join("seed-checks.json")).unwrap())
+            .unwrap();
+    assert_eq!(stored, reply["checks"]);
+    let upstream_fixture = skill
+        .parent()
+        .unwrap()
+        .join("../../tests/fixtures/stacker-r1-seed-contract.md");
+    assert_eq!(
+        std::fs::read(upstream_fixture).unwrap(),
+        original.as_bytes()
+    );
+    let (before_criteria, criteria) = legacy.split_once("## Acceptance criteria\n").unwrap();
+    let (_, after_criteria) = criteria
+        .split_once("## Affected users and systems")
+        .unwrap();
+    assert_eq!(
+        reply["confirming"].as_str().unwrap(),
+        format!("{before_criteria}## Affected users and systems{after_criteria}")
+    );
+    assert_eq!(reply["found"].as_array().unwrap().len(), 13);
+    let decoded = step::decode(&format!(
+        "My reading is provisional.\n{}\nNo checks were run.",
+        include_str!("../../tests/fixtures/stacker-r1-reply.json")
+    ))
+    .unwrap();
+    assert!(matches!(decoded, step::Next::Seed { checks, .. } if checks == stored));
+    let seed_before = std::fs::read(receipt.session.join("seed-contract.md")).unwrap();
+    let records_before = std::fs::read(receipt.session.join("seed-checks.json")).unwrap();
+    let mut invalid = vec![
+        serde_json::json!([]),
+        serde_json::json!({}),
+        serde_json::Value::Null,
+    ];
+    for (key, value) in [
+        ("kind", serde_json::json!("unknown")),
+        ("source", serde_json::json!("")),
+        ("statement", serde_json::json!(42)),
+        ("extra", serde_json::json!("unknown field")),
+        ("cmd", serde_json::json!("not allowed on judge")),
+    ] {
+        let mut bad = stored.clone();
+        bad[0][key] = value;
+        invalid.push(bad);
+    }
+    for cwd in [
+        "/tmp/TEST",
+        "../TEST",
+        "a/../TEST",
+        "C:/TEST",
+        "a\\TEST",
+        "a\nb",
+        "a\rb",
+    ] {
+        let mut bad = stored.clone();
+        bad[1]["cwd"] = cwd.into();
+        invalid.push(bad);
+    }
+    for key in ["missing", "expect", "cwd", "statement", "source"] {
+        let mut bad = stored.clone();
+        bad[1].as_object_mut().unwrap().remove(key);
+        invalid.push(bad);
+    }
+    for bad in invalid {
+        assert!(
+            answering::draft_seed(
+                &skill,
+                &receipt.session,
+                version,
+                reply["confirming"].as_str().unwrap(),
+                &bad,
+                &[],
+                root.path()
+            )
+            .is_err(),
+            "accepted invalid checks: {bad}"
+        );
+        assert_eq!(
+            std::fs::read(receipt.session.join("seed-contract.md")).unwrap(),
+            seed_before
+        );
+        assert_eq!(
+            std::fs::read(receipt.session.join("seed-checks.json")).unwrap(),
+            records_before
+        );
+    }
+    let render = std::process::Command::new("python3")
+        .arg(skill.parent().unwrap().join("scripts/session.py"))
+        .args(["seed", "checks", "render"])
+        .arg(&receipt.session)
+        .output()
+        .unwrap();
+    assert!(render.status.success());
+    let draft = std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
+    assert!(draft.contains(std::str::from_utf8(&render.stdout).unwrap()));
+    answering::confirm_seed(
+        &skill,
+        &receipt.session,
+        "r1",
+        "TEST fixture confirmation only",
+    )
+    .unwrap();
+    assert!(matches!(
+        crate::seed_me::shaping::read(&skill, &receipt.session)
+            .unwrap()
+            .stage,
+        Shaped::Ready { .. }
+    ));
+    let confirmation: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(receipt.session.join("seed-confirmation.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(confirmation["schema_version"], 2);
+    assert!(confirmation["checks_sha256"].as_str().is_some());
+    std::fs::write(receipt.session.join("seed-checks.json"), "[]").unwrap();
+    assert!(!matches!(
+        crate::seed_me::shaping::read(&skill, &receipt.session)
+            .unwrap()
+            .stage,
+        Shaped::Ready { .. }
+    ));
+    assert!(
+        receipt.session.join("seed-checks.json").exists(),
+        "Stacker r1 still uses handwritten criteria instead of bound records"
+    );
 }
 
 // Pinned consumer expectations are deliberately independent of the producer's heading list.
@@ -628,6 +810,7 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
         .unwrap();
     receipt.stop_viewer().unwrap();
     let confirming = include_str!("../../tests/fixtures/shape-seed-reply.txt").trim();
+    let checks = include_str!("../../tests/fixtures/shape-checks.json");
     fs::write(temp.path().join("TEST-read.md"), "TEST observed content\n").unwrap();
     // Upgrade an older installation's undated draft through the actual drafting path.
     fs::write(
@@ -644,7 +827,7 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
 import json, pathlib, sys
 request = json.load(sys.stdin)
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
-rules = ['every Done when', 'cmd:', 'expect:', 'cwd:', 'provisional:', 'you judge', 'Do not run',
+rules = ['every Done when', 'Check records', 'checks', 'provisional', 'you judge', 'Do not run',
          'Problem statement', 'Proposed outcome', 'Acceptance criteria', 'Constraints and boundaries',
          'Seed contract (artifact contract)', 'Accepted decisions and assumed defaults']
 missing = [rule for rule in rules if rule not in prompt]
@@ -652,7 +835,7 @@ pathlib.Path('TEST-missing-rules.json').write_text(json.dumps(missing))
 assert not missing, 'missing check-drafting instructions: ' + str(missing)
 assert request['goal'] == {goal:?}
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
-print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
+print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.loads({checks:?}), 'found': [
     {{'checked': 'TEST-read.md:1', 'observed': 'TEST observed content'}}]}}))
 "##
         ),
@@ -711,7 +894,9 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
     };
     assert_eq!(revision.as_deref(), Some("r8"));
     assert!(
-        text.contains(confirming),
+        confirming
+            .split_once("## Affected users and systems")
+            .is_some_and(|(before, after)| text.contains(before) && text.contains(after)),
         "checks changed or dropped: {text}"
     );
     assert!(text.starts_with("status: draft\n"));
@@ -785,29 +970,13 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
         "must not invent verified origins: {text}"
     );
 
-    for marker in ["cmd:", "expect:", "provisional:"] {
-        assert!(
-            contract.contains(marker),
-            "upstream check syntax changed: {marker}"
-        );
-    }
-    let criteria = text
-        .split("## Acceptance criteria\n")
-        .nth(1)
-        .unwrap()
-        .split("\n## ")
-        .next()
-        .unwrap();
-    for check in [
-        "Existing output is correct.\ncmd: ./TEST-check\nexpect: TEST existing output\ncwd: .",
-        "New output is correct.\nprovisional: Once TEST-new-check exists.\ncmd: ./TEST-new-check\nexpect: TEST new output\ncwd: .",
-        "The result feels calm.\nyou judge: Inspect the result for calmness.",
-    ] {
-        assert!(
-            criteria.contains(check),
-            "criterion changed or outside Acceptance criteria: {text}"
-        );
-    }
+    let records: serde_json::Value =
+        serde_json::from_slice(&fs::read(receipt.session.join("seed-checks.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        records,
+        serde_json::from_str::<serde_json::Value>(checks).unwrap()
+    );
     let decisions = std::process::Command::new("python3")
         .arg(skill.parent().unwrap().join("scripts/session.py"))
         .args(["seed", "decisions"])
@@ -819,7 +988,7 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
     let seed_path = receipt.session.join("seed-contract.md");
     let before = fs::read(&seed_path).unwrap();
-    let renamed = confirming.replace("## Acceptance criteria", "## Checks");
+    let renamed = confirming.replace("## Proposed outcome", "## Checks");
     let duplicated = confirming.replace("## Proposed outcome", "## Problem statement");
     let reordered = confirming
         .replace("## Problem statement", "## TEMP")
@@ -841,6 +1010,8 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
                 &receipt.session,
                 version,
                 &malformed,
+                &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json"))
+                    .unwrap(),
                 &[],
                 temp.path(),
             )
@@ -859,6 +1030,7 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'found': [
             &receipt.session,
             version,
             confirming,
+            &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
             &[],
             temp.path(),
         )
@@ -947,27 +1119,28 @@ assert 'assert ' not in pathlib.Path('tests/runner_only.py').read_text()
 can_propose = all(rule in prompt for rule in [
     'For a code-checkable criterion, propose', "cite the command's source", 'fail before the change'
 ]) and 'file inspection alone is not a settled' not in prompt
-check = ('cmd: ' + command + '\nexpect: ' + expected + '\ncwd: ' + cwd +
-         '\nSource: README.md:1-3; proposed from repository inspection, not run.') if can_propose else (
-         'you judge: No invocation was settled; inspect tests/check_value.py yourself.')
-if can_propose and 'not provisional merely because setup' not in prompt:
-    check = 'provisional: Build the binary and prepare an unrun reversion probe first.\n' + check
-missing = ('provisional: The boundary assertion must be built; an existing runner is not that assertion.'
-    if 'Use provisional when the needed test/assertion or invocation is missing' in prompt else
-    'Proposed existing check without the required assertion:')
-criteria = ('The parsed value is new.\n' + check +
-    '\nThe future checker validates the result.\nprovisional: Once the named TEST-future-check exists.\n'
-    'cmd: ./TEST-future-check\nexpect: result validated\ncwd: .\n'
-    'The result feels calm.\nyou judge: The operator inspects calmness.\n'
-    'The missing boundary assertion detects the defect.\n' + missing +
-    '\ncmd: python3 tests/runner_only.py\nexpect: boundary checked after its assertion exists\ncwd: .\n')
+checks = [
+    dict(statement='The parsed value is new.', kind='cmd' if can_propose else 'judge', source='README.md:1-3; proposed from repository inspection, not run.'),
+    dict(statement='The future checker validates the result.', kind='provisional', source='TEST goal',
+         missing='Once the named TEST-future-check exists.', cmd='./TEST-future-check', expect='result validated', cwd='.'),
+    dict(statement='The result feels calm.', kind='judge', source='TEST goal', how_to_judge='The operator inspects calmness.'),
+    dict(statement='The missing boundary assertion detects the defect.', kind='provisional', source='tests/runner_only.py:1',
+         missing='The boundary assertion must be built; an existing runner is not that assertion.',
+         expect='boundary checked after its assertion exists', cwd='.')]
+if can_propose:
+    checks[0].update(cmd=command, expect=expected, cwd=cwd)
+    if 'not provisional merely because setup' not in prompt:
+        checks[0].update(kind='provisional', missing='Build binary and prepare reversion probe first.')
+else:
+    checks[0]['how_to_judge'] = 'No invocation was settled.'
+if 'Use provisional when the needed test/assertion or invocation is missing' not in prompt:
+    checks[3].update(kind='cmd', cmd='python3 tests/runner_only.py')
+    del checks[3]['missing']
 body = {template:?}
-start, end = body.index('## Acceptance criteria\n'), body.index('## Affected users and systems\n')
-body = body[:start] + '## Acceptance criteria\n' + criteria + '\n' + body[end:]
 start, end = body.index('## Suggested first slice\n'), body.index('## Risks and verification\n')
 body = body[:start] + '## Suggested first slice\nProposal only: add the missing behavior, then use the check above.\n\n' + body[end:]
 body = body.replace('no repository facts were recorded.', 'reported reads are listed below.')
-print(json.dumps({{'next': 'seed', 'confirming': body, 'found': [
+print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'found': [
     {{'checked': 'README.md:1-3', 'observed': 'documents the focused behavior check'}},
     {{'checked': 'tests/check_value.py:1-4', 'observed': 'asserts the new value; current value.txt is old'}}]}}))
 "##)).unwrap();
@@ -1003,22 +1176,26 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'found': [
         std::thread::sleep(Duration::from_millis(10));
     }
     let seed = fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
-    let criteria = seed
-        .split("## Acceptance criteria\n")
-        .nth(1)
-        .unwrap()
-        .split("\n## ")
-        .next()
-        .unwrap();
-    assert!(criteria.contains("The parsed value is new.\ncmd: python3 tests/check_value.py\nexpect: new value\ncwd: .\nSource: README.md:1-3; proposed from repository inspection, not run."),
-        "repo-grounded code check was replaced by operator judgment: {criteria}");
-    assert!(criteria.contains("The future checker validates the result.\nprovisional:"));
-    assert!(criteria.contains("cmd: ./TEST-future-check"));
-    assert!(criteria.contains("The missing boundary assertion detects the defect.\nprovisional:"));
-    assert!(criteria.contains("cmd: python3 tests/runner_only.py"));
-    assert!(
-        criteria.contains("The result feels calm.\nyou judge: The operator inspects calmness.")
+    let checks: serde_json::Value =
+        serde_json::from_slice(&fs::read(receipt.session.join("seed-checks.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        checks[0]["kind"], "cmd",
+        "repository evidence was replaced by judgment or routine setup: {checks}"
     );
+    assert_eq!(checks[0]["cmd"], "python3 tests/check_value.py");
+    assert_eq!(
+        checks[0]["source"],
+        "README.md:1-3; proposed from repository inspection, not run."
+    );
+    assert_eq!(checks[1]["kind"], "provisional");
+    assert_eq!(checks[1]["cmd"], "./TEST-future-check");
+    assert_eq!(checks[2]["kind"], "judge");
+    assert_eq!(
+        checks[3]["kind"], "provisional",
+        "a runner without the assertion is not a check"
+    );
+    assert!(checks[3].get("cmd").is_none());
     assert!(seed.starts_with("status: draft\n"));
     assert!(!receipt.session.join("seed-confirmation.json").exists());
     assert_eq!(
@@ -1165,6 +1342,8 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 &receipt.session,
                 version,
                 template,
+                &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json"))
+                    .unwrap(),
                 &[],
                 temp.path()
             )
@@ -1181,6 +1360,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
     };
     assert!(!receipt.session.join("seed-contract.md").exists());
     let words_json = serde_json::to_string(&words).unwrap();
+    let checks = include_str!("../../tests/fixtures/shape-checks.json");
     let program = temp.path().join("TEST-pi");
     fs::write(&program, format!(r##"#!/usr/bin/env python3
 import json, pathlib, sys
@@ -1216,7 +1396,7 @@ else:
     start, end = body.index('## Open questions and deferrals\n'), body.index('## Owners and next steps\n')
     recorded = words if words is not None else 'Existing behavior remains unverified; propose checks, not extra requirements.'
     body = body[:start] + '## Open questions and deferrals\nRecorded disposition: ' + recorded + '\n\n' + body[end:]
-    print(json.dumps({{'next': 'seed', 'confirming': body, 'found': []}}))
+    print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({checks:?}), 'found': []}}))
 "##)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(

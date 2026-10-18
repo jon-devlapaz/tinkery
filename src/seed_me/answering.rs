@@ -8,7 +8,7 @@
 //! secret is refused, as Seed Me refuses one in a receipt.
 //!
 //! Every change goes through Seed Me's helper (`read --editable`, `publish` with the version the
-//! caller last showed, `seed decisions` and `seed confirm`); the one file written directly is the
+//! caller last showed, `seed decisions`, `seed checks set|render` and `seed confirm`); the one file written directly is the
 //! seed draft, which the helper leaves to its host. A stale version is refused by the helper and
 //! reported as [`Refusal::Stale`]; nothing here retries, merges or overwrites. The confirmed goal is
 //! never changed. Calls block; run them off the paint path.
@@ -23,7 +23,8 @@ use std::{
 
 const SEED: &str = "seed-contract.md";
 
-/// Why a change wasn't made. Either way the session is as it was before the call.
+/// Why a change wasn't completed. A later IO failure can leave unconfirmed check records;
+/// only the helper's verified confirmation permits handoff.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refusal {
     /// Another writer changed the session after the caller read it; the helper refused the
@@ -458,16 +459,19 @@ pub fn ask(
     )
 }
 
-/// Save a Seed Me draft: `confirming` supplies the summary and canonical prose sections; evidence
+/// Save a Seed Me draft: `confirming` supplies summary and prose, never criteria. `checks`
+/// are validated, stored and rendered only by the official helper; no check is executed. Evidence
 /// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
 /// `seed decisions` unchanged. Returns the revision label, from version `expected`.
 /// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
-/// change the seed's structure and a finding that looks like a secret.
+/// change the seed's structure, invalid records and a finding that looks like a secret.
+/// Helper or IO failures after storing records leave an unconfirmed draft, never a ready seed.
 pub fn draft_seed(
     skill: &Path,
     session: &Path,
     expected: u64,
     confirming: &str,
+    checks: &Value,
     found: &[Found],
     folder: &Path,
 ) -> Result<String, Refusal> {
@@ -488,7 +492,6 @@ pub fn draft_seed(
     let sections = [
         "Problem statement",
         "Proposed outcome",
-        "Acceptance criteria",
         "Affected users and systems",
         "Constraints and boundaries",
         "Knowledge map",
@@ -563,6 +566,35 @@ pub fn draft_seed(
         &helper,
         &["seed".as_ref(), "decisions".as_ref(), session.as_os_str()],
     )?;
+    // The helper alone validates records and owns their rendered bytes. Never accept model criteria.
+    let mut input = tempfile::NamedTempFile::new()
+        .map_err(|e| Refusal::Refused(format!("Cannot prepare checks: {e}")))?;
+    serde_json::to_writer(input.as_file_mut(), checks)
+        .map_err(|e| Refusal::Refused(format!("Cannot prepare checks: {e}")))?;
+    call(
+        &helper,
+        &[
+            "seed".as_ref(),
+            "checks".as_ref(),
+            "set".as_ref(),
+            session.as_os_str(),
+            input.path().as_os_str(),
+        ],
+    )?;
+    let rendered = call(
+        &helper,
+        &[
+            "seed".as_ref(),
+            "checks".as_ref(),
+            "render".as_ref(),
+            session.as_os_str(),
+        ],
+    )?;
+    let confirming = confirming.replacen(
+        "\n## Affected users and systems",
+        &format!("\n{rendered}## Affected users and systems"),
+        1,
+    );
     let title = ledger.state["goal"]
         .as_str()
         .and_then(|g| g.lines().next())
