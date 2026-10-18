@@ -1,4 +1,4 @@
-"""Shape's real writer → fresh main SDLC intake/verify, with TEST-only confirmations.
+"""Shape's real writer → pinned SDLC intake/verify, with TEST-only confirmations.
 
 No product model calls: one stub reply. All installs, Git commits, synthetic
 attestations and the reversible consumer mutation live under a short /tmp TEST root.
@@ -22,6 +22,8 @@ from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
+# Draft consumer contract; move to its merge SHA only on the operator's coordinated landing.
+SDLC_REF = '596b56f449af65e45f0180a0855a9a896a2384bc'
 spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
@@ -115,10 +117,13 @@ def shape(root, env):
 
 def handoff(root, env, session):
     source = root / 'TEST-tink-sdlc'
-    command(['git', 'clone', '--depth', '1', '--branch', 'main',
-             'https://github.com/jon-devlapaz/tink-sdlc.git', source], root, env)
+    command(['git', 'init', '-q', source], root, env)
+    command(['git', 'fetch', '--depth', '1', 'https://github.com/jon-devlapaz/tink-sdlc.git',
+             SDLC_REF], source, env)
+    command(['git', 'checkout', '--detach', 'FETCH_HEAD'], source, env)
     head = command(['git', 'rev-parse', 'HEAD'], source, env).stdout.strip()
-    print(f'Fresh tink-sdlc main: {head}', flush=True)
+    assert head == SDLC_REF, (head, SDLC_REF)
+    print(f'Pinned tink-sdlc: {head}', flush=True)
     project = root / 'TEST-project'
     project.mkdir()
     command([sys.executable, source / 'scripts/init.py', project], root, env)
@@ -137,14 +142,17 @@ def handoff(root, env, session):
     original_files = {name: (session / name).read_bytes() for name in (
         'seed-contract.md', 'ledger.json', 'seed-confirmation.json', 'seed-checks.json')}
     sdlc('new', 'stacker-r1')
-    sdlc('stage', 'stacker-r1', '1', '--here', '--seed-contract', str(session / 'seed-contract.md'))
+    sdlc('stage', 'stacker-r1', '1', '--here', '--seed-contract', str(session / 'seed-contract.md'),
+         '--seed-me-helper', SKILL.parent / 'scripts/session.py')
     stacker_run = project / 'runs/stacker-r1'
     assert (stacker_run / 'seed-contract.md').read_bytes() == original_files['seed-contract.md']
     stacker_checks = json.loads((stacker_run / 'seed-checks.json').read_text())['items']
     assert [(i['kind'], i['locked']) for i in stacker_checks] == [
-        ('attestation', True), ('provisional', True), ('provisional', True)]
-    assert [i['description'] for i in stacker_checks] == [
-        r['statement'] for r in json.loads(original_files['seed-checks.json'])]
+        ('judge', True), ('provisional', True), ('provisional', True)]
+    records = json.loads(original_files['seed-checks.json'])
+    assert [item['description'] for item in stacker_checks] == [record['statement'] for record in records]
+    assert [{key: item[key] for key in record}
+            for item, record in zip(stacker_checks, records)] == records
     assert {name: (session / name).read_bytes() for name in original_files} == original_files
     print('Real Stacker r1: judge + two provisional records imported and locked; no checks promoted')
 
@@ -173,13 +181,14 @@ def handoff(root, env, session):
     confirmed = {name: (session / name).read_bytes()
                  for name in ('seed-contract.md', 'ledger.json', 'seed-confirmation.json', 'seed-checks.json')}
     # Stage 1 is the real intake. --here prevents worktrees; it prints a prompt, not an agent launch.
-    sdlc('stage', 'test-handoff', '1', '--here', '--seed-contract', str(seed))
+    sdlc('stage', 'test-handoff', '1', '--here', '--seed-contract', str(seed),
+         '--seed-me-helper', SKILL.parent / 'scripts/session.py')
     assert (run / 'seed-contract.md').read_bytes() == confirmed['seed-contract.md']
     definition_path = run / 'seed-checks.json'
     definitions = definition_path.read_bytes()
     items = json.loads(definitions)['items']
     assert [(i['id'], i['kind'], i['locked']) for i in items] == [
-        ('seed-1', 'settled', True), ('seed-2', 'provisional', True), ('seed-3', 'attestation', True)]
+        ('seed-1', 'cmd', True), ('seed-2', 'provisional', True), ('seed-3', 'judge', True)]
     assert (items[0]['cmd'], items[0]['expect'], items[0]['cwd']) == (
         './TEST-check', 'TEST existing output', '.')
 
