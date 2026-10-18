@@ -23,7 +23,7 @@ from vt_screen import Screen
 REPO = Path(__file__).resolve().parents[1]
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 # Draft consumer contract; move to its merge SHA only on the operator's coordinated landing.
-SDLC_REF = '08eb6791b70f56adda3528a9bc2b19ea41d051a6'
+SDLC_REF = '8791d64885e4747eee3e32db9999ee9a49fdedcd'
 spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
