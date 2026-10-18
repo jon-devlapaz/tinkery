@@ -282,7 +282,7 @@ The screen starts with the confirmed goal's first line in ink:
 
 | Seed Me reports | Shape shows |
 | --- | --- |
-| Current question | Show a muted label, jade question, `What I found:` for the first evidence entry, `Also found:` for each subsequent entry, and italic `Suggestion:`. Each entry gets a label; the ledger has no options, so show none. |
+| Current question | Show a muted label, jade question, `What I found:` for only the first question-attached evidence entry, and italic `Suggestion:`. F5 holds all findings for this question in recorded order; the ledger has no options, so show none. |
 | No question or seed | Seed Me hasn't asked its next question yet |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status` | `Seed ready` and revision |
@@ -309,7 +309,8 @@ unchanged. `status` probes the session's recorded viewer URL as a local read.
 - F5 **So far** is a full help-like page without a key bar: the entire confirmed
   goal unchanged, then settled `label: answer` decisions in ledger order. Only
   `user` authority shows `(you)`; others show their authority, e.g. `(delegated)`.
-  F5 or Esc closes it; ↑↓ scrolls. The fixed last row says `↑↓ scroll · F5 close`.
+  All current-question findings follow, unchanged and in recorded order. F5 or Esc
+  closes it; ↑↓ scrolls. The fixed last row says `↑↓ scroll · F5 close`.
   It accepts no words, appears after a read, never during a step; F1 lists it.
 - Say the next step once: omit `Next:` when the key bar names the stage action;
   other states and failure notices keep exactly one.

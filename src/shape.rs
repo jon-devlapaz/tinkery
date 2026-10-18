@@ -4,7 +4,7 @@
 //! menu). Incomplete lists retain the unreadable count and never claim there are no waiting goals.
 //! It shows the confirmed goal's first line, then one thing: the current question, the seed
 //! draft, a ready seed, or an honest unknown or failure, with one next step. `F5` shows the whole
-//! goal exactly as recorded and each settled decision, and writes nothing. Opening,
+//! goal exactly as recorded, each settled decision and the current question's findings, and writes nothing. Opening,
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
 //! and starts the agent step (`F2`), or confirms a seed with the operator's own words (`F3`); see
 //! [`step`]. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
@@ -801,8 +801,8 @@ impl Opened {
     }
 }
 
-/// "So far": the whole goal exactly as confirmed, then each settled decision, with only the
-/// operator's own answers marked as theirs. It scrolls when it doesn't fit.
+/// "So far": the whole confirmed goal, settled decisions and all current-question findings.
+/// Only the operator's own answers are marked as theirs. It scrolls when it doesn't fit.
 fn render_so_far(
     frame: &mut Frame,
     scroll: &mut u16,
@@ -845,6 +845,16 @@ fn render_so_far(
                 spans.push(Span::styled(format!(" ({by})"), palette.muted));
             }
             lines.push(Line::from(spans));
+        }
+    }
+    if let Shaped::Question { found, .. } = &shaping.stage
+        && !found.is_empty()
+    {
+        lines.push(Line::default());
+        lines.push(Line::styled("Findings for this question", palette.muted));
+        for entry in found {
+            lines.push(Line::styled(entry.clone(), palette.ink));
+            lines.push(Line::default());
         }
     }
     let page = Paragraph::new(lines).wrap(Wrap { trim: false });
@@ -1211,14 +1221,8 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                         palette.ink,
                     ));
                 }
-                for (i, entry) in found.iter().enumerate() {
-                    // A label per entry, not a hanging indent: wrapped lines return to the margin.
-                    let label = if i == 0 {
-                        "What I found: "
-                    } else {
-                        "Also found: "
-                    };
-                    lines.push(Line::styled(format!("{label}{entry}"), palette.ink));
+                if let Some(entry) = found.first() {
+                    lines.push(Line::styled(format!("What I found: {entry}"), palette.ink));
                 }
                 if let Some(suggestion) = suggestion {
                     lines.push(Line::styled(
