@@ -15,6 +15,25 @@ GOAL = ('I can see where my seed stands without switching tools.\n'
         'Must: Keep my words.\nMust not: Run agents.')
 DECIDED = 'In one file I can search.'
 DETAIL_KEYS = 'c copy prompt   s shape   r history   esc back   F10 menu'
+# P-051-inspired TEST reconstruction, not a transcript or repository evidence.
+P051_QUESTION = 'Should Stacker be skill-based or simulate payout interference?'
+P051_FINDINGS = [
+    'DESIGN.md:106-108: Fairness is an explicit design value. The inspected rules do not settle '
+    'whether Stacker should be skill-only or simulate the arcade cabinet withholding a win. '
+    'The linked external rules have not been read; that gameplay choice remains yours.',
+    'arcade_menu/games.json:1-20: The menu registers existing cabinets, but no Stacker cabinet. '
+    'Adding a cabinet would extend this registration list and the menu integration checks. '
+    'This identifies a future change surface, not a reason to choose either gameplay rule.',
+    'renderer.py:1-30: The shared renderer provides paper styling and terminal drawing. '
+    'Existing cabinets separate rendering from game rules. A new cabinet could reuse that '
+    'surface; changing shared drawing could affect every cabinet and needs compatibility checks.',
+    'audio.py:1-30: The shared audio interface supports cabinet sounds and a muted fallback. '
+    'Successful audio calls do not prove audible playback. Repeated playback still needs human '
+    'taste; no audio device was used for this TEST observation.',
+    'tests/test_rules.py:1-30: Existing rule checks are separate from presentation checks. '
+    'No Stacker-specific regression exists in this TEST scenario. A later implementation '
+    'needs behavior-specific assertions, including an observed red or targeted reversion probe.',
+]
 SHAPE_KEYS = 'F5 so far   esc back   F10 menu'
 LIST_KEYS = '↑↓ move   enter open   esc back'
 
@@ -38,6 +57,9 @@ def make(root, name, goal=GOAL, question=True):
                           question='Keep records local or synced?',
                           evidence=['README.md:3 says local only'],
                           recommendation='Local, matching the README.'))
+    if name == 'p051':
+        nodes[-1].update(label='Stacker gameplay', question=P051_QUESTION,
+                         evidence=P051_FINDINGS, recommendation='Skill-only, matching the fairness principle.')
     state.update(goal=goal, origin='goal', nodes=nodes, current_question='storage' if question else None)
     helper.publish(session, state, old['version'], 'TEST fixture')
     return session
@@ -70,7 +92,7 @@ def journey(width, height, case, no_color=False):
             seed(drafted_session)
             seed(make(sessions, 'ready', goal='Ready goal\n' + GOAL, question=False), confirm=True)
         else:
-            session = make(sessions, case, question=case in ('question', 'ended', 'unreadable'))
+            session = make(sessions, case, question=case in ('question', 'p051', 'ended', 'unreadable'))
             if case == 'drafted':
                 seed(session)
             if case in ('ready', 'stale'):
@@ -172,6 +194,7 @@ def journey(width, height, case, no_color=False):
                 before = files(sessions)
                 expected = {
                     'question': 'Where records live Keep records local or synced?',
+                    'p051': P051_QUESTION,
                     'drafted': 'Confirming the seed is not approval to build.',
                     'ready': 'Seed ready: you confirmed r1, and it still matches.',
                     'stale': "Seed Me can't verify it: the seed changed after revision r1 was confirmed.",
@@ -180,11 +203,12 @@ def journey(width, height, case, no_color=False):
                 }[case]
                 send(b's', expected)
                 keys = {'question': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
+                        'p051': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
                         'drafted': 'F3 confirm seed r1   F5 so far   esc back   F10 menu',
                         'ready': 'c copy intake   ' + SHAPE_KEYS,
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
                 # Scrolling is offered only on overflow; arrows belong to an active editor.
-                acts = case in ('question', 'drafted')
+                acts = case in ('question', 'p051', 'drafted')
                 scroll_keys = ('pgup/dn read   ' + keys.replace('F2 save answer and look into next', 'F2 save + look')
                                if acts else '↑↓ scroll   ' + keys)
                 bar = screen.text().splitlines()[-1].strip()
@@ -224,6 +248,28 @@ def journey(width, height, case, no_color=False):
                     send(b'\x1bOP', 'Replace <run> with your SDLC run.')
                     assert 'grants no approval to build' in flat(), screen.text()
                     send(b'\x1b', keys)
+                if case == 'p051':
+                    assert flat().count('What I found:') == 1, screen.text()
+                    assert ' '.join(P051_FINDINGS[0].split()) in flat(), screen.text()
+                    assert 'Also found:' not in flat(), screen.text()
+                    for finding in P051_FINDINGS[1:]:
+                        assert finding.split(':')[0] not in flat(), screen.text()
+                    assert 'your answer' in flat() and 'F2 save answer' in flat(), screen.text()
+                    send(b'Keep it skill-only.', 'Keep it skill-only.')
+                    send(b'\x1b[15~', 'Findings for this question')
+                    # Every complete observation is reachable, without saving or calling.
+                    viewports = [flat()]
+                    for _ in range(80):
+                        os.write(master, b'\x1b[B')
+                        time.sleep(.02)
+                        while select.select([master], [], [], .02)[0]:
+                            screen.feed(os.read(master, 65536))
+                        viewports.append(flat())
+                    for finding in P051_FINDINGS:
+                        assert any(' '.join(finding.split()) in view for view in viewports), finding
+                    send(b'\x1b[15~', 'Keep it skill-only.')
+                    assert 'Also found:' not in flat(), screen.text()
+                    assert P051_FINDINGS[-1].split(':')[0] not in flat(), screen.text()
                 if case == 'question':
                     assert 'What I found: README.md:3 says local only' in flat(), screen.text()
                     assert 'Suggestion: Local, matching the README.' in flat(), screen.text()
@@ -257,7 +303,9 @@ def journey(width, height, case, no_color=False):
             os.close(slave)
 
 
-for size in [(100, 30), (80, 24)]:
-    for case in ['question', 'drafted', 'ready', 'stale', 'ended', 'unreadable', 'list']:
-        journey(*size, case)
-journey(100, 30, 'question', no_color=True)
+if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        for case in ['question', 'p051', 'drafted', 'ready', 'stale', 'ended', 'unreadable', 'list']:
+            journey(*size, case)
+    journey(100, 30, 'question', no_color=True)
+    journey(80, 24, 'p051', no_color=True)

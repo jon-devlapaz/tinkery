@@ -493,13 +493,11 @@ fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
 #[test]
 fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
     let dir = tempfile::tempdir().unwrap();
-    let found = (1..=6)
-        .map(|i| {
-            format!(
-                "src/TEST/{i}.rs:{i}: this path prints the helper's error verbatim, stderr included"
-            )
-        })
-        .collect();
+    // One finding can still overflow; the others belong behind F5.
+    let found = vec![format!(
+        "src/TEST/1.rs:1: {}",
+        "this path prints the helper's error verbatim, stderr included. ".repeat(18)
+    )];
     let tall = Shaped::Question {
         id: "storage".into(),
         title: "Where records live".into(),
@@ -1844,9 +1842,7 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
         for no_color in [false, true] {
             let mut stage = question();
             if let Shaped::Question { found, .. } = &mut stage {
-                *found = (0..30)
-                    .map(|i| format!("TEST evidence {i}: {}", "reading ".repeat(12)))
-                    .collect();
+                *found = vec![format!("TEST evidence: {}", "reading ".repeat(360))];
             }
             let mut shape = done(stage).with_agent(Some(agent(0)));
             shape.paste(
