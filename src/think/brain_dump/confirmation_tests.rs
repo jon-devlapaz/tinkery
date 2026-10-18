@@ -19,6 +19,12 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
     ))
     .unwrap();
     assert_eq!(fixture["goal_confirmation"]["by"], "unrecorded");
+    let expected_goal = concat!(
+        "I have created a software version of stacker (https://en.wikipedia.org/wiki/Stacker_(arcade_game)).\n",
+        "Why: i like the game and played it at dave and busters today and it was fun.\n",
+        "Done when: matches the tink-arcade style and theme; has working sounds; ",
+        "just works with the right mechanics as the game has."
+    );
     for declaration in ["declared: human", "declared: agent", "not declared"] {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().join("TEST-records");
@@ -38,7 +44,7 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
         a.set_goal_confirmation(terminal(declaration)).unwrap();
         a.review_goal();
         let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
-        assert_eq!(goal, fixture["goal"]);
+        assert_eq!(goal, expected_goal);
         let screen = snapshot(100, 30, &mut a, true).unwrap();
         assert!(
             screen.contains(&format!("You are confirming ({declaration})")),
@@ -91,7 +97,7 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
             serde_json::to_value(terminal(declaration)).unwrap()
         );
         assert_ne!(record["goal_confirmation"]["by"], "operator");
-        assert_eq!(record["goal"], fixture["goal"]);
+        assert_eq!(record["goal"], goal);
         assert_eq!(record["turns"][0]["text"], fixture["turns"][0]["text"]);
     }
 }
