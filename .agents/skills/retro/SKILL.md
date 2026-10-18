@@ -26,6 +26,10 @@ unrequested changes. Tinkery's rules live in [AGENTS.md](../../../AGENTS.md) and
   not prose rules. Reserve review guidance for genuine judgment calls.
 - **Context:** review large project and global steering files for rules better enforced
   by automation or consulted during review. Delete no-ops; disclose task-specific detail.
+- **Corrections:** for each operator correction, name the layer that holds its fix now
+  and propose the leftmost one, per Yohaku's [move each correction left](../../../docs/yohaku.md#for-anyone-changing-tinkery-human-or-agent).
+  Count corrections apart from required decisions (confirm, approve, merge): a fix may
+  remove a correction, never a decision.
 - **Tool economy:** identify expensive, repetitive or token-heavy calls, CLIs and MCP tools.
 - **Access:** identify missing evidence sources, such as captured server logs or read-only
   service access; access changes still require permission.
