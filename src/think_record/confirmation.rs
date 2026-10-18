@@ -43,6 +43,15 @@ pub struct ConfirmationClass {
 pub enum GoalConfirmation {
     /// Identity was not supplied, including records made before this field existed.
     Unrecorded {},
+    /// A launch declaration and terminal action, never authenticated identity or delegation.
+    Terminal {
+        /// Exactly `declared: human`, `declared: agent`, or `not declared`.
+        declaration: String,
+        /// The confirmation action observed at this terminal, not who supplied its keys.
+        action: String,
+        /// Explicitly disclaims verified identity.
+        identity: String,
+    },
     /// The caller explicitly names the operator who confirmed on their own authority.
     Operator {
         /// The operator's declared name; never inferred from login or keyboard events.
@@ -72,11 +81,41 @@ impl Default for GoalConfirmation {
 }
 
 impl GoalConfirmation {
+    /// Records a launch declaration only; an absent declaration stays unknown. This supplies
+    /// neither named identity nor the goal-scoped authorization required for delegated saving.
+    pub fn terminal(operator: Option<&str>) -> Result<Self, String> {
+        let declaration = match operator {
+            Some("human") => "declared: human",
+            Some("agent") => "declared: agent",
+            None => "not declared",
+            _ => return Err("--operator needs human or agent".into()),
+        };
+        Ok(Self::Terminal {
+            declaration: declaration.into(),
+            action: "typed confirm at this terminal".into(),
+            identity: "declaration is not verified identity".into(),
+        })
+    }
+
     /// Checks completeness and delegation eligibility, not whether the cited source grants authority.
     pub(crate) fn validate(&self) -> Result<(), String> {
         let nonblank = |text: &str| !text.trim().is_empty();
         let class = match self {
             Self::Unrecorded {} => return Ok(()),
+            Self::Terminal {
+                declaration,
+                action,
+                identity,
+            } => {
+                if !["declared: human", "declared: agent", "not declared"]
+                    .contains(&declaration.as_str())
+                    || action != "typed confirm at this terminal"
+                    || identity != "declaration is not verified identity"
+                {
+                    return Err("Invalid terminal confirmation declaration or action.".into());
+                }
+                return Ok(());
+            }
             Self::Operator {
                 operator,
                 source,
@@ -113,10 +152,19 @@ impl GoalConfirmation {
     /// True only for an explicitly declared agent; unrecorded identity is not operator identity.
     pub(crate) fn is_agent(&self) -> bool {
         matches!(self, Self::Agent { .. })
+            || matches!(self, Self::Terminal { declaration, .. } if declaration == "declared: agent")
     }
 
     /// Escaped attribution for technical display; stored source words remain unchanged.
     pub(crate) fn details(&self) -> String {
+        if let Self::Terminal {
+            declaration,
+            action,
+            identity,
+        } = self
+        {
+            return format!("{declaration}; {action}; {identity}");
+        }
         // Debug escaping keeps control/bidi characters out of display without changing metadata.
         format!("{self:?}")
     }

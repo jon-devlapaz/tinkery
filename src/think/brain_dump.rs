@@ -176,7 +176,7 @@ struct Shaping {
 #[derive(Default)]
 struct Handoff {
     config: Option<seed_me::Config>,
-    /// Caller-declared attribution for this visit only; never inherited by a fresh goal.
+    /// Visit-scoped named attribution, or the terminal declaration frozen for this session.
     confirmation: crate::think_record::GoalConfirmation,
     review: Option<goal_view::Review>,
     job: Option<std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>>,
@@ -730,8 +730,8 @@ impl BrainDump {
         }
     }
     /// Makes a blank think with this one's host, Seed Me and voice settings, for the next visit
-    /// from the menu. Conversation and confirmation attribution never carry over; the new
-    /// visit needs its own explicit attribution and authorization context.
+    /// from the menu. Only the session's frozen launch declaration carries over, never
+    /// conversation, named confirmer attribution or goal-scoped authorization.
     pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {
         let host = self.host.clone();
         let real = self.real;
@@ -739,11 +739,18 @@ impl BrainDump {
         let voice = self.voice.is_some();
         let record_root = self.handoff.record_root.clone();
         let repo = self.handoff.repo.clone();
+        let declaration = match &self.handoff.confirmation {
+            context @ crate::think_record::GoalConfirmation::Terminal { .. } => {
+                Some(context.clone())
+            }
+            _ => None,
+        };
         Box::new(move || {
             let mut dump = Self::with_mode(host.clone(), real);
             dump.handoff.config = config.as_ref().map(seed_me::Config::fresh);
             dump.handoff.record_root = record_root.clone();
             dump.handoff.repo = repo.clone();
+            dump.handoff.confirmation = declaration.clone().unwrap_or_default();
             if voice {
                 dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
             }
@@ -1392,6 +1399,7 @@ impl BrainDump {
 pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     layout::render(frame, app, palette);
     layout::render_header(frame, palette);
+    goal_view::render_declaration(frame, app, palette);
     layout::render_key_bar(frame, app, palette);
     voice_input::render_notice(frame, app, palette);
     help_view::render(frame, app, palette);

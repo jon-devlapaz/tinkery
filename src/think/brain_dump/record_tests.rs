@@ -70,6 +70,97 @@ fn receipt(root: &Path, goal: &str) -> seed_me::Receipt {
 }
 
 #[test]
+fn recorded_stacker_done_when_items_survive_reading_review_and_save() {
+    fn visible_items(a: &mut BrainDump, width: u16, height: u16, mono: bool) {
+        let mut seen = String::new();
+        for _ in 0..12 {
+            let screen = snapshot(width, height, a, mono).unwrap();
+            seen.push_str(&super::goal_tests::right_text(&screen, width));
+            seen.push(' ');
+            key(a, KeyCode::PageDown, KeyModifiers::NONE);
+        }
+        for boundary in ["Done when:", "theme;", "sounds;", "game has."] {
+            assert!(
+                seen.contains(boundary),
+                "{width}x{height}: {boundary}\n{seen}"
+            );
+        }
+    }
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/fixtures/stacker-218.json")).unwrap();
+    let parts = fixture["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .rev()
+        .find_map(|check| check["candidate"].get("parts"))
+        .unwrap();
+    let original = fixture["turns"][4]["answer"].as_str().unwrap();
+    let done = "Done when: matches the tink-arcade style and theme; has working sounds; just works with the right mechanics as the game has.";
+    let expected = format!(
+        "{}\n{done}",
+        fixture["goal"]
+            .as_str()
+            .unwrap()
+            .split("\nDone when:")
+            .next()
+            .unwrap()
+    );
+    for (width, height, mono) in [(80, 24), (100, 30), (160, 40), (320, 40)]
+        .into_iter()
+        .flat_map(|(w, h)| [false, true].map(|mono| (w, h, mono)))
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("TEST-records");
+        let mut a =
+            super::readiness_tests::app_with_source(serde_json::json!({"parts": parts}), original)
+                .with_record_root(root.clone());
+        assert_eq!(
+            a.conversation.board().unwrap().goal(),
+            Some(expected.as_str())
+        );
+        assert_eq!(
+            serde_json::to_value(&a.conversation.board().unwrap().parts).unwrap(),
+            *parts
+        );
+        visible_items(&mut a, width, height, mono);
+        assert!(a.copy_text().contains(&expected));
+        a.review_goal();
+        let frozen = &a.handoff.review.as_ref().unwrap().affirmation;
+        assert_eq!(frozen.goal, expected);
+        assert_eq!(serde_json::to_value(&frozen.parts).unwrap(), *parts);
+        assert_eq!(frozen.sources[0].text, original);
+        visible_items(&mut a, width, height, mono);
+        save(&mut a, Ok(receipt(dir.path(), &expected)));
+        assert_eq!(a.saved().unwrap().goal, expected);
+        visible_items(&mut a, width, height, mono);
+        let files = records(&root);
+        assert_eq!(files.len(), 1);
+        let record: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&files[0]).unwrap()).unwrap();
+        assert_eq!(record["goal"], expected);
+        assert_eq!(a.conversation.sources()[0].text, original);
+    }
+}
+
+#[test]
+fn newline_prose_items_use_clause_separators_without_splitting_quotes() {
+    let parts = GoalParts {
+        who: Some("I".into()),
+        outcome: Some("check sound\ncheck mechanics".into()),
+        when: Some("at home\nat the arcade".into()),
+        why: Some("The game matters\r\n\r\nIT stays fun".into()),
+        done_when: Some("matches theme.\nhas sound;\nshows \"one\ntwo\"".into()),
+        must: vec!["keep one\nconstraint".into()],
+        ..Default::default()
+    };
+    assert_eq!(
+        parts.compose().unwrap(),
+        "I check sound; check mechanics, at home; at the arcade.\nWhy: The game matters; IT stays fun.\nDone when: matches theme; has sound; shows \"one two\".\nMust: keep one constraint."
+    );
+}
+
+#[test]
 fn a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("TEST-records");
