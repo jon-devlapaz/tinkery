@@ -225,6 +225,27 @@ dumps. Never use a second implicit HOME default. [Discovery](menu.md#session-dis
 owns root selection. Recovery errors stay explicit. Tests use temporary roots;
 the external CI-pinned Seed Me fixture is neither vendored nor edited here.
 
+### SDLC handoff
+
+Goal and seed confirmation, SDLC definition approval and implementation permission
+are separate decisions. External tink-sdlc intake preserves the confirmed seed and
+imports its acceptance checks as locked definitions, reported separately from
+worker-written supporting checks. Editing or dropping an imported check stales the
+definition gate. Settled commands must succeed; prose `expect:` also needs operator
+attestation. Provisional checks stay pending until activated with prerequisite
+evidence and renewed definition approval; `you judge:` stays manual.
+
+Locked checks protect the agreement but don't prove the checks are strong.
+Hash-bound local receipts detect changed definitions; they are not authenticated
+operator approval.
+
+The [handoff regression](../../tests/shape_sdlc_handoff.py) carries Shape's real
+seed writer through confirmation, a fresh TEST-only SDLC install and intake:
+a failing confirmed command blocks verification despite passing worker-written
+checks, and a passing command completes it. Dropping seed enforcement turns the
+regression red; restoring it restores blocking. Its confirmations, approvals and
+attestations are TEST fixtures, never the operator's.
+
 ## Shape
 
 Think settles intent; Shape investigates facts, then asks one decision at a time
@@ -234,8 +255,7 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
   `publish`, `status`, `seed confirm`); propose Seed Me changes in its repository.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
-- Goal confirmation, seed confirmation and implementation approval stay separate;
-  Shape never reasks settled Think intent or changes the confirmed goal.
+- Shape never reasks settled Think intent or changes the confirmed goal.
 - Failed reads, unknown stages and stale confirmations get honest reasons and one
   next step.
 
@@ -404,9 +424,6 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   This proves the lines exist, not what they say.
 - Questions or seeds with no findings display `Nothing found: this question records nothing
   checked in the repository.` (seed wording for seeds), flagged rather than refused.
-
-Think's typed `confirm`, Shape's F3 with operator words and future approval remain
-separate screens and decisions.
 
 ## Rationale and verification
 
