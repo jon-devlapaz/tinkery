@@ -92,14 +92,20 @@ pub(super) struct Review {
 impl BrainDump {
     /// Supplies caller-declared goal confirmation attribution before review. No identity or
     /// authorization is inferred; invalid or late changes refuse without losing words or review.
-    /// This context is for this visit
-    /// only, never a fresh goal, seed confirmation or implementation approval. Agent saves remain
-    /// blocked until the separate Seed Me integration supports delegated goal origins.
+    /// Named context is visit-scoped; a terminal launch declaration instead stays frozen across
+    /// visits in this session. Neither grants seed confirmation or implementation approval.
+    /// Agent saves remain blocked until Seed Me integration supports delegated goal origins.
     pub fn set_goal_confirmation(
         &mut self,
         confirmation: record::GoalConfirmation,
     ) -> Result<(), String> {
         confirmation.validate()?;
+        if matches!(
+            self.handoff.confirmation,
+            record::GoalConfirmation::Terminal { .. }
+        ) {
+            return Err("The launch declaration is frozen for this session.".into());
+        }
         if self.handoff.review.is_some()
             || self.handoff.job.is_some()
             || self.handoff.receipt.is_some()
@@ -447,6 +453,18 @@ impl BrainDump {
         false
     }
 }
+pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Palette) {
+    let declaration = match app.goal_confirmation() {
+        record::GoalConfirmation::Terminal { declaration, .. } => declaration.as_str(),
+        _ => return,
+    };
+    let area = frame.area();
+    frame.render_widget(
+        Paragraph::new(format!("{declaration} (not verified)")).style(palette.muted),
+        Rect::new(11, 1, area.width.saturating_sub(16), 1).intersection(area),
+    );
+}
+
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let inner = app.screen.agent_area;
     if let Some(receipt) = &app.handoff.receipt {
@@ -501,10 +519,16 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         .line_count(inner.width) as u16;
     let rows =
         Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
-    let mut body = format!("You are confirming\n{}", review.affirmation.goal);
+    let heading = match &review.affirmation.confirmation {
+        record::GoalConfirmation::Terminal { declaration, .. } => {
+            format!("You are confirming ({declaration})")
+        }
+        _ => "You are confirming".into(),
+    };
+    let mut body = format!("{heading}\n{}", review.affirmation.goal);
     if !matches!(
         review.affirmation.confirmation,
-        record::GoalConfirmation::Unrecorded {}
+        record::GoalConfirmation::Unrecorded {} | record::GoalConfirmation::Terminal { .. }
     ) {
         body.push_str(&format!(
             "\n\nCaller-declared confirmation attribution: {}",
