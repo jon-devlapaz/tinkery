@@ -358,8 +358,11 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   An older writer can still increment the revision after rollback. Never replace
   a confirmed seed. The model supplies the summary and canonical prose sections,
   excluding Acceptance criteria; reasoning, findings and questions keep their existing
-  free-text transport, not a new whole-reply schema. Tinkery supplies evidence from recorded findings and the accepted-decisions section
-  with `session.py seed decisions` output verbatim, including its helper-owned headings.
+  free-text transport, not a new whole-reply schema. Tinkery follows the installed
+  contract's exact Full heading sequence: `session.py seed decisions` output goes
+  before Knowledge map, and recorded Evidence and uncertainty before Suggested first
+  slice. Host-owned heading lines use LF while prose keeps its line endings.
+  Helper blocks remain verbatim, with no extra wrapper headings.
   Refuse missing, duplicate, reordered or foreign model headings, fences, metadata
   or confirmation lines. Never draft with an open decision.
 - The separate final `checks` field carries every confirmed `Done when` line with

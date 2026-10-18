@@ -1,10 +1,11 @@
-# Consumer: jon-devlapaz/tink-sdlc assets/_system/SDLC.md, lines 86-92.
-# Pin: 68800ad1b828f0b320c3e6aa708e46ccc93fb741 (reviewed for PR #201).
-# Source: https://github.com/jon-devlapaz/tink-sdlc/blob/68800ad1b828f0b320c3e6aa708e46ccc93fb741/assets/_system/SDLC.md#L86-L92
-# Bounded snapshot of the named seed sections intake must carry forward.
-# Refresh from that repository's approved intake contract; CI never reads an operator checkout.
+# Consumer: the explicitly pinned tink-sdlc records intake requires helper-verified Seed Me content.
+# Source: CI-pinned Seed Me references/seed-contract.md, Canonical document headings (Full).
+# Bounded independent snapshot of the named sections intake must carry forward.
+# Full confirmation through the official helper also verifies the complete canonical sequence.
+# CI never reads an operator checkout.
 Problem statement
 Proposed outcome
 Acceptance criteria
 Constraints and boundaries
-Accepted decisions and assumed defaults
+Decisions (from the ledger)
+Assumed (not confirmed by you)

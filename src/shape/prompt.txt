@@ -28,7 +28,7 @@ A suggestion follows any rule the folder's documents already state for this choi
 When the goal and recorded answers settle what this draft must say, draft the seed using the attached Seed Me artifact contract, not a separate Tinkery layout; genuinely unresolved ledger decisions still block drafting.
 In confirming, start with the five short You are confirming lines required by that contract, then these exact level-two headings in order: ## Problem statement, ## Proposed outcome, ## Affected users and systems, ## Constraints and boundaries, ## Knowledge map, ## Suggested first slice, ## Risks and verification, ## Open questions and deferrals, ## Owners and next steps, ## Downstream handoff.
 Fill those sections following Seed Me's contract; state unknowns plainly, label proposals, and never invent evidence, provenance or completed checks.
-Tinkery adds Evidence and uncertainty from recorded findings and Accepted decisions and assumed defaults from the helper; refer to them rather than repeating their content.
+Tinkery inserts Evidence and uncertainty from recorded findings and the helper's Decisions (from the ledger) and Assumed (not confirmed by you) blocks in Seed Me's canonical Full sequence; refer to them rather than repeating their content or headings.
 # #183: the #176 rehearsal left Done when as prose, so implementation had to derive its checks afterwards.
 In checks, carry every Done when line from the confirmed goal, with its qualifiers, into a standalone record; never silently drop one.
 Use exactly the Check records schema in the attached Seed Me contract; Tinkery stores the records and inserts the helper-rendered card, so never include Acceptance criteria in confirming.
@@ -46,6 +46,6 @@ or:
 {"next":"seed","confirming":"five-line summary followed by the canonical prose sections specified above","found":[{"checked":"path:line you read","observed":"what is true there today, or what the change touches and could break"}],"checks":[{"statement":"the result feels calm","kind":"judge","source":"confirmed goal","how_to_judge":"inspect calmness"}]}
 
 In confirming, do not duplicate the decisions or findings lists: Tinkery adds both from the ledger word for word; command-source citations belong in each record's source.
-In confirming, only the exact headings specified above may start with #; no line may start with ```, ~~~, status:, revision:, date: or Confirmed by:.
+In confirming, only the prose headings listed for confirming may start with #; no line may start with ```, ~~~, status:, revision:, date: or Confirmed by:.
 # The first live trial widened "must not delete" to "read-only" and dropped "unless I've said otherwise".
 In confirming, use the operator's own words: keep every qualifier they gave, and add no limit, permission or prohibition they did not state.

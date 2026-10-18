@@ -318,7 +318,8 @@ def full_journey(width, height):
             seed = (session / 'seed-contract.md').read_text()
             assert helper.read_checks(session) == SEED['checks']
             assert helper.checks_block(SEED['checks']) in seed
-            assert seed.endswith(helper.decisions_block(ledger)), seed
+            assert helper.decisions_block(ledger) in seed, seed
+            assert seed.index('## Decisions (from the ledger)') < seed.index('## Knowledge map')
             assert 'MODEL-INVENTED' not in seed, seed
             assert len(run.calls()) == 2
             # The second step built on the saved finding, in the folder the operator picked.
@@ -337,7 +338,7 @@ def full_journey(width, height):
                      f"Checked by read-only file tools in {' '.join(str(target).split())}; "
                      "citation not found: src/main.rs isn't in the folder:\n"
                      f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
-            assert today + '## Accepted decisions and assumed defaults\n' + helper.decisions_block(ledger) in seed, seed
+            assert today + '## Suggested first slice\n' in seed, seed
             # Each finding appears once: the seed step's findings never become ledger facts (#161).
             assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             for checked in ('README.md:3', 'src/main.rs:12'):

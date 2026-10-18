@@ -462,7 +462,8 @@ pub fn ask(
 /// Save a Seed Me draft: `confirming` supplies summary and prose, never criteria. `checks`
 /// are validated, stored and rendered only by the official helper; no check is executed. Evidence
 /// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
-/// `seed decisions` unchanged. Returns the revision label, from version `expected`.
+/// `seed decisions` unchanged, in Seed Me's canonical Full sequence with no wrapper headings.
+/// Returns the revision label, from version `expected`.
 /// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
 /// change the seed's structure, invalid records and a finding that looks like a secret.
 /// Helper or IO failures after storing records leave an unconfirmed draft, never a ready seed.
@@ -525,6 +526,18 @@ pub fn draft_seed(
             "The drafted seed text didn't fit Seed Me's format, so nothing was saved.".into(),
         ));
     }
+    // Keep prose line endings; canonical headings belong to the host, not the model.
+    let mut canonical = String::with_capacity(confirming.len());
+    for line in confirming.split_inclusive('\n') {
+        let bare = line.trim_end_matches(['\r', '\n']);
+        if expected_headings.iter().any(|heading| heading == bare) {
+            canonical.push_str(bare);
+            canonical.push('\n');
+        } else {
+            canonical.push_str(line);
+        }
+    }
+    let confirming = canonical;
     if usable(found).any(|f| secret(&f.checked) || secret(&f.observed)) {
         return Err(Refusal::Refused(
             "A finding appears to contain a secret, so no seed was drafted: record where it lives, never its value.".into(),
@@ -590,19 +603,30 @@ pub fn draft_seed(
             session.as_os_str(),
         ],
     )?;
-    let confirming = confirming.replacen(
-        "\n## Affected users and systems",
-        &format!("\n{rendered}## Affected users and systems"),
-        1,
-    );
+    let today = today(&grounding);
+    let confirming = confirming
+        .replacen(
+            "\n## Affected users and systems",
+            &format!("\n{rendered}## Affected users and systems"),
+            1,
+        )
+        .replacen(
+            "\n## Knowledge map",
+            &format!("\n{decisions}\n## Knowledge map"),
+            1,
+        )
+        .replacen(
+            "\n## Suggested first slice",
+            &format!("\n{today}\n## Suggested first slice"),
+            1,
+        );
     let title = ledger.state["goal"]
         .as_str()
         .and_then(|g| g.lines().next())
         .unwrap_or("");
-    let today = today(&grounding);
     let date = &at[..10];
     let text = format!(
-        "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n\n{today}\n## Accepted decisions and assumed defaults\n{decisions}"
+        "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n"
     );
     let mut file = tempfile::NamedTempFile::new_in(session)
         .map_err(|e| Refusal::Refused(format!("Cannot save the seed: {e}")))?;

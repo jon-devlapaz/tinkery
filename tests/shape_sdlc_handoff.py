@@ -23,7 +23,7 @@ from vt_screen import Screen
 REPO = Path(__file__).resolve().parents[1]
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 # Draft consumer contract; move to its merge SHA only on the operator's coordinated landing.
-SDLC_REF = '596b56f449af65e45f0180a0855a9a896a2384bc'
+SDLC_REF = 'd26a233375117bc0b0d6b865581150b316d09290'
 spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
@@ -168,8 +168,9 @@ def handoff(root, env, session):
     helper.set_checks(session, json.loads((REPO / 'tests/fixtures/shape-checks.json').read_text()))
     body = (REPO / 'tests/fixtures/shape-seed-reply.txt').read_text().replace(
         '## Affected users and systems', helper.checks_block(helper.read_checks(session)) + '## Affected users and systems', 1)
-    (session / 'seed-contract.md').write_text('status: draft\n# TEST commands\nrevision: r1\n\n## You are confirming\n'
-        + body + '\n## Accepted decisions and assumed defaults\n' + helper.decisions_block(helper.load(session)))
+    body = body.replace('## Knowledge map', helper.decisions_block(helper.load(session)) + '\n## Knowledge map', 1)
+    body = body.replace('## Suggested first slice', '## Evidence and uncertainty\nTEST command fixture; no investigation claimed.\n\n## Suggested first slice', 1)
+    (session / 'seed-contract.md').write_text('status: draft\n# TEST commands\nrevision: r1\n\n## You are confirming\n' + body)
     helper.confirm_seed(session, 'r1', CONFIRMATION)
     sdlc('new', 'test-handoff')
     run = project / 'runs/test-handoff'

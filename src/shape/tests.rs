@@ -731,12 +731,27 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .output()
         .unwrap();
     assert!(render.status.success());
+    // The host writes canonical LF headings even when the model's prose uses CRLF.
+    answering::draft_seed(
+        &skill,
+        &receipt.session,
+        version,
+        &reply["confirming"].as_str().unwrap().replace('\n', "\r\n"),
+        &reply["checks"],
+        &[],
+        root.path(),
+    )
+    .unwrap();
     let draft = std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
     assert!(draft.contains(std::str::from_utf8(&render.stdout).unwrap()));
+    assert!(draft.contains("## Problem statement\nYou played Stacker"));
+    assert!(
+        draft.contains("You are confirming the goal: create a software version of Stacker.\r\n")
+    );
     answering::confirm_seed(
         &skill,
         &receipt.session,
-        "r1",
+        "r2",
         "TEST fixture confirmation only",
     )
     .unwrap();
@@ -893,12 +908,13 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
         panic!("not a draft")
     };
     assert_eq!(revision.as_deref(), Some("r8"));
-    assert!(
-        confirming
-            .split_once("## Affected users and systems")
-            .is_some_and(|(before, after)| text.contains(before) && text.contains(after)),
-        "checks changed or dropped: {text}"
-    );
+    let mut remaining = text.as_str();
+    for paragraph in confirming.split("\n\n") {
+        remaining = remaining
+            .split_once(paragraph)
+            .expect("model prose changed, dropped or reordered")
+            .1;
+    }
     assert!(text.starts_with("status: draft\n"));
     // Shape's real drafting path must hand intake the upstream section names, not just prose.
     let contract =
@@ -916,10 +932,16 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
         "Owners and next steps",
         "Downstream handoff",
         "Evidence and uncertainty",
-        "Accepted decisions and assumed defaults",
+        "Decisions (from the ledger)",
+        "Assumed (not confirmed by you)",
     ] {
         let declaration = if section == "Knowledge map" {
             "- **Knowledge map**, in plain words, four parts:".to_owned()
+        } else if matches!(
+            section,
+            "Decisions (from the ledger)" | "Assumed (not confirmed by you)"
+        ) {
+            format!("## {section}")
         } else {
             format!("- {section}:")
         };
