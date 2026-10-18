@@ -126,6 +126,10 @@ def make(root, question=True, operator='human'):
     if question:
         nodes.append(node('storage', status='unresolved', label='Where records live',
                           question='Keep records local or synced?'))
+    # Most cases are about later steps, so the pre-mortem is already answered.
+    nodes.append(node('probe-pre-mortem', status='settled', answer='TEST pre-mortem answer', authority=authority,
+                      authority_source='TEST fixture, not real approval', label='Probe: pre-mortem',
+                      question='Imagine this shipped and turned out wrong. What is the most likely reason?'))
     state.update(goal=GOAL, origin='goal', nodes=nodes, current_question='storage' if question else None)
     helper.publish(session, state, old['version'], 'TEST fixture')
     return session
@@ -278,8 +282,15 @@ def full_journey(width, height):
             run.send(F1, 'Model calls left this run: 2 of 2.')
             run.send(b'\x1b', 'F2 look into the next question')
             assert files(run.sessions) == before and run.calls() == [], 'Shape wrote or called before F2'
+            # Seed Me's pre-mortem comes first, in the operator's words, before any finding (#234).
+            run.send(F2, 'Probe: pre-mortem Imagine this shipped and turned out wrong. What is the most likely reason?')
+            assert run.calls() == [], 'The pre-mortem called a model'
+            assert 'What I found' not in run.flat() and 'Nothing found' not in run.flat(), run.screen.text()
+            run.type('TEST It showed private text.')
             run.send(F2, 'Where records live Keep records local or synced?')
             run.wait('What I found: README.md:3: says local only')
+            probe = next(n for n in helper.load(session)['nodes'] if n['id'] == 'probe-pre-mortem')
+            assert probe['answer'] == 'TEST It showed private text.' and probe['authority'] == 'user', probe
             assert 'citation not found' not in run.flat(), run.screen.text()
             run.wait('F2 save answer and look into next')
             calls = run.calls()
@@ -329,7 +340,7 @@ def full_journey(width, height):
             assert second['input']['found_so_far'] == [
                 {'checked': 'README.md:3', 'observed': 'says local only'}], second['input']
             # The seed's grounding is the saved findings, word for word, before the decisions.
-            date = ledger['nodes'][1]['evidence'][0]['at'][:10]
+            date = next(n for n in ledger['nodes'] if n['id'] == 'storage')['evidence'][0]['at'][:10]
             today = ("## Evidence and uncertainty\n"
                      "Grounded in:\n- README.md\n\n"
                      "Provenance unavailable: reported reads do not verify filesystem origins or unrecorded reads. "

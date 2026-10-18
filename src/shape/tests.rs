@@ -926,7 +926,7 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
         fs::write(&command, "#!/bin/sh\ntouch TEST-CHECK-WAS-RUN\n").unwrap();
         fs::set_permissions(&command, fs::Permissions::from_mode(0o755)).unwrap();
     }
-    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let version = answered_probe(&skill, &receipt.session);
     let agent = Arc::new(
         step::Agent::new(
             program,
@@ -1242,7 +1242,7 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'found'
         )
         .unwrap(),
     );
-    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let version = answered_probe(&skill, &receipt.session);
     let running = step::Running::start(
         step::Work::Look {
             expected: version,
@@ -1404,7 +1404,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
         })
         .unwrap();
     receipt.stop_viewer().unwrap();
-    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let version = answered_probe(&skill, &receipt.session);
     let version = if words.is_some() {
         let version = answering::ask(
             &skill,
@@ -1464,7 +1464,8 @@ if words is not None:
     assert answer['status'] == 'settled' and answer['authority'] == 'user'
     assert answer['answer'] == words
 else:
-    assert len(request['ledger']['nodes']) == 1
+    # The goal, and the pre-mortem the operator already answered.
+    assert [n['id'] for n in request['ledger']['nodes'] if n['id'] != 'probe-pre-mortem'] == ['goal']
     assert pathlib.Path('TEST-existing.txt').read_text() == 'TEST Requested behavior already present.\n'
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
@@ -1539,7 +1540,14 @@ else:
             .unwrap();
         assert_eq!(answer["answer"], words);
     } else {
-        assert_eq!(context["nodes"].as_array().unwrap().len(), 1);
+        // Drafting added nothing beside the goal and the answered pre-mortem.
+        let ids: Vec<&str> = context["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|n| n["id"].as_str())
+            .collect();
+        assert_eq!(ids, ["goal", answering::PROBE.0]);
     }
     let seed = fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
     assert!(seed.starts_with("status: draft\n"));
@@ -2528,5 +2536,161 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         } else {
             assert_eq!(suggestion.as_deref(), Some("Local. Confidence: high."));
         }
+    }
+}
+
+/// A TEST session whose pre-mortem probe the operator already answered, for steps about drafting.
+fn answered_probe(skill: &Path, session: &Path) -> u64 {
+    use crate::seed_me::answering;
+    let version = answering::read(skill, session).unwrap().version();
+    let version = answering::probe(skill, session, version).unwrap().unwrap();
+    answering::answer(
+        skill,
+        session,
+        version,
+        answering::PROBE.0,
+        "TEST pre-mortem answer",
+    )
+    .unwrap()
+}
+
+#[cfg(unix)]
+#[test]
+fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config, answering, shaping},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-234-")
+        .tempdir()
+        .unwrap();
+    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
+        });
+    let save = || {
+        let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+            .confirm(Affirmed {
+                goal: "TEST I can probe.\nWhy: Blind spots.\nDone when: It asks.\nMust: Keep my words.\nMust not: Build without approval.".into(),
+                outcome: "TEST probe".into(),
+                options: vec![],
+                originals: vec![],
+                context: "{}".into(),
+                source: "TEST fixture, not real approval".into(),
+            })
+            .unwrap();
+        receipt.stop_viewer().unwrap();
+        receipt.session.clone()
+    };
+    // A model that would draft at once; the step must not reach it.
+    let program = temp.path().join("TEST-pi");
+    fs::write(&program, "#!/bin/sh\ntouch TEST-MODEL-WAS-CALLED\nexit 1\n").unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = Arc::new(
+        step::Agent::new(
+            program,
+            "test/stub".into(),
+            String::new(),
+            Some(temp.path().into()),
+            CallBudget::new(1),
+            None,
+        )
+        .unwrap(),
+    );
+    let session = save();
+    let version = answering::read(&skill, &session).unwrap().version();
+    let running = step::Running::start(
+        step::Work::Look {
+            expected: version,
+            folder: temp.path().into(),
+        },
+        skill.clone(),
+        session.clone(),
+        agent.clone(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let result = loop {
+        if let Some(result) = running.poll() {
+            break result;
+        }
+        assert!(Instant::now() < deadline, "step timed out");
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(result, Ok(step::Done::Asked(step::Asked::default())));
+    assert_eq!(agent.remaining(), 1, "the pre-mortem used a model call");
+    assert!(!temp.path().join("TEST-MODEL-WAS-CALLED").exists());
+    let Shaped::Question { id, ask, found, .. } = shaping::read(&skill, &session).unwrap().stage
+    else {
+        panic!("the pre-mortem isn't the current question")
+    };
+    assert_eq!((id.as_str(), ask.as_str()), answering::PROBE);
+    assert!(found.is_empty());
+    // Asked once: answered, it never comes back.
+    let version = answering::read(&skill, &session).unwrap().version();
+    assert_eq!(answering::probe(&skill, &session, version).unwrap(), None);
+    let version = answering::answer(
+        &skill,
+        &session,
+        version,
+        answering::PROBE.0,
+        "TEST skipped",
+    )
+    .unwrap();
+    assert_eq!(answering::probe(&skill, &session, version).unwrap(), None);
+
+    // Asked after findings were shown, it says its answer isn't independent of them.
+    let session = save();
+    let version = answering::read(&skill, &session).unwrap().version();
+    let ask = answering::Ask {
+        id: "storage".into(),
+        label: "TEST Storage".into(),
+        question: "TEST Local or synced?".into(),
+        gate: "TEST Storage disposition".into(),
+        found: vec![answering::Found {
+            checked: "TEST-read.md:1".into(),
+            observed: "TEST local only".into(),
+        }],
+        suggestion: None,
+        assumed: vec![],
+        options: vec![],
+        against: None,
+        confidence: None,
+    };
+    fs::write(temp.path().join("TEST-read.md"), "TEST local only\n").unwrap();
+    let version = answering::ask(&skill, &session, version, &ask, temp.path()).unwrap();
+    // A current question is never displaced.
+    assert_eq!(answering::probe(&skill, &session, version).unwrap(), None);
+    let version = answering::answer(&skill, &session, version, "storage", "TEST local").unwrap();
+    answering::probe(&skill, &session, version)
+        .unwrap()
+        .unwrap();
+    let Shaped::Question { ask, .. } = shaping::read(&skill, &session).unwrap().stage else {
+        panic!("the pre-mortem isn't the current question")
+    };
+    assert!(
+        ask.ends_with("NOT independent: asked after findings were shown."),
+        "{ask}"
+    );
+}
+
+#[test]
+fn the_step_answers_the_other_probes_from_evidence_and_records_every_probe() {
+    let prompt = step::prompt();
+    for rule in [
+        "answer two probes from evidence: a counter-example",
+        "an outside view",
+        "if either raises an operator-only decision, ask it instead of drafting",
+        "record the operator's pre-mortem answer from the ledger and both probes",
+        "`Where we did not look:`",
+    ] {
+        assert!(prompt.contains(rule), "missing probe rule: {rule}");
     }
 }

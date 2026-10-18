@@ -434,6 +434,22 @@ recommendation. None of it reaches the seed.
   shows the options and says no suggestion was kept.
 - Cheap and moderate questions show everything at once.
 
+### Probes
+
+Seed Me requires at least three probes before a seed, with at least one put to the operator
+before any finding is shown. Shape puts the pre-mortem to the operator itself.
+
+- With no current question and no `probe-pre-mortem` node, a step records `Probe: pre-mortem`
+  (`Imagine this shipped and turned out wrong. What is the most likely reason?`) as the current
+  question, without a model call or budget. The operator answers it with F2 like any question,
+  in their own words, or says skip. Asked after findings were already recorded, it carries
+  `NOT independent: asked after findings were shown.`
+- The step answers the counter-example and outside-view probes from evidence, asks instead of
+  drafting when either raises an operator-only decision, and records every probe and a
+  `Where we did not look:` line in Risks and verification.
+- These are instructions and transport; whether probes improve real seeds needs a separately
+  approved budgeted trial.
+
 ### Assumptions
 
 A step may list up to five defaults it chose instead of asking, where either answer leaves the
