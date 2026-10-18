@@ -528,7 +528,7 @@ fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
         assert!(!text.contains(raw), "{raw} shown:\n{text}");
     }
     assert!(
-        text.contains("  your words\n\n\n  Confirming the seed is not approval to build."),
+        text.contains("  your words\n  a line saying you confirm, then F3\n\n  Confirming the seed is not approval to build."),
         "{text}"
     );
     shape.key(key(KeyCode::F(2)), None);
@@ -1696,6 +1696,27 @@ fn a_pasted_cr_breaks_the_row_on_screen_and_the_words_stay_as_pasted() {
         shape.open.as_ref().unwrap().typed.text(),
         "TEST one\rTEST two\r\nTEST three"
     );
+}
+
+#[test]
+fn enter_at_seed_confirmation_guides_without_editing_or_starting_a_step() {
+    for words in ["", "TEST I confirm r1.", "TEST pasted\r\nwords"] {
+        let mut shape = done(Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some("TEST seed".into()),
+        })
+        .with_agent(Some(agent(0)));
+        shape.paste(words);
+        shape.key(key(KeyCode::Enter), None);
+        let open = shape.open.as_ref().unwrap();
+        assert_eq!(open.typed.text(), words);
+        assert!(open.running.is_none());
+        assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
+        assert!(
+            screen(&mut shape, 80, 24, true)
+                .contains("F3 confirms the seed; Enter does not add a line.")
+        );
+    }
 }
 
 #[test]

@@ -403,14 +403,14 @@ def case(name, width=100, height=30):
         if name == 'model writes decisions':
             question = False
             replies = [{**SEED, 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
-        if name in ('practice confirmation', 'multiline confirmation'):
+        if name in ('practice confirmation', 'multiline confirmation', 'confirmation hint', 'confirmation Enter'):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'unfound citation':
             replies = [{**QUESTION, 'id': 'Sync'}]
         if name == 'nothing found':
             replies = [{**QUESTION, 'found': []}, {**SEED, 'found': []}]
         session = make(sessions, question=question, operator=operator)
-        if name in ('practice confirmation', 'multiline confirmation'):
+        if name in ('practice confirmation', 'multiline confirmation', 'confirmation hint', 'confirmation Enter'):
             (session / 'seed-contract.md').write_text(
                 'status: draft\n# TEST\nrevision: r1\n\n## You are confirming\nTEST.\n\n'
                 + helper.decisions_block(helper.load(session)))
@@ -458,16 +458,29 @@ def case(name, width=100, height=30):
                 ledger = helper.load(session)
                 assert helper.decisions_block(ledger) in (session / 'seed-contract.md').read_text()
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
+            elif name in ('confirmation hint', 'confirmation Enter'):
+                run.wait('Seed draft r1')
+                if name == 'confirmation hint':
+                    run.wait('a line saying you confirm, then F3')
+                run.wait('Confirming the seed is not approval to build.')
+                before = files(cwd)
+                run.send(b'\r', 'F3 confirms the seed; Enter does not add a line.')
+                run.wait('a line saying you confirm, then F3')
+                run.type('TEST I confirm r1.')
+                assert 'a line saying you confirm, then F3' not in run.flat(), run.screen.text()
+                run.send(b'\r' + F1, 'Read the seed, type your confirming words on one line')
+                run.send(b'\x1b', 'your words TEST I confirm r1.')
+                # F3 reaches Seed Me, not the multiline refusal: neither Enter inserted a break.
+                run.send(F3, 'Seed Me refused:')
+                assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
+                assert files(cwd) == before, 'Hint, Enter or refused F3 wrote a file'
+                assert run.calls() == [], 'Confirmation guidance called a model'
             elif name == 'multiline confirmation':
                 run.wait('Seed draft r1')
                 before = files(cwd)
-                # Both typed LF and pasted CR/CRLF refuse without normalizing the words.
+                # Pasted LF/CR/CRLF still refuse without normalizing the words.
                 for ending in ('\n', '\r', '\r\n'):
-                    if ending == '\n':
-                        run.type('I confirm')
-                        run.send(b'\rr1.', 'r1.')
-                    else:
-                        run.send(b'\x1b[200~' + ('I confirm' + ending + 'r1.').encode() + b'\x1b[201~', 'r1.')
+                    run.send(b'\x1b[200~' + ('I confirm' + ending + 'r1.').encode() + b'\x1b[201~', 'r1.')
                     run.send(F3, 'Put your confirming words on one line; nothing was confirmed.')
                     assert files(cwd) == before, 'Multiline F3 wrote a file'
                     assert run.calls() == [], 'Multiline F3 called a model'
@@ -518,11 +531,15 @@ def case(name, width=100, height=30):
             run.close()
 
 
-for size in [(100, 30), (80, 24)]:
-    full_journey(*size)
-for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
-             'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found']:
-    case(name)
-case('zero budget', 80, 24)
-for size in [(100, 30), (80, 24)]:
-    case('multiline confirmation', *size)
+if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        full_journey(*size)
+    for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
+                 'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found']:
+        case(name)
+    case('zero budget', 80, 24)
+    for size in [(100, 30), (80, 24)]:
+        case('multiline confirmation', *size)
+        os.environ['NO_COLOR'] = '1'
+        case('confirmation hint', *size)
+        case('confirmation Enter', *size)
