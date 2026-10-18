@@ -60,7 +60,7 @@ exactly, except the first letter's case, so “use IT” and “use it” are bo
 ### Prose and rendering
 
 Prose parts (why, done when, the goal line, `when`) are split into clauses
-and joined with `;`. A clause ends at `;` or a sentence end outside quotes (`"…"`,
+and joined with `;`. A clause ends at a newline, `;` or a sentence end outside quotes (`"…"`,
 `“…”`, `'…'` or `‘…’`; a single quote opens after a space or punctuation and closes
 at the last single quote of its kind, so an apostrophe never ends it early). A period
 between digits, or after a lone letter or a common abbreviation (“U.S.”, “e.g.”,
