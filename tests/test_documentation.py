@@ -128,6 +128,14 @@ class DocumentationTests(unittest.TestCase):
                        ".agents/skills/writing-for-agents/SKILL.md", ""), links)
         self.assertIn(".agents/skills/writing-for-agents/SKILL.md", TRACKED)
 
+    def test_retro_moves_corrections_left_without_removing_decisions(self):
+        skill = ".agents/skills/retro/SKILL.md"
+        self.assertIn(("../../../docs/yohaku.md#for-anyone-changing-tinkery-human-or-agent",
+                       "docs/yohaku.md", "for-anyone-changing-tinkery-human-or-agent"),
+                      list(relative_links(skill)))
+        self.assertIn("never a decision", prose(skill))
+        self.assertIn("**Move each correction left.**", prose("docs/yohaku.md"))
+
     def test_backlog_forwarders_are_retired_without_losing_permissions(self):
         for area in ("think", "menu", "measure"):
             self.assertFalse((REPO / f"docs/research/{area}/backlog.md").exists())
