@@ -1,5 +1,6 @@
 //! Changing a session as the operator works through Seed Me's interview: their answer, the next
-//! question an agent drafted, what a step found, a seed draft, and the operator's seed confirmation.
+//! question an agent drafted, what a step found, a seed draft, the operator's seed confirmation,
+//! and ending the session when the operator says so.
 //!
 //! Findings are Seed Me receipts naming the folder they were checked in, on the question they
 //! support. The step that drafts the seed adds nothing to the ledger: its findings go only into the
@@ -8,7 +9,7 @@
 //! secret is refused, as Seed Me refuses one in a receipt.
 //!
 //! Every change goes through Seed Me's helper (`read --editable`, `publish` with the version the
-//! caller last showed, `seed decisions`, `seed checks set|render` and `seed confirm`); the one file written directly is the
+//! caller last showed, `seed decisions`, `seed checks set|render`, `seed confirm` and `end`); the one file written directly is the
 //! seed draft, which the helper leaves to its host. A stale version is refused by the helper and
 //! reported as [`Refusal::Stale`]; nothing here retries, merges or overwrites. The confirmed goal is
 //! never changed. Calls block; run them off the paint path.
@@ -665,6 +666,49 @@ pub fn confirm_seed(
         ],
     )
     .map(|_| ())
+}
+
+/// How the operator ends a session: Seed Me's two end statuses. Either is for good.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ending {
+    /// The seed is confirmed and verified; the interview is finished.
+    Completed,
+    /// The operator stopped the interview; open questions stay recorded.
+    Stopped,
+}
+
+/// End `session` through `end`, after which it is read-only. The helper refuses completing a
+/// seed it can't verify, and any change to a session that has already ended. Ending completed
+/// needs the viewer to have been started; when it never was, Tinkery says so as the reason.
+pub fn end(skill: &Path, session: &Path, ending: Ending) -> Result<(), Refusal> {
+    let helper = helper(skill)?;
+    let (status, reason) = match ending {
+        Ending::Completed => (
+            "completed",
+            "The operator ended the session in Tinkery Shape after confirming the seed.",
+        ),
+        Ending::Stopped => (
+            "stopped",
+            "The operator stopped the interview in Tinkery Shape.",
+        ),
+    };
+    let mut args: Vec<&OsStr> = vec![
+        "end".as_ref(),
+        session.as_os_str(),
+        "--status".as_ref(),
+        status.as_ref(),
+        "--reason".as_ref(),
+        reason.as_ref(),
+    ];
+    let viewer = json(&call(&helper, &["status".as_ref(), session.as_os_str()])?)?;
+    if ending == Ending::Completed && viewer["viewer"] == "not started" {
+        args.extend::<[&OsStr; 2]>([
+            "--no-viewer".as_ref(),
+            "Tinkery Shape ends sessions without a live viewer; none was started for this one."
+                .as_ref(),
+        ]);
+    }
+    call(&helper, &args).map(|_| ())
 }
 
 /// `wanted` as a ledger id (lowercase letters, digits and dashes) not already in `taken`.

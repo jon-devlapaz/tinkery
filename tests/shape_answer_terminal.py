@@ -17,6 +17,7 @@ spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 F1, F2, F3, F10 = b'\x1bOP', b'\x1bOQ', b'\x1bOR', b'\x1b[21~'
+F6, F8 = b'\x1b[17~', b'\x1b[19~'
 
 # Think's requests get a reading with one question; Shape's steps pop the next scripted reply.
 HOST = r'''#!/usr/bin/env python3
@@ -375,9 +376,31 @@ def full_journey(width, height):
             run.send(b'\r', 'Next: check the seed with Seed Me.')
             assert ' '.join(goal.split()) in run.flat(), 'Return changed the displayed goal'
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from confirmation wrote or called'
+            # Ending takes F6 twice; Esc between keeps the session open (#231).
+            run.send(b's', 'Seed ready: you confirmed r1, and it still matches.')
+            run.wait('F6 end session')
+            before = files(run.sessions)
+            run.send(F6, 'End this session as completed?')
+            run.wait('F6 end for good   esc keep it')
+            run.send(b'\x1b', 'Nothing was ended.')
+            assert files(run.sessions) == before, 'Asking or Esc ended the session'
+            run.send(F6, 'Next: F6 again ends it; Esc keeps it open.')
+            run.send(F6, 'Session completed. It\'s read-only now.')
+            run.wait('This session is completed, so nothing in it can change.')
+            # Intake needs only the verified seed, so copying it stays available.
+            run.wait('c copy intake')
+            assert 'F6 end session' not in run.flat(), run.screen.text()
+            assert helper.load(session)['status'] == 'completed'
+            assert helper.status(session)['handoff']['verified'] is True
+            assert helper.load(session)['goal'] == goal, 'Ending changed the confirmed goal'
+            assert len(run.calls()) == 2, 'Ending called a model'
+            # Tend now counts the session ended, as its readiness needs.
+            run.send(b'\x1b', 'tinkery › tend')
+            run.wait('No active goals. 1 ended not shown.')
             print(f'Shape answering full journey passed at {width}x{height}: folder shown and picked, '
                   f'think answer and saved findings in the input, 2 stub calls, grounded seed confirmed '
-                  f'and handoff verified; Tend detail and garden refreshed after draft and confirmation')
+                  f'and handoff verified; Tend detail and garden refreshed after draft and confirmation; '
+                  f'F6 twice completed the session with intake still copyable')
         finally:
             run.close()
 
@@ -445,6 +468,25 @@ def case(name, width=100, height=30):
                 run.wait("still counts against this run's budget.")
                 assert helper.load(session)['nodes'][1]['answer'] == 'Local.'
                 assert not (session / 'seed-contract.md').exists()
+            elif name == 'end the interview':
+                run.wait('Keep records local or synced?')
+                run.type('Local.')
+                before = files(sessions)
+                run.send(F8, 'Stop this session?')
+                run.wait('your answer Local.')
+                # Asked, typing is not words and other keys do nothing; Esc keeps it open.
+                run.send(b'x' + F2, 'F8 stop for good   esc keep it')
+                run.send(b'\x1b', 'Nothing was ended.')
+                run.wait('your answer Local.')
+                assert files(sessions) == before and run.calls() == [], 'Asking or Esc wrote or called'
+                run.send(F8, 'Next: F8 again stops it; Esc keeps it open.')
+                run.send(F8, 'This session has ended (stopped).')
+                ledger = helper.load(session)
+                assert ledger['status'] == 'stopped', ledger['status']
+                # The open question stays recorded, unanswered; the typed words were never saved.
+                assert ledger['nodes'][1]['status'] == 'unresolved', ledger['nodes'][1]
+                assert 'answer' not in ledger['nodes'][1], ledger['nodes'][1]
+                assert run.calls() == [], 'Stopping called a model'
             elif name == 'unfound citation':
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
@@ -535,7 +577,8 @@ if __name__ == '__main__':
     for size in [(100, 30), (80, 24)]:
         full_journey(*size)
     for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
-                 'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found']:
+                 'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found',
+                 'end the interview']:
         case(name)
     case('zero budget', 80, 24)
     for size in [(100, 30), (80, 24)]:

@@ -8,8 +8,9 @@
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
 //! and starts the agent step (`F2`), or confirms a seed with the operator's own words (`F3`); see
 //! [`step`]. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
-//! another for this run. Each finished step is followed by a fresh read, so the screen shows what
-//! Seed Me holds.
+//! another for this run. Ending a session for good takes the same key twice: `F6` completes one
+//! whose seed is ready, `F8` stops one still being shaped; Esc between them keeps it open. Each
+//! finished step or ending is followed by a fresh read, so the screen shows what Seed Me holds.
 
 pub use step::Agent;
 
@@ -21,7 +22,7 @@ use crate::{
     Palette,
     seed_me::{
         Session, Stage,
-        answering::NOTHING_FOUND,
+        answering::{self, Ending, NOTHING_FOUND, Refusal},
         shaping::{self, Shaped, Shaping},
     },
 };
@@ -85,6 +86,10 @@ struct Opened {
     choosing: Option<Words>,
     /// The "So far" page's scroll while `F5` shows it.
     so_far: Option<u16>,
+    /// An ending asked for once, waiting for the same key again or Esc.
+    asking: Option<Ending>,
+    /// An ending the helper is carrying out.
+    ending: Option<(Ending, mpsc::Receiver<Result<(), Refusal>>)>,
 }
 
 /// What a running step was asked to do, so the screen can say where it is.
@@ -128,7 +133,7 @@ impl Shape {
     }
 
     /// The same Shape, able to answer and confirm through `agent`. Without one, it cannot save
-    /// answers, confirm seeds or call a model; verified intake copying remains available.
+    /// answers, confirm seeds or call a model; verified intake copying and ending remain available.
     pub fn with_agent(mut self, agent: Option<Arc<Agent>>) -> Self {
         self.agent = agent;
         self
@@ -235,6 +240,33 @@ impl Shape {
             open.reading = Reading::NotStarted;
         }
         if let Some(open) = &mut self.open
+            && let Some((ending, receiver)) = &open.ending
+        {
+            let ending = *ending;
+            let result = match receiver.try_recv() {
+                Ok(result) => Some(result),
+                Err(mpsc::TryRecvError::Empty) => None,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    Some(Err(Refusal::Refused("Ending stopped unexpectedly.".into())))
+                }
+            };
+            if let Some(result) = result {
+                open.ending = None;
+                open.notice = Some(match (result, ending) {
+                    (Ok(()), Ending::Completed) => {
+                        ("Session completed. It's read-only now.".into(), None)
+                    }
+                    (Ok(()), Ending::Stopped) => (
+                        "Session stopped. Its open questions stay recorded; it's read-only now."
+                            .into(),
+                        None,
+                    ),
+                    (Err(refusal), _) => (format!("Nothing was ended. {refusal}"), None),
+                });
+                open.reading = Reading::NotStarted;
+            }
+        }
+        if let Some(open) = &mut self.open
             && let Reading::NotStarted = open.reading
         {
             open.begin(self.agent.clone());
@@ -260,10 +292,10 @@ impl Shape {
     /// One key, with `skill` for opening a listed session. Esc stops a running step, or closes an
     /// open session back to the list, or leaves Shape. Only `F2` (save the answer and look into the
     /// next question, or just look) and `F3` (confirm the seed with the typed words) write or call
-    /// a model, and only with an agent.
+    /// a model, and only with an agent. `F6` or `F8` pressed twice ends the session, without one.
     pub fn key(&mut self, key: KeyEvent, skill: Option<&Path>) -> Leave {
         if key.kind == KeyEventKind::Release
-            || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::F(2..=5))
+            || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::F(2..=8))
         {
             return Leave::Stay;
         }
@@ -298,6 +330,27 @@ impl Shape {
                     KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(5),
                     _ => folder.key(key),
                 }
+                return Leave::Stay;
+            }
+            if open.ending.is_some() {
+                return Leave::Stay;
+            }
+            if let Some(asked) = open.asking {
+                match key.code {
+                    code if code == end_key(asked) && key.modifiers.is_empty() => open.end(asked),
+                    KeyCode::Esc => {
+                        open.asking = None;
+                        open.notice = Some(("Nothing was ended.".into(), None));
+                    }
+                    _ => {}
+                }
+                return Leave::Stay;
+            }
+            if key.modifiers.is_empty()
+                && let Some(ending) = open.offers_end().filter(|e| key.code == end_key(*e))
+            {
+                open.asking = Some(ending);
+                open.notice = Some(asked(ending));
                 return Leave::Stay;
             }
             if key.code == KeyCode::Char('c')
@@ -428,6 +481,13 @@ impl Shape {
                 };
                 let now = match (agent, open.typing()) {
                     _ if open.running.is_some() => "A step is running. Esc stops it.",
+                    _ if open.ending.is_some() => "Seed Me is ending this session.",
+                    _ if open.asking == Some(Ending::Completed) => {
+                        "F6 again ends this session as completed, for good; Esc keeps it open."
+                    }
+                    _ if open.asking.is_some() => {
+                        "F8 again stops this session for good; Esc keeps it open."
+                    }
                     _ if open.choosing.is_some() => {
                         "Type the folder the next step should read. Enter adds a line; F4 uses it; Esc keeps the one shown."
                     }
@@ -459,12 +519,18 @@ impl Shape {
                 },
             ),
         };
+        let ends =
+            "F6 (seed ready) or F8 (still shaping), pressed twice, ends the session for good.";
         let promise = if agent.is_some() {
-            "Opening, scrolling and typing write nothing. Only F2 saves an answer and calls a model; \
-             only F3 confirms a seed, with your words."
+            format!(
+                "Opening, scrolling and typing write nothing. Only F2 saves an answer and calls a model; \
+                 only F3 confirms a seed, with your words. {ends}"
+            )
         } else {
-            "Shape only reads. It writes nothing, copies nothing and starts nothing. \
-             Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt."
+            format!(
+                "Shape reads and calls no model. Only {ends} \
+                 Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt."
+            )
         };
         let editing = if self.takes_text() {
             "\nArrows, Home/End and Ctrl+Left/Right move; Shift selects; Ctrl+W or Alt+Backspace deletes a word.\n\
@@ -497,6 +563,17 @@ impl Shape {
         };
         let keys = match (&self.open, &self.list) {
             (Some(open), _) if open.running.is_some() => "esc stop".to_owned(),
+            (Some(open), _) if open.ending.is_some() => String::new(),
+            (
+                Some(Opened {
+                    asking: Some(ending),
+                    ..
+                }),
+                _,
+            ) => match ending {
+                Ending::Completed => "F6 end for good   esc keep it".to_owned(),
+                Ending::Stopped => "F8 stop for good   esc keep it".to_owned(),
+            },
             (Some(open), _) if open.choosing.is_some() => {
                 format!(
                     "{}enter newline   F4 use folder   esc cancel",
@@ -546,6 +623,13 @@ impl Shape {
                 if open.intake().is_some() {
                     keys.push("c copy intake".to_owned());
                 }
+                keys.extend(open.offers_end().map(|ending| {
+                    match ending {
+                        Ending::Completed => "F6 end session",
+                        Ending::Stopped => "F8 stop",
+                    }
+                    .to_owned()
+                }));
                 if open.so_far_ready() {
                     keys.push("F5 so far".to_owned());
                 }
@@ -714,6 +798,37 @@ impl Opened {
         )
     }
 
+    /// How this stage can be ended, with the helper configured: completed once the seed is
+    /// ready, stopped while it's still being shaped. Never for an ended or unknown session.
+    fn offers_end(&self) -> Option<Ending> {
+        self.skill.as_ref()?;
+        let Reading::Done(Ok(shaping)) = &self.reading else {
+            return None;
+        };
+        match shaping.stage {
+            Shaped::Ready { ended: false, .. } => Some(Ending::Completed),
+            Shaped::Question { .. } | Shaped::Waiting | Shaped::Drafted { .. } => {
+                Some(Ending::Stopped)
+            }
+            _ => None,
+        }
+    }
+
+    /// End the session through the helper off the paint path; [`Shape::tick`] reports it.
+    fn end(&mut self, ending: Ending) {
+        self.asking = None;
+        let Some(skill) = self.skill.clone() else {
+            return;
+        };
+        let session = self.session.clone();
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = sender.send(answering::end(&skill, &session, ending));
+        });
+        self.ending = Some((ending, receiver));
+        self.notice = Some(("Ending the session.".into(), None));
+    }
+
     /// Use the folder the operator typed for the next steps, or say why not and keep the one shown.
     /// `~/` means the home folder; anything else must be an absolute path to a folder. The exact
     /// text is tried first, then without surrounding whitespace, so a pasted line break still works.
@@ -843,6 +958,8 @@ impl Opened {
             folder: Folder::Unknown,
             choosing: None,
             so_far: None,
+            asking: None,
+            ending: None,
         }
     }
 }
@@ -1168,6 +1285,28 @@ fn seed_view(seed: &str, revision: Option<&str>, palette: Palette) -> Text<'stat
 }
 
 /// What a finished step needs to say, and its own next step when the stage's won't do.
+/// The key that asks for `ending`, and then carries it out.
+fn end_key(ending: Ending) -> KeyCode {
+    match ending {
+        Ending::Completed => KeyCode::F(6),
+        Ending::Stopped => KeyCode::F(8),
+    }
+}
+
+/// What the first press of an ending key asks, and how to answer it.
+fn asked(ending: Ending) -> (String, Option<String>) {
+    match ending {
+        Ending::Completed => (
+            "End this session as completed? It becomes read-only for good, and tend no longer lists it, so copy the intake command first if you need it.".into(),
+            Some("Next: F6 again ends it; Esc keeps it open.".into()),
+        ),
+        Ending::Stopped => (
+            "Stop this session? It becomes read-only for good and tend no longer lists it; its open questions stay recorded.".into(),
+            Some("Next: F8 again stops it; Esc keeps it open.".into()),
+        ),
+    }
+}
+
 fn said(result: Result<Done, Failure>) -> Option<(String, Option<String>)> {
     let Failure { answer_saved, why } = result.err()?;
     let saved = if answer_saved {
@@ -1320,7 +1459,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                 _ => format!("Next: confirm the seed draft with Seed Me; {CONTINUE}"),
             })
         }
-        Shaped::Ready { revision } => {
+        Shaped::Ready { revision, ended } => {
             lines.push(Line::styled(
                 match revision {
                     Some(r) => format!("Seed ready: you confirmed {r}, and it still matches."),
@@ -1328,6 +1467,12 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                 },
                 palette.ink,
             ));
+            if *ended {
+                lines.push(Line::styled(
+                    "This session is completed, so nothing in it can change.",
+                    palette.muted,
+                ));
+            }
             Some("Next: the seed is ready for intake.".into())
         }
         Shaped::Unverified { reason } => {

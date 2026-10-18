@@ -57,10 +57,13 @@ pub enum Shaped {
         /// The draft exactly as saved, when it could be read.
         text: Option<String>,
     },
-    /// A confirmed seed that `status` verifies against this session's confirmation record.
+    /// A confirmed seed that `status` verifies against this session's confirmation record. It
+    /// stays ready after the session is completed, since intake needs only the verified seed.
     Ready {
         /// The confirmed revision label, when it has one.
         revision: Option<String>,
+        /// Whether the session is completed, so nothing more can be changed or ended.
+        ended: bool,
     },
     /// A seed that says it is confirmed but that `status` can't verify, with Seed Me's reason.
     Unverified {
@@ -172,6 +175,28 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
     let Some(state) = text(status, "status") else {
         return unknown("Seed Me reported no session status.");
     };
+    let ready = |status: &Value| {
+        let seed = status.get("seed").filter(|s| !s.is_null())?;
+        let confirmed = seed.get("line_1").and_then(Value::as_str)
+            == Some("status: confirmed for intake")
+            && status
+                .get("handoff")
+                .and_then(|h| h.get("verified"))
+                .and_then(Value::as_bool)
+                == Some(true);
+        confirmed.then(|| text(seed, "revision"))
+    };
+    if state == "completed"
+        && let Some(revision) = ready(status)
+    {
+        return shaping(
+            goal,
+            Shaped::Ready {
+                revision,
+                ended: true,
+            },
+        );
+    }
     if state != "active" {
         return shaping(goal, Shaped::Ended { status: state });
     }
@@ -237,7 +262,10 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 .and_then(|h| h.get("verified"))
                 .and_then(Value::as_bool)
             {
-                Some(true) => Shaped::Ready { revision },
+                Some(true) => Shaped::Ready {
+                    revision,
+                    ended: false,
+                },
                 _ => Shaped::Unverified {
                     reason: handoff
                         .and_then(|h| text(h, "reason"))
@@ -376,7 +404,8 @@ mod tests {
             assert_eq!(
                 shaped.stage,
                 Shaped::Ready {
-                    revision: Some("r2".into())
+                    revision: Some("r2".into()),
+                    ended: false,
                 }
             );
             assert_eq!(shaped.intake, None, "{case}");
@@ -427,7 +456,8 @@ mod tests {
         assert_eq!(
             ready.stage,
             Shaped::Ready {
-                revision: Some("r2".into())
+                revision: Some("r2".into()),
+                ended: false,
             }
         );
         let stale = classify(

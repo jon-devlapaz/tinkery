@@ -252,7 +252,7 @@ Think settles intent; Shape investigates facts, then asks one decision at a time
 with evidence and a suggestion, ending in an operator-confirmed seed.
 
 - Seed Me alone owns the session, ledger and contract. Reads and writes use its helper (`read`,
-  `publish`, `status`, `seed confirm`); propose Seed Me changes in its repository.
+  `publish`, `status`, `seed confirm`, `end`); propose Seed Me changes in its repository.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
 - Shape never reasks settled Think intent or changes the confirmed goal.
@@ -285,9 +285,9 @@ The screen starts with the confirmed goal's first line in ink:
 | Current question | Show a muted label, jade question, `What I found:` for only the first question-attached evidence entry, and italic `Suggestion:`. F5 holds all findings for this question in recorded order; the ledger has no options, so show none. |
 | No question or seed | Seed Me hasn't asked its next question yet |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
-| Confirmed seed verified by `status` | `Seed ready` and revision; `c copy intake` when both paths are usable |
+| Confirmed seed verified by `status`, active or completed | `Seed ready` and revision; `c copy intake` when both paths are usable; completed adds a muted note that nothing can change |
 | Unverifiable confirmation | Seed Me's reason, e.g. changed seed |
-| Practice, ended, unrecognised | Name that state plainly. |
+| Practice, stopped, unrecognised | Name that state plainly. |
 
 Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
 Tend's `c` with its stage wording; with a model, the key bar names the action.
@@ -416,6 +416,23 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   a stale version offers the fresh stage action; a helper refusal shows Seed Me's first line. Esc stops a step; an
   already-started helper finishes, then rereads. Stopped model calls still count,
   disclosed in the notice.
+
+### Ending a session
+
+Ending is for good: Seed Me makes the session read-only and Tend stops listing it,
+which Tend's readiness needs. It needs only `--seed-me`, never a model or budget.
+
+- `F6 end session` on an active Seed ready completes it; `F8 stop` on a question,
+  waiting or draft stops it, keeping open questions recorded and typed words unsaved.
+- The first press asks and says what ending costs, including copying intake first;
+  the same key again ends, Esc says `Nothing was ended.` Other keys, held keys and the other
+  ending key do nothing while asked.
+- Tinkery calls `end` with a stated reason. Completing a session whose viewer never started passes
+  `--no-viewer` with that reason. Seed Me refuses an unverified seed or an ended session; Shape shows
+  `Nothing was ended.` with its first line. Every ending is followed by a fresh read.
+- A completed session's verified seed stays Seed ready with `c copy intake`, since intake checks
+  only the verified handoff. Tend doesn't list ended sessions, so this stays reachable only from
+  the open view.
 
 ### Grounding in the repository
 
