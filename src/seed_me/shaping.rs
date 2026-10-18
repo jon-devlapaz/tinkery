@@ -105,22 +105,23 @@ pub fn read(skill: &Path, session: &Path) -> Result<Shaping, String> {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
     }
     if matches!(shaping.stage, Shaped::Ready { .. }) {
-        let path = session
-            .join("seed-contract.md")
-            .canonicalize()
-            .map_err(|e| format!("Cannot locate the verified seed: {e}"))?;
-        let path = path.to_str().ok_or("The verified seed path isn't UTF-8.")?;
-        if path.chars().any(char::is_control) {
-            return Err(
-                "The verified seed path contains control characters; cannot copy one line.".into(),
-            );
-        }
-        shaping.intake = Some(format!(
-            "sdlc.py stage <run> 1 --seed-contract '{}'",
-            path.replace('\'', "'\\''")
-        ));
+        shaping.intake = intake(session, &helper);
     }
     Ok(shaping)
+}
+
+// Copy availability never changes the helper's reading of the seed.
+fn intake(session: &Path, helper: &Path) -> Option<String> {
+    let quote = |path: &Path| {
+        let path = path.canonicalize().ok()?;
+        let path = path.to_str()?;
+        (!path.chars().any(char::is_control)).then(|| format!("'{}'", path.replace('\'', "'\\''")))
+    };
+    Some(format!(
+        "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --seed-me-helper {}",
+        quote(&session.join("seed-contract.md"))?,
+        quote(helper)?,
+    ))
 }
 
 /// Where the seed stands, from the helper's `read` and `status` output. An open question comes
@@ -305,6 +306,81 @@ mod tests {
                 suggestion: None,
             }
         );
+    }
+
+    #[test]
+    fn copy_paths_are_canonical_and_share_shell_quoting() {
+        let temp = tempfile::Builder::new()
+            .prefix("TEST-intake-'quoted-")
+            .tempdir()
+            .unwrap();
+        let session = temp.path().join("session");
+        let scripts = temp.path().join("skill's scripts");
+        std::fs::create_dir(&session).unwrap();
+        std::fs::create_dir(&scripts).unwrap();
+        let seed = session.join("seed-contract.md");
+        let helper = scripts.join("session.py");
+        std::fs::write(&seed, "TEST seed").unwrap();
+        std::fs::write(&helper, "TEST helper").unwrap();
+        let quote = |path: &Path| {
+            format!(
+                "'{}'",
+                path.canonicalize()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .replace('\'', "'\\''")
+            )
+        };
+        assert_eq!(
+            intake(&session, &helper),
+            Some(format!(
+                "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --seed-me-helper {}",
+                quote(&seed),
+                quote(&helper)
+            ))
+        );
+    }
+
+    #[test]
+    fn unreadable_copy_paths_do_not_hide_a_helper_verified_seed() {
+        for case in ["missing-seed", "control-seed", "control-helper"] {
+            let temp = tempfile::Builder::new()
+                .prefix("TEST-intake-read-")
+                .tempdir()
+                .unwrap();
+            let session = temp.path().join(if case == "control-seed" {
+                "session\n"
+            } else {
+                "session"
+            });
+            let skill_dir = temp.path().join(if case == "control-helper" {
+                "skill\n"
+            } else {
+                "skill"
+            });
+            std::fs::create_dir(&session).unwrap();
+            std::fs::create_dir_all(skill_dir.join("scripts")).unwrap();
+            let skill = skill_dir.join("SKILL.md");
+            std::fs::write(&skill, "TEST skill").unwrap();
+            std::fs::write(skill_dir.join("scripts/session.py"), concat!(
+                "import sys\n",
+                "print('{\"goal\":\"TEST goal\",\"nodes\":[]}' if sys.argv[1] == 'read' else ",
+                "'{\"status\":\"active\",\"seed\":{\"line_1\":\"status: confirmed for intake\",\"revision\":\"r2\"},\"handoff\":{\"verified\":true}}')\n"
+            )).unwrap();
+            if case != "missing-seed" {
+                std::fs::write(session.join("seed-contract.md"), "TEST seed").unwrap();
+            }
+            let shaped = read(&skill, &session).unwrap();
+            assert_eq!(shaped.goal.as_deref(), Some("TEST goal"));
+            assert_eq!(
+                shaped.stage,
+                Shaped::Ready {
+                    revision: Some("r2".into())
+                }
+            );
+            assert_eq!(shaped.intake, None, "{case}");
+        }
     }
 
     #[test]

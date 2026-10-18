@@ -200,11 +200,15 @@ def journey(width, height, case, no_color=False):
                 copy_before = files(cwd)
                 os.write(master, b'c')
                 if case == 'ready':
-                    expected_command = ("sdlc.py stage <run> 1 --seed-contract '" +
-                        str((session / 'seed-contract.md').resolve()).replace("'", "'\\''") + "'")
+                    seed_path = str((session / 'seed-contract.md').resolve())
+                    helper_path = str((SKILL.parent / 'scripts/session.py').resolve())
+                    quote = lambda path: "'" + path.replace("'", "'\\''") + "'"
+                    expected_command = ('python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract ' +
+                        quote(seed_path) + ' --seed-me-helper ' + quote(helper_path))
                     wait(lambda: copies() == [expected_command] and 'Copied.' in flat())
-                    assert shlex.split(copies()[0]) == ['sdlc.py', 'stage', '<run>', '1',
-                        '--seed-contract', str((session / 'seed-contract.md').resolve())]
+                    assert shlex.split(copies()[0]) == ['python3', '_system/scripts/sdlc.py',
+                        'stage', '<run>', '1', '--seed-contract', seed_path,
+                        '--seed-me-helper', helper_path]
                     send(b'c', 'Copied.')
                     wait(lambda: copies() == [expected_command, expected_command])
                 else:

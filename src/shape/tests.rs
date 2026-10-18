@@ -64,7 +64,7 @@ fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent
     let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
         panic!()
     };
-    let command = "sdlc.py stage <run> 1 --seed-contract '/tmp/TEST-shape/seed-contract.md'";
+    let command = "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '/tmp/TEST-shape/seed-contract.md' --seed-me-helper '/tmp/TEST-shape/scripts/session.py'";
     shaping.intake = Some(command.into());
     for sent in [false, true] {
         let text = screen(&mut shape, 80, 24, false);
