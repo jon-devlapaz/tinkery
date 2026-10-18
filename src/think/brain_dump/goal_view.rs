@@ -20,6 +20,9 @@ const RECORD_FAILED: &str = "The think record wasn't written; F1 then h shows wh
 const HANDOFF_FAILED: &str = "Handoff not complete:";
 /// What review shows for a save that didn't finish, short enough for the narrowest pane.
 const HANDOFF_FAILED_TEXT: &str = "Handoff not complete. F1 then h shows why; Enter retries.";
+/// The partial API records attribution but cannot use Seed Me's user-only goal origin as an agent.
+pub(super) const DELEGATED_SAVE_HELD: &str =
+    "Delegated goal saving awaits Seed Me integration. Nothing saved; Esc goes back.";
 
 /// The goal under review and everything think records with it.
 #[derive(Clone)]
@@ -35,7 +38,7 @@ pub(super) struct Affirmation {
     pub unresolved: Vec<Question>,
     pub unresolved_notes: Vec<String>,
     pub decisions: Vec<OpenDecision>,
-    pub source: String,
+    pub confirmation: record::GoalConfirmation,
 }
 impl Affirmation {
     /// What Seed Me records: the originals verbatim, and think's questions as provisional context.
@@ -75,7 +78,7 @@ impl Affirmation {
                 })
                 .collect(),
             context: context.to_string(),
-            source: self.source.clone(),
+            source: self.confirmation.source(),
         }
     }
 }
@@ -87,6 +90,45 @@ pub(super) struct Review {
     pub(super) max: u16,
 }
 impl BrainDump {
+    /// Supplies caller-declared goal confirmation attribution before review. No identity or
+    /// authorization is inferred; invalid or late changes refuse without losing words or review.
+    /// Named context is visit-scoped; a terminal launch declaration instead stays frozen across
+    /// visits in this session. Neither grants seed confirmation or implementation approval.
+    /// Agent saves remain blocked until Seed Me integration supports delegated goal origins.
+    pub fn set_goal_confirmation(
+        &mut self,
+        confirmation: record::GoalConfirmation,
+    ) -> Result<(), String> {
+        confirmation.validate()?;
+        if matches!(
+            self.handoff.confirmation,
+            record::GoalConfirmation::Terminal { .. }
+        ) {
+            return Err("The launch declaration is frozen for this session.".into());
+        }
+        if self.handoff.review.is_some()
+            || self.handoff.job.is_some()
+            || self.handoff.receipt.is_some()
+        {
+            return Err(
+                "Set goal confirmation attribution before review; the displayed context is frozen."
+                    .into(),
+            );
+        }
+        self.handoff.confirmation = confirmation;
+        Ok(())
+    }
+    /// Attribution is frozen during review; otherwise it is this visit's supplied context.
+    pub(super) fn goal_confirmation(&self) -> &record::GoalConfirmation {
+        self.handoff
+            .review
+            .as_ref()
+            .map_or(&self.handoff.confirmation, |r| &r.affirmation.confirmation)
+    }
+    /// Whether this frozen review declares an agent, whose save integration is still held.
+    pub(super) fn delegated_goal_save_held(&self) -> bool {
+        self.handoff.review.is_some() && self.goal_confirmation().is_agent()
+    }
     /// Saves confirmed goals with the Seed Me skill at `skill`, under `root` or Seed Me's own
     /// default. Without this, review explains that saving needs it.
     pub fn with_seed_me(mut self, skill: PathBuf, root: Option<PathBuf>) -> Self {
@@ -134,24 +176,25 @@ impl BrainDump {
     /// check (with the model's reply only where it rejected), and the goal exactly as it was
     /// confirmed on the review screen.
     fn write_record(&self, root: &Path, receipt: &Receipt) -> Result<PathBuf, String> {
-        let goal = self
+        let affirmation = &self
             .handoff
             .review
             .as_ref()
-            .map(|r| r.affirmation.goal.as_str())
-            .ok_or("No confirmed goal to record.")?;
+            .ok_or("No confirmed goal to record.")?
+            .affirmation;
         let origin = self.host.origin();
-        record::write(
+        record::write_with_confirmation(
             root,
             &record::Session {
                 origin: &origin,
                 turns: self.conversation.turns(),
                 checks: checks::recorded(&self.diagnostics()),
-                goal,
+                goal: &affirmation.goal,
                 seed_me_session: &receipt.session,
                 repo: self.handoff.repo.as_ref().map(crate::repo::Repo::root),
                 confirmed: std::time::SystemTime::now(),
             },
+            &affirmation.confirmation,
         )
     }
     /// F3: opens review on the displayed goal, frozen as shown. Refused, with a visible reason, in
@@ -235,11 +278,16 @@ impl BrainDump {
                 answered: self.conversation.settled().to_vec(),
                 decisions: g.decisions.clone(),
                 unresolved,
-                unresolved_notes: missing.into_iter()
+                unresolved_notes: missing
+                    .into_iter()
                     .chain(notes)
-                    .chain(g.misfits.iter().map(|s| format!("{} (original {})", s.quote, s.source)))
+                    .chain(
+                        g.misfits
+                            .iter()
+                            .map(|s| format!("{} (original {})", s.quote, s.source)),
+                    )
                     .collect(),
-                source: "Tinkery operator typed confirm and pressed Enter after reviewing the displayed goal; goal only, not seed or implementation approval.".into(),
+                confirmation: self.handoff.confirmation.clone(),
             },
             input: String::new(),
             scroll: 0,
@@ -371,6 +419,9 @@ impl BrainDump {
             {
                 review.input.push(c)
             }
+            KeyCode::Enter if review.affirmation.confirmation.is_agent() => {
+                self.refuse(DELEGATED_SAVE_HELD);
+            }
             KeyCode::Enter if review.input == "confirm" && review.scroll >= review.max => {
                 let config = self.handoff.config.clone().unwrap();
                 let affirmation = review.affirmation.affirmed();
@@ -402,6 +453,18 @@ impl BrainDump {
         false
     }
 }
+pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Palette) {
+    let declaration = match app.goal_confirmation() {
+        record::GoalConfirmation::Terminal { declaration, .. } => declaration.as_str(),
+        _ => return,
+    };
+    let area = frame.area();
+    frame.render_widget(
+        Paragraph::new(format!("{declaration} (not verified)")).style(palette.muted),
+        Rect::new(11, 1, area.width.saturating_sub(16), 1).intersection(area),
+    );
+}
+
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let inner = app.screen.agent_area;
     if let Some(receipt) = &app.handoff.receipt {
@@ -438,6 +501,8 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         "Saving…".into()
     } else if app.notice.starts_with(HANDOFF_FAILED) {
         HANDOFF_FAILED_TEXT.into()
+    } else if review.affirmation.confirmation.is_agent() {
+        DELEGATED_SAVE_HELD.into()
     } else {
         format!(
             "type confirm to save{}. You can't edit it after.",
@@ -454,7 +519,22 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         .line_count(inner.width) as u16;
     let rows =
         Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
-    let mut body = format!("You are confirming\n{}", review.affirmation.goal);
+    let heading = match &review.affirmation.confirmation {
+        record::GoalConfirmation::Terminal { declaration, .. } => {
+            format!("You are confirming ({declaration})")
+        }
+        _ => "You are confirming".into(),
+    };
+    let mut body = format!("{heading}\n{}", review.affirmation.goal);
+    if !matches!(
+        review.affirmation.confirmation,
+        record::GoalConfirmation::Unrecorded {} | record::GoalConfirmation::Terminal { .. }
+    ) {
+        body.push_str(&format!(
+            "\n\nCaller-declared confirmation attribution: {}",
+            review.affirmation.confirmation.details()
+        ));
+    }
     // The record keeps where the goal was made, so the person sees it before confirming.
     if let Some(repo) = app
         .handoff

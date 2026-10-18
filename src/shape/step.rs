@@ -2,8 +2,8 @@
 //! read-only tools, and the helper calls that record the result.
 //!
 //! The model only investigates and drafts words: what it found, with the next question or what the
-//! seed confirms. It reads only the folder the operator was shown. Tinkery saves the operator's
-//! answer, the question and the findings, builds the seed's `What's true today` and decisions from
+//! seed confirms, plus separate check records validated only by Seed Me. It never formats or runs checks. It reads only the folder the operator was shown. Tinkery saves the operator's
+//! answer, the question and the findings, builds the seed's evidence and decisions from
 //! the ledger, and confirms a seed itself, each through Seed Me's helper. The model is never asked to confirm
 //! anything, and nothing it replies can confirm a seed. Each step counts against the call budget
 //! before Pi starts; with none left it refuses before writing anything.
@@ -26,7 +26,8 @@ use std::{
 
 const PROMPT: &str = include_str!("prompt.txt");
 
-/// The fields of the model's reply that [`decode`] reads; the prompt's examples name the same.
+/// Reply fields decoded here or delegated unchanged to Seed Me's record validator.
+/// The prompt's examples name the same fields.
 #[cfg(test)]
 pub(super) const FIELDS: &[&str] = &[
     "next",
@@ -39,6 +40,11 @@ pub(super) const FIELDS: &[&str] = &[
     "observed",
     "suggestion",
     "confirming",
+    "checks",
+    "statement",
+    "kind",
+    "source",
+    "how_to_judge",
 ];
 
 /// How Shape reaches a model: Pi with an explicit model and read-only tools, a call budget shared
@@ -291,12 +297,17 @@ fn look(
         folder: Some(folder.to_path_buf()),
         ..agent.call.clone()
     };
+    let contract = answering::contract(skill).map_err(refused(answer_saved))?;
+    let instructions = format!(
+        "{}\n\nSeed Me's canonical artifact contract:\n{contract}",
+        prompt()
+    );
     let reply = call
         .complete(
             Some(&agent.budget),
             Request::SeedStep,
             serde_json::to_vec(&input).unwrap_or_default(),
-            prompt(),
+            instructions,
             cancelled,
         )
         .map_err(|error| {
@@ -312,11 +323,21 @@ fn look(
                 .map_err(refused(answer_saved))?;
             Ok(Done::Asked)
         }
-        Next::Seed { confirming, found } => {
-            let grounded = answering::ground(skill, session, expected, &found, folder)
-                .map_err(refused(answer_saved))?;
-            answering::draft_seed(skill, session, grounded, &confirming)
-                .map_err(refused(answer_saved))?;
+        Next::Seed {
+            confirming,
+            checks,
+            found,
+        } => {
+            answering::draft_seed(
+                skill,
+                session,
+                expected,
+                &confirming,
+                &checks,
+                &found,
+                folder,
+            )
+            .map_err(refused(answer_saved))?;
             Ok(Done::Drafted)
         }
     }
@@ -352,9 +373,10 @@ fn think(records: Option<&Path>, session: &Path, goal: &str) -> Vec<Value> {
 pub(super) enum Next {
     /// The next question.
     Question(Ask),
-    /// The seed's "You are confirming" text, and what the step found.
+    /// The seed's summary and canonical prose sections, and what the step found.
     Seed {
         confirming: String,
+        checks: Value,
         found: Vec<Found>,
     },
 }
@@ -398,6 +420,11 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
         }
         Some("seed") => Ok(Next::Seed {
             confirming: text("confirming").ok_or_else(unusable)?,
+            checks: value["checks"]
+                .as_array()
+                .filter(|checks| !checks.is_empty())
+                .map(|checks| Value::Array(checks.clone()))
+                .ok_or_else(unusable)?,
             found,
         }),
         _ => Err(unusable()),

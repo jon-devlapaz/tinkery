@@ -1,0 +1,11 @@
+# Consumer: the explicitly pinned tink-sdlc records intake requires helper-verified Seed Me content.
+# Source: CI-pinned Seed Me references/seed-contract.md, Canonical document headings (Full).
+# Bounded independent snapshot of the named sections intake must carry forward.
+# Full confirmation through the official helper also verifies the complete canonical sequence.
+# CI never reads an operator checkout.
+Problem statement
+Proposed outcome
+Acceptance criteria
+Constraints and boundaries
+Decisions (from the ledger)
+Assumed (not confirmed by you)

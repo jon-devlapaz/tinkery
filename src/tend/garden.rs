@@ -45,10 +45,12 @@ pub(super) fn render_note(frame: &mut Frame, tend: &Tend, body: Rect, palette: P
     if tend.links.is_err() && tend.notice != super::linking::UNAVAILABLE {
         notes.push("Links couldn't be read. F1 then h for details.".into());
     }
-    if tend.ended > 0 && !tend.sessions.is_empty() {
+    let empty = tend.sessions.is_empty();
+    let repo_empty = tend.repo_empty_message().is_some();
+    if tend.ended > 0 && (!empty || repo_empty || tend.unreadable > 0) {
         notes.push(format!("{} ended not shown", tend.ended));
     }
-    if tend.unreadable > 0 {
+    if tend.unreadable > 0 && (!empty || repo_empty && tend.repo_unknown > 0) {
         notes.push(format!(
             "{} couldn't be read; this view may be missing sessions.",
             records(tend.unreadable),

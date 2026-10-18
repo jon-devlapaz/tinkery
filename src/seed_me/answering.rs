@@ -1,12 +1,14 @@
 //! Changing a session as the operator works through Seed Me's interview: their answer, the next
 //! question an agent drafted, what a step found, a seed draft, and the operator's seed confirmation.
 //!
-//! Findings are Seed Me receipts naming the folder they were checked in: on the question they
-//! support, or, for the step that drafts the seed, as settled facts. The seed's `## What's true
-//! today` section lists every saved receipt word for word; the model never writes it.
+//! Findings are Seed Me receipts naming the folder they were checked in, on the question they
+//! support. The step that drafts the seed adds nothing to the ledger: its findings go only into the
+//! seed's `## Evidence and uncertainty`, beside every saved receipt, so `seed decisions` never repeats them
+//! and each finding appears once. The model never writes that section. A finding that looks like a
+//! secret is refused, as Seed Me refuses one in a receipt.
 //!
 //! Every change goes through Seed Me's helper (`read --editable`, `publish` with the version the
-//! caller last showed, `seed decisions` and `seed confirm`); the one file written directly is the
+//! caller last showed, `seed decisions`, `seed checks set|render` and `seed confirm`); the one file written directly is the
 //! seed draft, which the helper leaves to its host. A stale version is refused by the helper and
 //! reported as [`Refusal::Stale`]; nothing here retries, merges or overwrites. The confirmed goal is
 //! never changed. Calls block; run them off the paint path.
@@ -21,7 +23,8 @@ use std::{
 
 const SEED: &str = "seed-contract.md";
 
-/// Why a change wasn't made. Either way the session is as it was before the call.
+/// Why a change wasn't completed. A later IO failure can leave unconfirmed check records;
+/// only the helper's verified confirmation permits handoff.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refusal {
     /// Another writer changed the session after the caller read it; the helper refused the
@@ -139,23 +142,84 @@ fn receipts(state: &Value) -> Vec<Receipt> {
                     check: field("check"),
                 },
             };
-            let seen = found
-                .iter()
-                .any(|r| (&r.checked, &r.observed) == (&receipt.checked, &receipt.observed));
-            if !receipt.observed.trim().is_empty() && !seen {
-                found.push(receipt);
-            }
+            add(&mut found, receipt);
         }
     }
     found
+}
+
+/// Adds `receipt` unless it says nothing or repeats one already in `found`.
+fn add(found: &mut Vec<Receipt>, receipt: Receipt) {
+    let seen = found
+        .iter()
+        .any(|r| (&r.checked, &r.observed) == (&receipt.checked, &receipt.observed));
+    if !receipt.observed.trim().is_empty() && !seen {
+        found.push(receipt);
+    }
 }
 
 /// The receipt for one finding from a step that read `folder`.
 fn receipt(found: &Found, at: &str, folder: &Path) -> Value {
     json!({
         "checked": found.checked, "at": at, "observed": found.observed,
-        "check": format!("read-only file tools in {}", folder.display()),
+        "check": checked_in(found, folder),
     })
+}
+
+/// How a step that read `folder` checked `found`, flagging a cited `path:line` that isn't there.
+fn checked_in(found: &Found, folder: &Path) -> String {
+    let how = format!("read-only file tools in {}", folder.display());
+    match unfound(&found.checked, folder) {
+        Some(why) => format!("{how}{UNFOUND}{why}"),
+        None => how,
+    }
+}
+
+/// Separates how a finding was checked from why its citation wasn't found in the folder.
+pub const UNFOUND: &str = "; citation not found: ";
+
+/// Why a `path:line` or `path:first-last` cited in `checked` isn't in `folder`: the file is missing
+/// or outside it, or has fewer lines. Only checks that the lines exist, not what they say; text
+/// without such a citation is not judged.
+fn unfound(checked: &str, folder: &Path) -> Option<String> {
+    let root = folder.canonicalize().ok()?;
+    citations(checked).find_map(|cite| {
+        let path = &cite[1];
+        let last = cite.get(3).unwrap_or(cite.get(2)?).as_str();
+        let (first, last): (u64, u64) = (cite[2].parse().ok()?, last.parse().ok()?);
+        let Ok(file) = root.join(path).canonicalize() else {
+            return Some(format!("{path} isn't in the folder"));
+        };
+        if !file.starts_with(&root) {
+            return Some(format!("{path} is outside the folder"));
+        }
+        let bytes = std::fs::read(&file).ok()?;
+        let lines = bytes.split(|b| *b == b'\n').count() as u64 - u64::from(bytes.ends_with(b"\n"));
+        (first == 0 || first.max(last) > lines)
+            .then(|| format!("{path} has {lines} lines, not {}", first.max(last)))
+    })
+}
+
+/// Recorded file-and-line citations; prose alone never establishes a read path.
+fn citations(checked: &str) -> impl Iterator<Item = regex::Captures<'_>> {
+    static CITE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?:^|[\s,(\[`])([\w./-]*\w\.\w+):(\d+)(?:-(\d+))?")
+            .expect("the citation pattern compiles")
+    });
+    CITE.captures_iter(checked)
+}
+
+/// Whether `text` looks like a secret, by the same patterns Seed Me refuses in a receipt.
+fn secret(text: &str) -> bool {
+    static SECRET: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(concat!(
+            r"(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}",
+            r"|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}|://[^/\s:@]+:[^/\s@]+@",
+            r"|\b(?:password|passwd|secret|token|api[_-]?key)\s*=\s*\S{6,}|\bbearer\s+[A-Za-z0-9._~+/=-]{16,}",
+        ))
+        .expect("the secret patterns compile")
+    });
+    SECRET.is_match(text)
 }
 
 /// Findings with something checked and something observed; the rest say nothing.
@@ -165,20 +229,47 @@ fn usable(found: &[Found]) -> impl Iterator<Item = &Found> {
         .filter(|f| !f.checked.trim().is_empty() && !f.observed.trim().is_empty())
 }
 
-/// The seed's `## What's true today` section: every saved finding, grouped by how it was checked,
-/// each on one line with its words unchanged and its whitespace collapsed, so nothing in a finding
-/// can start a heading. Says so plainly when nothing was found.
-fn today(state: &Value) -> String {
+/// The seed's `## Evidence and uncertainty` section: `found`, grouped by how it was checked, each on one
+/// line with its words unchanged and its whitespace collapsed, so nothing in a finding can start a
+/// heading. Lists attributable reported read paths, not inferred or independently verified origins;
+/// missing methods, missing citations and failed citation checks remain explicit gaps.
+fn today(found: &[Receipt]) -> String {
     let one_line = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
-    let mut text = String::from("## What's true today\n");
-    let found = receipts(state);
+    let mut text = String::from("## Evidence and uncertainty\n");
+    let mut paths = std::collections::BTreeSet::new();
+    let mut unattributed = false;
+    for receipt in found {
+        let reads = receipt.check.starts_with("read-only file tools in ")
+            && !receipt.check.contains(UNFOUND);
+        let cited: Vec<_> = citations(&receipt.checked)
+            .map(|cite| cite[1].to_owned())
+            .collect();
+        if reads && !cited.is_empty() {
+            paths.extend(cited);
+        } else {
+            unattributed = true;
+        }
+    }
+    text.push_str("Grounded in:\n");
+    if paths.is_empty() {
+        text.push_str("- No attributable read paths are known.\n");
+    } else {
+        for path in paths {
+            text.push_str(&format!("- {path}\n"));
+        }
+    }
+    text.push_str("\nProvenance unavailable: reported reads do not verify filesystem origins or unrecorded reads.");
+    if unattributed {
+        text.push_str(" Some recorded findings have no attributable read path.");
+    }
+    text.push_str("\n\n");
     if found.is_empty() {
         text.push_str(NOTHING_FOUND);
         text.push('\n');
         return text;
     }
     let mut group: Option<&str> = None;
-    for r in &found {
+    for r in found {
         if group != Some(r.check.as_str()) {
             group = Some(r.check.as_str());
             text.push_str(&if r.check.trim().is_empty() {
@@ -199,7 +290,7 @@ fn today(state: &Value) -> String {
     text
 }
 
-/// What the seed's `## What's true today` section says when no step recorded a finding.
+/// What the seed's evidence section says when no step recorded a finding.
 pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.";
 
 /// The helper beside `skill`, refusing a missing one.
@@ -218,6 +309,18 @@ fn helper(skill: &Path) -> Result<PathBuf, Refusal> {
         )));
     }
     Ok(helper)
+}
+
+/// Seed Me's installed artifact contract for drafting instructions. Refuses a missing reference;
+/// callers must not substitute another schema.
+pub fn contract(skill: &Path) -> Result<String, Refusal> {
+    let helper = helper(skill)?;
+    let reference = helper
+        .parent()
+        .expect("helper has a scripts directory")
+        .join("../references/seed-contract.md");
+    std::fs::read_to_string(reference)
+        .map_err(|error| Refusal::Refused(format!("Cannot read Seed Me's seed contract: {error}")))
 }
 
 /// One helper call's stdout, with a stale-version refusal told apart from the rest.
@@ -356,58 +459,22 @@ pub fn ask(
     )
 }
 
-/// Save what the step that drafts the seed `found` in `folder` as settled facts, one per finding,
-/// from `expected`, so the seed and later steps can rely on them. Returns the new version; with
-/// nothing usable found, writes nothing and returns `expected`.
-pub fn ground(
-    skill: &Path,
-    session: &Path,
-    expected: u64,
-    found: &[Found],
-    folder: &Path,
-) -> Result<u64, Refusal> {
-    if usable(found).next().is_none() {
-        return Ok(expected);
-    }
-    let helper = helper(skill)?;
-    let mut ledger = read(skill, session)?;
-    let mut taken: Vec<String> = nodes(&ledger.state)
-        .iter()
-        .filter_map(|n| n["id"].as_str().map(str::to_owned))
-        .collect();
-    let at = now();
-    let list = ledger.state["nodes"]
-        .as_array_mut()
-        .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?;
-    for f in usable(found) {
-        let wanted: String = format!("found {}", f.checked).chars().take(40).collect();
-        let id = unique_id(&wanted, &taken);
-        taken.push(id.clone());
-        list.push(json!({
-            "id": id, "kind": "fact", "status": "settled", "prerequisites": [],
-            "evidence": [receipt(f, &at, folder)], "answer": f.observed, "authority": "evidence",
-            "authority_source": f.checked, "claim": {"type": "observation", "scope": f.checked},
-        }));
-    }
-    publish(
-        &helper,
-        session,
-        expected,
-        "Tinkery Shape's agent step recorded what it found before drafting the seed.",
-        &ledger.state,
-    )
-}
-
-/// Save a seed draft whose `## You are confirming` section is `confirming`, then `## What's true
-/// today` from every saved finding, then the decisions as `seed decisions` output, word for word,
-/// from `expected`. Returns the draft's revision label.
-/// Refuses a stale version, open decisions, a confirmed seed (never replaced) and text that would
-/// change the seed's structure.
+/// Save a Seed Me draft: `confirming` supplies summary and prose, never criteria. `checks`
+/// are validated, stored and rendered only by the official helper; no check is executed. Evidence
+/// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
+/// `seed decisions` unchanged, in Seed Me's canonical Full sequence with no wrapper headings.
+/// Returns the revision label, from version `expected`.
+/// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
+/// change the seed's structure, invalid records and a finding that looks like a secret.
+/// Helper or IO failures after storing records leave an unconfirmed draft, never a ready seed.
 pub fn draft_seed(
     skill: &Path,
     session: &Path,
     expected: u64,
     confirming: &str,
+    checks: &Value,
+    found: &[Found],
+    folder: &Path,
 ) -> Result<String, Refusal> {
     let helper = helper(skill)?;
     let ledger = read(skill, session)?;
@@ -422,19 +489,72 @@ pub fn draft_seed(
         )));
     }
     let confirming = confirming.trim();
+    // Seed Me owns these headings; the model may supply prose, never provenance or ledger text.
+    let sections = [
+        "Problem statement",
+        "Proposed outcome",
+        "Affected users and systems",
+        "Constraints and boundaries",
+        "Knowledge map",
+        "Suggested first slice",
+        "Risks and verification",
+        "Open questions and deferrals",
+        "Owners and next steps",
+        "Downstream handoff",
+    ];
+    let headings: Vec<_> = confirming
+        .lines()
+        .filter(|line| line.trim_start().starts_with('#'))
+        .collect();
+    let expected_headings: Vec<_> = sections.iter().map(|name| format!("## {name}")).collect();
     let breaks = confirming.lines().any(|line| {
         let line = line.trim_start();
-        line.starts_with('#')
+        (line.starts_with('#') && !expected_headings.iter().any(|heading| heading == line))
             || line.starts_with("```")
             || line.starts_with("~~~")
             || line.starts_with("revision:")
+            || line.starts_with("date:")
             || line.starts_with("Confirmed by:")
             || line.starts_with("status:")
     });
-    if confirming.is_empty() || breaks {
+    if confirming.is_empty()
+        || confirming.starts_with('#')
+        || breaks
+        || headings != expected_headings
+    {
         return Err(Refusal::Refused(
             "The drafted seed text didn't fit Seed Me's format, so nothing was saved.".into(),
         ));
+    }
+    // Keep prose line endings; canonical headings belong to the host, not the model.
+    let mut canonical = String::with_capacity(confirming.len());
+    for line in confirming.split_inclusive('\n') {
+        let bare = line.trim_end_matches(['\r', '\n']);
+        if expected_headings.iter().any(|heading| heading == bare) {
+            canonical.push_str(bare);
+            canonical.push('\n');
+        } else {
+            canonical.push_str(line);
+        }
+    }
+    let confirming = canonical;
+    if usable(found).any(|f| secret(&f.checked) || secret(&f.observed)) {
+        return Err(Refusal::Refused(
+            "A finding appears to contain a secret, so no seed was drafted: record where it lives, never its value.".into(),
+        ));
+    }
+    let mut grounding = receipts(&ledger.state);
+    let at = now();
+    for f in usable(found) {
+        add(
+            &mut grounding,
+            Receipt {
+                checked: f.checked.clone(),
+                observed: f.observed.clone(),
+                at: at.clone(),
+                check: checked_in(f, folder),
+            },
+        );
     }
     let path = session.join(SEED);
     let revision = match std::fs::read_to_string(&path) {
@@ -442,7 +562,7 @@ pub fn draft_seed(
             let last = existing
                 .lines()
                 .find_map(|l| l.strip_prefix("revision:"))
-                .and_then(|r| r.trim().strip_prefix('r'))
+                .and_then(|r| r.split_whitespace().next()?.strip_prefix('r'))
                 .and_then(|n| n.parse::<u64>().ok())
                 .unwrap_or(0);
             last + 1
@@ -459,13 +579,54 @@ pub fn draft_seed(
         &helper,
         &["seed".as_ref(), "decisions".as_ref(), session.as_os_str()],
     )?;
+    // The helper alone validates records and owns their rendered bytes. Never accept model criteria.
+    let mut input = tempfile::NamedTempFile::new()
+        .map_err(|e| Refusal::Refused(format!("Cannot prepare checks: {e}")))?;
+    serde_json::to_writer(input.as_file_mut(), checks)
+        .map_err(|e| Refusal::Refused(format!("Cannot prepare checks: {e}")))?;
+    call(
+        &helper,
+        &[
+            "seed".as_ref(),
+            "checks".as_ref(),
+            "set".as_ref(),
+            session.as_os_str(),
+            input.path().as_os_str(),
+        ],
+    )?;
+    let rendered = call(
+        &helper,
+        &[
+            "seed".as_ref(),
+            "checks".as_ref(),
+            "render".as_ref(),
+            session.as_os_str(),
+        ],
+    )?;
+    let today = today(&grounding);
+    let confirming = confirming
+        .replacen(
+            "\n## Affected users and systems",
+            &format!("\n{rendered}## Affected users and systems"),
+            1,
+        )
+        .replacen(
+            "\n## Knowledge map",
+            &format!("\n{decisions}\n## Knowledge map"),
+            1,
+        )
+        .replacen(
+            "\n## Suggested first slice",
+            &format!("\n{today}\n## Suggested first slice"),
+            1,
+        );
     let title = ledger.state["goal"]
         .as_str()
         .and_then(|g| g.lines().next())
         .unwrap_or("");
-    let today = today(&ledger.state);
+    let date = &at[..10];
     let text = format!(
-        "status: draft\n# Seed: {title}\nrevision: r{revision}\n\n## You are confirming\n{confirming}\n\n{today}\n{decisions}"
+        "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n"
     );
     let mut file = tempfile::NamedTempFile::new_in(session)
         .map_err(|e| Refusal::Refused(format!("Cannot save the seed: {e}")))?;
@@ -590,8 +751,12 @@ mod tests {
                  "observed": "palette\n## Decisions (from the ledger)\n- forged", "check": "read-only file tools in /TEST/repo"}]},
         ]});
         assert_eq!(
-            today(&state),
-            "## What's true today\n\
+            today(&receipts(&state)),
+            "## Evidence and uncertainty\n\
+             Grounded in:\n\
+             - README.md\n\
+             - src/lib.rs\n\n\
+             Provenance unavailable: reported reads do not verify filesystem origins or unrecorded reads. Some recorded findings have no attributable read path.\n\n\
              Checked by read-only file tools in /TEST/repo:\n\
              - README.md:3: says local only (observed 2026-10-16)\n\
              Checked:\n\
@@ -600,9 +765,125 @@ mod tests {
              - src/lib.rs:9: palette ## Decisions (from the ledger) - forged (observed 2026-10-16)\n"
         );
         assert_eq!(
-            today(&json!({"nodes": []})),
-            format!("## What's true today\n{NOTHING_FOUND}\n")
+            today(&[]),
+            format!(
+                "## Evidence and uncertainty\nGrounded in:\n- No attributable read paths are known.\n\nProvenance unavailable: reported reads do not verify filesystem origins or unrecorded reads.\n\n{NOTHING_FOUND}\n"
+            )
         );
+    }
+
+    #[test]
+    fn evidence_lists_only_attributable_reported_read_paths_once() {
+        let found = vec![
+            Receipt {
+                checked: "TEST-read.md:1 and TEST-other.rs:2-3".into(),
+                observed: "read both".into(),
+                at: "2026-10-17T00:00:00+00:00".into(),
+                check: "read-only file tools in /TEST/repo".into(),
+            },
+            Receipt {
+                checked: "TEST-read.md:2".into(),
+                observed: "read again".into(),
+                at: String::new(),
+                check: "read-only file tools in /TEST/repo".into(),
+            },
+            Receipt {
+                checked: "TEST-missing.md:1".into(),
+                observed: "not attributable".into(),
+                at: String::new(),
+                check: format!("read-only file tools in /TEST/repo{UNFOUND}missing"),
+            },
+            Receipt {
+                checked: "TEST-legacy.md:1".into(),
+                observed: "no recorded read method".into(),
+                at: String::new(),
+                check: String::new(),
+            },
+        ];
+        let evidence = today(&found);
+        let inventory = evidence
+            .split("Grounded in:\n")
+            .nth(1)
+            .expect("missing Grounded in list")
+            .split("\n\n")
+            .next()
+            .unwrap();
+        assert!(inventory.contains("- TEST-read.md\n") || inventory.ends_with("- TEST-read.md"));
+        assert!(inventory.contains("- TEST-other.rs"));
+        assert_eq!(inventory.matches("- TEST-read.md").count(), 1);
+        assert!(!inventory.contains("TEST-missing.md"));
+        assert!(!inventory.contains("TEST-legacy.md"));
+        assert!(evidence.contains("Provenance unavailable:"));
+        assert!(evidence.contains("origins"));
+        assert!(evidence.contains("no attributable read path"));
+    }
+
+    #[test]
+    fn evidence_names_unknown_grounding_instead_of_inventing_paths() {
+        for found in [
+            vec![],
+            vec![Receipt {
+                checked: "by eye".into(),
+                observed: "TEST claim".into(),
+                at: String::new(),
+                check: String::new(),
+            }],
+        ] {
+            let evidence = today(&found);
+            assert!(
+                evidence.contains("Grounded in:\n- No attributable read paths are known.\n"),
+                "{evidence}"
+            );
+            assert!(evidence.contains("Provenance unavailable:"), "{evidence}");
+        }
+    }
+
+    #[test]
+    fn a_cited_line_that_is_not_in_the_folder_is_flagged() {
+        let folder = tempfile::tempdir().unwrap();
+        std::fs::create_dir(folder.path().join("src")).unwrap();
+        std::fs::write(folder.path().join("src/lib.rs"), "one\ntwo\nthree\n").unwrap();
+        let outside = folder
+            .path()
+            .parent()
+            .unwrap()
+            .join("tinkery-TEST-outside.rs");
+        std::fs::write(&outside, "one\n").unwrap();
+        let why = |checked: &str| unfound(checked, folder.path());
+        assert_eq!(why("src/lib.rs:3"), None);
+        assert_eq!(why("read src/lib.rs:2-3 and grep"), None);
+        assert_eq!(
+            why("the README, by eye"),
+            None,
+            "not a citation, so not judged"
+        );
+        assert_eq!(
+            why("src/lib.rs:2-4").as_deref(),
+            Some("src/lib.rs has 3 lines, not 4")
+        );
+        assert_eq!(
+            why("src/lib.rs:9").as_deref(),
+            Some("src/lib.rs has 3 lines, not 9")
+        );
+        assert_eq!(
+            why("src/gone.rs:1").as_deref(),
+            Some("src/gone.rs isn't in the folder")
+        );
+        assert_eq!(
+            why("../tinkery-TEST-outside.rs:1").as_deref(),
+            Some("../tinkery-TEST-outside.rs is outside the folder")
+        );
+        let found = |checked: &str| Found {
+            checked: checked.into(),
+            observed: "seen".into(),
+        };
+        let how = format!("read-only file tools in {}", folder.path().display());
+        assert_eq!(checked_in(&found("src/lib.rs:1"), folder.path()), how);
+        assert_eq!(
+            checked_in(&found("src/lib.rs:9"), folder.path()),
+            format!("{how}{UNFOUND}src/lib.rs has 3 lines, not 9")
+        );
+        std::fs::remove_file(outside).unwrap();
     }
 
     #[test]

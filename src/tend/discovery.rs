@@ -6,6 +6,7 @@
 //! could not be read at all). A missing root is complete and empty: nothing exists yet.
 
 use std::{
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
     sync::{
@@ -25,11 +26,20 @@ pub struct Found {
     pub sessions: Vec<Session>,
     /// Records that exist but could not be read; they are never guessed or counted.
     pub unreadable: usize,
+    /// At most `seed_me::MAX_READ_FAILURES` path/reason samples; the full count is `unreadable`.
+    pub failures: Vec<seed_me::ReadFailure>,
 }
 impl Found {
     /// Every record was read, so the list is the whole truth.
     pub fn complete(&self) -> bool {
         self.unreadable == 0
+    }
+
+    fn failed(&mut self, failure: seed_me::ReadFailure) {
+        self.unreadable += 1;
+        if self.failures.len() < seed_me::MAX_READ_FAILURES {
+            self.failures.push(failure);
+        }
     }
 }
 
@@ -49,14 +59,20 @@ pub fn scan(root: &Path) -> Outcome {
     };
     let mut found = Found::default();
     for entry in entries {
-        let Ok(entry) = entry else {
-            found.unreadable += 1;
-            continue;
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                found.failed(seed_me::ReadFailure::new(
+                    root.to_path_buf(),
+                    format!("Cannot read a directory entry: {error}"),
+                ));
+                continue;
+            }
         };
         match seed_me::read(&entry.path()) {
             Record::Session(session) => found.sessions.push(session),
             Record::NotASession => {}
-            Record::Unreadable => found.unreadable += 1,
+            Record::Unreadable(failure) => found.failed(failure),
         }
     }
     found.sessions.sort_by(|a, b| {
@@ -72,8 +88,18 @@ pub fn scan(root: &Path) -> Outcome {
 pub struct Landed {
     /// What the read found, or why the root couldn't be read.
     pub outcome: Outcome,
+    /// Exact attributed session paths for the launch repo; absent outside a repo.
+    pub(crate) repo_paths: Option<HashSet<PathBuf>>,
+    /// Active goals whose record cannot establish a repository or an explicit no-repo origin.
+    pub(crate) repo_unknown: usize,
     epoch: u64,
     active: usize,
+}
+
+struct Scanned {
+    outcome: Outcome,
+    repo_paths: Option<HashSet<PathBuf>>,
+    repo_unknown: usize,
 }
 
 /// One owned worker at a time. Requests made while it runs coalesce into one follow-up.
@@ -81,7 +107,8 @@ pub struct Discovery {
     source: Source,
     root: PathBuf,
     requested: u64,
-    running: Option<(u64, PathBuf, Receiver<Outcome>, Instant)>,
+    running: Option<(u64, PathBuf, Receiver<Scanned>, Instant)>,
+    scope: Option<(PathBuf, Result<PathBuf, String>)>,
     landed: Option<Landed>,
     version: u64,
 }
@@ -94,6 +121,7 @@ impl Discovery {
             root: PathBuf::new(),
             requested: 0,
             running: None,
+            scope: None,
             landed: None,
             version: 0,
         }
@@ -106,10 +134,21 @@ impl Discovery {
         discovery.version = 1;
         discovery.landed = Some(Landed {
             outcome: Err(reason),
+            repo_paths: None,
+            repo_unknown: 0,
             epoch: 1,
             active: 0,
         });
         discovery
+    }
+
+    /// Attribute the next read using existing Think records only; configuration reads nothing.
+    pub(crate) fn scope_to_repo(
+        &mut self,
+        repo: Option<PathBuf>,
+        records: Result<PathBuf, String>,
+    ) {
+        self.scope = repo.map(|repo| (repo, records));
     }
 
     /// Ask for a fresh read of `root`. Never blocks; at most one worker exists.
@@ -137,8 +176,17 @@ impl Discovery {
         let outcome = match rx.try_recv() {
             Ok(outcome) => outcome,
             Err(TryRecvError::Empty) => return false,
-            Err(TryRecvError::Disconnected) => Err("Reading sessions stopped unexpectedly.".into()),
+            Err(TryRecvError::Disconnected) => Scanned {
+                outcome: Err("Reading sessions stopped unexpectedly.".into()),
+                repo_paths: None,
+                repo_unknown: 0,
+            },
         };
+        let Scanned {
+            outcome,
+            repo_paths,
+            repo_unknown,
+        } = outcome;
         self.running = None;
         if stale_root {
             self.start_if_idle();
@@ -153,6 +201,8 @@ impl Discovery {
         });
         self.landed = Some(Landed {
             outcome,
+            repo_paths,
+            repo_unknown,
             epoch,
             active,
         });
@@ -171,16 +221,59 @@ impl Discovery {
         }
         let (tx, rx) = mpsc::channel();
         let (source, root) = (self.source.clone(), self.root.clone());
+        let scope = self.scope.clone();
         let spawned = std::thread::Builder::new()
             .name("tinkery-discovery".into())
             .spawn(move || {
-                let _ = tx.send(source(&root));
+                let outcome = source(&root);
+                let mut repo_unknown = 0;
+                let repo_paths = scope.map(|(repo, records)| {
+                    let sessions = outcome
+                        .as_ref()
+                        .map_or(&[][..], |found| found.sessions.as_slice());
+                    let origins = records
+                        .as_ref()
+                        .ok()
+                        .and_then(|root| {
+                            if sessions.is_empty() {
+                                return Some(Vec::new());
+                            }
+                            let goals: Vec<_> = sessions
+                                .iter()
+                                .map(|session| (session.path.as_path(), session.goal.as_str()))
+                                .collect();
+                            crate::think_record::read_origins(root, &goals).ok()
+                        })
+                        .unwrap_or_else(|| {
+                            vec![crate::think_record::MadeIn::Unknown; sessions.len()]
+                        });
+                    sessions
+                        .iter()
+                        .zip(origins)
+                        .filter_map(|(session, made_in)| {
+                            if made_in == crate::think_record::MadeIn::Unknown
+                                && session.stage != Stage::Ended
+                            {
+                                repo_unknown += 1;
+                            }
+                            (made_in == crate::think_record::MadeIn::Repo(repo.clone()))
+                                .then(|| session.path.clone())
+                        })
+                        .collect()
+                });
+                let _ = tx.send(Scanned {
+                    outcome,
+                    repo_paths,
+                    repo_unknown,
+                });
             });
         match spawned {
             Ok(_) => self.running = Some((self.requested, self.root.clone(), rx, Instant::now())),
             Err(error) => {
                 self.landed = Some(Landed {
                     outcome: Err(format!("Cannot read sessions: {error}")),
+                    repo_paths: None,
+                    repo_unknown: 0,
                     epoch: self.requested,
                     active: 0,
                 });
@@ -228,3 +321,6 @@ impl Discovery {
         self.running.is_some()
     }
 }
+
+#[cfg(test)]
+mod tests;

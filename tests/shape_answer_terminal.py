@@ -2,9 +2,10 @@
 
 The full journey confirms a goal in Think, opens Shape from tend, sees which folder the step reads and
 picks another, looks into the first question, answers it, sees the second step build on the saved
-finding, and confirms the drafted seed with its "What's true today" section. Short cases cover the zero budget, a stale version, a
+finding, and confirms the drafted seed with Seed Me's canonical sections. Short cases cover the zero budget, a stale version, a
 model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
-practice session's confirmation, and steps that found nothing."""
+seed finding that looks like a secret, a practice session's confirmation, a citation that isn't in the folder,
+and steps that found nothing."""
 import fcntl, importlib.util, json, os, select, signal, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
@@ -58,7 +59,50 @@ QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
             'found': [{'checked': 'README.md:3', 'observed': 'says local only'}],
             'suggestion': 'Local, matching the README.'}
 # The model also offers decisions of its own; Tinkery must ignore them and insert `seed decisions`.
-SEED = {'next': 'seed', 'confirming': 'Refusals stay calm and records stay local.',
+SEED_BODY = '''Refusals stay calm and records stay local.
+Build calm refusals.
+Do not build sync.
+Accepted unchanged: 0 defaults; chosen: 1 storage decision.
+No blocking unknowns or reversed decisions.
+
+## Problem statement
+Refusals are noisy; the operator loses the thread.
+
+## Proposed outcome
+Refusals stay calm and records stay local.
+
+## Affected users and systems
+The operator and local refusal path.
+
+## Constraints and boundaries
+Keep the operator's words. Do not run agents without permission.
+
+## Knowledge map
+What we know, with proof: see recorded evidence below.
+What we know we don't know: operator judgment of calmness.
+What we have not read: paths not listed in the evidence.
+What could surprise us: private text in a refusal; re-check when refusal code changes.
+
+## Suggested first slice
+Proposal only: inspect the local refusal path before changing it.
+cmd: git status --short
+cwd: .
+
+## Risks and verification
+Private text could leak; the proposed criterion is not completed verification.
+
+## Open questions and deferrals
+The operator judges calmness after implementation. No blocking decisions remain.
+
+## Owners and next steps
+The operator judges refusal output; implementation checks privacy.
+
+## Downstream handoff
+Carry seed-contract.md, ledger.json and seed-confirmation.json together; check session.py status for handoff.verified. This is not implementation approval.
+'''
+SEED = {'next': 'seed', 'confirming': SEED_BODY,
+        'checks': [{'statement': 'Refusals never show private text.', 'kind': 'judge',
+                    'source': 'TEST goal', 'how_to_judge': 'Inspect refusal output for private text.'}],
         'found': [{'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
@@ -115,13 +159,14 @@ class Run:
     def flat(self):
         return ' '.join(self.screen.text().split())
 
-    def wait(self, text, timeout=20):
+    def wait(self, text, timeout=20, *, wrapped_path=False):
         deadline = time.monotonic() + timeout
-        want = ' '.join(text.split())
+        normalize = (lambda value: ''.join(value.split())) if wrapped_path else (lambda value: ' '.join(value.split()))
+        want = normalize(text)
         while time.monotonic() < deadline:
             if select.select([self.master], [], [], .02)[0]:
                 self.screen.feed(os.read(self.master, 65536))
-            if want in self.flat() and not self.screen.synchronized:
+            if want in normalize(self.screen.text()) and not self.screen.synchronized:
                 return
             if self.process.poll() is not None:
                 break
@@ -130,6 +175,29 @@ class Run:
     def send(self, data, text):
         os.write(self.master, data)
         self.wait(text)
+
+    def read_until(self, text, timeout=20):
+        """Read each rendered page; reaching the bottom can hide an earlier wrapped warning."""
+        deadline = time.monotonic() + timeout
+        want = ' '.join(text.split())
+        for _ in range(80):
+            if want in self.flat() and not self.screen.synchronized:
+                return
+            before = self.screen.text()
+            os.write(self.master, b'\x1b[6~')
+            while time.monotonic() < deadline:
+                if select.select([self.master], [], [], .02)[0]:
+                    self.screen.feed(os.read(self.master, 65536))
+                if not self.screen.synchronized:
+                    if want in self.flat():
+                        return
+                    if self.screen.text() != before:
+                        break
+                if self.process.poll() is not None:
+                    raise AssertionError(f'Exited while reading {text!r}:\n{self.screen.text()}')
+            else:
+                break
+        raise AssertionError(f'{text!r} not found while reading:\n{self.screen.text()}')
 
     def type(self, words):
         os.write(self.master, words.encode())
@@ -185,22 +253,23 @@ def full_journey(width, height):
             before = files(run.sessions)
             target = cwd / 'TEST-target\nfolder'
             target.mkdir()
+            # The question's citation is in the folder; the seed's src/main.rs:12 is not (#161).
+            (target / 'README.md').write_text('# TEST\n\nLocal only.\n')
             run.open_shape()
             run.wait("Seed Me hasn't asked its next question yet.")
             run.wait('F2 look into the next question')
             # Before the first step, Shape says which folder it reads; F4 picks another.
             run.wait(f'The step reads files in {cwd.name}. F4 picks another folder.')
-            # A long temporary path can wrap mid-word, so paths are compared without whitespace.
-            squashed = lambda: ''.join(run.screen.text().split())
             # Help may run past a short screen; the Rust tests check it names the full path.
             run.send(F1, 'The next step reads files in:')
             run.send(b'\x1b', 'F2 look into the next question')
             run.send(b'\x1bOS', 'Next: F4 uses this folder')
-            assert f'Folder:{cwd}' in squashed(), run.screen.text()
+            # The editor may scroll off the path's start; exact destinations are checked in both calls below.
+            assert cwd.name in ''.join(run.screen.text().split('Next:')[0].split()), run.screen.text()
             os.write(run.master, b'/TEST-targat')
             # Fix inside the folder, and prove Enter edits rather than applying it.
             run.send(b'\x1b[D' * 2 + b'\x1b[3~e\x1b[F\rfolder', 'enter newline')
-            run.wait('TEST-target folder')
+            run.wait('TEST-target\nfolder', wrapped_path=True)
             assert files(run.sessions) == before and run.calls() == [], 'Folder editing wrote or called'
             run.send(b'\x1bOS', 'The step reads files in TEST-targetfolder.')
             # Opening, scrolling and help write nothing and call no model.
@@ -210,6 +279,7 @@ def full_journey(width, height):
             assert files(run.sessions) == before and run.calls() == [], 'Shape wrote or called before F2'
             run.send(F2, 'Where records live Keep records local or synced?')
             run.wait('What I found: README.md:3: says local only')
+            assert 'citation not found' not in run.flat(), run.screen.text()
             run.wait('F2 save answer and look into next')
             calls = run.calls()
             assert len(calls) == 1, calls
@@ -236,13 +306,20 @@ def full_journey(width, height):
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
+            # The displayed card comes from Seed Me, not model-written criteria.
+            run.read_until('"statement": "Refusals never show private text."')
+            # Inspect each page: the flag can be above the bottom viewport on either CI platform.
+            run.read_until('citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
             answered = next(n for n in ledger['nodes'] if n['id'] == 'storage')
             assert answered['answer'] == answer and answered['authority'] == 'user', answered
             seed = (session / 'seed-contract.md').read_text()
-            assert seed.endswith(helper.decisions_block(ledger)), seed
+            assert helper.read_checks(session) == SEED['checks']
+            assert helper.checks_block(SEED['checks']) in seed
+            assert helper.decisions_block(ledger) in seed, seed
+            assert seed.index('## Decisions (from the ledger)') < seed.index('## Knowledge map')
             assert 'MODEL-INVENTED' not in seed, seed
             assert len(run.calls()) == 2
             # The second step built on the saved finding, in the folder the operator picked.
@@ -252,14 +329,20 @@ def full_journey(width, height):
                 {'checked': 'README.md:3', 'observed': 'says local only'}], second['input']
             # The seed's grounding is the saved findings, word for word, before the decisions.
             date = ledger['nodes'][1]['evidence'][0]['at'][:10]
-            today = ("## What's true today\n"
+            today = ("## Evidence and uncertainty\n"
+                     "Grounded in:\n- README.md\n\n"
+                     "Provenance unavailable: reported reads do not verify filesystem origins or unrecorded reads. "
+                     "Some recorded findings have no attributable read path.\n\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}:\n"
                      f"- README.md:3: says local only (observed {date})\n"
+                     f"Checked by read-only file tools in {' '.join(str(target).split())}; "
+                     "citation not found: src/main.rs isn't in the folder:\n"
                      f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
-            assert today + helper.decisions_block(ledger) in seed, seed
-            fact = next(n for n in ledger['nodes'] if n['kind'] == 'fact')
-            assert (fact['status'], fact['authority'], fact['answer']) == (
-                'settled', 'evidence', 'the refusal path; the change touches it'), fact
+            assert today + '## Suggested first slice\n' in seed, seed
+            # Each finding appears once: the seed step's findings never become ledger facts (#161).
+            assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
+            for checked in ('README.md:3', 'src/main.rs:12'):
+                assert seed.count(checked) == 1, seed
             # Returning rereads the same session, including the garden's stage, without work.
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
@@ -314,15 +397,20 @@ def case(name, width=100, height=30):
             replies = [{**QUESTION, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model tries to confirm':
             replies = [{'next': 'confirm', 'revision': 'r1', 'source': 'yes'}]
+        if name == 'seed secret':
+            question = False
+            replies = [{**SEED, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model writes decisions':
             question = False
-            replies = [{'next': 'seed', 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
-        if name in ('practice confirmation', 'multiline confirmation'):
+            replies = [{**SEED, 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
+        if name in ('practice confirmation', 'multiline confirmation', 'confirmation hint', 'confirmation Enter'):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
+        if name == 'unfound citation':
+            replies = [{**QUESTION, 'id': 'Sync'}]
         if name == 'nothing found':
-            replies = [{**QUESTION, 'found': []}, {'next': 'seed', 'confirming': 'Fine.'}]
+            replies = [{**QUESTION, 'found': []}, {**SEED, 'found': []}]
         session = make(sessions, question=question, operator=operator)
-        if name in ('practice confirmation', 'multiline confirmation'):
+        if name in ('practice confirmation', 'multiline confirmation', 'confirmation hint', 'confirmation Enter'):
             (session / 'seed-contract.md').write_text(
                 'status: draft\n# TEST\nrevision: r1\n\n## You are confirming\nTEST.\n\n'
                 + helper.decisions_block(helper.load(session)))
@@ -357,6 +445,10 @@ def case(name, width=100, height=30):
                 run.wait("still counts against this run's budget.")
                 assert helper.load(session)['nodes'][1]['answer'] == 'Local.'
                 assert not (session / 'seed-contract.md').exists()
+            elif name == 'unfound citation':
+                run.wait('Keep records local or synced?')
+                run.type('Local.')
+                run.send(F2, "What I found: README.md:3: says local only (citation not found: README.md isn't in the folder)")
             elif name == 'nothing found':
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
@@ -366,16 +458,29 @@ def case(name, width=100, height=30):
                 ledger = helper.load(session)
                 assert helper.decisions_block(ledger) in (session / 'seed-contract.md').read_text()
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
+            elif name in ('confirmation hint', 'confirmation Enter'):
+                run.wait('Seed draft r1')
+                if name == 'confirmation hint':
+                    run.wait('a line saying you confirm, then F3')
+                run.wait('Confirming the seed is not approval to build.')
+                before = files(cwd)
+                run.send(b'\r', 'F3 confirms the seed; Enter does not add a line.')
+                run.wait('a line saying you confirm, then F3')
+                run.type('TEST I confirm r1.')
+                assert 'a line saying you confirm, then F3' not in run.flat(), run.screen.text()
+                run.send(b'\r' + F1, 'Read the seed, type your confirming words on one line')
+                run.send(b'\x1b', 'your words TEST I confirm r1.')
+                # F3 reaches Seed Me, not the multiline refusal: neither Enter inserted a break.
+                run.send(F3, 'Seed Me refused:')
+                assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
+                assert files(cwd) == before, 'Hint, Enter or refused F3 wrote a file'
+                assert run.calls() == [], 'Confirmation guidance called a model'
             elif name == 'multiline confirmation':
                 run.wait('Seed draft r1')
                 before = files(cwd)
-                # Both typed LF and pasted CR/CRLF refuse without normalizing the words.
+                # Pasted LF/CR/CRLF still refuse without normalizing the words.
                 for ending in ('\n', '\r', '\r\n'):
-                    if ending == '\n':
-                        run.type('I confirm')
-                        run.send(b'\rr1.', 'r1.')
-                    else:
-                        run.send(b'\x1b[200~' + ('I confirm' + ending + 'r1.').encode() + b'\x1b[201~', 'r1.')
+                    run.send(b'\x1b[200~' + ('I confirm' + ending + 'r1.').encode() + b'\x1b[201~', 'r1.')
                     run.send(F3, 'Put your confirming words on one line; nothing was confirmed.')
                     assert files(cwd) == before, 'Multiline F3 wrote a file'
                     assert run.calls() == [], 'Multiline F3 called a model'
@@ -403,6 +508,7 @@ def case(name, width=100, height=30):
                     'helper refusal': 'Your answer is saved. Seed Me refused: receipt appears to contain a secret',
                     'model tries to confirm': "Looking into the next question failed: The model's reply wasn't a question or a seed draft.",
                     'model writes decisions': "The drafted seed text didn't fit Seed Me's format, so nothing was saved.",
+                    'seed secret': 'A finding appears to contain a secret, so no seed was drafted',
                 }[name]
                 run.send(F2, expected)
                 assert run.flat().count('Next:') == 1, run.screen.text()
@@ -411,8 +517,8 @@ def case(name, width=100, height=30):
                     run.wait('Next: start Tinkery with --shape-budget CALLS')
                     run.wait('your answer Local.')
                     assert files(sessions) == before and run.calls() == [], 'Zero budget wrote or called'
-                elif name == 'model writes decisions':
-                    assert not (session / 'seed-contract.md').exists(), 'A model-written decisions block was saved'
+                elif name in ('model writes decisions', 'seed secret'):
+                    assert not (session / 'seed-contract.md').exists(), 'A model-written decisions block or a secret was saved'
                 else:
                     run.wait('Next: F2 looks into the next question.')
                     assert ledger['nodes'][1]['answer'] == 'Local.', ledger['nodes']
@@ -425,11 +531,15 @@ def case(name, width=100, height=30):
             run.close()
 
 
-for size in [(100, 30), (80, 24)]:
-    full_journey(*size)
-for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
-             'model writes decisions', 'practice confirmation', 'nothing found']:
-    case(name)
-case('zero budget', 80, 24)
-for size in [(100, 30), (80, 24)]:
-    case('multiline confirmation', *size)
+if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        full_journey(*size)
+    for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
+                 'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found']:
+        case(name)
+    case('zero budget', 80, 24)
+    for size in [(100, 30), (80, 24)]:
+        case('multiline confirmation', *size)
+        os.environ['NO_COLOR'] = '1'
+        case('confirmation hint', *size)
+        case('confirmation Enter', *size)

@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jon-devlapaz/seed-me
-          ref: c11a683f588a9971caaaaca838969877cbd24714
+          ref: 9ef827f92c79f5d53afd255ac0fb4ae32b85dd4f
           path: .ci-seed-me
       - name: Seed Me test runtime
         uses: actions/setup-python@v5

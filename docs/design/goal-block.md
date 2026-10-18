@@ -60,7 +60,7 @@ exactly, except the first letter's case, so “use IT” and “use it” are bo
 ### Prose and rendering
 
 Prose parts (why, done when, the goal line, `when`) are split into clauses
-and joined with `;`. A clause ends at `;` or a sentence end outside quotes (`"…"`,
+and joined with `;`. A clause ends at a newline, `;` or a sentence end outside quotes (`"…"`,
 `“…”`, `'…'` or `‘…’`; a single quote opens after a space or punctuation and closes
 at the last single quote of its kind, so an apostrophe never ends it early). A period
 between digits, or after a lone letter or a common abbreviation (“U.S.”, “e.g.”,
@@ -70,6 +70,11 @@ When later clauses of why, done when, the goal line or `when` are joined with `;
 a clause keeps its case unless its first word is one of a short list of common
 words (`the`, `it`, `both`…) written in lower or title case. Names, acronyms
 (including “IT”), quotes and numbers keep their case.
+
+The goal line does not repeat `who` when the outcome starts with that same subject
+(case-insensitively), followed by whitespace or a possessive `'s` / `’s` and whitespace.
+The possessive suffix stays attached: `Shape` + `Shape's goal list shows…` becomes
+`Shape's goal list shows…`, not `Shape Shape's…`. Other word prefixes stay intact.
 
 `GoalParts::compose` owns composition and runs once, when a reading is verified.
 `Board::goal` is then the displayed block: reading, copy, refinement, changed-line

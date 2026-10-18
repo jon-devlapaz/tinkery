@@ -167,7 +167,7 @@ fn reading_a_session_never_guesses() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(matches!(read(tmp.path()), Record::NotASession));
     fs::write(tmp.path().join("ledger.json"), r#"{"goal":"g"}"#).unwrap();
-    assert!(matches!(read(tmp.path()), Record::Unreadable));
+    assert!(matches!(read(tmp.path()), Record::Unreadable(_)));
     fs::write(
         tmp.path().join("ledger.json"),
         r#"{"status":"active","goal":"  "}"#,

@@ -392,6 +392,177 @@ fn where_a_goal_was_made_reads_back_and_older_records_say_unknown() {
 }
 
 #[test]
+fn batch_origins_match_individual_strict_history_attribution() {
+    for case in [
+        "valid",
+        "schema2",
+        "schema1-match",
+        "schema1-unrelated",
+        "duplicate",
+        "wrong-id",
+        "wrong-goal",
+        "missing-record",
+        "missing-root",
+        "root-is-file",
+        "missing-session",
+        "missing-id",
+        "changed-goal",
+        "unrelated-missing-session",
+        "malformed",
+        "unsupported",
+        "missing-repo",
+        "relative-repo",
+        "bad-reference",
+        "missing-path",
+        "wrong-folder",
+        "bad-turn",
+        "oversized",
+        "json-directory",
+        "stray-text",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let selected = session(dir.path(), "TEST-a");
+        let other = session(dir.path(), "TEST-b");
+        let outside = session(dir.path(), "TEST-outside");
+        let root = dir.path().join("TEST-records");
+        let path = record(&root, &selected, 10);
+        let other_record = record(&root, &other, 20);
+        record(&root, &outside, 30);
+        amend(&path, |v| v["repo"] = "/TEST/repo-a".into());
+        amend(&other_record, |v| v["repo"] = "/TEST/repo-b".into());
+        match case {
+            "schema2" => amend(&path, |v| {
+                v["schema"] = 2.into();
+                v.as_object_mut().unwrap().remove("repo");
+            }),
+            "schema1-match" => amend(&path, |v| {
+                v["schema"] = 1.into();
+                v.as_object_mut().unwrap().remove("seed_me_session_path");
+            }),
+            "schema1-unrelated" => {
+                let old = root.join("TEST-old.json");
+                fs::copy(&path, &old).unwrap();
+                amend(&old, |v| {
+                    v["schema"] = 1.into();
+                    v["seed_me_session"] = "TEST-unrelated".into();
+                });
+            }
+            "duplicate" => {
+                fs::copy(&path, root.join("TEST-duplicate.json")).unwrap();
+            }
+            "wrong-id" => amend(&path, |v| v["seed_me_session_id"] = "TEST-replaced".into()),
+            "wrong-goal" => amend(&path, |v| v["goal"] = "TEST different".into()),
+            "missing-record" => fs::remove_file(&path).unwrap(),
+            "missing-root" => {
+                fs::rename(&root, dir.path().join("TEST-moved-records")).unwrap();
+            }
+            "root-is-file" => {
+                fs::rename(&root, dir.path().join("TEST-moved-records")).unwrap();
+                fs::write(&root, "TEST not a directory").unwrap();
+            }
+            "missing-session" => fs::remove_file(selected.join("ledger.json")).unwrap(),
+            "missing-id" => amend(&selected.join("ledger.json"), |v| {
+                v.as_object_mut().unwrap().remove("session_id");
+            }),
+            "changed-goal" => amend(&selected.join("ledger.json"), |v| {
+                v["goal"] = "TEST changed".into()
+            }),
+            "unrelated-missing-session" => {
+                let unrelated = root.join("TEST-unrelated.json");
+                fs::copy(&path, &unrelated).unwrap();
+                amend(&unrelated, |v| {
+                    v["seed_me_session_path"] = dir
+                        .path()
+                        .join("TEST-absent")
+                        .to_string_lossy()
+                        .into_owned()
+                        .into();
+                    v["seed_me_session"] = "TEST-absent".into();
+                });
+            }
+            "malformed" => {
+                fs::write(root.join("TEST-broken.json"), "not JSON").unwrap();
+            }
+            "unsupported" => {
+                fs::write(root.join("TEST-future.json"), "{\"schema\":99}").unwrap();
+            }
+            "missing-repo" => amend(&path, |v| {
+                v.as_object_mut().unwrap().remove("repo");
+            }),
+            "relative-repo" => amend(&path, |v| v["repo"] = "TEST-relative".into()),
+            "bad-reference" => amend(&path, |v| {
+                v["seed_me_session_path"] = "TEST-relative".into()
+            }),
+            "missing-path" => amend(&path, |v| {
+                v.as_object_mut().unwrap().remove("seed_me_session_path");
+            }),
+            "wrong-folder" => amend(&path, |v| v["seed_me_session"] = "TEST-wrong-folder".into()),
+            "bad-turn" => amend(&path, |v| v["turns"][0]["at"] = "".into()),
+            "oversized" => File::create(&path)
+                .unwrap()
+                .set_len(MAX_RECORD_BYTES + 1)
+                .unwrap(),
+            "json-directory" => fs::create_dir(root.join("TEST-directory.json")).unwrap(),
+            "stray-text" => {
+                fs::write(root.join("TEST-ignore.txt"), "not JSON").unwrap();
+            }
+            "valid" => {}
+            _ => unreachable!(),
+        }
+        let sessions = [
+            (selected.as_path(), GOAL),
+            (other.as_path(), GOAL),
+            (outside.as_path(), GOAL),
+        ];
+        let individual: Vec<_> = sessions
+            .iter()
+            .map(|(path, goal)| read(&root, path, goal).map_or(MadeIn::Unknown, |h| h.made_in))
+            .collect();
+        let batch = read_origins(&root, &sessions)
+            .unwrap_or_else(|_| vec![MadeIn::Unknown; sessions.len()]);
+        assert_eq!(batch, individual, "TEST case {case}");
+        if case == "valid" {
+            assert_eq!(
+                batch,
+                vec![
+                    MadeIn::Repo("/TEST/repo-a".into()),
+                    MadeIn::Repo("/TEST/repo-b".into()),
+                    MadeIn::NoRepo
+                ]
+            );
+        }
+        if case == "duplicate" {
+            assert_eq!(batch[0], MadeIn::Unknown);
+            assert_eq!(batch[1], MadeIn::Repo("/TEST/repo-b".into()));
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn batch_and_history_refuse_noncanonical_sessions_and_symlink_records() {
+    use std::os::unix::fs::symlink;
+    let dir = tempfile::tempdir().unwrap();
+    let selected = session(dir.path(), "TEST-a");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &selected, 10);
+    amend(&path, |v| v["repo"] = "/TEST/repo-a".into());
+    let original = fs::read(&path).unwrap();
+    let alias = dir.path().join("TEST-alias");
+    symlink(&selected, &alias).unwrap();
+    amend(&path, |v| {
+        v["seed_me_session_path"] = alias.to_string_lossy().into_owned().into();
+        v["seed_me_session"] = "TEST-alias".into();
+    });
+    assert!(read(&root, &selected, GOAL).is_err());
+    assert!(read_origins(&root, &[(selected.as_path(), GOAL)]).is_err());
+    fs::write(&path, original).unwrap();
+    symlink(&path, root.join("TEST-link.json")).unwrap();
+    assert!(read(&root, &selected, GOAL).is_err());
+    assert!(read_origins(&root, &[(selected.as_path(), GOAL)]).is_err());
+}
+
+#[test]
 fn a_current_record_without_a_usable_repository_field_is_unreadable() {
     let dir = tempfile::tempdir().unwrap();
     let session = session(dir.path(), "TEST-a");

@@ -1,0 +1,40 @@
+TEST checkable seed.
+Build checkable output.
+Do not build without approval.
+Accepted unchanged: 0 defaults; chosen: 1 goal.
+No blocking unknowns or reversed decisions.
+
+## Problem statement
+Intake currently receives prose instead of independently checkable criteria.
+
+## Proposed outcome
+TEST I can check a seed.
+
+## Affected users and systems
+TEST seed intake and its operator.
+
+## Constraints and boundaries
+Keep my words. Must not: Build without approval.
+
+## Knowledge map
+What we know, with proof: see the helper-owned evidence below; no repository facts were recorded.
+What we know we don't know: the operator judges calmness.
+What we have not read: no repository files were read by this stub.
+What could surprise us: a missing criterion; re-check if Done when changes.
+
+## Suggested first slice
+Proposal only, once TEST-new-check exists:
+cmd: ./TEST-new-check
+cwd: .
+
+## Risks and verification
+Missing a criterion could weaken intake. All checks above are proposals, not completed verification.
+
+## Open questions and deferrals
+Calmness needs operator judgment; revisit after implementation. No blocking decisions remain.
+
+## Owners and next steps
+The operator judges calmness; implementation replaces the provisional command once it exists.
+
+## Downstream handoff
+Pass this session's seed-contract.md, ledger.json, seed-checks.json and seed-confirmation.json together. Check session.py status for handoff.verified; confirmation is not implementation approval.

@@ -1,7 +1,8 @@
 //! Shape: where a saved goal's seed stands, and working through Seed Me's interview to a seed.
 //!
 //! Opened on one session (from tend's detail) or as a list of goals waiting for a seed (from the
-//! menu). It shows the confirmed goal's first line, then one thing: the current question, the seed
+//! menu). Incomplete lists retain the unreadable count and never claim there are no waiting goals.
+//! It shows the confirmed goal's first line, then one thing: the current question, the seed
 //! draft, a ready seed, or an honest unknown or failure, with one next step. `F5` shows the whole
 //! goal exactly as recorded and each settled decision, and writes nothing. Opening,
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
@@ -12,6 +13,7 @@
 
 pub use step::Agent;
 
+mod discovery_help;
 mod step;
 mod words;
 
@@ -46,6 +48,10 @@ const WIDTH: u16 = 76;
 pub struct Shape {
     /// `None` when opened on one session; otherwise the list, pending until a read lands.
     list: Option<Option<Result<Vec<Session>, String>>>,
+    /// Session records discovery could not read; they may hide goals from the list.
+    unreadable: usize,
+    failures: Vec<crate::seed_me::ReadFailure>,
+    help_scroll: u16,
     selected: usize,
     open: Option<Opened>,
     scroll: u16,
@@ -109,6 +115,9 @@ impl Shape {
     pub fn session(skill: Option<&Path>, session: &Path) -> Self {
         Self {
             list: None,
+            unreadable: 0,
+            failures: Vec::new(),
+            help_scroll: 0,
             selected: 0,
             open: Some(Opened::start(skill, session)),
             scroll: 0,
@@ -149,6 +158,9 @@ impl Shape {
     pub fn list() -> Self {
         Self {
             list: Some(None),
+            unreadable: 0,
+            failures: Vec::new(),
+            help_scroll: 0,
             selected: 0,
             open: None,
             scroll: 0,
@@ -161,9 +173,13 @@ impl Shape {
         matches!(self.list, Some(None))
     }
 
-    /// The sessions a read found, or why it failed. Only goals waiting for a seed are listed.
-    pub fn offer(&mut self, read: Result<&[Session], String>) {
+    /// Supply readable sessions and the count of unreadable records, or the root failure.
+    /// Only goals waiting for a seed are listed. Failed reads discard any earlier count.
+    pub fn offer(&mut self, read: Result<&[Session], String>, unreadable: usize) {
         if self.list.is_some() {
+            self.failures.clear();
+            self.help_scroll = 0;
+            self.unreadable = if read.is_ok() { unreadable } else { 0 };
             let listed: Result<Vec<Session>, String> = read.map(|sessions| {
                 sessions
                     .iter()
@@ -270,6 +286,13 @@ impl Shape {
                         open.act(typing.act, agent);
                         return Leave::Stay;
                     }
+                    KeyCode::Enter if matches!(typing.act, Act::Confirm(_)) => {
+                        open.notice = Some((
+                            "F3 confirms the seed; Enter does not add a line.".into(),
+                            None,
+                        ));
+                        return Leave::Stay;
+                    }
                     KeyCode::Esc | KeyCode::F(_) | KeyCode::PageDown | KeyCode::PageUp => {}
                     _ => {
                         open.typed.key(key);
@@ -303,6 +326,9 @@ impl Shape {
                     // A step may have moved this goal on (a confirmed seed leaves the list).
                     self.open = None;
                     self.list = Some(None);
+                    self.unreadable = 0;
+                    self.failures.clear();
+                    self.help_scroll = 0;
                     self.scroll = 0;
                 }
                 KeyCode::Esc => return Leave::Back,
@@ -378,7 +404,7 @@ impl Shape {
                         "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call)."
                     }
                     (Some(_), Some(_)) => {
-                        "Read the seed, type your confirming words on one line, then F3 confirms it. Enter adds a line while editing. It is not approval to build."
+                        "Read the seed, type your confirming words on one line, then F3 confirms it. Enter shows guidance without changing your words. It is not approval to build."
                     }
                     _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
                 };
@@ -394,6 +420,7 @@ impl Shape {
                 "↑↓ / j k choose a goal waiting for a seed · Enter opens it.",
                 match &self.list {
                     Some(Some(Err(error))) => format!("What went wrong:\n{error}"),
+                    Some(Some(Ok(_))) if self.unreadable > 0 => self.discovery_help(),
                     _ => "Goals whose seed is ready, ended or unknown are in tend.".into(),
                 },
             ),
@@ -510,7 +537,27 @@ impl Shape {
         );
     }
 
-    fn render_list(&self, frame: &mut Frame, area: Rect, palette: Palette) {
+    fn render_list(&self, frame: &mut Frame, mut area: Rect, palette: Palette) {
+        if self.unreadable > 0 && matches!(&self.list, Some(Some(Ok(_)))) {
+            let records = if self.unreadable == 1 {
+                "record"
+            } else {
+                "records"
+            };
+            let notice = format!(
+                "{} {records} couldn't be read. F1 shows why.",
+                self.unreadable
+            );
+            let height = area.height.min(2);
+            frame.render_widget(
+                Paragraph::new(notice)
+                    .style(palette.muted)
+                    .wrap(Wrap { trim: false }),
+                Rect::new(area.x, area.y, area.width, height),
+            );
+            area.y += height;
+            area.height -= height;
+        }
         let message = match &self.list {
             Some(Some(Ok(sessions))) if !sessions.is_empty() => {
                 let width = area.width as usize;
@@ -537,6 +584,9 @@ impl Shape {
                 let top = (self.selected as u16).saturating_sub(area.height.saturating_sub(1));
                 frame.render_widget(Paragraph::new(lines).scroll((top, 0)), area);
                 return;
+            }
+            Some(Some(Ok(_))) if self.unreadable > 0 => {
+                "Nothing can be listed from the readable sessions. Esc goes back."
             }
             Some(Some(Ok(_))) => {
                 "No goals are waiting for a seed. Confirm a goal in think, then shape it here."
@@ -1012,6 +1062,15 @@ fn render_open(
     input_area.height = input_height.saturating_sub(before_height + after_height);
     if let Some(editor) = editor {
         editor.render(frame, input_area, palette, open.running.is_some());
+        if label == Some("your words") && editor.text().is_empty() {
+            frame.render_widget(
+                Paragraph::new("a line saying you confirm, then F3").style(palette.muted),
+                Rect {
+                    height: input_area.height.min(1),
+                    ..input_area
+                },
+            );
+        }
     }
     input_area.y += input_area.height;
     input_area.height = after_height;

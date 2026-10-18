@@ -7,7 +7,7 @@ const SKILL: &str = "# Seed Me\nIgnored preamble.\n### Shape the working draft\n
 
 /// The system prompts Pi receives for one send: the reading, then the decision review.
 #[cfg(unix)]
-fn sent_prompts() -> (String, String) {
+fn sent_prompts(words: &str) -> (String, String) {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let skill = dir.path().join("SKILL.md");
@@ -18,6 +18,7 @@ import json,sys,pathlib
 root=pathlib.Path(__file__).parent
 r=json.load(sys.stdin)
 kind=r.get('kind','shape')
+(root/('request-'+kind)).write_text(json.dumps(r))
 p=sys.argv[sys.argv.index('--system-prompt')+1]
 (root/('prompt-'+kind)).write_bytes(p.encode('utf-8'))
 if kind=='decision-review':print(json.dumps(dict(decisions=[])));sys.exit(0)
@@ -29,7 +30,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='it matt
         ask_counts: Default::default(),
         sources: vec![Source {
             id: 1,
-            text: "the restaurateur judges the result".into(),
+            text: words.into(),
             in_reply_to: None,
         }],
         fragments: vec![],
@@ -40,6 +41,10 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='it matt
         layout: vec![],
     };
     pi.reshape(request, &AtomicBool::new(false)).unwrap();
+    let sent: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("request-shape")).unwrap())
+            .unwrap();
+    assert_eq!(sent["sources"][0]["text"], words);
     let read =
         |kind: &str| std::fs::read_to_string(dir.path().join(format!("prompt-{kind}"))).unwrap();
     (read("shape"), read("decision-review"))
@@ -55,9 +60,113 @@ fn recorded(name: &str) -> String {
 #[cfg(unix)]
 #[test]
 fn prompts_reach_pi_byte_for_byte_as_recorded() {
-    let (reading, review) = sent_prompts();
+    let (reading, review) = sent_prompts("the restaurateur judges the result");
     assert_eq!(reading, recorded("reading.txt"));
     assert_eq!(review, recorded("decision_review.txt"));
+}
+
+/// Pins the sent rule, not the model's compliance: that requires the separately budgeted live eval.
+#[cfg(unix)]
+#[test]
+fn slice_exclusion_rule_reaches_pi_with_the_recorded_169_dump() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("exclusion_replay.json")).unwrap();
+    let (prompt, _) = sent_prompts(fixture["words"].as_str().unwrap());
+    for rule in [
+        "Explicit exclusions such as \"do not fix X in this slice\" belong in must_not with their scope qualifier intact, never as positive work in deferred or other_goals.",
+        "Deferred items require an affirmative request to do the work later; being excluded now is not that request.",
+        "If the person both excludes work now and asks for it later, retain the current-slice must_not and the separately scoped deferred request.",
+    ] {
+        assert!(
+            prompt.contains(rule),
+            "Missing sent exclusion/deferral rule: {rule}"
+        );
+    }
+}
+
+/// Replay of eval2-think/decoder-probe-v2/array_original.json (#202), through a stub Pi.
+#[cfg(unix)]
+#[test]
+fn recorded_done_when_list_survives_stub_replay() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("done_when_replay.json")).unwrap();
+    let raw = fixture["replies"][0]["text"].as_str().unwrap();
+    let recorded: serde_json::Value = serde_json::from_str(raw).unwrap();
+    let checks: Vec<_> = recorded["parts"]["done_when"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    let dir = tempfile::tempdir().unwrap();
+    let skill = dir.path().join("SKILL.md");
+    std::fs::write(&skill, SKILL).unwrap();
+    let program = dir.path().join("pi");
+    std::fs::write(dir.path().join("reply"), raw).unwrap();
+    std::fs::write(
+        &program,
+        r#"#!/usr/bin/env python3
+import json,sys,pathlib
+r=json.load(sys.stdin)
+if r.get('kind')=='decision-review':print('{"decisions":[]}')
+else:print(pathlib.Path(__file__).with_name('reply').read_text())
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let words = fixture["words"].as_str().unwrap();
+    let request = BoardRequest {
+        ask_counts: Default::default(),
+        sources: vec![Source {
+            id: 1,
+            text: words.into(),
+            in_reply_to: None,
+        }],
+        fragments: vec![],
+        previous: None,
+        skipped: vec![],
+        answered: vec![],
+        settled: vec![],
+        layout: vec![],
+    };
+    for done_when in [
+        recorded["parts"]["done_when"].clone(),
+        checks.join("\n").into(),
+    ] {
+        let mut reply = recorded.clone();
+        reply["parts"]["done_when"] = done_when;
+        let sent = if reply == recorded {
+            raw.to_owned()
+        } else {
+            reply.to_string()
+        };
+        std::fs::write(dir.path().join("reply"), &sent).unwrap();
+        let guess = pi
+            .reshape(request.clone(), &AtomicBool::new(false))
+            .unwrap();
+        assert_eq!(
+            guess.parts.done_when.as_deref(),
+            Some(checks.join("\n").as_str())
+        );
+        assert!(guess.questions.is_empty(), "{:?}", guess.questions);
+        let board = board::Board::verify(guess, &request).unwrap();
+        let reading = &board.reading.as_ref().unwrap().text;
+        let mut text_reply = recorded.clone();
+        text_reply["parts"]["done_when"] = checks.join("\n").into();
+        let expected = Guess::decode(&text_reply.to_string(), &request, &mut vec![]).unwrap();
+        let expected = board::Board::verify(expected, &request).unwrap();
+        assert_eq!(reading, &expected.reading.as_ref().unwrap().text);
+        assert!(board.questions.is_empty());
+        assert_eq!(request.sources[0].text, words);
+        let record: checks::Decision =
+            serde_json::from_str(pi.diagnostics().last().unwrap()).unwrap();
+        assert_eq!(
+            record.raw.as_deref().map(str::trim_end),
+            Some(sent.trim_end())
+        );
+    }
 }
 
 /// Fields the decoder still accepts from older replies but the prompt no longer asks for.

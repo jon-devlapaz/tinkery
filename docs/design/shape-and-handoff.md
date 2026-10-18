@@ -21,8 +21,35 @@ The plain-text exit receipt may include recovery locations.
 
 ## Tend: garden and detail
 
-Tend displays every discovered active goal in one static graph, without paging or
-node cap. Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
+Inside a repository, Tend starts with only active goals whose attributed Think
+record names that exact repository root. A muted `this repo · a all` line offers
+`a` to show every active goal; `all · a this repo` toggles back. Outside a repo,
+all goals show without a toggle. Unknown, missing, older or conflicting records
+never guess a repo; those goals remain under all. An empty repo view still offers
+`a`. If any active goal lacks attributable repo information, say `N goals have no
+readable repo record. Press a for all goals.`, not that this repo has no goals.
+Explicit no-repo records are known non-matches; older records without repo
+information are unknown. Only with no unknown active goals or unreadable sessions
+may an empty repo view say `No active goals are recorded for this repo.` With
+unreadable sessions, say `N saved records couldn't be read; this repo may have
+active goals. Press a for all goals.` Ended counts remain visible. Reopening Tend
+starts with this repo again; explicit receipt or Shape returns still open the
+exact saved goal, switching to all if necessary.
+
+Filtering reads existing records on discovery's worker, never during painting,
+and writes nothing. Each discovery enumerates the Think record root once and
+reads each JSON record at most once, rebuilding an in-memory attribution index;
+refreshes never reuse an earlier index. It shares history's strict validation and
+rechecks session identity and goal across the scan. Malformed or unsupported files
+make every origin unknown; duplicate paths and matching schema-1 records refuse
+attribution, never choose a winner. The index keeps paths, identities, exact goals
+and origins, not turns or checks; the 16 MiB per-file limit remains, with no total
+index-size cap. Links, identity checks and readiness still use every readable
+session, including other repos and ended goals. Use all to link across repos;
+`a` does nothing during linking, detail, history, help or pending/failed reads.
+
+Tend displays the visible goals in one static graph, without paging or node cap.
+Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
 Needs lines join only active, uniquely identified endpoints. Missing, ambiguous or
 ended endpoints draw no line; the selected-line summary still names them. Straight
 lines leave gaps around unrelated rings, never implied junctions or routed paths.
@@ -31,9 +58,13 @@ Seed Me sessions stay read-only; linking writes only Tend's store.
 Ended sessions are omitted. `N ended not shown` and
 `Links couldn't be read. F1 then h for details.` share the muted incomplete-read
 row, joined by ` · `, even with no active goals, and survive navigation. An
-unreadable-links refusal replaces, rather than repeats, the note. If all readable
-sessions ended, say `No active goals. N ended not shown. Confirm a goal in think to
-start one.`, not that no sessions exist.
+unreadable-links refusal replaces, rather than repeats, the note. When an empty
+view's body reports unreadable sessions, the footer keeps ended and link notes
+without repeating that count. This applies to repo and all-goals views, including
+outside a repository. An incomplete empty all-goals view says `N saved records
+couldn't be read, so nothing can be listed. Esc goes back.`, never `No active goals`.
+Only when every session was readable and ended, say `No active goals. N ended not
+shown. Confirm a goal in think to start one.`, not that no sessions exist.
 
 Labels use the first saved-goal line, including unstructured goals. They sit above
 or below rings, clipped with `…` or omitted rather than overlapping or interleaving.
@@ -95,8 +126,8 @@ Unknown and practice stages stay distinct.
 Pending empty views say reading or still reading; failed reads say unavailable with F1 then
 `h`. Only complete current empty reads say no sessions. Incomplete reads retain
 valid goals with an unreadable-record count and missing-sessions warning. If none
-are readable, say nothing can be listed, not “no sessions”. Reading, unavailable
-and empty views offer only `esc back`.
+are readable, say nothing can be listed, not “no sessions”. Reading and unavailable
+views offer only `esc back`; an empty repo view also offers `a toggle goals`.
 
 ## Think history
 
@@ -194,6 +225,27 @@ dumps. Never use a second implicit HOME default. [Discovery](menu.md#session-dis
 owns root selection. Recovery errors stay explicit. Tests use temporary roots;
 the external CI-pinned Seed Me fixture is neither vendored nor edited here.
 
+### SDLC handoff
+
+Goal and seed confirmation, SDLC definition approval and implementation permission
+are separate decisions. External tink-sdlc intake preserves the confirmed seed and
+imports its acceptance checks as locked definitions, reported separately from
+worker-written supporting checks. Editing or dropping an imported check stales the
+definition gate. Settled commands must succeed; prose `expect:` also needs operator
+attestation. Provisional checks stay pending until activated with prerequisite
+evidence and renewed definition approval; `you judge:` stays manual.
+
+Locked checks protect the agreement but don't prove the checks are strong.
+Hash-bound local receipts detect changed definitions; they are not authenticated
+operator approval.
+
+The [handoff regression](../../tests/shape_sdlc_handoff.py) carries Shape's real
+seed writer through confirmation, a fresh TEST-only SDLC install and intake:
+a failing confirmed command blocks verification despite passing worker-written
+checks, and a passing command completes it. Dropping seed enforcement turns the
+regression red; restoring it restores blocking. Its confirmations, approvals and
+attestations are TEST fixtures, never the operator's.
+
 ## Shape
 
 Think settles intent; Shape investigates facts, then asks one decision at a time
@@ -203,8 +255,7 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
   `publish`, `status`, `seed confirm`); propose Seed Me changes in its repository.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
-- Goal confirmation, seed confirmation and implementation approval stay separate;
-  Shape never reasks settled Think intent or changes the confirmed goal.
+- Shape never reasks settled Think intent or changes the confirmed goal.
 - Failed reads, unknown stages and stale confirmations get honest reasons and one
   next step.
 
@@ -214,6 +265,18 @@ Tend detail offers `s shape` beside copying on goal-saved, seed-drafted and
 seed-needs-checking stages; Esc returns there. Menu place 3 lists only goal-saved
 or seed-drafted sessions. Enter opens one; Esc returns to the list. Held `s` or Enter
 opens nothing.
+
+The menu passes discovery's unreadable-record count with its readable sessions.
+Both empty and populated incomplete lists show the count and `F1 shows why`.
+F1 lists up to eight actual failed paths and their read/parse reasons, then says
+how many more unreadable records are not listed. Reasons retain at most 512
+characters plus an ellipsis; display escapes controls without changing paths.
+PgUp/PgDn scroll the wrapped help, with close keys always visible. Inspect the
+listed files, then return to the menu and reopen Shape to read again. Fresh or
+failed reads discard earlier details. Seed-read failures still mean an unknown
+stage, not an unreadable session. Partial empty reads never say no goals are waiting.
+A complete empty read keeps `No goals are waiting for a seed.` Session eligibility
+and refresh rules are unchanged; list navigation writes nothing and calls no helper or model.
 
 The screen starts with the confirmed goal's first line in ink:
 
@@ -252,7 +315,7 @@ unchanged. `status` probes the session's recorded viewer URL as a local read.
   other states and failure notices keep exactly one.
 - Words boxes use ratatui-textarea, titled `your answer`, `your words` or `Folder:`.
   Arrows, Home, End, Ctrl+Left and Ctrl+Right move the cursor; Shift selects.
-  Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline; Ctrl+U undoes
+  Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline except at seed confirmation; Ctrl+U undoes
   and Ctrl+R redoes. PgUp and PgDn scroll only the reading. Pasted CR and CRLF
   display as breaks; edits preserve untouched raw endings. Under seed words, say seed confirmation is not approval to build.
 - Running steps keep label, question and typed words muted, with one status
@@ -278,25 +341,62 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   Seed Me's editable ledger. Replies require `found` entries (checks, paths, lines
-  and observations) plus a next question and suggestion, or seed `You are confirming` text;
-  anything else is a model error. `src/shape/prompt.txt` has one rule per line;
-  it is not eval-tuned.
+  and observations) plus a next question and suggestion, or seed summary, prose sections
+  and a separate final `checks` field;
+  anything else is a model error. `src/shape/prompt.txt` has one rule per line.
+  It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
+  a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
   Exhaustion refuses F2 before saving anything and explains how to allow calls.
 - Tinkery, never the model, calls helpers. Answers and questions use `read --editable`
   and `publish` with the displayed version or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
-- Tinkery drafts `seed-contract.md`: `status: draft`, goal-headline title,
-  `revision: rN` one past the previous draft (never replace a confirmed seed),
-  model text under `## You are confirming`, saved findings under
-  `## What's true today`, then `session.py seed decisions` output verbatim.
-  The model writes neither findings nor decisions. Refuse injected headings, fences,
-  status, revision or confirmation lines. Never draft with an open decision.
+- Seed Me's [seed contract](https://github.com/jon-devlapaz/seed-me/blob/main/skills/seed-me/references/seed-contract.md)
+  owns the draft format; Shape passes the installed reference to each step, rather
+  than defining another layout. Tinkery writes `status: draft`, the goal-headline
+  title, `revision: rN` one past the previous draft, and a separate `date:` line.
+  An older writer can still increment the revision after rollback. Never replace
+  a confirmed seed. The model supplies the summary and canonical prose sections,
+  excluding Acceptance criteria; reasoning, findings and questions keep their existing
+  free-text transport, not a new whole-reply schema. Tinkery follows the installed
+  contract's exact Full heading sequence: `session.py seed decisions` output goes
+  before Knowledge map, and recorded Evidence and uncertainty before Suggested first
+  slice. Host-owned heading lines use LF while prose keeps its line endings.
+  Helper blocks remain verbatim, with no extra wrapper headings.
+  Refuse missing, duplicate, reordered or foreign model headings, fences, metadata
+  or confirmation lines. Never draft with an open decision.
+- The separate final `checks` field carries every confirmed `Done when` line with
+  its qualifiers as records in Seed Me's installed contract, not model-formatted
+  criteria. Tinkery passes those records unchanged to `seed checks set`; the
+  helper alone validates required fields, kinds, unknown fields and repository-relative
+  `cwd`. Invalid records refuse drafting. There is no Markdown-criteria writing
+  path or backward compatibility. Tinkery inserts `seed checks render` output
+  verbatim before Affected users and systems, then displays that saved card.
+  No check executes during the interview.
+  Copy settled commands exactly. Repository-grounded proposals name source paths
+  and lines in `source`; behavior-specific regressions name the assertion expected
+  to fail before the change or under targeted reversion. Inspection is not observed
+  red or green. Routine setup or an unperformed reversion probe does not make an
+  existing check provisional; missing assertions, tests or invocations do, with
+  `missing` naming the gap. Never invent commands or substitute a generic runner
+  for a missing regression. Taste stays `judge` with what the operator inspects.
+  If requested behavior appears present, propose verification and repairs only for
+  demonstrated gaps. Settled and explicitly deferred decisions stay settled;
+  deferrals remain operator prerequisites, not chosen alternatives.
+  Seed confirmation v2 binds canonical records, rendered seed bytes and decisions.
+  Missing, changed or stale records invalidate readiness; renewed displayed drafting
+  and explicit confirmation are required. A failure after storing records can leave
+  unconfirmed records, never a verified handoff.
+  These are drafting instructions, not a semantic completeness validator: stubs prove
+  transport and preservation, not model quality or operator dogfood.
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
   Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
   CR or LF with `Put your confirming words on one line; nothing was confirmed.`
-  It retains words and neither writes nor calls. The editor accepts breaks, but
-  confirmation is one `Confirmed by:` line. Seed Me's contract and helper are unchanged.
+  It retains words and neither writes nor calls. The empty `your words` field shows
+  the muted hint `a line saying you confirm, then F3`; typing hides it. Enter says
+  `F3 confirms the seed; Enter does not add a line.` without changing the words.
+  Pasted breaks remain intact, but confirmation is one `Confirmed by:` line.
+  Seed Me owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. Budget exhaustion points to
   `--shape-budget`; a model error or stop offers F2 retry (saved answers stay saved);
@@ -315,22 +415,31 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Each `found` becomes a Seed Me receipt: `checked`, `at`, `observed`,
   `check: read-only file tools in FOLDER`. Question findings attach to its decision
   and display `What I found: PATH:LINE: what was seen`. Seed findings include blast
-  radius (files, modules, tests and breakage) and become settled evidence-authority
-  observation facts, included in `seed decisions`. Use the existing ledger and contract.
+  radius (files, modules, tests and breakage) and go only into the seed, never the
+  ledger, so each appears once and later steps don't see them in `found_so_far`.
+  A seed finding that looks like a secret refuses the draft, as Seed Me refuses one in a receipt.
 - `found_so_far` excludes only confirmed-goal provenance; recheck relied-on findings.
-- `## What's true today` groups verbatim findings by check method as
+- `Grounded in:` lists deduplicated paths cited by recorded read-only findings.
+  Missing read methods, absent citations and failed citation checks establish no
+  read path; say when none are known. These are reported reads, not verified
+  filesystem origins or an inventory of unrecorded reads; name those provenance
+  gaps rather than inventing them.
+- The evidence section groups verbatim findings by check method as
   `- PATH:LINE: what was seen (observed DATE)`, collapsing internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
+- A finding citing `PATH:LINE` or `PATH:FIRST-LAST` that the folder lacks (missing, outside
+  it, or too few lines) is flagged, not refused: its check ends `; citation not found: WHY`,
+  questions show `(citation not found: WHY)` and the seed groups it under that check.
+  This proves the lines exist, not what they say.
 - Questions or seeds with no findings display `Nothing found: this question records nothing
   checked in the repository.` (seed wording for seeds), flagged rather than refused.
-
-Think's typed `confirm`, Shape's F3 with operator words and future approval remain
-separate screens and decisions.
 
 ## Rationale and verification
 
 [Tests](../../tests) cover these contracts with stubs and temporary TEST roots.
+Shape compares saved drafts with Seed Me and a [pinned consumer section list](../../tests/fixtures/tink-sdlc-intake-sections.txt),
+never an operator's consumer checkout.
 PTYs preserve Seed Me fixture bytes and cover
 80×24, 100×30, 160×40 and 320×40 where applicable, including NO_COLOR. These establish
 mechanics, not operator acceptance or the quality of real goals, questions or seeds. Lock timeout

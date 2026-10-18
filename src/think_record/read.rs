@@ -2,7 +2,10 @@
 //! one schema-2 or schema-3 record with the exact session path and Seed Me identity, and an unchanged goal.
 //! Older records cannot prove that connection; malformed files cannot hide a possible duplicate.
 
-use super::{Event, SCHEMA, session_id};
+mod origins;
+pub(crate) use origins::read_origins;
+
+use super::{Event, GoalConfirmation, SCHEMA, session_id};
 use crate::seed_me;
 use serde::Deserialize;
 use std::{
@@ -71,7 +74,8 @@ impl Unavailable {
 }
 
 // Limit each file before parsing or formatting its checks. A larger record is unavailable,
-// never partially shown. Scanning holds at most one selected record plus one file in memory.
+// never partially shown. History holds one selected record plus one file; batch attribution
+// keeps only paths, identities, goals and origins after each file is validated.
 const MAX_RECORD_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Deserialize)]
@@ -92,6 +96,8 @@ struct SavedRecord {
     turns: Vec<RecordedTurn>,
     checks: Vec<serde_json::Value>,
     goal: String,
+    #[serde(default)]
+    goal_confirmation: GoalConfirmation,
 }
 
 /// Reads the unique history for `session` and its exact `goal`, without writing or running
@@ -100,13 +106,7 @@ struct SavedRecord {
 /// must retain the same goal and identity before and after the scan; moved sessions are not guessed.
 pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavailable> {
     let selected = current_session(session, goal)?;
-    let entries = match fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Err(missing(root));
-        }
-        Err(error) => return Err(Unavailable::unreadable(root, error)),
-    };
+    let entries = entries(root)?;
     let mut found = None;
     for entry in entries {
         let path = entry
@@ -128,31 +128,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             }
             continue;
         }
-        let stored = record
-            .seed_me_session_path
-            .as_ref()
-            .ok_or_else(|| Unavailable::unreadable(&path, "the saved session path is missing"))?;
-        if !stored.is_absolute()
-            || stored
-                .components()
-                .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
-            || record.seed_me_session != session_id(stored)
-        {
-            return Err(Unavailable::unreadable(
-                &path,
-                "the saved session reference is invalid",
-            ));
-        }
-        // A changed symlink cannot turn a noncanonical reference into a match. Missing unrelated
-        // sessions are allowed: their old absolute locator still does not identify this session.
-        if let Ok(canonical) = stored.canonicalize()
-            && canonical != *stored
-        {
-            return Err(Unavailable::unreadable(
-                &path,
-                "the saved session path is no longer canonical",
-            ));
-        }
+        let stored = reference(&path, &record)?;
         if *stored != selected.0 {
             continue;
         }
@@ -193,15 +169,12 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             "Open the saved goal again before reading its history.",
         ));
     }
-    let made_in = match (record.schema, record.repo) {
-        (2, _) => MadeIn::Unknown,
-        (_, Some(root)) => MadeIn::Repo(root),
-        (_, None) => MadeIn::NoRepo,
-    };
+    let made_in = origin(record.schema, record.repo);
     let details = format!(
         concat!(
             "Think record: {}\nSession: {}\nSession ID: {}\nRepository: {}\nFormat: {}\nTinkery: {}\n",
-            "Origin: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n\nChecks:\n{}"
+            "Origin: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n",
+            "Goal confirmer (caller-declared, not authenticated): {}\n\nChecks:\n{}"
         ),
         path.display(),
         selected.0.display(),
@@ -219,6 +192,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         record.prompt_hash.as_deref().unwrap_or("not recorded"),
         record.started,
         record.confirmed,
+        record.goal_confirmation.details(),
         serde_json::to_string_pretty(&record.checks).expect("JSON values always serialize"),
     );
     Ok(History {
@@ -227,6 +201,54 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         made_in,
         details,
     })
+}
+
+fn entries(root: &Path) -> Result<fs::ReadDir, Unavailable> {
+    #[cfg(test)]
+    counts::scan(root);
+    fs::read_dir(root).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            missing(root)
+        } else {
+            Unavailable::unreadable(root, error)
+        }
+    })
+}
+
+fn reference<'a>(path: &Path, record: &'a SavedRecord) -> Result<&'a PathBuf, Unavailable> {
+    let stored = record
+        .seed_me_session_path
+        .as_ref()
+        .ok_or_else(|| Unavailable::unreadable(path, "the saved session path is missing"))?;
+    if !stored.is_absolute()
+        || stored
+            .components()
+            .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
+        || record.seed_me_session != session_id(stored)
+    {
+        return Err(Unavailable::unreadable(
+            path,
+            "the saved session reference is invalid",
+        ));
+    }
+    // Missing unrelated sessions are allowed, but changed symlinks cannot become matches.
+    if let Ok(canonical) = stored.canonicalize()
+        && canonical != *stored
+    {
+        return Err(Unavailable::unreadable(
+            path,
+            "the saved session path is no longer canonical",
+        ));
+    }
+    Ok(stored)
+}
+
+fn origin(schema: u8, repo: Option<PathBuf>) -> MadeIn {
+    match (schema, repo) {
+        (2, _) => MadeIn::Unknown,
+        (_, Some(root)) => MadeIn::Repo(root),
+        (_, None) => MadeIn::NoRepo,
+    }
 }
 
 fn missing(root: &Path) -> Unavailable {
@@ -265,6 +287,8 @@ fn current_session(session: &Path, goal: &str) -> Result<(PathBuf, String), Unav
 }
 
 fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
+    #[cfg(test)]
+    counts::file(path);
     let metadata =
         fs::symlink_metadata(path).map_err(|error| Unavailable::unreadable(path, error))?;
     if !metadata.is_file() {
@@ -315,6 +339,10 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
     }
     let record: SavedRecord =
         serde_json::from_value(value).map_err(|error| Unavailable::unreadable(path, error))?;
+    record
+        .goal_confirmation
+        .validate()
+        .map_err(|error| Unavailable::unreadable(path, error))?;
     if record.schema >= 2
         && record
             .seed_me_session_id
@@ -336,4 +364,8 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
 }
 
 #[cfg(test)]
+mod counts;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) use counts::count_reads;

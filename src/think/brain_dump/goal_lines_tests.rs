@@ -1,7 +1,109 @@
-use super::readiness_tests::{app, parts};
+use super::readiness_tests::{app, app_with_source, parts};
 use super::tests::settle;
 use super::*;
 
+/// Scripted classifications prove display/handoff mechanics, not prompt compliance or semantic repair.
+#[test]
+fn recorded_169_exclusions_and_affirmative_deferrals_keep_their_scripted_categories() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("exclusion_replay.json")).unwrap();
+    let words = fixture["words"].as_str().unwrap();
+    let recorded: serde_json::Value =
+        serde_json::from_str(fixture["raw"].as_str().unwrap()).unwrap();
+    let excluded = [
+        "fix incomplete discovery (#167 F2) in this slice",
+        "fix process lifetime (F3) in this slice",
+        "fix stale return (#165) in this slice",
+        "add selected-detail verification in this slice",
+    ];
+    // Negative control: the old model reply stays misclassified; no decoder heuristic repairs it.
+    let old = app_with_source(recorded.clone(), words);
+    assert_eq!(old.conversation.board().unwrap().deferred.len(), 4);
+    assert!(
+        !old.conversation
+            .board()
+            .unwrap()
+            .parts
+            .must_not
+            .iter()
+            .any(|v| v.contains("incomplete discovery"))
+    );
+    assert_eq!(old.conversation.sources()[0].text, words);
+
+    for later in [None, Some("After this slice, fix stale return (#165).")] {
+        let source = match later {
+            Some(request) => format!("{words}\n{request}"),
+            None => words.to_owned(),
+        };
+        // Deliberately faithful fixture, not a response produced or corrected by the prompt.
+        let mut faithful = recorded.clone();
+        faithful["parts"]["must_not"]
+            .as_array_mut()
+            .unwrap()
+            .extend(excluded.iter().map(|v| serde_json::json!(v)));
+        faithful["deferred"] = serde_json::json!(later.into_iter().collect::<Vec<_>>());
+        let mut a = app_with_source(faithful, &source);
+        let board = a.conversation.board().unwrap();
+        let goal = board.goal().unwrap().to_owned();
+        for item in excluded {
+            assert!(board.parts.must_not.iter().any(|v| v == item));
+            assert!(goal.contains(&format!("Must not: {item}.")));
+            assert!(!board.parts.must.iter().any(|v| v.contains(item)));
+        }
+        assert_eq!(board.deferred, later.into_iter().collect::<Vec<_>>());
+        let paper = a.copy_text();
+        assert!(!paper.contains("for the seed: Fix incomplete discovery"));
+        if let Some(request) = later {
+            assert!(paper.contains(&format!("for the seed: {request}")));
+        }
+        a.review_goal();
+        let frozen = &a.handoff.review.as_ref().unwrap().affirmation;
+        assert_eq!(frozen.goal, goal);
+        assert_eq!(frozen.deferred, later.into_iter().collect::<Vec<_>>());
+        assert_eq!(a.conversation.sources()[0].text, source);
+    }
+}
+
+#[test]
+fn possessive_subject_in_stub_outcome_is_composed_once() {
+    const ORIGINAL: &str = "Shape's goal list says when some sessions couldn't be read, instead of claiming nothing is waiting. ...";
+    for subject in ["Shape's", "Shape’s"] {
+        let headline = format!("{subject} goal list shows an incomplete-read notice");
+        let mut a = app_with_source(
+            serde_json::json!({"parts": {
+                "who": "Shape", "outcome": headline
+            }}),
+            ORIGINAL,
+        );
+        let goal = format!("{headline}.");
+        assert_eq!(a.conversation.board().unwrap().goal(), Some(goal.as_str()));
+        assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
+        for mono in [false, true] {
+            let screen = snapshot(320, 40, &mut a, mono).unwrap();
+            assert!(screen.contains(&goal));
+            assert!(!screen.contains("Shape Shape"));
+        }
+        assert!(a.copy_text().contains(&goal));
+        a.review_goal();
+        assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+        assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
+    }
+}
+#[test]
+fn subject_prefix_without_a_boundary_is_not_removed() {
+    for outcome in [
+        "Shapes stay distinct",
+        "Shape'sake stays literal",
+        "Shape’sake stays literal",
+    ] {
+        let p = GoalParts {
+            who: Some("Shape".into()),
+            outcome: Some(outcome.into()),
+            ..Default::default()
+        };
+        assert_eq!(p.goal_line().unwrap(), format!("Shape {outcome}"));
+    }
+}
 #[test]
 fn outcome_is_a_behaviour_without_forced_can() {
     let p = GoalParts {

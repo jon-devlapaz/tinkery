@@ -162,7 +162,7 @@ fn clauses(text: &str) -> Vec<String> {
                 .and_then(|n| chars.get(n))
                 .is_none_or(|c| !c.is_alphanumeric());
         if quote.is_none()
-            && (c == ';'
+            && (matches!(c, ';' | '\n')
                 || (matches!(c, '.' | '!' | '?')
                     && !decimal
                     && !initial
@@ -298,26 +298,35 @@ impl GoalParts {
             .filter(|p| self.get(*p).is_none())
     }
     /// The block's first line, "Who outcome, when", without its final period. `None` until
-    /// who and outcome both exist. A who repeated at the start of the outcome, or a `when`
-    /// the line already says, isn't said twice.
+    /// who and outcome both exist. A who repeated at the start of the outcome (including
+    /// its possessive form), or a `when` the line already says, isn't said twice.
     pub fn goal_line(&self) -> Option<String> {
         let (who, outcome) = (self.get(Part::Who)?, self.get(Part::Outcome)?);
         let raw_who = prose(who);
         let who = capitalise(&raw_who);
         let mut outcome = prose(outcome);
+        let mut separator = " ";
         if outcome
             .get(..raw_who.len())
             .is_some_and(|prefix| identity(prefix) == identity(&raw_who))
-            && outcome
-                .get(raw_who.len()..)
-                .is_some_and(|rest| rest.starts_with(char::is_whitespace))
+            && outcome.get(raw_who.len()..).is_some_and(|rest| {
+                rest.starts_with(char::is_whitespace)
+                    || ["'s", "’s"].iter().any(|suffix| {
+                        rest.strip_prefix(suffix)
+                            .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+                    })
+            })
         {
-            outcome = outcome[raw_who.len()..].trim_start().to_owned();
+            let rest = &outcome[raw_who.len()..];
+            if !rest.starts_with(char::is_whitespace) {
+                separator = "";
+            }
+            outcome = rest.trim_start().to_owned();
         }
         while outcome.starts_with("can can ") {
             outcome = outcome[4..].to_owned();
         }
-        let mut goal = format!("{who} {outcome}");
+        let mut goal = format!("{who}{separator}{outcome}");
         if let Some(when) = self.get(Part::When).map(prose)
             && !identity(&goal).contains(&identity(&when))
         {

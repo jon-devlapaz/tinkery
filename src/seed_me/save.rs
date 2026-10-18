@@ -134,6 +134,14 @@ impl Drop for Receipt {
 }
 /// Run one helper command with a 10-second limit and capped output; stdout on success.
 pub(super) fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String, String> {
+    output_with_timeout(script, args, Duration::from_secs(10))
+}
+
+fn output_with_timeout(
+    script: &Path,
+    args: &[&std::ffi::OsStr],
+    timeout: Duration,
+) -> Result<String, String> {
     let mut child = Command::new("python3")
         .arg(script)
         .args(args)
@@ -158,24 +166,29 @@ pub(super) fn output(script: &Path, args: &[&std::ffi::OsStr]) -> Result<String,
     };
     let out = drain(Box::new(stdout));
     let err = drain(Box::new(stderr));
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + timeout;
     let status = loop {
-        match child.try_wait().map_err(|e| e.to_string())? {
-            Some(s) => break Some(s),
-            None if Instant::now() >= deadline => {
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("Seed Me helper timed out; durable writes may already exist. Inspect the session before retrying.".into());
+        }
+        match child.try_wait() {
+            Ok(Some(status)) if out.is_finished() && err.is_finished() => break status,
+            Ok(_) => std::thread::sleep(Duration::from_millis(10)),
+            Err(error) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                break None;
+                return Err(error.to_string());
             }
-            None => std::thread::sleep(Duration::from_millis(10)),
         }
     };
     let stdout = out.join().map_err(|_| "Helper output reader failed")??;
     let stderr = err.join().map_err(|_| "Helper error reader failed")??;
-    match status {
-        Some(s) if s.success() => Ok(stdout),
-        Some(_) => Err(format!("Seed Me helper refused: {}", stderr.trim())),
-        None => Err("Seed Me helper timed out; durable writes may already exist. Inspect the session before retrying.".into()),
+    if status.success() {
+        Ok(stdout)
+    } else {
+        Err(format!("Seed Me helper refused: {}", stderr.trim()))
     }
 }
 impl Config {
@@ -409,6 +422,42 @@ mod tests {
                 .expect("An unavailable destination cannot save");
             assert!(error.contains("--seed-session-root PATH"), "{error}");
             assert!(config.recovery_path().is_none());
+        }
+    }
+
+    #[test]
+    fn inherited_pipes_do_not_extend_helper_timeout() {
+        for exit_parent in [false, true] {
+            let directory = tempfile::Builder::new()
+                .prefix("tinkery-TEST-helper-")
+                .tempdir()
+                .unwrap();
+            let script = directory.path().join("helper.py");
+            std::fs::write(
+                &script,
+                format!(
+                    r#"
+import subprocess, sys, time
+subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(1.3)'])
+if {exit_parent}:
+    sys.exit(0)
+time.sleep(1.3)
+"#,
+                    exit_parent = if exit_parent { "True" } else { "False" }
+                ),
+            )
+            .unwrap();
+            let started = Instant::now();
+            let error = output_with_timeout(&script, &[], Duration::from_millis(250)).unwrap_err();
+            assert!(
+                started.elapsed() < Duration::from_millis(650),
+                "waited {:?}",
+                started.elapsed()
+            );
+            assert_eq!(
+                error,
+                "Seed Me helper timed out; durable writes may already exist. Inspect the session before retrying."
+            );
         }
     }
 

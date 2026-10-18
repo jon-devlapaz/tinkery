@@ -44,6 +44,7 @@ verified identity prerequisites still precede separately approved R5 work.
 
 Published: [#109](https://github.com/jon-devlapaz/tinkery/issues/109) · M1 · needs approval. The issue owns baseline scope,
 operator participation, separate data/budget gates and completion evidence.
+The plan and results are recorded in the [baseline](../research/shared/baseline.md).
 
 <a id="r5-identity"></a>
 ## R5 prerequisites — run identity and explicit binding

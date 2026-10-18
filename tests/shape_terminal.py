@@ -44,8 +44,13 @@ def make(root, name, goal=GOAL, question=True):
 
 
 def seed(session, confirm=False):
+    helper.set_checks(session, [{'statement': 'Keep records local.', 'kind': 'judge', 'source': 'TEST fixture'}])
     body = ('status: draft\n# TEST seed\nrevision: r1\n## You are confirming\nKeep records local.\n\n'
-            + helper.decisions_block(helper.load(session)))
+            '## Now  (the agent keeps these current)\nTEST draft.\n\n## Goal\nKeep records local.\n\n'
+            + helper.decisions_block(helper.load(session))
+            + '\n## Constraints and exclusions\nTEST only.\n\n'
+            + helper.checks_block(helper.read_checks(session))
+            + '## Open questions\nNone.\n\n## Knowledge map\nTEST only.\n\n## Evidence\nTEST fixture.\n')
     (session / 'seed-contract.md').write_text(body, encoding='utf-8')
     if confirm:
         helper.confirm_seed(session, 'r1', 'TEST fixture only: confirm r1')
