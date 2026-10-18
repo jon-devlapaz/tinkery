@@ -162,7 +162,7 @@ fn clauses(text: &str) -> Vec<String> {
                 .and_then(|n| chars.get(n))
                 .is_none_or(|c| !c.is_alphanumeric());
         if quote.is_none()
-            && (c == ';'
+            && (matches!(c, ';' | '\n')
                 || (matches!(c, '.' | '!' | '?')
                     && !decimal
                     && !initial
