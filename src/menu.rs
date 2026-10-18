@@ -376,6 +376,7 @@ impl Home {
         match &mut self.view {
             View::Think(dump) => dump.take_copy_request(),
             View::Tend(tend) => tend.copy.take(),
+            View::Shape(shape, _) => shape.take_copy_request(),
             _ => None,
         }
     }
@@ -384,6 +385,7 @@ impl Home {
     pub fn copy_result(&mut self, sent: bool) {
         match &mut self.view {
             View::Think(dump) => dump.copy_result(sent),
+            View::Shape(shape, _) => shape.copy_result(sent),
             View::Tend(tend) => {
                 tend.notice = if sent {
                     "Copied."

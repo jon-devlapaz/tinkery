@@ -285,7 +285,7 @@ The screen starts with the confirmed goal's first line in ink:
 | Current question | Show a muted label, jade question, `What I found:` for the first evidence entry, `Also found:` for each subsequent entry, and italic `Suggestion:`. Each entry gets a label; the ledger has no options, so show none. |
 | No question or seed | Seed Me hasn't asked its next question yet |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
-| Confirmed seed verified by `status` | `Seed ready` and revision |
+| Confirmed seed verified by `status` | `Seed ready` and revision; `c copy intake` |
 | Unverifiable confirmation | Seed Me's reason, e.g. changed seed |
 | Practice, ended, unrecognised | Name that state plainly. |
 
@@ -295,6 +295,15 @@ Helper refusals show Seed Me's first reason line; missing `--seed-me` and other
 failures are explicit, with reasons and paths in F1. Reads stay off paint paths.
 Opening, reading and scrolling write or copy nothing, call no model and leave prompts
 unchanged. `status` probes the session's recorded viewer URL as a local read.
+
+Only Seed ready offers `c copy intake`: one line,
+`sdlc.py stage <run> 1 --seed-contract '<absolute seed path>'`, with shell quoting
+that preserves the verified session's exact path. `<run>` stays a visible placeholder
+for the operator to replace. It uses Tend's OSC 52 route and `Copied.` / `Couldn't
+copy; try again.` feedback, not verified host-clipboard success. Drafts, unverifiable
+seeds and ended sessions offer no intake copy. Copying writes no files, calls no
+model, runs no intake and grants no approval to build; choosing or creating an SDLC
+run stays outside Shape.
 
 ### The screen
 

@@ -1,6 +1,6 @@
 """Shape reading journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls.
 Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py."""
-import fcntl, importlib.util, os, select, struct, subprocess, tempfile, termios, time
+import base64, fcntl, importlib.util, os, re, select, shlex, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
 
@@ -63,7 +63,7 @@ def files(root):
 def journey(width, height, case, no_color=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-shape-') as directory:
         cwd = Path(directory).resolve()
-        sessions = cwd / 'TEST-sessions'
+        sessions = cwd / "TEST operator's sessions"
         if case == 'list':
             make(sessions, 'question')
             drafted_session = make(sessions, 'drafted', goal='Drafted goal\n' + GOAL, question=False)
@@ -86,17 +86,25 @@ def journey(width, height, case, no_color=False):
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}
         if no_color:
             env['NO_COLOR'] = '1'
-        process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--home', '--shape-pi',
+        process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
+            '--shape-pi',
             '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
             '--record-root', str(cwd / 'TEST-records'), '--link-root', str(cwd / 'TEST-links'),
             '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=env)
         screen = Screen(width, height)
+        output = bytearray()
+
+        def copies():
+            return [base64.b64decode(data).decode() for data in
+                    re.findall(rb'\x1b\]52;[^;]*;([^\x07\x1b]*)(?:\x07|\x1b\\)', output)]
 
         def wait(predicate):
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 if select.select([master], [], [], .02)[0]:
-                    screen.feed(os.read(master, 65536))
+                    data = os.read(master, 65536)
+                    output.extend(data)
+                    screen.feed(data)
                 if predicate() and not screen.synchronized:
                     return
                 if process.poll() is not None:
@@ -173,6 +181,7 @@ def journey(width, height, case, no_color=False):
                 send(b's', expected)
                 keys = {'question': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
                         'drafted': 'F3 confirm seed r1   F5 so far   esc back   F10 menu',
+                        'ready': 'c copy intake   ' + SHAPE_KEYS,
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
                 # Scrolling is offered only on overflow; arrows belong to an active editor.
                 acts = case in ('question', 'drafted')
@@ -180,15 +189,37 @@ def journey(width, height, case, no_color=False):
                                if acts else '↑↓ scroll   ' + keys)
                 bar = screen.text().splitlines()[-1].strip()
                 assert bar in (keys, scroll_keys), screen.text()
-                # The key bar names the one next action on a question or a draft, so no Next line does.
-                assert flat().count('Next:') == (0 if acts else 1), screen.text()
+                # The key bar names the next action, so no Next line repeats it.
+                assert flat().count('Next:') == (0 if acts or case == 'ready' else 1), screen.text()
                 if case == 'drafted':
                     assert 'status: draft' not in screen.text() and 'Seed draft r1' in screen.text()
                 elif case != 'unreadable':
                     lines = GOAL.splitlines()
                     assert lines[0] in flat() and lines[1] not in flat(), screen.text()
+                assert copies() == [], 'Opening Shape copied without a key'
+                copy_before = files(cwd)
+                os.write(master, b'c')
+                if case == 'ready':
+                    expected_command = ("sdlc.py stage <run> 1 --seed-contract '" +
+                        str((session / 'seed-contract.md').resolve()).replace("'", "'\\''") + "'")
+                    wait(lambda: copies() == [expected_command] and 'Copied.' in flat())
+                    assert shlex.split(copies()[0]) == ['sdlc.py', 'stage', '<run>', '1',
+                        '--seed-contract', str((session / 'seed-contract.md').resolve())]
+                    send(b'c', 'Copied.')
+                    wait(lambda: copies() == [expected_command, expected_command])
+                else:
+                    assert 'c copy intake' not in flat(), screen.text()
                 if case != 'unreadable':
                     so_far()
+                else:
+                    send(b'\x1bOP', 'What went wrong')
+                    send(b'\x1b', keys)
+                assert len(copies()) == (2 if case == 'ready' else 0), copies()
+                assert files(cwd) == copy_before, 'Copy/navigation wrote files'
+                if case == 'ready':
+                    send(b'\x1bOP', 'Replace <run> with your SDLC run.')
+                    assert 'grants no approval to build' in flat(), screen.text()
+                    send(b'\x1b', keys)
                 if case == 'question':
                     assert 'What I found: README.md:3 says local only' in flat(), screen.text()
                     assert 'Suggestion: Local, matching the README.' in flat(), screen.text()
@@ -196,9 +227,6 @@ def journey(width, height, case, no_color=False):
                 if width == 100 and case == 'question' and not no_color:
                     print('TEST Shape 100×30 screen:\n' + screen.text())
                 assert str(cwd) not in screen.text(), screen.text()
-                if case == 'unreadable':
-                    send(b'\x1bOP', 'What went wrong')
-                    send(b'\x1b', keys)
                 # Return now waits for fresh discovery, not the cached detail's footer.
                 if case == 'ended':
                     send(b'\x1b', 'No active goals. 1 ended not shown.')

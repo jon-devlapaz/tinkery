@@ -17,6 +17,8 @@ pub struct Shaping {
     pub version: Option<u64>,
     /// Each settled decision after the goal, in ledger order, exactly as recorded.
     pub decided: Vec<Decided>,
+    /// A one-line, shell-quoted intake command only for a helper-verified seed; never executed.
+    pub intake: Option<String>,
 }
 
 /// One settled decision: what was decided, the answer as recorded, and who settled it.
@@ -102,6 +104,22 @@ pub fn read(skill: &Path, session: &Path) -> Result<Shaping, String> {
     if let Shaped::Drafted { text, .. } = &mut shaping.stage {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
     }
+    if matches!(shaping.stage, Shaped::Ready { .. }) {
+        let path = session
+            .join("seed-contract.md")
+            .canonicalize()
+            .map_err(|e| format!("Cannot locate the verified seed: {e}"))?;
+        let path = path.to_str().ok_or("The verified seed path isn't UTF-8.")?;
+        if path.chars().any(char::is_control) {
+            return Err(
+                "The verified seed path contains control characters; cannot copy one line.".into(),
+            );
+        }
+        shaping.intake = Some(format!(
+            "sdlc.py stage <run> 1 --seed-contract '{}'",
+            path.replace('\'', "'\\''")
+        ));
+    }
     Ok(shaping)
 }
 
@@ -147,6 +165,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         stage,
         version,
         decided: decided.clone(),
+        intake: None,
     };
     let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
     let Some(state) = text(status, "status") else {
