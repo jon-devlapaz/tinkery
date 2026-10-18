@@ -307,7 +307,7 @@ def full_journey(width, height):
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
             # The displayed card comes from Seed Me, not model-written criteria.
-            run.read_until('"statement": "Refusals never show private text."')
+            run.read_until('you judge: Inspect refusal output for private text.')
             # Inspect each page: the flag can be above the bottom viewport on either CI platform.
             run.read_until('citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
