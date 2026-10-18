@@ -1405,6 +1405,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 gate: "TEST Storage disposition".into(),
                 found: vec![],
                 suggestion: None,
+                assumed: vec![],
             },
             temp.path(),
         )
@@ -2046,18 +2047,18 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
         // Esc keeps it open; nothing started.
         shape.key(key(KeyCode::Esc), None);
         let open = shape.open.as_ref().unwrap();
-        assert!(open.asking.is_none() && open.ending.is_none());
+        assert!(open.asking.is_none() && open.writing.is_none());
         assert!(screen(&mut shape, 80, 24, true).contains("Nothing was ended."));
         // Asked, other keys do nothing; the same key again ends it through the helper.
         shape.key(key(ending), None);
         shape.key(key(KeyCode::Char('x')), None);
         shape.key(key(other), None);
-        assert!(shape.open.as_ref().unwrap().ending.is_none());
+        assert!(shape.open.as_ref().unwrap().writing.is_none());
         shape.key(key(ending), None);
-        assert!(shape.open.as_ref().unwrap().ending.is_some());
+        assert!(shape.open.as_ref().unwrap().writing.is_some());
         // This fixture's helper path doesn't exist, so the helper's refusal is what lands.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while shape.open.as_ref().unwrap().ending.is_some() {
+        while shape.open.as_ref().unwrap().writing.is_some() {
             assert!(std::time::Instant::now() < deadline, "ending never landed");
             shape.tick();
             std::thread::sleep(std::time::Duration::from_millis(5));
@@ -2086,5 +2087,208 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
         shape.key(key(KeyCode::F(6)), None);
         shape.key(key(KeyCode::F(8)), None);
         assert!(shape.open.as_ref().unwrap().asking.is_none());
+    }
+}
+
+#[test]
+fn a_step_may_assume_at_most_five_complete_defaults() {
+    let assumed: Vec<String> = (1..=7)
+        .map(|i| format!("{{\"text\":\" TEST default {i} \",\"why\":\"TEST either way\"}}"))
+        .chain([
+            "{\"text\":\"\",\"why\":\"TEST blank\"}".into(),
+            "{\"text\":\"TEST no why\"}".into(),
+        ])
+        .collect();
+    let reply = format!(
+        "{{\"next\":\"question\",\"question\":\"Local?\",\"found\":[],\"assumed\":[{}]}}",
+        assumed.join(",")
+    );
+    let step::Next::Question(ask) = step::decode(&reply).unwrap() else {
+        panic!("not a question")
+    };
+    assert_eq!(ask.assumed.len(), 5);
+    assert_eq!(ask.assumed[0].text, "TEST default 1");
+    assert!(ask.assumed.iter().all(|a| !a.why.is_empty()));
+}
+
+#[test]
+fn assumptions_show_with_their_question_and_f7_then_a_number_objects_to_one() {
+    let mut shape = done(question());
+    // No assumptions: F7 offers nothing.
+    shape.key(key(KeyCode::F(7)), None);
+    assert!(!shape.open.as_ref().unwrap().objecting);
+    shape.open.as_mut().unwrap().assumed = vec![
+        Assumption {
+            text: "TEST notes are Markdown".into(),
+            why: "TEST either format works".into(),
+        },
+        Assumption {
+            text: "TEST one machine".into(),
+            why: "TEST nothing syncs yet".into(),
+        },
+    ];
+    for (width, height) in [(100, 30), (80, 24)] {
+        let text = screen(&mut shape, width, height, true);
+        let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(
+            flat.contains("I'll assume these unless you object:"),
+            "{text}"
+        );
+        assert!(
+            flat.contains("2. TEST one machine (why: TEST nothing syncs yet)"),
+            "{text}"
+        );
+        assert!(text.lines().last().unwrap().contains("F7 object"), "{text}");
+    }
+    shape.key(key(KeyCode::F(7)), None);
+    assert!(shape.open.as_ref().unwrap().objecting);
+    assert!(screen(&mut shape, 80, 24, true).contains("esc keep them all"));
+    // Esc keeps them all; a number with no assumption and other keys do nothing.
+    shape.key(key(KeyCode::Esc), None);
+    assert!(!shape.open.as_ref().unwrap().objecting);
+    assert!(screen(&mut shape, 80, 24, true).contains("Nothing was changed."));
+    shape.key(key(KeyCode::F(7)), None);
+    for code in [
+        KeyCode::Char('3'),
+        KeyCode::Char('0'),
+        KeyCode::Char('x'),
+        KeyCode::F(2),
+    ] {
+        shape.key(key(code), None);
+    }
+    let open = shape.open.as_ref().unwrap();
+    assert!(open.objecting && open.writing.is_none());
+    shape.key(key(KeyCode::Char('2')), None);
+    assert!(shape.open.as_ref().unwrap().writing.is_some());
+    // This fixture's helper path doesn't exist, so the helper's refusal lands and both stay.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while shape.open.as_ref().unwrap().writing.is_some() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "objection never landed"
+        );
+        shape.tick();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let open = shape.open.as_ref().unwrap();
+    assert!(
+        open.notice
+            .as_ref()
+            .unwrap()
+            .0
+            .starts_with("Nothing was changed. Cannot locate Seed Me"),
+        "{:?}",
+        open.notice
+    );
+    assert_eq!(open.assumed.len(), 2);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
+    use crate::seed_me::{Affirmed, Config, answering, shaping};
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-233-")
+        .tempdir()
+        .unwrap();
+    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
+        });
+    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: "TEST I can object.\nWhy: Defaults can be wrong.\nDone when: It asks.\nMust: Keep my words.\nMust not: Build without approval.".into(),
+            outcome: "TEST objection".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    receipt.stop_viewer().unwrap();
+    let session = receipt.session.clone();
+    let assumption = |text: &str| answering::Assumption {
+        text: text.into(),
+        why: "TEST either way".into(),
+    };
+    let ask = answering::Ask {
+        id: "storage".into(),
+        label: "TEST Storage".into(),
+        question: "TEST Local or synced?".into(),
+        gate: "TEST Storage disposition".into(),
+        found: vec![],
+        suggestion: None,
+        assumed: vec![assumption("TEST Markdown"), assumption("TEST one machine")],
+    };
+    let version = answering::read(&skill, &session).unwrap().version();
+    let version = answering::ask(&skill, &session, version, &ask, temp.path()).unwrap();
+    // Both defaults are recorded.
+    let state = || {
+        serde_json::from_str::<serde_json::Value>(
+            &answering::read(&skill, &session).unwrap().context(),
+        )
+        .unwrap()
+    };
+    assert_eq!(state()["assumed"].as_array().unwrap().len(), 2);
+    // An unrecorded assumption refuses; a stale version refuses.
+    assert!(answering::object(&skill, &session, version, "TEST never assumed").is_err());
+    assert_eq!(
+        answering::object(&skill, &session, version - 1, "TEST Markdown"),
+        Err(answering::Refusal::Stale)
+    );
+    let version = answering::object(&skill, &session, version, "TEST Markdown").unwrap();
+    let after = state();
+    assert_eq!(
+        after["assumed"],
+        serde_json::json!([{"text": "TEST one machine", "why": "TEST either way"}])
+    );
+    let objection = after["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["label"] == "Instead of assuming")
+        .unwrap()
+        .clone();
+    assert_eq!(objection["status"], "unresolved");
+    assert!(
+        objection["question"]
+            .as_str()
+            .unwrap()
+            .contains("TEST Markdown")
+    );
+    // The current question stays current; nothing is promoted while one is.
+    assert_eq!(after["current_question"], "storage");
+    assert_eq!(answering::promote(&skill, &session, version).unwrap(), None);
+    // Once it's answered, the objection is asked next, with no model.
+    let version = answering::answer(&skill, &session, version, "storage", "TEST local").unwrap();
+    let version = answering::promote(&skill, &session, version)
+        .unwrap()
+        .unwrap();
+    let Shaped::Question { id, .. } = shaping::read(&skill, &session).unwrap().stage else {
+        panic!("the objection isn't the current question")
+    };
+    assert_eq!(serde_json::Value::from(id.as_str()), objection["id"]);
+    assert_eq!(answering::promote(&skill, &session, version).unwrap(), None);
+}
+
+#[test]
+fn asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    for ask in [KeyCode::F(8), KeyCode::F(7)] {
+        let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+        shape.open.as_mut().unwrap().assumed = vec![Assumption {
+            text: "TEST one machine".into(),
+            why: "TEST nothing syncs".into(),
+        }];
+        shape.paste("TEST kept");
+        assert!(shape.takes_text());
+        shape.key(key(ask), None);
+        assert!(!shape.takes_text(), "{ask:?} still takes words");
+        shape.paste(" TEST pasted while asked");
+        assert_eq!(shape.open.as_ref().unwrap().typed.text(), "TEST kept");
+        shape.key(key(KeyCode::Esc), None);
+        assert!(shape.takes_text());
     }
 }

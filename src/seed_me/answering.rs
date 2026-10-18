@@ -1,6 +1,7 @@
 //! Changing a session as the operator works through Seed Me's interview: their answer, the next
-//! question an agent drafted, what a step found, a seed draft, the operator's seed confirmation,
-//! and ending the session when the operator says so.
+//! question an agent drafted with the defaults it assumed, what a step found, an objection to an
+//! assumption, a seed draft, the operator's seed confirmation, and ending the session when the
+//! operator says so. A recorded open decision is asked before any new one.
 //!
 //! Findings are Seed Me receipts naming the folder they were checked in, on the question they
 //! support. The step that drafts the seed adds nothing to the ledger: its findings go only into the
@@ -59,6 +60,17 @@ pub struct Ask {
     pub found: Vec<Found>,
     /// A suggested answer, recorded as Seed Me's recommendation.
     pub suggestion: Option<String>,
+    /// Defaults the step chose instead of asking, added to Seed Me's `assumed` list.
+    pub assumed: Vec<Assumption>,
+}
+
+/// A default chosen without asking, and why it doesn't need the operator. Never an answer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Assumption {
+    /// What is assumed.
+    pub text: String,
+    /// Why both reasonable answers leave the work about the same.
+    pub why: String,
 }
 
 /// One thing an agent checked and what it saw.
@@ -451,6 +463,22 @@ pub fn ask(
         .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?
         .push(node);
     ledger.state["current_question"] = id.clone().into();
+    let mut assumed = ledger.state["assumed"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    for a in ask
+        .assumed
+        .iter()
+        .filter(|a| !a.text.trim().is_empty() && !a.why.trim().is_empty())
+    {
+        if !assumed.iter().any(|known| known["text"] == a.text.as_str()) {
+            assumed.push(json!({"text": a.text, "why": a.why}));
+        }
+    }
+    if !assumed.is_empty() {
+        ledger.state["assumed"] = Value::Array(assumed);
+    }
     publish(
         &helper,
         session,
@@ -458,6 +486,85 @@ pub fn ask(
         &format!("Tinkery Shape's agent step drafted the next question, {id}."),
         &ledger.state,
     )
+}
+
+/// The operator objects to assuming `text`, from `expected`: it leaves Seed Me's `assumed` list
+/// and becomes an open decision, which blocks drafting until it's answered. Returns the new version.
+/// Refuses an assumption that isn't recorded.
+pub fn object(skill: &Path, session: &Path, expected: u64, text: &str) -> Result<u64, Refusal> {
+    let helper = helper(skill)?;
+    let mut ledger = read(skill, session)?;
+    let mut assumed = ledger.state["assumed"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let before = assumed.len();
+    assumed.retain(|a| a["text"] != text);
+    if assumed.len() == before {
+        return Err(Refusal::Refused(
+            "That assumption is no longer recorded.".into(),
+        ));
+    }
+    ledger.state["assumed"] = Value::Array(assumed);
+    let taken: Vec<String> = nodes(&ledger.state)
+        .iter()
+        .filter_map(|n| n["id"].as_str().map(str::to_owned))
+        .collect();
+    let id = unique_id(&format!("instead-of-{text}"), &taken);
+    let node = json!({
+        "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
+        "evidence": [], "owner": "User", "gate": format!("Choose instead of assuming: {text}"),
+        "label": "Instead of assuming", "question": format!("You objected to assuming: {text}. What should it be instead?"),
+    });
+    ledger.state["nodes"]
+        .as_array_mut()
+        .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?
+        .push(node);
+    publish(
+        &helper,
+        session,
+        expected,
+        &format!("The operator objected to an assumption in Tinkery Shape; it is now {id}."),
+        &ledger.state,
+    )
+}
+
+/// With no current question, make the first open decision whose prerequisites are settled
+/// current, from `expected`, so a decision already recorded is asked before any new one.
+/// Returns the new version, or `None` when there's a current question or nothing is ready.
+pub fn promote(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
+    let ledger = read(skill, session)?;
+    if ledger.version != expected {
+        return Err(Refusal::Stale);
+    }
+    if !ledger.state["current_question"].is_null() {
+        return Ok(None);
+    }
+    let all = nodes(&ledger.state);
+    let settled = |id: &Value| {
+        all.iter()
+            .any(|n| n["id"] == *id && n["status"] == "settled")
+    };
+    let ready = all.iter().find(|n| {
+        n["kind"] == "decision"
+            && n["status"] == "unresolved"
+            && n["prerequisites"]
+                .as_array()
+                .is_none_or(|p| p.iter().all(settled))
+    });
+    let Some(id) = ready.and_then(|n| n["id"].as_str()).map(str::to_owned) else {
+        return Ok(None);
+    };
+    let mut state = ledger.state;
+    state["current_question"] = id.clone().into();
+    publish(
+        &helper(skill)?,
+        session,
+        expected,
+        &format!("Tinkery Shape asks the open decision {id} before any new one."),
+        &state,
+    )
+    .map(Some)
 }
 
 /// Save a Seed Me draft: `confirming` supplies summary and prose, never criteria. `checks`

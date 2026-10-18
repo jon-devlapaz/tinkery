@@ -417,6 +417,21 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   already-started helper finishes, then rereads. Stopped model calls still count,
   disclosed in the notice.
 
+### Assumptions
+
+A step may list up to five defaults it chose instead of asking, where either answer leaves the
+work, risk, cost, reversibility and behavior about the same. Tinkery adds them to Seed Me's
+`assumed` list with the question (once per text) and shows them under that question only, headed
+`I'll assume these unless you object:`, each with its why. An assumption is never an answer.
+
+- `F7 object` then the assumption's number takes it off `assumed` and records an open decision,
+  `Instead of assuming`, which blocks drafting. Esc says `Nothing was changed.`; other keys do
+  nothing while asked. A refusal shows Seed Me's first line and keeps the list.
+- Seed Me's entries are exactly `{text, why}`, so "shown" lives with the question in this run,
+  not in the ledger; the seed's Assumed block always lists what remains.
+- With no current question, a step first makes the first ready open decision current, without a
+  model call or budget, so an objection (or any recorded open decision) is asked before a new one.
+
 ### Ending a session
 
 Ending is for good: Seed Me makes the session read-only and Tend stops listing it,

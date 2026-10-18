@@ -17,7 +17,7 @@ spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 F1, F2, F3, F10 = b'\x1bOP', b'\x1bOQ', b'\x1bOR', b'\x1b[21~'
-F6, F8 = b'\x1b[17~', b'\x1b[19~'
+F6, F7, F8 = b'\x1b[17~', b'\x1b[18~', b'\x1b[19~'
 
 # Think's requests get a reading with one question; Shape's steps pop the next scripted reply.
 HOST = r'''#!/usr/bin/env python3
@@ -430,6 +430,9 @@ def case(name, width=100, height=30):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'unfound citation':
             replies = [{**QUESTION, 'id': 'Sync'}]
+        if name == 'assumptions':
+            question = False
+            replies = [{**QUESTION, 'assumed': [{'text': 'TEST notes are Markdown', 'why': 'TEST either format works'}]}]
         if name == 'nothing found':
             replies = [{**QUESTION, 'found': []}, {**SEED, 'found': []}]
         session = make(sessions, question=question, operator=operator)
@@ -487,6 +490,29 @@ def case(name, width=100, height=30):
                 assert ledger['nodes'][1]['status'] == 'unresolved', ledger['nodes'][1]
                 assert 'answer' not in ledger['nodes'][1], ledger['nodes'][1]
                 assert run.calls() == [], 'Stopping called a model'
+            elif name == 'assumptions':
+                run.wait("Seed Me hasn't asked its next question yet.")
+                run.send(F2, "I'll assume these unless you object:")
+                run.wait('1. TEST notes are Markdown (why: TEST either format works)')
+                assert helper.load(session)['assumed'] == [{'text': 'TEST notes are Markdown', 'why': 'TEST either format works'}]
+                assert len(run.calls()) == 1
+                # Asked which, typing is not words; Esc keeps them, then F7 and its number objects.
+                before = files(sessions)
+                run.send(F7 + b'x', 'Which assumption do you object to?')
+                run.send(b'\x1b', 'Nothing was changed.')
+                assert files(sessions) == before, 'Asking which or Esc wrote'
+                run.send(F7, 'Which assumption do you object to?')
+                run.send(b'1', 'Not assumed: TEST notes are Markdown.')
+                ledger = helper.load(session)
+                assert ledger['assumed'] == [], ledger['assumed']
+                objection = next(n for n in ledger['nodes'] if n.get('label') == 'Instead of assuming')
+                assert objection['status'] == 'unresolved', objection
+                assert "I'll assume these" not in run.flat(), run.screen.text()
+                # Answering the current question asks the objection next, with no model call.
+                run.type('Local.')
+                run.send(F2, 'You objected to assuming: TEST notes are Markdown. What should it be instead?')
+                assert len(run.calls()) == 1, 'Asking the objection called a model'
+                assert helper.load(session)['current_question'] == objection['id']
             elif name == 'unfound citation':
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
@@ -578,9 +604,10 @@ if __name__ == '__main__':
         full_journey(*size)
     for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
                  'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found',
-                 'end the interview']:
+                 'end the interview', 'assumptions']:
         case(name)
     case('zero budget', 80, 24)
+    case('assumptions', 80, 24)
     for size in [(100, 30), (80, 24)]:
         case('multiline confirmation', *size)
         os.environ['NO_COLOR'] = '1'

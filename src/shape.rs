@@ -22,7 +22,7 @@ use crate::{
     Palette,
     seed_me::{
         Session, Stage,
-        answering::{self, Ending, NOTHING_FOUND, Refusal},
+        answering::{self, Assumption, Ending, NOTHING_FOUND, Refusal},
         shaping::{self, Shaped, Shaping},
     },
 };
@@ -88,8 +88,20 @@ struct Opened {
     so_far: Option<u16>,
     /// An ending asked for once, waiting for the same key again or Esc.
     asking: Option<Ending>,
-    /// An ending the helper is carrying out.
-    ending: Option<(Ending, mpsc::Receiver<Result<(), Refusal>>)>,
+    /// What the step that asked the current question assumed instead of asking; shown with
+    /// that question only.
+    assumed: Vec<Assumption>,
+    /// After `F7`, waiting for the number of the assumption to object to, or Esc.
+    objecting: bool,
+    /// A change without a model (an ending or an objection) the helper is carrying out.
+    writing: Option<(Write, mpsc::Receiver<Result<(), Refusal>>)>,
+}
+
+/// A change Shape asks of the helper without a model.
+#[derive(Clone)]
+enum Write {
+    End(Ending),
+    Object(String),
 }
 
 /// What a running step was asked to do, so the screen can say where it is.
@@ -160,12 +172,15 @@ impl Shape {
     }
 
     /// Whether keys now type words (an answer, seed confirmation or folder), so letters aren't
-    /// commands.
+    /// commands. Never while an ending or objection asks, or the helper carries one out.
     pub fn takes_text(&self) -> bool {
         self.agent.is_some()
             && self.open.as_ref().is_some_and(|open| {
                 open.so_far.is_none()
                     && open.running.is_none()
+                    && open.asking.is_none()
+                    && !open.objecting
+                    && open.writing.is_none()
                     && (open.choosing.is_some() || open.typing().is_some())
             })
     }
@@ -236,13 +251,17 @@ impl Shape {
             {
                 open.typed.clear();
             }
+            open.assumed = match &result {
+                Ok(Done::Asked(assumed)) => assumed.clone(),
+                _ => Vec::new(),
+            };
             open.notice = said(result);
             open.reading = Reading::NotStarted;
         }
         if let Some(open) = &mut self.open
-            && let Some((ending, receiver)) = &open.ending
+            && let Some((write, receiver)) = &open.writing
         {
-            let ending = *ending;
+            let write = write.clone();
             let result = match receiver.try_recv() {
                 Ok(result) => Some(result),
                 Err(mpsc::TryRecvError::Empty) => None,
@@ -251,17 +270,31 @@ impl Shape {
                 }
             };
             if let Some(result) = result {
-                open.ending = None;
-                open.notice = Some(match (result, ending) {
-                    (Ok(()), Ending::Completed) => {
+                open.writing = None;
+                open.notice = Some(match (result, write) {
+                    (Ok(()), Write::End(Ending::Completed)) => {
                         ("Session completed. It's read-only now.".into(), None)
                     }
-                    (Ok(()), Ending::Stopped) => (
+                    (Ok(()), Write::End(Ending::Stopped)) => (
                         "Session stopped. Its open questions stay recorded; it's read-only now."
                             .into(),
                         None,
                     ),
-                    (Err(refusal), _) => (format!("Nothing was ended. {refusal}"), None),
+                    (Ok(()), Write::Object(text)) => {
+                        open.assumed.retain(|a| a.text != text);
+                        (
+                            format!(
+                                "Not assumed: {text}. It's an open question now, asked before the seed is drafted."
+                            ),
+                            None,
+                        )
+                    }
+                    (Err(refusal), Write::End(_)) => {
+                        (format!("Nothing was ended. {refusal}"), None)
+                    }
+                    (Err(refusal), Write::Object(_)) => {
+                        (format!("Nothing was changed. {refusal}"), None)
+                    }
                 });
                 open.reading = Reading::NotStarted;
             }
@@ -332,7 +365,35 @@ impl Shape {
                 }
                 return Leave::Stay;
             }
-            if open.ending.is_some() {
+            if open.writing.is_some() {
+                return Leave::Stay;
+            }
+            if open.objecting {
+                match key.code {
+                    KeyCode::Esc => {
+                        open.objecting = false;
+                        open.notice = Some(("Nothing was changed.".into(), None));
+                    }
+                    KeyCode::Char(c) if key.modifiers.is_empty() => {
+                        if let Some(text) = c
+                            .to_digit(10)
+                            .and_then(|n| (n as usize).checked_sub(1))
+                            .and_then(|i| open.assumed.get(i))
+                            .map(|a| a.text.clone())
+                        {
+                            open.object(text);
+                        }
+                    }
+                    _ => {}
+                }
+                return Leave::Stay;
+            }
+            if key.code == KeyCode::F(7) && key.modifiers.is_empty() && open.offers_objection() {
+                open.objecting = true;
+                open.notice = Some((
+                    "Which assumption do you object to?".into(),
+                    Some("Next: press its number; Esc keeps them all.".into()),
+                ));
                 return Leave::Stay;
             }
             if let Some(asked) = open.asking {
@@ -481,7 +542,10 @@ impl Shape {
                 };
                 let now = match (agent, open.typing()) {
                     _ if open.running.is_some() => "A step is running. Esc stops it.",
-                    _ if open.ending.is_some() => "Seed Me is ending this session.",
+                    _ if open.writing.is_some() => "Seed Me is saving a change.",
+                    _ if open.objecting => {
+                        "Press the number of the assumption you object to; it becomes an open question. Esc keeps them all."
+                    }
                     _ if open.asking == Some(Ending::Completed) => {
                         "F6 again ends this session as completed, for good; Esc keeps it open."
                     }
@@ -563,7 +627,10 @@ impl Shape {
         };
         let keys = match (&self.open, &self.list) {
             (Some(open), _) if open.running.is_some() => "esc stop".to_owned(),
-            (Some(open), _) if open.ending.is_some() => String::new(),
+            (Some(open), _) if open.writing.is_some() => String::new(),
+            (Some(open), _) if open.objecting => {
+                "1-9 object to that one   esc keep them all".to_owned()
+            }
             (
                 Some(Opened {
                     asking: Some(ending),
@@ -622,6 +689,9 @@ impl Shape {
                 keys.extend(action);
                 if open.intake().is_some() {
                     keys.push("c copy intake".to_owned());
+                }
+                if open.offers_objection() {
+                    keys.push("F7 object".to_owned());
                 }
                 keys.extend(open.offers_end().map(|ending| {
                     match ending {
@@ -814,19 +884,55 @@ impl Opened {
         }
     }
 
+    /// Whether `F7` can object to an assumption: the question its step asked is still current.
+    fn offers_objection(&self) -> bool {
+        self.skill.is_some()
+            && !self.assumed.is_empty()
+            && matches!(
+                &self.reading,
+                Reading::Done(Ok(Shaping {
+                    stage: Shaped::Question { .. },
+                    version: Some(_),
+                    ..
+                }))
+            )
+    }
+
     /// End the session through the helper off the paint path; [`Shape::tick`] reports it.
     fn end(&mut self, ending: Ending) {
         self.asking = None;
-        let Some(skill) = self.skill.clone() else {
+        self.write(Write::End(ending), "Ending the session.");
+    }
+
+    /// Object to assuming `text`, from the version shown.
+    fn object(&mut self, text: String) {
+        self.objecting = false;
+        self.write(Write::Object(text), "Saving your objection.");
+    }
+
+    /// Carry out `write` through the helper off the paint path; [`Shape::tick`] reports it.
+    fn write(&mut self, write: Write, said: &str) {
+        let (Some(skill), Reading::Done(Ok(shaping))) = (self.skill.clone(), &self.reading) else {
             return;
         };
+        let expected = shaping.version;
         let session = self.session.clone();
         let (sender, receiver) = mpsc::channel();
+        let work = write.clone();
         std::thread::spawn(move || {
-            let _ = sender.send(answering::end(&skill, &session, ending));
+            let result = match (work, expected) {
+                (Write::End(ending), _) => answering::end(&skill, &session, ending),
+                (Write::Object(text), Some(expected)) => {
+                    answering::object(&skill, &session, expected, &text).map(|_| ())
+                }
+                (Write::Object(_), None) => Err(Refusal::Refused(
+                    "Seed Me gave no version to change from.".into(),
+                )),
+            };
+            let _ = sender.send(result);
         });
-        self.ending = Some((ending, receiver));
-        self.notice = Some(("Ending the session.".into(), None));
+        self.writing = Some((write, receiver));
+        self.notice = Some((said.into(), None));
     }
 
     /// Use the folder the operator typed for the next steps, or say why not and keep the one shown.
@@ -959,7 +1065,9 @@ impl Opened {
             choosing: None,
             so_far: None,
             asking: None,
-            ending: None,
+            assumed: Vec::new(),
+            objecting: false,
+            writing: None,
         }
     }
 }
@@ -1136,6 +1244,7 @@ fn render_open(
                                 palette.muted,
                             ),
                         ])),
+                        assumed: &open.assumed,
                     }
                 }
                 (None, Some(_)) => Stand {
@@ -1150,6 +1259,7 @@ fn render_open(
                         )),
                     )),
                     running: None,
+                    assumed: &open.assumed,
                 },
                 (None, None) => Stand {
                     acts,
@@ -1165,6 +1275,7 @@ fn render_open(
                         .as_ref()
                         .map(|(said, next)| (said.as_str(), next.clone())),
                     running: None,
+                    assumed: &open.assumed,
                 },
             };
             let (said, input) = standing(&shaping.stage, stand, palette);
@@ -1366,6 +1477,8 @@ struct Stand<'a> {
     notice: Option<(&'a str, Option<String>)>,
     /// What a running step is doing; everything else then stays, muted.
     running: Option<Line<'static>>,
+    /// Defaults the current question's step assumed instead of asking.
+    assumed: &'a [Assumption],
 }
 
 /// Where the seed stands, in plain words, as what to read and then what to act with (the words box,
@@ -1382,6 +1495,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
         words,
         notice,
         running,
+        assumed,
     } = stand;
     let calm = running.is_some();
     let mut lines = Vec::new();
@@ -1415,6 +1529,19 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                         format!("Suggestion: {suggestion}"),
                         palette.ink.italic(),
                     ));
+                }
+                if !assumed.is_empty() {
+                    lines.push(Line::default());
+                    lines.push(Line::styled(
+                        "I'll assume these unless you object:",
+                        palette.muted,
+                    ));
+                    for (i, a) in assumed.iter().enumerate() {
+                        lines.push(Line::from(vec![
+                            Span::styled(format!("{}. {}", i + 1, a.text), palette.ink),
+                            Span::styled(format!(" (why: {})", a.why), palette.muted),
+                        ]));
+                    }
                 }
             }
             Some(if acts {
