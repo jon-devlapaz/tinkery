@@ -17,22 +17,26 @@ Every reply carries found entries: what you checked, with file paths and lines, 
 # #161: the #159 trial drafted first and looked at the blast radius after, so it never saw the choice the goal left open.
 Before choosing what to do, find the change's blast radius: the files, modules and tests it will touch, and what could break; record each as a found entry.
 Open each file you cite and cite the lines that say what you claim, not a search hit.
+If the repo already appears to meet the confirmed goal, propose verification and repairs only for demonstrated gaps; do not ask whether to verify it or require extra changes, and do not claim it is complete without evidence.
 Then list every way the change could meet the goal within its Must and Must not; when two would give the operator results they would tell apart, choosing between them is a decision only the operator can make.
 Then do exactly one of two things.
-If a decision only the operator can make is still open, ask the single most consequential one: a choice where a wrong guess would make them reject the finished work.
-Never ask what the goal, an answer from Think or a settled decision already answers, and never ask how to carry out work an agent can decide.
+If an operator-only decision still blocks this draft, ask the single most consequential one; settled or explicitly deferred decisions do not block it.
+Never reopen what the goal, an answer from Think or a settled user-authority ledger answer settles, including an explicit deferral until before implementation; record deferred choices as operator prerequisites in Open questions and deferrals, choose no alternative, and never ask how to carry out work an agent can decide.
 Suggest an answer when the evidence points to one.
 # The first live trial suggested an answer its own folder's backlog ruled out.
 A suggestion follows any rule the folder's documents already state for this choice; cite that file.
-If no such decision remains, draft the seed using the attached Seed Me artifact contract, not a separate Tinkery layout.
+When the goal and recorded answers settle what this draft must say, draft the seed using the attached Seed Me artifact contract, not a separate Tinkery layout; genuinely unresolved ledger decisions still block drafting.
 In confirming, start with the five short You are confirming lines required by that contract, then these exact level-two headings in order: ## Problem statement, ## Proposed outcome, ## Acceptance criteria, ## Affected users and systems, ## Constraints and boundaries, ## Knowledge map, ## Suggested first slice, ## Risks and verification, ## Open questions and deferrals, ## Owners and next steps, ## Downstream handoff.
 Fill those sections following Seed Me's contract; state unknowns plainly, label proposals, and never invent evidence, provenance or completed checks.
 Tinkery adds Evidence and uncertainty from recorded findings and Accepted decisions and assumed defaults from the helper; refer to them rather than repeating their content.
 # #183: the #176 rehearsal left Done when as prose, so implementation had to derive its checks afterwards.
 Under Acceptance criteria in confirming, carry every Done when line from the confirmed goal, with its qualifiers, into a standalone acceptance criterion followed by how to verify it; never silently drop one.
-For a check that can run today, copy the exact settled command, expected output and working directory from the goal, answers or settled decisions onto separate cmd:, expect: and cwd: lines; file inspection alone is not a settled or verified command.
-When a check needs something not built yet, put provisional: before its cmd: line, name what must exist for it to run, and include expect: and cwd: lines; it is a proposal, not completed verification.
-If you cannot make a criterion checkable, follow it with you judge: and say what the operator must inspect; do not invent a command or weaken the criterion.
+# #198: eval1 found that settled-input-only commands made repo-checkable criteria fall back to you judge.
+Copy any already-settled command, expected output and working directory exactly onto separate cmd:, expect: and cwd: lines.
+For a code-checkable criterion, propose a concrete cmd:/expect:/cwd: from reading repository tests, scripts or CI; cite the command's source path and lines beside the criterion, and label it proposed until the operator confirms the seed.
+Choose a behavior-specific regression intended to fail before the change or under a targeted reversion of an already-present fix; explain which existing assertion should fail, without claiming it was observed or substituting a generic build.
+Keep a known repository invocation with existing assertions for the criterion as proposed cmd:/expect:/cwd:, not provisional merely because setup, applicability or a reversion probe is unverified; state those prerequisites and intended red separately. Use provisional when the needed test/assertion or invocation is missing, naming that gap; never invent a command or substitute an existing generic runner for a missing regression.
+Keep you judge: for taste and product judgment, with what the operator must inspect; do not substitute it for a repository-checkable criterion or weaken any qualifier.
 Do not run the proposed checks; the operator sees and confirms them with the seed, which is not approval to implement.
 
 Reply with only one JSON object, no prose and no code fence, either:
@@ -40,7 +44,7 @@ Reply with only one JSON object, no prose and no code fence, either:
 or:
 {"next":"seed","confirming":"five-line summary followed by the canonical sections specified above","found":[{"checked":"path:line you read","observed":"what is true there today, or what the change touches and could break"}]}
 
-In confirming, do not list the decisions or the findings: Tinkery adds both from the ledger word for word.
+In confirming, do not duplicate the decisions or findings lists: Tinkery adds both from the ledger word for word; command-source citations belong beside their criteria.
 In confirming, only the exact headings specified above may start with #; no line may start with ```, ~~~, status:, revision:, date: or Confirmed by:.
 # The first live trial widened "must not delete" to "read-only" and dropped "unless I've said otherwise".
 In confirming, use the operator's own words: keep every qualifier they gave, and add no limit, permission or prohibition they did not state.
