@@ -344,10 +344,23 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   with its qualifiers, as a standalone acceptance criterion. Each gets settled `cmd:`,
   `expect:` and `cwd:` lines, a `provisional:` proposal naming what must exist
   before its command can run, or explicit `you judge:` with what to inspect.
-  Commands and expectations that can run today come from settled input, not guesses
-  from file inspection. Shape never runs these checks or claims they passed. They
-  remain model proposals until the operator confirms the displayed seed; confirmation
-  is not implementation approval. This is a drafting instruction, not a semantic
+  Copy settled commands exactly. For code-checkable lines, Shape may also propose
+  concrete invocations found in repository tests, scripts or CI, with source paths
+  and lines beside each criterion. Choose a behavior-specific regression intended
+  to fail before the change or under targeted reversion of an already-present fix,
+  naming the existing assertion expected to fail. Inspection is not observed red or green.
+  A known check stays proposed `cmd:` despite routine setup, conditional applicability
+  or an unperformed reversion probe; state those separately. Missing assertions, tests
+  or invocations stay `provisional:`; a generic runner is not a missing regression.
+  Reserve `you judge:` for taste and product judgment. Shape never runs proposed checks.
+  If the requested behavior already appears present, propose verification and repairs
+  only for demonstrated gaps, not a new choice between verification and extra changes;
+  do not claim completion without evidence.
+  Once the goal and recorded answers settle the draft, draft rather than reopening
+  settled or explicitly deferred decisions. Deferrals remain operator prerequisites,
+  not chosen alternatives; genuinely unresolved ledger decisions still block drafting.
+  The operator's explicit seed confirmation settles those proposals, not permission
+  to implement. This is a drafting instruction, not a semantic
   completeness validator; stub tests prove instructions and preservation, not model quality.
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
   Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
