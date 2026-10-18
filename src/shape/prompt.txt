@@ -23,6 +23,8 @@ Then do exactly one of two things.
 If an operator-only decision still blocks this draft, ask the single most consequential one; settled or explicitly deferred decisions do not block it.
 Never reopen what the goal, an answer from Think or a settled user-authority ledger answer settles, including an explicit deferral until before implementation; record deferred choices as operator prerequisites in Open questions and deferrals, choose no alternative, and never ask how to carry out work an agent can decide.
 Suggest an answer when the evidence points to one.
+# #232: Seed Me's question format; a hard undo cost holds the suggestion back until the operator gives their instinct.
+With a question, give exactly two real options, each with its trade-off against the other and how hard it is to undo (cheap, moderate or hard); if only one is viable, make the other leaving it as it is and say what that costs; then the strongest case against your suggestion and your confidence.
 # #233: Seed Me lists defaults instead of asking about them; the operator can object to one.
 With a question, list in assumed (at most five) the choices where both reasonable answers leave the work, risk, cost, reversibility and behavior about the same; an assumption is never an answer, and leave assumed empty when there are none.
 # The first live trial suggested an answer its own folder's backlog ruled out.
@@ -43,7 +45,7 @@ Do not run the proposed checks; the operator sees and confirms them with the see
 
 Reason and write findings and the question in free text as before; emit checks only at the end as one separate structured field on a seed reply.
 Use the existing reply envelope, either:
-{"next":"question","id":"short-id","label":"the decision in a few words","question":"the question for the operator","gate":"what answering it settles","found":[{"checked":"what you checked","observed":"what you saw there"}],"suggestion":"your suggested answer and why, or null","assumed":[{"text":"a default you chose instead of asking","why":"why either answer leaves the work about the same"}]}
+{"next":"question","id":"short-id","label":"the decision in a few words","question":"the question for the operator","gate":"what answering it settles","found":[{"checked":"what you checked","observed":"what you saw there"}],"suggestion":"your suggested answer and why, or null","options":[{"choice":"one way","tradeoff":"its benefit and cost compared with the other","undo":"cheap, moderate or hard"},{"choice":"the other way, or leave it as it is","tradeoff":"its benefit and cost compared with the first","undo":"cheap, moderate or hard"}],"against":"the strongest case for the other option","confidence":"low, medium or high","assumed":[{"text":"a default you chose instead of asking","why":"why either answer leaves the work about the same"}]}
 or:
 {"next":"seed","confirming":"five-line summary followed by the canonical prose sections specified above","found":[{"checked":"path:line you read","observed":"what is true there today, or what the change touches and could break"}],"checks":[{"statement":"the result feels calm","kind":"judge","source":"confirmed goal","how_to_judge":"inspect calmness"}]}
 

@@ -17,7 +17,7 @@ spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 F1, F2, F3, F10 = b'\x1bOP', b'\x1bOQ', b'\x1bOR', b'\x1b[21~'
-F6, F7, F8 = b'\x1b[17~', b'\x1b[18~', b'\x1b[19~'
+F6, F7, F8, F9 = b'\x1b[17~', b'\x1b[18~', b'\x1b[19~', b'\x1b[20~'
 
 # Think's requests get a reading with one question; Shape's steps pop the next scripted reply.
 HOST = r'''#!/usr/bin/env python3
@@ -430,6 +430,11 @@ def case(name, width=100, height=30):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'unfound citation':
             replies = [{**QUESTION, 'id': 'Sync'}]
+        if name == 'hard to undo':
+            question = False
+            replies = [{**QUESTION, 'confidence': 'high', 'against': 'TEST sync helps later', 'options': [
+                {'choice': 'Local', 'tradeoff': 'TEST simple', 'undo': 'cheap'},
+                {'choice': 'Synced', 'tradeoff': 'TEST shared', 'undo': 'hard'}]}]
         if name == 'assumptions':
             question = False
             replies = [{**QUESTION, 'assumed': [{'text': 'TEST notes are Markdown', 'why': 'TEST either format works'}]}]
@@ -490,6 +495,21 @@ def case(name, width=100, height=30):
                 assert ledger['nodes'][1]['status'] == 'unresolved', ledger['nodes'][1]
                 assert 'answer' not in ledger['nodes'][1], ledger['nodes'][1]
                 assert run.calls() == [], 'Stopping called a model'
+            elif name == 'hard to undo':
+                run.wait("Seed Me hasn't asked its next question yet.")
+                run.send(F2, "This is hard to undo, so what's your instinct?")
+                for hidden in ('Option A', 'Suggestion:', 'Against my suggestion'):
+                    assert hidden not in run.flat(), run.screen.text()
+                node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
+                assert 'recommendation' not in node, node
+                assert 'Option B: Synced; TEST shared. Undo cost: hard.' in node['question'], node
+                run.send(F9, 'Here are the options and my suggestion.')
+                run.wait('Option B: Synced; TEST shared. Undo cost: hard.')
+                run.wait('Suggestion: Local, matching the README. Confidence: high.')
+                node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
+                assert node['recommendation'] == 'Local, matching the README. Confidence: high.', node
+                assert 'F9' not in run.screen.text().splitlines()[-1], run.screen.text()
+                assert len(run.calls()) == 1, 'Showing the suggestion called a model'
             elif name == 'assumptions':
                 run.wait("Seed Me hasn't asked its next question yet.")
                 run.send(F2, "I'll assume these unless you object:")
@@ -604,10 +624,11 @@ if __name__ == '__main__':
         full_journey(*size)
     for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
                  'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found',
-                 'end the interview', 'assumptions']:
+                 'end the interview', 'assumptions', 'hard to undo']:
         case(name)
     case('zero budget', 80, 24)
     case('assumptions', 80, 24)
+    case('hard to undo', 80, 24)
     for size in [(100, 30), (80, 24)]:
         case('multiline confirmation', *size)
         os.environ['NO_COLOR'] = '1'

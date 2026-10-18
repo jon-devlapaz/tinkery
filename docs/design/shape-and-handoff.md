@@ -282,7 +282,7 @@ The screen starts with the confirmed goal's first line in ink:
 
 | Seed Me reports | Shape shows |
 | --- | --- |
-| Current question | Show a muted label, jade question, `What I found:` for only the first question-attached evidence entry, and italic `Suggestion:`. F5 holds all findings for this question in recorded order; the ledger has no options, so show none. |
+| Current question | Show a muted label, jade question, `What I found:` for only the first question-attached evidence entry, and italic `Suggestion:`. F5 holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
 | No question or seed | Seed Me hasn't asked its next question yet |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status`, active or completed | `Seed ready` and revision; `c copy intake` when both paths are usable; completed adds a muted note that nothing can change |
@@ -416,6 +416,23 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   a stale version offers the fresh stage action; a helper refusal shows Seed Me's first line. Esc stops a step; an
   already-started helper finishes, then rereads. Stopped model calls still count,
   disclosed in the notice.
+
+### Options and instinct first
+
+A question reply may give exactly two options, each with its trade-off and undo cost (`cheap`,
+`moderate` or `hard`), the strongest case against the suggestion, and a confidence. Anything
+else gives no options. Seed Me's ledger has no options field, so Tinkery records them as
+`Option A:`/`Option B:` lines, then `Against my suggestion:`, under the question text, where
+Seed Me's viewer also shows them, and reads them back from there. The confidence joins the
+recommendation. None of it reaches the seed.
+
+- When either option is `hard`, Seed Me's instinct-first rule applies: the question is recorded
+  without its recommendation, and Shape shows the question and its finding with
+  `This is hard to undo, so what's your instinct? F9 shows the options and my suggestion.`
+- `F9 show me` records the withheld suggestion through `publish`, then shows the options, the case
+  against and the suggestion. The withheld suggestion lives only in this run; after a restart F9
+  shows the options and says no suggestion was kept.
+- Cheap and moderate questions show everything at once.
 
 ### Assumptions
 

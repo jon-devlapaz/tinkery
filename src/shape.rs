@@ -93,6 +93,10 @@ struct Opened {
     assumed: Vec<Assumption>,
     /// After `F7`, waiting for the number of the assumption to object to, or Esc.
     objecting: bool,
+    /// A hard-to-undo question's suggestion its step didn't record, until `F9` asks for it.
+    withheld: Option<String>,
+    /// Whether `F9` showed a hard-to-undo question's options and suggestion.
+    revealed: bool,
     /// A change without a model (an ending or an objection) the helper is carrying out.
     writing: Option<(Write, mpsc::Receiver<Result<(), Refusal>>)>,
 }
@@ -102,6 +106,11 @@ struct Opened {
 enum Write {
     End(Ending),
     Object(String),
+    /// Record the withheld suggestion on question `id`.
+    Recommend {
+        id: String,
+        text: String,
+    },
 }
 
 /// What a running step was asked to do, so the screen can say where it is.
@@ -121,6 +130,10 @@ enum Folder {
 
 /// A read of the session, with the folder a step would read when there's an agent. Both land
 /// together, so a step is never offered before its folder is shown.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Shape holds one reading at a time; boxing would only add indirection"
+)]
 enum Reading {
     NotStarted,
     Waiting(mpsc::Receiver<(Result<Shaping, String>, Option<PathBuf>)>),
@@ -251,10 +264,13 @@ impl Shape {
             {
                 open.typed.clear();
             }
-            open.assumed = match &result {
-                Ok(Done::Asked(assumed)) => assumed.clone(),
-                _ => Vec::new(),
+            let asked = match &result {
+                Ok(Done::Asked(asked)) => asked.clone(),
+                _ => step::Asked::default(),
             };
+            open.assumed = asked.assumed;
+            open.withheld = asked.withheld;
+            open.revealed = false;
             open.notice = said(result);
             open.reading = Reading::NotStarted;
         }
@@ -289,10 +305,14 @@ impl Shape {
                             None,
                         )
                     }
+                    (Ok(()), Write::Recommend { .. }) => {
+                        open.withheld = None;
+                        ("Here are the options and my suggestion.".into(), None)
+                    }
                     (Err(refusal), Write::End(_)) => {
                         (format!("Nothing was ended. {refusal}"), None)
                     }
-                    (Err(refusal), Write::Object(_)) => {
+                    (Err(refusal), Write::Object(_) | Write::Recommend { .. }) => {
                         (format!("Nothing was changed. {refusal}"), None)
                     }
                 });
@@ -386,6 +406,10 @@ impl Shape {
                     }
                     _ => {}
                 }
+                return Leave::Stay;
+            }
+            if key.code == KeyCode::F(9) && key.modifiers.is_empty() && open.instinct_first() {
+                open.reveal();
                 return Leave::Stay;
             }
             if key.code == KeyCode::F(7) && key.modifiers.is_empty() && open.offers_objection() {
@@ -690,6 +714,9 @@ impl Shape {
                 if open.intake().is_some() {
                     keys.push("c copy intake".to_owned());
                 }
+                if open.instinct_first() {
+                    keys.push("F9 show me".to_owned());
+                }
                 if open.offers_objection() {
                     keys.push("F7 object".to_owned());
                 }
@@ -898,6 +925,42 @@ impl Opened {
             )
     }
 
+    /// Whether the current question is hard to undo and its options and suggestion are still held
+    /// back for the operator's instinct.
+    fn instinct_first(&self) -> bool {
+        !self.revealed
+            && matches!(
+                &self.reading,
+                Reading::Done(Ok(Shaping {
+                    stage: Shaped::Question { hard: true, .. },
+                    ..
+                }))
+            )
+    }
+
+    /// Show what a hard-to-undo question held back, recording its withheld suggestion first.
+    fn reveal(&mut self) {
+        self.revealed = true;
+        let id = match &self.reading {
+            Reading::Done(Ok(Shaping {
+                stage: Shaped::Question { id, .. },
+                ..
+            })) => id.clone(),
+            _ => return,
+        };
+        match self.withheld.clone() {
+            Some(text) if self.skill.is_some() => {
+                self.write(Write::Recommend { id, text }, "Saving my suggestion.")
+            }
+            _ => {
+                self.notice = Some((
+                    "Here are the options. No suggestion was kept for this question.".into(),
+                    None,
+                ))
+            }
+        }
+    }
+
     /// End the session through the helper off the paint path; [`Shape::tick`] reports it.
     fn end(&mut self, ending: Ending) {
         self.asking = None;
@@ -925,7 +988,10 @@ impl Opened {
                 (Write::Object(text), Some(expected)) => {
                     answering::object(&skill, &session, expected, &text).map(|_| ())
                 }
-                (Write::Object(_), None) => Err(Refusal::Refused(
+                (Write::Recommend { id, text }, Some(expected)) => {
+                    answering::recommend(&skill, &session, expected, &id, &text).map(|_| ())
+                }
+                (Write::Object(_) | Write::Recommend { .. }, None) => Err(Refusal::Refused(
                     "Seed Me gave no version to change from.".into(),
                 )),
             };
@@ -1067,6 +1133,8 @@ impl Opened {
             asking: None,
             assumed: Vec::new(),
             objecting: false,
+            withheld: None,
+            revealed: false,
             writing: None,
         }
     }
@@ -1245,6 +1313,7 @@ fn render_open(
                             ),
                         ])),
                         assumed: &open.assumed,
+                        instinct: open.instinct_first(),
                     }
                 }
                 (None, Some(_)) => Stand {
@@ -1260,6 +1329,7 @@ fn render_open(
                     )),
                     running: None,
                     assumed: &open.assumed,
+                    instinct: open.instinct_first(),
                 },
                 (None, None) => Stand {
                     acts,
@@ -1276,6 +1346,7 @@ fn render_open(
                         .map(|(said, next)| (said.as_str(), next.clone())),
                     running: None,
                     assumed: &open.assumed,
+                    instinct: open.instinct_first(),
                 },
             };
             let (said, input) = standing(&shaping.stage, stand, palette);
@@ -1479,6 +1550,8 @@ struct Stand<'a> {
     running: Option<Line<'static>>,
     /// Defaults the current question's step assumed instead of asking.
     assumed: &'a [Assumption],
+    /// Whether a hard-to-undo question's options and suggestion still wait for the operator's instinct.
+    instinct: bool,
 }
 
 /// Where the seed stands, in plain words, as what to read and then what to act with (the words box,
@@ -1496,6 +1569,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
         notice,
         running,
         assumed,
+        instinct,
     } = stand;
     let calm = running.is_some();
     let mut lines = Vec::new();
@@ -1506,6 +1580,8 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
             ask,
             found,
             suggestion,
+            options,
+            against,
             ..
         } => {
             lines.push(Line::styled(title.clone(), palette.muted));
@@ -1524,11 +1600,27 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                 if let Some(entry) = found.first() {
                     lines.push(Line::styled(format!("What I found: {entry}"), palette.ink));
                 }
-                if let Some(suggestion) = suggestion {
+                if instinct {
                     lines.push(Line::styled(
-                        format!("Suggestion: {suggestion}"),
-                        palette.ink.italic(),
+                        "This is hard to undo, so what's your instinct? F9 shows the options and my suggestion.",
+                        palette.ink,
                     ));
+                } else {
+                    for option in options {
+                        lines.push(Line::styled(option.clone(), palette.ink));
+                    }
+                    if let Some(against) = against {
+                        lines.push(Line::styled(
+                            format!("Against my suggestion: {against}"),
+                            palette.muted,
+                        ));
+                    }
+                    if let Some(suggestion) = suggestion {
+                        lines.push(Line::styled(
+                            format!("Suggestion: {suggestion}"),
+                            palette.ink.italic(),
+                        ));
+                    }
                 }
                 if !assumed.is_empty() {
                     lines.push(Line::default());

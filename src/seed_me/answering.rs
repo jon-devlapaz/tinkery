@@ -62,6 +62,64 @@ pub struct Ask {
     pub suggestion: Option<String>,
     /// Defaults the step chose instead of asking, added to Seed Me's `assumed` list.
     pub assumed: Vec<Assumption>,
+    /// The two ways to settle it, each with its trade-off and undo cost; empty when none were given.
+    pub options: Vec<Alternative>,
+    /// The strongest case against the suggestion.
+    pub against: Option<String>,
+    /// How sure the suggestion is: low, medium or high.
+    pub confidence: Option<String>,
+}
+
+/// One way to settle a decision, as Seed Me's question format names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Alternative {
+    /// The choice.
+    pub choice: String,
+    /// Its benefit and cost compared with the other.
+    pub tradeoff: String,
+    /// How hard it is to undo: cheap, moderate or hard.
+    pub undo: String,
+}
+
+/// The question's lines that name its options, then the case against the suggestion. Shape
+/// reads them back from the question text; Seed Me's ledger has no options field.
+pub const OPTION_LABELS: [&str; 2] = ["Option A: ", "Option B: "];
+/// The line that carries the strongest case against the suggestion.
+pub const AGAINST: &str = "Against my suggestion: ";
+
+impl Ask {
+    /// Whether either option is hard to undo, so the operator's instinct comes before any
+    /// suggestion and the suggestion isn't recorded yet.
+    pub fn hard(&self) -> bool {
+        self.options.iter().any(|o| o.undo == "hard")
+    }
+
+    /// The question as Seed Me records it: the ask, then each option and the case against.
+    fn text(&self) -> String {
+        let mut text = self.question.clone();
+        for (label, o) in OPTION_LABELS.iter().zip(&self.options) {
+            text.push_str(&format!(
+                "\n{label}{}; {}. Undo cost: {}.",
+                o.choice, o.tradeoff, o.undo
+            ));
+        }
+        if let Some(against) = self.against.as_deref().filter(|_| !self.options.is_empty()) {
+            text.push_str(&format!("\n{AGAINST}{against}"));
+        }
+        text
+    }
+
+    /// The suggestion with its confidence, as Seed Me's recommendation.
+    pub fn recommendation(&self) -> Option<String> {
+        let suggestion = self
+            .suggestion
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())?;
+        Some(match &self.confidence {
+            Some(c) => format!("{suggestion} Confidence: {c}."),
+            None => suggestion.to_owned(),
+        })
+    }
 }
 
 /// A default chosen without asking, and why it doesn't need the operator. Never an answer.
@@ -453,10 +511,12 @@ pub fn ask(
     let mut node = json!({
         "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
         "evidence": evidence, "owner": "User", "gate": ask.gate, "label": ask.label,
-        "question": ask.question,
+        "question": ask.text(),
     });
-    if let Some(suggestion) = ask.suggestion.as_deref().filter(|s| !s.trim().is_empty()) {
-        node["recommendation"] = suggestion.into();
+    // Seed Me: a hard-to-undo question is published without its recommendation until the
+    // operator answers or asks to see it, so the suggestion can't anchor their instinct.
+    if let Some(recommendation) = ask.recommendation().filter(|_| !ask.hard()) {
+        node["recommendation"] = recommendation.into();
     }
     ledger.state["nodes"]
         .as_array_mut()
@@ -484,6 +544,32 @@ pub fn ask(
         session,
         expected,
         &format!("Tinkery Shape's agent step drafted the next question, {id}."),
+        &ledger.state,
+    )
+}
+
+/// Record `recommendation` on open question `id`, from `expected`, once the operator asks to see
+/// what a hard-to-undo question withheld. Returns the new version.
+pub fn recommend(
+    skill: &Path,
+    session: &Path,
+    expected: u64,
+    id: &str,
+    recommendation: &str,
+) -> Result<u64, Refusal> {
+    let helper = helper(skill)?;
+    let mut ledger = read(skill, session)?;
+    let node = ledger.state["nodes"]
+        .as_array_mut()
+        .and_then(|nodes| nodes.iter_mut().find(|n| n["id"] == id))
+        .filter(|n| n["status"] == "unresolved")
+        .ok_or_else(|| Refusal::Refused(format!("The question {id} is no longer open.")))?;
+    node["recommendation"] = recommendation.into();
+    publish(
+        &helper,
+        session,
+        expected,
+        &format!("The operator asked to see the suggestion for {id} in Tinkery Shape."),
         &ledger.state,
     )
 }

@@ -2,7 +2,7 @@
 //! plus the seed draft's text when one waits for confirmation. Read-only: it never publishes,
 //! confirms or ends anything, and keeps no copy of the ledger.
 
-use super::answering::UNFOUND;
+use super::answering::{AGAINST, OPTION_LABELS, UNFOUND};
 use serde_json::Value;
 use std::path::Path;
 
@@ -47,6 +47,12 @@ pub enum Shaped {
         found: Vec<String>,
         /// Seed Me's suggestion, when one is recorded.
         suggestion: Option<String>,
+        /// Each option's line, as recorded in the question: its choice, trade-off and undo cost.
+        options: Vec<String>,
+        /// The strongest case against the suggestion, when recorded.
+        against: Option<String>,
+        /// Whether an option is hard to undo, so the operator's instinct comes first.
+        hard: bool,
     },
     /// Active with no current question and no seed: Seed Me hasn't asked its next question.
     Waiting,
@@ -208,9 +214,22 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         let Some(node) = node else {
             return unknown("Seed Me's current question isn't in its ledger.");
         };
-        let Some(ask) = text(node, "question").or_else(|| text(node, "gate")) else {
+        let Some(asked) = text(node, "question").or_else(|| text(node, "gate")) else {
             return unknown("Seed Me's current question has no wording.");
         };
+        // Options and the case against are lines Tinkery adds under the ask; see `answering::Ask`.
+        let (mut ask, mut options, mut against) = (Vec::new(), Vec::new(), None);
+        for line in asked.lines() {
+            if OPTION_LABELS.iter().any(|l| line.starts_with(l)) {
+                options.push(line.to_owned());
+            } else if let Some(case) = line.strip_prefix(AGAINST) {
+                against = Some(case.to_owned());
+            } else {
+                ask.push(line);
+            }
+        }
+        let ask = ask.join("\n");
+        let hard = options.iter().any(|o| o.ends_with("Undo cost: hard."));
         let found = node
             .get("evidence")
             .and_then(Value::as_array)
@@ -242,6 +261,9 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 ask,
                 found,
                 suggestion: text(node, "recommendation"),
+                options,
+                against,
+                hard,
             },
         );
     }
@@ -317,6 +339,9 @@ mod tests {
                     "no sync client found".into()
                 ],
                 suggestion: Some("Local, matching the README.".into()),
+                options: vec![],
+                against: None,
+                hard: false,
             }
         );
         let mut bare = ledger();
@@ -332,6 +357,9 @@ mod tests {
                 ask: "storage choice".into(),
                 found: vec![],
                 suggestion: None,
+                options: vec![],
+                against: None,
+                hard: false,
             }
         );
     }
