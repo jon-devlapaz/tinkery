@@ -100,6 +100,9 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
             "no sync client".into(),
         ],
         suggestion: Some("Local.".into()),
+        options: vec![],
+        against: None,
+        hard: false,
     };
     let cases = [
         (question, "Where records live Keep records local or synced?"),
@@ -229,6 +232,9 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
             ask: "Q?".into(),
             found: vec![],
             suggestion: Some("S".into()),
+            options: vec![],
+            against: None,
+            hard: false,
         });
         let backend = ratatui::backend::TestBackend::new(100, 30);
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
@@ -400,6 +406,9 @@ fn question() -> Shaped {
         ask: "Keep records local or synced?".into(),
         found: vec![],
         suggestion: None,
+        options: vec![],
+        against: None,
+        hard: false,
     }
 }
 
@@ -525,6 +534,9 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
         ask: "Keep records local or synced?".into(),
         found,
         suggestion: Some("Local, matching the README.".into()),
+        options: vec![],
+        against: None,
+        hard: false,
     };
     let mut shape = reading(done(tall).with_agent(Some(agent(1))), dir.path());
     shape.paste("TEST first line\nTEST last line");
@@ -1406,6 +1418,9 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 found: vec![],
                 suggestion: None,
                 assumed: vec![],
+                options: vec![],
+                against: None,
+                confidence: None,
             },
             temp.path(),
         )
@@ -1675,6 +1690,9 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
         ask: "Keep records local or synced?".into(),
         found: vec!["README.md:3 says local only".into()],
         suggestion: None,
+        options: vec![],
+        against: None,
+        hard: false,
     });
     assert!(!screen(&mut grounded, 100, 30, true).contains("Nothing found"));
     let seed = format!(
@@ -2221,6 +2239,9 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         found: vec![],
         suggestion: None,
         assumed: vec![assumption("TEST Markdown"), assumption("TEST one machine")],
+        options: vec![],
+        against: None,
+        confidence: None,
     };
     let version = answering::read(&skill, &session).unwrap().version();
     let version = answering::ask(&skill, &session, version, &ask, temp.path()).unwrap();
@@ -2290,5 +2311,222 @@ fn asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing() {
         assert_eq!(shape.open.as_ref().unwrap().typed.text(), "TEST kept");
         shape.key(key(KeyCode::Esc), None);
         assert!(shape.takes_text());
+    }
+}
+
+#[test]
+fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
+    let decode = |options: &str, confidence: &str| {
+        let reply = format!(
+            "{{\"next\":\"question\",\"question\":\"Local?\",\"found\":[],\"suggestion\":\"Local.\",\"options\":{options},\"against\":\" TEST sync helps later \",\"confidence\":\"{confidence}\"}}"
+        );
+        let step::Next::Question(ask) = step::decode(&reply).unwrap() else {
+            panic!("not a question")
+        };
+        ask
+    };
+    let two = r#"[{"choice":"Local","tradeoff":"TEST simple","undo":"Cheap"},{"choice":"Synced","tradeoff":"TEST shared","undo":"hard"}]"#;
+    let ask = decode(two, "medium");
+    assert_eq!(ask.options.len(), 2);
+    assert_eq!(ask.options[0].undo, "cheap");
+    assert!(ask.hard());
+    assert_eq!(ask.against.as_deref(), Some("TEST sync helps later"));
+    assert_eq!(
+        ask.recommendation().as_deref(),
+        Some("Local. Confidence: medium.")
+    );
+    for options in [
+        r#"[{"choice":"Local","tradeoff":"TEST","undo":"cheap"}]"#.to_owned(),
+        two.replace("\"hard\"", "\"never\""),
+        two.replace("\"Synced\"", "\"\""),
+    ] {
+        let ask = decode(&options, "sure");
+        assert!(ask.options.is_empty(), "{options}");
+        assert!(!ask.hard());
+        assert_eq!(ask.confidence, None);
+    }
+}
+
+#[test]
+fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
+    let hard = Shaped::Question {
+        id: "storage".into(),
+        title: "Where records live".into(),
+        ask: "Keep records local or synced?".into(),
+        found: vec!["README.md:3: says local only".into()],
+        suggestion: None,
+        options: vec![
+            "Option A: Local; TEST simple. Undo cost: cheap.".into(),
+            "Option B: Synced; TEST shared. Undo cost: hard.".into(),
+        ],
+        against: Some("TEST sync helps later".into()),
+        hard: true,
+    };
+    for withheld in [None, Some("Local. Confidence: high.".to_owned())] {
+        let mut shape = done(hard.clone());
+        shape.open.as_mut().unwrap().withheld = withheld.clone();
+        for (width, height) in [(100, 30), (80, 24)] {
+            let text = screen(&mut shape, width, height, true);
+            let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert!(flat.contains("so what's your instinct?"), "{text}");
+            for hidden in ["Option A", "Against my suggestion", "Suggestion:"] {
+                assert!(!flat.contains(hidden), "{hidden} shown first:\n{text}");
+            }
+            assert!(
+                text.lines().last().unwrap().contains("F9 show me"),
+                "{text}"
+            );
+        }
+        shape.key(key(KeyCode::F(9)), None);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while shape.open.as_ref().unwrap().writing.is_some() {
+            assert!(std::time::Instant::now() < deadline, "reveal never landed");
+            shape.tick();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(shape.open.as_ref().unwrap().revealed);
+        // Recording a withheld suggestion needs the helper; this fixture's path doesn't exist.
+        let said = &shape.open.as_ref().unwrap().notice.as_ref().unwrap().0;
+        match withheld {
+            None => assert!(said.contains("No suggestion was kept"), "{said}"),
+            Some(_) => assert!(
+                said.starts_with("Nothing was changed. Cannot locate Seed Me"),
+                "{said}"
+            ),
+        }
+    }
+    // Once revealed, the options and the case against show, and F9 is gone.
+    let mut shape = done(hard.clone());
+    shape.open.as_mut().unwrap().revealed = true;
+    let text = screen(&mut shape, 100, 30, true);
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        flat.contains("Option B: Synced; TEST shared. Undo cost: hard."),
+        "{text}"
+    );
+    assert!(
+        flat.contains("Against my suggestion: TEST sync helps later"),
+        "{text}"
+    );
+    assert!(!flat.contains("so what's your instinct?"), "{text}");
+    assert!(!text.lines().last().unwrap().contains("F9"), "{text}");
+    // Cheap and moderate questions show everything at once and offer no F9.
+    let Shaped::Question {
+        id,
+        title,
+        ask,
+        found,
+        options,
+        against,
+        ..
+    } = hard
+    else {
+        unreachable!()
+    };
+    let mut shape = done(Shaped::Question {
+        id,
+        title,
+        ask,
+        found,
+        suggestion: Some("Local.".into()),
+        options,
+        against,
+        hard: false,
+    });
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(
+        text.contains("Option A: Local") && text.contains("Suggestion: Local."),
+        "{text}"
+    );
+    assert!(!text.contains("instinct") && !text.contains("F9"), "{text}");
+}
+
+#[cfg(unix)]
+#[test]
+fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
+    use crate::seed_me::{Affirmed, Config, answering, shaping};
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-232-")
+        .tempdir()
+        .unwrap();
+    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
+        });
+    for undo in ["moderate", "hard"] {
+        let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+            .confirm(Affirmed {
+                goal: "TEST I can weigh options.\nWhy: Choices have costs.\nDone when: I see them.\nMust: Keep my words.\nMust not: Build without approval.".into(),
+                outcome: "TEST options".into(),
+                options: vec![],
+                originals: vec![],
+                context: "{}".into(),
+                source: "TEST fixture, not real approval".into(),
+            })
+            .unwrap();
+        receipt.stop_viewer().unwrap();
+        let session = receipt.session.clone();
+        let option = |choice: &str, undo: &str| answering::Alternative {
+            choice: choice.into(),
+            tradeoff: format!("TEST {choice} trade-off"),
+            undo: undo.into(),
+        };
+        let ask = answering::Ask {
+            id: "storage".into(),
+            label: "TEST Storage".into(),
+            question: "TEST Local or synced?".into(),
+            gate: "TEST Storage disposition".into(),
+            found: vec![],
+            suggestion: Some("Local.".into()),
+            assumed: vec![],
+            options: vec![option("Local", "cheap"), option("Synced", undo)],
+            against: Some("TEST sync helps later".into()),
+            confidence: Some("high".into()),
+        };
+        let version = answering::read(&skill, &session).unwrap().version();
+        let version = answering::ask(&skill, &session, version, &ask, temp.path()).unwrap();
+        let Shaped::Question {
+            ask: shown,
+            options,
+            against,
+            hard,
+            suggestion,
+            ..
+        } = shaping::read(&skill, &session).unwrap().stage
+        else {
+            panic!("not a question")
+        };
+        assert_eq!(shown, "TEST Local or synced?");
+        assert_eq!(
+            options,
+            vec![
+                "Option A: Local; TEST Local trade-off. Undo cost: cheap.".to_owned(),
+                format!("Option B: Synced; TEST Synced trade-off. Undo cost: {undo}."),
+            ]
+        );
+        assert_eq!(against.as_deref(), Some("TEST sync helps later"));
+        assert_eq!(hard, undo == "hard");
+        if undo == "hard" {
+            // Seed Me: not recorded until the operator answers or asks to see it.
+            assert_eq!(suggestion, None);
+            answering::recommend(
+                &skill,
+                &session,
+                version,
+                "storage",
+                "Local. Confidence: high.",
+            )
+            .unwrap();
+            let Shaped::Question { suggestion, .. } =
+                shaping::read(&skill, &session).unwrap().stage
+            else {
+                panic!("not a question")
+            };
+            assert_eq!(suggestion.as_deref(), Some("Local. Confidence: high."));
+        } else {
+            assert_eq!(suggestion.as_deref(), Some("Local. Confidence: high."));
+        }
     }
 }

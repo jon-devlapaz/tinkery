@@ -10,7 +10,7 @@
 
 use crate::{
     pi::{self, Call, CallBudget, Request},
-    seed_me::answering::{self, Ask, Assumption, Found, Refusal},
+    seed_me::answering::{self, Alternative, Ask, Assumption, Found, Refusal},
     think_record::{self, Event, MadeIn},
 };
 use serde_json::{Value, json};
@@ -42,6 +42,12 @@ pub(super) const FIELDS: &[&str] = &[
     "assumed",
     "text",
     "why",
+    "options",
+    "choice",
+    "tradeoff",
+    "undo",
+    "against",
+    "confidence",
     "confirming",
     "checks",
     "statement",
@@ -136,11 +142,20 @@ pub(super) enum Work {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Done {
     /// A new question is current, with the defaults its step assumed instead of asking.
-    Asked(Vec<Assumption>),
+    Asked(Asked),
     /// A seed draft was saved.
     Drafted,
     /// The seed is confirmed.
     Confirmed,
+}
+
+/// What the step that asked a question leaves for the screen, beyond what Seed Me records.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct Asked {
+    /// Defaults assumed instead of asking.
+    pub(super) assumed: Vec<Assumption>,
+    /// A hard-to-undo question's suggestion, not yet recorded, until the operator asks for it.
+    pub(super) withheld: Option<String>,
 }
 
 /// Why a step stopped short, and whether the operator's answer was saved before it did.
@@ -286,7 +301,7 @@ fn look(
         .map_err(refused(answer_saved))?
         .is_some()
     {
-        return Ok(Done::Asked(Vec::new()));
+        return Ok(Done::Asked(Asked::default()));
     }
     if agent.remaining() == 0 {
         return Err(fail(Why::Budget(agent.limit())));
@@ -331,7 +346,10 @@ fn look(
         Next::Question(ask) => {
             answering::ask(skill, session, expected, &ask, folder)
                 .map_err(refused(answer_saved))?;
-            Ok(Done::Asked(ask.assumed))
+            Ok(Done::Asked(Asked {
+                withheld: ask.recommendation().filter(|_| ask.hard()),
+                assumed: ask.assumed,
+            }))
         }
         Next::Seed {
             confirming,
@@ -350,6 +368,31 @@ fn look(
             .map_err(refused(answer_saved))?;
             Ok(Done::Drafted)
         }
+    }
+}
+
+/// Exactly two complete options, each with a known undo cost; anything else gives none.
+fn alternatives(value: &Value) -> Vec<Alternative> {
+    let options: Vec<Alternative> = value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|o| {
+            let field =
+                |key: &str| Some(o[key].as_str()?.trim().to_owned()).filter(|s| !s.is_empty());
+            Some(Alternative {
+                choice: field("choice")?,
+                tradeoff: field("tradeoff")?,
+                undo: field("undo")
+                    .map(|u| u.to_lowercase())
+                    .filter(|u| ["cheap", "moderate", "hard"].contains(&u.as_str()))?,
+            })
+        })
+        .collect();
+    if options.len() == 2 {
+        options
+    } else {
+        Vec::new()
     }
 }
 
@@ -439,6 +482,10 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                     .filter(|a| !a.text.is_empty() && !a.why.is_empty())
                     .take(5)
                     .collect(),
+                options: alternatives(&value["options"]),
+                against: text("against"),
+                confidence: text("confidence")
+                    .filter(|c| ["low", "medium", "high"].contains(&c.as_str())),
             }))
         }
         Some("seed") => Ok(Next::Seed {
