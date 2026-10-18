@@ -148,8 +148,9 @@ impl Board {
     /// The only way to make a board. Refuses a guess that fails [`Guess::validate`]; otherwise
     /// strips the model's self-labels, normalises constraints, drops a why or done-when that
     /// only repeats the outcome, and keeps one question. While a required part is missing,
-    /// that question is about the first missing part. A part skipped or already asked twice
-    /// isn't asked again.
+    /// that question is about the first missing part. Proposed alternatives cannot bound a
+    /// missing Done when; a single-line answer following them needs an open follow-up.
+    /// A part skipped or already asked twice isn't asked again.
     pub fn verify(mut g: Guess, request: &BoardRequest) -> Result<Self, String> {
         g.validate(request)?;
         for value in [
@@ -206,6 +207,52 @@ impl Board {
                     text,
                 });
             }
+        }
+        let missing_done = g.parts.missing().next() == Some(Part::DoneWhen)
+            && g.decisions.iter().any(|d| d.part == Part::DoneWhen);
+        let narrowed_done = g.parts.missing().next().is_none()
+            && g.parts
+                .done_when
+                .as_ref()
+                .is_some_and(|s| s.lines().count() == 1)
+            && request.previous.as_ref().is_some_and(|old| {
+                old.parts.done_when.is_none()
+                    && old.decisions.iter().any(|d| d.part == Part::DoneWhen)
+            });
+        if missing_done || narrowed_done {
+            let text = if missing_done {
+                format!(
+                    "What would show that {}?",
+                    g.parts.goal_line().unwrap_or_else(|| "this worked".into())
+                )
+            } else {
+                "What else matters for you to call this done?".into()
+            };
+            for d in g.decisions.iter_mut().filter(|d| d.part == Part::DoneWhen) {
+                d.question = Some(text.clone());
+            }
+            if !g.open.contains(&Part::DoneWhen) {
+                g.open.push(Part::DoneWhen);
+            }
+            let q = Question {
+                target: Some(Part::DoneWhen),
+                id: format!(
+                    "done-elicitation-{}",
+                    if missing_done { "criteria" } else { "more" }
+                ),
+                text,
+            };
+            g.questions = if request.answered.contains(&q.id)
+                || request
+                    .settled
+                    .iter()
+                    .any(|s| same_question(&s.question, &q))
+                || request.skipped.iter().any(|s| same_question(s, &q))
+            {
+                vec![]
+            } else {
+                vec![q]
+            };
         }
         for part in g.questions.iter().filter_map(|q| q.target) {
             if !g.open.contains(&part) {

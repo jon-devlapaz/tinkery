@@ -28,6 +28,95 @@ fn parsed(raw: &str) -> (board::Board, Vec<String>) {
     let g = reading::parse(raw, &r, &mut changes).unwrap();
     (board::Board::verify(g, &r).unwrap(), changes)
 }
+fn success_choice() -> serde_json::Value {
+    serde_json::json!({
+        "parts": {"who": "TEST players", "outcome": "have a game", "why": "play together"},
+        "decisions": [{"part": "done_when", "text": "TEST finish", "answers": ["local", "shared"],
+            "question": "TEST local or shared?"}],
+        "questions": [{"target": "done_when", "text": "TEST local or shared?"}]
+    })
+}
+
+#[test]
+fn success_alternatives_do_not_bound_missing_criteria_but_remain_context() {
+    let (b, _) = parsed(&success_choice().to_string());
+    assert_eq!(
+        b.questions[0].text,
+        "What would show that TEST players have a game?"
+    );
+    assert_eq!(b.decisions[0].answers, ["local", "shared"]);
+    assert!(b.decisions[0].covered_by(&b.questions.iter().cloned().collect::<Vec<_>>()));
+    let mut raw = success_choice();
+    raw["parts"]["why"] = serde_json::Value::Null;
+    let (b, _) = parsed(&raw.to_string());
+    assert_eq!(
+        b.questions[0].target,
+        Some(Part::Why),
+        "first required part wins"
+    );
+}
+
+#[test]
+fn narrowed_success_followup_uses_structure_not_product_words_or_length() {
+    let (previous, _) = parsed(&success_choice().to_string());
+    for (done, followup) in [
+        ("local", true),
+        ("a very detailed single criterion", true),
+        ("local\nshared", false),
+    ] {
+        for has_choices in [false, true] {
+            let mut r = request();
+            r.previous = Some(previous.wire());
+            if !has_choices {
+                r.previous.as_mut().unwrap().decisions.clear();
+            }
+            let raw = serde_json::json!({"parts": {"who": "TEST players", "outcome": "have a game",
+                "why": "play together", "done_when": done}});
+            let g = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();
+            let b = board::Board::verify(g, &r).unwrap();
+            assert_eq!(!b.questions.is_empty(), followup && has_choices);
+            assert_eq!(b.open.contains(&Part::DoneWhen), followup && has_choices);
+            assert_eq!(b.parts.done_when.as_deref(), Some(done));
+        }
+    }
+}
+
+#[test]
+fn success_elicitation_respects_skip_two_asks_and_settled_history() {
+    for followup in [false, true] {
+        let (previous, _) = parsed(&success_choice().to_string());
+        for history in ["skip", "two", "answered"] {
+            let mut r = request();
+            let raw = if followup {
+                r.previous = Some(previous.wire());
+                serde_json::json!({"parts": {"who": "TEST players", "outcome": "have a game",
+                    "why": "play together", "done_when": "local"}})
+            } else {
+                success_choice()
+            };
+            let decode =
+                |r: &BoardRequest| Guess::decode(&raw.to_string(), r, &mut vec![]).unwrap();
+            let b = board::Board::verify(decode(&r), &r).unwrap();
+            match history {
+                "skip" => r.skipped.push(b.questions[0].clone()),
+                "two" => {
+                    r.ask_counts.insert(Part::DoneWhen, 2);
+                }
+                _ => {
+                    r.answered.push(b.questions[0].id.clone());
+                    r.settled.push(Settled {
+                        question: b.questions[0].clone(),
+                        source: 1,
+                    });
+                }
+            }
+            let b = board::Board::verify(decode(&r), &r).unwrap();
+            assert!(b.questions.is_empty(), "{followup} {history}");
+            assert!(b.open.contains(&Part::DoneWhen));
+        }
+    }
+}
+
 #[test]
 fn unreadable_done_when_is_refused_instead_of_losing_checks() {
     for value in [

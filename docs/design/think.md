@@ -18,6 +18,17 @@ question link. Ignore invalid parts or answer counts. Open decisions block
 question once; otherwise it shows an Open decision note. Alternatives survive
 handoff even when a question replaces the note.
 
+When Done when is the first missing part, proposed success alternatives cannot
+bound its question: the verified board asks openly what would show the outcome.
+The alternatives remain provisional context, not an exhaustive menu. A single-line
+Done when following that reading gets one open “What else matters” follow-up;
+parts and originals stay unchanged. Skips and the two-ask limit still leave intent
+open for the seed. This structural guard does not judge completeness: a detailed
+single-line answer may also get the follow-up, and multiple lines are not proof of
+quality. Ordinary open questions and supplied criteria without prior success
+alternatives keep their existing behavior. The [frozen Stacker replay](../../tests/fixtures/stacker-226-notes.md)
+checks the recorded failure without live calls.
+
 After shaping, a separate review sees only words, answers, draft parts and shaping
 decisions, never the template. It finds silently settled choices about scope,
 irreversible actions, protected things, persistence or whose rules apply. The
