@@ -21,12 +21,20 @@ def tracked_files():
     return {path for path in listed.split("\0") if path and (REPO / path).is_file()}
 
 
+def agent_docs(tracked, read):
+    """Our agent-facing pages. Vendored upstream docs, upstream skills and test fixtures
+    are not ours to steer agents with, nor is what an installed tink-sdlc scaffold lists
+    in its receipt; CLAUDE.md only imports the entry point and names the skills folder."""
+    receipt = "_system/scaffold.json"
+    scaffold = set(json.loads(read(receipt))["files"]) if receipt in tracked else set()
+    return sorted(path for path in tracked if path.endswith(".md") and path != "CLAUDE.md"
+                  and path not in scaffold
+                  and not path.startswith(("vendor/", ".agents/skills/", "tests/fixtures/")))
+
+
 TRACKED = tracked_files()
 TRACKED_DIRS = {str(parent) for path in TRACKED for parent in Path(path).parents} - {"."}
-# Vendored upstream docs, upstream skills and test fixtures are not ours to steer
-# agents with; CLAUDE.md only imports the entry point and names the skills folder.
-DOCS = sorted(path for path in TRACKED if path.endswith(".md") and path != "CLAUDE.md"
-              and not path.startswith(("vendor/", ".agents/skills/", "tests/fixtures/")))
+DOCS = agent_docs(TRACKED, lambda path: (REPO / path).read_text())
 FENCE = re.compile(r"^(```|~~~).*?^\1", re.M | re.S)
 LINK = re.compile(r"\]\(([^)\s]+)\)|^\[[^\]]+\]:\s*(\S+)", re.M)
 
@@ -119,6 +127,16 @@ class DocumentationLintTests(unittest.TestCase):
 
 
 class DocumentationTests(unittest.TestCase):
+    def test_an_installed_sdlc_scaffold_steers_only_its_own_docs(self):
+        receipt = json.dumps({"files": ["_system/SDLC.md", "stages/01-plan/CONTEXT.md"]})
+        tracked = {"AGENTS.md", "docs/yohaku.md", "_system/SDLC.md", "_system/scaffold.json",
+                   "stages/01-plan/CONTEXT.md", "stages/notes.md"}
+        self.assertEqual(["AGENTS.md", "docs/yohaku.md", "stages/notes.md"],
+                         agent_docs(tracked, {"_system/scaffold.json": receipt}.get))
+        # An untracked receipt excuses nothing.
+        self.assertIn("_system/SDLC.md",
+                      agent_docs(tracked - {"_system/scaffold.json"}, lambda path: receipt))
+
     def test_retro_loads_its_style_guide_without_a_harness_specific_tool(self):
         skill = ".agents/skills/retro/SKILL.md"
         first_step = re.search(r"^1\. (.+)$", (REPO / skill).read_text(), re.M).group(1)
