@@ -903,7 +903,7 @@ fn repository_checks_are_proposed_with_sources_but_never_executed() {
         .unwrap_or_else(|| {
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
         });
-    let goal = "TEST I can check a seed.\nWhy: Checks need evidence.\nDone when: The parsed value is new.\n- The future checker validates the result.\n- The result feels calm.\nMust: Keep my words. The proposed ./TEST-future-check does not exist yet.\nMust not: Run checks or build without approval.";
+    let goal = "TEST I can check a seed.\nWhy: Checks need evidence.\nDone when: The parsed value is new.\n- The future checker validates the result.\n- The result feels calm.\n- The missing boundary assertion detects the defect.\nMust: Keep my words. The proposed ./TEST-future-check does not exist yet.\nMust not: Run checks or build without approval.";
     fs::create_dir(temp.path().join("tests")).unwrap();
     fs::write(
         temp.path().join("README.md"),
@@ -911,6 +911,11 @@ fn repository_checks_are_proposed_with_sources_but_never_executed() {
     )
     .unwrap();
     fs::write(temp.path().join("value.txt"), "old\n").unwrap();
+    fs::write(
+        temp.path().join("tests/runner_only.py"),
+        "print('TEST runner without the required boundary check')\n",
+    )
+    .unwrap();
     fs::write(temp.path().join("tests/check_value.py"),
         "from pathlib import Path\nPath('TEST-CHECK-WAS-RUN').touch()\nassert Path('value.txt').read_text().strip() == 'new'\nprint('new value')\n").unwrap();
     let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
@@ -937,6 +942,7 @@ source = pathlib.Path('README.md').read_text().splitlines()
 command, expected, cwd = [line.split(': ', 1)[1] for line in source]
 assert pathlib.Path('tests/check_value.py').is_file()
 assert not pathlib.Path('TEST-future-check').exists()
+assert 'assert ' not in pathlib.Path('tests/runner_only.py').read_text()
 # A policy-aware stub, not a claim about real-model reasoning or check quality.
 can_propose = all(rule in prompt for rule in [
     'For a code-checkable criterion, propose', "cite the command's source", 'fail before the change'
@@ -944,10 +950,17 @@ can_propose = all(rule in prompt for rule in [
 check = ('cmd: ' + command + '\nexpect: ' + expected + '\ncwd: ' + cwd +
          '\nSource: README.md:1-3; proposed from repository inspection, not run.') if can_propose else (
          'you judge: No invocation was settled; inspect tests/check_value.py yourself.')
+if can_propose and 'not provisional merely because setup' not in prompt:
+    check = 'provisional: Build the binary and prepare an unrun reversion probe first.\n' + check
+missing = ('provisional: The boundary assertion must be built; an existing runner is not that assertion.'
+    if 'Use provisional when the needed test/assertion or invocation is missing' in prompt else
+    'Proposed existing check without the required assertion:')
 criteria = ('The parsed value is new.\n' + check +
     '\nThe future checker validates the result.\nprovisional: Once the named TEST-future-check exists.\n'
     'cmd: ./TEST-future-check\nexpect: result validated\ncwd: .\n'
-    'The result feels calm.\nyou judge: The operator inspects calmness.\n')
+    'The result feels calm.\nyou judge: The operator inspects calmness.\n'
+    'The missing boundary assertion detects the defect.\n' + missing +
+    '\ncmd: python3 tests/runner_only.py\nexpect: boundary checked after its assertion exists\ncwd: .\n')
 body = {template:?}
 start, end = body.index('## Acceptance criteria\n'), body.index('## Affected users and systems\n')
 body = body[:start] + '## Acceptance criteria\n' + criteria + '\n' + body[end:]
@@ -1001,6 +1014,8 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'found': [
         "repo-grounded code check was replaced by operator judgment: {criteria}");
     assert!(criteria.contains("The future checker validates the result.\nprovisional:"));
     assert!(criteria.contains("cmd: ./TEST-future-check"));
+    assert!(criteria.contains("The missing boundary assertion detects the defect.\nprovisional:"));
+    assert!(criteria.contains("cmd: python3 tests/runner_only.py"));
     assert!(
         criteria.contains("The result feels calm.\nyou judge: The operator inspects calmness.")
     );
@@ -1028,6 +1043,39 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'found': [
 }
 
 #[test]
+fn prompt_recovery_separates_existing_checks_from_missing_assertions() {
+    let prompt = step::prompt();
+    for rule in [
+        "Keep a known repository invocation with existing assertions for the criterion",
+        "not provisional merely because setup",
+        "state those prerequisites and intended red separately",
+        "Use provisional when the needed test/assertion or invocation is missing",
+        "never invent a command or substitute an existing generic runner for a missing regression",
+        "under a targeted reversion of an already-present fix",
+    ] {
+        assert!(
+            prompt.contains(rule),
+            "missing check-availability distinction: {rule}"
+        );
+    }
+    assert!(!prompt.contains("When no repository command exists or something must be built first"));
+}
+
+#[test]
+fn prompt_recovery_does_not_turn_existing_behavior_into_a_new_goal_choice() {
+    let prompt = step::prompt();
+    assert!(prompt.contains("If the repo already appears to meet the confirmed goal, propose verification and repairs only for demonstrated gaps"));
+    assert!(prompt.contains("do not ask whether to verify it or require extra changes"));
+    assert!(prompt.contains("do not claim it is complete without evidence"));
+}
+
+#[cfg(unix)]
+#[test]
+fn prompt_recovery_existing_goal_drafts_without_reconfirmation() {
+    assert_settled_intake_drafts(None);
+}
+
+#[test]
 fn settled_intake_drafts_without_reopening_settled_or_deferred_decisions() {
     let prompt = step::prompt();
     for rule in [
@@ -1047,21 +1095,21 @@ fn settled_intake_drafts_without_reopening_settled_or_deferred_decisions() {
 #[cfg(unix)]
 #[test]
 fn settled_intake_answer_drafts_without_reopening() {
-    assert_settled_intake_drafts(
+    assert_settled_intake_drafts(Some(
         "TEST Keep storage local; that choice is settled. Do not ask it again.",
-    );
+    ));
 }
 
 #[cfg(unix)]
 #[test]
 fn settled_intake_deferral_drafts_without_choosing_or_confirming() {
-    assert_settled_intake_drafts(
+    assert_settled_intake_drafts(Some(
         "TEST Draft only. Defer local versus synced until before implementation; keep it as an operator prerequisite. Do not choose either or approve implementation.",
-    );
+    ));
 }
 
 #[cfg(unix)]
-fn assert_settled_intake_drafts(words: &str) {
+fn assert_settled_intake_drafts(words: Option<&str>) {
     use crate::{
         pi::CallBudget,
         seed_me::{Affirmed, Config, answering},
@@ -1094,44 +1142,60 @@ fn assert_settled_intake_drafts(words: &str) {
         .unwrap();
     receipt.stop_viewer().unwrap();
     let version = answering::read(&skill, &receipt.session).unwrap().version();
-    let version = answering::ask(
-        &skill,
-        &receipt.session,
-        version,
-        &answering::Ask {
-            id: "storage".into(),
-            label: "TEST Storage".into(),
-            question: "TEST Local or synced?".into(),
-            gate: "TEST Storage disposition".into(),
-            found: vec![],
-            suggestion: None,
-        },
-        temp.path(),
-    )
-    .unwrap();
-    // A real unresolved ledger decision still refuses a draft, regardless of prompt policy.
-    assert!(
-        answering::draft_seed(
+    let version = if words.is_some() {
+        let version = answering::ask(
             &skill,
             &receipt.session,
             version,
-            template,
-            &[],
-            temp.path()
+            &answering::Ask {
+                id: "storage".into(),
+                label: "TEST Storage".into(),
+                question: "TEST Local or synced?".into(),
+                gate: "TEST Storage disposition".into(),
+                found: vec![],
+                suggestion: None,
+            },
+            temp.path(),
         )
-        .is_err()
-    );
+        .unwrap();
+        // A genuinely open decision still refuses a draft before the answer is saved.
+        assert!(
+            answering::draft_seed(
+                &skill,
+                &receipt.session,
+                version,
+                template,
+                &[],
+                temp.path()
+            )
+            .is_err()
+        );
+        version
+    } else {
+        fs::write(
+            temp.path().join("TEST-existing.txt"),
+            "TEST Requested behavior already present.\n",
+        )
+        .unwrap();
+        version
+    };
     assert!(!receipt.session.join("seed-contract.md").exists());
+    let words_json = serde_json::to_string(&words).unwrap();
     let program = temp.path().join("TEST-pi");
     fs::write(&program, format!(r##"#!/usr/bin/env python3
-import json, sys
+import json, pathlib, sys
 request = json.load(sys.stdin)
+words = json.loads({words_json:?})
 assert request['goal'] == {GOAL:?}
 assert request['ledger']['current_question'] is None
 assert all(n['status'] != 'unresolved' for n in request['ledger']['nodes'])
-answer = next(n for n in request['ledger']['nodes'] if n['id'] == 'storage')
-assert answer['status'] == 'settled' and answer['authority'] == 'user'
-assert answer['answer'] == {words:?}
+if words is not None:
+    answer = next(n for n in request['ledger']['nodes'] if n['id'] == 'storage')
+    assert answer['status'] == 'settled' and answer['authority'] == 'user'
+    assert answer['answer'] == words
+else:
+    assert len(request['ledger']['nodes']) == 1
+    assert pathlib.Path('TEST-existing.txt').read_text() == 'TEST Requested behavior already present.\n'
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
 # This stub proves routing instructions and helper transport, not model reasoning.
@@ -1143,12 +1207,15 @@ drafts = all(rule in prompt for rule in [
     'choose no alternative',
     'genuinely unresolved ledger decisions still block drafting',
 ])
+if words is None:
+    drafts = drafts and 'do not ask whether to verify it or require extra changes' in prompt
 if not drafts:
-    print(json.dumps({{'next': 'question', 'id': 'reopened', 'question': 'TEST Resolve or defer storage again?', 'found': []}}))
+    print(json.dumps({{'next': 'question', 'id': 'reopened', 'question': 'TEST Verify existing behavior or require extra changes?', 'found': []}}))
 else:
     body = {template:?}
     start, end = body.index('## Open questions and deferrals\n'), body.index('## Owners and next steps\n')
-    body = body[:start] + '## Open questions and deferrals\nRecorded operator answer: ' + answer['answer'] + '\n\n' + body[end:]
+    recorded = words if words is not None else 'Existing behavior remains unverified; propose checks, not extra requirements.'
+    body = body[:start] + '## Open questions and deferrals\nRecorded disposition: ' + recorded + '\n\n' + body[end:]
     print(json.dumps({{'next': 'seed', 'confirming': body, 'found': []}}))
 "##)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
@@ -1163,24 +1230,26 @@ else:
         )
         .unwrap(),
     );
-    let running = step::Running::start(
-        step::Work::Answer {
+    let work = match words {
+        Some(words) => step::Work::Answer {
             id: "storage".into(),
             words: words.into(),
             expected: version,
             folder: temp.path().into(),
         },
-        skill.clone(),
-        receipt.session.clone(),
-        agent.clone(),
-    );
+        None => step::Work::Look {
+            expected: version,
+            folder: temp.path().into(),
+        },
+    };
+    let running = step::Running::start(work, skill.clone(), receipt.session.clone(), agent.clone());
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         if let Some(result) = running.poll() {
             assert_eq!(
                 result,
                 Ok(step::Done::Drafted),
-                "settled intake reopened: {words}"
+                "settled intake reopened: {words:?}"
             );
             break;
         }
@@ -1191,13 +1260,17 @@ else:
     assert_eq!(ledger.goal(), Some(GOAL));
     assert!(ledger.open().is_empty());
     let context: serde_json::Value = serde_json::from_str(&ledger.context()).unwrap();
-    let answer = context["nodes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|n| n["id"] == "storage")
-        .unwrap();
-    assert_eq!(answer["answer"], words);
+    if let Some(words) = words {
+        let answer = context["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == "storage")
+            .unwrap();
+        assert_eq!(answer["answer"], words);
+    } else {
+        assert_eq!(context["nodes"].as_array().unwrap().len(), 1);
+    }
     let seed = fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
     assert!(seed.starts_with("status: draft\n"));
     assert!(
@@ -1207,7 +1280,7 @@ else:
             .split("\n## ")
             .next()
             .unwrap()
-            .contains(words)
+            .contains(words.unwrap_or("Existing behavior remains unverified"))
     );
     assert!(!receipt.session.join("seed-confirmation.json").exists());
     assert_eq!(agent.remaining(), 0);

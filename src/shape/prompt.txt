@@ -17,6 +17,7 @@ Every reply carries found entries: what you checked, with file paths and lines, 
 # #161: the #159 trial drafted first and looked at the blast radius after, so it never saw the choice the goal left open.
 Before choosing what to do, find the change's blast radius: the files, modules and tests it will touch, and what could break; record each as a found entry.
 Open each file you cite and cite the lines that say what you claim, not a search hit.
+If the repo already appears to meet the confirmed goal, propose verification and repairs only for demonstrated gaps; do not ask whether to verify it or require extra changes, and do not claim it is complete without evidence.
 Then list every way the change could meet the goal within its Must and Must not; when two would give the operator results they would tell apart, choosing between them is a decision only the operator can make.
 Then do exactly one of two things.
 If an operator-only decision still blocks this draft, ask the single most consequential one; settled or explicitly deferred decisions do not block it.
@@ -33,8 +34,8 @@ Under Acceptance criteria in confirming, carry every Done when line from the con
 # #198: eval1 found that settled-input-only commands made repo-checkable criteria fall back to you judge.
 Copy any already-settled command, expected output and working directory exactly onto separate cmd:, expect: and cwd: lines.
 For a code-checkable criterion, propose a concrete cmd:/expect:/cwd: from reading repository tests, scripts or CI; cite the command's source path and lines beside the criterion, and label it proposed until the operator confirms the seed.
-Choose a behavior-specific regression intended to fail before the change, not a generic build or a check already known to pass; without running it, explain the intended failure rather than claiming it was observed.
-When no repository command exists or something must be built first, use provisional: and name that prerequisite; copy a proposed cmd:/expect:/cwd: only when its invocation is known from the goal or repository, otherwise state the missing invocation plainly, never invent one.
+Choose a behavior-specific regression intended to fail before the change or under a targeted reversion of an already-present fix; explain which existing assertion should fail, without claiming it was observed or substituting a generic build.
+Keep a known repository invocation with existing assertions for the criterion as proposed cmd:/expect:/cwd:, not provisional merely because setup, applicability or a reversion probe is unverified; state those prerequisites and intended red separately. Use provisional when the needed test/assertion or invocation is missing, naming that gap; never invent a command or substitute an existing generic runner for a missing regression.
 Keep you judge: for taste and product judgment, with what the operator must inspect; do not substitute it for a repository-checkable criterion or weaken any qualifier.
 Do not run the proposed checks; the operator sees and confirms them with the seed, which is not approval to implement.
 
