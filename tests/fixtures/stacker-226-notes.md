@@ -1,6 +1,6 @@
 # Stacker retry (#226)
 
-`stacker-226.json` is a verbatim copy of the operator-authorized TEST record:
+`stacker-226.json` is a verbatim copy of the TEST record from the Stacker retry run:
 
 - Source: `/tmp/tinkery-TEST-stacker2-dgATpt/think/2026-10-18T15-08-28.771Z_cc1413f8-5b39-4816-b3f1-b5db51895cef.json`
 - SHA-256: `88f07b7a75f1676d88e5bc6318cb367459bc9af43bf9a3c39cebc5ce332a7c2e`
