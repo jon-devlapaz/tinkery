@@ -10,7 +10,7 @@
 
 use crate::{
     pi::{self, Call, CallBudget, Request},
-    seed_me::answering::{self, Ask, Found, Refusal},
+    seed_me::answering::{self, Ask, Assumption, Found, Refusal},
     think_record::{self, Event, MadeIn},
 };
 use serde_json::{Value, json};
@@ -39,6 +39,9 @@ pub(super) const FIELDS: &[&str] = &[
     "checked",
     "observed",
     "suggestion",
+    "assumed",
+    "text",
+    "why",
     "confirming",
     "checks",
     "statement",
@@ -132,8 +135,8 @@ pub(super) enum Work {
 /// What a finished step did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Done {
-    /// A new question is current.
-    Asked,
+    /// A new question is current, with the defaults its step assumed instead of asking.
+    Asked(Vec<Assumption>),
     /// A seed draft was saved.
     Drafted,
     /// The seed is confirmed.
@@ -278,6 +281,13 @@ fn look(
     answer_saved: bool,
 ) -> Result<Done, Failure> {
     let fail = |why| Failure { answer_saved, why };
+    // A decision already recorded, such as an objection, is asked before the model looks for one.
+    if answering::promote(skill, session, expected)
+        .map_err(refused(answer_saved))?
+        .is_some()
+    {
+        return Ok(Done::Asked(Vec::new()));
+    }
     if agent.remaining() == 0 {
         return Err(fail(Why::Budget(agent.limit())));
     }
@@ -321,7 +331,7 @@ fn look(
         Next::Question(ask) => {
             answering::ask(skill, session, expected, &ask, folder)
                 .map_err(refused(answer_saved))?;
-            Ok(Done::Asked)
+            Ok(Done::Asked(ask.assumed))
         }
         Next::Seed {
             confirming,
@@ -416,6 +426,19 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                 question,
                 found,
                 suggestion: text("suggestion"),
+                assumed: value["assumed"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| {
+                        Some(Assumption {
+                            text: a["text"].as_str()?.trim().to_owned(),
+                            why: a["why"].as_str()?.trim().to_owned(),
+                        })
+                    })
+                    .filter(|a| !a.text.is_empty() && !a.why.is_empty())
+                    .take(5)
+                    .collect(),
             }))
         }
         Some("seed") => Ok(Next::Seed {
