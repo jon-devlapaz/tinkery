@@ -19,6 +19,7 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   If the operator asks for drafts only, create and merge nothing until they say so.
 - Model and provider calls require an explicit budget. The default is zero.
   `live_*` examples and eval commands are outside zero-call verification.
+- Agent operators (Pi via herdr) always launch Tinkery with `--operator agent`.
 - Never record real audio; voice tests use fake engines and recorders, never native addons.
 - Use temporary TEST roots. Never write to `~/.local/share/seed-me` or
   `~/.local/share/tinkery`, or change operator sessions, installs, launcher, Pi,

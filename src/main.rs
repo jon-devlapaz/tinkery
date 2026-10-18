@@ -38,11 +38,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pi_command = None;
     let mut shape_budget = 0;
     let mut home_menu = false;
+    let mut operator = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--no-color" => no_color = true,
             "--home" => home_menu = true,
+            "--operator" => {
+                if operator.is_some() {
+                    return Err("--operator may be declared only once".into());
+                }
+                let value = args.next().ok_or("--operator needs human or agent")?;
+                tinkery::think_record::GoalConfirmation::terminal(Some(&value))?;
+                operator = Some(value);
+            }
             "--snapshot" => snapshot = true,
             "--full-redraw" => full_redraw = true,
             "--shape-pi" => shape_pi = true,
@@ -87,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/seed-me/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Model calls Shape may make this run (default: 0, none)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Frozen launch declaration, not verified identity (default: not declared)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/seed-me/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Model calls Shape may make this run (default: 0, none)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }
@@ -106,6 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into(),
         );
     }
+    let confirmation = tinkery::think_record::GoalConfirmation::terminal(operator.as_deref())?;
     let record_root = match record_root {
         Some(root) if root.is_absolute() => Ok(root),
         Some(root) => Ok(std::env::current_dir()?.join(root)),
@@ -159,17 +169,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let root = sessions_root.clone().ok();
             let records = record_root.clone()?;
             let repo = repo.clone();
+            let confirmation = confirmation.clone();
             Box::new(move || {
-                let dump = BrainDump::with_host(host.clone())
+                let mut dump = BrainDump::with_host(host.clone())
                     .with_record_root(records.clone())
                     .with_repo(repo.clone());
+                dump.set_goal_confirmation(confirmation.clone())
+                    .expect("validated launch declaration on fresh Think");
                 match &root {
                     Some(root) => dump.with_seed_me(skill.clone(), Some(root.clone())),
                     None => dump,
                 }
             })
         } else {
-            Box::new(BrainDump::default)
+            let confirmation = confirmation.clone();
+            Box::new(move || {
+                let mut dump = BrainDump::default();
+                dump.set_goal_confirmation(confirmation.clone())
+                    .expect("validated launch declaration on fresh Think");
+                dump
+            })
         };
         let make_dump: Box<dyn Fn() -> BrainDump> = if snapshot {
             make_dump
@@ -230,6 +249,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Intake::Brain(Box::default())
     };
+    if let Intake::Brain(dump) = &mut app {
+        dump.set_goal_confirmation(confirmation)?;
+    }
     if snapshot {
         println!(
             "{}",

@@ -91,7 +91,7 @@ Neither keypresses, login names nor the model producing the reading identify the
 confirmer. Without explicit context, identity is `unrecorded`, never operator.
 An explicit operator declaration names the operator and source; an agent declaration
 also names the authorizing operator and must have a two-way/small class with reasons.
-Incomplete or ineligible declarations refuse. Context freezes with the displayed
+Incomplete or ineligible declarations refuse. Named context freezes with the displayed
 goal, stays outside model requests and never carries into a fresh Think visit.
 Original words and the confirmed goal remain unchanged.
 
@@ -101,15 +101,30 @@ the actual confirmation action without claiming the operator typed an agent's wo
 unrecorded identity. Readers disclose attribution as caller-declared technical detail,
 never as authentication or implementation permission.
 
-**Integration held:** no CLI or Shape attribution input is wired yet. An explicit
-agent declaration therefore cannot save a goal through the existing Seed Me path:
+The CLI accepts `--operator human|agent` as an explicit launch declaration, frozen
+across Think visits in that terminal session. Header and confirmation review show
+`declared: human`, `declared: agent` or `not declared`; none is verified identity.
+The record retains that exact declaration, `typed confirm at this terminal`, and
+`declaration is not verified identity`, never an operator identity inferred from
+keys. No declaration stays unknown; existing records are not backfilled. Launch
+context cannot be replaced by named attribution through the API. It never enters
+model requests and grants neither seed confirmation nor implementation permission.
+
+**Integration held:** an agent launch declaration or explicit named agent context
+cannot save a goal through the existing Seed Me path:
 review and help explain the hold and Esc, and Enter refuses before any helper job.
 Seed Me's pinned helper requires a `user` goal origin and does not expose structured
 seed-confirmer fields; Tinkery does not relabel an agent as `user`, use simulation as
 a bypass, or change that helper's contract. Shape F3, Seed Me publication/readback,
 and seed-confirmation provenance need a separately assigned integration slice after
 #198 and #208 clear. This partial slice does not complete #185's end-to-end goal/seed
-confirmation support or authorize delegated seed confirmation.
+confirmation support or authorize delegated seed confirmation. Seed Me PR #15 at
+`9a3d597` separates `authority_source` (agent confirmation) from
+`delegation.authorization_source`, with `agent`, `authorizing_operator`, `door`
+(`two-way`) and `blast_radius` (`small`). A launch kind supplies none of that named,
+goal-scoped authorization, so it is not a delegation object. The existing named
+API and held adapter are unchanged; this slice neither depends on #15 merging nor
+enables its integration.
 
 ## Think record
 
@@ -121,12 +136,15 @@ rather than writing under the current directory. The review and bar label
 including crashes, leave no record.
 
 Schema 3 has an additive optional `goal_confirmation` object: `by` is `unrecorded`,
-`operator` or `agent`; known actors carry their name, exact source and class (door,
+`terminal`, `operator` or `agent`. `terminal` retains `declaration`, `action` and
+`identity` as the exact strings above, not a named actor or delegation.
+Known actors carry their name, exact source and class (door,
 blast radius and a reason for each), and an agent also carries `authorizing_operator`.
 This is separate from the reading's `origin`. Missing metadata in existing records
 means unrecorded identity; no old record is rewritten or backfilled. Existing schema-2
 and schema-3 histories remain readable and matching schema-1 records remain unsafe
-to attribute, as before. Older schema-3 readers ignore the added field. Malformed
+to attribute, as before. Readers predating #209 ignore the added field; #209 readers
+refuse the new `terminal` variant rather than guess an identity. Malformed
 present attribution refuses history and batch repo attribution rather than choosing
 an operator or silently discarding it. Record/session identity, exact-goal checks,
 duplicate refusals and per-file limits are unchanged.

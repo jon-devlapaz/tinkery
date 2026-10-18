@@ -3,6 +3,153 @@ use super::readiness_tests::{app, parts};
 use super::*;
 use crate::think_record::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
 
+fn terminal(declaration: &str) -> GoalConfirmation {
+    serde_json::from_value(serde_json::json!({
+        "by": "terminal", "declaration": declaration,
+        "action": "typed confirm at this terminal",
+        "identity": "declaration is not verified identity"
+    }))
+    .unwrap()
+}
+
+#[test]
+fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/stacker-think-confirm.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture["goal_confirmation"]["by"], "unrecorded");
+    let expected_goal = concat!(
+        "I have created a software version of stacker (https://en.wikipedia.org/wiki/Stacker_(arcade_game)).\n",
+        "Why: i like the game and played it at dave and busters today and it was fun.\n",
+        "Done when: matches the tink-arcade style and theme; has working sounds; ",
+        "just works with the right mechanics as the game has."
+    );
+    for declaration in ["declared: human", "declared: agent", "not declared"] {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("TEST-records");
+        let candidate = fixture["checks"].as_array().unwrap().last().unwrap()["candidate"].clone();
+        let replay = super::readiness_tests::app_with_source(
+            candidate,
+            fixture["turns"][0]["text"].as_str().unwrap(),
+        );
+        let mut a = BrainDump::with_host(Arc::new(Simulated))
+            .with_seed_me("/missing/SKILL.md".into(), None)
+            .with_record_root(root.clone());
+        a.paste(fixture["turns"][0]["text"].as_str().unwrap());
+        a.submit();
+        super::tests::settle(&mut a);
+        a.conversation
+            .set_board(replay.conversation.board().cloned());
+        a.set_goal_confirmation(terminal(declaration)).unwrap();
+        a.review_goal();
+        let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+        assert_eq!(goal, expected_goal);
+        let screen = snapshot(100, 30, &mut a, true).unwrap();
+        assert!(
+            screen.contains(&format!("You are confirming ({declaration})")),
+            "{screen}"
+        );
+        assert!(
+            screen.contains(&format!("{declaration} (not verified)")),
+            "{screen}"
+        );
+        let review = a.handoff.review.as_mut().unwrap();
+        review.scroll = review.max;
+        for c in "confirm".chars() {
+            a.goal_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        if declaration == "declared: agent" {
+            assert!(a.handoff.job.is_none());
+            assert!(a.notice.contains("Seed Me integration"));
+            assert!(!root.exists());
+            continue;
+        }
+        assert!(a.handoff.job.is_some());
+        // Inject a successful helper receipt: this tests record plumbing, not helper integration.
+        let path = tmp.path().join("TEST-session");
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(
+            path.join("ledger.json"),
+            serde_json::json!({
+                "schema_version": 1, "session_id": "TEST-stacker", "goal": goal
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let mut receipt = seed_me::Receipt::test(path);
+        receipt.goal = goal.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        a.handoff.job = Some(rx);
+        tx.send(Ok(receipt)).unwrap();
+        a.goal_tick();
+        let file = std::fs::read_dir(root)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        let record: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(file).unwrap()).unwrap();
+        assert_eq!(
+            record["goal_confirmation"],
+            serde_json::to_value(terminal(declaration)).unwrap()
+        );
+        assert_ne!(record["goal_confirmation"]["by"], "operator");
+        assert_eq!(record["goal"], goal);
+        assert_eq!(record["turns"][0]["text"], fixture["turns"][0]["text"]);
+    }
+}
+
+#[test]
+fn terminal_declaration_is_session_frozen_but_never_sent_to_the_model() {
+    for value in [Some("human"), Some("agent"), None] {
+        let confirmation = GoalConfirmation::terminal(value).unwrap();
+        let mut a = app(serde_json::json!({"parts": parts()}));
+        a.set_goal_confirmation(confirmation.clone()).unwrap();
+        assert_eq!(a.fresh_factory()().handoff.confirmation, confirmation);
+        assert!(
+            a.set_goal_confirmation(operator())
+                .unwrap_err()
+                .contains("frozen")
+        );
+        a.review_goal();
+        assert!(
+            a.set_goal_confirmation(GoalConfirmation::default())
+                .is_err()
+        );
+        assert_eq!(
+            a.handoff.review.as_ref().unwrap().affirmation.confirmation,
+            confirmation
+        );
+        a.goal_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        let wire = serde_json::to_string(&a.preview_send("TEST additional words").unwrap().request)
+            .unwrap();
+        assert!(!wire.contains("declaration"));
+        assert!(!wire.contains("typed confirm at this terminal"));
+        assert!(!wire.contains("verified identity"));
+    }
+    assert!(GoalConfirmation::terminal(Some("operator")).is_err());
+}
+
+#[test]
+fn malformed_terminal_provenance_cannot_claim_verified_identity_or_an_operator() {
+    for (field, value) in [
+        ("declaration", "operator"),
+        ("action", "operator typed confirm"),
+        ("identity", "verified"),
+    ] {
+        let mut raw =
+            serde_json::to_value(GoalConfirmation::terminal(Some("agent")).unwrap()).unwrap();
+        raw[field] = value.into();
+        let context: GoalConfirmation = serde_json::from_value(raw).unwrap();
+        let mut a = app(serde_json::json!({"parts": parts()}));
+        assert!(a.set_goal_confirmation(context).is_err());
+        assert_eq!(a.handoff.confirmation, GoalConfirmation::default());
+    }
+}
+
 fn class() -> ConfirmationClass {
     ConfirmationClass {
         door: Door::TwoWay,
