@@ -13,6 +13,7 @@ fn done(stage: Shaped) -> Shape {
         goal: Some(GOAL.into()),
         stage,
         version: Some(3),
+        intake: None,
         decided: vec![
             Decided {
                 title: "TEST where records live".into(),
@@ -53,6 +54,38 @@ fn screen(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String 
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
+}
+
+#[test]
+fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent() {
+    let mut shape = done(Shaped::Ready {
+        revision: Some("r2".into()),
+    });
+    let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
+        panic!()
+    };
+    let command = "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '/tmp/TEST-shape/seed-contract.md' --seed-me-helper '/tmp/TEST-shape/scripts/session.py'";
+    shaping.intake = Some(command.into());
+    for sent in [false, true] {
+        let text = screen(&mut shape, 80, 24, false);
+        assert!(text.contains("c copy intake"), "{text}");
+        shape.key(key(KeyCode::Char('c')), None);
+        assert_eq!(shape.take_copy_request().as_deref(), Some(command));
+        assert_eq!(shape.take_copy_request(), None);
+        shape.copy_result(sent);
+        let text = screen(&mut shape, 80, 24, false);
+        assert!(
+            text.contains(if sent {
+                "Copied."
+            } else {
+                "Couldn't copy; try again."
+            }),
+            "{text}"
+        );
+    }
+    shape.key(key(KeyCode::F(5)), None);
+    shape.key(key(KeyCode::Char('c')), None);
+    assert_eq!(shape.take_copy_request(), None);
 }
 
 #[test]

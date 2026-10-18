@@ -56,6 +56,7 @@ pub struct Shape {
     open: Option<Opened>,
     scroll: u16,
     agent: Option<Arc<Agent>>,
+    copy: Option<String>,
 }
 
 /// What a key asks of whoever holds Shape.
@@ -122,13 +123,35 @@ impl Shape {
             open: Some(Opened::start(skill, session)),
             scroll: 0,
             agent: None,
+            copy: None,
         }
     }
 
-    /// The same Shape, able to answer and confirm through `agent`. Without one, Shape only reads.
+    /// The same Shape, able to answer and confirm through `agent`. Without one, it cannot save
+    /// answers, confirm seeds or call a model; verified intake copying remains available.
     pub fn with_agent(mut self, agent: Option<Arc<Agent>>) -> Self {
         self.agent = agent;
         self
+    }
+
+    /// Take the requested intake line once; the terminal owns OSC 52, never execution.
+    pub fn take_copy_request(&mut self) -> Option<String> {
+        self.copy.take()
+    }
+
+    /// Report the terminal write, not host clipboard acceptance, with retryable feedback.
+    pub fn copy_result(&mut self, sent: bool) {
+        if let Some(open) = &mut self.open {
+            open.notice = Some((
+                if sent {
+                    "Copied."
+                } else {
+                    "Couldn't copy; try again."
+                }
+                .into(),
+                None,
+            ));
+        }
     }
 
     /// Whether keys now type words (an answer, seed confirmation or folder), so letters aren't
@@ -165,6 +188,7 @@ impl Shape {
             open: None,
             scroll: 0,
             agent: None,
+            copy: None,
         }
     }
 
@@ -274,6 +298,13 @@ impl Shape {
                     KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(5),
                     _ => folder.key(key),
                 }
+                return Leave::Stay;
+            }
+            if key.code == KeyCode::Char('c')
+                && key.modifiers.is_empty()
+                && let Some(command) = open.intake()
+            {
+                self.copy = Some(command.to_owned());
                 return Leave::Stay;
             }
             if key.code == KeyCode::F(5) && open.so_far_ready() {
@@ -406,6 +437,9 @@ impl Shape {
                     (Some(_), Some(_)) => {
                         "Read the seed, type your confirming words on one line, then F3 confirms it. Enter shows guidance without changing your words. It is not approval to build."
                     }
+                    _ if open.intake().is_some() => {
+                        "c copies the intake command. Replace <run> with your SDLC run. Paste it yourself; copying runs nothing and grants no approval to build."
+                    }
                     _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
                 };
                 (
@@ -509,6 +543,9 @@ impl Shape {
                     );
                 }
                 keys.extend(action);
+                if open.intake().is_some() {
+                    keys.push("c copy intake".to_owned());
+                }
                 if open.so_far_ready() {
                     keys.push("F5 so far".to_owned());
                 }
@@ -648,6 +685,15 @@ impl Opened {
                 act: Act::Confirm(revision.clone()),
                 label: "your words",
             }),
+            _ => None,
+        }
+    }
+
+    fn intake(&self) -> Option<&str> {
+        match &self.reading {
+            Reading::Done(Ok(shaping)) if matches!(shaping.stage, Shaped::Ready { .. }) => {
+                shaping.intake.as_deref()
+            }
             _ => None,
         }
     }
@@ -929,7 +975,8 @@ fn render_open(
             let name = open.folder_name();
             let typing = open.typing().filter(|_| agent);
             let words = || typing.as_ref().map(|t| t.label);
-            let acts = typing.is_some()
+            let acts = open.intake().is_some()
+                || typing.is_some()
                 || agent
                     && matches!(
                         shaping,
