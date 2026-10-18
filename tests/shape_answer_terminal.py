@@ -71,10 +71,6 @@ Refusals are noisy; the operator loses the thread.
 ## Proposed outcome
 Refusals stay calm and records stay local.
 
-## Acceptance criteria
-Refusals never show private text.
-you judge: Inspect refusal output for private text.
-
 ## Affected users and systems
 The operator and local refusal path.
 
@@ -105,6 +101,8 @@ The operator judges refusal output; implementation checks privacy.
 Carry seed-contract.md, ledger.json and seed-confirmation.json together; check session.py status for handoff.verified. This is not implementation approval.
 '''
 SEED = {'next': 'seed', 'confirming': SEED_BODY,
+        'checks': [{'statement': 'Refusals never show private text.', 'kind': 'judge',
+                    'source': 'TEST goal', 'how_to_judge': 'Inspect refusal output for private text.'}],
         'found': [{'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
@@ -308,6 +306,8 @@ def full_journey(width, height):
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Seed draft r1')
             run.wait('Confirming the seed is not approval to build.')
+            # The displayed card comes from Seed Me, not model-written criteria.
+            run.read_until('"statement": "Refusals never show private text."')
             # Inspect each page: the flag can be above the bottom viewport on either CI platform.
             run.read_until('citation not found: src/main.rs')
             run.wait('F3 confirm seed r1')
@@ -316,7 +316,10 @@ def full_journey(width, height):
             answered = next(n for n in ledger['nodes'] if n['id'] == 'storage')
             assert answered['answer'] == answer and answered['authority'] == 'user', answered
             seed = (session / 'seed-contract.md').read_text()
-            assert seed.endswith(helper.decisions_block(ledger)), seed
+            assert helper.read_checks(session) == SEED['checks']
+            assert helper.checks_block(SEED['checks']) in seed
+            assert helper.decisions_block(ledger) in seed, seed
+            assert seed.index('## Decisions (from the ledger)') < seed.index('## Knowledge map')
             assert 'MODEL-INVENTED' not in seed, seed
             assert len(run.calls()) == 2
             # The second step built on the saved finding, in the folder the operator picked.
@@ -335,7 +338,7 @@ def full_journey(width, height):
                      f"Checked by read-only file tools in {' '.join(str(target).split())}; "
                      "citation not found: src/main.rs isn't in the folder:\n"
                      f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
-            assert today + '## Accepted decisions and assumed defaults\n' + helper.decisions_block(ledger) in seed, seed
+            assert today + '## Suggested first slice\n' in seed, seed
             # Each finding appears once: the seed step's findings never become ledger facts (#161).
             assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             for checked in ('README.md:3', 'src/main.rs:12'):
@@ -399,7 +402,7 @@ def case(name, width=100, height=30):
             replies = [{**SEED, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model writes decisions':
             question = False
-            replies = [{'next': 'seed', 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
+            replies = [{**SEED, 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
         if name in ('practice confirmation', 'multiline confirmation'):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'unfound citation':

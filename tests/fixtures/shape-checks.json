@@ -1,0 +1,5 @@
+[
+  {"statement":"Existing output is correct.","kind":"cmd","cmd":"./TEST-check","expect":"TEST existing output","cwd":".","source":"TEST settled goal"},
+  {"statement":"New output is correct.","kind":"provisional","cmd":"./TEST-new-check","expect":"TEST new output","cwd":".","missing":"Once TEST-new-check exists.","source":"TEST proposed check"},
+  {"statement":"The result feels calm.","kind":"judge","how_to_judge":"Inspect the result for calmness.","source":"TEST goal"}
+]

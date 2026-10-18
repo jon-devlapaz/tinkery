@@ -10,19 +10,6 @@ Intake currently receives prose instead of independently checkable criteria.
 ## Proposed outcome
 TEST I can check a seed.
 
-## Acceptance criteria
-Existing output is correct.
-cmd: ./TEST-check
-expect: TEST existing output
-cwd: .
-New output is correct.
-provisional: Once TEST-new-check exists.
-cmd: ./TEST-new-check
-expect: TEST new output
-cwd: .
-The result feels calm.
-you judge: Inspect the result for calmness.
-
 ## Affected users and systems
 TEST seed intake and its operator.
 
@@ -50,4 +37,4 @@ Calmness needs operator judgment; revisit after implementation. No blocking deci
 The operator judges calmness; implementation replaces the provisional command once it exists.
 
 ## Downstream handoff
-Pass this session's seed-contract.md, ledger.json and seed-confirmation.json together. Check session.py status for handoff.verified; confirmation is not implementation approval.
+Pass this session's seed-contract.md, ledger.json, seed-checks.json and seed-confirmation.json together. Check session.py status for handoff.verified; confirmation is not implementation approval.

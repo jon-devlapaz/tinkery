@@ -341,7 +341,8 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   Seed Me's editable ledger. Replies require `found` entries (checks, paths, lines
-  and observations) plus a next question and suggestion, or seed summary and prose sections;
+  and observations) plus a next question and suggestion, or seed summary, prose sections
+  and a separate final `checks` field;
   anything else is a model error. `src/shape/prompt.txt` has one rule per line.
   It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
@@ -355,38 +356,44 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   than defining another layout. Tinkery writes `status: draft`, the goal-headline
   title, `revision: rN` one past the previous draft, and a separate `date:` line.
   An older writer can still increment the revision after rollback. Never replace
-  a confirmed seed. The model supplies the summary and canonical prose sections;
-  Tinkery supplies evidence from recorded findings and the accepted-decisions section
-  with `session.py seed decisions` output verbatim, including its helper-owned headings.
+  a confirmed seed. The model supplies the summary and canonical prose sections,
+  excluding Acceptance criteria; reasoning, findings and questions keep their existing
+  free-text transport, not a new whole-reply schema. Tinkery follows the installed
+  contract's exact Full heading sequence: `session.py seed decisions` output goes
+  before Knowledge map, and recorded Evidence and uncertainty before Suggested first
+  slice. Host-owned heading lines use LF while prose keeps its line endings.
+  Helper blocks remain verbatim, with no extra wrapper headings.
   Refuse missing, duplicate, reordered or foreign model headings, fences, metadata
   or confirmation lines. Never draft with an open decision.
-- The model's Acceptance criteria section carries every confirmed `Done when` line,
-  with its qualifiers, as a standalone acceptance criterion. Each gets settled `cmd:`,
-  `expect:` and `cwd:` lines, a `provisional:` proposal naming what must exist
-  before its command can run, or explicit `you judge:` with what to inspect.
-  Copy settled commands exactly. For code-checkable lines, Shape may also propose
-  concrete invocations found in repository tests, scripts or CI, with source paths
-  and lines beside each criterion. Choose a behavior-specific regression intended
-  to fail before the change or under targeted reversion of an already-present fix,
-  naming the existing assertion expected to fail. Inspection is not observed red or green.
-  A known check stays proposed `cmd:` despite routine setup, conditional applicability
-  or an unperformed reversion probe; state those separately. Missing assertions, tests
-  or invocations stay `provisional:`; a generic runner is not a missing regression.
-  Reserve `you judge:` for taste and product judgment. Shape never runs proposed checks.
-  If the requested behavior already appears present, propose verification and repairs
-  only for demonstrated gaps, not a new choice between verification and extra changes;
-  do not claim completion without evidence.
-  Once the goal and recorded answers settle the draft, draft rather than reopening
-  settled or explicitly deferred decisions. Deferrals remain operator prerequisites,
-  not chosen alternatives; genuinely unresolved ledger decisions still block drafting.
-  The operator's explicit seed confirmation settles those proposals, not permission
-  to implement. This is a drafting instruction, not a semantic
-  completeness validator; stub tests prove instructions and preservation, not model quality.
+- The separate final `checks` field carries every confirmed `Done when` line with
+  its qualifiers as records in Seed Me's installed contract, not model-formatted
+  criteria. Tinkery passes those records unchanged to `seed checks set`; the
+  helper alone validates required fields, kinds, unknown fields and repository-relative
+  `cwd`. Invalid records refuse drafting. There is no Markdown-criteria writing
+  path or backward compatibility. Tinkery inserts `seed checks render` output
+  verbatim before Affected users and systems, then displays that saved card.
+  No check executes during the interview.
+  Copy settled commands exactly. Repository-grounded proposals name source paths
+  and lines in `source`; behavior-specific regressions name the assertion expected
+  to fail before the change or under targeted reversion. Inspection is not observed
+  red or green. Routine setup or an unperformed reversion probe does not make an
+  existing check provisional; missing assertions, tests or invocations do, with
+  `missing` naming the gap. Never invent commands or substitute a generic runner
+  for a missing regression. Taste stays `judge` with what the operator inspects.
+  If requested behavior appears present, propose verification and repairs only for
+  demonstrated gaps. Settled and explicitly deferred decisions stay settled;
+  deferrals remain operator prerequisites, not chosen alternatives.
+  Seed confirmation v2 binds canonical records, rendered seed bytes and decisions.
+  Missing, changed or stale records invalidate readiness; renewed displayed drafting
+  and explicit confirmation are required. A failure after storing records can leave
+  unconfirmed records, never a verified handoff.
+  These are drafting instructions, not a semantic completeness validator: stubs prove
+  transport and preservation, not model quality or operator dogfood.
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
   Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
   CR or LF with `Put your confirming words on one line; nothing was confirmed.`
   It retains words and neither writes nor calls. The editor accepts breaks, but
-  confirmation is one `Confirmed by:` line. Seed Me's contract and helper are unchanged.
+  confirmation is one `Confirmed by:` line. Seed Me owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. Budget exhaustion points to
   `--shape-budget`; a model error or stop offers F2 retry (saved answers stay saved);
