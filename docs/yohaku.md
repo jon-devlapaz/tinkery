@@ -78,6 +78,8 @@ Colour is never the only signal. With `NO_COLOR`, the same meanings carry throug
   budget they authorized; ask before going beyond them.
 - **Prove behaviour, not effort.** Test what the operator sees and does. Add a reversion probe for anything that
   protects an article above.
+- **Move each correction left.** When the operator corrects an agent, make the mistake impossible in the code,
+  or else a check that fails. Write a rule only when neither can hold it; review is the last resort.
 - **Keep the design true and the operator in control.** For design updates, verification and approved-work
   issue, branch and PR rules, follow the [working guide](../AGENTS.md#guardrails).
 
