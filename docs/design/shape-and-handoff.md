@@ -315,7 +315,7 @@ unchanged. `status` probes the session's recorded viewer URL as a local read.
   other states and failure notices keep exactly one.
 - Words boxes use ratatui-textarea, titled `your answer`, `your words` or `Folder:`.
   Arrows, Home, End, Ctrl+Left and Ctrl+Right move the cursor; Shift selects.
-  Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline; Ctrl+U undoes
+  Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline except at seed confirmation; Ctrl+U undoes
   and Ctrl+R redoes. PgUp and PgDn scroll only the reading. Pasted CR and CRLF
   display as breaks; edits preserve untouched raw endings. Under seed words, say seed confirmation is not approval to build.
 - Running steps keep label, question and typed words muted, with one status
@@ -392,8 +392,11 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
   Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
   CR or LF with `Put your confirming words on one line; nothing was confirmed.`
-  It retains words and neither writes nor calls. The editor accepts breaks, but
-  confirmation is one `Confirmed by:` line. Seed Me owns validation and confirmation.
+  It retains words and neither writes nor calls. The empty `your words` field shows
+  the muted hint `a line saying you confirm, then F3`; typing hides it. Enter says
+  `F3 confirms the seed; Enter does not add a line.` without changing the words.
+  Pasted breaks remain intact, but confirmation is one `Confirmed by:` line.
+  Seed Me owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. Budget exhaustion points to
   `--shape-budget`; a model error or stop offers F2 retry (saved answers stay saved);

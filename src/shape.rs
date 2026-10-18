@@ -286,6 +286,13 @@ impl Shape {
                         open.act(typing.act, agent);
                         return Leave::Stay;
                     }
+                    KeyCode::Enter if matches!(typing.act, Act::Confirm(_)) => {
+                        open.notice = Some((
+                            "F3 confirms the seed; Enter does not add a line.".into(),
+                            None,
+                        ));
+                        return Leave::Stay;
+                    }
                     KeyCode::Esc | KeyCode::F(_) | KeyCode::PageDown | KeyCode::PageUp => {}
                     _ => {
                         open.typed.key(key);
@@ -397,7 +404,7 @@ impl Shape {
                         "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call)."
                     }
                     (Some(_), Some(_)) => {
-                        "Read the seed, type your confirming words on one line, then F3 confirms it. Enter adds a line while editing. It is not approval to build."
+                        "Read the seed, type your confirming words on one line, then F3 confirms it. Enter shows guidance without changing your words. It is not approval to build."
                     }
                     _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
                 };
@@ -1055,6 +1062,15 @@ fn render_open(
     input_area.height = input_height.saturating_sub(before_height + after_height);
     if let Some(editor) = editor {
         editor.render(frame, input_area, palette, open.running.is_some());
+        if label == Some("your words") && editor.text().is_empty() {
+            frame.render_widget(
+                Paragraph::new("a line saying you confirm, then F3").style(palette.muted),
+                Rect {
+                    height: input_area.height.min(1),
+                    ..input_area
+                },
+            );
+        }
     }
     input_area.y += input_area.height;
     input_area.height = after_height;
