@@ -202,17 +202,18 @@ def journey(width, height, case, no_color=False):
                     'unreadable': 'Seed Me refused to read this session:',
                 }[case]
                 send(b's', expected)
-                keys = {'question': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
-                        'p051': 'F2 save answer and look into next   F5 so far   esc back   F10 menu',
-                        'drafted': 'F3 confirm seed r1   F5 so far   esc back   F10 menu',
-                        'ready': 'c copy intake   ' + SHAPE_KEYS,
+                keys = {'question': 'F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu',
+                        'p051': 'F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu',
+                        'drafted': 'F3 confirm seed r1   F8 stop   F5 so far   esc back   F10 menu',
+                        'ready': 'c copy intake   F6 end session   ' + SHAPE_KEYS,
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
                 # Scrolling is offered only on overflow; arrows belong to an active editor.
                 acts = case in ('question', 'p051', 'drafted')
                 scroll_keys = ('pgup/dn read   ' + keys.replace('F2 save answer and look into next', 'F2 save + look')
                                if acts else '↑↓ scroll   ' + keys)
                 bar = screen.text().splitlines()[-1].strip()
-                assert bar in (keys, scroll_keys), screen.text()
+                # A bar too wide for the terminal closes up rather than lose Esc or F10.
+                assert bar in [k.replace('   ', gap) for k in (keys, scroll_keys) for gap in ('   ', '  ')], screen.text()
                 # The key bar names the next action, so no Next line repeats it.
                 assert flat().count('Next:') == (0 if acts or case == 'ready' else 1), screen.text()
                 if case == 'drafted':

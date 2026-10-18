@@ -60,6 +60,7 @@ fn key(code: KeyCode) -> KeyEvent {
 fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent() {
     let mut shape = done(Shaped::Ready {
         revision: Some("r2".into()),
+        ended: false,
     });
     let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
         panic!()
@@ -116,8 +117,16 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
         (
             Shaped::Ready {
                 revision: Some("r2".into()),
+                ended: false,
             },
             "Seed ready: you confirmed r2, and it still matches.",
+        ),
+        (
+            Shaped::Ready {
+                revision: Some("r2".into()),
+                ended: true,
+            },
+            "This session is completed, so nothing in it can change.",
         ),
         (
             Shaped::Unverified {
@@ -139,6 +148,16 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
         ),
     ];
     for (stage, said) in cases {
+        // Without an agent, ending is the only write: the stage decides whether it's offered.
+        let keys = match stage {
+            Shaped::Question { .. } | Shaped::Waiting | Shaped::Drafted { .. } => {
+                "F8 stop   F5 so far   esc back   F10 menu"
+            }
+            Shaped::Ready { ended: false, .. } => {
+                "F6 end session   F5 so far   esc back   F10 menu"
+            }
+            _ => "F5 so far   esc back   F10 menu",
+        };
         for (width, height) in [(100, 30), (80, 24)] {
             for no_color in [false, true] {
                 let mut shape = done(stage.clone());
@@ -153,10 +172,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
                 assert_eq!(text.matches("Next:").count(), 1, "{text}");
                 assert!(!text.contains("Option"), "{text}");
                 assert!(!text.contains("/tmp/TEST-shape"), "{text}");
-                assert_eq!(
-                    text.lines().last().unwrap().trim(),
-                    "F5 so far   esc back   F10 menu"
-                );
+                assert_eq!(text.lines().last().unwrap().trim(), keys);
                 assert_eq!(so_far(&mut shape, width, height, no_color), GOAL);
             }
         }
@@ -424,7 +440,7 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     assert_eq!(text.matches("Next:").count(), 1, "{text}");
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "F2 save answer and look into next   F5 so far   esc back   F10 menu"
+        "F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu"
     );
 }
 
@@ -438,19 +454,24 @@ fn no_next_line_repeats_the_one_action_the_key_bar_names() {
     for (stage, keys) in [
         (
             question(),
-            "F2 save answer and look into next   F5 so far   esc back   F10 menu",
+            "F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu",
         ),
         (
             Shaped::Waiting,
-            "F2 look into the next question   F5 so far   esc back   F10 menu",
+            "F2 look into the next question   F8 stop   F5 so far   esc back   F10 menu",
         ),
-        (seed, "F3 confirm seed r2   F5 so far   esc back   F10 menu"),
+        (
+            seed,
+            "F3 confirm seed r2   F8 stop   F5 so far   esc back   F10 menu",
+        ),
     ] {
         for (width, height) in [(100, 30), (80, 24)] {
             let mut shape = reading(done(stage.clone()).with_agent(Some(agent(1))), dir.path());
             let text = screen(&mut shape, width, height, true);
             assert_eq!(text.matches("Next:").count(), 0, "{text}");
-            assert_eq!(text.lines().last().unwrap().trim(), keys, "{text}");
+            // A bar too wide for 80 columns closes up rather than lose Esc or F10.
+            let bar = text.lines().last().unwrap().trim();
+            assert!(bar == keys || bar == keys.replace("   ", "  "), "{text}");
         }
     }
 }
@@ -515,7 +536,7 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
     );
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "pgup/dn read   F2 save + look   F5 so far   esc back   F10 menu"
+        "pgup/dn read   F2 save + look   F8 stop   F5 so far   esc back   F10 menu"
     );
     // Scrolling moves only the reading; the answer stays where it is.
     for _ in 0..30 {
@@ -1897,5 +1918,173 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
                 "{shown}"
             );
         }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only() {
+    use crate::seed_me::{
+        Affirmed, Config,
+        answering::{self, Ending},
+        shaping,
+    };
+    use std::fs;
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-231-")
+        .tempdir()
+        .unwrap();
+    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
+        });
+    let save = || {
+        let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+            .confirm(Affirmed {
+                goal: "TEST I can end a session.\nWhy: Tend needs it ended.\nDone when: It ends.\nMust: Keep my words.\nMust not: Build without approval.".into(),
+                outcome: "TEST ending".into(),
+                options: vec![],
+                originals: vec![],
+                context: "{}".into(),
+                source: "TEST fixture, not real approval".into(),
+            })
+            .unwrap();
+        receipt.stop_viewer().unwrap();
+        receipt.session.clone()
+    };
+    let refused = |result: Result<(), answering::Refusal>| match result {
+        Err(answering::Refusal::Refused(reason)) => reason,
+        other => panic!("not refused: {other:?}"),
+    };
+
+    // Completing needs a verified seed; the helper refuses and the session stays open.
+    let session = save();
+    let reason = refused(answering::end(&skill, &session, Ending::Completed));
+    assert!(reason.starts_with("Seed Me refused:"), "{reason}");
+    assert!(matches!(
+        shaping::read(&skill, &session).unwrap().stage,
+        Shaped::Waiting
+    ));
+    let version = answering::read(&skill, &session).unwrap().version();
+    let revision = answering::draft_seed(
+        &skill,
+        &session,
+        version,
+        include_str!("../../tests/fixtures/shape-seed-reply.txt").trim(),
+        &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
+        &[],
+        temp.path(),
+    )
+    .unwrap();
+    answering::confirm_seed(&skill, &session, &revision, "TEST yes to this seed only").unwrap();
+    // A session whose viewer never started still completes, saying why.
+    fs::remove_file(session.join("viewer.json")).unwrap();
+    answering::end(&skill, &session, Ending::Completed).unwrap();
+    let ended = shaping::read(&skill, &session).unwrap();
+    assert_eq!(
+        ended.stage,
+        Shaped::Ready {
+            revision: Some(revision),
+            ended: true
+        }
+    );
+    assert!(
+        ended.intake.is_some(),
+        "intake needs only the verified seed"
+    );
+    let crate::seed_me::Record::Session(read) = crate::seed_me::read(&session) else {
+        panic!("not readable as a session")
+    };
+    assert_eq!(read.stage, Stage::Ended, "tend counts it ended");
+    // Ended is for good: neither ending applies again.
+    let reason = refused(answering::end(&skill, &session, Ending::Stopped));
+    assert!(reason.contains("read-only"), "{reason}");
+
+    // Stopping keeps what's open, and Shape then says plainly that it ended.
+    let session = save();
+    answering::end(&skill, &session, Ending::Stopped).unwrap();
+    assert_eq!(
+        shaping::read(&skill, &session).unwrap().stage,
+        Shaped::Ended {
+            status: "stopped".into()
+        }
+    );
+}
+
+#[test]
+fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
+    let repeat = |code| {
+        KeyEvent::new_with_kind(
+            code,
+            KeyModifiers::NONE,
+            crossterm::event::KeyEventKind::Repeat,
+        )
+    };
+    for (stage, ending, other) in [
+        (question(), KeyCode::F(8), KeyCode::F(6)),
+        (
+            Shaped::Ready {
+                revision: Some("r2".into()),
+                ended: false,
+            },
+            KeyCode::F(6),
+            KeyCode::F(8),
+        ),
+    ] {
+        let mut shape = done(stage);
+        // The other ending key, and a held one, ask nothing.
+        shape.key(key(other), None);
+        shape.key(repeat(ending), None);
+        assert!(shape.open.as_ref().unwrap().asking.is_none());
+        shape.key(key(ending), None);
+        assert!(shape.open.as_ref().unwrap().asking.is_some());
+        let text = screen(&mut shape, 80, 24, true);
+        assert!(text.contains("read-only for good"), "{text}");
+        assert!(text.contains("esc keep it"), "{text}");
+        // Esc keeps it open; nothing started.
+        shape.key(key(KeyCode::Esc), None);
+        let open = shape.open.as_ref().unwrap();
+        assert!(open.asking.is_none() && open.ending.is_none());
+        assert!(screen(&mut shape, 80, 24, true).contains("Nothing was ended."));
+        // Asked, other keys do nothing; the same key again ends it through the helper.
+        shape.key(key(ending), None);
+        shape.key(key(KeyCode::Char('x')), None);
+        shape.key(key(other), None);
+        assert!(shape.open.as_ref().unwrap().ending.is_none());
+        shape.key(key(ending), None);
+        assert!(shape.open.as_ref().unwrap().ending.is_some());
+        // This fixture's helper path doesn't exist, so the helper's refusal is what lands.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while shape.open.as_ref().unwrap().ending.is_some() {
+            assert!(std::time::Instant::now() < deadline, "ending never landed");
+            shape.tick();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let open = shape.open.as_ref().unwrap();
+        let said = &open.notice.as_ref().unwrap().0;
+        assert!(
+            said.starts_with("Nothing was ended. Cannot locate Seed Me"),
+            "{said}"
+        );
+    }
+    // Ended, unknown and unverified sessions offer no ending.
+    for stage in [
+        Shaped::Ready {
+            revision: None,
+            ended: true,
+        },
+        Shaped::Ended {
+            status: "stopped".into(),
+        },
+        Shaped::Unverified {
+            reason: "TEST".into(),
+        },
+    ] {
+        let mut shape = done(stage);
+        shape.key(key(KeyCode::F(6)), None);
+        shape.key(key(KeyCode::F(8)), None);
+        assert!(shape.open.as_ref().unwrap().asking.is_none());
     }
 }

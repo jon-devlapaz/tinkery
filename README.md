@@ -48,6 +48,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   ([terminal setup](docs/terminal-setup.md#launch)), `--shape-budget CALLS` (default zero)
   allows agent steps. `F2` saves an answer and lets an agent investigate the next with
   read-only tools; `F3` confirms the seed in your words. `F5` shows the whole goal and decisions.
+  `F6` twice completes a session whose seed is ready; `F8` twice stops one still being shaped.
 - **Measure:** reads an existing ledger report or says unavailable.
 
 **Approve, Watch and Taste aren't built.** The complete journey and its benefit remain unproven.
