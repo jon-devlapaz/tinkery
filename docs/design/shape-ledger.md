@@ -32,8 +32,8 @@ ledger and contract" ([Shape](shape-and-handoff.md#shape)).
 
 ## 1. One owner for the ledger
 
-**Recommendation: port the helper's rules to Rust, in one shared module that replaces
-`seed_me/`.** The alternative is vendoring `session.py` and keeping the subprocess.
+**Settled by the operator (2026-10-19): port the helper's rules to Rust, in one shared
+module that replaces `seed_me/`.** Vendoring `session.py` behind the subprocess was the alternative.
 
 | | Port to Rust | Vendor `session.py` |
 | --- | --- | --- |
@@ -142,10 +142,11 @@ the session root stays where it is. Proposed slices, each one PR and its own app
 
 ## Open decisions for the operator
 
-1. Port to Rust (recommended) or vendor `session.py`.
-2. Teach-back as an optional key (recommended), required, or dropped.
-3. Whether the session root moves from `~/.local/share/seed-me/sessions` once Seed Me is retired.
-4. When the Seed Me repository is archived.
+Settled: port to Rust (operator, 2026-10-19).
+
+1. Teach-back as an optional key (recommended), required, or dropped.
+2. Whether the session root moves from `~/.local/share/seed-me/sessions` once Seed Me is retired.
+3. When the Seed Me repository is archived.
 
 Code-level parity doesn't show that Shape asks the right questions; that needs a budgeted
 evaluation such as [#179](https://github.com/jon-devlapaz/tinkery/issues/179).
