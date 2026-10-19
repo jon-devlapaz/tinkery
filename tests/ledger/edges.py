@@ -5,6 +5,26 @@ import random
 import struct
 
 
+def iso_fuzz():
+    rng = random.Random(272)
+    seeds = ["2026-10-19T09:15:00+01:00", "20261019T091500Z",
+             "2026-W43-1T09:15:00.5-05:30", "2024-02-29T23:59:59,999999+23:59"]
+    alphabet = "0123456789-:TWZ+.,  "
+    samples = [''.join(rng.choices(alphabet, k=rng.randint(6, 32))) for _ in range(1500)]
+    for _ in range(2500):
+        value = rng.choice(seeds)
+        for _ in range(rng.randint(1, 3)):
+            position = rng.randrange(len(value))
+            operation = rng.choice(("replace", "insert", "delete"))
+            if operation == "delete":
+                value = value[:position] + value[position + 1:]
+            else:
+                char = rng.choice(alphabet)
+                value = value[:position] + char + value[position + (operation == "replace"):]
+        samples.append(value)
+    return samples
+
+
 def cases(session, stamp):
     base = {"schema_version": 1, "session_id": "TEST-session", "version": 0, "revision": 0,
             "created_at": stamp, "updated_at": stamp, "status": "active",
@@ -103,6 +123,15 @@ def cases(session, stamp):
              "2026W431091500Z", "2026-W43-1091500Z", "2026-W43-09Z", "2026-W43-1Z",
              "2026-10-19T09", "2026-10-19", "0000-01-01T09Z", "2026-13-01T09Z",
              "2026-10-19T09:15:00.Z", "2026-10-19T09:15:00+01:00.5", "\x1c2026-10-19T09Z\x1f"]
+    # C cursor boundaries distinguish a single consumed byte, fractional tails,
+    # and the zone's stricter end check, including UTF-8 and embedded NUL.
+    times += ["20261019T09150000Z", "20261019T09150099Z",
+              "2026-10-19T09:15:00X+01:00", "2026-10-19T09:15:00🐍+01:00",
+              "2026-10-19T09:15:00:123456+01:00", "20261019T091500.123456XYZ+01:00",
+              "20261019T091500.12345X+01:00", "20261019T091500+01000000",
+              "20261019T091500+0100000", "20261019T091500+01:00:00X",
+              "20261019T091500+236000", "2026-10-19T09:15:00\x00+01:00",
+              "20261019T091500+01:00:00.123456\x00junk", "20261019T091500+00:00:00.999999"]
     # Cross product catches component length and separator behavior, not just examples.
     for date in ["20261019", "2026-10-19", "2026W43", "2026W431", "2026-W43", "2026-W43-1"]:
         for clock in ["09", "0915", "09:15", "091500", "09:15:00", "09.1", "09:15,1234567"]:
@@ -112,6 +141,20 @@ def cases(session, stamp):
         s = deepcopy(with_fact)
         s["nodes"][-1]["evidence"] = [{"checked": "TEST read", "at": time, "observed": "TEST seen"}]
         add(f"iso-{i}-{time!r}", state=s)
+    regressions = ["20261019T09150Z", "20261019T0915400Z", "20261019T06191500Z",
+                   "20261019T01500Z", "2026-10-19T09:15:080+0170"]
+    for i, time in enumerate(regressions):
+        s = deepcopy(with_fact)
+        receipt = {"checked": "TEST read", "at": time, "observed": "TEST seen"}
+        s["nodes"][-1]["evidence"] = [receipt]
+        add(f"iso-c-regression-{i}-{time!r}", state=s)
+        l = deepcopy(fact_saved)
+        l["nodes"][-1]["evidence"] = [receipt]
+        add(f"iso-c-stored-regression-{i}-{time!r}", "load", raw=json.dumps(l, ensure_ascii=False))
+    for i, time in enumerate(iso_fuzz()):
+        s = deepcopy(with_fact)
+        s["nodes"][-1]["evidence"] = [{"checked": "TEST read", "at": time, "observed": "TEST seen"}]
+        add(f"iso-fuzz-{i}-{time!r}", state=s)
     # Unicode IGNORECASE and Python word boundaries, including non-word combining marks
     # and alphanumeric numeric characters that Rust regex's default \\w does not share.
     secrets = ["ghp_" + "a" * 20, "sk-" + "x" * 20, "xoxb-" + "a" * 10,
@@ -123,8 +166,8 @@ def cases(session, stamp):
             s = deepcopy(with_fact)
             s["nodes"][-1]["evidence"] = [{"checked": value, "at": stamp, "observed": "TEST seen"}]
             add(f"secret-{i}-{j}", state=s)
-    # The operator permits only this order-dependent message exception: Python's
-    # affected set visits these equally failing settlements in hash-seed order.
+    # This named order exception covers equally failing settlements:
+    # Python's affected set visits them in hash-seed order.
     s = deepcopy(with_fact)
     for id in ("alpha", "beta", "gamma"):
         d = node(id, settled=True)

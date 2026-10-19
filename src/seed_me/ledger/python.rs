@@ -74,22 +74,48 @@ pub(super) fn timestamp(input: &str) -> bool {
     timestamp_parts(input).is_some()
 }
 fn timestamp_parts(input: &str) -> Option<()> {
+    // CPython v3.13.12, Modules/_datetimemodule.c: the C parser's byte cursor
+    // and end pointer are distinct; slicing at the zone loses its leniencies.
     let input = input.trim_matches(whitespace).replace('Z', "+00:00");
-    let chars: Vec<char> = input.chars().collect();
-    let len = chars.len();
-    if len < 8 {
+    if input.chars().count() < 7 {
         return None;
     }
-    let separator = if chars[4] == '-' {
-        if chars[5] == 'W' {
+    let bytes = input.as_bytes();
+    let separator = date_separator(bytes)?;
+    date(bytes, separator)?;
+    let separator_width = input.get(separator..)?.chars().next()?.len_utf8();
+    let start = separator + separator_width;
+    let zone = (start..bytes.len()).find(|&i| matches!(bytes[i], b'Z' | b'+' | b'-'))?;
+    let (time, _) = clock(bytes, start, zone)?;
+    if time[0] > 23 || time[1] > 59 || time[2] > 59 {
+        return None;
+    }
+    if bytes[zone] == b'Z' {
+        return (zone + 1 == bytes.len()).then_some(());
+    }
+    let (offset, trailing) = clock(bytes, zone + 1, bytes.len())?;
+    // timedelta normalizes offset minutes/seconds; timezone requires < 24 hours.
+    // A zero-second offset becomes UTC even when fractional microseconds exist.
+    (!trailing && offset[0] * 3600 + offset[1] * 60 + offset[2] < 86400).then_some(())
+}
+fn byte(input: &[u8], pos: usize) -> u8 {
+    input.get(pos).copied().unwrap_or(0)
+}
+fn date_separator(input: &[u8]) -> Option<usize> {
+    let len = input.len();
+    if len == 7 {
+        return Some(7);
+    }
+    Some(if input[4] == b'-' {
+        if input[5] == b'W' {
             if len < 8 {
                 return None;
             }
-            if len > 8 && chars[8] == '-' {
+            if len > 8 && input[8] == b'-' {
                 if len == 9 {
                     return None;
                 }
-                if len > 10 && chars[10].is_ascii_digit() {
+                if len > 10 && input[10].is_ascii_digit() {
                     8
                 } else {
                     10
@@ -100,9 +126,9 @@ fn timestamp_parts(input: &str) -> Option<()> {
         } else {
             10
         }
-    } else if chars[4] == 'W' {
+    } else if input[4] == b'W' {
         let mut i = 7;
-        while i < len && chars[i].is_ascii_digit() {
+        while i < len && input[i].is_ascii_digit() {
             i += 1;
         }
         if i < 9 {
@@ -114,52 +140,40 @@ fn timestamp_parts(input: &str) -> Option<()> {
         }
     } else {
         8
-    };
-    if separator >= len {
-        return None;
-    }
-    date(chars.get(..separator)?)?;
-    let time: String = chars[separator + 1..].iter().collect();
-    let zone = time.find(['-', '+'])?;
-    let (h, m, s, _) = clock(&time[..zone])?;
-    if h > 23 || m > 59 || s > 59 {
-        return None;
-    }
-    let (h, m, s, fraction) = clock(&time[zone + 1..])?;
-    // Offset minute/second overflow is normalized by timedelta, not rejected.
-    if h * 3600 + m * 60 + s >= 86400 || (h * 3600 + m * 60 + s == 86400 && fraction) {
-        return None;
-    }
-    Some(())
-}
-fn digits(s: &[char]) -> Option<u32> {
-    s.iter().try_fold(0, |v, c| {
-        c.is_ascii_digit().then(|| v * 10 + *c as u32 - '0' as u32)
     })
 }
-fn date(s: &[char]) -> Option<()> {
-    if ![7, 8, 10].contains(&s.len()) {
-        return None;
+fn digits(input: &[u8], pos: &mut usize, count: usize) -> Option<u32> {
+    let mut value = 0;
+    for _ in 0..count {
+        let digit = byte(input, *pos);
+        if !digit.is_ascii_digit() {
+            return None;
+        }
+        value = value * 10 + u32::from(digit - b'0');
+        *pos += 1;
     }
-    let year = digits(s.get(..4)?)?;
+    Some(value)
+}
+fn date(input: &[u8], end: usize) -> Option<()> {
+    let mut pos = 0;
+    let year = digits(input, &mut pos, 4)?;
     if !(1..=9999).contains(&year) {
         return None;
     }
-    let sep = s[4] == '-';
-    let mut pos = 4 + usize::from(sep);
+    let separated = byte(input, pos) == b'-';
+    pos += usize::from(separated);
     let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
-    if s[pos] == 'W' {
+    if byte(input, pos) == b'W' {
         pos += 1;
-        let week = digits(s.get(pos..pos + 2)?)?;
-        pos += 2;
-        let day = if s.len() > pos {
-            if (s[pos] == '-') != sep {
-                return None;
+        let week = digits(input, &mut pos, 2)?;
+        let day = if pos < end {
+            if separated {
+                if byte(input, pos) != b'-' {
+                    return None;
+                }
+                pos += 1;
             }
-            pos += usize::from(sep);
-            let d = digits(s.get(pos..pos + 1)?)?;
-            pos += 1;
-            d
+            digits(input, &mut pos, 1)?
         } else {
             1
         };
@@ -178,14 +192,14 @@ fn date(s: &[char]) -> Option<()> {
             return None;
         }
     } else {
-        let month = digits(s.get(pos..pos + 2)?)?;
-        pos += 2;
-        if (s.get(pos) == Some(&'-')) != sep {
-            return None;
+        let month = digits(input, &mut pos, 2)?;
+        if separated {
+            if byte(input, pos) != b'-' {
+                return None;
+            }
+            pos += 1;
         }
-        pos += usize::from(sep);
-        let day = digits(s.get(pos..pos + 2)?)?;
-        pos += 2;
+        let day = digits(input, &mut pos, 2)?;
         let max = match month {
             2 => {
                 if leap {
@@ -202,43 +216,38 @@ fn date(s: &[char]) -> Option<()> {
             return None;
         }
     }
-    (pos == s.len()).then_some(())
+    Some(())
 }
-fn clock(s: &str) -> Option<(u32, u32, u32, bool)> {
-    let s: Vec<char> = s.chars().collect();
-    let mut values = [0; 3];
-    let mut pos = 0;
-    let mut colon = false;
-    for (i, value) in values.iter_mut().enumerate() {
-        *value = digits(s.get(pos..pos + 2)?)?;
-        pos += 2;
-        if i == 0 {
-            colon = s.get(pos) == Some(&':');
-        }
-        if pos == s.len() || i >= 2 {
-            break;
-        }
-        // CPython's C parser permits fractional hours and minutes too.
-        if matches!(s[pos], '.' | ',') {
-            break;
-        }
-        if colon {
-            if s[pos] != ':' {
-                return None;
-            }
-            pos += 1;
-        }
-    }
-    let mut fraction = false;
-    if pos < s.len() {
-        if !matches!(s[pos], '.' | ',') {
-            return None;
-        }
+fn clock(input: &[u8], mut pos: usize, end: usize) -> Option<([u32; 4], bool)> {
+    let mut values = [0; 4];
+    let mut separated = true;
+    for (i, value) in values[..3].iter_mut().enumerate() {
+        *value = digits(input, &mut pos, 2)?;
+        let c = byte(input, pos);
         pos += 1;
-        if !s[pos..].iter().all(char::is_ascii_digit) {
+        if i == 0 {
+            separated = c == b':';
+        }
+        // The C parser consumes this byte before testing its end pointer.
+        if pos >= end {
+            return Some((values, c != 0));
+        }
+        if separated && c == b':' {
+            continue;
+        }
+        if matches!(c, b'.' | b',') {
+            break;
+        }
+        if !separated {
+            pos -= 1;
+        } else {
             return None;
         }
-        fraction = s[pos..].iter().take(6).any(|c| *c != '0');
     }
-    Some((values[0], values[1], values[2], fraction))
+    let count = end.checked_sub(pos)?.min(6);
+    values[3] = digits(input, &mut pos, count)? * 10_u32.pow(6 - count as u32);
+    while byte(input, pos).is_ascii_digit() {
+        pos += 1;
+    }
+    Some((values, byte(input, pos) != 0))
 }

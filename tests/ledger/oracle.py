@@ -25,7 +25,7 @@ CRASHES = {
     "edge:python-crash-transition-version-string": "TypeError",
     "edge:python-crash-transition-history-null": "AttributeError",
 }
-# Operator-approved malformed-input boundaries. Each must still refuse in Rust.
+# Named malformed-input boundaries. Each must still refuse in Rust.
 # These are not misreported as Python validation refusals or as non-ValueError crashes.
 DIVERGENCES = {
     "edge:unpaired-surrogate": ("UnicodeEncodeError", "Python loads lone surrogates but cannot write UTF-8; Rust refuses to decode them"),
@@ -84,6 +84,7 @@ def main():
 
     session.require = require
     seen_crashes, seen_divergences = {}, {}
+    fuzz_counts = {"cases": 0, "accept": 0, "refuse": 0}
     with tempfile.TemporaryDirectory(prefix="TEST-ledger-oracle-") as root:
         path = Path(root) / "ledger.json"
         for case in cases:
@@ -137,7 +138,12 @@ def main():
                     raise RuntimeError(f"unnamed Python crash in {name}: {type(error).__name__}: {error}") from error
                 seen_crashes[name] = type(error).__name__
                 answer.update(verdict="crash", exception=type(error).__name__)
+            if case["name"].startswith("edge:iso-fuzz-"):
+                fuzz_counts["cases"] += 1
+                fuzz_counts[answer["verdict"]] += 1
             print(json.dumps(answer, ensure_ascii=True))
+    if fuzz_counts["cases"] != 4000:
+        raise AssertionError(f"incomplete timestamp fuzz: {fuzz_counts}")
     if seen_crashes != CRASHES or set(seen_divergences) != set(DIVERGENCES):
         raise AssertionError(f"exception expectations changed: {seen_crashes}, {seen_divergences}")
     missing = required - refused
@@ -145,7 +151,7 @@ def main():
         lines = script.read_text().splitlines()
         raise AssertionError("uncased refusal sites: " + repr([(n, lines[n-1].strip()) for n in sorted(missing)]))
     print(json.dumps({"summary": {"cases": len(cases), "harvested": len(harvested), "edges": len(edges),
-                                 "upstream_tests": upstream_tests, "refusal_sites": len(required),
+                                 "upstream_tests": upstream_tests, "iso_fuzz": fuzz_counts, "refusal_sites": len(required),
                                  "crashes": seen_crashes, "divergences": seen_divergences}}))
 
 

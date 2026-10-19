@@ -1,4 +1,5 @@
 //! CPython 3.13 str.isalnum (Unicode 15.1.0); combining marks are not word characters.
+//! Regenerate with Python 3.13: tests/ledger/generate_unicode.py.
 
 pub(super) const ALNUM: &[(u32, u32)] = &[
     (0x30, 0x39),

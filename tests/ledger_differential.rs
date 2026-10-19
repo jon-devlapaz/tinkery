@@ -210,7 +210,7 @@ fn pinned_python_ledger_rules_match() {
         }
     }
     assert!(
-        summary && count >= 4471,
+        summary && count >= 8495,
         "empty or incomplete corpus: {count}"
     );
     assert!(
