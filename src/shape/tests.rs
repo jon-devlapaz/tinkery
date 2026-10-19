@@ -891,6 +891,15 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
     let confirming = include_str!("../../tests/fixtures/shape-seed-reply.txt").trim();
     let checks = include_str!("../../tests/fixtures/shape-checks.json");
     fs::write(temp.path().join("TEST-read.md"), "TEST observed content\n").unwrap();
+    let local_today = || {
+        let output = std::process::Command::new("date")
+            .arg("+%F")
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        String::from_utf8(output.stdout).unwrap().trim().to_owned()
+    };
+    let date_before = local_today();
     // Upgrade an older installation's undated draft through the actual drafting path.
     fs::write(
         receipt.session.join("seed-contract.md"),
@@ -1046,7 +1055,15 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
         Some(8),
         "older writer would reset to r1: {text}"
     );
-    assert!(text.lines().any(|line| line.starts_with("date: ")));
+    let date_after = local_today();
+    let date = text
+        .lines()
+        .find_map(|line| line.strip_prefix("date: "))
+        .unwrap();
+    assert!(
+        date == date_before || date == date_after,
+        "draft date {date} is not the local date ({date_before}/{date_after})"
+    );
     assert!(
         text.contains("Grounded in:\n- TEST-read.md\n"),
         "missing recorded read inventory: {text}"
