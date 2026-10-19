@@ -6,8 +6,9 @@ operator hour**: the result meets the goal, passes checks and earns operator acc
 
 The [task index](first-release-issues.md)
 links the authoritative issues for scope, status, approval and completion evidence.
-R2's revised design is not accepted. Publication approves no prerequisite or reader
-build, private data use, provider budget or merge.
+On 2026-10-19 the operator dropped the Tinkery binding (#110, #111): [#258](https://github.com/jon-devlapaz/tinkery/issues/258)
+joins Approve and Watch through tink-sdlc's own seed record instead. Publication
+approves no build, private data use, provider budget or merge.
 
 ## Starting point
 
@@ -38,7 +39,7 @@ the manual handoff. Integrated launching, automatic approval or merge, multi-run
 dashboards and Think conveniences are excluded absent a demonstrated blocker.
 [Substrate absorption](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
 makes Tinkery the reader's owner, not a permanent client of an aggregation service.
-Run retention and lessons are separate drafts, not R5 prerequisites.
+Run retention and lessons are separate drafts.
 The [backlog](../research/shared/backlog.md) is not the release checklist.
 
 ## Milestones and dependencies
@@ -49,7 +50,7 @@ Code completion requires issue evidence, review and merge.
 | Milestone | Evidence | Tasks |
 | --- | --- | --- |
 | M1. Trust the goal | Evaluation is safe, handoffs are exact, and human recognition and the baseline are recorded separately. | [R1](first-release-issues.md#r1), [R3](first-release-issues.md#r3), [R4](first-release-issues.md#r4) |
-| M2. Connect | The binding and reader trace the seed, decisions, run, checks and result. Missing and outdated evidence stay distinct. | [R2](first-release-issues.md#r2), [I1/I2](first-release-issues.md#r5-identity), [R5](first-release-issues.md#r5) |
+| M2. Connect | tink-sdlc's seed record joins each seed to its run. Missing and outdated evidence stay distinct. | [R2](first-release-issues.md#r2), [#258](https://github.com/jon-devlapaz/tinkery/issues/258) |
 | M3. Approve | The displayed revision agrees with the decision mechanism. | [R6](first-release-issues.md#r6) |
 | M4. Watch | One job has a reliable state, freshness and next action. | [R7](first-release-issues.md#r7) |
 | M5. Taste | The operator judges the exact result against the goal and checks. | [R8](first-release-issues.md#r8) |
@@ -64,14 +65,12 @@ flowchart TD
     R11 --> R6
     R1 --> R3["R3: budgeted live evaluation"]
     R3 --> R4["R4 / #109: human baseline"]
-    R2 --> Design["Accept revised identity/reader design"]
-    Design --> I1["I1: SDLC run-instance identity"]
-    I1 --> I2["I2 / #110: initial binding, no duplicates"]
-    I2 --> R5["R5 / #111: read one linked job"]
-    R5 --> R6["R6 / #112: Approve"]
-    R5 --> R7["R7 / #113: Watch"]
-    R5 --> R8["R8 / #114: Taste"]
-    R5 --> R9["R9 / #115: Measure"]
+    R2 --> R6["R6 / #112: Approve"]
+    R2 --> R7["R7 / #113: Watch"]
+    R6 --> Join["#258: join through tink-sdlc's seed record"]
+    R7 --> Join
+    Join --> R8["R8 / #114: Taste"]
+    Join --> R9["R9 / #115: Measure"]
     R4 --> R10["R10 / #116: complete journey and trial"]
     R6 --> R10
     R11 --> R10
@@ -81,7 +80,7 @@ flowchart TD
 ```
 
 M1 and M2 may overlap. A real-data budget doesn't block zero-call surveys or readers.
-Approve, Watch and Taste can proceed separately once R5 provides their shared inputs.
+Approve and Watch proceed separately; #258 then joins them, and Taste and Measure wait on that join.
 The journey waits for every branch, not milestone order.
 
 ## What agents can start next
@@ -89,12 +88,9 @@ The journey waits for every branch, not milestone order.
 Choose an explicitly approved [task](first-release-issues.md). Finishing one or
 its dependencies does not authorize the next.
 
-Before R5, accept the [R2 design](job-records.md) and refresh the contracts. Verify
-source-owned run identity, initial binding and duplicate detection; separately
-approve missing I1/I2 capabilities. Existing capabilities need evidence, not
-replacement. Revisions and relocation stay deferred.
-[I2/R5](first-release-issues.md#r5-identity) need separate implementation approval.
-Unlinked reads don't complete R5. These slices need no model calls. R4 separately
+#112 and #113 are approved. #258 needs approval and waits on them and
+[tink-sdlc#68](https://github.com/jon-devlapaz/tink-sdlc/issues/68). These slices
+need no model calls. R4 separately
 requires supplied examples, data permission, a provider and model budget, and human
 participation. Only the operator judges meaning and usefulness.
 
@@ -102,8 +98,8 @@ R2 surveys measurement fields. R9 needs the reader and measurement definitions,
 not the completed human baseline; R10 needs that baseline. If the existing report
 meets R9, record the evidence without changing code.
 
-One writer owns Think's overlapping controller, prompts and tests. After R5 merges,
-separate approved branches may own R6/R7/R8. One integrator owns shared menu,
+One writer owns Think's overlapping controller, prompts and tests. Separate
+approved branches may own R6/R7/R8. One integrator owns shared menu,
 CLI and architecture changes; phase writers must not edit them concurrently.
 Don't spawn agents to fill time.
 

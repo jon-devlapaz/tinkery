@@ -49,33 +49,26 @@ The plan and results are recorded in the [baseline](../research/shared/baseline.
 <a id="r5-identity"></a>
 ## R5 prerequisites — run identity and explicit binding
 
-M2. The [identity contract](job-records.md#goal-to-run-identity-prerequisite)
-remains an unaccepted design proposal.
-
-**I1 — Conditional upstream capability.** Verify source-owned run identity in
-SDLC before proposing a missing-capability issue there. No upstream issue was
-published in this batch; capability verification is not implementation permission.
-
-**I2 — Initial binding creation and duplicate detection:** [#110](https://github.com/jon-devlapaz/tinkery/issues/110) · needs
-approval. The issue owns this initial-only slice; binding revisions and relocation
-are deferred. The entry point and explicit storage-root configuration remain open.
+Closed as not planned on 2026-10-19. tink-sdlc's own seed record replaces the
+Tinkery binding: [#258](https://github.com/jon-devlapaz/tinkery/issues/258). I1 (SDLC run identity) and I2
+([#110](https://github.com/jon-devlapaz/tinkery/issues/110), initial binding) are no longer needed.
 
 <a id="r5"></a>
 ## R5 — Read the records for one linked job
 
-Published: [#111](https://github.com/jon-devlapaz/tinkery/issues/111) · needs approval. See the issue for scope, dependencies,
+Published: [#111](https://github.com/jon-devlapaz/tinkery/issues/111) · closed, not planned; replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258). See the issue for scope, dependencies,
 open decisions and completion evidence.
 
 <a id="r6"></a>
 ## R6 — Show the exact decision in Approve
 
-Published: [#112](https://github.com/jon-devlapaz/tinkery/issues/112) · needs approval. See the issue for scope, dependencies,
+Published: [#112](https://github.com/jon-devlapaz/tinkery/issues/112) · approved 2026-10-19. See the issue for scope, dependencies,
 open decisions and completion evidence.
 
 <a id="r7"></a>
 ## R7 — Follow one external job in Watch
 
-Published: [#113](https://github.com/jon-devlapaz/tinkery/issues/113) · needs approval. See the issue for scope, dependencies,
+Published: [#113](https://github.com/jon-devlapaz/tinkery/issues/113) · approved 2026-10-19. See the issue for scope, dependencies,
 open decisions and completion evidence.
 
 <a id="r8"></a>
