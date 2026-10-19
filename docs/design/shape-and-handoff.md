@@ -102,7 +102,7 @@ keep zoom and pan. Resize reflows slots with relative zoom and pan retained.
 Following selection may pan again.
 
 Detail uses the receipt's shared renderer for the exact stored goal, without
-`Saved.`. ↑↓, `j k`, PgUp or PgDn scroll; `c` copies on permitted stages, `s`
+`Saved.`. ↑↓, `j k`, PgUp or PgDn scroll (a page moves the view less one row); `c` copies on permitted stages, `s`
 opens Shape on those stages, and `r` opens history. Esc goes detail → garden →
 menu; F10 goes to the menu. F1 opens help; `h` opens technical details. Returning from Shape
 requests a fresh read and restores this goal's detail; next step and garden stage
@@ -138,7 +138,7 @@ shows the full path, `none` or `not recorded`, plus model information and checks
 Labels are muted; operator words use ink. Display escapes unsafe terminal controls
 without changing stored words.
 
-↑↓, `j k`, PgUp, PgDn, Home and End scroll width-wrapped history, including Unicode
+↑↓, `j k`, PgUp, PgDn (a view less one row), Home and End scroll width-wrapped history, including Unicode
 beyond 65,535 rows. Help scrolls independently. Esc goes details → help → history
 → same saved goal; F10 goes to menu. A fixed footer keeps return instructions
 visible. Opening, scrolling and help call no model, copy nothing and write nothing.
@@ -329,7 +329,7 @@ run stays outside Shape.
 - Words boxes use ratatui-textarea, titled `your answer`, `your words` or `Folder:`.
   Arrows, Home, End, Ctrl+Left and Ctrl+Right move the cursor; Shift selects.
   Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline except at seed confirmation; Ctrl+U undoes
-  and Ctrl+R redoes. PgUp and PgDn scroll only the reading. Pasted CR and CRLF
+  and Ctrl+R redoes. PgUp and PgDn scroll only the reading, a view less one row. Pasted CR and CRLF
   display as breaks; edits preserve untouched raw endings. Under seed words, say seed confirmation is not approval to build.
 - Running steps keep label, question and typed words muted, with one status
   (`Saving your answer.`, then `Answer saved. Looking in NAME for the next question.`),
@@ -402,9 +402,13 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   unconfirmed records, never a verified handoff.
   These are drafting instructions, not a semantic completeness validator: stubs prove
   transport and preservation, not model quality or operator dogfood.
+- Under `--operator agent` Shape only reads; see [Think's integration hold](think.md#confirmation-attribution-185).
 - Confirmation uses only `seed confirm --revision rN`, typed words as `--source`.
-  Model replies cannot confirm; Seed Me refuses practice confirmation. F3 refuses
-  CR or LF with `Put your confirming words on one line; nothing was confirmed.`
+  Model replies cannot confirm; Seed Me refuses practice confirmation. Until the
+  draft's last line has been on screen since this read, F3 says
+  `Read to the end first: PgDn scrolls. Nothing was confirmed.`; reaching it clears that.
+  F3 refuses CR or LF with `Put your confirming words on one line; nothing was confirmed.`
+  Changing the words clears a refusal about them.
   It retains words and neither writes nor calls. The empty `your words` field shows
   the muted hint `a line saying you confirm, then F3`; typing hides it. Enter says
   `F3 confirms the seed; Enter does not add a line.` without changing the words.

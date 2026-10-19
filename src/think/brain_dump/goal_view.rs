@@ -414,8 +414,11 @@ impl BrainDump {
             KeyCode::Backspace => {
                 review.input.pop();
             }
+            // A held review takes no words: typing confirm couldn't save.
             KeyCode::Char(c)
-                if !key.modifiers.contains(KeyModifiers::CONTROL) && review.input.len() < 32 =>
+                if !key.modifiers.contains(KeyModifiers::CONTROL)
+                    && review.input.len() < 32
+                    && !review.affirmation.confirmation.is_agent() =>
             {
                 review.input.push(c)
             }
@@ -445,7 +448,10 @@ impl BrainDump {
             return true;
         }
         if let Some(review) = self.handoff.review.as_mut() {
-            if text.chars().all(|c| !c.is_control()) && review.input.len() + text.len() <= 32 {
+            if text.chars().all(|c| !c.is_control())
+                && review.input.len() + text.len() <= 32
+                && !review.affirmation.confirmation.is_agent()
+            {
                 review.input.push_str(text);
             }
             return true;

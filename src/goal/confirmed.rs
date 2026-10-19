@@ -28,18 +28,18 @@ pub struct SavedGoal<'a> {
     pub saved: bool,
 }
 
-/// Draws `view` in `area`. The goal scrolls when it doesn't fit, and `scroll` is clamped to
-/// the last useful row, so a resize never leaves the goal scrolled out of sight. `next` and
-/// the notice never scroll away.
+/// Draws `view` in `area` and returns how many rows of the goal show. The goal scrolls when it
+/// doesn't fit, and `scroll` is clamped to the last useful row, so a resize never leaves the goal
+/// scrolled out of sight. `next` and the notice never scroll away.
 pub fn render_saved_goal(
     frame: &mut Frame,
     scroll: &mut u16,
     area: Rect,
     palette: Palette,
     view: SavedGoal<'_>,
-) {
+) -> u16 {
     if area.width == 0 || area.height == 0 {
-        return;
+        return 0;
     }
     let wrapped = |text: &str| {
         Paragraph::new(text)
@@ -84,4 +84,5 @@ pub fn render_saved_goal(
             ),
         );
     }
+    rows[1].height
 }

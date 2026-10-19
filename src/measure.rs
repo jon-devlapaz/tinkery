@@ -314,10 +314,18 @@ impl Reading {
             return;
         }
         if let Report::Complete(_) = &self.report {
+            let content = Rect {
+                height: area.height.saturating_sub(2),
+                ..area
+            };
             self.plain
                 .as_ref()
                 .unwrap()
-                .render(frame, area, palette, self.scroll);
+                .render(frame, content, palette, self.scroll);
+            frame.render_widget(
+                Paragraph::new("esc back   ? help").style(palette.muted),
+                Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
+            );
             return;
         }
         let (text, footer) = if help && self.how {

@@ -98,6 +98,10 @@ def journey(width, height, kind, no_color):
                 send(b'7', 'Existing report')
                 assert SUCCESS.strip() in '\n'.join(line.strip() for line in screen.text().splitlines())
                 assert 'Ledger report unavailable' not in screen.text()
+                # The report says how to leave, and its help says q goes back (#248).
+                assert screen.text().split()[-4:] == ['esc', 'back', '?', 'help'], screen.text()
+                send(b'?', 'q goes back to the menu')
+                assert 'q quits' not in screen.text(), screen.text()
                 send(b'q', '1  think')
             else:
                 send(b'7', 'Ledger report unavailable')

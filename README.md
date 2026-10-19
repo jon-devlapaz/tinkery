@@ -47,7 +47,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   waiting draft or verified ready seed. With real drafting set up
   ([terminal setup](docs/terminal-setup.md#launch)), `--shape-budget CALLS` (default zero)
   allows agent steps. `F2` saves an answer and lets an agent investigate the next with
-  read-only tools; `F3` confirms the seed in your words. `F5` shows the whole goal and decisions.
+  read-only tools; `F3` confirms the seed in your words once you've read it to the end.
+  Under `--operator agent` Shape only reads. `F5` shows the whole goal and decisions.
   `F7` objects to a default the step assumed; on a hard-to-undo question, `F9` shows the
   options and suggestion after your instinct. `F6` twice completes a session whose seed is
   ready; `F8` twice stops one still being shaped.
