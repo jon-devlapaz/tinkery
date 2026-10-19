@@ -97,25 +97,25 @@ fn another_interface_or_an_unknown_state_is_refused_not_shown() {
     for (text, needle) in [
         (
             envelope(&body).replace("tink-sdlc", "other"),
-            "protocol other",
+            "isn't supported",
         ),
         (
             envelope(&body).replace(r#""api_version":1"#, r#""api_version":2"#),
-            "API 2",
+            "isn't supported",
         ),
         (
             envelope(&body).replace(r#""api_version":1"#, r#""api_version":"1""#),
-            "API \"1\"",
+            "isn't supported",
         ),
         (
             envelope(&body).replace(r#""api_version":1,"#, ""),
-            "API null",
+            "isn't supported",
         ),
         (
             envelope(&run("a", "merged")),
             "state Watch doesn't know (merged)",
         ),
-        ("not json".to_string(), "didn't print JSON"),
+        ("not json".to_string(), "Couldn't read the run report"),
     ] {
         let error = parse_list(&text).unwrap_err();
         assert!(error.contains(needle), "{needle}: {error}");
@@ -166,8 +166,7 @@ fn a_missing_script_is_said_plainly_and_nothing_runs() {
 #[test]
 fn a_slow_read_is_stopped_at_its_deadline() {
     let dir = checkout(&envelope(""), 30.0);
-    let mut watch =
-        Watch::with_deadline(Some(dir.path().to_path_buf()), Duration::from_millis(300));
+    let mut watch = Watch::with_deadline(Some(dir.path().to_path_buf()), Duration::from_secs(2));
     settle(&mut watch);
     match &watch.list {
         Some(Load::Done(Err(why), _)) => assert!(why.contains("was stopped"), "{why}"),
@@ -366,6 +365,30 @@ fn detail_scrolling_reaches_wrapped_evidence_and_last_error_at_small_sizes() {
         assert!(paint(&mut watch, &mut terminal).contains("TEST-run"));
         assert_eq!(watch.scroll, 0);
     }
+}
+
+#[test]
+fn goal_display_keeps_exact_words_and_escapes_unsafe_controls_only() {
+    let goal = " TEST café  \nTEST exact goal tail  ";
+    let lines = goal_lines(Some(goal), Palette::new(true));
+    let shown = lines
+        .iter()
+        .map(|line| {
+            line.spans
+                .iter()
+                .map(|span| span.content.as_ref())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(shown, goal);
+    let lines = goal_lines(Some("TEST\u{1b}[31m\u{202e}"), Palette::new(true));
+    assert_eq!(lines[0].spans[0].content, "TEST\\u{1b}[31m\\u{202e}");
+    assert!(
+        goal_lines(None, Palette::new(true))[0].spans[0]
+            .content
+            .starts_with("Goal unknown:")
+    );
 }
 
 fn alive(dir: &Path) -> bool {

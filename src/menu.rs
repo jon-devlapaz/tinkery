@@ -498,7 +498,7 @@ impl Home {
             }
             3 => {
                 self.request_sessions();
-                View::Approve(Box::new(approve::Approve::open()))
+                View::Approve(Box::new(approve::Approve::open(self.sdlc_root.clone())))
             }
             4 => View::Watch(Box::new(Watch::open(self.sdlc_root.clone()))),
             6 => View::Measure(Box::new(

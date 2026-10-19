@@ -25,6 +25,13 @@ Each read runs off the paint path with a 30-second deadline, at most 4 MiB of ou
 own process group. Leaving Watch, or closing a run's detail, stops and reaps the read; a late
 result is never shown. A refused read shows tink-sdlc's own `error.message`.
 
+The shared `sdlc` boundary owns the bounded status process and envelope validation;
+Watch owns attention and presentation. Parsing and original-seed reads run on the
+worker, never during painting or input. The [SDLC handoff](shape-and-handoff.md#sdlc-handoff)
+owns matching: a matched run shows its exact saved goal in the list and detail.
+Otherwise say `Goal unknown: the original seed couldn't be matched.`; never borrow
+a goal from the run name or a moved or changed original. Goals wrap without trimming.
+
 Watch reads only tink-sdlc API 1: `protocol` must be `tink-sdlc` and `api_version` the integer 1.
 Any other interface, an unknown `verification_status` or gate state, or a run missing a field
 fails the whole read closed, with what was wrong, rather than display a guess. An agent saying
@@ -48,7 +55,7 @@ except provisional (`pending: true`) items awaiting activation. A passed attesta
 only if the change affects it. Automatic pending checks alone do not demand a person.
 
 This interpretation follows API 1's `checklist_view` and `status_state` in
-[tink-sdlc at cf737351](https://github.com/jon-devlapaz/tink-sdlc/blob/cf7373510937d5d592590cc32da57502600c9ca7/assets/_system/scripts/sdlc.py).
+[tink-sdlc at 1c6ffd59](https://github.com/jon-devlapaz/tink-sdlc/blob/1c6ffd59902a742a2b3bb607ab75c41dc2e95e55/assets/_system/scripts/sdlc.py).
 Watch requires the typed `automatic`, `proof`, `status`, `needs_recheck` and `mark` fields;
 missing or unfamiliar fields are not quiet. Each group keeps tink-sdlc's order. Needs-you rows
 retain tink-sdlc's `next_action` (or the invalid run's reason); other runs get one quiet line.
@@ -65,7 +72,8 @@ one), interface and state refusals, detail counts, the deadline, leaving mid-rea
 is gone afterwards) and that opening and reading again leave the checkout byte-identical.
 [The terminal journey](../../tests/watch_terminal.py) drives the real binary over a fake
 `sdlc.py` at 100x30, 80x24 and with NO_COLOR, including owed-attestation ordering after successful
-verification, every verification state, and scrolling to long evidence/error tails. Stubs prove
+verification, every verification state, scrolling to long evidence/error tails, and
+matched, edited, moved and missing original seeds in both list and detail. Stubs prove
 mechanics, not operator dogfood.
 
 The change moves architecture diagnostics 3 and 6: Watch hides the multi-read attention rule

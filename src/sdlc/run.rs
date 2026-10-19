@@ -16,27 +16,32 @@ use std::{
 };
 
 /// The script every read runs, relative to the named checkout.
-pub(super) const SCRIPT: &str = "_system/scripts/sdlc.py";
+pub(crate) const SCRIPT: &str = "_system/scripts/sdlc.py";
 /// How long one read may take before it is stopped.
-pub(super) const DEADLINE: Duration = Duration::from_secs(30);
+pub(crate) const DEADLINE: Duration = Duration::from_secs(30);
 const STDOUT_LIMIT: u64 = 4 * 1024 * 1024;
 const STDERR_LIMIT: u64 = 64 * 1024;
 
 /// A read in flight. Dropping it cancels, kills and reaps the process before returning.
-pub(super) struct Read {
+pub(crate) struct Read<T> {
     cancel: Arc<AtomicBool>,
-    result: mpsc::Receiver<Result<String, String>>,
+    result: mpsc::Receiver<Result<T, String>>,
     worker: Option<JoinHandle<()>>,
 }
 
-impl Read {
+impl<T: Send + 'static> Read<T> {
     /// Start `python3 _system/scripts/sdlc.py <args>` in `root`, stopped after `deadline`.
-    pub(super) fn start(root: &Path, args: Vec<String>, deadline: Duration) -> Self {
+    pub(crate) fn start(
+        root: &Path,
+        args: Vec<String>,
+        deadline: Duration,
+        prepare: fn(&str) -> Result<T, String>,
+    ) -> Self {
         let cancel = Arc::new(AtomicBool::new(false));
         let (send, result) = mpsc::channel();
         let (root, stop) = (root.to_path_buf(), cancel.clone());
         let worker = thread::spawn(move || {
-            let outcome = run(&root, &args, &stop, deadline);
+            let outcome = run(&root, &args, &stop, deadline).and_then(|out| prepare(&out));
             if !stop.load(Ordering::SeqCst) {
                 let _ = send.send(outcome);
             }
@@ -48,13 +53,19 @@ impl Read {
         }
     }
 
-    /// The finished read's stdout, or why it failed; `None` while it is still running.
-    pub(super) fn poll(&self) -> Option<Result<String, String>> {
-        self.result.try_recv().ok()
+    /// The prepared reading or why it failed; `None` while it is still running.
+    pub(crate) fn poll(&self) -> Option<Result<T, String>> {
+        match self.result.try_recv() {
+            Ok(result) => Some(result),
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                Some(Err("Reading runs stopped unexpectedly.".into()))
+            }
+        }
     }
 }
 
-impl Drop for Read {
+impl<T> Drop for Read<T> {
     fn drop(&mut self) {
         self.cancel.store(true, Ordering::SeqCst);
         if let Some(worker) = self.worker.take() {
@@ -63,7 +74,8 @@ impl Drop for Read {
     }
 }
 
-fn run(
+/// One synchronous bounded status read for an existing worker; cancellation stops its process.
+pub(super) fn run(
     root: &Path,
     args: &[String],
     cancel: &AtomicBool,
@@ -135,7 +147,7 @@ fn run(
     Err(format!("status exited with {status}: {message}"))
 }
 
-/// Kill the whole process group, then reap the child, so no read outlives Watch.
+/// Kill the owned process group, then reap the child; never leave a status command running.
 fn stop(child: &mut Child) {
     // SAFETY: kill(2) on the group this process created with process_group(0); no memory is shared.
     unsafe {

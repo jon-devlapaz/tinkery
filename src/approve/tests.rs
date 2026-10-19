@@ -11,7 +11,7 @@ fn seed(goal: &str) -> ReadySeed {
 }
 
 fn view() -> Approve {
-    let mut view = Approve::open();
+    let mut view = Approve::open(None);
     view.waiting = false;
     view.found = Some(Ok(Found {
         seeds: vec![seed("TEST oldest"), seed("TEST newest")],
@@ -85,8 +85,10 @@ fn long_readings_reach_the_tail_and_keep_exit_visible() {
 
 #[test]
 fn unknown_and_incomplete_are_never_a_complete_empty_list() {
-    let mut view = Approve::open();
-    assert!(screen(&mut view, 80, 24, false).contains("Reading sessions"));
+    let mut view = Approve::open(None);
+    let shown = screen(&mut view, 80, 24, false);
+    assert!(shown.contains("Reading sessions"));
+    assert!(shown.contains("Can't tell which seeds have started; none are hidden."));
     view.found = Some(Ok(Found {
         unavailable: 2,
         reasons: vec!["TEST failure".into()],
@@ -110,6 +112,7 @@ fn abandoned_read_cannot_publish_or_spawn_a_second_worker() {
     assert!(!reader.start(
         PathBuf::from("TEST no helper"),
         Vec::new(),
+        None,
         Found::default()
     ));
     tx.send(Found {
@@ -117,7 +120,7 @@ fn abandoned_read_cannot_publish_or_spawn_a_second_worker() {
         ..Found::default()
     })
     .unwrap();
-    let mut reopened = Approve::open();
+    let mut reopened = Approve::open(None);
     reader.poll(Some(&mut reopened));
     assert!(reopened.found.is_none());
     assert!(reader.running.is_none());

@@ -54,21 +54,17 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   ready; `F8` twice stops one still being shaped.
 - **Approve:** menu place 4 shows verified seeds, oldest first, with their exact goal
   and acceptance checks. `c` copies run creation and intake commands; nothing runs.
-  See [Approve](docs/design/approve.md). Started seeds remain until the join is built.
+  Seeds already started move to Watch; without a named checkout, start status is unknown.
+  See [Approve](docs/design/approve.md).
 - **Watch:** with `--sdlc-root PATH`, reads that tink-sdlc checkout's runs through its own
-  `status --json` when opened or on `r`, runs waiting on you first. It runs only read-only status commands and changes no records.
+  `status --json` when opened or on `r`, runs waiting on you first. Matched runs show their
+  exact saved goal; changed or missing originals stay unknown. It runs only read-only
+  status commands and changes no records.
 - **Measure:** reads an existing ledger report or says unavailable.
 
 **Taste isn't built.** The complete journey and its benefit remain unproven.
 
 ## Where we’re going next
-
-1. Verify permanent SDLC run identity; recreating a run name must not reuse its identity.
-2. Explicitly confirm the connection from a saved goal to that exact run, never guessing from names.
-3. Use one shared reader to verify identities and bring back current evidence.
-
-This [binding design](docs/design/job-records.md#goal-to-run-identity-prerequisite) is an **unaccepted, unimplemented proposal**.
-Its first binding is immutable and detects duplicates; changes and relocation are deferred.
 
 Absorbing useful Substrate responsibilities is planned, not complete; Measure still
 uses its ledger. See the [first-release plan](docs/design/first-release.md) and

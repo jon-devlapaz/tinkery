@@ -1,5 +1,6 @@
 """Watch over a fake tink-sdlc checkout in TEST roots; no real checkout, providers or writes."""
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,7 @@ if len(sys.argv) == 4:
     detail = state.get('details', {}).get(slug, state['detail'])
     detail['run']['verification_status'] = row['verification_status']
     detail['run']['next_action'] = row['next_action']
+    detail['run']['seed_contract'] = row.get('seed_contract')
     if row['verification_status'] != 'blocked':
         detail['run']['gates'][0]['status'] = 'approved'
         if slug not in state.get('details', {}):
@@ -161,9 +163,36 @@ def journey(width, height, no_color, configured=True):
                              'not-run': 'not verified yet', 'stale': 'verification out of date',
                              'invalid': "can't be read"}
                     send(b'r', words[status])
+                # Only the source path AND the recorded bytes lend a goal to a run.
+                seed = base / 'TEST-session/seed-contract.md'
+                seed.parent.mkdir()
+                seed.write_bytes(b'TEST confirmed original seed\n')
+                goal = ' TEST café  \nTEST exact goal tail  '
+                (seed.parent / 'ledger.json').write_text(json.dumps({'schema_version': 1, 'goal': goal}))
+                original = seed.read_bytes()
+                record = {'path': 'runs/unrelated/seed-contract.md', 'source': str(seed.resolve()),
+                          'sha256': hashlib.sha256(original).hexdigest()}
+                row = {**run('TEST-unrelated-slug', 'blocked'), 'seed_contract': record}
+                for seed_case in ('matched', 'edited', 'moved', 'missing'):
+                    seed.write_bytes(original)
+                    if seed_case == 'edited':
+                        seed.write_bytes(original + b'TEST edited\n')
+                    elif seed_case == 'moved':
+                        seed.rename(base / 'TEST-moved-seed.md')
+                    elif seed_case == 'missing':
+                        seed.unlink()
+                    set_state(list=envelope(runs=[row]))
+                    expected = 'TEST exact goal tail' if seed_case == 'matched' else 'Goal unknown:'
+                    send(b'r', expected)
+                    assert ('TEST exact goal tail' in screen.text()) == (seed_case == 'matched')
+                    send(b'\r', 'Stage 3 gate: pending')
+                    assert expected in screen.text(), screen.text()
+                    assert ('TEST exact goal tail' in screen.text()) == (seed_case == 'matched')
+                    assert not any(word in screen.text() for word in ('seed_contract', 'sha256', 'API'))
+                    send(b'\x1b', 'Needs you')
                 set_state(list={**envelope(runs=[]), 'protocol': 'other'})
                 send(b'r', "Couldn't read the runs.")
-                assert 'Watchreadstink-sdlcAPI1' in ''.join(screen.text().split())
+                assert "isn't supported" in screen.text()
                 slow_call_count = len(calls()) + 1
                 set_state(slow=True, list=envelope(runs=[]))
                 send(b'r', 'Reading runs')

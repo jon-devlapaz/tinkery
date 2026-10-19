@@ -40,8 +40,10 @@ in Claude, Codex or Pi is not interchangeable execution inside Tinkery. Model
 selection establishes neither open-weight compatibility nor comparative quality.
 
 [Think records](think.md#think-record) retain confirmed-session evidence, not
-unconfirmed sessions or complete factory telemetry. Exact external-run linkage
-remains [unaccepted](job-records.md#goal-to-run-identity-prerequisite).
+unconfirmed sessions or complete factory telemetry. The read-only
+[seed-to-run join](shape-and-handoff.md#sdlc-handoff) uses SDLC's source-owned record;
+the broader [binding-store proposal](job-records.md#goal-to-run-identity-prerequisite)
+is not implemented.
 [Release evidence](first-release.md) is required before claiming a complete factory
 or improved outcomes.
 
@@ -88,7 +90,7 @@ or improved outcomes.
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 | `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
-| `watch/run.rs` | One bounded status read off the paint path: deadline, output limits, and stopping the process group when Watch is left. |
+| `sdlc.rs`, `sdlc/run.rs` | Shared read-only API 1 status, exact original-seed matching and bounded process ownership; no store, checkout discovery or phase policy. |
 
 Vendored libraries are path dependencies, not phases: `vendor/pinstar/` owns
 rendering and input primitives and `vendor/graf/` owns graph mechanics. Tend reaches graf
@@ -125,8 +127,9 @@ reads them; the menu retains the reader. Shared `repo.rs` finds the root once.
 Only helper-backed Shape verification claims seed-ready; file discovery reports
 unchecked declarations.
 
-This documentation condensation improves boundary visibility (7); it changes no
-module, enforced limit or measured score.
+The shared SDLC read and seed identity improve diagnostics 3 and 6: both phases
+use one source-owned join without knowing each other. The module map improves
+boundary visibility (7). No limit is relaxed; the recorded score remains 10/10.
 
 ## Limits enforced by `tests/architecture.rs`
 
