@@ -52,9 +52,12 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `F7` objects to a default the step assumed; on a hard-to-undo question, `F9` shows the
   options and suggestion after your instinct. `F6` twice completes a session whose seed is
   ready; `F8` twice stops one still being shaped.
+- **Approve:** menu place 4 shows verified seeds, oldest first, with their exact goal
+  and acceptance checks. `c` copies run creation and intake commands; nothing runs.
+  See [Approve](docs/design/approve.md). Started seeds remain until the join is built.
 - **Measure:** reads an existing ledger report or says unavailable.
 
-**Approve, Watch and Taste aren't built.** The complete journey and its benefit remain unproven.
+**Watch and Taste aren't built.** The complete journey and its benefit remain unproven.
 
 ## Where we’re going next
 

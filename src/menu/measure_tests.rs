@@ -166,8 +166,8 @@ fn help_away_from_the_menu_says_q_goes_back() {
         root.path().join("missing"),
         Ok(root.path().join("TEST-links")),
     );
-    // An unbuilt place shares the help Measure's report uses; there q goes back.
-    h.open(3);
+    // Taste is still unbuilt and shares Measure's report help; there q goes back.
+    h.open(5);
     press(&mut h, KeyCode::Char('?'));
     let help = snapshot(80, 24, &mut h, true).unwrap();
     assert!(help.contains("q goes back to the menu"), "{help}");

@@ -27,6 +27,7 @@ const LONG_LINE: usize = 200;
 /// the unbuilt places) is the only one that knows every phase; `shared` is code any phase may use.
 /// A new module must be listed here, so a new phase can't count as shared code by default.
 const MODULES: &[(&str, &str)] = &[
+    ("approve", "approve"),
     ("goal", "shared"),
     ("measure", "measure"),
     ("menu", "menu"),
