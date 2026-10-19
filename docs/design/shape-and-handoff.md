@@ -367,7 +367,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Seed Me's [seed contract](https://github.com/jon-devlapaz/seed-me/blob/main/skills/seed-me/references/seed-contract.md)
   owns the draft format; Shape passes the installed reference to each step, rather
   than defining another layout. Tinkery writes `status: draft`, the goal-headline
-  title, `revision: rN` one past the previous draft, and a separate `date:` line.
+  title, `revision: rN` one past the previous draft, and a separate `date:` line with the operator's local date (receipts stay UTC).
   An older writer can still increment the revision after rollback. Never replace
   a confirmed seed. The model supplies the summary and canonical prose sections,
   excluding Acceptance criteria; reasoning, findings and questions keep their existing

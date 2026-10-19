@@ -871,7 +871,7 @@ pub fn draft_seed(
         .as_str()
         .and_then(|g| g.lines().next())
         .unwrap_or("");
-    let date = &at[..10];
+    let date = local_date();
     let text = format!(
         "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n"
     );
@@ -989,9 +989,44 @@ fn now() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
-    let (days, rest) = (secs / 86_400, secs % 86_400);
-    // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
-    let z = days as i64 + 719_468;
+    let rest = secs % 86_400;
+    format!(
+        "{}T{:02}:{:02}:{:02}+00:00",
+        civil(secs as i64),
+        rest / 3600,
+        rest % 3600 / 60,
+        rest % 60
+    )
+}
+
+/// Today's date where the operator is, for the seed's `date:` line; receipts keep UTC.
+fn local_date() -> String {
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs()) as i64;
+    civil(secs + utc_offset(secs))
+}
+
+/// The local time zone's offset from UTC at `secs`, in seconds; 0 when it can't be read.
+#[cfg(unix)]
+fn utc_offset(secs: i64) -> i64 {
+    let time = secs as libc::time_t;
+    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+    // SAFETY: both pointers are valid for the call; localtime_r writes only `tm`.
+    if unsafe { libc::localtime_r(&time, &mut tm) }.is_null() {
+        return 0;
+    }
+    tm.tm_gmtoff as i64
+}
+
+#[cfg(not(unix))]
+fn utc_offset(_secs: i64) -> i64 {
+    0
+}
+
+/// The `YYYY-MM-DD` date of `secs` after 1970-01-01 (Howard Hinnant's algorithm).
+fn civil(secs: i64) -> String {
+    let z = secs.div_euclid(86_400) + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
@@ -1000,17 +1035,33 @@ fn now() -> String {
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = yoe + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}+00:00",
-        rest / 3600,
-        rest % 3600 / 60,
-        rest % 60
-    )
+    format!("{year:04}-{month:02}-{day:02}")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_seed_is_dated_where_the_operator_is_and_receipts_stay_utc() {
+        assert_eq!(civil(0), "1970-01-01");
+        assert_eq!(civil(-1), "1969-12-31");
+        assert_eq!(civil(951_782_400), "2000-02-29");
+        assert!(now().ends_with("+00:00"), "receipts stay UTC");
+        // The operator's own clock says what today is; retry once across midnight.
+        let today = || {
+            let out = std::process::Command::new("date")
+                .arg("+%F")
+                .output()
+                .unwrap();
+            String::from_utf8(out.stdout).unwrap().trim().to_owned()
+        };
+        let (before, ours, after) = (today(), local_date(), today());
+        assert!(
+            ours == before || ours == after,
+            "{ours} vs {before}/{after}"
+        );
+    }
 
     #[test]
     fn option_lines_keep_single_punctuation_whatever_the_model_ends_with() {
