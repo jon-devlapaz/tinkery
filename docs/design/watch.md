@@ -28,9 +28,13 @@ result is never shown. A refused read shows tink-sdlc's own `error.message`.
 The shared `sdlc` boundary owns the bounded status process and envelope validation;
 Watch owns attention and presentation. Parsing and original-seed reads run on the
 worker, never during painting or input. The [SDLC handoff](shape-and-handoff.md#sdlc-handoff)
-owns matching: a matched run shows its exact saved goal in the list and detail.
-Otherwise say `Goal unknown: the original seed couldn't be matched.`; never borrow
-a goal from the run name or a moved or changed original. Goals wrap without trimming.
+owns matching and keeps three states distinct:
+- A matched seed supplies the exact saved goal.
+- An explicit null record means no confirmed seed was used, not a failed match.
+  Show nothing in the list; detail says `No confirmed seed was recorded for this run.`
+- An edited, moved, missing or unreadable original, or a missing/malformed record,
+  says `Goal unknown: the original seed changed or can't be found.` in needs-you
+  rows and detail. Never borrow a goal from the run name or another original.
 
 Watch reads only tink-sdlc API 1: `protocol` must be `tink-sdlc` and `api_version` the integer 1.
 Any other interface, an unknown `verification_status` or gate state, or a run missing a field
@@ -58,10 +62,15 @@ This interpretation follows API 1's `checklist_view` and `status_state` in
 [tink-sdlc at 1c6ffd59](https://github.com/jon-devlapaz/tink-sdlc/blob/1c6ffd59902a742a2b3bb607ab75c41dc2e95e55/assets/_system/scripts/sdlc.py).
 Watch requires the typed `automatic`, `proof`, `status`, `needs_recheck` and `mark` fields;
 missing or unfamiliar fields are not quiet. Each group keeps tink-sdlc's order. Needs-you rows
-retain tink-sdlc's `next_action` (or the invalid run's reason); other runs get one quiet line.
+retain tink-sdlc's `next_action` (or the invalid run's reason). Under them, show
+only the goal's first line verbatim, or its unknown line, indented four spaces in ink.
+A known no-seed run adds nothing. Quiet runs stay exactly one clipped line, without
+a goal or seed-status sub-line. Selected-row scrolling accounts for wrapped needs-you
+sub-lines and keeps the selected run visible.
 
-A run's detail shows its state, next action, gates, checklist counts, individual expectations and
-recorded evidence, plus tink-sdlc's errors. ↑↓, PgUp/PgDn and Home/End scroll wrapped content,
+A run's detail keeps the full matched goal, wrapped and untrimmed, escaping unsafe
+controls only for display. Its state, next action, gates, checklist counts, individual
+expectations and recorded evidence follow, plus tink-sdlc's errors. ↑↓, PgUp/PgDn and Home/End scroll wrapped content,
 including long evidence and error tails. Opening or rereading detail resets to the top. One run
 at a time; Esc returns to the list. Scrolling launches nothing.
 
@@ -73,9 +82,11 @@ is gone afterwards) and that opening and reading again leave the checkout byte-i
 [The terminal journey](../../tests/watch_terminal.py) drives the real binary over a fake
 `sdlc.py` at 100x30, 80x24 and with NO_COLOR, including owed-attestation ordering after successful
 verification, every verification state, scrolling to long evidence/error tails, and
-matched, edited, moved and missing original seeds in both list and detail. Stubs prove
+matched, edited, moved and missing originals, no-seed runs, and one-line quiet rows.
+Unit tests cover all three goal states in list/detail, exact first-line indentation,
+full detail words, wide quiet rows and selected-row scrolling. Stubs prove
 mechanics, not operator dogfood.
 
-The change moves architecture diagnostics 3 and 6: Watch hides the multi-read attention rule
-behind the same menu interface. Row 7 gains the Watch module map; no cross-phase imports or
-relaxed architecture limits are introduced.
+The three-way goal reading and compact list/detail split improve architecture diagnostics
+2 and 6: absence cannot masquerade as a failed match, and display rules stay behind
+Watch's existing interface. No cross-phase imports or relaxed limits are introduced.

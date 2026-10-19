@@ -13,7 +13,7 @@ use std::{
 };
 
 use crate::Palette;
-use crate::sdlc::{self, DEADLINE, Read, SCRIPT};
+use crate::sdlc::{self, DEADLINE, Goal, Read, SCRIPT};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     Frame,
@@ -22,6 +22,8 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 use serde_json::Value;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 /// What tink-sdlc says about a run's verification, from API 1. Anything else is refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,7 +86,7 @@ struct Run {
     passed: u64,
     total: u64,
     attention: Option<Attention>,
-    goal: Option<String>,
+    goal: Goal,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -107,7 +109,7 @@ impl Run {
 /// One run's detail, from `status <slug> --json`.
 #[derive(Debug, Clone, PartialEq)]
 struct Detail {
-    goal: Option<String>,
+    goal: Goal,
     state: State,
     next: String,
     gates: Vec<(u64, String)>,
@@ -603,8 +605,12 @@ impl Watch {
                             ));
                         }
                         lines.push(Line::styled(format!("    {}", run.next), palette.muted));
+                        if run.goal != Goal::NoSeed {
+                            let first = goal_text(&run.goal).split('\n').next().unwrap_or("");
+                            lines.extend(goal_lines(&format!("    {first}"), palette));
+                        }
                     } else {
-                        lines.push(Line::from(vec![
+                        let mut line = Line::from(vec![
                             Span::styled(format!("{mark}{}", run.slug), name),
                             Span::styled(
                                 format!(
@@ -615,9 +621,10 @@ impl Watch {
                                 ),
                                 palette.muted,
                             ),
-                        ]));
+                        ]);
+                        clip_line(&mut line, body.width as usize);
+                        lines.push(line);
                     }
-                    lines.extend(goal_lines(run.goal.as_deref(), palette));
                 }
             }
         }
@@ -625,7 +632,7 @@ impl Watch {
             .wrap(Wrap { trim: false })
             .line_count(body.width);
         let paragraph = Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false });
-        // Wrap exact goals without clipping and keep the selected run in view.
+        // Needs-you sub-lines wrap; quiet rows stay clipped to one line. Keep selection visible.
         if matches!(self.list, Some(Load::Done(Err(_), _))) {
             frame.render_widget(paragraph.wrap(Wrap { trim: false }), body);
             return;
@@ -637,9 +644,32 @@ impl Watch {
     }
 }
 
-fn goal_lines(goal: Option<&str>, palette: Palette) -> Vec<Line<'static>> {
-    goal.unwrap_or("Goal unknown: the original seed couldn't be matched.")
-        .split('\n')
+fn goal_text(goal: &Goal) -> &str {
+    match goal {
+        Goal::Matched(goal) => goal,
+        Goal::NoSeed => "No confirmed seed was recorded for this run.",
+        Goal::Unknown => "Goal unknown: the original seed changed or can't be found.",
+    }
+}
+
+fn clip_line(line: &mut Line<'_>, mut remaining: usize) {
+    for span in &mut line.spans {
+        let mut bytes = 0;
+        for grapheme in span.content.graphemes(true) {
+            let width = grapheme.width();
+            if width > remaining {
+                remaining = 0;
+                break;
+            }
+            remaining -= width;
+            bytes += grapheme.len();
+        }
+        span.content.to_mut().truncate(bytes);
+    }
+}
+
+fn goal_lines(goal: &str, palette: Palette) -> Vec<Line<'static>> {
+    goal.split('\n')
         .map(|line| {
             let safe: String = line
                 .chars()
@@ -687,7 +717,7 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             lines.push(Line::styled(why.clone(), palette.ink));
         }
         Load::Done(Ok(d), _) => {
-            lines.extend(goal_lines(d.goal.as_deref(), palette));
+            lines.extend(goal_lines(goal_text(&d.goal), palette));
             lines.push(Line::default());
             lines.push(Line::styled(d.state.words(), palette.ink.bold()));
             lines.push(Line::styled(format!("Next: {}", d.next), palette.ink));

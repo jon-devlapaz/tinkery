@@ -177,17 +177,29 @@ def approve_watch(root, env, session, project):
         send(b'\x1b', '4 approve')
         send(b'4', 'No verified seeds are waiting.')
         assert 'Seed 1 of' not in screen.text(), screen.text()
+        command([sys.executable, runtime, 'new', 'test-no-seed'], project, env)
+        no_seed = json.loads(command([sys.executable, runtime, 'status', 'test-no-seed', '--json'], project, env).stdout)
+        assert no_seed['run']['seed_contract'] is None
         send(b'\x1b', '4 approve')
         send(b'5', 'Needs you')
         wait(GOAL)
         assert 'test-copied-intake' in screen.text(), screen.text()
+        assert 'Goal unknown' not in screen.text() and 'No confirmed seed' not in screen.text(), screen.text()
+        copied_first = '› test-copied-intake' in screen.text()
+        if not copied_first:
+            send(b'\x1b[B', '› test-copied-intake')
         send(b'\r', 'Stage 3 gate:')
         wait(GOAL)
+        assert 'Goal unknown' not in screen.text(), screen.text()
+        send(b'\x1b', 'Needs you')
+        send(b'\x1b[B' if copied_first else b'\x1b[A', '› test-no-seed')
+        send(b'\r', 'No confirmed seed was recorded for this run.')
         assert 'Goal unknown' not in screen.text(), screen.text()
         assert {p: p.read_bytes() for p in originals} == originals
         assert (root / 'TEST-calls').read_text().splitlines() == ['stub']
         print('Shape → copied Approve new/stage → Approve hidden → Watch exact goal in list/detail: '
-              '100x30 PTY, real Tinkery + tink-sdlc, 1 stub reply, 0 product model calls', flush=True)
+              'no-seed run honest in list/detail; 100x30 PTY, real Tinkery + tink-sdlc, '
+              '1 stub reply, 0 product model calls', flush=True)
     finally:
         if process.poll() is None:
             process.kill()

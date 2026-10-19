@@ -97,15 +97,33 @@ pub(crate) fn seeds(root: &Path, cancel: &AtomicBool) -> Result<Vec<Seed>, Strin
         .map(|seeds| seeds.into_iter().flatten().collect())
 }
 
-/// The exact saved goal only when the run still matches its original seed. Reading and all
-/// filesystem checks belong on a worker; missing, moved or edited originals stay unknown.
-pub(crate) fn goal(run: &Value) -> Option<String> {
-    let seed = Seed::parse(run).ok()??;
-    if !seed.matches(&seed.source).ok()? {
-        return None;
-    }
-    let goal = crate::seed_me::ready::goal(&seed.source).ok()?;
-    seed.matches(&seed.source).ok()?.then_some(goal)
+/// A run's seed evidence distinguishes known absence from an unreadable or unmatched original.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Goal {
+    /// The seed matches, with the exact saved goal.
+    Matched(String),
+    /// The run explicitly records that no confirmed seed was used.
+    NoSeed,
+    /// A missing, malformed or unmatched record cannot supply a goal.
+    Unknown,
+}
+
+/// Read the exact saved goal only for a still-matching seed, on a worker. An explicit null
+/// record means no seed; missing records or unreadable, moved or edited originals stay unknown.
+pub(crate) fn goal(run: &Value) -> Goal {
+    let seed = match Seed::parse(run) {
+        Ok(Some(seed)) => seed,
+        Ok(None) => return Goal::NoSeed,
+        Err(_) => return Goal::Unknown,
+    };
+    let matched = || {
+        if !seed.matches(&seed.source).ok()? {
+            return None;
+        }
+        let goal = crate::seed_me::ready::goal(&seed.source).ok()?;
+        seed.matches(&seed.source).ok()?.then_some(goal)
+    };
+    matched().map_or(Goal::Unknown, Goal::Matched)
 }
 
 /// Whether a session's current seed was recorded by any run. A changed same-path seed is an
