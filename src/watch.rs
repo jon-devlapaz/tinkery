@@ -1,5 +1,5 @@
 //! Watch: the runs in the one tink-sdlc checkout the operator named, read through its own
-//! `status --json` (API 1) only when Watch opens or the operator presses `r`. Runs waiting on a
+//! list and per-run `status --json` (API 1) when Watch opens or the operator presses `r`. Runs waiting on a
 //! person come first; the rest get one quiet line. It never runs verify, mark, decide, stage or
 //! any write, discovers no checkout, polls nothing, and refuses an interface or state it doesn't
 //! know rather than guess.
@@ -84,6 +84,24 @@ struct Run {
     next: String,
     passed: u64,
     total: u64,
+    attention: Option<Attention>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+struct Attention {
+    gate: bool,
+    owed: usize,
+    recheck: usize,
+}
+
+impl Run {
+    fn needs_you(&self) -> bool {
+        self.state.needs_you()
+            || self
+                .attention
+                .as_ref()
+                .is_some_and(|a| a.gate || a.owed > 0 || a.recheck > 0)
+    }
 }
 
 /// One run's detail, from `status <slug> --json`.
@@ -95,6 +113,8 @@ struct Detail {
     passed: usize,
     proven: usize,
     attested: usize,
+    attention: Attention,
+    checklist: Vec<String>,
     errors: Vec<String>,
 }
 
@@ -155,6 +175,7 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
                 passed: count("passed")?,
                 total: count("total")?,
                 state,
+                attention: None,
             })
         })
         .collect()
@@ -166,7 +187,7 @@ fn parse_detail(output: &str) -> Result<Detail, String> {
         serde_json::from_str(output).map_err(|e| format!("status didn't print JSON: {e}"))?;
     interface(&value)?;
     let run = &value["run"];
-    let gates = run["gates"]
+    let gates: Vec<_> = run["gates"]
         .as_array()
         .ok_or("The run has no gates list.")?
         .iter()
@@ -191,6 +212,56 @@ fn parse_detail(output: &str) -> Result<Detail, String> {
             .filter(|i| i[key].as_str() == Some(word))
             .count()
     };
+    let mut attention = Attention {
+        gate: gates.iter().any(|(_, status)| status != "approved"),
+        ..Attention::default()
+    };
+    let mut checklist = Vec::new();
+    for item in items {
+        let automatic = item["automatic"]
+            .as_bool()
+            .ok_or("A checklist item has no automatic flag.")?;
+        let proof = text(item, "proof")?;
+        if proof != if automatic { "automated" } else { "attested" } {
+            return Err("A checklist item's proof disagrees with its automatic flag.".into());
+        }
+        let status = text(item, "status")?;
+        if !matches!(status.as_str(), "passed" | "pending" | "failed" | "unknown") {
+            return Err(format!("Unknown checklist status: {status}"));
+        }
+        let recheck = item["needs_recheck"]
+            .as_bool()
+            .ok_or("A checklist item has no needs_recheck flag.")?;
+        let pending = match item.get("pending") {
+            None => false,
+            Some(value) => value
+                .as_bool()
+                .ok_or("A checklist item has an invalid pending flag.")?,
+        };
+        if !automatic {
+            attention.owed += usize::from(!pending && status != "passed");
+            attention.recheck += usize::from(recheck);
+        }
+        let suffix = if pending {
+            " · provisional"
+        } else if recheck {
+            " · may need recheck"
+        } else {
+            ""
+        };
+        checklist.push(format!(
+            "{}: {status} ({proof}){suffix}\n{}",
+            text(item, "id")?,
+            text(item, "verify")?
+        ));
+        match item.get("mark") {
+            Some(Value::Null) => {}
+            Some(mark) if mark.is_object() => {
+                checklist.push(format!("Evidence: {}", text(mark, "evidence")?))
+            }
+            _ => return Err("A checklist item has no readable mark.".into()),
+        }
+    }
     Ok(Detail {
         state: state(run)?,
         next: text(run, "next_action")?,
@@ -198,21 +269,24 @@ fn parse_detail(output: &str) -> Result<Detail, String> {
         passed: count("status", "passed"),
         proven: count("proof", "automated"),
         attested: count("proof", "attested"),
+        attention,
+        checklist,
         errors: run["errors"]
             .as_array()
+            .ok_or("The run has no errors list.")?
+            .iter()
             .map(|e| {
-                e.iter()
-                    .filter_map(|e| e.as_str().map(str::to_owned))
-                    .collect()
+                e.as_str()
+                    .map(str::to_owned)
+                    .ok_or("A run error is not text.".to_owned())
             })
-            .unwrap_or_default(),
+            .collect::<Result<_, _>>()?,
     })
 }
 
 /// Runs that need a person first, then the rest, each group in tink-sdlc's order.
 fn ordered(runs: &[Run]) -> Vec<&Run> {
-    let (mut needs, quiet): (Vec<&Run>, Vec<&Run>) =
-        runs.iter().partition(|run| run.state.needs_you());
+    let (mut needs, quiet): (Vec<&Run>, Vec<&Run>) = runs.iter().partition(|run| run.needs_you());
     needs.extend(quiet);
     needs
 }
@@ -243,6 +317,9 @@ pub(crate) struct Watch {
     list: Option<Load<Vec<Run>>>,
     selected: usize,
     detail: Option<(String, Load<Detail>)>,
+    inspection: Option<(usize, Load<Detail>)>,
+    scroll: u16,
+    page: u16,
     deadline: Duration,
 }
 
@@ -258,6 +335,9 @@ impl Watch {
             list: None,
             selected: 0,
             detail: None,
+            inspection: None,
+            scroll: 0,
+            page: 1,
             deadline,
         };
         watch.read_list();
@@ -265,6 +345,8 @@ impl Watch {
     }
 
     fn read_list(&mut self) {
+        self.inspection = None;
+        self.selected = 0;
         let Some(root) = &self.root else { return };
         self.list = Some(if root.join(SCRIPT).is_file() {
             Load::start(root, vec!["status".into(), "--json".into()], self.deadline)
@@ -287,11 +369,57 @@ impl Watch {
         if let Some((_, detail)) = &mut self.detail {
             detail.poll(parse_detail);
         }
+        self.inspect();
+    }
+
+    fn inspect(&mut self) {
+        if let Some((_, load)) = &mut self.inspection {
+            load.poll(parse_detail);
+        }
+        if matches!(self.inspection, Some((_, Load::Done(..)))) {
+            let Some((index, Load::Done(result, _))) = self.inspection.take() else {
+                unreachable!()
+            };
+            match result {
+                Ok(detail) => {
+                    if let Some(Load::Done(Ok(runs), _)) = &mut self.list {
+                        let run = &mut runs[index];
+                        run.state = detail.state;
+                        run.next = detail.next;
+                        run.passed = detail.passed as u64;
+                        run.total = (detail.proven + detail.attested) as u64;
+                        run.attention = Some(detail.attention);
+                    }
+                }
+                Err(why) => {
+                    self.list = Some(Load::Done(
+                        Err(format!("Could not determine run attention: {why}")),
+                        Instant::now(),
+                    ))
+                }
+            }
+        }
+        if self.inspection.is_none()
+            && let Some(Load::Done(Ok(runs), _)) = &self.list
+            && let Some(index) = runs
+                .iter()
+                .position(|r| r.state != State::Invalid && r.attention.is_none())
+            && let Some(root) = &self.root
+        {
+            self.inspection = Some((
+                index,
+                Load::start(
+                    root,
+                    vec!["status".into(), runs[index].slug.clone(), "--json".into()],
+                    self.deadline,
+                ),
+            ));
+        }
     }
 
     fn runs(&self) -> Option<&[Run]> {
         match &self.list {
-            Some(Load::Done(Ok(runs), _)) => Some(runs),
+            Some(Load::Done(Ok(runs), _)) if self.inspection.is_none() => Some(runs),
             _ => None,
         }
     }
@@ -308,6 +436,12 @@ impl Watch {
                 KeyCode::Esc => self.detail = None,
                 KeyCode::Char('q') => return true,
                 KeyCode::Char('r') => self.read_detail(slug.clone()),
+                KeyCode::Down | KeyCode::Char('j') => self.scroll = self.scroll.saturating_add(1),
+                KeyCode::Up | KeyCode::Char('k') => self.scroll = self.scroll.saturating_sub(1),
+                KeyCode::PageDown => self.scroll = self.scroll.saturating_add(self.page),
+                KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(self.page),
+                KeyCode::Home => self.scroll = 0,
+                KeyCode::End => self.scroll = u16::MAX,
                 _ => {}
             }
             return false;
@@ -334,6 +468,7 @@ impl Watch {
     }
 
     fn read_detail(&mut self, slug: String) {
+        self.scroll = 0;
         if let Some(root) = &self.root {
             let read = Load::start(
                 root,
@@ -351,15 +486,16 @@ impl Watch {
             "What Watch does\nIt reads the runs in the tink-sdlc checkout you named with --sdlc-root, ",
             "by running that checkout's own `python3 _system/scripts/sdlc.py status --json` when you open ",
             "Watch or press r. It never runs verify, mark, decide or stage, and changes nothing.\n\n",
-            "Needs you lists runs waiting on a decision, or whose verification failed, was interrupted ",
-            "or can't be read. Everything else gets one quiet line."
+            "Needs you lists decisions, owed attestations, possible attestation rechecks and failed, interrupted ",
+            "or unreadable runs. Opening or refreshing also reads each run's status to determine attention.\n",
+            "In details: ↑↓, PgUp/PgDn and Home/End scroll the whole evidence and errors."
         )
     }
 
     /// Paint the list or the open detail into `area`.
-    pub(crate) fn render(&self, frame: &mut Frame, area: Rect, palette: Palette) {
+    pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         let keys = if self.detail.is_some() {
-            "esc back   r read again   ? help"
+            "↑↓ PgUp/PgDn Home/End scroll   esc back   r read again   ? help"
         } else {
             "↑↓ choose   enter details   r read again   esc back   ? help"
         };
@@ -384,7 +520,26 @@ impl Watch {
         };
         if let Some((slug, detail)) = &self.detail {
             let text = detail_text(slug, detail, palette);
-            frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), body);
+            let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
+            self.page = body.height.max(1);
+            let max = paragraph
+                .line_count(body.width)
+                .saturating_sub(body.height as usize)
+                .min(u16::MAX as usize) as u16;
+            self.scroll = self.scroll.min(max);
+            frame.render_widget(paragraph.scroll((self.scroll, 0)), body);
+            return;
+        }
+        if let Some((index, _)) = &self.inspection {
+            frame.render_widget(
+                Paragraph::new(format!(
+                    "Reading run details… {}\n{}",
+                    index + 1,
+                    root.display()
+                ))
+                .wrap(Wrap { trim: false }),
+                body,
+            );
             return;
         }
         let mut lines = vec![
@@ -393,6 +548,7 @@ impl Watch {
                 source(&["status", "--json"], self.list.as_ref()),
                 palette.muted,
             ),
+            Line::styled("and status <slug> --json for attention", palette.muted),
             Line::default(),
         ];
         let mut selected_line = 0;
@@ -410,7 +566,7 @@ impl Watch {
             )),
             Some(Load::Done(Ok(runs), _)) => {
                 let rows = ordered(runs);
-                let waiting = rows.iter().filter(|run| run.state.needs_you()).count();
+                let waiting = rows.iter().filter(|run| run.needs_you()).count();
                 lines.push(Line::styled("Needs you", palette.ink.bold()));
                 if waiting == 0 {
                     lines.push(Line::styled(
@@ -432,11 +588,22 @@ impl Watch {
                     if index == self.selected {
                         selected_line = lines.len();
                     }
-                    if run.state.needs_you() {
+                    if run.needs_you() {
                         lines.push(Line::from(vec![
                             Span::styled(format!("{mark}{}", run.slug), name),
                             Span::styled(format!("  {}", run.state.words()), palette.ink),
                         ]));
+                        if let Some(a) = &run.attention
+                            && (a.owed > 0 || a.recheck > 0)
+                        {
+                            lines.push(Line::styled(
+                                format!(
+                                    "    {} attestations owed · {} may need recheck",
+                                    a.owed, a.recheck
+                                ),
+                                palette.ink,
+                            ));
+                        }
                         lines.push(Line::styled(format!("    {}", run.next), palette.muted));
                     } else {
                         lines.push(Line::from(vec![
@@ -461,7 +628,7 @@ impl Watch {
             frame.render_widget(paragraph.wrap(Wrap { trim: false }), body);
             return;
         }
-        let scroll = (selected_line + 2).saturating_sub(body.height as usize) as u16;
+        let scroll = (selected_line + 3).saturating_sub(body.height as usize) as u16;
         frame.render_widget(paragraph.scroll((scroll, 0)), body);
     }
 }
@@ -514,6 +681,18 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
                 ),
                 palette.ink,
             ));
+            lines.push(Line::styled(
+                format!(
+                    "{} attestations owed · {} may need recheck",
+                    d.attention.owed, d.attention.recheck
+                ),
+                palette.ink,
+            ));
+            for item in &d.checklist {
+                for line in item.lines() {
+                    lines.push(Line::styled(line.to_owned(), palette.ink));
+                }
+            }
             for error in &d.errors {
                 lines.push(Line::styled(format!("! {error}"), palette.rust));
             }

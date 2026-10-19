@@ -21,7 +21,7 @@ fn checkout(body: &str, delay: f64) -> tempfile::TempDir {
     fs::write(
         dir.path().join(SCRIPT),
         format!(
-            "import sys, time\nfrom pathlib import Path\nPath('{pid}').write_text(str(__import__('os').getpid()))\ntime.sleep({delay})\nsys.stdout.write({body:?})\n",
+            "import sys, time\nfrom pathlib import Path\nPath('{pid}').write_text(str(__import__('os').getpid()))\ntime.sleep({delay})\nimport json\nvalue=json.loads({body:?})\nif len(sys.argv)==4 and 'runs' in value:\n    row=next(r for r in value['runs'] if r['slug']==sys.argv[2])\n    value={{'protocol':'tink-sdlc','api_version':1,'run':{{**row,'gates':[],'checklist':[],'errors':[]}}}}\nprint(json.dumps(value))\n",
             pid = dir.path().join("TEST-pid").display()
         ),
     )
@@ -49,6 +49,7 @@ fn tree(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {
 fn settle(watch: &mut Watch) {
     let until = Instant::now() + Duration::from_secs(10);
     while matches!(watch.list, Some(Load::Reading(_)))
+        || watch.inspection.is_some()
         || matches!(&watch.detail, Some((_, Load::Reading(_))))
     {
         assert!(Instant::now() < until, "read never landed");
@@ -123,7 +124,7 @@ fn another_interface_or_an_unknown_state_is_refused_not_shown() {
 
 #[test]
 fn detail_counts_proven_and_attested_items_and_refuses_unknown_gates() {
-    let detail = r#"{"protocol":"tink-sdlc","api_version":1,"workspace":"/T","run":{"verification_status":"blocked","next_action":"TEST review","gates":[{"stage":3,"status":"pending","blocked":false}],"checklist":[{"status":"passed","proof":"automated"},{"status":"pending","proof":"attested"}],"errors":["TEST error"]}}"#;
+    let detail = r#"{"protocol":"tink-sdlc","api_version":1,"workspace":"/T","run":{"verification_status":"blocked","next_action":"TEST review","gates":[{"stage":3,"status":"pending","blocked":false}],"checklist":[{"id":"a","verify":"TEST automatic","status":"passed","proof":"automated","automatic":true,"needs_recheck":false,"mark":null},{"id":"b","verify":"TEST observation","status":"pending","proof":"attested","automatic":false,"needs_recheck":false,"mark":null}],"errors":["TEST error"]}}"#;
     let parsed = parse_detail(detail).unwrap();
     assert_eq!((parsed.passed, parsed.proven, parsed.attested), (1, 1, 1));
     assert_eq!(parsed.gates, [(3, "pending".to_string())]);
@@ -202,6 +203,168 @@ fn a_failing_status_shows_its_own_message() {
     match &watch.list {
         Some(Load::Done(Err(why), _)) => assert!(why.contains("TEST no such run"), "{why}"),
         _ => panic!("expected the refusal"),
+    }
+}
+
+fn item(status: &str, automatic: bool, recheck: bool) -> Value {
+    serde_json::json!({"id":"TEST-item", "verify":"TEST observation", "status":status,
+        "automatic":automatic, "proof":if automatic {"automated"} else {"attested"},
+        "needs_recheck":recheck, "mark":null})
+}
+
+fn detail(items: Vec<Value>) -> Value {
+    serde_json::json!({"protocol":"tink-sdlc", "api_version":1, "run": {
+        "verification_status":"current", "next_action":"TEST next",
+        "gates":[{"stage":3,"status":"approved"}], "checklist":items, "errors":[]}})
+}
+
+#[test]
+fn owed_attestations_and_possible_rechecks_lead_even_after_verification() {
+    for (status, automatic, recheck, owed, review) in [
+        ("pending", false, false, 1, 0),
+        ("failed", false, false, 1, 0),
+        ("unknown", false, false, 1, 0),
+        ("passed", false, true, 0, 1),
+        ("passed", false, false, 0, 0),
+        ("pending", true, false, 0, 0),
+    ] {
+        let d = parse_detail(&detail(vec![item(status, automatic, recheck)]).to_string()).unwrap();
+        assert_eq!((d.attention.owed, d.attention.recheck), (owed, review));
+        let mut runs = parse_list(&envelope(&format!(
+            "{},{}",
+            run("quiet", "current"),
+            run("observe", "current")
+        )))
+        .unwrap();
+        runs[1].attention = Some(d.attention);
+        assert_eq!(runs[1].needs_you(), owed + review > 0);
+        assert_eq!(
+            ordered(&runs)[0].slug,
+            if owed + review > 0 {
+                "observe"
+            } else {
+                "quiet"
+            }
+        );
+    }
+    let mut provisional = item("pending", false, false);
+    provisional["pending"] = true.into();
+    assert_eq!(
+        parse_detail(&detail(vec![provisional]).to_string())
+            .unwrap()
+            .attention
+            .owed,
+        0
+    );
+    let mut running = detail(vec![]);
+    running["run"]["verification_status"] = "running".into();
+    running["run"]["gates"][0]["status"] = "stale".into();
+    assert!(parse_detail(&running.to_string()).unwrap().attention.gate);
+}
+
+#[test]
+fn unknown_attestation_fields_refuse_instead_of_claiming_quiet() {
+    let valid = detail(vec![item("pending", false, false)]);
+    for field in [
+        "automatic",
+        "proof",
+        "status",
+        "needs_recheck",
+        "mark",
+        "id",
+        "verify",
+    ] {
+        let mut value = valid.clone();
+        value["run"]["checklist"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
+        assert!(parse_detail(&value.to_string()).is_err(), "{field}");
+    }
+    for (field, value) in [
+        ("status", serde_json::json!("finished")),
+        ("proof", serde_json::json!("automated")),
+        ("needs_recheck", serde_json::json!("false")),
+        ("pending", serde_json::json!("false")),
+    ] {
+        let mut changed = valid.clone();
+        changed["run"]["checklist"][0][field] = value;
+        assert!(parse_detail(&changed.to_string()).is_err(), "{field}");
+    }
+}
+
+#[test]
+fn opening_reads_attention_before_offering_any_quiet_run() {
+    let list = envelope(&format!(
+        "{},{}",
+        run("quiet", "current"),
+        run("observe", "current")
+    ));
+    let dir = checkout(&list, 0.0);
+    let source = format!(
+        "import json,sys\nvalue=json.loads({list:?})\nif len(sys.argv)==4:\n    value=json.loads({detail:?} if sys.argv[2]=='observe' else {quiet:?})\nprint(json.dumps(value))\n",
+        detail = detail(vec![item("pending", false, false)]).to_string(),
+        quiet = detail(vec![]).to_string()
+    );
+    fs::write(dir.path().join(SCRIPT), source).unwrap();
+    let before = tree(dir.path());
+    let mut watch = Watch::open(Some(dir.path().to_path_buf()));
+    assert!(watch.runs().is_none());
+    settle(&mut watch);
+    assert_eq!(ordered(watch.runs().unwrap())[0].slug, "observe");
+    assert_eq!(tree(dir.path()), before);
+    fs::write(
+        dir.path().join(SCRIPT),
+        format!("import sys\nsys.stdout.write({list:?})\n"),
+    )
+    .unwrap();
+    watch.read_list();
+    settle(&mut watch);
+    assert!(matches!(watch.list, Some(Load::Done(Err(_), _))));
+    assert!(
+        watch.runs().is_none(),
+        "unreadable detail must not become quiet"
+    );
+}
+
+#[test]
+fn detail_scrolling_reaches_wrapped_evidence_and_last_error_at_small_sizes() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        let mut value = detail(vec![item("passed", false, false)]);
+        value["run"]["checklist"][0]["mark"] = serde_json::json!({"evidence":format!("{} TEST-LAST-EVIDENCE", "TEST evidence ".repeat(500))});
+        value["run"]["errors"] = serde_json::json!(["TEST-LAST-ERROR"]);
+        let mut watch = Watch::open(None);
+        watch.root = Some(PathBuf::from("/TEST"));
+        watch.detail = Some((
+            "TEST-run".into(),
+            Load::Done(parse_detail(&value.to_string()), Instant::now()),
+        ));
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
+        let paint =
+            |watch: &mut Watch, terminal: &mut ratatui::Terminal<ratatui::backend::TestBackend>| {
+                terminal
+                    .draw(|f| watch.render(f, f.area(), Palette::new(true)))
+                    .unwrap();
+                terminal
+                    .backend()
+                    .buffer()
+                    .content()
+                    .iter()
+                    .map(|c| c.symbol())
+                    .collect::<String>()
+            };
+        assert!(!paint(&mut watch, &mut terminal).contains("TEST-LAST-ERROR"));
+        watch.key(KeyEvent::from(KeyCode::PageDown));
+        paint(&mut watch, &mut terminal);
+        assert!(watch.scroll > 0);
+        watch.key(KeyEvent::from(KeyCode::End));
+        let last = paint(&mut watch, &mut terminal);
+        assert!(last.contains("TEST-LAST-EVIDENCE"), "{last}");
+        assert!(last.contains("TEST-LAST-ERROR"), "{last}");
+        watch.key(KeyEvent::from(KeyCode::Home));
+        assert!(paint(&mut watch, &mut terminal).contains("TEST-run"));
+        assert_eq!(watch.scroll, 0);
     }
 }
 

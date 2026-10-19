@@ -124,6 +124,10 @@ model requests and grants neither seed confirmation nor implementation permissio
 **Integration held:** an agent launch declaration or explicit named agent context
 cannot save a goal through the existing Seed Me path:
 review and help explain the hold and Esc, and Enter refuses before any helper job.
+The held review takes no typed or pasted words. Shape holds the same way (#247):
+its every write is recorded as the operator's, so under an agent declaration it only
+reads, offers no words box or ending, and F2, F3, F6 and F8 say
+`Delegated shaping awaits Seed Me integration. Shape only reads; Esc goes back.`
 Seed Me's pinned helper requires a `user` goal origin and does not expose structured
 seed-confirmer fields; Tinkery does not relabel an agent as `user`, use simulation as
 a bypass, or change that helper's contract. Shape F3, Seed Me publication/readback,

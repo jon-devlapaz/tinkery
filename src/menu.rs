@@ -1,7 +1,7 @@
 //! The home menu: the operator's seven places, in pipeline order.
 //!
 //! think · tend · shape · approve · watch · taste · measure. Five are touches, two are views. Only think,
-//! tend, shape, watch and measure are built; the others say so plainly. Nothing here starts or steers an agent.
+//! tend, shape, approve, watch and measure are built; the others say so plainly. Nothing here starts or steers an agent.
 
 use std::{
     path::{Path, PathBuf},
@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    Palette, measure,
+    Palette, approve, measure,
     shape::{Leave, Shape},
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump, Exit},
@@ -39,11 +39,7 @@ pub const PLACES: [(&str, &str, bool); 7] = [
         "Answer Seed Me's questions and confirm a seed.",
         true,
     ),
-    (
-        "approve",
-        "Decide whether the plan is ready. Not built yet.",
-        false,
-    ),
+    ("approve", "Start a shaped goal in tink-sdlc.", true),
     (
         "watch",
         "See the runs in your tink-sdlc checkout, read-only.",
@@ -88,6 +84,9 @@ pub struct Home {
     repo: Option<crate::repo::Repo>,
     shape_agent: Option<Arc<crate::shape::Agent>>,
     sdlc_root: Option<PathBuf>,
+    /// An agent launch declaration: Shape only reads.
+    shape_held: bool,
+    approve_reader: approve::Reader,
 }
 
 enum View {
@@ -96,6 +95,7 @@ enum View {
     Tend(Box<Tend>),
     /// Shape, and the tend it was opened from, restored as it was when Shape is left.
     Shape(Box<Shape>, Option<Box<Tend>>),
+    Approve(Box<approve::Approve>),
     Measure(Box<measure::Reading>),
     Watch(Box<Watch>),
     Soon(usize),
@@ -134,6 +134,8 @@ impl Home {
             repo: None,
             shape_agent: None,
             sdlc_root: None,
+            shape_held: false,
+            approve_reader: approve::Reader::default(),
         }
     }
 
@@ -146,6 +148,12 @@ impl Home {
     /// The one tink-sdlc checkout watch reads; without it, watch says how to name one.
     pub fn with_sdlc_root(mut self, root: Option<PathBuf>) -> Self {
         self.sdlc_root = root;
+        self
+    }
+
+    /// Under an agent launch declaration Shape only reads; see [`Shape::held`].
+    pub fn with_shape_held(mut self, held: bool) -> Self {
+        self.shape_held = held;
         self
     }
 
@@ -245,6 +253,13 @@ impl Home {
         self.discovery.poll();
         self.sync_tend();
         self.sync_shape();
+        self.sync_approve();
+        self.approve_reader
+            .poll(if let View::Approve(view) = &mut self.view {
+                Some(view)
+            } else {
+                None
+            });
         self.update_stall(now);
         if let Some(result) = self.history_reader.poll()
             && let View::Tend(tend) = &mut self.view
@@ -323,6 +338,36 @@ impl Home {
         }
     }
 
+    fn sync_approve(&mut self) {
+        let View::Approve(view) = &mut self.view else {
+            return;
+        };
+        if view.wants_sessions()
+            && self.discovery.fresh()
+            && let Some(landed) = self.discovery.landed()
+        {
+            let (sessions, unavailable, reasons) = match &landed.outcome {
+                Ok(found) => (
+                    Ok(found.sessions.clone()),
+                    found.unreadable,
+                    found
+                        .failures
+                        .iter()
+                        .map(|f| format!("{}: {}", f.path.display(), f.reason))
+                        .collect(),
+                ),
+                Err(reason) => (Err(reason.clone()), 0, Vec::new()),
+            };
+            view.offer(
+                sessions,
+                unavailable,
+                reasons,
+                self.seed_me.clone(),
+                &mut self.approve_reader,
+            );
+        }
+    }
+
     /// Let tend say when the read it waits on is taking a while. A check on the tick that
     /// already runs: no timer, no new worker.
     fn update_stall(&mut self, now: Instant) {
@@ -394,6 +439,7 @@ impl Home {
             View::Think(dump) => dump.take_copy_request(),
             View::Tend(tend) => tend.copy.take(),
             View::Shape(shape, _) => shape.take_copy_request(),
+            View::Approve(view) => view.take_copy_request(),
             _ => None,
         }
     }
@@ -403,6 +449,7 @@ impl Home {
         match &mut self.view {
             View::Think(dump) => dump.copy_result(sent),
             View::Shape(shape, _) => shape.copy_result(sent),
+            View::Approve(view) => view.copy_result(sent),
             View::Tend(tend) => {
                 tend.notice = if sent {
                     "Copied."
@@ -428,6 +475,7 @@ impl Home {
             self.measure.cancel();
         }
         self.history_reader.cancel();
+        self.approve_reader.cancel();
         self.selected = index;
         self.help = false;
         self.view = match index {
@@ -440,9 +488,17 @@ impl Home {
             2 => {
                 self.request_sessions();
                 View::Shape(
-                    Box::new(Shape::list().with_agent(self.shape_agent.clone())),
+                    Box::new(
+                        Shape::list()
+                            .with_agent(self.shape_agent.clone())
+                            .held(self.shape_held),
+                    ),
                     None,
                 )
+            }
+            3 => {
+                self.request_sessions();
+                View::Approve(Box::new(approve::Approve::open()))
             }
             4 => View::Watch(Box::new(Watch::open(self.sdlc_root.clone()))),
             6 => View::Measure(Box::new(
@@ -452,6 +508,7 @@ impl Home {
         };
         self.sync_tend();
         self.sync_shape();
+        self.sync_approve();
     }
 
     /// After terminal restoration, stop and collect Measure's reader. Exceptional OS stalls
@@ -576,6 +633,17 @@ impl Home {
                 }
             }
         }
+        if let View::Approve(view) = &mut self.view {
+            if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+                self.approve_reader.cancel();
+                self.quit = true;
+            } else if key.modifiers == KeyModifiers::NONE && view.key(key, &mut self.help) {
+                self.approve_reader.cancel();
+                self.help = false;
+                self.view = View::Menu;
+            }
+            return;
+        }
         if matches!(self.view, View::Shape(..)) {
             self.shape_key(key);
             return;
@@ -641,7 +709,8 @@ impl Home {
                 {
                     let shape =
                         Shape::session(self.seed_me.as_deref(), &tend.current().unwrap().path)
-                            .with_agent(self.shape_agent.clone());
+                            .with_agent(self.shape_agent.clone())
+                            .held(self.shape_held);
                     let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) else {
                         unreachable!()
                     };
@@ -653,8 +722,12 @@ impl Home {
                 KeyCode::Up | KeyCode::Char('k') if tend.detail => {
                     tend.scroll = tend.scroll.saturating_sub(1)
                 }
-                KeyCode::PageDown if tend.detail => tend.scroll = tend.scroll.saturating_add(5),
-                KeyCode::PageUp if tend.detail => tend.scroll = tend.scroll.saturating_sub(5),
+                KeyCode::PageDown if tend.detail => {
+                    tend.scroll = tend.scroll.saturating_add(crate::page(tend.page))
+                }
+                KeyCode::PageUp if tend.detail => {
+                    tend.scroll = tend.scroll.saturating_sub(crate::page(tend.page))
+                }
                 KeyCode::Right | KeyCode::Down | KeyCode::Char('j') if tend.garden_showing() => {
                     tend.step_selection(true)
                 }
@@ -680,6 +753,13 @@ impl Home {
                 }
             }
             View::Watch(watch) => {
+                if self.help {
+                    if key.code == KeyCode::Char('q') {
+                        self.help = false;
+                        self.view = View::Menu;
+                    }
+                    return;
+                }
                 if watch.key(key) {
                     self.view = View::Menu;
                 }
@@ -689,7 +769,7 @@ impl Home {
                     self.view = View::Menu;
                 }
             }
-            View::Think(_) | View::Shape(..) => {}
+            View::Think(_) | View::Shape(..) | View::Approve(_) => {}
         }
     }
 
@@ -829,6 +909,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Menu => "tinkery".to_string(),
         View::Tend(_) => "tinkery › tend".into(),
         View::Shape(..) => "tinkery › shape".into(),
+        View::Approve(_) => "tinkery › approve".into(),
         View::Measure(_) => "tinkery › measure".into(),
         View::Watch(_) => "tinkery › watch".into(),
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
@@ -861,6 +942,10 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         reading.render(frame, body, palette, home.help);
         return;
     }
+    if let View::Approve(view) = &mut home.view {
+        view.render(frame, body, palette, home.help);
+        return;
+    }
     if home.help && !matches!(home.view, View::Menu) {
         if let View::Shape(shape, _) = &mut home.view {
             shape.render_help(frame, body, palette);
@@ -886,7 +971,8 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             frame.render_widget(p.scroll((tend.help_scroll, 0)), body);
             return;
         }
-        let help = "Right now\n1–7 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nwatch   runs in your tink-sdlc checkout (read-only)\nmeasure the ledger report (read-only)\napprove, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, watch, measure and unbuilt places.";
+        // Shown away from the menu (Measure's report, unbuilt places), where q goes back.
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -958,7 +1044,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                 .style(palette.muted),
             body,
         ),
-        View::Think(_) => {}
+        View::Think(_) | View::Approve(_) => {}
     }
 }
 
@@ -1271,7 +1357,7 @@ mod tests {
             "Make your intention a clear goal.",
             "Choose a saved goal and copy a prompt to continue.",
             "Answer Seed Me's questions and confirm a seed.",
-            "Decide whether the plan is ready. Not built yet.",
+            "Start a shaped goal in tink-sdlc.",
             "See the runs in your tink-sdlc checkout, read-only.",
             "Decide whether the result meets your goal. Not built yet.",
             "See recorded work and attention, when available.",
@@ -1460,11 +1546,11 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut h = home(tmp.path());
         h.handle_key(key(KeyCode::Char('4')));
-        assert!(
-            snapshot(100, 30, &mut h, true)
-                .unwrap()
-                .contains("Not built yet")
-        );
+        assert!(matches!(h.view, View::Approve(_)));
+        let shown = snapshot(100, 30, &mut h, true).unwrap();
+        assert!(shown.contains("tinkery › approve") && shown.contains("esc back"));
+        assert!(!shown.contains("Not built yet"));
+        assert!(h.take_copy_request().is_none());
         h.handle_key(key(KeyCode::Esc));
         assert!(matches!(h.view, View::Menu));
         h.handle_key(key(KeyCode::Char('1')));

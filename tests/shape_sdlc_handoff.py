@@ -23,7 +23,7 @@ from vt_screen import Screen
 REPO = Path(__file__).resolve().parents[1]
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 # Draft consumer contract; move to its merge SHA only on the operator's coordinated landing.
-SDLC_REF = '49c1b86a566d6b900ac14c370c3c4a2b9fcd300f'
+SDLC_REF = 'cf7373510937d5d592590cc32da57502600c9ca7'
 spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
@@ -103,6 +103,10 @@ def shape(root, env):
         send(b'\x1bOQ', 'Seed draft r1')
         wait('F3 confirm seed r1')
         send(CONFIRMATION.encode(), CONFIRMATION)
+        # F3 confirms only a draft read to the end (#250).
+        send(b'\x1bOR', 'Read to the end first: PgDn scrolls. Nothing was confirmed.')
+        os.write(master, b'\x1b[6~' * 40)
+        wait('Next: type your own words, then F3 confirms r1.')
         send(b'\x1bOR', 'Seed ready: you confirmed r1, and it still matches.')
         assert helper.status(session)['handoff']['verified'] is True
         assert json.loads((session / 'seed-confirmation.json').read_text())['source'] == CONFIRMATION
@@ -202,7 +206,7 @@ def handoff(root, env, session):
 
     def attest(item):
         sdlc('mark', 'test-handoff', item, 'passed', '--reviewer', 'TEST synthetic reviewer',
-             '--source', 'TEST fixture only', '--evidence', 'TEST synthetic observation, not operator attestation')
+             '--source', 'TEST fixture only', '--evidence', f'TEST synthetic observation of {item}, not operator attestation')
 
     approve()
     for mutation in ('edit', 'drop'):

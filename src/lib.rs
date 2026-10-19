@@ -1,6 +1,6 @@
 //! Tinkery: a calm, keyboard-first front door for agentic work.
 //!
-//! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `watch`, `measure`); the menu
+//! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `approve`, `watch`, `measure`); the menu
 //! is the only module that knows them all. Phases never use each other: anything two of them
 //! share (`goal`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
@@ -8,6 +8,7 @@
 
 use ratatui::style::{Color, Modifier, Style};
 
+mod approve;
 pub mod goal;
 pub mod measure;
 pub mod menu;
@@ -26,6 +27,12 @@ pub mod watch;
 pub const MIN_WIDTH: u16 = 80;
 /// The shortest terminal any screen draws for; see [`MIN_WIDTH`].
 pub const MIN_HEIGHT: u16 = 24;
+
+/// How far PgUp/PgDn move a view `height` rows tall: a page less one row, so the last line read
+/// stays in sight. Never less than one row.
+pub fn page(height: u16) -> u16 {
+    height.saturating_sub(1).max(1)
+}
 
 /// The four styles every screen draws with, one job each: ink for words, jade for the one thing to
 /// act on, muted for what can wait, rust for consequences. With no colour each keeps its meaning

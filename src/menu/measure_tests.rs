@@ -156,3 +156,22 @@ fn failure_help_ignores_menu_shortcuts_and_releases() {
     h.handle_key(release);
     assert_eq!(snapshot(100, 30, &mut h, false).unwrap(), before);
 }
+
+#[test]
+fn help_away_from_the_menu_says_q_goes_back() {
+    let root = tempfile::tempdir().unwrap();
+    let mut h = Home::new(
+        Box::new(BrainDump::default),
+        Ok(root.path().to_path_buf()),
+        root.path().join("missing"),
+        Ok(root.path().join("TEST-links")),
+    );
+    // Taste is still unbuilt and shares Measure's report help; there q goes back.
+    h.open(5);
+    press(&mut h, KeyCode::Char('?'));
+    let help = snapshot(80, 24, &mut h, true).unwrap();
+    assert!(help.contains("q goes back to the menu"), "{help}");
+    assert!(!help.contains("q quits"), "{help}");
+    press(&mut h, KeyCode::Char('q'));
+    assert!(!h.quit && matches!(h.view, View::Menu));
+}

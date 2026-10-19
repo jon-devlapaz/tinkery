@@ -24,8 +24,8 @@ work. Measure's [failure presentation](https://github.com/jon-devlapaz/tinkery/i
 and [owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) have separate
 issues. The module map below describes responsibilities; `MODULES` owns area assignments.
 
-[Shape](shape-and-handoff.md#shape) is a first-release phase, and [Watch](watch.md) a view. Approve and taste
-get separate modules when built. There are no dependency exceptions: Think hands
+[Shape](shape-and-handoff.md#shape), [Approve](approve.md) and [Watch](watch.md) have separate modules. Taste will
+get its own module when built. There are no dependency exceptions: Think hands
 saved goals to Tend only through `seed_me`. The menu alone connects Shape and Tend.
 
 ## Factory boundaries
@@ -66,6 +66,8 @@ or improved outcomes.
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
 | `seed_me/` | All Seed Me formats and helper calls: goal saving, session files, stages and continuation; `shaping.rs` reads seed status; `answering.rs` saves answers, questions, findings, drafts and confirmation (shared). |
+| `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
+| `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words and next step. Reads and steps stay off the paint path. |
 | `shape/words.rs` | Shape's in-memory textarea adapter: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
 | `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared helper boundary. Replies contain findings with a question or seed text. |

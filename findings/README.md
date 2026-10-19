@@ -1,5 +1,31 @@
 # Findings
 
+## Zero-call agent-operator dogfood, October 19, 2026
+
+[Read the report](2026-10-19-zero-call-dogfood.md). It covers commit
+`a3b3a6cb08a5e48dd3063319c2f587a3d9dc6144` at 80×24, 100×30 and 160×40, plus 80×24
+with NO_COLOR, every launch with `--operator agent`. These are AI-driven real-PTY
+walkthroughs with a stub `pi`, a fake Measure reader and Seed Me helper fixtures in TEST
+roots. They prove mechanics and copy, not real-dump goal quality or human recognition.
+Provider calls: zero.
+
+Originals reached the stub provider byte for byte, and Shape answers were stored verbatim.
+Navigation, help and copying wrote nothing and started nothing. Agent-declared goal saving
+is held by design (#227), so Tend and Shape ran on fixture sessions.
+
+| Finding | Priority | GitHub issue |
+| --- | --- | --- |
+| D-01: Shape records an agent-declared launch's answers and seed confirmation as the operator's | P2 | [#247](https://github.com/jon-devlapaz/tinkery/issues/247) |
+| D-02: Measure's report has no way out on screen; its help says `q quits` | P3 | [#248](https://github.com/jon-devlapaz/tinkery/issues/248) |
+| D-03: The one-line refusal stays after the words are fixed | P3 | [#249](https://github.com/jon-devlapaz/tinkery/issues/249) |
+| D-04: Seed F3 doesn't require reading the draft to the end | design question | [#250](https://github.com/jon-devlapaz/tinkery/issues/250) |
+| D-05: PgDn moves a fixed 5 lines in Shape and Tend | P3 | [#251](https://github.com/jon-devlapaz/tinkery/issues/251) |
+
+D-06 (the held review still takes typing) is folded into #247. A leftover `💻` glyph after
+a ZWJ emoji is most likely the test screen reader, which gives every code point one column;
+it is unfiled until checked in a real terminal. The operator approved all five on
+2026-10-19 and decided D-04 for reading to the end; #255 fixes them.
+
 ## Measure failure/recovery dogfood, October 14, 2026 (#119)
 
 [Captured terminal screens and fixture checks](2026-10-14-measure-dogfood.json)

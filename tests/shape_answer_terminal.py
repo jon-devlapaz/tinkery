@@ -372,6 +372,11 @@ def full_journey(width, height):
             run.send(b'\x1b[13;1:2~' * 3 + F1, 'Read the seed, type your confirming words on one line')
             run.send(b'\x1b', 'Indeed, I confirm r1.')
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held F3 wrote or called'
+            # F3 waits until the whole draft has been on screen (#250), and says so.
+            run.send(b'\x1b[H' + F3, 'Read to the end first: PgDn scrolls. Nothing was confirmed.')
+            assert files(run.sessions) == before, 'F3 confirmed an unread draft'
+            run.read_until('This is not implementation approval.')
+            run.wait('Indeed, I confirm r1.')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
             assert status['seed']['line_1'] == 'status: confirmed for intake', status
@@ -559,6 +564,8 @@ def case(name, width=100, height=30):
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             elif name in ('confirmation hint', 'confirmation Enter'):
                 run.wait('Seed draft r1')
+                # F3 needs the whole draft read first (#250); these cases are about the words.
+                os.write(run.master, b'\x1b[6~' * 10)
                 if name == 'confirmation hint':
                     run.wait('a line saying you confirm, then F3')
                 run.wait('Confirming the seed is not approval to build.')
@@ -576,6 +583,7 @@ def case(name, width=100, height=30):
                 assert run.calls() == [], 'Confirmation guidance called a model'
             elif name == 'multiline confirmation':
                 run.wait('Seed draft r1')
+                os.write(run.master, b'\x1b[6~' * 10)
                 before = files(cwd)
                 # Pasted LF/CR/CRLF still refuse without normalizing the words.
                 for ending in ('\n', '\r', '\r\n'):
@@ -585,7 +593,10 @@ def case(name, width=100, height=30):
                     assert run.calls() == [], 'Multiline F3 called a model'
                     run.wait('your words I confirm r1.')
                     # CRLF is one editor newline, like CR and LF.
-                    run.send(b'\x7f' * 13 + F1, 'Read the seed, type your confirming words on one line')
+                    # Changed words clear the refusal about the old ones (#249).
+                    run.send(b'\x7f' * 13, 'a line saying you confirm, then F3')
+                    assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
+                    run.send(F1, 'Read the seed, type your confirming words on one line')
                     run.send(b'\x1b', 'your words')
                 assert not (session / 'seed-confirmation.json').exists()
             elif name == 'practice confirmation':

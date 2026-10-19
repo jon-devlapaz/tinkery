@@ -1,5 +1,6 @@
 """Shape reading journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls.
-Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py."""
+Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py. Under an agent
+launch declaration Shape only reads: F2, F3, F6 and F8 are held and say why (#247)."""
 import base64, fcntl, importlib.util, os, re, select, shlex, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
@@ -35,6 +36,7 @@ P051_FINDINGS = [
     'needs behavior-specific assertions, including an observed red or targeted reversion probe.',
 ]
 SHAPE_KEYS = 'F5 so far   esc back   F10 menu'
+HELD = 'Delegated shaping awaits Seed Me integration. Shape only reads; Esc goes back.'
 LIST_KEYS = '↑↓ move   enter open   esc back'
 
 
@@ -82,7 +84,8 @@ def files(root):
     return {str(p): p.read_bytes() for p in root.rglob('*') if p.is_file()}
 
 
-def journey(width, height, case, no_color=False):
+def journey(width, height, case, no_color=False, operator='human'):
+    held = operator == 'agent'
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-shape-') as directory:
         cwd = Path(directory).resolve()
         sessions = cwd / "TEST operator's sessions"
@@ -108,7 +111,7 @@ def journey(width, height, case, no_color=False):
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}
         if no_color:
             env['NO_COLOR'] = '1'
-        process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
+        process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', operator, '--home',
             '--shape-pi',
             '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
             '--record-root', str(cwd / 'TEST-records'), '--link-root', str(cwd / 'TEST-links'),
@@ -195,7 +198,7 @@ def journey(width, height, case, no_color=False):
                 expected = {
                     'question': 'Where records live Keep records local or synced?',
                     'p051': P051_QUESTION,
-                    'drafted': 'Confirming the seed is not approval to build.',
+                    'drafted': 'Seed draft r1' if held else 'Confirming the seed is not approval to build.',
                     'ready': 'Seed ready: you confirmed r1, and it still matches.',
                     'stale': "Seed Me can't verify it: the seed changed after revision r1 was confirmed.",
                     'ended': 'This session has ended (stopped).',
@@ -207,15 +210,24 @@ def journey(width, height, case, no_color=False):
                         'drafted': 'F3 confirm seed r1   F8 stop   F5 so far   esc back   F10 menu',
                         'ready': 'c copy intake   F6 end session   ' + SHAPE_KEYS,
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
+                if held:
+                    keys = {'ready': 'c copy intake   ' + SHAPE_KEYS}.get(case, SHAPE_KEYS)
                 # Scrolling is offered only on overflow; arrows belong to an active editor.
-                acts = case in ('question', 'p051', 'drafted')
+                acts = case in ('question', 'p051', 'drafted') and not held
                 scroll_keys = ('pgup/dn read   ' + keys.replace('F2 save answer and look into next', 'F2 save + look')
                                if acts else '↑↓ scroll   ' + keys)
                 bar = screen.text().splitlines()[-1].strip()
                 # A bar too wide for the terminal closes up rather than lose Esc or F10.
                 assert bar in [k.replace('   ', gap) for k in (keys, scroll_keys) for gap in ('   ', '  ')], screen.text()
                 # The key bar names the next action, so no Next line repeats it.
-                assert flat().count('Next:') == (0 if acts or case == 'ready' else 1), screen.text()
+                assert flat().count('Next:') == (1 if held else 0 if acts or case == 'ready' else 1), screen.text()
+                if held:
+                    assert HELD in flat(), screen.text()
+                    for key in (b'\x1bOQ', b'\x1bOR', b'\x1b[17~', b'\x1b[19~'):
+                        os.write(master, key * 2)
+                    send(b'x', HELD)
+                    assert 'your answer' not in flat() and 'your words' not in flat(), screen.text()
+                    assert files(sessions) == before, 'A held Shape wrote'
                 if case == 'drafted':
                     assert 'status: draft' not in screen.text() and 'Seed draft r1' in screen.text()
                 elif case != 'unreadable':
@@ -295,7 +307,8 @@ def journey(width, height, case, no_color=False):
             assert files(sessions) == before, 'Shape changed a session file'
             assert not (cwd / 'provider-was-run').exists()
             assert not (cwd / 'TEST-records').exists() and not (cwd / 'TEST-links').exists()
-            print(f'Shape {case} journey passed at {width}x{height}' + (' NO_COLOR' if no_color else ''))
+            print(f'Shape {case} journey passed at {width}x{height}' + (' NO_COLOR' if no_color else '')
+                  + (' under --operator agent, writes held' if held else ''))
         finally:
             if process.poll() is None:
                 process.kill()
@@ -310,3 +323,6 @@ if __name__ == '__main__':
             journey(*size, case)
     journey(100, 30, 'question', no_color=True)
     journey(80, 24, 'p051', no_color=True)
+    for case in ['question', 'drafted', 'ready']:
+        journey(100, 30, case, operator='agent')
+    journey(80, 24, 'question', no_color=True, operator='agent')

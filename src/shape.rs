@@ -11,6 +11,8 @@
 //! another for this run. Ending a session for good takes the same key twice: `F6` completes one
 //! whose seed is ready, `F8` stops one still being shaped; Esc between them keeps it open. Each
 //! finished step or ending is followed by a fresh read, so the screen shows what Seed Me holds.
+//! `F3` waits until the whole draft has been on screen. Under an agent launch declaration Shape
+//! only reads: Seed Me would record its every change as the operator's.
 
 pub use step::Agent;
 
@@ -44,6 +46,16 @@ use words::Words;
 
 /// The widest Shape's open view gets, so lines stay readable on a wide terminal.
 const WIDTH: u16 = 76;
+/// Why an agent-declared launch only reads: Seed Me records every Shape change as the operator's.
+const HELD: &str = "Delegated shaping awaits Seed Me integration. Shape only reads; Esc goes back.";
+/// F3 before the whole seed draft has been on screen.
+const READ_FIRST: &str = "Read to the end first: PgDn scrolls. Nothing was confirmed.";
+/// Refusals about the typed words; changing the words clears them.
+const WORD_REFUSALS: [&str; 3] = [
+    "Type your answer first; nothing was saved.",
+    "Put your confirming words on one line; nothing was confirmed.",
+    "Type your words first; nothing was confirmed.",
+];
 
 /// Shape's screen: an optional list of goals waiting for a seed and, at most, one open session.
 pub struct Shape {
@@ -56,7 +68,11 @@ pub struct Shape {
     selected: usize,
     open: Option<Opened>,
     scroll: u16,
+    /// Rows of reading on screen at the last draw, for PgUp/PgDn.
+    page: u16,
     agent: Option<Arc<Agent>>,
+    /// An agent launch declaration: Shape only reads.
+    held: bool,
     copy: Option<String>,
 }
 
@@ -99,6 +115,8 @@ struct Opened {
     revealed: bool,
     /// A change without a model (an ending or an objection) the helper is carrying out.
     writing: Option<(Write, mpsc::Receiver<Result<(), Refusal>>)>,
+    /// Whether the reading's last line has been on screen since this read landed.
+    read_end: bool,
 }
 
 /// A change Shape asks of the helper without a model.
@@ -152,7 +170,9 @@ impl Shape {
             selected: 0,
             open: Some(Opened::start(skill, session)),
             scroll: 0,
+            page: 1,
             agent: None,
+            held: false,
             copy: None,
         }
     }
@@ -160,7 +180,17 @@ impl Shape {
     /// The same Shape, able to answer and confirm through `agent`. Without one, it cannot save
     /// answers, confirm seeds or call a model; verified intake copying and ending remain available.
     pub fn with_agent(mut self, agent: Option<Arc<Agent>>) -> Self {
-        self.agent = agent;
+        self.agent = agent.filter(|_| !self.held);
+        self
+    }
+
+    /// The same Shape under an agent launch declaration: it only reads. Seed Me records every
+    /// Shape change as the operator's, so answering, confirming and ending are held, and say why.
+    pub fn held(mut self, held: bool) -> Self {
+        self.held = held;
+        if held {
+            self.agent = None;
+        }
         self
     }
 
@@ -205,7 +235,11 @@ impl Shape {
         {
             match &mut open.choosing {
                 Some(folder) => folder.insert(text),
-                None => open.typed.insert(text),
+                None => {
+                    let before = open.typed.text().to_owned();
+                    open.typed.insert(text);
+                    open.edited(&before);
+                }
             }
         }
     }
@@ -220,7 +254,9 @@ impl Shape {
             selected: 0,
             open: None,
             scroll: 0,
+            page: 1,
             agent: None,
+            held: false,
             copy: None,
         }
     }
@@ -330,6 +366,7 @@ impl Shape {
             match receiver.try_recv() {
                 Ok((result, folder)) => {
                     open.reading = Reading::Done(result);
+                    open.read_end = false;
                     if let (Folder::Unknown, Some(folder)) = (&open.folder, folder) {
                         open.folder = Folder::Known(folder);
                     }
@@ -352,16 +389,21 @@ impl Shape {
         {
             return Leave::Stay;
         }
+        let page = crate::page(self.page);
         if let Some(open) = &mut self.open {
             if let Some(scroll) = &mut open.so_far {
                 match key.code {
                     KeyCode::Esc | KeyCode::F(5) => open.so_far = None,
                     KeyCode::Down | KeyCode::Char('j') => *scroll = scroll.saturating_add(1),
                     KeyCode::Up | KeyCode::Char('k') => *scroll = scroll.saturating_sub(1),
-                    KeyCode::PageDown => *scroll = scroll.saturating_add(5),
-                    KeyCode::PageUp => *scroll = scroll.saturating_sub(5),
+                    KeyCode::PageDown => *scroll = scroll.saturating_add(page),
+                    KeyCode::PageUp => *scroll = scroll.saturating_sub(page),
                     _ => {}
                 }
+                return Leave::Stay;
+            }
+            if self.held && matches!(key.code, KeyCode::F(2 | 3 | 6 | 8)) {
+                open.notice = Some((HELD.into(), None));
                 return Leave::Stay;
             }
             if open.running.is_some() {
@@ -379,8 +421,8 @@ impl Shape {
                         open.notice = open.pick(typed.text());
                     }
                     KeyCode::Esc => open.choosing = None,
-                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(5),
-                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(5),
+                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(page),
+                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(page),
                     _ => folder.key(key),
                 }
                 return Leave::Stay;
@@ -464,7 +506,9 @@ impl Shape {
                     }
                     KeyCode::Esc | KeyCode::F(_) | KeyCode::PageDown | KeyCode::PageUp => {}
                     _ => {
+                        let before = open.typed.text().to_owned();
                         open.typed.key(key);
+                        open.edited(&before);
                         return Leave::Stay;
                     }
                 }
@@ -503,8 +547,8 @@ impl Shape {
                 KeyCode::Esc => return Leave::Back,
                 KeyCode::Down | KeyCode::Char('j') => self.scroll = self.scroll.saturating_add(1),
                 KeyCode::Up | KeyCode::Char('k') => self.scroll = self.scroll.saturating_sub(1),
-                KeyCode::PageDown => self.scroll = self.scroll.saturating_add(5),
-                KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(5),
+                KeyCode::PageDown => self.scroll = self.scroll.saturating_add(page),
+                KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(page),
                 _ => {}
             }
             return Leave::Stay;
@@ -548,7 +592,10 @@ impl Shape {
                     |s| format!("Seed Me skill: {}", s.display()),
                 );
                 let model = agent.map_or_else(
-                    || "No model is set up, so Shape only reads.".into(),
+                    || {
+                        if self.held { HELD } else { "No model is set up, so Shape only reads." }
+                            .into()
+                    },
                     |a| {
                         format!(
                             "Model calls left this run: {} of {}. Each F2 step is one call, with read-only tools.\n\
@@ -609,7 +656,9 @@ impl Shape {
         };
         let ends =
             "F6 (seed ready) or F8 (still shaping), pressed twice, ends the session for good.";
-        let promise = if agent.is_some() {
+        let promise = if self.held {
+            "Shape reads and calls no model. Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt.".to_owned()
+        } else if agent.is_some() {
             format!(
                 "Opening, scrolling and typing write nothing. Only F2 saves an answer and calls a model; \
                  only F3 confirms a seed, with your words. {ends}"
@@ -638,12 +687,25 @@ impl Shape {
             ..
         }) = &mut self.open
         {
+            self.page = area.height;
             render_so_far(frame, scroll, shaping, area, palette);
             return;
         }
         let agent = self.agent.is_some();
         let overflow = match &mut self.open {
-            Some(open) => render_open(frame, &mut self.scroll, open, agent, area, palette),
+            Some(open) => {
+                let (overflow, page) = render_open(
+                    frame,
+                    &mut self.scroll,
+                    open,
+                    agent,
+                    self.held,
+                    area,
+                    palette,
+                );
+                self.page = page;
+                overflow
+            }
             None => {
                 self.render_list(frame, area, palette);
                 false
@@ -720,7 +782,7 @@ impl Shape {
                 if open.offers_objection() {
                     keys.push("F7 object".to_owned());
                 }
-                keys.extend(open.offers_end().map(|ending| {
+                keys.extend(open.offers_end().filter(|_| !self.held).map(|ending| {
                     match ending {
                         Ending::Completed => "F6 end session",
                         Ending::Stopped => "F8 stop",
@@ -1042,8 +1104,20 @@ impl Opened {
         ))
     }
 
-    /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget and a
-    /// folder not yet known before anything is written or called.
+    /// The words changed from `before`: a refusal about the old words no longer applies.
+    fn edited(&mut self, before: &str) {
+        if self.typed.text() != before
+            && self
+                .notice
+                .as_ref()
+                .is_some_and(|(said, _)| WORD_REFUSALS.contains(&said.as_str()))
+        {
+            self.notice = None;
+        }
+    }
+
+    /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget, a folder
+    /// not yet known and a seed not yet read to the end before anything is written or called.
     fn act(&mut self, act: Act, agent: &Arc<Agent>) {
         let words = self.typed.text().to_owned();
         let refuse = |said: &str| Some((said.to_owned(), None));
@@ -1052,15 +1126,10 @@ impl Opened {
             _ => None,
         };
         self.notice = match &act {
-            Act::Answer { .. } if words.trim().is_empty() => {
-                refuse("Type your answer first; nothing was saved.")
-            }
-            Act::Confirm(_) if words.contains(['\n', '\r']) => {
-                refuse("Put your confirming words on one line; nothing was confirmed.")
-            }
-            Act::Confirm(_) if words.trim().is_empty() => {
-                refuse("Type your words first; nothing was confirmed.")
-            }
+            Act::Answer { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[0]),
+            Act::Confirm(_) if !self.read_end => refuse(READ_FIRST),
+            Act::Confirm(_) if words.contains(['\n', '\r']) => refuse(WORD_REFUSALS[1]),
+            Act::Confirm(_) if words.trim().is_empty() => refuse(WORD_REFUSALS[2]),
             Act::Answer { .. } | Act::Look(_) if agent.remaining() == 0 => said(Err(Failure {
                 answer_saved: false,
                 why: Why::Budget(agent.limit()),
@@ -1136,6 +1205,7 @@ impl Opened {
             withheld: None,
             revealed: false,
             writing: None,
+            read_end: false,
         }
     }
 }
@@ -1222,20 +1292,22 @@ fn render_so_far(
 /// stands) comes first and scrolls when it doesn't fit; the words box, what was said and any next
 /// step follow it and stay in view. Returns whether the reading scrolls, so the key bar offers
 /// scrolling only then.
+/// Draws the open session; returns whether the reading overflows and how many of its rows show.
 fn render_open(
     frame: &mut Frame,
     scroll: &mut u16,
     open: &mut Opened,
     agent: bool,
+    held: bool,
     area: Rect,
     palette: Palette,
-) -> bool {
+) -> (bool, u16) {
     let area = Rect {
         width: area.width.min(WIDTH),
         ..area
     };
     if area.width == 0 || area.height == 0 {
-        return false;
+        return (false, 1);
     }
     let (reading, input) = match &open.reading {
         _ if open.skill.is_none() => (
@@ -1343,7 +1415,8 @@ fn render_open(
                     notice: open
                         .notice
                         .as_ref()
-                        .map(|(said, next)| (said.as_str(), next.clone())),
+                        .map(|(said, next)| (said.as_str(), next.clone()))
+                        .or(held.then_some((HELD, None))),
                     running: None,
                     assumed: &open.assumed,
                     instinct: open.instinct_first(),
@@ -1392,6 +1465,16 @@ fn render_open(
             ));
     let height = read_rows.min(area.height.saturating_sub(input_height + gap));
     *scroll = (*scroll).min(read_rows.saturating_sub(height));
+    open.read_end |= *scroll >= read_rows.saturating_sub(height);
+    // Reaching the end answers "read to the end first".
+    if open.read_end
+        && open
+            .notice
+            .as_ref()
+            .is_some_and(|(said, _)| said == READ_FIRST)
+    {
+        open.notice = None;
+    }
     frame.render_widget(
         Paragraph::new(reading)
             .wrap(Wrap { trim: false })
@@ -1436,7 +1519,7 @@ fn render_open(
             .scroll((after_rows.saturating_sub(after_height), 0)),
         input_area,
     );
-    read_rows > height
+    (read_rows > height, height)
 }
 
 /// The seed draft for reading: a muted `Seed draft rN` header in place of the file's `status:`

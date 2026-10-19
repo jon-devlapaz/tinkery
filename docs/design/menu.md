@@ -5,7 +5,7 @@
 | 1 | think | Refine, review and explicitly save a goal. |
 | 2 | tend | Explore active goals, needs, history and manual continuation. |
 | 3 | shape | Read seed status; with a model and budget, answer and confirm ([Shape](shape-and-handoff.md#shape)). |
-| 4 | approve | Not built. No sequence approval reader exists. |
+| 4 | approve | Read verified seeds and copy both manual intake commands ([Approve](approve.md)). |
 | 5 | watch | Read the runs in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
 | 6 | taste | Not built. No end-report or review integration exists. |
 | 7 | measure | Read an installed Substrate ledger report, otherwise show unknown; no verified metric is promised. |
@@ -43,7 +43,8 @@ Digits or arrows followed by Enter open a place; home `q` quits.
 
 A deliberate open requests one owned ledger read. Launch, collection, diagnosis
 and text preparation run off input and render paths. Accepted success preserves
-report text, scrolling and help. There is no polling, log, agent or automatic retry.
+report text, scrolling and help, above `esc back   ? help`; that help says
+`q goes back to the menu`. There is no polling, log, agent or automatic retry.
 
 `Reading ledger…` and `esc back   ? help` keep navigation available; work and
 attention stay unknown. Help and resizing never restart or cancel reads. Leaving
@@ -133,7 +134,7 @@ protect disclosure, wrapping, safe rendering and visible recovery.
 
 ## Direction, not built behavior
 
-Future Approve handles intake, Watch shows read-only progress, and Taste supports
+Approve prepares manual intake; future Watch shows read-only progress, and Taste supports
 evidence-based review. Use session, run, ledger and PR artifacts, not harness
 self-report. Missing sources stay unknown. Add no run-now, skip-review or global
 auto-merge switch. Future launching requires separate Seed Me confirmation and
