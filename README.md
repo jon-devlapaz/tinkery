@@ -51,9 +51,11 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `F7` objects to a default the step assumed; on a hard-to-undo question, `F9` shows the
   options and suggestion after your instinct. `F6` twice completes a session whose seed is
   ready; `F8` twice stops one still being shaped.
+- **Watch:** with `--sdlc-root PATH`, reads that tink-sdlc checkout's runs through its own
+  `status --json` when opened or on `r`, runs waiting on you first. It never runs or changes anything.
 - **Measure:** reads an existing ledger report or says unavailable.
 
-**Approve, Watch and Taste aren't built.** The complete journey and its benefit remain unproven.
+**Approve and Taste aren't built.** The complete journey and its benefit remain unproven.
 
 ## Where we’re going next
 

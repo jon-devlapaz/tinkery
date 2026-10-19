@@ -6,7 +6,7 @@
 | 2 | tend | Explore active goals, needs, history and manual continuation. |
 | 3 | shape | Read seed status; with a model and budget, answer and confirm ([Shape](shape-and-handoff.md#shape)). |
 | 4 | approve | Not built. No sequence approval reader exists. |
-| 5 | watch | Not built. No live multi-run view exists. |
+| 5 | watch | Read the runs in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
 | 6 | taste | Not built. No end-report or review integration exists. |
 | 7 | measure | Read an installed Substrate ledger report, otherwise show unknown; no verified metric is promised. |
 

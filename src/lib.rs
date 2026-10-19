@@ -1,6 +1,6 @@
 //! Tinkery: a calm, keyboard-first front door for agentic work.
 //!
-//! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `measure`); the menu
+//! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `watch`, `measure`); the menu
 //! is the only module that knows them all. Phases never use each other: anything two of them
 //! share (`goal`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
@@ -19,6 +19,7 @@ pub mod tend;
 pub mod think;
 pub mod think_record;
 pub mod voice;
+pub mod watch;
 
 /// The narrowest terminal any screen draws for. Below it, a screen says what size it needs and
 /// keeps every word; nothing is laid out half-visible.
