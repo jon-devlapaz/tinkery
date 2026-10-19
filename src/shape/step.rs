@@ -296,10 +296,14 @@ fn look(
     answer_saved: bool,
 ) -> Result<Done, Failure> {
     let fail = |why| Failure { answer_saved, why };
-    // A decision already recorded, such as an objection, is asked before the model looks for one.
+    // A decision already recorded, such as an objection, is asked before the model looks for one,
+    // and Seed Me's pre-mortem is put to the operator before any seed, also without a model.
     if answering::promote(skill, session, expected)
         .map_err(refused(answer_saved))?
         .is_some()
+        || answering::probe(skill, session, expected)
+            .map_err(refused(answer_saved))?
+            .is_some()
     {
         return Ok(Done::Asked(Asked::default()));
     }

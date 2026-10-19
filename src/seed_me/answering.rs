@@ -600,7 +600,7 @@ pub fn object(skill: &Path, session: &Path, expected: u64, text: &str) -> Result
     let node = json!({
         "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
         "evidence": [], "owner": "User", "gate": format!("Choose instead of assuming: {text}"),
-        "label": "Instead of assuming", "question": format!("You objected to assuming: {text}. What should it be instead?"),
+        "label": OBJECTION, "question": format!("You objected to assuming: {text}. What should it be instead?"),
     });
     ledger.state["nodes"]
         .as_array_mut()
@@ -613,6 +613,55 @@ pub fn object(skill: &Path, session: &Path, expected: u64, text: &str) -> Result
         &format!("The operator objected to an assumption in Tinkery Shape; it is now {id}."),
         &ledger.state,
     )
+}
+
+/// The label of a decision recorded from an objection to an assumption.
+pub const OBJECTION: &str = "Instead of assuming";
+
+/// The probe Seed Me requires the operator to answer before the seed: its ledger id and wording.
+pub const PROBE: (&str, &str) = (
+    "probe-pre-mortem",
+    "Imagine this shipped and turned out wrong. What is the most likely reason?",
+);
+
+/// With no current question and the pre-mortem never asked, make it the current question, from
+/// `expected`, so the operator answers it in their own words before any seed. Said plainly when
+/// findings were already shown, since the answer is then not independent of them. Returns the new
+/// version, or `None` when it was asked before or a question is current.
+pub fn probe(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
+    let mut ledger = read(skill, session)?;
+    if ledger.version != expected {
+        return Err(Refusal::Stale);
+    }
+    let (id, question) = PROBE;
+    if !ledger.state["current_question"].is_null()
+        || nodes(&ledger.state).iter().any(|n| n["id"] == id)
+    {
+        return Ok(None);
+    }
+    let question = if ledger.findings().is_empty() {
+        question.to_owned()
+    } else {
+        format!("{question}\nNOT independent: asked after findings were shown.")
+    };
+    let node = json!({
+        "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
+        "evidence": [], "owner": "User", "gate": "Your own answer to the pre-mortem, or skip it",
+        "label": "Probe: pre-mortem", "question": question,
+    });
+    ledger.state["nodes"]
+        .as_array_mut()
+        .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?
+        .push(node);
+    ledger.state["current_question"] = id.into();
+    publish(
+        &helper(skill)?,
+        session,
+        expected,
+        "Tinkery Shape puts Seed Me's pre-mortem probe to the operator.",
+        &ledger.state,
+    )
+    .map(Some)
 }
 
 /// With no current question, make the first open decision whose prerequisites are settled

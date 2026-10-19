@@ -97,6 +97,9 @@ def shape(root, env):
         wait('3  shape')
         send(b'3', 'enter open')
         send(b'\r', 'F2 look into the next question')
+        # Seed Me's pre-mortem comes first, without a model call.
+        send(b'\x1bOQ', 'Imagine this shipped and turned out wrong. What is the most likely reason?')
+        send(b'TEST The sounds were missing.', 'TEST The sounds were missing.')
         send(b'\x1bOQ', 'Seed draft r1')
         wait('F3 confirm seed r1')
         send(CONFIRMATION.encode(), CONFIRMATION)

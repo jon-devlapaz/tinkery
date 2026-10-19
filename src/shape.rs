@@ -22,7 +22,7 @@ use crate::{
     Palette,
     seed_me::{
         Session, Stage,
-        answering::{self, Assumption, Ending, NOTHING_FOUND, Refusal},
+        answering::{self, Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, Refusal},
         shaping::{self, Shaped, Shaping},
     },
 };
@@ -1576,6 +1576,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
     let mut flag = None;
     let next = match stage {
         Shaped::Question {
+            id,
             title,
             ask,
             found,
@@ -1591,7 +1592,8 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
             ));
             if !calm {
                 lines.push(Line::default());
-                if found.is_empty() {
+                // Tinkery's own probe and objection questions ask for the operator's words, not evidence.
+                if found.is_empty() && id != PROBE.0 && title != OBJECTION {
                     lines.push(Line::styled(
                         "Nothing found: this question records nothing checked in the repository.",
                         palette.ink,

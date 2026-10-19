@@ -29,6 +29,9 @@ With a question, give exactly two real options, each with its trade-off against 
 With a question, list in assumed (at most five) the choices where both reasonable answers leave the work, risk, cost, reversibility and behavior about the same; an assumption is never an answer, and leave assumed empty when there are none.
 # The first live trial suggested an answer its own folder's backlog ruled out.
 A suggestion follows any rule the folder's documents already state for this choice; cite that file.
+# #234: Seed Me's probes; Tinkery puts the pre-mortem to the operator itself, so the step answers the other two from evidence.
+Before drafting, answer two probes from evidence: a counter-example (one case where this should not apply, or that would surprise the operator) and an outside view (what someone who has done this before would ask that we have not); if either raises an operator-only decision, ask it instead of drafting.
+In Risks and verification, record the operator's pre-mortem answer from the ledger and both probes as `Probe: <question> — answer: <the answer> — changed: <what it changed, or nothing>`, then one `Where we did not look:` line naming what was out of reach.
 When the goal and recorded answers settle what this draft must say, draft the seed using the attached Seed Me artifact contract, not a separate Tinkery layout; genuinely unresolved ledger decisions still block drafting.
 In confirming, start with the five short You are confirming lines required by that contract, then these exact level-two headings in order: ## Problem statement, ## Proposed outcome, ## Affected users and systems, ## Constraints and boundaries, ## Knowledge map, ## Suggested first slice, ## Risks and verification, ## Open questions and deferrals, ## Owners and next steps, ## Downstream handoff.
 Fill those sections following Seed Me's contract; state unknowns plainly, label proposals, and never invent evidence, provenance or completed checks.
