@@ -58,8 +58,6 @@ pub struct Shape {
     scroll: u16,
     agent: Option<Arc<Agent>>,
     copy: Option<String>,
-    /// Rows PgUp/PgDn move: the reading's visible height less one, as last drawn.
-    page: u16,
 }
 
 /// What a key asks of whoever holds Shape.
@@ -156,7 +154,6 @@ impl Shape {
             scroll: 0,
             agent: None,
             copy: None,
-            page: 5,
         }
     }
 
@@ -225,7 +222,6 @@ impl Shape {
             scroll: 0,
             agent: None,
             copy: None,
-            page: 5,
         }
     }
 
@@ -362,8 +358,8 @@ impl Shape {
                     KeyCode::Esc | KeyCode::F(5) => open.so_far = None,
                     KeyCode::Down | KeyCode::Char('j') => *scroll = scroll.saturating_add(1),
                     KeyCode::Up | KeyCode::Char('k') => *scroll = scroll.saturating_sub(1),
-                    KeyCode::PageDown => *scroll = scroll.saturating_add(self.page),
-                    KeyCode::PageUp => *scroll = scroll.saturating_sub(self.page),
+                    KeyCode::PageDown => *scroll = scroll.saturating_add(5),
+                    KeyCode::PageUp => *scroll = scroll.saturating_sub(5),
                     _ => {}
                 }
                 return Leave::Stay;
@@ -383,8 +379,8 @@ impl Shape {
                         open.notice = open.pick(typed.text());
                     }
                     KeyCode::Esc => open.choosing = None,
-                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(self.page),
-                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(self.page),
+                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(5),
+                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(5),
                     _ => folder.key(key),
                 }
                 return Leave::Stay;
@@ -507,8 +503,8 @@ impl Shape {
                 KeyCode::Esc => return Leave::Back,
                 KeyCode::Down | KeyCode::Char('j') => self.scroll = self.scroll.saturating_add(1),
                 KeyCode::Up | KeyCode::Char('k') => self.scroll = self.scroll.saturating_sub(1),
-                KeyCode::PageDown => self.scroll = self.scroll.saturating_add(self.page),
-                KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(self.page),
+                KeyCode::PageDown => self.scroll = self.scroll.saturating_add(5),
+                KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(5),
                 _ => {}
             }
             return Leave::Stay;
@@ -642,22 +638,12 @@ impl Shape {
             ..
         }) = &mut self.open
         {
-            // The page keeps its last row for how to close.
-            self.page = area.height.saturating_sub(3).max(1);
             render_so_far(frame, scroll, shaping, area, palette);
             return;
         }
         let agent = self.agent.is_some();
         let overflow = match &mut self.open {
-            Some(open) => render_open(
-                frame,
-                &mut self.scroll,
-                &mut self.page,
-                open,
-                agent,
-                area,
-                palette,
-            ),
+            Some(open) => render_open(frame, &mut self.scroll, open, agent, area, palette),
             None => {
                 self.render_list(frame, area, palette);
                 false
@@ -1239,7 +1225,6 @@ fn render_so_far(
 fn render_open(
     frame: &mut Frame,
     scroll: &mut u16,
-    page: &mut u16,
     open: &mut Opened,
     agent: bool,
     area: Rect,
@@ -1406,7 +1391,6 @@ fn render_open(
                 gap + read_rows.min(area.height / 2).max(u16::from(read_rows > 0)),
             ));
     let height = read_rows.min(area.height.saturating_sub(input_height + gap));
-    *page = height.saturating_sub(1).max(1);
     *scroll = (*scroll).min(read_rows.saturating_sub(height));
     frame.render_widget(
         Paragraph::new(reading)

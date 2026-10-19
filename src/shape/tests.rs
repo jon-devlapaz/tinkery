@@ -1933,11 +1933,7 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
             );
             assert_eq!(shape.scroll, 0, "arrows scrolled the reading");
             shape.key(key(KeyCode::PageDown), None);
-            assert!(shape.page > 1, "the reading has no page to scroll");
-            assert_eq!(
-                shape.scroll, shape.page,
-                "PgDn did not scroll the reading a page"
-            );
+            assert_eq!(shape.scroll, 5, "PgDn did not scroll the reading");
             let shown = screen(&mut shape, width, height, no_color);
             assert!(shown.contains("TEST row 0"), "{shown}");
             assert!(
@@ -2696,31 +2692,5 @@ fn the_step_answers_the_other_probes_from_evidence_and_records_every_probe() {
         "`Where we did not look:`",
     ] {
         assert!(prompt.contains(rule), "missing probe rule: {rule}");
-    }
-}
-
-#[test]
-fn page_keys_move_a_whole_visible_page_less_one_row() {
-    let draft: String = (1..=200)
-        .map(|i| format!("TEST draft line {i}\n"))
-        .collect();
-    for (width, height) in [(100, 30), (80, 24)] {
-        let mut shape = done(Shaped::Drafted {
-            revision: Some("r1".into()),
-            text: Some(draft.clone()),
-        });
-        screen(&mut shape, width, height, true);
-        let page = shape.page;
-        assert!(page > 5, "a {height}-row screen pages only {page} rows");
-        shape.key(key(KeyCode::PageDown), None);
-        assert_eq!(shape.scroll, page);
-        let text = screen(&mut shape, width, height, true);
-        // The row that was last on screen is the first one now.
-        assert!(
-            text.contains(&format!("TEST draft line {}", page + 1)),
-            "{text}"
-        );
-        shape.key(key(KeyCode::PageUp), None);
-        assert_eq!(shape.scroll, 0);
     }
 }
