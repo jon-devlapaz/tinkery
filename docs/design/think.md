@@ -9,25 +9,30 @@ Competing interpretations get a disambiguating question, not a second reading.
 
 ### Questions
 
-Use the [goal-block contract](goal-block.md). Ask about consequential missing intent,
-not discoverable facts. Once required parts exist, ask the most consequential
-operator-only choice that would change a goal line: target, scope, boundary or
-protected things. Decisions contain a part, text, at least two answers and an optional
-question link. Ignore invalid parts or answer counts. Open decisions block
+Use the [goal-block contract](goal-block.md). Ask the most consequential unresolved
+operator-only question that would change the goal: missing intent, target, scope,
+boundary or protected things, never discoverable facts. Missing fields do not
+impose question order; a missing beneficiary or reason alone need not prompt a
+question. Explicit starting scope stays chosen, not a new choice against the wider
+ambition. Ask only when the answer matters to the next useful step; remaining
+unknowns may travel to the seed. Recording observations or declining to define a
+goal does not manufacture a goal or another question. Originals remain intact.
+Decisions contain a part, text, at least two answers and an optional question link.
+Ignore invalid parts or answer counts. Open decisions block
 “Nothing I'm unsure about” and travel to review and the seed. Review shows a linked
 question once; otherwise it shows an Open decision note. Alternatives survive
 handoff even when a question replaces the note.
 
-When Done when is the first missing part, proposed success alternatives cannot
-bound its question: the verified board asks openly what would show the outcome.
-The alternatives remain provisional context, not an exhaustive menu. A single-line
-Done when following that reading gets one open “What else matters” follow-up;
-parts and originals stay unchanged. Skips and the two-ask limit still leave intent
-open for the seed. This structural guard does not judge completeness: a detailed
-single-line answer may also get the follow-up, and multiple lines are not proof of
-quality. Ordinary open questions and supplied criteria without prior success
-alternatives keep their existing behavior. The [frozen Stacker replay](../../tests/fixtures/stacker-226-notes.md)
-checks the recorded failure without live calls.
+If the selected missing-success question is bounded by proposed alternatives, the
+board opens it to “What would tell you this worked?” without repeating the headline
+or offering an exhaustive menu. Other specific questions retain their wording.
+It retains the selected question's identity and updates only its linked decision.
+Other questions and choices keep their meaning and priority.
+A missing success field, an unasked decision or a short answer creates no follow-up.
+Alternatives, missing intent, skips and the two-ask limit still travel to review and
+the seed; readiness is not a completeness judgment. The
+[frozen Stacker replay](../../tests/fixtures/stacker-226-notes.md) preserves the
+recorded observations without imposing an answer-length rule.
 
 After shaping, a separate review sees only words, answers, draft parts and shaping
 decisions, never the template. It finds silently settled choices about scope,
@@ -35,9 +40,10 @@ irreversible actions, protected things, persistence or whose rules apply. The
 reading decoder joins decisions; raw recorded replies stay unchanged. Only explicit,
 valid shaping indices for the same part let review replace decisions. Uncovered
 choices remain, even on the same part. Neither text similarity nor a shared part
-justifies deduplication. After cleanup, ask the top shaping question first when
-required parts exist. A deduplicated Why or Done when still needs its missing-part
-question before review choices. Failed or unreadable review leaves shaping intact.
+justifies deduplication. After cleanup, review choices lead when required parts
+exist; otherwise the top shaping question keeps its priority. Questions about
+filled, non-open parts are dropped. A missing unrelated field does not replace a
+valid question. Failed or unreadable review leaves shaping intact.
 
 Stop when the target and irreversible boundaries are settled. Ask no already-covered
 edge cases or implementation questions. Answers belong only to their part.
@@ -71,14 +77,16 @@ With no focused question (none left, skipped or a part asked twice), show one mu
 
 | State | Line |
 | --- | --- |
+| No composed goal | No goal yet. |
 | Ready | Nothing I'm unsure about. Review when you're ready. |
 | Required part missing | Still missing: Done when. Review when you're ready. (Name the first missing part: who, outcome, why, done when.) |
 | Required parts present, other intent open | Some parts remain open for the seed. Review when you're ready. |
 
 Without a composed goal, omit the review invitation. F1 uses the same first sentence
 and offers F3 only with a saveable goal. In practice or without Seed Me, help says
-saving needs real mode and Seed Me. With no goal, say type then F2. If the first
-reading was unapplied or cancelled, offer an F2 retry. State depends only on goal
+saving needs real mode and Seed Me. With no goal, offer adding words then F2,
+without a missing-field interview. If the first reading was unapplied or cancelled,
+offer an F2 retry. State depends only on goal
 content, including sent-but-unapplied words and unanswered skips, never recording
 or unsent text. Review lists all open intent.
 

@@ -147,9 +147,10 @@ impl Deref for Board {
 impl Board {
     /// The only way to make a board. Refuses a guess that fails [`Guess::validate`]; otherwise
     /// strips the model's self-labels, normalises constraints, drops a why or done-when that
-    /// only repeats the outcome, and keeps one question. While a required part is missing,
-    /// that question is about the first missing part. Proposed alternatives cannot bound a
-    /// missing Done when; a single-line answer following them needs an open follow-up.
+    /// only repeats the outcome, and keeps one question about missing or open intent. Missing
+    /// fields do not displace a consequential question or require template completion.
+    /// A selected question bounded by success alternatives becomes open-ended without repeating
+    /// the headline. Other questions stay intact; no missing field or answer length creates one.
     /// A part skipped or already asked twice isn't asked again.
     pub fn verify(mut g: Guess, request: &BoardRequest) -> Result<Self, String> {
         g.validate(request)?;
@@ -180,79 +181,37 @@ impl Board {
         }
         g.parts.normalize_constraints();
         g.parts.distinct_check();
-        if let Some(missing) = g.parts.missing().next() {
-            g.questions
-                .retain(|q| q.target.is_none_or(|p| p == missing));
-            for q in &mut g.questions {
-                q.target = Some(missing);
+        if let Some(selected) = g
+            .questions
+            .first()
+            .filter(|q| {
+                q.target == Some(Part::DoneWhen)
+                    && g.parts.get(Part::DoneWhen).is_none()
+                    && g.decisions
+                        .iter()
+                        .any(|d| d.covered_by(std::slice::from_ref(q)))
+            })
+            .cloned()
+        {
+            let text = "What would tell you this worked?";
+            for d in g
+                .decisions
+                .iter_mut()
+                .filter(|d| d.covered_by(std::slice::from_ref(&selected)))
+            {
+                d.question = Some(text.into());
             }
-            if g.questions.is_empty() {
-                let who = g.parts.get(Part::Who).unwrap_or("the person this is for");
-                let text = match missing {
-                    Part::Who => "Who is this for?".into(),
-                    Part::Outcome => format!("What should change for {who}?"),
-                    Part::Why => format!("What is going wrong for {who}?"),
-                    _ => format!(
-                        "What would show that {}?",
-                        g.parts.goal_line().unwrap_or_else(|| "this worked".into())
-                    ),
-                };
-                g.questions.push(Question {
-                    target: Some(missing),
-                    id: format!(
-                        "missing-{}-{}",
-                        missing.name(),
-                        request.sources.iter().map(|s| s.id).max().unwrap_or(0)
-                    ),
-                    text,
-                });
-            }
-        }
-        let missing_done = g.parts.missing().next() == Some(Part::DoneWhen)
-            && g.decisions.iter().any(|d| d.part == Part::DoneWhen);
-        let narrowed_done = g.parts.missing().next().is_none()
-            && g.parts
-                .done_when
-                .as_ref()
-                .is_some_and(|s| s.lines().count() == 1)
-            && request.previous.as_ref().is_some_and(|old| {
-                old.parts.done_when.is_none()
-                    && old.decisions.iter().any(|d| d.part == Part::DoneWhen)
-            });
-        if missing_done || narrowed_done {
-            let text = if missing_done {
-                format!(
-                    "What would show that {}?",
-                    g.parts.goal_line().unwrap_or_else(|| "this worked".into())
-                )
-            } else {
-                "What else matters for you to call this done?".into()
-            };
-            for d in g.decisions.iter_mut().filter(|d| d.part == Part::DoneWhen) {
-                d.question = Some(text.clone());
-            }
-            if !g.open.contains(&Part::DoneWhen) {
-                g.open.push(Part::DoneWhen);
-            }
-            let q = Question {
-                target: Some(Part::DoneWhen),
-                id: format!(
-                    "done-elicitation-{}",
-                    if missing_done { "criteria" } else { "more" }
-                ),
-                text,
-            };
-            g.questions = if request.answered.contains(&q.id)
+            let q = &mut g.questions[0];
+            q.text = text.into();
+            if request.answered.contains(&q.id)
                 || request
                     .settled
                     .iter()
-                    .any(|s| same_question(&s.question, &q))
-                || request.skipped.iter().any(|s| same_question(s, &q))
+                    .any(|s| same_question(&s.question, q))
+                || request.skipped.iter().any(|s| same_question(s, q))
             {
-                vec![]
-            } else {
-                vec![q]
-            };
+                g.questions.clear();
+            }
         }
         for part in g.questions.iter().filter_map(|q| q.target) {
             if !g.open.contains(&part) {

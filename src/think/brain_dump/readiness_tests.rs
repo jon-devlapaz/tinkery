@@ -63,13 +63,14 @@ fn beneficiary_and_labelled_lines_preserve_criteria_and_constraints() {
         p.compose().unwrap(),
         "Learners understand why they got a question wrong.\nMust: No gamification; It must work on phones."
     );
-    assert!(
+    assert_eq!(
         GoalParts {
             outcome: Some("understand".into()),
             ..Default::default()
         }
         .compose()
-        .is_none()
+        .as_deref(),
+        Some("Understand.")
     );
 }
 #[test]
@@ -124,6 +125,13 @@ fn every_combination_omits_missing_lines_without_inventing_a_beneficiary() {
             text.contains("I tell"),
             partial.get(Part::Who).is_some() && partial.get(Part::Outcome).is_some()
         );
+        assert_eq!(
+            partial.goal_line().is_some(),
+            partial.get(Part::Outcome).is_some()
+        );
+        if partial.get(Part::Who).is_none() && partial.get(Part::Outcome).is_some() {
+            assert!(text.starts_with("Tell whether yesterday went well"));
+        }
         for p in [Part::Why, Part::DoneWhen, Part::Must, Part::MustNot] {
             assert_eq!(
                 text.contains(&format!("{}:", p.label())),

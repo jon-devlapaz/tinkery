@@ -128,6 +128,65 @@ fn words_after_a_composed_goal_refine_it() {
 }
 
 #[test]
+fn observations_and_refusal_remain_intact_without_a_manufactured_goal_question() {
+    let words = [
+        "Coffee was good this morning. I'm just putting this here; I haven't asked for anything to change.",
+        "Nothing should change. Leave these as observations rather than asking me to define a goal.",
+    ];
+    let mut c = Conversation::default();
+    for original in words {
+        turn(
+            &mut c,
+            original,
+            serde_json::json!({"parts": {}, "questions": []}),
+        );
+        assert!(c.focused_question().is_none());
+        assert!(c.board().unwrap().goal().is_none());
+        assert!(c.caught_up());
+        assert!(c.last_failure().is_none());
+        assert!(!c.nothing_open(), "unknown intent is not a complete goal");
+    }
+    assert_eq!(
+        c.sources()
+            .iter()
+            .map(|s| s.text.as_str())
+            .collect::<Vec<_>>(),
+        words
+    );
+}
+
+#[test]
+fn refusing_a_previously_asked_goal_question_does_not_break_history() {
+    let mut c = Conversation::default();
+    turn(
+        &mut c,
+        "These are observations, not a project.",
+        serde_json::json!({
+            "parts": {}, "questions": [{"target": "outcome", "id": "recorded-observation-query",
+                "text": "What should change when this works?"}]
+        }),
+    );
+    turn(
+        &mut c,
+        "Nothing should change. I am not choosing a project.",
+        serde_json::json!({"parts": {}, "questions": []}),
+    );
+    assert!(c.caught_up());
+    assert!(c.last_failure().is_none());
+    assert!(c.focused_question().is_none());
+    assert!(c.board().unwrap().goal().is_none());
+    assert_eq!(
+        c.sources()[1].text,
+        "Nothing should change. I am not choosing a project."
+    );
+    assert_eq!(
+        c.sources()[1].in_reply_to.as_deref(),
+        Some("recorded-observation-query")
+    );
+    assert_eq!(c.settled()[0].question.id, "recorded-observation-query");
+}
+
+#[test]
 fn a_failed_reply_keeps_the_previous_reading() {
     let mut c = asking();
     let before = c.board().unwrap().parts.compose();

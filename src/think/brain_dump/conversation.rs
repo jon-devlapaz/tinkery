@@ -329,9 +329,9 @@ impl Conversation {
         Ok(self.fragments.last().unwrap())
     }
 
-    /// Prepare a send of `words`. With no question in focus, words after a composed goal
-    /// refine it; otherwise they are an addition (always, with `add_more`). `ready` says a
-    /// reply is waiting to be applied. Errors when an earlier addition is still unscoped.
+    /// Prepare a send of `words`. With no goal or focused question, words remain observations.
+    /// Words after a current goal refine it; `add_more` explicitly asks about their scope.
+    /// `ready` says a reply is waiting. Errors when an earlier addition is still unscoped.
     pub(super) fn stage(
         &self,
         words: &str,
@@ -349,12 +349,13 @@ impl Conversation {
                 .scope_pending
                 .as_ref()
                 .is_some_and(|(_, q)| self.focused_question().is_some_and(|f| f.id == q.id));
+        let has_goal = self.board.as_ref().is_some_and(|g| g.goal().is_some());
         let refinement = !add_more
             && self.focused_question().is_none()
             && self.scope_pending.is_none()
             && fresh
-            && self.board.as_ref().is_some_and(|g| g.goal().is_some());
-        let addition = (add_more || (self.focused_question().is_none() && !refinement))
+            && has_goal;
+        let addition = (add_more || (has_goal && self.focused_question().is_none() && !refinement))
             && self.board.is_some()
             && has_words;
         if addition && self.scope_pending.is_some() {

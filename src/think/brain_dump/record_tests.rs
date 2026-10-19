@@ -120,26 +120,28 @@ fn frozen_stacker_226_done_question_is_open_not_either_or() {
 }
 
 #[test]
-fn frozen_stacker_226_short_done_answer_does_not_stop() {
+fn frozen_stacker_226_short_answer_does_not_invent_criteria_or_a_followup() {
     let mut a = stacker_226_replay(3);
+    assert!(a.conversation.focused_question().is_none());
     assert!(
-        !a.goal_ready(),
-        "one-line product availability was treated as done"
-    );
-    assert_eq!(
-        a.conversation.focused_question().unwrap().target,
-        Some(Part::DoneWhen)
+        a.goal_ready(),
+        "readiness is not a judgment that more criteria are unnecessary"
     );
     assert_eq!(
         a.conversation.board().unwrap().parts.done_when.as_deref(),
         Some("stacker available to tink-arcade")
     );
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
-        assert!(
-            !snapshot(w, h, &mut a, true)
-                .unwrap()
-                .contains("Nothing I'm unsure about")
-        );
+        let view = snapshot(w, h, &mut a, true).unwrap();
+        assert!(!view.contains("What else matters"));
+        let goal = a.conversation.board().unwrap().goal().unwrap();
+        for later_criterion in [
+            "matches the tink-arcade style",
+            "working sounds",
+            "plays like the real game",
+        ] {
+            assert!(!goal.contains(later_criterion));
+        }
     }
 }
 

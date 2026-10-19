@@ -467,17 +467,17 @@ fn present_but_open_and_deferred_context_is_not_called_missing() {
     );
 }
 #[test]
-fn no_composed_goal_names_who_without_offering_review() {
+fn observations_without_a_goal_offer_no_missing_field_interview_or_review() {
     let mut a = app(serde_json::json!({"parts":{}}));
-    let q = a.conversation.focused_question().unwrap().clone();
-    a.conversation.skipped_mut().push(q);
+    assert!(a.conversation.focused_question().is_none());
     for screen in screens(&mut a) {
-        assert!(screen.contains("Still missing: Who."), "{screen}");
+        assert!(screen.contains("No goal yet."), "{screen}");
+        assert!(!screen.contains("Still missing:"));
         assert!(!screen.contains("Review when you're ready"));
     }
     let help = layout::help_text(&a);
     assert!(
-        help.contains("Still missing: Who.\nType it, then F2 sends."),
+        help.contains("No goal yet.\nYou can add words, then F2 sends."),
         "{help}"
     );
     assert!(!help.contains("F3 reviews"));

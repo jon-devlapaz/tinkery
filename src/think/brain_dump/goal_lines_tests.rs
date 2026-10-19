@@ -90,6 +90,70 @@ fn possessive_subject_in_stub_outcome_is_composed_once() {
     }
 }
 #[test]
+fn known_intent_leads_without_inventing_a_beneficiary() {
+    let original =
+        "Turn observed product problems into verified improvements. Start with one product.";
+    let mut a = app_with_source(
+        serde_json::json!({"parts": {
+            "outcome": "turn observed product problems into verified improvements",
+            "why": "shipping irrelevant software wastes effort",
+            "done_when": "evidence shows whether the improvement goal was achieved",
+            "must": ["start with one product"]
+        }, "questions": []}),
+        original,
+    );
+    let board = a.conversation.board().unwrap();
+    let goal = board.goal().unwrap().to_owned();
+    assert!(goal.starts_with("Turn observed product problems into verified improvements.\nWhy:"));
+    assert!(board.parts.who.is_none());
+    assert!(!a.goal_ready());
+    assert!(board.questions.is_empty());
+    assert!(goal.contains("Must: start with one product."));
+    assert!(a.copy_text().contains(&goal));
+    assert!(
+        snapshot(200, 40, &mut a, true)
+            .unwrap()
+            .contains("Turn observed product problems")
+    );
+    a.review_goal();
+    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+    assert_eq!(a.conversation.sources()[0].text, original);
+}
+
+#[test]
+fn consequential_question_survives_an_unrelated_missing_beneficiary() {
+    let a = app(serde_json::json!({"parts": {
+        "outcome": "turn observed problems into verified improvements",
+        "why": "shipping irrelevant software wastes effort",
+        "done_when": "evidence shows whether the goal was achieved"
+    }, "decisions": [{
+        "part": "must_not", "text": "Whether a proposed experiment may change production",
+        "answers": ["isolated experiments only", "production changes after approval"]
+    }], "questions": [{"target": "must_not", "text": "May the first experiment change production after approval?"}]}));
+    let board = a.conversation.board().unwrap();
+    assert!(board.parts.who.is_none());
+    assert_eq!(board.questions[0].target, Some(Part::MustNot));
+    assert_eq!(
+        board.questions[0].text,
+        "May the first experiment change production after approval?"
+    );
+    assert!(!a.goal_ready());
+}
+
+#[test]
+fn missing_beneficiary_does_not_reopen_a_settled_outcome() {
+    let a = app(serde_json::json!({"parts": {
+        "outcome": "turn observed problems into verified improvements",
+        "why": "shipping irrelevant software wastes effort",
+        "done_when": "evidence shows whether the goal was achieved"
+    }, "questions": [{"target": "outcome", "text": "Should this instead just write code?"}]}));
+    let board = a.conversation.board().unwrap();
+    assert!(board.questions.is_empty());
+    assert!(board.parts.who.is_none());
+    assert!(!a.goal_ready());
+}
+
+#[test]
 fn subject_prefix_without_a_boundary_is_not_removed() {
     for outcome in [
         "Shapes stay distinct",
@@ -117,22 +181,24 @@ fn outcome_is_a_behaviour_without_forced_can() {
     );
 }
 #[test]
-fn repeated_check_is_missing_and_required_question_precedes_vague_outcome() {
+fn repeated_checks_stay_missing_without_displacing_open_intent() {
     let a = app(
-        serde_json::json!({"parts":{"who":"My mom","outcome":"spots a fake text before tapping anything","why":"scam texts arrive","done_when":"My mom spots a fake text before tapping anything"},"open":["outcome"],"questions":[{"target":"outcome","text":"Did I get it?"}]}),
+        serde_json::json!({"parts":{"who":"My mom","outcome":"spots a fake text before tapping anything","why":"scam texts arrive","done_when":"My mom spots a fake text before tapping anything"},"open":["outcome"],"questions":[{"target":"outcome","text":"Which suspicious messages should this cover?"}]}),
     );
     let g = a.conversation.board().unwrap();
     assert!(g.parts.done_when.is_none());
-    assert_eq!(g.questions[0].target, Some(Part::DoneWhen));
-    assert!(!g.questions[0].text.contains("Did I get it"));
+    assert_eq!(g.questions[0].target, Some(Part::Outcome));
+    assert_eq!(
+        g.questions[0].text,
+        "Which suspicious messages should this cover?"
+    );
+    assert!(!a.goal_ready());
     let a = app(
         serde_json::json!({"parts":{"who":"New users","outcome":"return","why":"return"},"questions":[{"target":"outcome","text":"Should this be the goal?"}]}),
     );
     assert!(a.conversation.board().unwrap().parts.why.is_none());
-    assert_eq!(
-        a.conversation.focused_question().unwrap().target,
-        Some(Part::Why)
-    );
+    assert!(a.conversation.focused_question().is_none());
+    assert!(!a.goal_ready());
 }
 #[test]
 fn timing_and_capacity_are_not_duplicated_and_constraints_each_get_a_line() {

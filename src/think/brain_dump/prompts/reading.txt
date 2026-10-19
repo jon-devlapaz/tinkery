@@ -23,11 +23,14 @@ Proposed mechanisms remain candidates, not automatically goals; preserve compati
 # Decisions are typed because a prompt sentence alone did not make the model ask about them:
 # in the 5-dump pilot of 2026-10-12 (8b9b7d8) it returned open: [] once Done when was filled (#31, 505617f).
 Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_goals (short labels for separate goals), deferred (explicitly deferred items), open (consequentially unclear part names), decisions (open choices only the person can make, each {part, text, answers, optional question} with at least two short answers that would each change that part's line differently; [] only when no plausible answer would change a goal line), questions (at most one {target, text, optional id}), optional supports (source/quote/occurrence objects only; prose belongs in unresolved_notes, never supports), alternatives (possible approaches, each {label, benefit, cost, undo_cost}), misfits or unresolved_notes.
-Required parts: who names the beneficiary (I for the person's own goal; name the people otherwise); outcome is what becomes true or the beneficiary's behaviour, a predicate following who with NO forced can and no repeated subject.
+# Intent-first operator dogfood (#264): an unnamed beneficiary erased the headline and forced a
+# choice between compatible beneficiaries; the dump had already chosen a bounded first loop.
+Required parts determine readiness, not a checklist to fill: who names beneficiaries when supplied (I only for the person's own goal); compatible beneficiaries may stay together, never force a choice between them.
+Outcome leads the reading: express the supplied change or desired state plainly, as a predicate following who when known, otherwise as a standalone statement of intent without inventing a subject; NO forced can or repeated subject.
 Never substitute a proposed mechanism for the outcome.
 Why explains the actual problem or reason, not an echo of the request.
 # Live Think eval 2026-10-17: list-shaped Done when was dropped in 11/45 readings (#202).
-Done_when is a string or an array of strings: distinct observable checks, never a restatement of the goal line; if the check is missing, leave it absent and ask.
+Done_when is a string or an array of strings: distinct observable checks, never a restatement of the goal line; if the check is missing, leave it absent.
 Optional when is short; don't repeat it if already in outcome.
 # Each constraint item is shown as one goal-block line in its own words, never re-split (#19).
 Must and must_not are arrays of single constraints: what must be true and what must not happen.
@@ -62,8 +65,11 @@ Preserve compatible means and ends within the chosen goal; don't force a priorit
 
 Ask only about what the person alone can decide, never facts an agent could find out.
 Use the person's concrete words, never field definitions or a generic checklist.
-Fill missing required parts FIRST in order who, outcome, why, done_when.
-Once those are present, ask about the most consequential decision, or separate-goal priority.
+# Operator correction after #264 dogfood: refusal is not missing intent to fill, and a short
+# answer is not evidence that another question matters next.
+Ask a consequential unresolved goal-level question only when its answer matters to the next useful step; an empty field or a short answer alone does not require a question.
+Do not manufacture a goal or another question when the person is only recording observations or declines to define a goal.
+An explicit starting scope is already chosen: do not reopen it as a choice between that first step and the wider ambition; ask nothing merely to fill a field, and stop when remaining unknowns can travel to the seed.
 A decision is one only the person can make where plausible answers would change a goal line, such as whether a boundary allows an action, which of two scopes they mean, or what happens to things the dump protects.
 # Think pilot, 2026-10-12: real decisions (a boundary, a scope, protected things) were filed as
 # unresolved_notes prose with no question (#31, 8b9b7d8).
