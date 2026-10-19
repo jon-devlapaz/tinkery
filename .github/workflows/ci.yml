@@ -73,6 +73,8 @@ jobs:
       - name: Formatting
         run: cargo fmt --all -- --check
       - name: Tests (Tinkery and vendored Pinstar)
+        env:
+          SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
         run: cargo test --workspace --locked
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
