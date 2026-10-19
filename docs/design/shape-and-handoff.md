@@ -227,6 +227,22 @@ the external CI-pinned Seed Me fixture is neither vendored nor edited here.
 
 ### SDLC handoff
 
+Approve and Watch share a read-only seed-to-run join, not a binding store. API 1's
+`seed_contract.source` must equal the seed's canonical path and `sha256` must
+match its current bytes. Names, slugs and goal text never establish a connection.
+Edited originals are unknown, not started; moved or missing originals cannot lend
+a goal to a run. A match supplies the session's exact saved goal (article 3);
+[Watch](watch.md#reading) owns its compact list and full-detail presentation.
+An explicit null record means no confirmed seed was used, distinct from an
+unmatchable or malformed record (article 7). This is a read-time snapshot, not
+permission or a live freshness claim.
+
+Only an explicitly named `--sdlc-root` is read. Missing configuration, unreadable
+runs or absent/unsupported seed records mean Approve cannot tell which seeds have
+started and hides none (article 7). A readable null record establishes no join.
+The shared `sdlc` boundary owns status reads and matching; `seed_me` alone reads
+the session's files. There is no checkout discovery, source mutation or new store.
+
 Goal and seed confirmation, SDLC definition approval and implementation permission
 are separate decisions. External tink-sdlc intake preserves the confirmed seed and
 imports its acceptance checks as locked definitions, reported separately from
@@ -241,9 +257,11 @@ operator approval.
 
 The [handoff regression](../../tests/shape_sdlc_handoff.py) carries Shape's real
 seed writer through confirmation, a fresh TEST-only SDLC install and intake:
-a failing confirmed command blocks verification despite passing worker-written
-checks, and a passing command completes it. Dropping seed enforcement turns the
-regression red; restoring it restores blocking. Its confirmations, approvals and
+Approve's copied commands start a real run, Approve hides the matched seed, and
+Watch shows its goal's first line under needs-you runs and the full goal in detail,
+while a run with no seed stays distinct from an unknown match. A failing confirmed command blocks
+verification despite passing worker-written checks, and a passing command completes it.
+Dropping seed enforcement turns the regression red; restoring it restores blocking. Its confirmations, approvals and
 attestations are TEST fixtures, never the operator's.
 
 ## Shape

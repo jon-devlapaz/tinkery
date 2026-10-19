@@ -1,6 +1,7 @@
 """Approve's read-only handoff over official Seed Me TEST fixtures; no provider or real approval."""
 import base64
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -24,7 +25,7 @@ def journey(width, height, case, no_color):
         root = Path(directory).resolve()
         sessions = root / "TEST sessions' folder"
         expected = []
-        if case == 'ready':
+        if case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable'):
             for name, date in [('TEST oldest café', '2026-01-01T00:00:00Z'),
                                ('TEST newest', '2026-02-01T00:00:00Z')]:
                 session = make(sessions, name, goal=name + '\nTEST original goal.', question=False)
@@ -47,6 +48,24 @@ def journey(width, height, case, no_color):
             (broken / 'ledger.json').write_text('not JSON')
         elif case == 'unreadable':
             sessions.write_text('TEST not a directory')
+        checkout = root / 'TEST-checkout'
+        configured = case in ('started', 'edited', 'moved', 'runs-unreadable')
+        if configured:
+            script = checkout / '_system/scripts/sdlc.py'
+            script.parent.mkdir(parents=True)
+            original = expected[0] / 'seed-contract.md'
+            record = {'path': 'runs/TEST-other/seed-contract.md', 'source': str(original.resolve()),
+                      'sha256': hashlib.sha256(original.read_bytes()).hexdigest()}
+            report = {'protocol': 'tink-sdlc', 'api_version': 1, 'runs': [
+                {'slug': 'TEST-unrelated-name', 'seed_contract': record}]}
+            script.write_text('print(' + repr(json.dumps(report)) + ')\n'
+                              if case != 'runs-unreadable' else 'raise SystemExit("TEST unreadable runs")\n')
+            if case == 'edited':
+                original.write_text(original.read_text() + '\nTEST edit after intake\n')
+            elif case == 'moved':
+                moved = sessions / 'TEST moved session'
+                expected[0].rename(moved)
+                expected[0] = moved
         host = root / 'pi'
         host.write_text('#!/bin/sh\ntouch TEST-provider-was-run\nexit 86\n')
         host.chmod(0o755)
@@ -61,7 +80,8 @@ def journey(width, height, case, no_color):
             env.pop('NO_COLOR', None)
         proc = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
             '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
-            '--record-root', str(root / 'TEST-records'), '--link-root', str(root / 'TEST-links')], stdin=slave, stdout=slave, stderr=slave, cwd=root, env=env)
+            '--record-root', str(root / 'TEST-records'), '--link-root', str(root / 'TEST-links'),
+            *(['--sdlc-root', str(checkout)] if configured else [])], stdin=slave, stdout=slave, stderr=slave, cwd=root, env=env)
         screen = Screen(width, height)
         output = bytearray()
 
@@ -92,8 +112,17 @@ def journey(width, height, case, no_color):
         try:
             wait(lambda: '4  approve' in screen.text())
             os.write(master, b'4')
-            if case == 'ready':
+            if case in ('started', 'edited'):
+                wait(lambda: 'Seed 1 of 1' in flat())
+                assert 'TEST newest' in flat() and 'TEST oldest café' not in flat(), screen.text()
+                if case == 'edited':
+                    assert 'unknown start' in flat(), screen.text()
+                else:
+                    assert 'unknown start' not in flat(), screen.text()
+            elif case in ('ready', 'moved', 'runs-unreadable'):
                 wait(lambda: 'Seed 1 of 2' in flat())
+                if case != 'moved':
+                    assert "Can't tell which seeds have started; none are hidden." in flat(), screen.text()
                 assert 'TEST oldest café' in flat() and 'TEST newest' not in flat(), screen.text()
                 assert 'TEST original goal.' in flat(), screen.text()
                 acceptance = (expected[0] / 'seed-contract.md').read_text().split('## Acceptance criteria\n', 1)[1].split('\n## ', 1)[0]
@@ -119,7 +148,7 @@ def journey(width, height, case, no_color):
                 send(b'\x1b', '4 approve')
                 send(b'4', 'Seed 1 of 2')
             else:
-                message = {'empty': 'No verified seeds are waiting.',
+                message = {'empty': 'No verified seeds could be listed.',
                            'incomplete': 'No verified seeds could be listed.',
                            'unreadable': 'Ready seeds unavailable.'}[case]
                 wait(lambda: message in flat())
@@ -144,5 +173,5 @@ def journey(width, height, case, no_color):
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
         for no_color in [False, True]:
-            for case in ['ready', 'empty', 'incomplete', 'unreadable']:
+            for case in ['ready', 'empty', 'incomplete', 'unreadable', 'started', 'edited', 'moved', 'runs-unreadable']:
                 journey(*size, case, no_color)

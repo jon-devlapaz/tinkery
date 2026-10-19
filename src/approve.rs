@@ -15,7 +15,7 @@ use std::{
 };
 
 use crate::{
-    Palette,
+    Palette, sdlc,
     seed_me::{
         Session, Stage,
         ready::{self, ReadySeed},
@@ -34,6 +34,8 @@ struct Found {
     seeds: Vec<ReadySeed>,
     unavailable: usize,
     reasons: Vec<String>,
+    start_unknown: Option<String>,
+    changed: usize,
 }
 
 /// One verifier across visits. Cancellation stops between sessions; an in-flight helper keeps
@@ -70,7 +72,13 @@ impl Reader {
         }
     }
 
-    fn start(&mut self, skill: PathBuf, sessions: Vec<Session>, mut found: Found) -> bool {
+    fn start(
+        &mut self,
+        skill: PathBuf,
+        sessions: Vec<Session>,
+        root: Option<PathBuf>,
+        mut found: Found,
+    ) -> bool {
         if self.running.is_some() {
             return false;
         }
@@ -78,6 +86,13 @@ impl Reader {
         let cancelled = stop.clone();
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
+            let runs = root
+                .as_deref()
+                .ok_or("Start Tinkery with --sdlc-root PATH to check.".into())
+                .and_then(|root| sdlc::seeds(root, &cancelled));
+            if let Err(reason) = &runs {
+                found.start_unknown = Some(reason.clone());
+            }
             // Discovery owns chronological sorting. Reverse its newest-first order, not timestamps.
             for session in sessions.into_iter().rev() {
                 if cancelled.load(Ordering::SeqCst) {
@@ -85,6 +100,20 @@ impl Reader {
                 }
                 if !matches!(session.stage, Stage::SeedUnchecked | Stage::Ended) {
                     continue;
+                }
+                if let Ok(runs) = &runs {
+                    match sdlc::started(runs, &ready::path(&session.path)) {
+                        Ok(true) => continue,
+                        Ok(false) => {}
+                        Err(reason) => {
+                            found.changed += 1;
+                            if found.reasons.len() < crate::seed_me::MAX_READ_FAILURES {
+                                found
+                                    .reasons
+                                    .push(format!("{}: {reason}", session.path.display()));
+                            }
+                        }
+                    }
                 }
                 match ready::read(&skill, &session.path) {
                     Ok(Some(seed)) => found.seeds.push(seed),
@@ -114,6 +143,7 @@ impl Drop for Reader {
 
 /// A visit shows only verified seeds. Navigation and copying use the same immutable reading.
 pub(crate) struct Approve {
+    root: Option<PathBuf>,
     waiting: bool,
     found: Option<Result<Found, String>>,
     selected: usize,
@@ -126,8 +156,9 @@ pub(crate) struct Approve {
 
 impl Approve {
     /// Wait for the menu's fresh session scan. Starts no helper and reads no files.
-    pub(crate) fn open() -> Self {
+    pub(crate) fn open(root: Option<PathBuf>) -> Self {
         Self {
+            root,
             waiting: true,
             found: None,
             selected: 0,
@@ -164,10 +195,11 @@ impl Approve {
             if reader.start(
                 skill,
                 sessions,
+                self.root.clone(),
                 Found {
-                    seeds: Vec::new(),
                     unavailable,
                     reasons,
+                    ..Found::default()
                 },
             ) {
                 Ok(())
@@ -273,7 +305,7 @@ impl Approve {
             lines.push(Line::raw("Copying starts nothing and grants no approval. Run creation and intake happen outside Tinkery; tink-sdlc keeps its definition approval gate."));
             lines.push(Line::raw("Return to the menu and reopen Approve for a fresh read. Seeds are oldest first by the session update time."));
             lines.push(Line::raw(
-                "Started seeds remain here until the separate goal-to-run join is built.",
+                "Seeds already recorded by a run move to Watch. Only the original location and unchanged contents establish a match.",
             ));
             if let Some(Ok(found)) = &self.found {
                 for reason in &found.reasons {
@@ -281,6 +313,21 @@ impl Approve {
                 }
             }
         } else {
+            let start_unknown = if self.root.is_none() {
+                Some("Start Tinkery with --sdlc-root PATH to check.")
+            } else {
+                match &self.found {
+                    Some(Ok(found)) => found.start_unknown.as_deref(),
+                    _ => None,
+                }
+            };
+            if let Some(reason) = start_unknown {
+                lines.push(Line::styled(
+                    "Can't tell which seeds have started; none are hidden.",
+                    palette.muted,
+                ));
+                lines.push(Line::raw(display(reason)));
+            }
             match &self.found {
                 None => lines.push(Line::raw(if self.waiting {
                     "Reading sessions…"
@@ -292,6 +339,9 @@ impl Approve {
                     lines.push(Line::raw(display(reason)));
                 }
                 Some(Ok(found)) => {
+                    if found.changed > 0 {
+                        lines.push(Line::styled(format!("{} seeds have an unknown start: the original is changed or unavailable. Check in Shape; F1 shows why.", found.changed), palette.muted));
+                    }
                     if found.unavailable > 0 {
                         lines.push(Line::styled(format!("{} sessions couldn't be read; this list may be incomplete. F1 shows why.", found.unavailable), palette.muted));
                     }
@@ -334,12 +384,19 @@ impl Approve {
                             lines.push(Line::raw("Cannot copy: a seed or helper path cannot be resolved or represented safely."));
                         }
                     } else {
-                        lines.push(Line::raw(if found.unavailable == 0 {
-                            "No verified seeds are waiting."
-                        } else {
-                            "No verified seeds could be listed."
-                        }));
-                        lines.push(Line::raw("Confirm a seed in Shape first. Started seeds will move to Watch when the join is built."));
+                        lines.push(Line::raw(
+                            if found.unavailable == 0
+                                && start_unknown.is_none()
+                                && found.changed == 0
+                            {
+                                "No verified seeds are waiting."
+                            } else {
+                                "No verified seeds could be listed."
+                            },
+                        ));
+                        lines.push(Line::raw(
+                            "Confirm a seed in Shape, or open Watch for started runs.",
+                        ));
                     }
                 }
             }

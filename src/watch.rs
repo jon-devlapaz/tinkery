@@ -4,7 +4,6 @@
 //! any write, discovers no checkout, polls nothing, and refuses an interface or state it doesn't
 //! know rather than guess.
 
-mod run;
 #[cfg(test)]
 mod tests;
 
@@ -14,6 +13,7 @@ use std::{
 };
 
 use crate::Palette;
+use crate::sdlc::{self, DEADLINE, Goal, Read, SCRIPT};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     Frame,
@@ -21,8 +21,9 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Paragraph, Wrap},
 };
-use run::{DEADLINE, Read, SCRIPT};
 use serde_json::Value;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 /// What tink-sdlc says about a run's verification, from API 1. Anything else is refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +86,7 @@ struct Run {
     passed: u64,
     total: u64,
     attention: Option<Attention>,
+    goal: Goal,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -107,6 +109,7 @@ impl Run {
 /// One run's detail, from `status <slug> --json`.
 #[derive(Debug, Clone, PartialEq)]
 struct Detail {
+    goal: Goal,
     state: State,
     next: String,
     gates: Vec<(u64, String)>,
@@ -116,20 +119,6 @@ struct Detail {
     attention: Attention,
     checklist: Vec<String>,
     errors: Vec<String>,
-}
-
-/// Refuse anything but tink-sdlc API 1.
-fn interface(value: &Value) -> Result<(), String> {
-    let protocol = value["protocol"].as_str();
-    let version = value["api_version"].as_u64();
-    if protocol == Some("tink-sdlc") && version == Some(1) && value["api_version"].is_u64() {
-        return Ok(());
-    }
-    Err(format!(
-        "The checkout answered with an interface Watch doesn't read (protocol {}, API {}). Watch reads tink-sdlc API 1.",
-        protocol.unwrap_or("missing"),
-        value["api_version"]
-    ))
 }
 
 fn state(value: &Value) -> Result<State, String> {
@@ -148,9 +137,7 @@ fn text(value: &Value, key: &str) -> Result<String, String> {
 
 /// The list summary, in tink-sdlc's order.
 fn parse_list(output: &str) -> Result<Vec<Run>, String> {
-    let value: Value =
-        serde_json::from_str(output).map_err(|e| format!("status didn't print JSON: {e}"))?;
-    interface(&value)?;
+    let value = sdlc::envelope(output)?;
     let runs = value["runs"]
         .as_array()
         .ok_or("status printed no runs list.")?;
@@ -176,6 +163,7 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
                 total: count("total")?,
                 state,
                 attention: None,
+                goal: sdlc::goal(run),
             })
         })
         .collect()
@@ -183,9 +171,7 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
 
 /// One run's detail.
 fn parse_detail(output: &str) -> Result<Detail, String> {
-    let value: Value =
-        serde_json::from_str(output).map_err(|e| format!("status didn't print JSON: {e}"))?;
-    interface(&value)?;
+    let value = sdlc::envelope(output)?;
     let run = &value["run"];
     let gates: Vec<_> = run["gates"]
         .as_array()
@@ -263,6 +249,7 @@ fn parse_detail(output: &str) -> Result<Detail, String> {
         }
     }
     Ok(Detail {
+        goal: sdlc::goal(run),
         state: state(run)?,
         next: text(run, "next_action")?,
         gates,
@@ -293,20 +280,25 @@ fn ordered(runs: &[Run]) -> Vec<&Run> {
 
 /// A read that hasn't landed, or what it found and when.
 enum Load<T> {
-    Reading(Read),
+    Reading(Read<T>),
     Done(Result<T, String>, Instant),
 }
 
-impl<T> Load<T> {
-    fn start(root: &Path, args: Vec<String>, deadline: Duration) -> Self {
-        Self::Reading(Read::start(root, args, deadline))
+impl<T: Send + 'static> Load<T> {
+    fn start(
+        root: &Path,
+        args: Vec<String>,
+        deadline: Duration,
+        parse: fn(&str) -> Result<T, String>,
+    ) -> Self {
+        Self::Reading(Read::start(root, args, deadline, parse))
     }
 
-    fn poll(&mut self, parse: fn(&str) -> Result<T, String>) {
+    fn poll(&mut self) {
         if let Self::Reading(read) = self
             && let Some(result) = read.poll()
         {
-            *self = Self::Done(result.and_then(|out| parse(&out)), Instant::now());
+            *self = Self::Done(result, Instant::now());
         }
     }
 }
@@ -349,7 +341,12 @@ impl Watch {
         self.selected = 0;
         let Some(root) = &self.root else { return };
         self.list = Some(if root.join(SCRIPT).is_file() {
-            Load::start(root, vec!["status".into(), "--json".into()], self.deadline)
+            Load::start(
+                root,
+                vec!["status".into(), "--json".into()],
+                self.deadline,
+                parse_list,
+            )
         } else {
             Load::Done(
                 Err(format!(
@@ -364,17 +361,17 @@ impl Watch {
     /// Collect any finished read; never blocks.
     pub(crate) fn poll(&mut self) {
         if let Some(list) = &mut self.list {
-            list.poll(parse_list);
+            list.poll();
         }
         if let Some((_, detail)) = &mut self.detail {
-            detail.poll(parse_detail);
+            detail.poll();
         }
         self.inspect();
     }
 
     fn inspect(&mut self) {
         if let Some((_, load)) = &mut self.inspection {
-            load.poll(parse_detail);
+            load.poll();
         }
         if matches!(self.inspection, Some((_, Load::Done(..)))) {
             let Some((index, Load::Done(result, _))) = self.inspection.take() else {
@@ -389,6 +386,7 @@ impl Watch {
                         run.passed = detail.passed as u64;
                         run.total = (detail.proven + detail.attested) as u64;
                         run.attention = Some(detail.attention);
+                        run.goal = detail.goal;
                     }
                 }
                 Err(why) => {
@@ -412,6 +410,7 @@ impl Watch {
                     root,
                     vec!["status".into(), runs[index].slug.clone(), "--json".into()],
                     self.deadline,
+                    parse_detail,
                 ),
             ));
         }
@@ -474,6 +473,7 @@ impl Watch {
                 root,
                 vec!["status".into(), slug.clone(), "--json".into()],
                 self.deadline,
+                parse_detail,
             );
             self.detail = Some((slug, read));
         }
@@ -605,8 +605,12 @@ impl Watch {
                             ));
                         }
                         lines.push(Line::styled(format!("    {}", run.next), palette.muted));
+                        if run.goal != Goal::NoSeed {
+                            let first = goal_text(&run.goal).split('\n').next().unwrap_or("");
+                            lines.extend(goal_lines(&format!("    {first}"), palette));
+                        }
                     } else {
-                        lines.push(Line::from(vec![
+                        let mut line = Line::from(vec![
                             Span::styled(format!("{mark}{}", run.slug), name),
                             Span::styled(
                                 format!(
@@ -617,20 +621,71 @@ impl Watch {
                                 ),
                                 palette.muted,
                             ),
-                        ]));
+                        ]);
+                        clip_line(&mut line, body.width as usize);
+                        lines.push(line);
                     }
                 }
             }
         }
-        let paragraph = Paragraph::new(Text::from(lines));
-        // A refusal is read whole; run rows stay one line each so the selection can scroll into view.
+        let selected_row = Paragraph::new(Text::from(lines[..selected_line].to_vec()))
+            .wrap(Wrap { trim: false })
+            .line_count(body.width);
+        let paragraph = Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false });
+        // Needs-you sub-lines wrap; quiet rows stay clipped to one line. Keep selection visible.
         if matches!(self.list, Some(Load::Done(Err(_), _))) {
             frame.render_widget(paragraph.wrap(Wrap { trim: false }), body);
             return;
         }
-        let scroll = (selected_line + 3).saturating_sub(body.height as usize) as u16;
+        let scroll = (selected_row + 4)
+            .saturating_sub(body.height as usize)
+            .min(u16::MAX as usize) as u16;
         frame.render_widget(paragraph.scroll((scroll, 0)), body);
     }
+}
+
+fn goal_text(goal: &Goal) -> &str {
+    match goal {
+        Goal::Matched(goal) => goal,
+        Goal::NoSeed => "No confirmed seed was recorded for this run.",
+        Goal::Unknown => "Goal unknown: the original seed changed or can't be found.",
+    }
+}
+
+fn clip_line(line: &mut Line<'_>, mut remaining: usize) {
+    for span in &mut line.spans {
+        let mut bytes = 0;
+        for grapheme in span.content.graphemes(true) {
+            let width = grapheme.width();
+            if width > remaining {
+                remaining = 0;
+                break;
+            }
+            remaining -= width;
+            bytes += grapheme.len();
+        }
+        span.content.to_mut().truncate(bytes);
+    }
+}
+
+fn goal_lines(goal: &str, palette: Palette) -> Vec<Line<'static>> {
+    goal.split('\n')
+        .map(|line| {
+            let safe: String = line
+                .chars()
+                .flat_map(|c| {
+                    if c.is_control()
+                        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+                    {
+                        c.escape_default().collect::<Vec<_>>()
+                    } else {
+                        vec![c]
+                    }
+                })
+                .collect();
+            Line::styled(safe, palette.ink)
+        })
+        .collect()
 }
 
 /// Where the shown words came from, and how fresh they are, to the minute.
@@ -662,6 +717,8 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             lines.push(Line::styled(why.clone(), palette.ink));
         }
         Load::Done(Ok(d), _) => {
+            lines.extend(goal_lines(goal_text(&d.goal), palette));
+            lines.push(Line::default());
             lines.push(Line::styled(d.state.words(), palette.ink.bold()));
             lines.push(Line::styled(format!("Next: {}", d.next), palette.ink));
             lines.push(Line::default());

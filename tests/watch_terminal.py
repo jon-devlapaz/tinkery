@@ -1,5 +1,6 @@
 """Watch over a fake tink-sdlc checkout in TEST roots; no real checkout, providers or writes."""
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,7 @@ if len(sys.argv) == 4:
     detail = state.get('details', {}).get(slug, state['detail'])
     detail['run']['verification_status'] = row['verification_status']
     detail['run']['next_action'] = row['next_action']
+    detail['run']['seed_contract'] = row.get('seed_contract')
     if row['verification_status'] != 'blocked':
         detail['run']['gates'][0]['status'] = 'approved'
         if slug not in state.get('details', {}):
@@ -41,7 +43,7 @@ else:
 def run(slug, status):
     return {'slug': slug, 'run_id': 'TEST', 'profile': 'light', 'kind': 'feature',
             'verification_status': status, 'next_action': f'TEST next for {slug}',
-            'has_lock': False, 'checklist_summary': {'total': 3, 'passed': 1}}
+            'has_lock': False, 'checklist_summary': {'total': 3, 'passed': 1}, 'seed_contract': None}
 
 
 def envelope(**value):
@@ -121,6 +123,7 @@ def journey(width, height, no_color, configured=True):
                 assert text.index('waits') < text.index('quiet-a'), text
                 assert 'waiting on a decision' in text and 'TEST next for waits' in text
                 assert 'Quiet' in text and 'verified · 1/2 checks passed' in text
+                assert 'Goal unknown' not in text and 'No confirmed seed' not in text
                 assert 'From python3 _system/scripts/sdlc.py status --json' in text
                 assert calls() == ['status --json', 'status quiet-a --json', 'status waits --json']
                 set_state(list=envelope(runs=[run('quiet-a', 'failed'), run('waits', 'blocked')]))
@@ -128,6 +131,8 @@ def journey(width, height, no_color, configured=True):
                 assert calls() == ['status --json', 'status quiet-a --json', 'status waits --json'] * 2
                 send(b'\r', 'Stage 3 gate: approved')
                 assert 'Checklist: 1/2 passed · 2 with a check, 0 attested' in screen.text()
+                assert 'No confirmed seed was recorded for this run.' in screen.text()
+                assert 'Goal unknown' not in screen.text()
                 assert calls()[-1] == 'status quiet-a --json', calls()
                 send(b'\x1b', 'Needs you')
                 send(b'?', 'What Watch does')
@@ -161,9 +166,62 @@ def journey(width, height, no_color, configured=True):
                              'not-run': 'not verified yet', 'stale': 'verification out of date',
                              'invalid': "can't be read"}
                     send(b'r', words[status])
+                # Only the source path AND the recorded bytes lend a goal to a run.
+                seed = base / 'TEST-session/seed-contract.md'
+                seed.parent.mkdir()
+                seed.write_bytes(b'TEST confirmed original seed\n')
+                goal = ' TEST café  \nTEST exact goal tail  '
+                (seed.parent / 'ledger.json').write_text(json.dumps({'schema_version': 1, 'goal': goal}))
+                original = seed.read_bytes()
+                record = {'path': 'runs/unrelated/seed-contract.md', 'source': str(seed.resolve()),
+                          'sha256': hashlib.sha256(original).hexdigest()}
+                for seed_case in ('matched', 'no-seed', 'edited', 'moved', 'missing'):
+                    seed.write_bytes(original)
+                    if seed_case == 'edited':
+                        seed.write_bytes(original + b'TEST edited\n')
+                    elif seed_case == 'moved':
+                        seed.rename(base / 'TEST-moved-seed.md')
+                    elif seed_case == 'missing':
+                        seed.unlink()
+                    row = {**run('TEST-unrelated-slug', 'blocked'),
+                           'seed_contract': None if seed_case == 'no-seed' else record,
+                           'next_action': f'TEST next for {seed_case} seed case'}
+                    set_state(list=envelope(runs=[row]))
+                    send(b'r', row['next_action'])
+                    text = screen.text()
+                    unknown = "Goal unknown: the original seed changed or can't be found."
+                    absent = 'No confirmed seed was recorded for this run.'
+                    if seed_case == 'matched':
+                        assert any(line.startswith('       TEST café') for line in text.splitlines()), text
+                    else:
+                        assert 'TEST café' not in text, text
+                    assert 'TEST exact goal tail' not in text, text
+                    assert (unknown in text) == (seed_case not in ('matched', 'no-seed')), text
+                    assert absent not in text, text
+                    send(b'\r', 'Stage 3 gate: pending')
+                    expected = {'matched': 'TEST exact goal tail', 'no-seed': absent}.get(seed_case, unknown)
+                    assert expected in screen.text(), screen.text()
+                    assert ('TEST exact goal tail' in screen.text()) == (seed_case == 'matched')
+                    assert not any(word in screen.text() for word in ('seed_contract', 'sha256', 'API'))
+                    send(b'\x1b', 'Needs you')
+                # A matched quiet run stays exactly one row, immediately followed by its neighbour.
+                seed.write_bytes(original)
+                quiet = {**run('TEST-quiet-seeded', 'current'), 'seed_contract': record}
+                set_state(list=envelope(runs=[quiet, run('TEST-quiet-unseeded', 'current')]))
+                send(b'r', 'TEST-quiet-unseeded')
+                rows = screen.text().splitlines()
+                at = next(i for i, line in enumerate(rows) if 'TEST-quiet-seeded' in line)
+                assert 'TEST-quiet-unseeded' in rows[at + 1], screen.text()
+                assert not any(word in screen.text() for word in ('TEST café', 'TEST exact goal tail', 'Goal unknown', 'No confirmed seed'))
+                send(b'\r', 'TEST exact goal tail')
+                send(b'\x1b', 'TEST-quiet-unseeded')
+                send(b'\x1b[B', '› TEST-quiet-unseeded')
+                send(b'\r', 'No confirmed seed was recorded for this run.')
+                assert 'Goal unknown' not in screen.text(), screen.text()
+                send(b'\x1b', 'TEST-quiet-unseeded')
                 set_state(list={**envelope(runs=[]), 'protocol': 'other'})
                 send(b'r', "Couldn't read the runs.")
-                assert 'Watchreadstink-sdlcAPI1' in ''.join(screen.text().split())
+                assert "isn't supported" in screen.text()
                 slow_call_count = len(calls()) + 1
                 set_state(slow=True, list=envelope(runs=[]))
                 send(b'r', 'Reading runs')

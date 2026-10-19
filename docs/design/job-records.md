@@ -1,6 +1,9 @@
 # One job through the existing records
 
 This follows [#63's survey](../research/shared/job-record-survey.md) and [yohaku](../yohaku.md).
+For the shipped, narrower read-only seed join, use [SDLC handoff](shape-and-handoff.md#sdlc-handoff).
+It replaces the proposed Tinkery binding store for Approve and Watch; it does not implement R5/R6 below.
+
 **Revised design proposal; not accepted or implemented.** Authorization covered
 design, not the binding writer or R5. I2 [#110](https://github.com/jon-devlapaz/tinkery/issues/110)
 and R5 [#111](https://github.com/jon-devlapaz/tinkery/issues/111) are published;

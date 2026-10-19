@@ -1,0 +1,159 @@
+//! Read-only status and exact seed identity in one explicitly named checkout. Source paths and
+//! current bytes are the only join; names and goal text confer no identity. No store or discovery.
+
+mod run;
+#[cfg(test)]
+mod tests;
+
+pub(crate) use run::{DEADLINE, Read, SCRIPT};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::atomic::AtomicBool,
+};
+
+/// A source-owned intake record, not permission to launch or approve anything.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Seed {
+    source: PathBuf,
+    sha256: String,
+}
+
+impl Seed {
+    /// Refuse malformed records. Older or absent records cannot establish a join.
+    pub(crate) fn parse(run: &Value) -> Result<Option<Self>, String> {
+        let record = run
+            .get("seed_contract")
+            .ok_or("The run doesn't report its original seed.")?;
+        if record.is_null() {
+            return Ok(None);
+        }
+        let source = record["source"]
+            .as_str()
+            .ok_or("The run has no original seed location.")?;
+        let sha256 = record["sha256"]
+            .as_str()
+            .filter(|s| {
+                s.len() == 64
+                    && s.bytes()
+                        .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+            })
+            .ok_or("The run has no readable seed fingerprint.")?;
+        if !Path::new(source).is_absolute() || record["path"].as_str().is_none() {
+            return Err("The run has no readable seed location.".into());
+        }
+        Ok(Some(Self {
+            source: source.into(),
+            sha256: sha256.into(),
+        }))
+    }
+
+    /// True only for the canonical source path and the bytes recorded at intake.
+    pub(crate) fn matches(&self, path: &Path) -> Result<bool, String> {
+        let path = path
+            .canonicalize()
+            .map_err(|e| format!("Cannot locate the original seed: {e}"))?;
+        if self.source.as_os_str() != path.as_os_str() {
+            return Ok(false);
+        }
+        let bytes = fs::read(path).map_err(|e| format!("Cannot read the original seed: {e}"))?;
+        Ok(self.sha256 == format!("{:x}", Sha256::digest(bytes)))
+    }
+}
+
+/// Read only API 1's envelope; unknown interfaces never supply facts.
+pub(crate) fn envelope(output: &str) -> Result<Value, String> {
+    let value: Value =
+        serde_json::from_str(output).map_err(|e| format!("Couldn't read the run report: {e}"))?;
+    if value["protocol"].as_str() != Some("tink-sdlc") || value["api_version"].as_u64() != Some(1) {
+        return Err(
+            "This checkout's run report isn't supported. Update tink-sdlc and read again.".into(),
+        );
+    }
+    Ok(value)
+}
+
+/// Read the named checkout once with the shared deadline and cancellation; missing records or
+/// unreadable runs refuse the whole start classification, never conceal any seed.
+pub(crate) fn seeds(root: &Path, cancel: &AtomicBool) -> Result<Vec<Seed>, String> {
+    if !root.join(SCRIPT).is_file() {
+        return Err("The named checkout has no run reader.".into());
+    }
+    let output = run::run(root, &["status".into(), "--json".into()], cancel, DEADLINE)?;
+    let value = envelope(&output)?;
+    value["runs"]
+        .as_array()
+        .ok_or("The checkout reported no runs list.")?
+        .iter()
+        .map(|run| {
+            if run["verification_status"] == "invalid" {
+                return Err("A run couldn't be read.".into());
+            }
+            Seed::parse(run)
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(|seeds| seeds.into_iter().flatten().collect())
+}
+
+/// A run's seed evidence distinguishes known absence from an unreadable or unmatched original.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Goal {
+    /// The seed matches, with the exact saved goal.
+    Matched(String),
+    /// The run explicitly records that no confirmed seed was used.
+    NoSeed,
+    /// A missing, malformed or unmatched record cannot supply a goal.
+    Unknown,
+}
+
+/// Read the exact saved goal only for a still-matching seed, on a worker. An explicit null
+/// record means no seed; missing records or unreadable, moved or edited originals stay unknown.
+pub(crate) fn goal(run: &Value) -> Goal {
+    let seed = match Seed::parse(run) {
+        Ok(Some(seed)) => seed,
+        Ok(None) => return Goal::NoSeed,
+        Err(_) => return Goal::Unknown,
+    };
+    let matched = || {
+        if !seed.matches(&seed.source).ok()? {
+            return None;
+        }
+        let goal = crate::seed_me::ready::goal(&seed.source).ok()?;
+        seed.matches(&seed.source).ok()?.then_some(goal)
+    };
+    matched().map_or(Goal::Unknown, Goal::Matched)
+}
+
+/// Whether a session's current seed was recorded by any run. A changed same-path seed is an
+/// error (unknown), not a waiting or started claim. A different path never joins.
+pub(crate) fn started(seeds: &[Seed], path: &Path) -> Result<bool, String> {
+    let path = match path.canonicalize() {
+        Ok(path) => path,
+        Err(error) => {
+            if seeds
+                .iter()
+                .any(|seed| seed.source.as_os_str() == path.as_os_str())
+            {
+                return Err(format!("Cannot locate the seed: {error}"));
+            }
+            return Ok(false);
+        }
+    };
+    let mut same_source = false;
+    for seed in seeds
+        .iter()
+        .filter(|seed| seed.source.as_os_str() == path.as_os_str())
+    {
+        same_source = true;
+        if seed.matches(&path)? {
+            return Ok(true);
+        }
+    }
+    if same_source {
+        Err("The seed's contents differ from the run. Check it in Shape.".into())
+    } else {
+        Ok(false)
+    }
+}

@@ -14,6 +14,7 @@ pub mod measure;
 pub mod menu;
 pub mod pi;
 pub mod repo;
+mod sdlc;
 pub mod seed_me;
 pub mod shape;
 pub mod tend;

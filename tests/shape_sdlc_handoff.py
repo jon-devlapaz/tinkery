@@ -4,12 +4,16 @@ No product model calls: one stub reply. All installs, Git commits, synthetic
 attestations and the reversible consumer mutation live under a short /tmp TEST root.
 Locked checks protect the agreement, not the strength of the agreed checks.
 """
+import base64
 import fcntl
+import hashlib
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import select
+import shlex
 import shutil
 import struct
 import subprocess
@@ -22,8 +26,8 @@ from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
-# Draft consumer contract; move to its merge SHA only on the operator's coordinated landing.
-SDLC_REF = 'cf7373510937d5d592590cc32da57502600c9ca7'
+# Merged API 1 seed record contract (tink-sdlc #68, scaffold 1.33.0).
+SDLC_REF = '1c6ffd59902a742a2b3bb607ab75c41dc2e95e55'
 spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
@@ -122,6 +126,88 @@ def shape(root, env):
         os.close(slave)
 
 
+def approve_watch(root, env, session, project):
+    """Copy real commands, execute outside Tinkery, then read both places again."""
+    master, slave = os.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 100, 0, 0))
+    screen, output = Screen(100, 30), bytearray()
+    args = [REPO / 'target/debug/tinkery', '--home', '--operator', 'agent',
+            '--seed-me', SKILL, '--seed-session-root', session.parent,
+            '--record-root', root / 'TEST-records', '--link-root', root / 'TEST-links',
+            '--sdlc-root', project]
+    process = subprocess.Popen([str(a) for a in args], cwd=root, env=env,
+                               stdin=slave, stdout=slave, stderr=slave)
+    originals = {p: p.read_bytes() for p in session.iterdir() if p.is_file()}
+
+    def wait(text):
+        deadline = time.monotonic() + 25
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], .02)[0]:
+                data = os.read(master, 65536)
+                screen.feed(data)
+                output.extend(data)
+            if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
+                return
+            assert process.poll() is None, screen.text()
+        raise AssertionError(f'{text!r} not shown:\n{screen.text()}')
+
+    def send(keys, text):
+        os.write(master, keys)
+        wait(text)
+
+    try:
+        wait('4  approve')
+        send(b'4', 'Seed 1 of 1')
+        wait(GOAL)
+        send(b'c', 'Copied.')
+        copies = re.findall(rb'\x1b\]52;[^;]*;([^\x07\x1b]*)(?:\x07|\x1b\\)', output)
+        assert len(copies) == 1
+        commands = base64.b64decode(copies[0]).decode().splitlines()
+        assert len(commands) == 2
+        assert commands[0] == 'python3 _system/scripts/sdlc.py new <run>'
+        for line in commands:
+            command(shlex.split(line.replace('<run>', 'test-copied-intake')), project, env)
+        runtime = project / '_system/scripts/sdlc.py'
+        summary = json.loads(command([sys.executable, runtime, 'status', '--json'], project, env).stdout)
+        detail = json.loads(command([sys.executable, runtime, 'status', 'test-copied-intake', '--json'], project, env).stdout)
+        seed = session / 'seed-contract.md'
+        for row in [summary['runs'][0], detail['run']]:
+            assert row['seed_contract']['source'] == str(seed.resolve())
+            assert row['seed_contract']['sha256'] == hashlib.sha256(seed.read_bytes()).hexdigest()
+        send(b'\x1b', '4 approve')
+        send(b'4', 'No verified seeds are waiting.')
+        assert 'Seed 1 of' not in screen.text(), screen.text()
+        command([sys.executable, runtime, 'new', 'test-no-seed'], project, env)
+        no_seed = json.loads(command([sys.executable, runtime, 'status', 'test-no-seed', '--json'], project, env).stdout)
+        assert no_seed['run']['seed_contract'] is None
+        send(b'\x1b', '4 approve')
+        send(b'5', 'Needs you')
+        wait(GOAL)
+        assert 'test-copied-intake' in screen.text(), screen.text()
+        assert 'Goal unknown' not in screen.text() and 'No confirmed seed' not in screen.text(), screen.text()
+        copied_first = '› test-copied-intake' in screen.text()
+        if not copied_first:
+            send(b'\x1b[B', '› test-copied-intake')
+        send(b'\r', 'Stage 3 gate:')
+        wait(GOAL)
+        assert 'Goal unknown' not in screen.text(), screen.text()
+        send(b'\x1b', 'Needs you')
+        send(b'\x1b[B' if copied_first else b'\x1b[A', '› test-no-seed')
+        send(b'\r', 'No confirmed seed was recorded for this run.')
+        assert 'Goal unknown' not in screen.text(), screen.text()
+        assert {p: p.read_bytes() for p in originals} == originals
+        assert (root / 'TEST-calls').read_text().splitlines() == ['stub']
+        print('Shape → copied Approve new/stage → Approve hidden → Watch exact goal in list/detail: '
+              'no-seed run honest in list/detail; 100x30 PTY, real Tinkery + tink-sdlc, '
+              '1 stub reply, 0 product model calls', flush=True)
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        os.close(master)
+        os.close(slave)
+
+
 def handoff(root, env, session):
     source = root / 'TEST-tink-sdlc'
     command(['git', 'init', '-q', source], root, env)
@@ -141,6 +227,7 @@ def handoff(root, env, session):
     command(['git', 'add', '-A'], project, env)
     command(['git', 'commit', '-qm', 'TEST isolated baseline'], project, env)
     runtime = project / '_system/scripts/sdlc.py'
+    approve_watch(root, env, session, project)
 
     def sdlc(*args, expected=0):
         return command([sys.executable, runtime, *args], project, env, expected)

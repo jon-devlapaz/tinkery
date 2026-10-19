@@ -97,25 +97,25 @@ fn another_interface_or_an_unknown_state_is_refused_not_shown() {
     for (text, needle) in [
         (
             envelope(&body).replace("tink-sdlc", "other"),
-            "protocol other",
+            "isn't supported",
         ),
         (
             envelope(&body).replace(r#""api_version":1"#, r#""api_version":2"#),
-            "API 2",
+            "isn't supported",
         ),
         (
             envelope(&body).replace(r#""api_version":1"#, r#""api_version":"1""#),
-            "API \"1\"",
+            "isn't supported",
         ),
         (
             envelope(&body).replace(r#""api_version":1,"#, ""),
-            "API null",
+            "isn't supported",
         ),
         (
             envelope(&run("a", "merged")),
             "state Watch doesn't know (merged)",
         ),
-        ("not json".to_string(), "didn't print JSON"),
+        ("not json".to_string(), "Couldn't read the run report"),
     ] {
         let error = parse_list(&text).unwrap_err();
         assert!(error.contains(needle), "{needle}: {error}");
@@ -166,8 +166,7 @@ fn a_missing_script_is_said_plainly_and_nothing_runs() {
 #[test]
 fn a_slow_read_is_stopped_at_its_deadline() {
     let dir = checkout(&envelope(""), 30.0);
-    let mut watch =
-        Watch::with_deadline(Some(dir.path().to_path_buf()), Duration::from_millis(300));
+    let mut watch = Watch::with_deadline(Some(dir.path().to_path_buf()), Duration::from_secs(2));
     settle(&mut watch);
     match &watch.list {
         Some(Load::Done(Err(why), _)) => assert!(why.contains("was stopped"), "{why}"),
@@ -365,6 +364,215 @@ fn detail_scrolling_reaches_wrapped_evidence_and_last_error_at_small_sizes() {
         watch.key(KeyEvent::from(KeyCode::Home));
         assert!(paint(&mut watch, &mut terminal).contains("TEST-run"));
         assert_eq!(watch.scroll, 0);
+    }
+}
+
+#[test]
+fn goal_display_keeps_exact_words_and_escapes_unsafe_controls_only() {
+    let goal = " TEST café  \nTEST exact goal tail  ";
+    let lines = goal_lines(goal, Palette::new(true));
+    let shown = lines
+        .iter()
+        .map(|line| {
+            line.spans
+                .iter()
+                .map(|span| span.content.as_ref())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(shown, goal);
+    let lines = goal_lines("TEST\u{1b}[31m\u{202e}", Palette::new(true));
+    assert_eq!(lines[0].spans[0].content, "TEST\\u{1b}[31m\\u{202e}");
+    assert!(
+        goal_lines(goal_text(&Goal::Unknown), Palette::new(true))[0].spans[0]
+            .content
+            .starts_with("Goal unknown:")
+    );
+}
+
+fn screen(watch: &mut Watch, width: u16, height: u16) -> String {
+    let mut terminal =
+        ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
+    terminal
+        .draw(|f| watch.render(f, f.area(), Palette::new(true)))
+        .unwrap();
+    terminal
+        .backend()
+        .buffer()
+        .content()
+        .chunks(width as usize)
+        .map(|row| row.iter().map(|c| c.symbol()).collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn listed(runs: Vec<Run>) -> Watch {
+    let mut watch = Watch::open(None);
+    watch.root = Some(PathBuf::from("/TEST"));
+    watch.list = Some(Load::Done(Ok(runs), Instant::now()));
+    watch
+}
+
+#[test]
+fn all_three_goal_states_are_distinct_in_list_and_detail() {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-watch-goals-")
+        .tempdir()
+        .unwrap();
+    let seed = root.path().canonicalize().unwrap().join("seed-contract.md");
+    fs::write(&seed, "TEST original seed\n").unwrap();
+    let exact = " TEST café  \nTEST full goal tail  ";
+    fs::write(
+        root.path().join("ledger.json"),
+        serde_json::json!({"schema_version":1,"goal":exact}).to_string(),
+    )
+    .unwrap();
+    let record = serde_json::json!({"source":seed, "path":"runs/TEST/seed-contract.md",
+        "sha256":format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(fs::read(&seed).unwrap()))});
+    for (record, expected) in [
+        (record, Goal::Matched(exact.into())),
+        (Value::Null, Goal::NoSeed),
+        (serde_json::json!({}), Goal::Unknown),
+    ] {
+        for status in ["blocked", "current"] {
+            let mut row: Value = serde_json::from_str(&run("TEST-run", status)).unwrap();
+            row["seed_contract"] = record.clone();
+            let runs = parse_list(&envelope(&row.to_string())).unwrap();
+            assert_eq!(runs[0].goal, expected);
+            let mut value = detail(vec![]);
+            value["run"]["verification_status"] = status.into();
+            value["run"]["seed_contract"] = record.clone();
+            let d = parse_detail(&value.to_string()).unwrap();
+            assert_eq!(d.goal, expected);
+            let mut watch = listed(runs);
+            let list = screen(&mut watch, 80, 24);
+            if status == "blocked" {
+                match &expected {
+                    Goal::Matched(_) => {
+                        assert!(
+                            list.lines().any(|line| line.starts_with("     TEST café")),
+                            "{list}"
+                        );
+                        assert!(!list.contains("TEST full goal tail"));
+                    }
+                    Goal::NoSeed => assert!(!list.contains("seed"), "{list}"),
+                    Goal::Unknown => assert!(
+                        list.lines().any(|line| line.starts_with(
+                            "    Goal unknown: the original seed changed or can't be found."
+                        )),
+                        "{list}"
+                    ),
+                }
+            } else {
+                assert!(
+                    !list.contains("café")
+                        && !list.contains("seed")
+                        && !list.contains("TEST full goal tail"),
+                    "{list}"
+                );
+                let rows: Vec<_> = list.lines().collect();
+                let at = rows
+                    .iter()
+                    .position(|line| line.contains("› TEST-run"))
+                    .unwrap();
+                assert!(
+                    rows[at + 1].trim().is_empty(),
+                    "quiet run gained a sub-line: {list}"
+                );
+            }
+            watch.detail = Some(("TEST-run".into(), Load::Done(Ok(d), Instant::now())));
+            let shown = screen(&mut watch, 80, 24);
+            let Load::Done(Ok(d), _) = &watch.detail.as_ref().unwrap().1 else {
+                panic!()
+            };
+            let raw = detail_text(
+                "TEST-run",
+                &Load::Done(Ok(d.clone()), Instant::now()),
+                Palette::new(true),
+            );
+            match &expected {
+                Goal::Matched(_) => {
+                    let raw: Vec<_> = raw
+                        .lines
+                        .iter()
+                        .map(|line| {
+                            line.spans
+                                .iter()
+                                .map(|span| span.content.as_ref())
+                                .collect::<String>()
+                        })
+                        .collect();
+                    assert!(
+                        raw.windows(2)
+                            .any(|lines| lines == [" TEST café  ", "TEST full goal tail  "])
+                    );
+                    assert!(shown.contains("TEST café") && shown.contains("TEST full goal tail"));
+                }
+                Goal::NoSeed => {
+                    assert_eq!(
+                        shown
+                            .matches("No confirmed seed was recorded for this run.")
+                            .count(),
+                        1
+                    );
+                    assert!(!shown.contains("Goal unknown"));
+                }
+                Goal::Unknown => {
+                    assert!(
+                        shown
+                            .contains("Goal unknown: the original seed changed or can't be found.")
+                    );
+                    assert!(!shown.contains("No confirmed seed"));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn quiet_rows_clip_to_one_line_and_selected_run_stays_visible() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        let mut runs = parse_list(&envelope(&run(
+            &format!("TEST-wide-{}", "界".repeat(100)),
+            "current",
+        )))
+        .unwrap();
+        runs[0].goal = Goal::Matched("TEST hidden quiet goal\nTEST hidden quiet tail".into());
+        let mut watch = listed(runs);
+        let shown = screen(&mut watch, width, height);
+        let rows: Vec<_> = shown.lines().collect();
+        let at = rows
+            .iter()
+            .position(|line| line.contains("TEST-wide-"))
+            .unwrap();
+        assert!(rows[at + 1].trim().is_empty(), "{shown}");
+        assert!(!shown.contains("hidden quiet"));
+        let runs = (0..60)
+            .map(|i| {
+                let mut run = parse_list(&envelope(&run(
+                    &format!("TEST-scroll-{i}"),
+                    if i % 2 == 0 { "blocked" } else { "current" },
+                )))
+                .unwrap()
+                .remove(0);
+                run.next = "TEST wrapped next step ".repeat(10);
+                run.goal = Goal::Matched(format!("TEST first line {i}\nTEST hidden tail {i}"));
+                run
+            })
+            .collect();
+        let mut watch = listed(runs);
+        for _ in 0..59 {
+            watch.key(KeyEvent::from(KeyCode::Down));
+        }
+        let shown = screen(&mut watch, width, height);
+        assert!(
+            shown.contains("› TEST-scroll-59") && shown.contains("esc back"),
+            "{shown}"
+        );
+        assert!(!shown.contains("TEST hidden tail"));
+        watch.key(KeyEvent::from(KeyCode::Up));
+        assert!(screen(&mut watch, width, height).contains("› TEST-scroll-57"));
     }
 }
 

@@ -18,10 +18,34 @@ pub struct ReadySeed {
     pub commands: Option<String>,
 }
 
+/// The existing seed location for a session; resolving and checking it creates nothing.
+pub(crate) fn path(session: &Path) -> std::path::PathBuf {
+    session.join("seed-contract.md")
+}
+
+/// Read the exact saved goal beside an original seed, never a placeholder or a run's copy.
+/// The caller must establish the seed's identity separately; this does not verify confirmation.
+pub(crate) fn goal(seed: &Path) -> Result<String, String> {
+    let ledger = seed
+        .parent()
+        .ok_or("The seed has no session folder.")?
+        .join("ledger.json");
+    let bytes = fs::read(&ledger).map_err(|e| e.to_string())?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    if value["schema_version"].as_u64() != Some(1) {
+        return Err("The saved goal format isn't supported.".into());
+    }
+    value["goal"]
+        .as_str()
+        .filter(|goal| !goal.trim().is_empty())
+        .map(str::to_owned)
+        .ok_or("The seed has no saved goal.".into())
+}
+
 /// Read a confirmed seed without mutation. `None` means not verified ready; errors mean unavailable.
 /// Blocks on bounded helper calls, so callers must use a worker, never an input or paint path.
 pub fn read(skill: &Path, session: &Path) -> Result<Option<ReadySeed>, String> {
-    let seed_path = session.join("seed-contract.md");
+    let seed_path = path(session);
     let seed = match fs::read_to_string(&seed_path) {
         Ok(seed) => seed,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
