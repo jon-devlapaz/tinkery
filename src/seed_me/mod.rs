@@ -1,4 +1,4 @@
-//! Seed Me: the one module that knows its files, its helper and its prompt.
+//! Seed Me: the one module that knows its files, its helper, its prompt and ledger rules.
 //!
 //! Think saves a confirmed goal through [`Config::confirm`]; tend reads sessions through
 //! [`read`] and copies [`continuation_prompt`]; shape reads where a seed stands through
@@ -6,6 +6,7 @@
 //! command or ledger field, so a change to Seed Me's format is a change to this module only.
 
 pub mod answering;
+pub mod ledger;
 pub mod ready;
 mod save;
 mod session;
