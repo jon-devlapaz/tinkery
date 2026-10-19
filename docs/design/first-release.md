@@ -7,7 +7,7 @@ operator hour**: the result meets the goal, passes checks and earns operator acc
 The [task index](first-release-issues.md)
 links the authoritative issues for scope, status, approval and completion evidence.
 On 2026-10-19 the operator dropped the Tinkery binding (#110, #111): [#258](https://github.com/jon-devlapaz/tinkery/issues/258)
-joins Approve and Watch through tink-sdlc's own seed record instead. Publication
+joins Approve and Watch through tink-sdlc's own seed record instead. R2's revised design is not accepted and no longer needed. Publication
 approves no build, private data use, provider budget or merge.
 
 ## Starting point
@@ -39,7 +39,7 @@ the manual handoff. Integrated launching, automatic approval or merge, multi-run
 dashboards and Think conveniences are excluded absent a demonstrated blocker.
 [Substrate absorption](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
 makes Tinkery the reader's owner, not a permanent client of an aggregation service.
-Run retention and lessons are separate drafts.
+Run retention and lessons are separate drafts, not R5 prerequisites.
 The [backlog](../research/shared/backlog.md) is not the release checklist.
 
 ## Milestones and dependencies
