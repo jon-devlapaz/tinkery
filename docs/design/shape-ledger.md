@@ -1,8 +1,8 @@
 # Shape owns the ledger
 
-**Design proposal; not accepted or implemented.** [#269](https://github.com/jon-devlapaz/tinkery/issues/269)
-authorized this document only. Accepting it, each slice, Seed Me changes and any
-provider budget are separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
+**Accepted design; not implemented.** The operator accepted it on 2026-10-19
+([#269](https://github.com/jon-devlapaz/tinkery/issues/269)). Each slice, Seed Me changes and any
+provider budget remain separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
 and tink-sdlc `1c6ffd5` on 2026-10-19.
 
 ## Why
@@ -102,7 +102,7 @@ The skill's closing steps move into Tinkery, computed where they can be:
 Today intake runs Seed Me's helper twice (`status`, `seed checks show`) and requires
 `handoff.verified` (tink-sdlc `assets/_system/scripts/sdlc.py:1479-1517`).
 
-**Recommendation:** Tinkery becomes the one verifier. A `tinkery seed status --json DIR`
+**Decision:** Tinkery becomes the one verifier. A `tinkery seed status --json DIR`
 and `tinkery seed checks DIR` print today's JSON shapes, and intake takes
 `--tinkery PATH` in place of `--seed-me-helper PATH`. The session folder's files keep
 their names (`seed-contract.md`, `ledger.json`, `seed-checks.json`,
@@ -127,8 +127,10 @@ the session root stays where it is. Proposed slices, each one PR and its own app
 6. **Prerequisites** from question replies.
 7. **Confirmation summary, completion review and teach-back** (section 3).
 8. **Retire Seed Me:** remove `--seed-me`, the `.ci-seed-me` fixture, the continuation
-   prompt that names the skill (`src/seed_me/mod.rs:56`) and the pin in tink-sdlc. This
-   touches the operator's launcher, so it waits for the operator's explicit "merge".
+   prompt that names the skill (`src/seed_me/mod.rs:56`) and the pin in tink-sdlc, and move
+   sessions to `~/.local/share/tinkery/sessions` once, with no reader for the old root.
+   Runs whose seed path was under the old root then show as unknown in Watch. This
+   touches the operator's installs and launcher, so it waits for the operator's explicit "merge".
 
 ## Design score and limits
 
@@ -140,13 +142,16 @@ the session root stays where it is. Proposed slices, each one PR and its own app
   Shape and Approve use it as they use `seed_me/` today.
 - No limit in `tests/architecture.rs` changes in this document.
 
-## Open decisions for the operator
+## Decisions
 
-Settled: port to Rust (operator, 2026-10-19).
+The operator settled these on 2026-10-19:
 
-1. Teach-back as an optional key (recommended), required, or dropped.
-2. Whether the session root moves from `~/.local/share/seed-me/sessions` once Seed Me is retired.
-3. When the Seed Me repository is archived.
+1. Port the helper's rules to Rust.
+2. Teach-back is an optional key: the confirmation summary already covers what code can see.
+3. Sessions move to `~/.local/share/tinkery/sessions` in slice 8, one owner for Tinkery's data;
+   no backward-compatibility reader.
+4. Archive the Seed Me repository after one real happy-path run (Shape confirms, Approve
+   starts, Watch shows the goal) passes with Seed Me's helper not installed.
 
 Code-level parity doesn't show that Shape asks the right questions; that needs a budgeted
 evaluation such as [#179](https://github.com/jon-devlapaz/tinkery/issues/179).
