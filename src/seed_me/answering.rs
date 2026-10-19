@@ -96,11 +96,15 @@ impl Ask {
 
     /// The question as Seed Me records it: the ask, then each option and the case against.
     fn text(&self) -> String {
+        // The model may end its own words with punctuation; the line supplies its own.
+        let bare = |s: &str| s.trim_end_matches(['.', ';', ',', ' ']).to_owned();
         let mut text = self.question.clone();
         for (label, o) in OPTION_LABELS.iter().zip(&self.options) {
             text.push_str(&format!(
                 "\n{label}{}; {}. Undo cost: {}.",
-                o.choice, o.tradeoff, o.undo
+                bare(&o.choice),
+                bare(&o.tradeoff),
+                o.undo
             ));
         }
         if let Some(against) = self.against.as_deref().filter(|_| !self.options.is_empty()) {
@@ -1007,6 +1011,36 @@ fn now() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn option_lines_keep_single_punctuation_whatever_the_model_ends_with() {
+        let option = |choice: &str, tradeoff: &str| Alternative {
+            choice: choice.into(),
+            tradeoff: tradeoff.into(),
+            undo: "cheap".into(),
+        };
+        let ask = Ask {
+            id: "view".into(),
+            label: "TEST view".into(),
+            question: "TEST Where do ended goals go?".into(),
+            gate: "TEST view".into(),
+            found: vec![],
+            suggestion: None,
+            assumed: vec![],
+            options: vec![
+                option("A separate view.", "TEST keeps the garden calm."),
+                option("Mixed in;", "TEST one list, "),
+            ],
+            against: None,
+            confidence: None,
+        };
+        assert_eq!(
+            ask.text(),
+            "TEST Where do ended goals go?\n\
+             Option A: A separate view; TEST keeps the garden calm. Undo cost: cheap.\n\
+             Option B: Mixed in; TEST one list. Undo cost: cheap."
+        );
+    }
 
     #[test]
     fn ids_are_ledger_safe_and_never_reuse_an_existing_one() {
