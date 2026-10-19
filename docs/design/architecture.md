@@ -67,7 +67,7 @@ or improved outcomes.
 | `tend/graph.rs` | Graf adapter: path-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
-| `seed_me/` | All Seed Me formats and helper calls: goal saving, session files, stages and continuation; `ledger.rs` owns read-only ledger rules; `shaping.rs` reads seed status; `answering.rs` saves answers, questions, findings, drafts and confirmation (shared). |
+| `seed_me/` | All Seed Me formats and helper calls: goal saving, session files, stages and continuation; Shape's ledger writes are Tinkery's own, under `ledger.rs`; `shaping.rs` reads seed status; `answering.rs` saves answers, questions, findings, drafts and confirmation (shared). |
 | `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
 | `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words and next step. Reads and steps stay off the paint path. |

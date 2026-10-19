@@ -9,13 +9,12 @@
 //! and each finding appears once. The model never writes that section. A finding that looks like a
 //! secret is refused, as Seed Me refuses one in a receipt.
 //!
-//! Every change goes through Seed Me's helper (`read --editable`, `publish` with the version the
-//! caller last showed, `seed decisions`, `seed checks set|render`, `seed confirm` and `end`); the one file written directly is the
-//! seed draft, which the helper leaves to its host. A stale version is refused by the helper and
-//! reported as [`Refusal::Stale`]; nothing here retries, merges or overwrites. The confirmed goal is
-//! never changed. Calls block; run them off the paint path.
+//! Shape's ledger writes are Tinkery's own. A stale displayed version is refused as
+//! [`Refusal::Stale`]; nothing here retries, merges or overwrites. Seed decisions, checks,
+//! confirmation and ending still belong to the helper; the seed draft belongs to its host.
+//! The confirmed goal never changes. Calls block; run them off the paint path.
 
-use super::save::output;
+use super::{ledger, save::output};
 use serde_json::{Value, json};
 use std::{
     ffi::OsStr,
@@ -29,8 +28,8 @@ const SEED: &str = "seed-contract.md";
 /// only the helper's verified confirmation permits handoff.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refusal {
-    /// Another writer changed the session after the caller read it; the helper refused the
-    /// stale version and nothing was written.
+    /// Another writer changed the session after the caller read it; the stale version
+    /// was refused and nothing was written.
     Stale,
     /// The helper, or a check here, refused; the reason in plain words.
     Refused(String),
@@ -144,7 +143,7 @@ pub struct Found {
     pub observed: String,
 }
 
-/// One session's editable state as the helper printed it, at one version.
+/// One session's editable state, at one version.
 #[derive(Debug, Clone)]
 pub struct Ledger {
     version: u64,
@@ -400,70 +399,110 @@ pub fn contract(skill: &Path) -> Result<String, Refusal> {
 
 /// One helper call's stdout, with a stale-version refusal told apart from the rest.
 fn call(helper: &Path, args: &[&OsStr]) -> Result<String, Refusal> {
-    output(helper, args).map_err(|error| {
-        let reason = error
-            .strip_prefix("Seed Me helper refused: ")
-            .unwrap_or(&error)
-            .lines()
-            .next()
-            .unwrap_or("")
-            .to_owned();
-        if reason.contains("stale publication version") {
-            Refusal::Stale
-        } else {
-            Refusal::Refused(format!("Seed Me refused: {reason}"))
-        }
-    })
+    output(helper, args).map_err(refusal)
+}
+
+fn refusal(error: String) -> Refusal {
+    let reason = error
+        .strip_prefix("Seed Me helper refused: ")
+        .unwrap_or(&error)
+        .lines()
+        .next()
+        .unwrap_or("");
+    if reason.contains("stale publication version") {
+        Refusal::Stale
+    } else {
+        Refusal::Refused(format!("Seed Me refused: {reason}"))
+    }
 }
 
 fn json(text: &str) -> Result<Value, Refusal> {
     serde_json::from_str(text).map_err(|e| Refusal::Refused(format!("Invalid helper JSON: {e}")))
 }
 
-/// Read `session`'s editable state through `read --editable`. Reads only.
+/// Read `session`'s editable ledger at one version, without writing or calling the helper.
 pub fn read(skill: &Path, session: &Path) -> Result<Ledger, Refusal> {
-    let helper = helper(skill)?;
-    let read = json(&call(
-        &helper,
-        &["read".as_ref(), session.as_os_str(), "--editable".as_ref()],
-    )?)?;
-    let version = read["expected_version"]
-        .as_u64()
-        .ok_or_else(|| Refusal::Refused("The helper gave no version.".into()))?;
+    helper(skill)?;
+    let saved = ledger::load(session).map_err(refusal)?;
+    let state = ledger::editable(&saved).map_err(refusal)?;
+    let version = saved["version"]
+        .pretty()
+        .map_err(refusal)?
+        .trim()
+        .parse()
+        .map_err(|_| Refusal::Refused("The helper gave no version.".into()))?;
     Ok(Ledger {
         version,
-        state: read["state"].clone(),
+        state: json(&state.pretty().map_err(refusal)?)?,
     })
 }
 
 /// Publish `state` as the change from `expected`; returns the new version.
-fn publish(
-    helper: &Path,
+fn publish(session: &Path, expected: u64, reason: &str, state: &Value) -> Result<u64, Refusal> {
+    publish_at(
+        session,
+        expected,
+        reason,
+        state,
+        &publication_time(SystemTime::now())?,
+    )
+}
+
+fn publish_at(
     session: &Path,
     expected: u64,
     reason: &str,
     state: &Value,
+    at: &str,
 ) -> Result<u64, Refusal> {
-    let payload = json!({"expected_version": expected, "reason": reason, "state": state});
-    let mut input = tempfile::NamedTempFile::new().map_err(|e| Refusal::Refused(e.to_string()))?;
-    serde_json::to_writer(input.as_file_mut(), &payload)
-        .map_err(|e| Refusal::Refused(e.to_string()))?;
-    let published = json(&call(
-        helper,
-        &[
-            "publish".as_ref(),
-            session.as_os_str(),
-            input.path().as_os_str(),
-        ],
-    )?)?;
+    // Shape edits sorted serde_json maps, just as the former helper input did.
+    let state =
+        ledger::Value::parse(&serde_json::to_string(state).map_err(|e| refusal(e.to_string()))?)
+            .map_err(refusal)?;
+    let published = ledger::publish(
+        session,
+        &state,
+        &ledger::Value::Int(expected.to_string()),
+        &reason.into(),
+        None,
+        at,
+    )
+    .map_err(|e| refusal(e.reason))?;
     published["version"]
-        .as_u64()
-        .ok_or_else(|| Refusal::Refused("The helper gave no new version.".into()))
+        .pretty()
+        .map_err(refusal)?
+        .trim()
+        .parse()
+        .map_err(|_| Refusal::Refused("The helper gave no new version.".into()))
 }
+
+fn publication_time(time: SystemTime) -> Result<String, Refusal> {
+    let elapsed = time
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| refusal(e.to_string()))?;
+    let secs = elapsed.as_secs();
+    let rest = secs % 86_400;
+    let micros = elapsed.subsec_micros();
+    let fraction = if micros == 0 {
+        String::new()
+    } else {
+        format!(".{micros:06}")
+    };
+    Ok(format!(
+        "{}T{:02}:{:02}:{:02}{fraction}+00:00",
+        civil(secs as i64),
+        rest / 3600,
+        rest % 3600 / 60,
+        rest % 60
+    ))
+}
+
+#[cfg(test)]
+mod publication_tests;
 
 /// Settle the open question `id` with the operator's `words`, exactly as typed, from the version
 /// the operator saw (`expected`). Clears the current question. Returns the new version.
-/// Refuses a question that isn't open; the helper refuses a stale version.
+/// Refuses a question that isn't open or a stale version.
 pub fn answer(
     skill: &Path,
     session: &Path,
@@ -471,7 +510,6 @@ pub fn answer(
     id: &str,
     words: &str,
 ) -> Result<u64, Refusal> {
-    let helper = helper(skill)?;
     let mut ledger = read(skill, session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
@@ -484,7 +522,6 @@ pub fn answer(
     node["authority_source"] = "the operator's own answer, typed in Tinkery Shape".into();
     ledger.state["current_question"] = Value::Null;
     publish(
-        &helper,
         session,
         expected,
         &format!("The operator answered {id} in Tinkery Shape."),
@@ -501,7 +538,6 @@ pub fn ask(
     ask: &Ask,
     folder: &Path,
 ) -> Result<u64, Refusal> {
-    let helper = helper(skill)?;
     let mut ledger = read(skill, session)?;
     let taken: Vec<String> = nodes(&ledger.state)
         .iter()
@@ -544,7 +580,6 @@ pub fn ask(
         ledger.state["assumed"] = Value::Array(assumed);
     }
     publish(
-        &helper,
         session,
         expected,
         &format!("Tinkery Shape's agent step drafted the next question, {id}."),
@@ -561,7 +596,6 @@ pub fn recommend(
     id: &str,
     recommendation: &str,
 ) -> Result<u64, Refusal> {
-    let helper = helper(skill)?;
     let mut ledger = read(skill, session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
@@ -570,7 +604,6 @@ pub fn recommend(
         .ok_or_else(|| Refusal::Refused(format!("The question {id} is no longer open.")))?;
     node["recommendation"] = recommendation.into();
     publish(
-        &helper,
         session,
         expected,
         &format!("The operator asked to see the suggestion for {id} in Tinkery Shape."),
@@ -582,7 +615,6 @@ pub fn recommend(
 /// and becomes an open decision, which blocks drafting until it's answered. Returns the new version.
 /// Refuses an assumption that isn't recorded.
 pub fn object(skill: &Path, session: &Path, expected: u64, text: &str) -> Result<u64, Refusal> {
-    let helper = helper(skill)?;
     let mut ledger = read(skill, session)?;
     let mut assumed = ledger.state["assumed"]
         .as_array()
@@ -611,7 +643,6 @@ pub fn object(skill: &Path, session: &Path, expected: u64, text: &str) -> Result
         .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?
         .push(node);
     publish(
-        &helper,
         session,
         expected,
         &format!("The operator objected to an assumption in Tinkery Shape; it is now {id}."),
@@ -659,7 +690,6 @@ pub fn probe(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64>,
         .push(node);
     ledger.state["current_question"] = id.into();
     publish(
-        &helper(skill)?,
         session,
         expected,
         "Tinkery Shape puts Seed Me's pre-mortem probe to the operator.",
@@ -697,7 +727,6 @@ pub fn promote(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64
     let mut state = ledger.state;
     state["current_question"] = id.clone().into();
     publish(
-        &helper(skill)?,
         session,
         expected,
         &format!("Tinkery Shape asks the open decision {id} before any new one."),

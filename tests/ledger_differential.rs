@@ -182,8 +182,18 @@ fn pinned_python_ledger_rules_match() {
                     differences.push(fail("editable fields differ".into()));
                 }
                 if answer.get("serialization_refuses").is_some() {
-                    if result.pretty().is_ok() {
-                        differences.push(fail("non-finite serialization accepted".into()));
+                    match result.pretty() {
+                        Ok(_) => differences.push(fail("invalid serialization accepted".into())),
+                        Err(message)
+                            if Some(message.as_str())
+                                != answer["serialization_message"].string() =>
+                        {
+                            differences.push(fail(format!(
+                                "serialization refusal {message:?}, Python {:?}",
+                                answer["serialization_message"]
+                            )));
+                        }
+                        Err(_) => {}
                     }
                 } else {
                     let bytes = result.pretty().unwrap();

@@ -227,7 +227,16 @@ impl Value {
             }
             Self::Float(v) => {
                 if !v.is_finite() {
-                    return Err("Out of range float values are not JSON compliant".into());
+                    let repr = if v.is_nan() {
+                        "nan"
+                    } else if v.is_sign_negative() {
+                        "-inf"
+                    } else {
+                        "inf"
+                    };
+                    return Err(format!(
+                        "Out of range float values are not JSON compliant: {repr}"
+                    ));
                 }
                 out.push_str(&float_repr(*v));
             }

@@ -129,8 +129,9 @@ def main():
                         answer["bytes"].encode("utf-8")
                     except UnicodeEncodeError:
                         raise
-                    except ValueError:
+                    except ValueError as error:
                         answer["serialization_refuses"] = True
+                        answer["serialization_message"] = str(error)
             except ValueError as error:
                 name = case["name"]
                 if name in DIVERGENCES:

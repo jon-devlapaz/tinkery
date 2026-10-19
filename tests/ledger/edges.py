@@ -251,6 +251,11 @@ def cases(session, stamp):
     add("unpaired-surrogate", "load", raw=raw.replace('"TEST owner"', '"\\ud800"'))
     for number in [float("nan"), float("inf"), -float("inf")]:
         load_bad(f"nonfinite-unchecked-{number}", lambda l, n=number: l["nodes"][0].update(label=n))
+    # Serialization must name the first non-finite value in insertion/array order, not sorted keys.
+    for first, later in [(float("nan"), float("inf")), (float("inf"), -float("inf")),
+                         (-float("inf"), float("nan"))]:
+        load_bad(f"nonfinite-traversal-{first}", lambda l, a=first, b=later:
+                 l["nodes"][0].update(label={"z": ["TEST finite", {"nested": a}], "a": b}))
     # These are upstream crashes, not ordinary ValueError refusals; Rust must refuse.
     for name, value in [("null", None), ("number", 7), ("true", True), ("false", False)]:
         load_bad("python-crash-nodes-" + name, lambda l, v=value: l.update(nodes=v))
