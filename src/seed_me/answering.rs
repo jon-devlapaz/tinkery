@@ -416,6 +416,26 @@ fn refusal(error: String) -> Refusal {
     }
 }
 
+/// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
+/// unknown save is no refusal: it asks the operator to look before trying again.
+fn not_saved(reason: String) -> Refusal {
+    published(ledger::PublishError::from(reason))
+}
+
+fn published(error: ledger::PublishError) -> Refusal {
+    let reason = error.reason.lines().next().unwrap_or("");
+    match error.save_state {
+        _ if reason.contains("stale publication version") => Refusal::Stale,
+        ledger::SaveState::NotSaved => Refusal::Refused(format!("Tinkery refused: {reason}")),
+        ledger::SaveState::Unknown => Refusal::Refused(format!(
+            "This may or may not have saved ({}). Reopen this session to see what it holds before trying again.",
+            reason
+                .strip_prefix("could not save the ledger: ")
+                .unwrap_or(reason)
+        )),
+    }
+}
+
 fn json(text: &str) -> Result<Value, Refusal> {
     serde_json::from_str(text).map_err(|e| Refusal::Refused(format!("Invalid helper JSON: {e}")))
 }
@@ -423,17 +443,19 @@ fn json(text: &str) -> Result<Value, Refusal> {
 /// Read `session`'s editable ledger at one version, without writing or calling the helper.
 pub fn read(skill: &Path, session: &Path) -> Result<Ledger, Refusal> {
     helper(skill)?;
-    let saved = ledger::load(session).map_err(refusal)?;
-    let state = ledger::editable(&saved).map_err(refusal)?;
+    let unreadable =
+        |reason: String| Refusal::Refused(format!("Cannot read this session: {reason}"));
+    let saved = ledger::load(session).map_err(unreadable)?;
+    let state = ledger::editable(&saved).map_err(unreadable)?;
     let version = saved["version"]
         .pretty()
-        .map_err(refusal)?
+        .map_err(unreadable)?
         .trim()
         .parse()
-        .map_err(|_| Refusal::Refused("The helper gave no version.".into()))?;
+        .map_err(|_| unreadable("the ledger has no usable version".into()))?;
     Ok(Ledger {
         version,
-        state: json(&state.pretty().map_err(refusal)?)?,
+        state: json(&state.pretty().map_err(unreadable)?)?,
     })
 }
 
@@ -457,9 +479,9 @@ fn publish_at(
 ) -> Result<u64, Refusal> {
     // Shape edits sorted serde_json maps, just as the former helper input did.
     let state =
-        ledger::Value::parse(&serde_json::to_string(state).map_err(|e| refusal(e.to_string()))?)
-            .map_err(refusal)?;
-    let published = ledger::publish(
+        ledger::Value::parse(&serde_json::to_string(state).map_err(|e| not_saved(e.to_string()))?)
+            .map_err(not_saved)?;
+    let saved = ledger::publish(
         session,
         &state,
         &ledger::Value::Int(expected.to_string()),
@@ -467,13 +489,20 @@ fn publish_at(
         None,
         at,
     )
-    .map_err(|e| refusal(e.reason))?;
-    published["version"]
+    .map_err(published)?;
+    // The ledger is saved by now, so an unusable version must not read as "not saved".
+    let unknown = |reason: String| {
+        published(ledger::PublishError {
+            reason,
+            save_state: ledger::SaveState::Unknown,
+        })
+    };
+    saved["version"]
         .pretty()
-        .map_err(refusal)?
+        .map_err(unknown)?
         .trim()
         .parse()
-        .map_err(|_| Refusal::Refused("The helper gave no new version.".into()))
+        .map_err(|_| unknown("the saved ledger has no usable version".into()))
 }
 
 fn publication_time(time: SystemTime) -> Result<String, Refusal> {
