@@ -6,6 +6,7 @@
 //! command or ledger field, so a change to Seed Me's format is a change to this module only.
 
 pub mod answering;
+pub mod ready;
 mod save;
 mod session;
 pub mod shaping;
