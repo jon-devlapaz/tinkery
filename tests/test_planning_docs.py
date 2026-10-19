@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RELEASE = {
     "## Starting point": "019bbfbc2b2ccc0399342bd55d5b13fe3c71b7f58b1604866dff20b20f7f0cd3",
     "## Finish line": "94c980fbbf4410cdbaf3c70ea882bcb6dc9b6fa8d244e376f269c11c8eb53384",
-    "## Milestones and dependencies": "de8be8aa36be61559a00c5bdb6b92383530fef2b3b78c94981e972cfaf4366f5",
+    "## Milestones and dependencies": "1d6ced51eb2ed74ee117ce2dc05926e964ad4036801361d7d64fb39229485703",
     "## How to measure the benefit": "02169dfc426f72fb0e25b3a29209ddf5507a5db78f81ba2e532611fec7e19a54"
 }
 PROPOSALS = {
