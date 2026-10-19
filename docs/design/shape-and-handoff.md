@@ -482,6 +482,20 @@ which Tend's readiness needs. It needs only `--seed-me`, never a model or budget
   only the verified handoff. Tend doesn't list ended sessions, so this stays reachable only from
   the open view.
 
+### Not adopted from Seed Me
+
+[#235](https://github.com/jon-devlapaz/tinkery/issues/235) compared Shape with Seed Me's interview.
+Delegation (#239), deferral (#240) and the observation/inference rule (#241) are proposed
+separately. These stay out until their revisit condition holds:
+
+| Seed Me feature | Why Shape leaves it out | Revisit when |
+| --- | --- | --- |
+| Conditional answers | Shape records "only if X" as a settled answer, not a condition to investigate; supporting it needs predicate tracking and a re-ask loop. | Dogfood shows conditional answers. |
+| Review flags (`supported_by`, `contradicts`) | Shape writes no fact nodes or `supported_by`, so its own writes raise no flags; Seed Me refuses completion while flags from other writers stand, and Shape shows why. | Shape starts writing facts. |
+| Lean path | Lean is one Markdown file co-edited by hand; Shape's writes go through the helper and Think already shapes the goal. | Full seeds prove too heavy for small goals. |
+| Agent mode | It tests the skill; Tinkery's stubs cover that, and a simulated seed never hands off. Agent work uses `--operator agent`. | A simulated run is needed in Tinkery. |
+| Frontier progress | Each step records one question, so a count would nearly always read 1 of 1. | Shape queues questions. |
+
 ### Grounding in the repository
 
 - Before F2 is offered, the session read finds the folder: recorded Think repo,
