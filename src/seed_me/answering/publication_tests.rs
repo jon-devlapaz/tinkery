@@ -57,7 +57,10 @@ fn pinned_python_publications_match_through_shape_boundary() {
             let skill = PathBuf::from(std::env::var_os("SEED_ME_TEST_SKILL").unwrap());
             assert_eq!(
                 read(&skill, &rust).unwrap_err(),
-                refusal(message.string().unwrap().into()),
+                Refusal::Refused(format!(
+                    "Cannot read this session: {}",
+                    message.string().unwrap()
+                )),
                 "{name}"
             );
         }
@@ -88,7 +91,7 @@ fn pinned_python_publications_match_through_shape_boundary() {
                 STAMP,
             )
             .map(|v| v["version"].pretty().unwrap().trim().parse().unwrap())
-            .map_err(|e| refusal(e.reason))
+            .map_err(published)
         };
         match answer["verdict"].string().unwrap() {
             "accept" => assert_eq!(
@@ -103,7 +106,7 @@ fn pinned_python_publications_match_through_shape_boundary() {
             ),
             "refuse" => assert_eq!(
                 result.unwrap_err(),
-                refusal(answer["message"].string().unwrap().into()),
+                not_saved(answer["message"].string().unwrap().into()),
                 "{name}"
             ),
             _ => panic!("unknown verdict"),
@@ -282,8 +285,29 @@ fn completion_through_publish_is_refused() {
         serde_json::from_str(&ledger::editable(&ledger).unwrap().pretty().unwrap()).unwrap();
     state["status"] = "completed".into();
     assert_eq!(publish_at(&session, 1, "TEST complete", &state, STAMP), Err(Refusal::Refused(
-        "Seed Me refused: publish cannot complete a session: use `end --status completed`, which checks the confirmed seed".into())));
+        "Tinkery refused: publish cannot complete a session: use `end --status completed`, which checks the confirmed seed".into())));
     assert_eq!(ledger::load(&session).unwrap(), ledger);
+}
+
+#[test]
+fn an_unknown_save_asks_the_operator_to_look() {
+    let error = |save_state| ledger::PublishError {
+        reason: "could not save the ledger: TEST disk".into(),
+        save_state,
+    };
+    assert_eq!(
+        published(error(ledger::SaveState::NotSaved)),
+        Refusal::Refused("Tinkery refused: could not save the ledger: TEST disk".into())
+    );
+    let Refusal::Refused(unknown) = published(error(ledger::SaveState::Unknown)) else {
+        panic!("an unknown save must be a refusal with words");
+    };
+    assert!(
+        unknown.starts_with("This may or may not have saved (TEST disk)."),
+        "{unknown}"
+    );
+    assert!(unknown.contains("Reopen this session"), "{unknown}");
+    assert!(!unknown.contains("refused"), "{unknown}");
 }
 
 #[test]

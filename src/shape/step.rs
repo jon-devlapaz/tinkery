@@ -173,7 +173,7 @@ pub(super) enum Why {
     Budget(usize),
     /// The model call failed or its reply couldn't be used.
     Model(String),
-    /// Seed Me refused.
+    /// Tinkery or Seed Me refused; the reason says which and whether anything saved.
     Refused(String),
     /// The operator stopped it.
     Stopped,

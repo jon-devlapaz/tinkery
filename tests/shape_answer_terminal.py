@@ -615,7 +615,7 @@ def case(name, width=100, height=30):
                 expected = {
                     'zero budget': "No model calls are left: this run's budget is 0.",
                     'model failure': 'Your answer is saved. Looking into the next question failed: Pi exited',
-                    'helper refusal': 'Your answer is saved. Seed Me refused: receipt appears to contain a secret',
+                    'helper refusal': 'Your answer is saved. Tinkery refused: receipt appears to contain a secret',
                     'model tries to confirm': "Looking into the next question failed: The model's reply wasn't a question or a seed draft.",
                     'model writes decisions': "The drafted seed text didn't fit Seed Me's format, so nothing was saved.",
                     'seed secret': 'A finding appears to contain a secret, so no seed was drafted',
