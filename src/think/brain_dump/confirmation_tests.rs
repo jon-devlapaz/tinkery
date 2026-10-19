@@ -232,6 +232,12 @@ fn delegated_goal_save_is_held_before_the_user_only_seed_me_path() {
     assert!(!layout::help_text(&a).contains("typing confirm saves"));
     assert!(layout::how_text(&a).contains("Seed Me integration"));
     a.screen.help_all = false;
+    // The held review takes no words, typed or pasted: confirm couldn't save.
+    for c in "confirm".chars() {
+        a.goal_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
+    a.goal_paste("confirm");
+    assert_eq!(a.handoff.review.as_ref().unwrap().input, "");
     let review = a.handoff.review.as_mut().unwrap();
     review.scroll = review.max;
     review.input = "confirm".into();

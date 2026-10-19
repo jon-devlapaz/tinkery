@@ -82,6 +82,8 @@ pub struct Home {
     measure: measure::Reader,
     repo: Option<crate::repo::Repo>,
     shape_agent: Option<Arc<crate::shape::Agent>>,
+    /// An agent launch declaration: Shape only reads.
+    shape_held: bool,
 }
 
 enum View {
@@ -126,12 +128,19 @@ impl Home {
             measure: measure::Reader::default(),
             repo: None,
             shape_agent: None,
+            shape_held: false,
         }
     }
 
     /// The model Shape answers and drafts through; without one, Shape only reads. Starts nothing.
     pub fn with_shape_agent(mut self, agent: Option<Arc<crate::shape::Agent>>) -> Self {
         self.shape_agent = agent;
+        self
+    }
+
+    /// Under an agent launch declaration Shape only reads; see [`Shape::held`].
+    pub fn with_shape_held(mut self, held: bool) -> Self {
+        self.shape_held = held;
         self
     }
 
@@ -423,7 +432,11 @@ impl Home {
             2 => {
                 self.request_sessions();
                 View::Shape(
-                    Box::new(Shape::list().with_agent(self.shape_agent.clone())),
+                    Box::new(
+                        Shape::list()
+                            .with_agent(self.shape_agent.clone())
+                            .held(self.shape_held),
+                    ),
                     None,
                 )
             }
@@ -623,7 +636,8 @@ impl Home {
                 {
                     let shape =
                         Shape::session(self.seed_me.as_deref(), &tend.current().unwrap().path)
-                            .with_agent(self.shape_agent.clone());
+                            .with_agent(self.shape_agent.clone())
+                            .held(self.shape_held);
                     let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) else {
                         unreachable!()
                     };
@@ -635,8 +649,12 @@ impl Home {
                 KeyCode::Up | KeyCode::Char('k') if tend.detail => {
                     tend.scroll = tend.scroll.saturating_sub(1)
                 }
-                KeyCode::PageDown if tend.detail => tend.scroll = tend.scroll.saturating_add(5),
-                KeyCode::PageUp if tend.detail => tend.scroll = tend.scroll.saturating_sub(5),
+                KeyCode::PageDown if tend.detail => {
+                    tend.scroll = tend.scroll.saturating_add(crate::page(tend.page))
+                }
+                KeyCode::PageUp if tend.detail => {
+                    tend.scroll = tend.scroll.saturating_sub(crate::page(tend.page))
+                }
                 KeyCode::Right | KeyCode::Down | KeyCode::Char('j') if tend.garden_showing() => {
                     tend.step_selection(true)
                 }
@@ -853,7 +871,8 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             frame.render_widget(p.scroll((tend.help_scroll, 0)), body);
             return;
         }
-        let help = "Right now\n1–7 or ↑↓ Enter opens a place · ? help · q quits\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        // Shown away from the menu (Measure's report, unbuilt places), where q goes back.
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove, watch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)

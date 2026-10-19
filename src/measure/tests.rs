@@ -532,12 +532,21 @@ fn prepared_success_clipping_matches_paragraph_including_invisible_runs_and_larg
                         .unwrap();
                     expected
                         .draw(|f| {
+                            let area = f.area();
                             f.render_widget(
                                 Paragraph::new(body.as_str())
                                     .style(Palette::new(no_color).ink)
                                     .scroll((offset as u16, 0)),
-                                f.area(),
-                            )
+                                Rect {
+                                    height: area.height - 2,
+                                    ..area
+                                },
+                            );
+                            f.render_widget(
+                                Paragraph::new("esc back   ? help")
+                                    .style(Palette::new(no_color).muted),
+                                Rect::new(0, area.height - 1, area.width, 1),
+                            );
                         })
                         .unwrap();
                     assert_eq!(actual.backend().buffer(), expected.backend().buffer());

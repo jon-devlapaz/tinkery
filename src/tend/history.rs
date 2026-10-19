@@ -177,8 +177,12 @@ impl View {
         page.offset = match key {
             KeyCode::Down | KeyCode::Char('j') => page.offset.saturating_add(1),
             KeyCode::Up | KeyCode::Char('k') => page.offset.saturating_sub(1),
-            KeyCode::PageDown => page.offset.saturating_add(5),
-            KeyCode::PageUp => page.offset.saturating_sub(5),
+            KeyCode::PageDown => page
+                .offset
+                .saturating_add(usize::from(crate::page(page.height))),
+            KeyCode::PageUp => page
+                .offset
+                .saturating_sub(usize::from(crate::page(page.height))),
             KeyCode::Home => 0,
             KeyCode::End => usize::MAX,
             _ => page.offset,
@@ -265,6 +269,8 @@ struct Page {
     source: Vec<(String, bool)>,
     rows: Vec<(String, bool)>,
     width: u16,
+    /// Rows on screen at the last draw, for PgUp/PgDn.
+    height: u16,
     offset: usize,
 }
 
@@ -281,6 +287,7 @@ impl Page {
                 .collect(),
             rows: vec![],
             width: 0,
+            height: 1,
             offset: 0,
         }
     }
@@ -313,6 +320,7 @@ impl Page {
         if self.width != area.width {
             self.layout(area.width);
         }
+        self.height = area.height;
         self.offset = self
             .offset
             .min(self.rows.len().saturating_sub(usize::from(area.height)));

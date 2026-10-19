@@ -197,7 +197,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         let mut menu = Home::new(make_dump, sessions_root, substrate_dir, link_root.clone())
             .with_repo(repo)
-            .with_shape_agent(shape_agent);
+            .with_shape_agent(shape_agent)
+            .with_shape_held(operator.as_deref() == Some("agent"));
         if let Ok(root) = &record_root {
             menu = menu.with_record_root(root.clone());
         }

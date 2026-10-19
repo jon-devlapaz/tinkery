@@ -103,6 +103,10 @@ def shape(root, env):
         send(b'\x1bOQ', 'Seed draft r1')
         wait('F3 confirm seed r1')
         send(CONFIRMATION.encode(), CONFIRMATION)
+        # F3 confirms only a draft read to the end (#250).
+        send(b'\x1bOR', 'Read to the end first: PgDn scrolls. Nothing was confirmed.')
+        os.write(master, b'\x1b[6~' * 40)
+        wait('Next: type your own words, then F3 confirms r1.')
         send(b'\x1bOR', 'Seed ready: you confirmed r1, and it still matches.')
         assert helper.status(session)['handoff']['verified'] is True
         assert json.loads((session / 'seed-confirmation.json').read_text())['source'] == CONFIRMATION

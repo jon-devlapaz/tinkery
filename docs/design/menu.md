@@ -43,7 +43,8 @@ Digits or arrows followed by Enter open a place; home `q` quits.
 
 A deliberate open requests one owned ledger read. Launch, collection, diagnosis
 and text preparation run off input and render paths. Accepted success preserves
-report text, scrolling and help. There is no polling, log, agent or automatic retry.
+report text, scrolling and help, above `esc back   ? help`; that help says
+`q goes back to the menu`. There is no polling, log, agent or automatic retry.
 
 `Reading ledger…` and `esc back   ? help` keep navigation available; work and
 attention stay unknown. Help and resizing never restart or cancel reads. Leaving

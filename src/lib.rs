@@ -26,6 +26,12 @@ pub const MIN_WIDTH: u16 = 80;
 /// The shortest terminal any screen draws for; see [`MIN_WIDTH`].
 pub const MIN_HEIGHT: u16 = 24;
 
+/// How far PgUp/PgDn move a view `height` rows tall: a page less one row, so the last line read
+/// stays in sight. Never less than one row.
+pub fn page(height: u16) -> u16 {
+    height.saturating_sub(1).max(1)
+}
+
 /// The four styles every screen draws with, one job each: ink for words, jade for the one thing to
 /// act on, muted for what can wait, rust for consequences. With no colour each keeps its meaning
 /// through weight, dimming or underline, so no cue depends on colour alone.

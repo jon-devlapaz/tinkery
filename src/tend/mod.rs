@@ -58,6 +58,8 @@ pub(super) struct Tend {
     pub selected: usize,
     pub detail: bool,
     pub scroll: u16,
+    /// Rows of goal on screen at the last detail draw, for PgUp/PgDn.
+    pub page: u16,
     pub how: bool,
     pub help_scroll: u16,
     pub notice: String,
@@ -93,6 +95,7 @@ impl Tend {
             selected: 0,
             detail: false,
             scroll: 0,
+            page: 1,
             how: false,
             help_scroll: 0,
             notice: String::new(),
@@ -517,7 +520,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     }
     if tend.detail {
         let session = &tend.sessions[tend.selected];
-        render_saved_goal(
+        tend.page = render_saved_goal(
             frame,
             &mut tend.scroll,
             area,
