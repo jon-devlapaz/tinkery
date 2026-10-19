@@ -6,7 +6,7 @@ description: Use when filing, picking, starting, finishing or reporting on Tinke
 # Tinkery issues board
 
 Board: https://github.com/users/jon-devlapaz/projects/1 (`jon-devlapaz`, `1`), holding
-open issues from tinkery, tink-sdlc, seed-me, tink-route, tink, tink-substrate and tink-skills.
+open issues from tinkery, tink-sdlc, seed-me, tink-route, tink and tink-skills.
 
 Fields:
 - **Lane:** Now, Needs your call, Next, Blocked, Later, Close?
