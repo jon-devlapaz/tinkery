@@ -29,6 +29,7 @@ fn pinned_python_publications_match_through_shape_boundary() {
     );
     let mut count = 0;
     let mut through_shape = 0;
+    let mut nonfinite = 0;
     for line in String::from_utf8(output.stdout).unwrap().lines() {
         let answer = ledger::Value::parse(line).unwrap();
         let case = &answer["case"];
@@ -47,6 +48,16 @@ fn pinned_python_publications_match_through_shape_boundary() {
             assert_eq!(
                 serde_json::from_str::<Value>(&actual.context()).unwrap(),
                 serde_json::from_str::<Value>(&expected_read["state"].pretty().unwrap()).unwrap(),
+                "{name}"
+            );
+        }
+        if let Some(message) = answer.get("read_message") {
+            nonfinite += 1;
+            assert_eq!(answer["real_path"], ledger::Value::Bool(true), "{name}");
+            let skill = PathBuf::from(std::env::var_os("SEED_ME_TEST_SKILL").unwrap());
+            assert_eq!(
+                read(&skill, &rust).unwrap_err(),
+                refusal(message.string().unwrap().into()),
                 "{name}"
             );
         }
@@ -121,8 +132,12 @@ fn pinned_python_publications_match_through_shape_boundary() {
         );
         count += 1;
     }
+    assert_eq!(
+        nonfinite, 6,
+        "all non-finite read and publication cases must run"
+    );
     assert!(
-        count > 100 && through_shape > 100,
+        count >= 1069 && through_shape >= 457,
         "incomplete publication corpus: {count}, Shape {through_shape}"
     );
     println!("publication differential: {count} cases, {through_shape} through answering.rs");

@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import subprocess
 
 sys.dont_write_bytecode = True
 from harvest import harvest, helper, STAMP
@@ -18,9 +19,19 @@ def main():
     spec.loader.exec_module(session)
     session.now = lambda: STAMP
     cases = [c for c in harvested if c["op"] == "transition"]
-    cases += [c for c in edge_cases(session, STAMP) if c["op"] == "transition"
+    edges = edge_cases(session, STAMP)
+    cases += [c for c in edges if c["op"] == "transition"
               and any(c["name"].startswith("edge:" + name) for name in (
                   "stale-noop", "ended-noop", "legacy-counters", "bad-expected-version", "blank-reason"))]
+    for edge in edges:
+        if not edge["name"].startswith(("edge:nonfinite-unchecked-", "edge:nonfinite-traversal-")):
+            continue
+        ledger = json.loads(edge["raw"])
+        state = session.editable(ledger)
+        # A finite edit moves the unchecked old value into history, where saving must still refuse.
+        state["nodes"][0]["label"] = "TEST finite replacement"
+        cases.append(dict(name=edge["name"], ledger=ledger, state=state, expected_version=ledger["version"],
+                          reason="TEST replace unchecked label", revalidated=None, nonfinite=True))
     root = Path(sys.argv[1])
     for i, original in enumerate(cases):
         case = copy.deepcopy(original)
@@ -33,12 +44,23 @@ def main():
         for name in ("python", "rust"):
             directory = pair / name
             directory.mkdir(parents=True)
-            session.atomic_write(directory / "ledger.json", case["ledger"])
+            if case.get("nonfinite"):
+                path = directory / "ledger.json"
+                path.write_text(json.dumps(case["ledger"], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                path.chmod(0o600)
+            else:
+                session.atomic_write(directory / "ledger.json", case["ledger"])
         answer = {"case": case, "pair": str(pair), "real_path": real_path}
-        try:
-            answer["read"] = session.editable_payload(pair / "python")
-        except (ValueError, OSError, KeyError, TypeError):
-            pass  # Invalid stored ledgers exercise publish's load refusal instead.
+        if case.get("nonfinite"):
+            read = subprocess.run([sys.executable, str(script), "read", str(pair / "python"), "--editable"],
+                                  capture_output=True, text=True, check=False)
+            assert read.returncode != 0 and not read.stdout, read
+            answer["read_message"] = read.stderr.splitlines()[0]
+        else:
+            try:
+                answer["read"] = session.editable_payload(pair / "python")
+            except (ValueError, OSError, KeyError, TypeError):
+                pass  # Invalid stored ledgers exercise publish's load refusal instead.
         try:
             result = session.publish(pair / "python", case["state"], case["expected_version"],
                                      case["reason"], case["revalidated"])
