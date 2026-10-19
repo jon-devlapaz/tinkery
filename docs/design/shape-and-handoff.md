@@ -269,8 +269,9 @@ attestations are TEST fixtures, never the operator's.
 Think settles intent; Shape investigates facts, then asks one decision at a time
 with evidence and a suggestion, ending in an operator-confirmed seed.
 
-- Seed Me alone owns the session, ledger and contract. Reads and writes use its helper (`read`,
-  `publish`, `status`, `seed confirm`, `end`); propose Seed Me changes in its repository.
+- Seed Me alone owns the session, ledger and contract; [a proposal](shape-ledger.md) moves
+  them into Tinkery. Reads and writes use its helper (`read`, `publish`, `status`,
+  `seed confirm`, `end`); propose Seed Me changes in its repository.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
 - Shape never reasks settled Think intent or changes the confirmed goal.
