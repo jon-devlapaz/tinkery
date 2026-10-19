@@ -1,6 +1,8 @@
-//! Read-only ledger rules: preserve originals, refuse invalid states and stale transitions,
-//! and derive reviews without changing answers. No persistence or helper caller switches.
+//! Ledger rules and publication: preserve originals, refuse invalid states and stale transitions,
+//! and derive reviews without changing answers. Publications never refresh the browser snapshot.
 
+mod storage;
+pub use storage::{PublishError, SaveState, publish};
 mod python;
 mod unicode;
 mod value;

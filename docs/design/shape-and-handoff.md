@@ -269,9 +269,8 @@ attestations are TEST fixtures, never the operator's.
 Think settles intent; Shape investigates facts, then asks one decision at a time
 with evidence and a suggestion, ending in an operator-confirmed seed.
 
-- Seed Me alone owns the session, ledger and contract; [the accepted design](shape-ledger.md) moves
-  them into Tinkery. Reads and writes use its helper (`read`, `publish`, `status`,
-  `seed confirm`, `end`); propose Seed Me changes in its repository.
+- Shape's ledger writes are Tinkery's own; [the accepted design](shape-ledger.md) tracks the migration.
+  Seed status, checks, confirmation and ending still use Seed Me's helper.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
 - Shape never reasks settled Think intent or changes the confirmed goal.
@@ -380,8 +379,8 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
   Exhaustion refuses F2 before saving anything and explains how to allow calls.
-- Tinkery, never the model, calls helpers. Answers and questions use `read --editable`
-  and `publish` with the displayed version or the version at step start. Stale versions refuse, retain
+- Tinkery, never the model, publishes answers and questions with the displayed version
+  or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
 - Seed Me's [seed contract](https://github.com/jon-devlapaz/seed-me/blob/main/skills/seed-me/references/seed-contract.md)
   owns the draft format; Shape passes the installed reference to each step, rather
@@ -515,7 +514,7 @@ separately. These stay out until their revisit condition holds:
 | --- | --- | --- |
 | Conditional answers | Shape records "only if X" as a settled answer, not a condition to investigate; supporting it needs predicate tracking and a re-ask loop. | Dogfood shows conditional answers. |
 | Review flags (`supported_by`, `contradicts`) | Shape writes no fact nodes or `supported_by`, so its own writes raise no flags; Seed Me refuses completion while flags from other writers stand, and Shape shows why. | Shape starts writing facts. |
-| Lean path | Lean is one Markdown file co-edited by hand; Shape's writes go through the helper and Think already shapes the goal. | Full seeds prove too heavy for small goals. |
+| Lean path | Lean is one Markdown file co-edited by hand; Shape has a ledger and Think already shapes the goal. | Full seeds prove too heavy for small goals. |
 | Agent mode | It tests the skill; Tinkery's stubs cover that, and a simulated seed never hands off. Agent work uses `--operator agent`. | A simulated run is needed in Tinkery. |
 | Frontier progress | Each step records one question, so a count would nearly always read 1 of 1. | Shape queues questions. |
 

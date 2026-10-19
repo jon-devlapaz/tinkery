@@ -1,6 +1,6 @@
 # Shape owns the ledger
 
-**Accepted design; slice 1 implemented.** The operator accepted it on 2026-10-19
+**Accepted design; slices 1–2 implemented.** The operator accepted it on 2026-10-19
 ([#269](https://github.com/jon-devlapaz/tinkery/issues/269)). Each slice, Seed Me changes and any
 provider budget remain separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
 and tink-sdlc `1c6ffd5` on 2026-10-19.
