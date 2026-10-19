@@ -38,12 +38,37 @@ fn success_choice() -> serde_json::Value {
 }
 
 #[test]
+fn an_open_success_decision_does_not_replace_the_selected_boundary_question() {
+    let mut raw = success_choice();
+    raw["open"] = serde_json::json!(["must_not"]);
+    raw["questions"] =
+        serde_json::json!([{"target": "must_not", "text": "May drafts leave this laptop?"}]);
+    let (board, _) = parsed(&raw.to_string());
+    assert_eq!(board.questions[0].text, "May drafts leave this laptop?");
+    assert_eq!(board.decisions[0].answers, ["local", "shared"]);
+    assert_eq!(
+        board.decisions[0].question.as_deref(),
+        Some("TEST local or shared?")
+    );
+    assert!(board.parts.done_when.is_none());
+}
+
+#[test]
+fn a_missing_success_field_without_a_selected_question_stays_unknown() {
+    let mut raw = success_choice();
+    raw["questions"] = serde_json::json!([]);
+    raw["decisions"][0]["question"] = serde_json::Value::Null;
+    let (board, _) = parsed(&raw.to_string());
+    assert!(board.questions.is_empty());
+    assert!(board.parts.done_when.is_none());
+    assert_eq!(board.decisions[0].answers, ["local", "shared"]);
+    assert!(board.open.contains(&Part::DoneWhen));
+}
+
+#[test]
 fn success_alternatives_do_not_bound_missing_criteria_but_remain_context() {
     let (b, _) = parsed(&success_choice().to_string());
-    assert_eq!(
-        b.questions[0].text,
-        "What would show that TEST players have a game?"
-    );
+    assert_eq!(b.questions[0].text, "What would tell you this worked?");
     assert_eq!(b.decisions[0].answers, ["local", "shared"]);
     assert!(b.decisions[0].covered_by(&b.questions.iter().cloned().collect::<Vec<_>>()));
     let mut raw = success_choice();
@@ -51,19 +76,79 @@ fn success_alternatives_do_not_bound_missing_criteria_but_remain_context() {
     let (b, _) = parsed(&raw.to_string());
     assert_eq!(
         b.questions[0].target,
-        Some(Part::Why),
-        "first required part wins"
+        Some(Part::DoneWhen),
+        "an unrelated missing reason does not displace open success elicitation"
     );
+    assert_eq!(b.questions[0].text, "What would tell you this worked?");
 }
 
 #[test]
-fn narrowed_success_followup_uses_structure_not_product_words_or_length() {
+fn opening_a_success_question_preserves_unrelated_choice_links() {
+    let mut raw = success_choice();
+    raw["decisions"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "part": "done_when", "text": "Another unresolved check", "answers": ["A", "B"],
+            "question": "Which other check matters?"
+        }));
+    let (board, _) = parsed(&raw.to_string());
+    assert_eq!(board.questions[0].text, "What would tell you this worked?");
+    assert_eq!(
+        board.decisions[0].question.as_deref(),
+        Some("What would tell you this worked?")
+    );
+    assert_eq!(
+        board.decisions[1].question.as_deref(),
+        Some("Which other check matters?")
+    );
+    assert_eq!(board.decisions[1].answers, ["A", "B"]);
+    assert!(!board.decisions[1].covered_by(&board.questions.iter().cloned().collect::<Vec<_>>()));
+}
+
+#[test]
+fn opening_a_success_question_cannot_repeat_an_answered_generic_question() {
     let (previous, _) = parsed(&success_choice().to_string());
-    for (done, followup) in [
-        ("local", true),
-        ("a very detailed single criterion", true),
-        ("local\nshared", false),
-    ] {
+    let mut r = request();
+    r.answered.push(previous.questions[0].id.clone());
+    r.settled.push(Settled {
+        question: previous.questions[0].clone(),
+        source: 1,
+    });
+    let mut raw = success_choice();
+    raw["questions"] = serde_json::json!([{
+        "id": "new-check", "target": "done_when", "text": "Another bounded check?"
+    }]);
+    raw["decisions"][0]["question"] = "Another bounded check?".into();
+    let guess = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();
+    let board = board::Board::verify(guess, &r).unwrap();
+    assert!(board.questions.is_empty());
+    assert!(board.parts.done_when.is_none());
+    assert!(board.open.contains(&Part::DoneWhen));
+    assert_eq!(board.decisions[0].answers, ["local", "shared"]);
+}
+
+#[test]
+fn an_unknown_beneficiary_does_not_manufacture_a_success_followup() {
+    let mut raw = success_choice();
+    raw["parts"]["who"] = serde_json::Value::Null;
+    let (previous, _) = parsed(&raw.to_string());
+    let mut r = request();
+    r.previous = Some(previous.wire());
+    raw["parts"]["done_when"] = "local".into();
+    raw["decisions"] = serde_json::json!([]);
+    raw["questions"] = serde_json::json!([]);
+    let guess = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();
+    let board = board::Board::verify(guess, &r).unwrap();
+    assert!(board.parts.who.is_none());
+    assert_eq!(board.parts.done_when.as_deref(), Some("local"));
+    assert!(board.questions.is_empty());
+}
+
+#[test]
+fn criteria_length_never_manufactures_a_followup() {
+    let (previous, _) = parsed(&success_choice().to_string());
+    for done in ["local", "a very detailed single criterion", "local\nshared"] {
         for has_choices in [false, true] {
             let mut r = request();
             r.previous = Some(previous.wire());
@@ -74,8 +159,8 @@ fn narrowed_success_followup_uses_structure_not_product_words_or_length() {
                 "why": "play together", "done_when": done}});
             let g = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();
             let b = board::Board::verify(g, &r).unwrap();
-            assert_eq!(!b.questions.is_empty(), followup && has_choices);
-            assert_eq!(b.open.contains(&Part::DoneWhen), followup && has_choices);
+            assert!(b.questions.is_empty());
+            assert!(!b.open.contains(&Part::DoneWhen));
             assert_eq!(b.parts.done_when.as_deref(), Some(done));
         }
     }
@@ -90,7 +175,8 @@ fn success_elicitation_respects_skip_two_asks_and_settled_history() {
             let raw = if followup {
                 r.previous = Some(previous.wire());
                 serde_json::json!({"parts": {"who": "TEST players", "outcome": "have a game",
-                    "why": "play together", "done_when": "local"}})
+                    "why": "play together", "done_when": "local"}, "open": ["done_when"],
+                    "questions": [{"target": "done_when", "text": "Which remaining check matters?"}]})
             } else {
                 success_choice()
             };
@@ -166,7 +252,10 @@ fn omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority()
     ));
     assert_eq!(b.parts.outcome.as_deref(), Some("remember books"));
     assert_eq!(b.parts.missing().count(), 2);
-    assert_eq!(b.questions[0].target, Some(Part::Why));
+    assert!(
+        b.questions.is_empty(),
+        "missing fields alone do not manufacture questions"
+    );
     assert!(b.misfits.is_empty());
     assert_eq!(b.unresolved_notes, ["Unsure about a relationship"]);
     assert!(b.alternatives[0].benefit.is_none());
@@ -539,7 +628,7 @@ fn coverage_never_removes_a_choice_on_invalid_indices_parts_or_replies() {
 
 #[test]
 fn unasked_decisions_and_unlinked_notes_remain_visible_in_review_and_handoff() {
-    let partial = r#"{"parts":{"who":"I","outcome":"review refusals","why":"nothing appears"},"decisions":[{"part":"must_not","text":"Private text","answers":["omit","include"],"question":"May private text appear?"}],"unresolved_notes":["Keep this different unresolved note"]}"#;
+    let partial = r#"{"parts":{"who":"I","outcome":"review refusals","why":"nothing appears"},"decisions":[{"part":"must_not","text":"Private text","answers":["omit","include"],"question":"May private text appear?"}],"unresolved_notes":["Keep this different unresolved note"],"questions":[{"target":"done_when","text":"What would show that the refusal is understood?"}]}"#;
     let (board, _) = parsed(partial);
     let mut a =
         BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);

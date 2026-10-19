@@ -21,3 +21,10 @@ readiness), one pass (explicit criteria). With the structural guard: three passe
 The reversion probe restored the original `board.rs` while retaining the frozen
 fixture and tests: the same two failures returned; restoring the guard passed all
 three again. No prompt was changed and no live quality evaluation was run.
+
+The later operator correction during #264 keeps these observations and the frozen
+record unchanged, but removes the answer-length follow-up policy. The replay now
+checks that a selected success question is open-ended, a short answer does not
+manufacture another question or invent the later criteria, and explicitly supplied
+criteria still settle. Mechanical readiness is not a completeness judgment; see
+[Think's question contract](../../docs/design/think.md#questions).

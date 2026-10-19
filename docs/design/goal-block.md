@@ -13,14 +13,18 @@ Must not: [exclusions and negative constraints].
 ```
 
 The parts are `who`, `outcome`, `when`, `why`, `done_when`, `must`, `must_not`.
-Who, outcome, why and done-when are required for readiness; optional situation and
-constraints stay absent unless supplied.
+Who, outcome, why and done-when are required for readiness, not a questionnaire;
+optional situation and constraints stay absent unless supplied. A known outcome
+leads the block even without a beneficiary. In that case the outcome stands alone;
+no subject is invented, and who remains missing.
 A goal can be reviewed with remaining questions when a composed goal exists;
-readiness and permission to save are distinct. Missing intent becomes a question,
-not an invented fact, metric or deadline.
+readiness and permission to save are distinct. Missing intent stays unknown, never
+an invented fact, metric or deadline; [Think's question contract](think.md#questions)
+decides when an answer matters next.
 
-Who names the beneficiary (“I” only for the operator's own goal). There is **no
-forced “can”**. The outcome describes a change for that person, not its mechanism.
+Who names the beneficiaries (“I” only for the operator's own goal); compatible
+beneficiaries need not compete. There is **no forced “can”**. The outcome describes
+the desired change or state, not a substituted mechanism.
 Done when must be a different check, not a duplicate outcome. A timing situation
 is not permission to invent a deadline. The operator's unfamiliar or qualitative
 words stay theirs; the seed can later define measurements.

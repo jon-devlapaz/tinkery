@@ -606,7 +606,7 @@ fn reviewed(
             ));
         }
         if let Some(part) = target {
-            if parts.missing().next().is_none() && !open.contains(&part) {
+            if parts.get(part).is_some() && !open.contains(&part) {
                 changes.push(format!("Ignored question {id}: no missing/open target"));
                 continue;
             }

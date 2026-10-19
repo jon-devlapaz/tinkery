@@ -297,15 +297,15 @@ impl GoalParts {
             .into_iter()
             .filter(|p| self.get(*p).is_none())
     }
-    /// The block's first line, "Who outcome, when", without its final period. `None` until
-    /// who and outcome both exist. A who repeated at the start of the outcome (including
-    /// its possessive form), or a `when` the line already says, isn't said twice.
+    /// The known intent, with its beneficiary and situation when supplied, without its final
+    /// period. A missing beneficiary stays unknown, never invented; only a missing outcome
+    /// prevents a headline. Repeated subjects and situations aren't said twice.
     pub fn goal_line(&self) -> Option<String> {
-        let (who, outcome) = (self.get(Part::Who)?, self.get(Part::Outcome)?);
-        let raw_who = prose(who);
+        let outcome = self.get(Part::Outcome)?;
+        let raw_who = self.get(Part::Who).map(prose).unwrap_or_default();
         let who = capitalise(&raw_who);
         let mut outcome = prose(outcome);
-        let mut separator = " ";
+        let mut separator = if who.is_empty() { "" } else { " " };
         if outcome
             .get(..raw_who.len())
             .is_some_and(|prefix| identity(prefix) == identity(&raw_who))
@@ -326,7 +326,7 @@ impl GoalParts {
         while outcome.starts_with("can can ") {
             outcome = outcome[4..].to_owned();
         }
-        let mut goal = format!("{who}{separator}{outcome}");
+        let mut goal = capitalise(&format!("{who}{separator}{outcome}"));
         if let Some(when) = self.get(Part::When).map(prose)
             && !identity(&goal).contains(&identity(&when))
         {
