@@ -188,3 +188,18 @@ fn unsafe_controls_are_visible_text_and_do_not_change_saved_words() {
     assert!(!shown.contains('\x1b') && !shown.contains('\u{202e}'));
     assert!(raw.contains('\x1b'));
 }
+
+#[test]
+fn page_keys_move_a_screen_of_history_less_one_row() {
+    for size in [(80, 24), (100, 30), (160, 40)] {
+        let mut view = View::waiting();
+        view.body = Page::plain(&(0..500).map(|i| format!("row {i}\n")).collect::<String>());
+        screen(&mut view, size, false, false);
+        let height = view.body.height;
+        assert!(height > 5, "{size:?}: {height} rows");
+        view.scroll(KeyCode::PageDown, false, false);
+        assert_eq!(view.body.offset, usize::from(height - 1));
+        view.scroll(KeyCode::PageUp, false, false);
+        assert_eq!(view.body.offset, 0);
+    }
+}

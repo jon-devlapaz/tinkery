@@ -23,8 +23,8 @@ is held by design (#227), so Tend and Shape ran on fixture sessions.
 
 D-06 (the held review still takes typing) is folded into #247. A leftover `💻` glyph after
 a ZWJ emoji is most likely the test screen reader, which gives every code point one column;
-it is unfiled until checked in a real terminal. All issues are `needs-approval`; filing them
-does not approve implementation.
+it is unfiled until checked in a real terminal. The operator approved all five on
+2026-10-19 and decided D-04 for reading to the end; #255 fixes them.
 
 ## Measure failure/recovery dogfood, October 14, 2026 (#119)
 

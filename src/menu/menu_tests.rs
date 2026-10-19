@@ -1493,3 +1493,23 @@ fn the_menu_names_the_repository_once_and_says_nothing_outside_one() {
     let mut plain = home(Arc::new(|_| found(vec![])));
     assert!(!screen(&mut plain).contains(" in "));
 }
+
+#[test]
+fn page_keys_move_a_screen_of_goal_detail_less_one_row() {
+    let mut h = garden(1);
+    let View::Tend(tend) = &mut h.view else {
+        panic!()
+    };
+    tend.sessions[0].goal = (0..200).map(|i| format!("TEST line {i}\n")).collect();
+    tend.detail = true;
+    screen(&mut h);
+    let View::Tend(tend) = &h.view else { panic!() };
+    let page = tend.page;
+    assert!(page > 5, "{page} rows");
+    h.handle_key(key(KeyCode::PageDown));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.scroll, page - 1);
+    h.handle_key(key(KeyCode::PageUp));
+    let View::Tend(tend) = &h.view else { panic!() };
+    assert_eq!(tend.scroll, 0);
+}

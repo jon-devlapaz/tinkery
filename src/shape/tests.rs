@@ -1813,6 +1813,7 @@ fn multiline_confirmation_is_refused_before_a_step_and_keeps_the_words() {
             text: Some("TEST seed".into()),
         })
         .with_agent(Some(agent(0)));
+        screen(&mut shape, 80, 24, true);
         shape.paste(words);
         shape.key(key(KeyCode::F(3)), None);
         let open = shape.open.as_ref().unwrap();
@@ -1933,7 +1934,11 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
             );
             assert_eq!(shape.scroll, 0, "arrows scrolled the reading");
             shape.key(key(KeyCode::PageDown), None);
-            assert_eq!(shape.scroll, 5, "PgDn did not scroll the reading");
+            assert_eq!(
+                shape.scroll,
+                crate::page(shape.page),
+                "PgDn did not scroll the reading a page"
+            );
             let shown = screen(&mut shape, width, height, no_color);
             assert!(shown.contains("TEST row 0"), "{shown}");
             assert!(
@@ -2692,5 +2697,105 @@ fn the_step_answers_the_other_probes_from_evidence_and_records_every_probe() {
         "`Where we did not look:`",
     ] {
         assert!(prompt.contains(rule), "missing probe rule: {rule}");
+    }
+}
+
+fn long_draft() -> Shaped {
+    let body: String = (0..60).map(|i| format!("TEST line {i}\n")).collect();
+    Shaped::Drafted {
+        revision: Some("r1".into()),
+        text: Some(format!(
+            "status: draft\nrevision: r1\n\n{body}LAST TEST LINE\n"
+        )),
+    }
+}
+
+#[test]
+fn an_agent_declaration_holds_every_shape_write_and_says_why() {
+    let ready = Shaped::Ready {
+        revision: Some("r1".into()),
+        ended: false,
+    };
+    for stage in [question(), Shaped::Waiting, long_draft(), ready] {
+        for mut shape in [
+            done(stage.clone()).with_agent(Some(agent(2))).held(true),
+            done(stage.clone()).held(true).with_agent(Some(agent(2))),
+        ] {
+            assert!(shape.agent.is_none(), "a held Shape kept its agent");
+            assert!(!shape.takes_text(), "a held Shape took words");
+            let flat = |text: String| text.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert!(flat(screen(&mut shape, 100, 30, true)).contains(HELD));
+            for code in [KeyCode::F(2), KeyCode::F(3), KeyCode::F(6), KeyCode::F(8)] {
+                shape.key(key(code), None);
+                shape.key(key(code), None);
+                let open = shape.open.as_ref().unwrap();
+                assert!(open.running.is_none() && open.writing.is_none() && open.asking.is_none());
+            }
+            let text = screen(&mut shape, 100, 30, true);
+            assert!(flat(text.clone()).contains(HELD), "{text}");
+            let bar = text.lines().last().unwrap();
+            for offered in ["F2", "F3", "F6", "F8"] {
+                assert!(!bar.contains(offered), "held Shape offers {offered}: {bar}");
+            }
+            assert!(shape.help_text().contains(HELD));
+        }
+    }
+}
+
+#[test]
+fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
+    let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+    screen(&mut shape, 80, 24, true);
+    shape.paste("I confirm r1.");
+    shape.key(key(KeyCode::F(3)), None);
+    assert!(shape.open.as_ref().unwrap().running.is_none());
+    assert!(screen(&mut shape, 80, 24, true).contains(READ_FIRST));
+    for _ in 0..30 {
+        shape.key(key(KeyCode::PageDown), None);
+        screen(&mut shape, 80, 24, true);
+    }
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(text.contains("LAST TEST LINE"), "{text}");
+    assert!(
+        !text.contains(READ_FIRST),
+        "reaching the end left the refusal: {text}"
+    );
+    assert!(shape.open.as_ref().unwrap().read_end);
+    // A taller editor afterwards doesn't take back what was read.
+    shape.paste("\nmore words");
+    screen(&mut shape, 80, 24, true);
+    assert!(shape.open.as_ref().unwrap().read_end);
+}
+
+#[test]
+fn changing_the_words_clears_a_refusal_about_them_and_only_then() {
+    let mut shape = done(Shaped::Drafted {
+        revision: Some("r1".into()),
+        text: Some("TEST seed".into()),
+    })
+    .with_agent(Some(agent(0)));
+    screen(&mut shape, 80, 24, true);
+    shape.paste("I confirm\nr1.");
+    shape.key(key(KeyCode::F(3)), None);
+    assert!(screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
+    shape.key(key(KeyCode::Left), None);
+    assert!(
+        screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]),
+        "moving the caret changed no words but cleared the refusal"
+    );
+    shape.key(key(KeyCode::Backspace), None);
+    assert!(!screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
+}
+
+#[test]
+fn page_keys_move_about_one_screen_of_reading() {
+    for (width, height) in [(80, 24), (100, 30), (160, 40)] {
+        let mut shape = done(long_draft());
+        screen(&mut shape, width, height, true);
+        assert!(shape.page > 5, "{width}x{height}: {} rows", shape.page);
+        shape.key(key(KeyCode::PageDown), None);
+        assert_eq!(shape.scroll, crate::page(shape.page));
+        shape.key(key(KeyCode::PageUp), None);
+        assert_eq!(shape.scroll, 0);
     }
 }
