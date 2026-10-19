@@ -134,8 +134,10 @@ def cases(session, stamp):
               "20261019T091500+01:00:00.123456\x00junk", "20261019T091500+00:00:00.999999"]
     # Cross product catches component length and separator behavior, not just examples.
     for date in ["20261019", "2026-10-19", "2026W43", "2026W431", "2026-W43", "2026-W43-1"]:
-        for clock in ["09", "0915", "09:15", "091500", "09:15:00", "09.1", "09:15,1234567"]:
-            for zone in ["Z", "+01", "+0130", "+01:30:15.1234567", "-00:99", "+00:00:99", "+00:"]:
+        for clock in ["09", "0915", "09:15", "091500", "09:15:00", "09.1", "09:15,1234567",
+                      "09:15:00.", "09:15.", "091500,"]:
+            for zone in ["Z", "+01", "+0130", "+01:30:15.1234567", "-00:99", "+00:00:99", "+00:",
+                         "+01:30:15."]:
                 times.append(date + "T" + clock + zone)
     for i, time in enumerate(times):
         s = deepcopy(with_fact)

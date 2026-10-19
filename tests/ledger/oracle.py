@@ -1,10 +1,12 @@
 """Live pinned answers, with only named malformed-input and hash-order exceptions."""
 import ast
 import copy
+from datetime import datetime
 import importlib.util
 import inspect
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 
@@ -35,6 +37,17 @@ DIVERGENCES = {
 if sys.version_info < (3, 13):
     for kind in ("object", "array"):
         DIVERGENCES["edge:trailing-comma-" + kind] = ("JSONDecodeError", "Pre-3.13 Python has different trailing-comma error wording")
+# CPython 3.13.16 refuses a fraction separator with no digits ("09:15:00.Z"); 3.13.12 and
+# older accept it. The port follows the stricter parser, so every Python answers as 3.13.16.
+EMPTY_FRACTION = re.compile(r"[.,](?!\d)")
+
+
+class CurrentDatetime(datetime):
+    @classmethod
+    def fromisoformat(cls, value):
+        if EMPTY_FRACTION.search(value):
+            raise ValueError(f"Invalid isoformat string: {value!r}")
+        return datetime.fromisoformat(value)
 
 
 def alternatives(session, case):
@@ -65,6 +78,7 @@ def main():
     session = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(session)
     session.now = lambda: STAMP
+    session.datetime = CurrentDatetime
     edges = edge_cases(session, STAMP)
     cases = harvested + edges
     required = set()

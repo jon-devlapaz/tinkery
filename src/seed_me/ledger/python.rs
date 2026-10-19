@@ -74,7 +74,7 @@ pub(super) fn timestamp(input: &str) -> bool {
     timestamp_parts(input).is_some()
 }
 fn timestamp_parts(input: &str) -> Option<()> {
-    // CPython v3.13.12, Modules/_datetimemodule.c: the C parser's byte cursor
+    // CPython v3.13.16, Modules/_datetimemodule.c: the C parser's byte cursor
     // and end pointer are distinct; slicing at the zone loses its leniencies.
     let input = input.trim_matches(whitespace).replace('Z', "+00:00");
     if input.chars().count() < 7 {
@@ -229,8 +229,9 @@ fn clock(input: &[u8], mut pos: usize, end: usize) -> Option<([u32; 4], bool)> {
             separated = c == b':';
         }
         // The C parser consumes this byte before testing its end pointer.
+        // Since v3.13.16 a fraction separator needs at least one digit after it.
         if pos >= end {
-            return Some((values, c != 0));
+            return (!matches!(c, b'.' | b',')).then_some((values, c != 0));
         }
         if separated && c == b':' {
             continue;
