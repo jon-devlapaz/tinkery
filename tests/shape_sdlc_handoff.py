@@ -23,7 +23,7 @@ from vt_screen import Screen
 REPO = Path(__file__).resolve().parents[1]
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 # Draft consumer contract; move to its merge SHA only on the operator's coordinated landing.
-SDLC_REF = '49c1b86a566d6b900ac14c370c3c4a2b9fcd300f'
+SDLC_REF = 'cf7373510937d5d592590cc32da57502600c9ca7'
 spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
@@ -202,7 +202,7 @@ def handoff(root, env, session):
 
     def attest(item):
         sdlc('mark', 'test-handoff', item, 'passed', '--reviewer', 'TEST synthetic reviewer',
-             '--source', 'TEST fixture only', '--evidence', 'TEST synthetic observation, not operator attestation')
+             '--source', 'TEST fixture only', '--evidence', f'TEST synthetic observation of {item}, not operator attestation')
 
     approve()
     for mutation in ('edit', 'drop'):
