@@ -1,7 +1,7 @@
 //! The home menu: the operator's seven places, in pipeline order.
 //!
 //! think · tend · shape · approve · watch · taste · measure. Five are touches, two are views. Only think,
-//! tend, shape, approve and measure are built; the others say so plainly. Nothing here starts or steers an agent.
+//! tend, shape, approve, watch and measure are built; the others say so plainly. Nothing here starts or steers an agent.
 
 use std::{
     path::{Path, PathBuf},
@@ -14,6 +14,7 @@ use crate::{
     shape::{Leave, Shape},
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump, Exit},
+    watch::Watch,
 };
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -39,7 +40,11 @@ pub const PLACES: [(&str, &str, bool); 7] = [
         true,
     ),
     ("approve", "Start a shaped goal in tink-sdlc.", true),
-    ("watch", "Follow the work’s progress. Not built yet.", false),
+    (
+        "watch",
+        "See the runs in your tink-sdlc checkout, read-only.",
+        true,
+    ),
     (
         "taste",
         "Decide whether the result meets your goal. Not built yet.",
@@ -78,6 +83,7 @@ pub struct Home {
     measure: measure::Reader,
     repo: Option<crate::repo::Repo>,
     shape_agent: Option<Arc<crate::shape::Agent>>,
+    sdlc_root: Option<PathBuf>,
     /// An agent launch declaration: Shape only reads.
     shape_held: bool,
     approve_reader: approve::Reader,
@@ -91,6 +97,7 @@ enum View {
     Shape(Box<Shape>, Option<Box<Tend>>),
     Approve(Box<approve::Approve>),
     Measure(Box<measure::Reading>),
+    Watch(Box<Watch>),
     Soon(usize),
 }
 
@@ -126,6 +133,7 @@ impl Home {
             measure: measure::Reader::default(),
             repo: None,
             shape_agent: None,
+            sdlc_root: None,
             shape_held: false,
             approve_reader: approve::Reader::default(),
         }
@@ -134,6 +142,12 @@ impl Home {
     /// The model Shape answers and drafts through; without one, Shape only reads. Starts nothing.
     pub fn with_shape_agent(mut self, agent: Option<Arc<crate::shape::Agent>>) -> Self {
         self.shape_agent = agent;
+        self
+    }
+
+    /// The one tink-sdlc checkout watch reads; without it, watch says how to name one.
+    pub fn with_sdlc_root(mut self, root: Option<PathBuf>) -> Self {
+        self.sdlc_root = root;
         self
     }
 
@@ -230,6 +244,9 @@ impl Home {
             },
             now,
         );
+        if let View::Watch(watch) = &mut self.view {
+            watch.poll();
+        }
         if !self.discovery.requested() {
             self.request_sessions();
         }
@@ -483,6 +500,7 @@ impl Home {
                 self.request_sessions();
                 View::Approve(Box::new(approve::Approve::open()))
             }
+            4 => View::Watch(Box::new(Watch::open(self.sdlc_root.clone()))),
             6 => View::Measure(Box::new(
                 self.measure.open(&self.substrate_dir, Instant::now()),
             )),
@@ -734,6 +752,18 @@ impl Home {
                     self.view = View::Menu;
                 }
             }
+            View::Watch(watch) => {
+                if self.help {
+                    if key.code == KeyCode::Char('q') {
+                        self.help = false;
+                        self.view = View::Menu;
+                    }
+                    return;
+                }
+                if watch.key(key) {
+                    self.view = View::Menu;
+                }
+            }
             View::Soon(_) => {
                 if matches!(key.code, KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter) {
                     self.view = View::Menu;
@@ -881,6 +911,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Shape(..) => "tinkery › shape".into(),
         View::Approve(_) => "tinkery › approve".into(),
         View::Measure(_) => "tinkery › measure".into(),
+        View::Watch(_) => "tinkery › watch".into(),
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
         View::Think(_) => unreachable!(),
     };
@@ -920,6 +951,15 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             shape.render_help(frame, body, palette);
             return;
         }
+        if let View::Watch(watch) = &home.view {
+            frame.render_widget(
+                Paragraph::new(watch.help_text())
+                    .style(palette.ink)
+                    .wrap(Wrap { trim: false }),
+                body,
+            );
+            return;
+        }
         if let View::Tend(tend) = &mut home.view {
             let p = Paragraph::new(tend.help_text(home.seed_me.as_deref()))
                 .wrap(Wrap { trim: false })
@@ -932,7 +972,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             return;
         }
         // Shown away from the menu (Measure's report, unbuilt places), where q goes back.
-        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch, taste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -998,6 +1038,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Tend(tend) => tend::render(frame, tend, body, palette),
         View::Shape(shape, _) => shape.render(frame, body, palette),
         View::Measure(reading) => reading.render(frame, body, palette, home.help),
+        View::Watch(watch) => watch.render(frame, body, palette),
         View::Soon(i) => frame.render_widget(
             Paragraph::new(format!("{}\n\nNot built yet. Esc goes back.", PLACES[*i].1))
                 .style(palette.muted),
@@ -1317,7 +1358,7 @@ mod tests {
             "Choose a saved goal and copy a prompt to continue.",
             "Answer Seed Me's questions and confirm a seed.",
             "Start a shaped goal in tink-sdlc.",
-            "Follow the work’s progress. Not built yet.",
+            "See the runs in your tink-sdlc checkout, read-only.",
             "Decide whether the result meets your goal. Not built yet.",
             "See recorded work and attention, when available.",
         ];

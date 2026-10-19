@@ -55,9 +55,11 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 - **Approve:** menu place 4 shows verified seeds, oldest first, with their exact goal
   and acceptance checks. `c` copies run creation and intake commands; nothing runs.
   See [Approve](docs/design/approve.md). Started seeds remain until the join is built.
+- **Watch:** with `--sdlc-root PATH`, reads that tink-sdlc checkout's runs through its own
+  `status --json` when opened or on `r`, runs waiting on you first. It runs only read-only status commands and changes no records.
 - **Measure:** reads an existing ledger report or says unavailable.
 
-**Watch and Taste aren't built.** The complete journey and its benefit remain unproven.
+**Taste isn't built.** The complete journey and its benefit remain unproven.
 
 ## Where we’re going next
 

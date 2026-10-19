@@ -24,8 +24,8 @@ work. Measure's [failure presentation](https://github.com/jon-devlapaz/tinkery/i
 and [owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) have separate
 issues. The module map below describes responsibilities; `MODULES` owns area assignments.
 
-[Shape](shape-and-handoff.md#shape) is a first-release phase. Approve has its own phase; watch and taste
-get separate modules when built. There are no dependency exceptions: Think hands
+[Shape](shape-and-handoff.md#shape), [Approve](approve.md) and [Watch](watch.md) have separate modules. Taste will
+get its own module when built. There are no dependency exceptions: Think hands
 saved goals to Tend only through `seed_me`. The menu alone connects Shape and Tend.
 
 ## Factory boundaries
@@ -87,6 +87,8 @@ or improved outcomes.
 | `think_record.rs`, `think_record/read.rs` | The shared confirmed-session format, its one write, and exact-session history attribution; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
+| `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
+| `watch/run.rs` | One bounded status read off the paint path: deadline, output limits, and stopping the process group when Watch is left. |
 
 Vendored libraries are path dependencies, not phases: `vendor/pinstar/` owns
 rendering and input primitives and `vendor/graf/` owns graph mechanics. Tend reaches graf
