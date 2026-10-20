@@ -67,9 +67,9 @@ or improved outcomes.
 | `tend/graph.rs` | Graf adapter: path-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
-| `seed_me/` | Session formats, goal saving and continuation; `answering.rs` adapts Shape actions to the shared ledger. Goal initialization still uses Seed Me; Shape needs its installed reference only for `contract()` and its helper path only in copied intake commands (shared). |
+| `seed_me/` | Session formats, goal saving and continuation; `answering.rs` adapts Shape actions, typed facts and operator review reasons to the shared ledger without duplicating its fact rules. Goal initialization still uses Seed Me; Shape needs its installed reference only for `contract()` and its helper path only in copied intake commands (shared). |
 | `seed_me/ledger` | Validation, transitions, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
-| `seed_me/shaping.rs` | Classifying ledger-owned status for display, with optional unchanged helper-flag intake text; no subprocess or mutation. |
+| `seed_me/shaping.rs` | Classifying ledger-owned status and review flags for display, with optional unchanged helper-flag intake text; no subprocess or mutation. |
 | `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
 | `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words and next step. Reads and steps stay off the paint path. |

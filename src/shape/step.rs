@@ -26,6 +26,9 @@ use std::{
 
 const PROMPT: &str = include_str!("prompt.txt");
 
+#[cfg(test)]
+mod typed_tests;
+
 /// Reply fields decoded here or delegated unchanged to Tinkery's record validator.
 /// The prompt's examples name the same fields.
 #[cfg(test)]
@@ -38,6 +41,12 @@ pub(super) const FIELDS: &[&str] = &[
     "found",
     "checked",
     "observed",
+    "claim",
+    "type",
+    "scope",
+    "limits",
+    "supported_by",
+    "contradicts",
     "suggestion",
     "assumed",
     "text",
@@ -449,17 +458,12 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
             .filter(|s| !s.is_empty())
             .map(str::to_owned)
     };
-    let found = value["found"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|f| {
-            Some(Found {
-                checked: f["checked"].as_str()?.trim().to_owned(),
-                observed: f["observed"].as_str()?.trim().to_owned(),
-            })
-        })
-        .collect();
+    if !matches!(value["next"].as_str(), Some("question" | "seed")) {
+        return Err(unusable());
+    }
+    let found: Vec<Found> = serde_json::from_value(value["found"].clone()).map_err(|_| {
+        "The model's findings are incomplete or use an unsupported format. Each finding needs an id, a typed claim, checked and observed. Retry the step.".to_owned()
+    })?;
     match value["next"].as_str() {
         Some("question") => {
             let question = text("question").ok_or_else(unusable)?;
@@ -469,6 +473,7 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                 gate: text("gate").unwrap_or_else(|| question.clone()),
                 question,
                 found,
+                supported_by: value.get("supported_by").cloned(),
                 suggestion: text("suggestion"),
                 assumed: value["assumed"]
                     .as_array()

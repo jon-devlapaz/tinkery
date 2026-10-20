@@ -57,6 +57,32 @@ fn key(code: KeyCode) -> KeyEvent {
 }
 
 #[test]
+fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key() {
+    let stage = Shaped::Review {
+        id: "storage".into(),
+        title: "TEST storage".into(),
+        answer: "TEST local".into(),
+        found: vec!["TEST conflicting observation".into()],
+    };
+    let mut readonly = done(stage.clone());
+    let text = screen(&mut readonly, 80, 24, true);
+    assert!(
+        text.contains("Current question: review flagged answer"),
+        "{text}"
+    );
+    assert!(text.contains("Next: review this flagged answer;"), "{text}");
+    assert!(!text.contains("F6 keep"), "{text}");
+    let mut writable = done(stage).with_agent(Some(agent(0)));
+    let text = screen(&mut writable, 80, 24, true);
+    assert!(text.contains("F6 keep with reason"), "{text}");
+    writable.key(key(KeyCode::F(6)), None);
+    assert!(screen(&mut writable, 80, 24, true).contains(WORD_REFUSALS[3]));
+    assert!(writable.open.as_ref().unwrap().writing.is_none());
+    assert!(writable.open.as_ref().unwrap().running.is_none());
+    assert_eq!(writable.agent.as_ref().unwrap().remaining(), 0);
+}
+
+#[test]
 fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent() {
     let mut shape = done(Shaped::Ready {
         revision: Some("r2".into()),
@@ -608,7 +634,10 @@ fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
 fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     use step::{Next, decode};
     let asked = decode(
-        "Here it is:\n```json\n{\"next\":\"question\",\"id\":\"Storage\",\"question\":\"Local?\",\"found\":[{\"checked\":\"README.md:3\",\"observed\":\"local only\"},{\"checked\":1}],\"suggestion\":null}\n```",
+        r#"Here it is:
+```json
+{"next":"question","id":"Storage","question":"Local?","found":[{"id":"read-1","claim":{"type":"observation","scope":"README"},"checked":"README.md:3","observed":"local only"}],"suggestion":null}
+```"#,
     )
     .unwrap();
     let Next::Question(ask) = asked else {
@@ -621,7 +650,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     assert_eq!(ask.found.len(), 1);
     assert_eq!(ask.suggestion, None);
     assert_eq!(
-        decode("{\"next\":\"seed\",\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}]}").unwrap(),
+        decode("{\"next\":\"seed\",\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[]}").unwrap(),
         Next::Seed {
             confirming: "Build it.".into(),
             checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
@@ -629,7 +658,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
         }
     );
     let Next::Seed { found, .. } = decode(
-        "{\"next\":\"seed\",\"confirming\":\"Build it.\",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[{\"checked\":\"src/lib.rs:9\",\"observed\":\"the palette\"}]}",
+        r#"{"next":"seed","confirming":"Build it.","checks":[{"statement":"TEST","kind":"judge","source":"TEST"}],"found":[{"id":"read-1","claim":{"type":"observation","scope":"src/lib.rs"},"checked":"src/lib.rs:9","observed":"the palette"}]}"#,
     )
     .unwrap() else {
         panic!("not a seed")
@@ -724,12 +753,15 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         format!("{before_criteria}## Affected users and systems{after_criteria}")
     );
     assert_eq!(reply["found"].as_array().unwrap().len(), 13);
-    let decoded = step::decode(&format!(
+    let refused = step::decode(&format!(
         "My reading is provisional.\n{}\nNo checks were run.",
         include_str!("../../tests/fixtures/stacker-r1-reply.json")
     ))
-    .unwrap();
-    assert!(matches!(decoded, step::Next::Seed { checks, .. } if checks == stored));
+    .unwrap_err();
+    assert!(
+        refused.contains("findings are incomplete or use an unsupported format"),
+        "{refused}"
+    );
     let seed_before = std::fs::read(receipt.session.join("seed-contract.md")).unwrap();
     let records_before = std::fs::read(receipt.session.join("seed-checks.json")).unwrap();
     let mut invalid = vec![
@@ -925,7 +957,7 @@ assert not missing, 'missing check-drafting instructions: ' + str(missing)
 assert request['goal'] == {goal:?}
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
 print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.loads({checks:?}), 'found': [
-    {{'checked': 'TEST-read.md:1', 'observed': 'TEST observed content'}}]}}))
+    {{'id': 'TEST-read-fact', 'claim': {{'type': 'observation', 'scope': 'TEST-read.md:1'}}, 'checked': 'TEST-read.md:1', 'observed': 'TEST observed content'}}]}}))
 "##
         ),
     )
@@ -1127,7 +1159,8 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
             "refusal changed seed bytes"
         );
     }
-    // Redraft with no findings, then verify old writers and the official helper still agree.
+    // A redraft retains the facts already recorded; old writers still verify it.
+    let version = answering::read(&skill, &receipt.session).unwrap().version();
     assert_eq!(
         answering::draft_seed(
             &skill,
@@ -1143,7 +1176,8 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
     );
     let redrafted = fs::read_to_string(&seed_path).unwrap();
     assert_eq!(parent_revision(&redrafted), Some(9));
-    assert!(redrafted.contains("Grounded in:\n- No attributable read paths are known.\n"));
+    assert!(redrafted.contains("Grounded in:\n- TEST-read.md\n"));
+    assert!(redrafted.contains("observation; scope: TEST-read.md:1"));
     assert!(redrafted.contains("Provenance unavailable:"));
     assert_eq!(
         answering::read(&skill, &receipt.session).unwrap().goal(),
@@ -1245,8 +1279,8 @@ start, end = body.index('## Suggested first slice\n'), body.index('## Risks and 
 body = body[:start] + '## Suggested first slice\nProposal only: add the missing behavior, then use the check above.\n\n' + body[end:]
 body = body.replace('no repository facts were recorded.', 'reported reads are listed below.')
 print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'found': [
-    {{'checked': 'README.md:1-3', 'observed': 'documents the focused behavior check'}},
-    {{'checked': 'tests/check_value.py:1-4', 'observed': 'asserts the new value; current value.txt is old'}}]}}))
+    {{'id': 'TEST-read-fact', 'claim': {{'type': 'observation', 'scope': 'README.md:1-3'}}, 'checked': 'README.md:1-3', 'observed': 'documents the focused behavior check'}},
+    {{'id': 'TEST-check-fact', 'claim': {{'type': 'observation', 'scope': 'tests/check_value.py:1-4'}}, 'checked': 'tests/check_value.py:1-4', 'observed': 'asserts the new value; current value.txt is old'}}]}}))
 "##)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(
@@ -1429,6 +1463,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
             &receipt.session,
             version,
             &answering::Ask {
+                supported_by: None,
                 id: "storage".into(),
                 label: "TEST Storage".into(),
                 question: "TEST Local or synced?".into(),
@@ -2283,6 +2318,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         why: "TEST either way".into(),
     };
     let ask = answering::Ask {
+        supported_by: None,
         id: "storage".into(),
         label: "TEST Storage".into(),
         question: "TEST Local or synced?".into(),
@@ -2522,6 +2558,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             undo: undo.into(),
         };
         let ask = answering::Ask {
+            supported_by: None,
             id: "storage".into(),
             label: "TEST Storage".into(),
             question: "TEST Local or synced?".into(),
@@ -2690,11 +2727,16 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
     let session = save();
     let version = answering::read(&skill, &session).unwrap().version();
     let ask = answering::Ask {
+        supported_by: None,
         id: "storage".into(),
         label: "TEST Storage".into(),
         question: "TEST Local or synced?".into(),
         gate: "TEST Storage disposition".into(),
         found: vec![answering::Found {
+            id: "TEST-fact".into(),
+            claim: serde_json::json!({"type":"observation","scope":"TEST file"}),
+            supported_by: None,
+            contradicts: None,
             checked: "TEST-read.md:1".into(),
             observed: "TEST local only".into(),
         }],

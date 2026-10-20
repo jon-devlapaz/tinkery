@@ -60,8 +60,21 @@ def shape(root, env):
         state['nodes'].append({'id': identifier, 'kind': 'decision', 'prerequisites': [], 'evidence': [],
             'owner': 'TEST fixture', 'gate': 'TEST only', 'status': 'settled', 'answer': answer,
             'authority': 'user', 'authority_source': 'TEST replay of recorded Stacker decision, not new approval'})
-    helper.publish(session, state, old['version'], 'TEST fixture only')
     reply = json.loads((REPO / 'tests/fixtures/stacker-r1-reply.json').read_text())
+    # Historical receipts remain untyped; never guess claim types from mixed captured prose.
+    legacy = [{'checked': f['checked'], 'observed': f['observed'], 'at': '2026-10-18T00:00:00+00:00',
+               'check': 'TEST replay of recorded untyped receipts'} for f in reply['found']]
+    state['nodes'][1]['evidence'] = legacy
+    helper.publish(session, state, old['version'], 'TEST fixture only')
+    (root / 'TEST-read.md').write_text('TEST synthetic observation.\n')
+    reply['found'] = [
+        {'id': 'test-read', 'claim': {'type': 'observation', 'scope': 'TEST fixture line'},
+         'checked': 'TEST-read.md:1', 'observed': 'TEST synthetic observation.'},
+        {'id': 'test-inferred', 'claim': {'type': 'inference', 'scope': 'TEST transport only',
+          'limits': 'This establishes no Stacker mechanics or real investigation quality.'},
+         'checked': 'TEST-read.md:1', 'observed': 'TEST bounded inference for intake transport.',
+         'supported_by': ['test-read']},
+    ]
     (root / 'TEST-reply.json').write_text(json.dumps(reply))
     host = root / 'TEST-pi'
     host.write_text(f'#!{sys.executable}\n'
@@ -122,9 +135,19 @@ def shape(root, env):
         assert json.loads(command([binary, '--operator', 'agent', 'seed', 'checks', session], root, env).stdout) == helper.read_checks(session)
         assert {p.name: p.read_bytes() for p in session.iterdir() if p.is_file()} == before
         assert json.loads((session / 'seed-confirmation.json').read_text())['source'] == CONFIRMATION
-        assert helper.load(session)['goal'] == GOAL
+        ledger = helper.load(session)
+        assert ledger['goal'] == GOAL
+        facts = [n for n in ledger['nodes'] if n['kind'] == 'fact']
+        assert len(facts) == len(reply['found']) == 2, facts
+        assert [n['claim']['type'] for n in facts] == ['observation', 'inference'], facts
+        assert all(n['authority'] == 'evidence' for n in facts)
+        assert next(n for n in ledger['nodes'] if n['id'] == 'stacker-fairness')['evidence'] == legacy
+        evidence = (session / 'seed-contract.md').read_text().split('## Evidence and uncertainty\n', 1)[1]
+        assert 'observation; scope:' in evidence and 'inference; scope:' in evidence, evidence
+        assert 'limits: This establishes no Stacker mechanics' in evidence, evidence
         assert (root / 'TEST-calls').read_text().splitlines() == ['stub']
-        print('Shape TEST confirmation: 100x30 PTY, real seed writer, 1 stub call, 0 product model calls')
+        print('Shape TEST confirmation: 100x30 PTY, real seed writer, 2 TEST-only typed facts, '
+              '13 legacy receipts unchanged, 1 stub call, 0 product model calls')
         return session
     finally:
         if process.poll() is None:

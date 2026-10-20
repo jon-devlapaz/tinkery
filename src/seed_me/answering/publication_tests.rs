@@ -173,7 +173,7 @@ fn publication_clock_matches_python_including_zero_microseconds() {
     );
 }
 
-fn session(root: &Path) -> PathBuf {
+pub(super) fn session(root: &Path) -> PathBuf {
     let session = root.join("TEST-session");
     fs::create_dir(&session).unwrap();
     let initial = ledger::Value::parse(r#"{
@@ -218,6 +218,7 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
         &session,
         version,
         &Ask {
+            supported_by: None,
             id: "test-question".into(),
             label: "TEST".into(),
             question: "TEST?".into(),

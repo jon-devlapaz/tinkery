@@ -57,7 +57,9 @@ print(json.dumps({'parts': {'who': 'I', 'outcome': 'keep refusals calm', 'why': 
 
 QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
             'question': 'Keep records local or synced?', 'gate': 'storage choice',
-            'found': [{'checked': 'README.md:3', 'observed': 'says local only'}],
+            'found': [{'id': 'read-local', 'claim': {'type': 'observation', 'scope': 'README.md:3'},
+                       'checked': 'README.md:3', 'observed': 'says local only'}],
+            'supported_by': ['read-local'],
             'suggestion': 'Local, matching the README.'}
 # The model also offers decisions of its own; Tinkery must ignore them and insert `seed decisions`.
 SEED_BODY = '''Refusals stay calm and records stay local.
@@ -104,7 +106,8 @@ Carry seed-contract.md, ledger.json and seed-confirmation.json together; check s
 SEED = {'next': 'seed', 'confirming': SEED_BODY,
         'checks': [{'statement': 'Refusals never show private text.', 'kind': 'judge',
                     'source': 'TEST goal', 'how_to_judge': 'Inspect refusal output for private text.'}],
-        'found': [{'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
+        'found': [{'id': 'read-refusal', 'claim': {'type': 'observation', 'scope': 'src/main.rs:12'},
+                   'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
         'Done when: Shape shows the next question.\nMust: Keep my words.\nMust not: Run agents.')
@@ -337,24 +340,27 @@ def full_journey(width, height):
             # The second step built on the saved finding, in the folder the operator picked.
             second = run.calls()[1]
             assert second['cwd'] == str(target), second['cwd']
-            assert second['input']['found_so_far'] == [
-                {'checked': 'README.md:3', 'observed': 'says local only'}], second['input']
+            recorded = second['input']['found_so_far']
+            assert len(recorded) == 1 and recorded[0]['id'] == 'read-local', recorded
+            assert recorded[0]['claim'] == QUESTION['found'][0]['claim'], recorded
             # The seed's grounding is the saved findings, word for word, before the decisions.
-            date = next(n for n in ledger['nodes'] if n['id'] == 'storage')['evidence'][0]['at'][:10]
+            date = next(n for n in ledger['nodes'] if n['id'] == 'read-local')['evidence'][0]['at'][:10]
             today = ("## Evidence and uncertainty\n"
                      "Grounded in:\n- README.md\n\n"
                      "Provenance unavailable: reported reads do not verify filesystem origins or unrecorded reads. "
                      "Some recorded findings have no attributable read path.\n\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}:\n"
-                     f"- README.md:3: says local only (observed {date})\n"
+                     f"- README.md:3: says local only (observation; scope: README.md:3) (observed {date})\n"
                      f"Checked by read-only file tools in {' '.join(str(target).split())}; "
                      "citation not found: src/main.rs isn't in the folder:\n"
-                     f"- src/main.rs:12: the refusal path; the change touches it (observed {date})\n\n")
+                     f"- src/main.rs:12: the refusal path; the change touches it (observation; scope: src/main.rs:12) (observed {date})\n\n")
             assert today + '## Suggested first slice\n' in seed, seed
-            # Each finding appears once: the seed step's findings never become ledger facts (#161).
-            assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
-            for checked in ('README.md:3', 'src/main.rs:12'):
-                assert seed.count(checked) == 1, seed
+            # Both question and seed findings are facts; prose appears once in seed evidence.
+            assert len([n for n in ledger['nodes'] if n['kind'] == 'fact']) == 2, ledger['nodes']
+            assert answered['supported_by'] == ['read-local'] and answered['evidence'] == []
+            for observed in ('says local only', 'the refusal path; the change touches it'):
+                evidence = seed.split('## Evidence and uncertainty\n', 1)[1].split('## Suggested first slice', 1)[0]
+                assert evidence.count(observed) == 1, seed
             # Returning rereads the same session, including the garden's stage, without work.
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
@@ -433,12 +439,12 @@ def case(name, width=100, height=30):
         if name == 'stop':
             replies = ['SLOW']
         if name == 'helper refusal':
-            replies = [{**QUESTION, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
+            replies = [{**QUESTION, 'found': [{**QUESTION['found'][0], 'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model tries to confirm':
             replies = [{'next': 'confirm', 'revision': 'r1', 'source': 'yes'}]
         if name == 'seed secret':
             question = False
-            replies = [{**SEED, 'found': [{'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
+            replies = [{**SEED, 'found': [{**SEED['found'][0], 'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model writes decisions':
             question = False
             replies = [{**SEED, 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
@@ -455,7 +461,7 @@ def case(name, width=100, height=30):
             question = False
             replies = [{**QUESTION, 'assumed': [{'text': 'TEST notes are Markdown', 'why': 'TEST either format works'}]}]
         if name == 'nothing found':
-            replies = [{**QUESTION, 'found': []}, {**SEED, 'found': []}]
+            replies = [{k: v for k, v in {**QUESTION, 'found': []}.items() if k != 'supported_by'}, {**SEED, 'found': []}]
         session = make(sessions, question=question, operator=operator)
         if name in ('practice confirmation', 'multiline confirmation', 'confirmation hint', 'confirmation Enter'):
             (session / 'seed-contract.md').write_text(
@@ -618,7 +624,7 @@ def case(name, width=100, height=30):
                     'helper refusal': 'Your answer is saved. Tinkery refused: receipt appears to contain a secret',
                     'model tries to confirm': "Looking into the next question failed: The model's reply wasn't a question or a seed draft.",
                     'model writes decisions': "The drafted seed text didn't fit Shape's format, so nothing was saved.",
-                    'seed secret': 'A finding appears to contain a secret, so no seed was drafted',
+                    'seed secret': 'Tinkery refused: receipt appears to contain a secret',
                 }[name]
                 run.send(F2, expected)
                 assert run.flat().count('Next:') == 1, run.screen.text()
@@ -641,7 +647,79 @@ def case(name, width=100, height=30):
             run.close()
 
 
+def typed_findings_review(width, height):
+    """Two stub investigations, then an operator-only review before confirmation (#282)."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-typed-findings-') as directory:
+        cwd = Path(directory).resolve()
+        (cwd / 'README.md').write_text('# TEST\n\nLocal only.\nA later observation conflicts.\n')
+        inferred = {'id': 'infer-local', 'claim': {'type': 'inference', 'scope': 'TEST storage path',
+                    'limits': 'TEST not runtime verification'}, 'checked': 'README.md:3',
+                    'observed': 'TEST the documented path is local', 'supported_by': ['read-local']}
+        question = {**QUESTION, 'found': [*QUESTION['found'], inferred],
+                    'supported_by': ['read-local', 'infer-local']}
+        conflict = {'id': 'conflict', 'claim': {'type': 'observation', 'scope': 'TEST later lines'},
+                    'checked': 'README.md:4', 'observed': 'TEST later evidence conflicts with storage',
+                    'contradicts': 'storage'}
+        seed = {**SEED, 'found': [conflict]}
+        session = make(cwd / 'TEST-sessions', question=False)
+        run = Run(cwd, width, height, budget=2, replies=[question, seed])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            run.send(F2, 'Keep records local or synced?')
+            ledger = helper.load(session)
+            current = next(n for n in ledger['nodes'] if n['id'] == 'storage')
+            assert current['supported_by'] == ['read-local', 'infer-local'], current
+            assert current['status'] == 'unresolved' and 'answer' not in current
+            facts = [n for n in ledger['nodes'] if n['kind'] == 'fact']
+            assert [n['claim']['type'] for n in facts] == ['observation', 'inference'], facts
+            assert facts[1]['supported_by'] == ['read-local']
+            assert all(n['authority'] == 'evidence' and n['evidence'] for n in facts)
+            run.send(b'\x1b[15~', 'TEST the documented path is local')
+            run.send(b'\x1b[15~', 'your answer')
+            run.type('TEST keep local')
+            run.send(F2, 'Current question: review flagged answer')
+            run.wait('Keep Where records live?')
+            run.wait('Settled answer: TEST keep local')
+            run.wait('F6 keep with reason')
+            ledger = helper.load(session)
+            assert helper.review_flags(ledger['nodes']), ledger
+            seed_text = (session / 'seed-contract.md').read_text()
+            for text in ['observation; scope:', 'inference; scope: TEST storage path',
+                         'limits: TEST not runtime verification', 'supported by: read-local']:
+                assert text in seed_text, seed_text
+            evidence = seed_text.split('## Evidence and uncertainty\n', 1)[1].split('## Suggested first slice', 1)[0]
+            assert evidence.count('TEST the documented path is local') == 1, seed_text
+            before = files(run.sessions)
+            run.send(F3, 'Review the flagged answer first; nothing was confirmed.')
+            run.send(F6, "Type why you're keeping this answer first; nothing was saved.")
+            assert files(run.sessions) == before and len(run.calls()) == 2
+            run.type('TEST the scope still fits')
+            # A held keep key is not an operator review; typing and help also save nothing.
+            run.send(b'\x1b[17;1:2~' + F1, 'F6 keeps it unchanged with your reason; no model runs.')
+            run.send(b'\x1b', 'your reason TEST the scope still fits')
+            assert files(run.sessions) == before and len(run.calls()) == 2
+            run.send(F6, 'Seed draft r1')
+            run.wait('Answer kept with your reason. No model ran.')
+            ledger = helper.load(session)
+            kept = next(n for n in ledger['nodes'] if n['id'] == 'storage')
+            assert kept['answer'] == 'TEST keep local' and kept['authority'] == 'user', kept
+            assert kept['history'][-1]['reason'] == 'TEST the scope still fits', kept
+            assert not helper.review_flags(ledger['nodes']), ledger
+            run.type('TEST confirm only r1')
+            run.read_until('This is not implementation approval.')
+            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            assert helper.status(session)['handoff']['verified'] is True
+            assert len(run.calls()) == 2 and helper.load(session)['goal'] == GOAL
+            print(f'Shape typed findings and contradiction review passed at {width}x{height}: '
+                  '2 stub calls, F3 held, F6 keep-with-reason, unchanged answer, verified seed')
+        finally:
+            run.close()
+
+
 if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        typed_findings_review(*size)
     for size in [(100, 30), (80, 24)]:
         full_journey(*size)
     for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',

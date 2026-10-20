@@ -1,6 +1,6 @@
 # Shape owns the ledger
 
-**Accepted design; slices 1–3 implemented.** The operator accepted it on 2026-10-19
+**Accepted design; slices 1–4 implemented.** The operator accepted it on 2026-10-19
 ([#269](https://github.com/jon-devlapaz/tinkery/issues/269)). Each slice, Seed Me changes and any
 provider budget remain separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
 and tink-sdlc `1c6ffd5` on 2026-10-19.
@@ -12,23 +12,24 @@ a skill is not the correct method for that crucial step of fact finding and shap
 making for tinkery prior to tink sdlc." Yohaku agrees: *move each correction left*,
 make the mistake impossible in the code, and write a rule only when code can't hold it.
 
-Seed Me's robustness lives in two places, and Shape inherits only one:
+Seed Me's robustness lives in two places. Shape initially inherited only the helper's
+publication protections; shipped rows below now reach more of its rules:
 
 | Seed Me protection | Where it lives | Shape today |
 | --- | --- | --- |
 | Stale writes refused, origin pinned, nodes never deleted | `session.py` `transition` (L320) | Inherited: Shape publishes through the helper. |
 | Confirmation bound to seed bytes, decisions and checks | `confirm_seed` (L950), `verify_handoff` (L916) | Inherited. |
 | Check records and the seed's heading sequence | `validate_checks` (L732), `document_headings` (L846) | Inherited. |
-| Typed facts; an inference cites its observations | `validate_claim` (L78) | Never fires: findings are untyped receipts. |
+| Typed facts; an inference cites its observations | `validate_claim` (L78) | Shipped: typed fact nodes and `supported_by`, validated by the Rust ledger. |
 | Prerequisites, cycles, dependents wait | `validate` (L132) | Never fires: `ask` writes `"prerequisites": []` (`src/seed_me/answering.rs:516`). |
-| Changed evidence or answers flag dependents for review | `review_flags` (L288), `transition` | Never fires: no fact nodes, no way to revise an answer. |
+| Changed evidence or answers flag dependents for review | `review_flags` (L288), `transition` | Shipped for contradictory facts: first flagged node becomes the current review; keep with an operator reason. Answer revision remains slice 5. |
 | Deferral with reason and revisit condition; delegation only on grounded questions | `validate` | Wrong state: `answer` records every reply as settled `user` authority (`answering.rs:467-496`). |
 | Completion review, teach-back, naming the riskiest items at confirmation | `SKILL.md` prose only | Missing. |
 
-So Seed Me's strongest protections exist in code Shape calls, but Shape never writes
-what would trigger them. The prose-only rows are the part a model can skip.
-This proposal reverses one line of the current design: "Seed Me alone owns the session,
-ledger and contract" ([Shape](shape-and-handoff.md#shape)).
+The remaining inactive protections need later slices to write what triggers them;
+the prose-only rows are still steps a model can skip. This design replaced the former
+rule that Seed Me alone owns the session, ledger and contract
+([Shape](shape-and-handoff.md#shape)).
 
 ## 1. One owner for the ledger
 
@@ -66,7 +67,8 @@ They stay in the "Not adopted" table until a revisit condition holds.
 ## 2. What Shape writes
 
 Each item is an operator key that says what it does (articles 4 and 5); the model still
-only investigates and drafts, and nothing it replies can confirm or settle.
+only investigates and drafts, and nothing it replies can confirm, settle a decision or
+resolve a review flag.
 
 - **Typed findings.** A step's findings become fact nodes: `observation` with its receipt,
   `inference` citing the observations it rests on, or `unknown` ("this investigation has not
@@ -75,7 +77,7 @@ only investigates and drafts, and nothing it replies can confirm or settle.
   This absorbs [#241](https://github.com/jon-devlapaz/tinkery/issues/241).
 - **Contradictions.** A fact may name the settled node it contradicts. The module flags that
   node and its dependents, and Shape shows the first flagged node as the current question:
-  revise it, or keep it and say why.
+  keep it and say why (shipped), or revise it (slice 5).
 - **Answers beyond F2.** Defer a non-blocking question with a reason and a revisit condition
   ([#240](https://github.com/jon-devlapaz/tinkery/issues/240)). Take the suggestion as a
   delegated choice, only on a question with facts and a suggestion
@@ -129,7 +131,10 @@ the session root stays where it is. Proposed slices, each one PR and its own app
 2. **Shape publishes through the module** (answers, questions, objections, probes).
 3. **Seed, confirmation, verification and ending in Rust** (implemented), plus the two
    read-only `tinkery seed` commands. The consumer flag change is separate (section 4).
-4. **Typed findings and contradictions** (section 2).
+4. **Typed findings and contradictions** (implemented; section 2). The ledger alone
+   validates facts. Old untyped model replies are refused; existing untyped sessions
+   still read unchanged. `F6 keep with reason` revalidates without changing an answer
+   or calling a model; flags continue to block confirmation and completion.
 5. **Deferral, delegation and revising an answer** (#240, #239). These two can land
    earlier on today's helper, which already validates them.
 6. **Prerequisites** from question replies.
