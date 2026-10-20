@@ -6,7 +6,7 @@ finding, and confirms the drafted seed with Seed Me's canonical sections. Short 
 model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
 seed finding that looks like a secret, a practice session's confirmation, a citation that isn't in the folder,
 and steps that found nothing."""
-import fcntl, importlib.util, json, os, select, signal, struct, subprocess, tempfile, termios, time
+import fcntl, hashlib, importlib.util, json, os, select, signal, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
 
@@ -405,6 +405,7 @@ def full_journey(width, height):
             run.send(b'\x1b[H' + F3, 'Read to the end first: PgDn scrolls. Nothing was confirmed.')
             assert files(run.sessions) == before, 'F3 confirmed an unread draft'
             run.read_until('This is not implementation approval.')
+            run.send(b'\x1b[6~' * 10, 'Accepted as suggested:')
             run.wait('Indeed, I confirm r1.')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
@@ -801,6 +802,8 @@ def typed_findings_review(width, height):
             assert not helper.review_flags(ledger['nodes']), ledger
             run.type('TEST confirm only r1')
             run.read_until('This is not implementation approval.')
+            # The handoff paragraph is not the end: confirmation rows follow it.
+            run.send(b'\x1b[6~' * 10, 'Accepted as suggested: 0; chosen otherwise: 2.')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == 2 and helper.load(session)['goal'] == GOAL
@@ -985,6 +988,45 @@ def closing_summary(width, height):
             run.close()
 
 
+def completion_review_display(width, height, done=False):
+    """Drafting review survives saving and appears as guesses above F3, without extra calls."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-review-display-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False)
+        review = completion_review(SEED['checks'])
+        review['decided'] = ['TEST café scope.\r\nKeep words.  ']
+        review['done'] = ['TEST README observed.\r\nNo checks ran.  '] if done else []
+        review['failure_cases'][0]['case'] = 'TEST private text appears'
+        reply = {**SEED, 'found': [], 'review': review}
+        run = Run(cwd, width, height, budget=1, replies=[reply])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            run.send(F2, 'Seed draft r1')
+            seed = (session / 'seed-contract.md').read_bytes()
+            saved = helper.load(session)
+            origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
+            receipt = next(r for r in origin['evidence'] if r.get('artifact') == 'tinkery:review/completed')
+            assert json.loads(receipt['observed']) == review, receipt
+            assert receipt['checked'] == 'Review r1 · ' + hashlib.sha256(seed).hexdigest(), receipt
+            for line in [
+                'Drafting step guess — decided: TEST café scope. Keep words.',
+                ('Drafting step guess — observed done: TEST README observed. No checks ran.' if done
+                 else 'Drafting step guess: Nothing observed done.'),
+                'Drafting step guess: If TEST private text appears, Refusals never show private text. must fail.',
+            ]:
+                run.read_until(line)
+                assert run.flat().index(line) < run.flat().index('F3 confirm seed r1'), run.screen.text()
+            assert len(run.calls()) == 1 and saved['goal'] == GOAL
+            run.read_until('This is not implementation approval.')
+            run.type('TEST confirm review')
+            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            assert helper.status(session)['handoff']['verified'] is True
+            print(f'Shape completion review display {"done" if done else "empty done"} passed at {width}x{height}: 1 stub call')
+        finally:
+            run.close()
+
+
 def completion_reviews(width, height):
     """Missing or incomplete review refuses before any seed write; a blocker is a question."""
     for kind in ['missing', 'untyped', 'missing case', 'blocker', 'question']:
@@ -1028,12 +1070,16 @@ def teach_back(width, height, exhausted=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-teach-back-') as directory:
         cwd = Path(directory).resolve()
         session = make(cwd / 'TEST-sessions', question=False)
+        target = cwd / 'TEST-repository'
+        target.mkdir()
         mismatch = 'TEST sync is outside the draft.\r\nKeep café mismatch words.  '
         run = Run(cwd, width, height, budget=1 if exhausted else 2,
                   replies=[{**SEED, 'found': []}, {'mismatches': [mismatch]}])
         try:
             run.open_shape()
             run.wait('F2 look into the next question')
+            run.send(b'\x1bOS', 'Next: F4 uses this folder')
+            run.send(b'/TEST-repository\x1bOS', 'The step reads files in TEST-repository.')
             run.send(F2, 'Seed draft r1')
             run.wait('F7 teach-back')
             run.type('TEST I confirm r1')
@@ -1059,8 +1105,11 @@ def teach_back(width, height, exhausted=False):
                 run.read_until('Teach-back mismatch (guess): TEST sync is outside the draft.')
                 saved = helper.load(session)
                 origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
-                assert [r['observed'] for r in origin['evidence']] == [words, mismatch, 'Teach-back compared.']
+                assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == [words, mismatch, 'Teach-back compared.']
                 assert len(run.calls()) == 2
+                assert '--no-tools' in run.calls()[1]['argv'] and '--tools' not in run.calls()[1]['argv']
+                assert run.calls()[0]['cwd'] == str(target), run.calls()
+                assert run.calls()[1]['cwd'] == str(cwd), run.calls()
                 assert run.calls()[1]['input'] == {'kind': 'teach-back',
                     'draft': (session / 'seed-contract.md').read_text(), 'operator_words': words}
             run.read_until('Accepted as suggested: 0; chosen otherwise: 1.')
@@ -1071,7 +1120,7 @@ def teach_back(width, height, exhausted=False):
             if exhausted:
                 assert origin['evidence'][-1]['observed'] == 'Skipped teach-back.'
             else:
-                assert [r['observed'] for r in origin['evidence']] == [words, mismatch, 'Teach-back compared.']
+                assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == [words, mismatch, 'Teach-back compared.']
             assert saved['goal'] == GOAL and helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == (1 if exhausted else 2)
             assert 'F7 teach-back' not in run.flat()
@@ -1097,7 +1146,7 @@ def teach_back_retry(width, height):
             run.send(F7, 'The teach-back reply needs a mismatches list.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
-            assert [r['observed'] for r in origin['evidence']] == ['TEST first teach-back']
+            assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == ['TEST first teach-back']
             assert len(run.calls()) == 2
             for parser_text in ['invalid type', 'integer', 'line 1 column']:
                 assert parser_text not in run.flat(), run.screen.text()
@@ -1113,7 +1162,7 @@ def teach_back_retry(width, height):
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
-            assert [r['observed'] for r in origin['evidence']] == [
+            assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == [
                 'TEST first teach-back', 'TEST corrected teach-back', 'Teach-back compared.']
             assert len(run.calls()) == 3 and saved['goal'] == GOAL
             print(f'Shape teach-back failure + explicit retry passed at {width}x{height}: exactly 3 stub calls')
@@ -1123,6 +1172,8 @@ def teach_back_retry(width, height):
 
 if __name__ == '__main__':
     for size in [(100, 30), (80, 24)]:
+        completion_review_display(*size)
+        completion_review_display(*size, done=True)
         teach_back_retry(*size)
         closing_summary(*size)
         completion_reviews(*size)

@@ -126,7 +126,7 @@ fn teach_back_refusals() -> Vec<String> {
     list(&mut list(&mut wrong_kind["nodes"])[0]["evidence"])[0]["artifact"] =
         "tinkery:teach-back/unknown".into();
     let kind = ledger::validate(&wrong_kind).unwrap_err();
-    assert_eq!(kind, "Unknown teach-back record kind.");
+    assert_eq!(kind, "Unknown draft review or teach-back record kind.");
     let mut wrong_node = ledger::editable(&ledger).unwrap();
     let mut other = wrong_node["nodes"].array().unwrap()[0].clone();
     other["id"] = "other".into();
@@ -135,7 +135,7 @@ fn teach_back_refusals() -> Vec<String> {
     let node = ledger::validate(&wrong_node).unwrap_err();
     assert_eq!(
         node,
-        "Teach-back records belong only to the confirmed goal."
+        "Draft review and teach-back records belong only to the confirmed goal."
     );
     println!("Tinkery-only teach-back refusal coverage: 3 cases, with valid-record control");
     vec![erase, kind, node]

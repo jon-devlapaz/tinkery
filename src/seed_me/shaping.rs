@@ -21,7 +21,7 @@ pub struct Shaping {
     pub open: Vec<String>,
     /// A one-line, shell-quoted intake command only for a verified seed; never executed.
     pub intake: Option<String>,
-    /// Ledger-computed confirmation risks; callers display these words without recomputing them.
+    /// Ledger-computed risks and byte-bound drafting guesses, displayed without recomputing them.
     pub confirmation: Vec<String>,
     /// The ledger's latest completed teach-back for the exact draft, with display labels.
     pub teach_back: Vec<String>,
@@ -162,6 +162,10 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
         if let (Some(seed), Some(revision)) = (text.as_ref(), revision.as_ref()) {
             shaping.teach_back = super::ledger::teach_back_report(&saved, revision, seed);
+            shaping.confirmation.splice(
+                0..0,
+                super::ledger::completion_report(&saved, revision, seed),
+            );
         }
     }
     Ok(shaping)

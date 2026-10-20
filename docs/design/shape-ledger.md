@@ -98,10 +98,14 @@ The skill's closing steps move into Tinkery, computed where they can be:
 - **Completion review (inside drafting, no extra call).** The drafting step checks
   settled choices for contradictions, separates *decided* from *done*, and names a
   case that must fail each check statement. New blockers return as questions. The
-  ledger enforces typed review coverage; it does not prove the model's judgments.
+  ledger enforces typed review coverage and retains the review as append-only,
+  byte-bound confirmed-goal receipts through teach-back's recording path. Its decided,
+  done and failure-case lines appear with the risk summary as drafting guesses;
+  the ledger does not prove those judgments.
 - **Teach-back (optional F7 on a draft).** The operator may describe what will and
   won't be built. One explicitly budgeted comparison lists mismatches as guesses,
-  never blocking F3. Words, mismatches and skips are preserved verbatim in the ledger;
+  never blocking F3. The comparison has no tools or repository access.
+  Words, mismatches and skips are preserved verbatim in the ledger;
   no result grants build permission.
 
 [Answering and confirming](shape-and-handoff.md#answering-and-confirming) owns the

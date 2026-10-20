@@ -103,6 +103,91 @@ fn draft() -> (tempfile::TempDir, String) {
 const AT: &str = "2026-10-20T00:00:00+00:00";
 
 #[test]
+fn completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence() {
+    let (root, seed) = draft();
+    let before = ledger::load(root.path()).unwrap();
+    let version = before["version"].pretty().unwrap().trim().parse().unwrap();
+    let mut review = review();
+    review.decided = vec!["TEST café scope.\r\nKeep words.  ".into()];
+    review.done = vec!["TEST observed only.\r\nNot executed.  ".into()];
+    review.failure_cases[0].case = "TEST wrong result\r\n  ".into();
+    let next = ledger::record_teach_back(
+        root.path(),
+        version,
+        "r1",
+        &seed,
+        &TeachBackRecord::Review(&review),
+        AT,
+    )
+    .unwrap();
+    let saved = ledger::load(root.path()).unwrap();
+    let receipts = saved["nodes"].items()[0]["evidence"].items();
+    assert_eq!(receipts.len(), 1);
+    assert!(receipts[0]["artifact"].is("tinkery:review/completed"));
+    assert_eq!(
+        receipts[0]["checked"].string(),
+        Some(
+            format!(
+                "Review r1 · {}",
+                super::super::seed::sha256(seed.as_bytes())
+            )
+            .as_str()
+        )
+    );
+    assert_eq!(
+        serde_json::from_str::<CompletionReview>(receipts[0]["observed"].string().unwrap())
+            .unwrap(),
+        review
+    );
+    assert!(!ledger::evidence_differs(
+        &before["nodes"].items()[0],
+        &saved["nodes"].items()[0]
+    ));
+    assert!(ledger::completion_report(&saved, "r2", &seed).is_empty());
+    assert!(ledger::completion_report(&saved, "r1", &(seed.clone() + "changed")).is_empty());
+    let report = ledger::completion_report(&saved, "r1", &seed);
+    assert!(report[0].contains(&review.decided[0]));
+    assert!(report[1].contains(&review.done[0]));
+    assert!(report[2].contains(&review.failure_cases[0].case));
+    let mut erased = ledger::editable(&saved).unwrap();
+    erased["nodes"].list_mut()[0].set("evidence", Value::Array(vec![]));
+    assert!(
+        ledger::transition(
+            &saved,
+            &erased,
+            &saved["version"],
+            &"TEST erase review".into(),
+            None,
+            AT
+        )
+        .is_err()
+    );
+    review.done.clear();
+    ledger::record_teach_back(
+        root.path(),
+        next,
+        "r1",
+        &seed,
+        &TeachBackRecord::Review(&review),
+        AT,
+    )
+    .unwrap();
+    let latest = ledger::load(root.path()).unwrap();
+    assert_eq!(
+        latest["nodes"].items()[0]["evidence"].items()[0],
+        receipts[0]
+    );
+    assert!(
+        ledger::completion_report(&latest, "r1", &seed)
+            .iter()
+            .any(|line| line.ends_with("Nothing observed done."))
+    );
+    assert!(ledger::teach_back_report(&latest, "r1", &seed).is_empty());
+    ledger::confirm_with_teach_back(root.path(), "r1", "TEST confirm review", AT).unwrap();
+    assert!(ledger::verify_handoff(root.path(), &ledger::load(root.path()).unwrap()).unwrap()["verified"].truth());
+}
+
+#[test]
 fn teach_back_preserves_words_and_mismatches_without_holding_confirmation() {
     let (root, seed) = draft();
     let before = ledger::load(root.path()).unwrap();

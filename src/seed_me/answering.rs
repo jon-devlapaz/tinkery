@@ -955,8 +955,8 @@ pub fn draft_seed(
     Ok(format!("r{revision}"))
 }
 
-/// Record an explicit teach-back against the displayed version and draft bytes. The ledger
-/// preserves words and comparisons unchanged; this never confirms or blocks a seed.
+/// Record a drafting review or teach-back against the displayed version and draft bytes.
+/// The ledger preserves words unchanged; this never confirms or blocks a seed.
 pub fn teach_back(
     session: &Path,
     expected: u64,

@@ -14,7 +14,6 @@ pub(super) fn run(
         revision,
         words,
         expected,
-        folder,
         seed,
     } = work
     else {
@@ -41,7 +40,8 @@ pub(super) fn run(
     };
     let input = json!({"kind":"teach-back", "draft":seed, "operator_words":words});
     let call = Call {
-        folder: Some(folder.into()),
+        folder: None,
+        read_only_tools: false,
         ..agent.call.clone()
     };
     let reply = call.complete(Some(&agent.budget), Request::SeedStep,

@@ -4,7 +4,7 @@
 use super::{Value, require};
 
 /// A drafting step's review; contradictions must return as a question, never accompany a seed.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CompletionReview {
     /// Conflicts still blocking the draft; a seed requires none.
@@ -18,7 +18,7 @@ pub struct CompletionReview {
 }
 
 /// A case that must fail an acceptance check, not a report that it was executed.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FailureCase {
     /// The check's statement, unchanged.

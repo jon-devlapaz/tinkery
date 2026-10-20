@@ -68,7 +68,6 @@ fn teach_back_zero_budget_refuses_before_capture_or_any_read() {
         revision: "r1".into(),
         words: "TEST exact words\r\n".into(),
         expected: 1,
-        folder: root.path().into(),
         seed: "TEST draft".into(),
     };
     let saved = AtomicBool::new(false);

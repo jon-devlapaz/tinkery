@@ -304,8 +304,8 @@ pub(crate) fn save_draft(
         .map_err(|e| format!("check records saved, but the seed draft was not saved: {e}"))
 }
 
-/// Record an explicit teach-back capture or comparison against the displayed ledger and exact
-/// draft bytes. A stale draft refuses without saving; model text never becomes a confirmation gate.
+/// Record a drafting review or teach-back against the displayed ledger and exact draft bytes.
+/// A stale draft refuses without saving; model text never becomes a confirmation gate.
 pub fn record_teach_back(
     directory: &Path,
     expected: u64,
@@ -315,21 +315,21 @@ pub fn record_teach_back(
     timestamp: &str,
 ) -> Result<u64, PublishError> {
     let _writer = Writer::acquire(directory).map_err(|_| {
-        "The session cannot be locked. Reopen it before trying teach-back again.".to_owned()
+        "The session cannot be locked. Reopen it before recording this review again.".to_owned()
     })?;
     let ledger = load(directory).map_err(|_| {
-        "The session could not be read. Reopen it before trying teach-back again.".to_owned()
+        "The session could not be read. Reopen it before recording this review again.".to_owned()
     })?;
     super::require(
         ledger["version"] == super::value::int(expected),
         "stale publication version",
     )?;
     let current = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
-        "The draft could not be read. Reopen Shape before trying teach-back again.".to_owned()
+        "The draft could not be read. Reopen Shape before recording this review again.".to_owned()
     })?;
     super::require(
         current == seed,
-        "The draft changed. Reopen Shape before trying teach-back again.",
+        "The draft changed. Reopen Shape before recording this review again.",
     )?;
     let state = super::teach_back::append(&ledger, revision, seed, record, timestamp)?;
     let saved = publication(
@@ -337,12 +337,15 @@ pub fn record_teach_back(
         &ledger,
         &state,
         &ledger["version"],
-        &"The operator requested teach-back in Tinkery Shape.".into(),
+        &"The operator requested a draft review or teach-back in Tinkery Shape.".into(),
         None,
         timestamp,
-    ).map_err(|mut error| {
+    )
+    .map_err(|mut error| {
         if error.reason.starts_with("could not save the ledger:") {
-            error.reason = "The teach-back save could not be verified. Reopen the session before trying again.".into();
+            error.reason =
+                "The review save could not be verified. Reopen the session before trying again."
+                    .into();
         }
         error
     })?;
@@ -351,7 +354,7 @@ pub fn record_teach_back(
         .ok()
         .and_then(|v| v.trim().parse().ok())
         .ok_or_else(|| PublishError {
-            reason: "Teach-back may have saved. Reopen the session before trying again.".into(),
+            reason: "The review may have saved. Reopen the session before trying again.".into(),
             save_state: SaveState::Unknown,
         })
 }

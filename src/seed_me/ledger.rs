@@ -3,7 +3,9 @@
 //! ending verifies that binding. No operation opens or refreshes a browser viewer.
 
 mod teach_back;
-pub use teach_back::{TEACH_BACK_SKIPPED, TeachBackComparison, TeachBackRecord, teach_back_report};
+pub use teach_back::{
+    TEACH_BACK_SKIPPED, TeachBackComparison, TeachBackRecord, completion_report, teach_back_report,
+};
 mod closing;
 pub use closing::{CompletionReview, FailureCase, confirmation_summary};
 mod answers;
@@ -373,13 +375,14 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
             if teach_back::is_record(entry) {
                 require(
                     node["id"] == state["origin"],
-                    "Teach-back records belong only to the confirmed goal.",
+                    "Draft review and teach-back records belong only to the confirmed goal.",
                 )?;
                 require(
                     ["words", "mismatch", "reviewed", "skipped"]
                         .iter()
-                        .any(|kind| entry["artifact"].is(&format!("tinkery:teach-back/{kind}"))),
-                    "Unknown teach-back record kind.",
+                        .any(|kind| entry["artifact"].is(&format!("tinkery:teach-back/{kind}")))
+                        || entry["artifact"].is("tinkery:review/completed"),
+                    "Unknown draft review or teach-back record kind.",
                 )?;
             }
         }

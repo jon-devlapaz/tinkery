@@ -1200,6 +1200,37 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     assert_eq!(agent.remaining(), 0);
     let draft = shaping::read(&skill, &receipt.session).unwrap();
     assert_eq!(draft.goal.as_deref(), Some(goal));
+    let checks_value: serde_json::Value = serde_json::from_str(checks).unwrap();
+    let mut expected_review = vec!["Drafting step guess: Nothing observed done.".to_owned()];
+    expected_review.extend(checks_value.as_array().unwrap().iter().map(|c| {
+        format!(
+            "Drafting step guess: If TEST wrong result must fail, {} must fail.",
+            c["statement"].as_str().unwrap()
+        )
+    }));
+    for (width, height) in [(100, 30), (80, 24)] {
+        let mut view = done(draft.stage.clone()).with_agent(Some(agent.clone()));
+        view.open.as_mut().unwrap().reading = Reading::Done(Ok(draft.clone()));
+        let mut seen = vec![false; expected_review.len()];
+        for _ in 0..200 {
+            let rendered = screen(&mut view, width, height, true);
+            let flat = rendered.split_whitespace().collect::<Vec<_>>().join(" ");
+            for (index, line) in expected_review.iter().enumerate() {
+                if let Some(position) = flat.find(line) {
+                    assert!(
+                        position < flat.find("F3 confirm seed r8").unwrap(),
+                        "{rendered}"
+                    );
+                    seen[index] = true;
+                }
+            }
+            view.scroll += 1;
+        }
+        assert!(
+            seen.iter().all(|s| *s),
+            "Review missing above F3 at {width}x{height}: {seen:?}"
+        );
+    }
     let Shaped::Drafted {
         revision,
         text: Some(text),

@@ -164,7 +164,6 @@ pub(super) enum Work {
         revision: String,
         words: String,
         expected: u64,
-        folder: PathBuf,
         seed: String,
     },
     /// Confirm seed `revision` with the operator's own words.
@@ -423,7 +422,7 @@ fn look(
             review
                 .validate(&records)
                 .map_err(|why| fail(Why::Model(why)))?;
-            answering::draft_seed(
+            let revision = answering::draft_seed(
                 skill,
                 session,
                 expected,
@@ -431,6 +430,21 @@ fn look(
                 &checks,
                 &found,
                 folder,
+            )
+            .map_err(refused(answer_saved))?;
+            let seed = std::fs::read_to_string(session.join("seed-contract.md")).map_err(|_| {
+                fail(Why::Model(
+                    "The draft could not be read. Reopen Shape before trying again.".into(),
+                ))
+            })?;
+            answering::teach_back(
+                session,
+                answering::read(skill, session)
+                    .map_err(refused(answer_saved))?
+                    .version(),
+                &revision,
+                &seed,
+                &crate::seed_me::ledger::TeachBackRecord::Review(&review),
             )
             .map_err(refused(answer_saved))?;
             Ok(Done::Drafted)

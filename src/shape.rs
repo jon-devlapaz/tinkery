@@ -750,7 +750,7 @@ impl Shape {
                     },
                     |a| {
                         let step = if open.offers_teach_back() {
-                            "Each F7 teach-back comparison is one call, with read-only tools."
+                            "Each F7 teach-back comparison is one call, without repository access."
                         } else {
                             "Each F2 step is one call, with read-only tools."
                         };
@@ -1477,9 +1477,7 @@ impl Opened {
                     Doing::Answer,
                 )
             }
-            Act::TeachBack { .. } | Act::Respond { .. } | Act::Answer { .. } | Act::Look(_)
-                if folder.is_none() =>
-            {
+            Act::Respond { .. } | Act::Answer { .. } | Act::Look(_) if folder.is_none() => {
                 refuse("Shape is still finding which folder the step reads; nothing was saved.")
             }
             _ => None,
@@ -1532,7 +1530,6 @@ impl Opened {
                     expected,
                     seed,
                     words,
-                    folder,
                 },
                 Doing::TeachBack,
             ),
