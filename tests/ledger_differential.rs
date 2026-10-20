@@ -77,6 +77,70 @@ fn assert_refusal_coverage(root: &std::path::Path, refused: &[String]) {
     println!("Rust refusal coverage: {} sites", rules.0.len());
 }
 
+// The legacy corpus stays byte-for-byte differential. Teach-back's new, Tinkery-only
+// protections also need executable refusal cases; the pinned helper has no such action.
+fn teach_back_refusals() -> Vec<String> {
+    fn list(value: &mut Value) -> &mut Vec<Value> {
+        let Value::Array(items) = value else {
+            panic!("TEST list")
+        };
+        items
+    }
+    let ledger = Value::parse(r#"{"schema_version":1,"session_id":"TEST-closing","version":1,"revision":0,
+        "created_at":"2026-10-19T00:00:00+00:00","updated_at":"2026-10-19T00:00:00+00:00",
+        "status":"active","draft":{"goal":"","outcome":"","options":[]},"goal":"TEST goal",
+        "origin":"goal","current_question":null,"frontier":[],"assumed":[],"operator":"human",
+        "nodes":[{"id":"goal","kind":"decision","status":"settled","prerequisites":[],"evidence":[],
+        "owner":"TEST","gate":"TEST","answer":"TEST goal","authority":"user","authority_source":"TEST fixture only",
+        "history":[],"revision":0}]}"#).unwrap();
+    let receipt = Value::parse(r#"{"checked":"TEST draft","at":"2026-10-19T00:00:00+00:00",
+        "observed":"TEST exact words","check":"TEST capture","artifact":"tinkery:teach-back/words"}"#).unwrap();
+    let mut state = ledger::editable(&ledger).unwrap();
+    list(&mut list(&mut state["nodes"])[0]["evidence"]).push(receipt.clone());
+    ledger::validate(&state).unwrap();
+    let saved = ledger::transition(
+        &ledger,
+        &state,
+        &ledger["version"],
+        &"TEST capture".into(),
+        None,
+        STAMP,
+    )
+    .unwrap();
+    let mut erased = ledger::editable(&saved).unwrap();
+    list(&mut erased["nodes"])[0]["evidence"] = Value::Array(vec![]);
+    let erase = ledger::transition(
+        &saved,
+        &erased,
+        &saved["version"],
+        &"TEST erasure".into(),
+        None,
+        STAMP,
+    )
+    .unwrap_err();
+    assert_eq!(
+        erase,
+        "Preserve teach-back words, mismatches and skips unchanged."
+    );
+    let mut wrong_kind = state.clone();
+    list(&mut list(&mut wrong_kind["nodes"])[0]["evidence"])[0]["artifact"] =
+        "tinkery:teach-back/unknown".into();
+    let kind = ledger::validate(&wrong_kind).unwrap_err();
+    assert_eq!(kind, "Unknown teach-back record kind.");
+    let mut wrong_node = ledger::editable(&ledger).unwrap();
+    let mut other = wrong_node["nodes"].array().unwrap()[0].clone();
+    other["id"] = "other".into();
+    list(&mut other["evidence"]).push(receipt);
+    list(&mut wrong_node["nodes"]).push(other);
+    let node = ledger::validate(&wrong_node).unwrap_err();
+    assert_eq!(
+        node,
+        "Teach-back records belong only to the confirmed goal."
+    );
+    println!("Tinkery-only teach-back refusal coverage: 3 cases, with valid-record control");
+    vec![erase, kind, node]
+}
+
 #[test]
 fn pinned_python_ledger_rules_match() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -234,6 +298,7 @@ fn pinned_python_ledger_rules_match() {
             .collect::<Vec<_>>()
             .join("\n")
     );
+    refusals.extend(teach_back_refusals());
     assert_refusal_coverage(&root, &refusals);
 }
 

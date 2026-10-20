@@ -1,6 +1,6 @@
 """Shape reading journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls.
 Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py. Under an agent
-launch declaration Shape only reads: F2, F3, F6, F8, F11 and F12 are held and say why (#247)."""
+launch declaration Shape only reads: F2, F3, F6, F7, F8, F11 and F12 are held and say why (#247)."""
 import base64, fcntl, importlib.util, os, re, select, shlex, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
@@ -207,7 +207,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 send(b's', expected)
                 keys = {'question': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
                         'p051': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
-                        'drafted': 'F3 confirm seed r1   F8 stop   F5 so far   esc back   F10 menu',
+                        'drafted': 'F3 confirm seed r1   F7 teach-back   esc back   F10 menu',
                         'ready': 'c copy intake   F6 end session   ' + SHAPE_KEYS,
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
                 if held:
@@ -223,7 +223,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 assert flat().count('Next:') == (1 if held else 0 if acts or case == 'ready' else 1), screen.text()
                 if held:
                     assert HELD in flat(), screen.text()
-                    for key in (b'\x1bOQ', b'\x1bOR', b'\x1b[17~', b'\x1b[19~', b'\x1b[23~', b'\x1b[24~'):
+                    for key in (b'\x1bOQ', b'\x1bOR', b'\x1b[17~', b'\x1b[18~', b'\x1b[19~', b'\x1b[23~', b'\x1b[24~'):
                         os.write(master, key * 2)
                     send(b'x', HELD)
                     assert 'your answer' not in flat() and 'your words' not in flat(), screen.text()

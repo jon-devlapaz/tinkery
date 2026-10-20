@@ -955,6 +955,26 @@ pub fn draft_seed(
     Ok(format!("r{revision}"))
 }
 
+/// Record an explicit teach-back against the displayed version and draft bytes. The ledger
+/// preserves words and comparisons unchanged; this never confirms or blocks a seed.
+pub fn teach_back(
+    session: &Path,
+    expected: u64,
+    revision: &str,
+    seed: &str,
+    record: &ledger::TeachBackRecord<'_>,
+) -> Result<u64, Refusal> {
+    ledger::record_teach_back(
+        session,
+        expected,
+        revision,
+        seed,
+        record,
+        &publication_time(SystemTime::now())?,
+    )
+    .map_err(published)
+}
+
 /// Confirm seed `revision` through the ledger, with the operator's `words` as its source.
 /// Tinkery refuses a simulated session, a different revision, open decisions and a seed whose
 /// decisions don't match the ledger.
@@ -969,7 +989,7 @@ pub fn confirm_seed(
             "Tinkery needs your words on one line.".into(),
         ));
     }
-    ledger::confirm_seed(
+    ledger::confirm_with_teach_back(
         session,
         revision,
         words,

@@ -304,6 +304,58 @@ pub(crate) fn save_draft(
         .map_err(|e| format!("check records saved, but the seed draft was not saved: {e}"))
 }
 
+/// Record an explicit teach-back capture or comparison against the displayed ledger and exact
+/// draft bytes. A stale draft refuses without saving; model text never becomes a confirmation gate.
+pub fn record_teach_back(
+    directory: &Path,
+    expected: u64,
+    revision: &str,
+    seed: &str,
+    record: &super::TeachBackRecord<'_>,
+    timestamp: &str,
+) -> Result<u64, PublishError> {
+    let _writer = Writer::acquire(directory).map_err(|_| {
+        "The session cannot be locked. Reopen it before trying teach-back again.".to_owned()
+    })?;
+    let ledger = load(directory).map_err(|_| {
+        "The session could not be read. Reopen it before trying teach-back again.".to_owned()
+    })?;
+    super::require(
+        ledger["version"] == super::value::int(expected),
+        "stale publication version",
+    )?;
+    let current = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
+        "The draft could not be read. Reopen Shape before trying teach-back again.".to_owned()
+    })?;
+    super::require(
+        current == seed,
+        "The draft changed. Reopen Shape before trying teach-back again.",
+    )?;
+    let state = super::teach_back::append(&ledger, revision, seed, record, timestamp)?;
+    let saved = publication(
+        directory,
+        &ledger,
+        &state,
+        &ledger["version"],
+        &"The operator requested teach-back in Tinkery Shape.".into(),
+        None,
+        timestamp,
+    ).map_err(|mut error| {
+        if error.reason.starts_with("could not save the ledger:") {
+            error.reason = "The teach-back save could not be verified. Reopen the session before trying again.".into();
+        }
+        error
+    })?;
+    saved["version"]
+        .pretty()
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .ok_or_else(|| PublishError {
+            reason: "Teach-back may have saved. Reopen the session before trying again.".into(),
+            save_state: SaveState::Unknown,
+        })
+}
+
 /// Store strict records while holding the session writer lock; never execute a check.
 pub fn set_checks(directory: &Path, records: &Value) -> Result<Value, String> {
     super::checks::validate_checks(records)?;
@@ -329,6 +381,27 @@ pub fn confirm_seed(
     source: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
+    confirm(directory, revision, source, timestamp, false)
+}
+
+/// Confirm after recording a missing teach-back as skipped. A completed comparison, including
+/// mismatches, never blocks confirmation; all ordinary seed refusals still apply first.
+pub fn confirm_with_teach_back(
+    directory: &Path,
+    revision: &str,
+    source: &str,
+    timestamp: &str,
+) -> Result<Value, String> {
+    confirm(directory, revision, source, timestamp, true)
+}
+
+fn confirm(
+    directory: &Path,
+    revision: &str,
+    source: &str,
+    timestamp: &str,
+    record_skip: bool,
+) -> Result<Value, String> {
     super::require(
         super::python::text(&revision.into()),
         "--revision is required: the label shown to the human",
@@ -340,6 +413,29 @@ pub fn confirm_seed(
     super::require(!source.contains(['\n', '\r']), "--source must be one line")?;
     let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
     let ledger = load(directory)?;
+    let ledger = if record_skip {
+        // Refusals precede the skip record: an invalid confirmation must write nothing.
+        super::seed::confirmed(directory, &ledger, revision, source, timestamp)?;
+        let draft = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
+            "The draft could not be read. Reopen Shape before confirming.".to_owned()
+        })?;
+        let state = super::teach_back::skip(&ledger, revision, &draft, timestamp)?;
+        publication(
+        directory,
+        &ledger,
+        &state,
+        &ledger["version"],
+        &"The operator confirmed without a completed teach-back.".into(),
+        None,
+        timestamp,
+    )
+    .map_err(|_| {
+        "The teach-back skip could not be verified. Reopen this session before confirming again."
+            .to_owned()
+    })?
+    } else {
+        ledger
+    };
     let (confirmed, record, result) =
         super::seed::confirmed(directory, &ledger, revision, source, timestamp)?;
     let path = directory.join(super::seed::FILE);

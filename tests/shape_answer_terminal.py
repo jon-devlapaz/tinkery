@@ -26,7 +26,7 @@ import json, pathlib, sys
 import os
 r = json.load(sys.stdin)
 home = pathlib.Path(os.environ['TINKERY_TEST_DIR'])
-if 'ledger' in r:
+if 'ledger' in r or r.get('kind') == 'teach-back':
     with (home / 'shape-calls.jsonl').open('a') as f:
         f.write(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'input': r}) + '\n')
     replies = home / 'shape-replies.json'
@@ -62,6 +62,11 @@ QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
                        'checked': 'README.md:3', 'observed': 'says local only'}],
             'supported_by': ['read-local'],
             'suggestion': 'Local, matching the README.'}
+def completion_review(checks):
+    return {'contradictions': [], 'decided': ['TEST agreed scope, not completed work'], 'done': [],
+            'failure_cases': [{'statement': c['statement'], 'case': 'TEST wrong output must fail'} for c in checks]}
+
+
 def seed_fields(body):
     """Replay historical Markdown fixtures as prose fields; production never parses model headings."""
     fields = {}
@@ -126,6 +131,7 @@ SEED = {'next': 'seed', 'confirming': seed_fields(SEED_BODY),
         'found': [{'id': 'read-refusal', 'claim': {'type': 'observation', 'scope': 'src/main.rs:12'},
                    'checked': 'src/main.rs:12', 'observed': 'the refusal path; the change touches it'}],
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
+SEED['review'] = completion_review(SEED['checks'])
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
         'Done when: Shape shows the next question.\nMust: Keep my words.\nMust not: Run agents.')
 
@@ -924,8 +930,204 @@ def answer_actions(width, height):
                 run.close()
 
 
+def closing_summary(width, height):
+    """Ledger risks appear above confirmation, and F3 records an exact skip without a call."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-closing-summary-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False)
+        old = helper.load(session)
+        state = helper.editable(old)
+        for identifier, answer, recommendation, authority in [
+            ('changed', 'TEST local', None, 'user'),
+            ('delegated', 'TEST suggested', 'TEST suggested', 'delegated'),
+            ('accepted', 'TEST yes', 'TEST yes', 'user'),
+            ('chosen', 'TEST yes ', 'TEST yes', 'user')]:
+            choice = node(identifier, status='settled', answer=answer, authority=authority,
+                          authority_source='TEST fixture only', label=identifier,
+                          evidence=['TEST grounding'] if authority == 'delegated' else [])
+            if recommendation:
+                choice['recommendation'] = recommendation
+            state['nodes'].append(choice)
+        state['assumed'] = [{'text': 'TEST Markdown', 'why': 'TEST either format works'}]
+        helper.publish(session, state, old['version'], 'TEST choices')
+        old = helper.load(session)
+        state = helper.editable(old)
+        next(n for n in state['nodes'] if n['id'] == 'changed')['answer'] = 'TEST remote'
+        helper.publish(session, state, old['version'], 'TEST reversed choice')
+        run = Run(cwd, width, height, budget=1, replies=[{**SEED, 'found': []}])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            assert 'F7 teach-back' not in run.flat()
+            run.send(F2, 'Seed draft r1')
+            for line in ['Before you confirm', 'Accepted as suggested: 2; chosen otherwise: 3.',
+                         'changed: TEST remote — reverses an earlier answer',
+                         'delegated: TEST suggested — delegated; accepted exactly as suggested',
+                         'Assumed: TEST Markdown — TEST either format works',
+                         'accepted: TEST yes — accepted exactly as suggested']:
+                run.read_until(line)
+            run.wait('F7 teach-back')
+            assert len(run.calls()) == 1
+            argv = run.calls()[0]['argv']
+            prompt = argv[argv.index('--system-prompt') + 1]
+            for rule in ['Before drafting in this same step', 'Separate decided', 'one case that must fail']:
+                assert rule in prompt, rule
+            run.type('TEST confirm only this seed')
+            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            saved = helper.load(session)
+            origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
+            assert origin['evidence'][-1]['observed'] == 'Skipped teach-back.'
+            assert origin['evidence'][-1]['artifact'] == 'tinkery:teach-back/skipped'
+            assert saved['goal'] == GOAL and len(run.calls()) == 1
+            assert helper.status(session)['handoff']['verified'] is True
+            print(f'Shape confirmation summary + skip passed at {width}x{height}: 1 drafting stub call, no confirmation call')
+        finally:
+            run.close()
+
+
+def completion_reviews(width, height):
+    """Missing or incomplete review refuses before any seed write; a blocker is a question."""
+    for kind in ['missing', 'untyped', 'missing case', 'blocker', 'question']:
+        with tempfile.TemporaryDirectory(prefix='tinkery-TEST-completion-review-') as directory:
+            cwd = Path(directory).resolve()
+            session = make(cwd / 'TEST-sessions', question=False)
+            reply = {**SEED, 'found': [], 'review': completion_review(SEED['checks'])}
+            if kind == 'missing':
+                del reply['review']
+            elif kind == 'untyped':
+                reply['review'] = 'TEST reviewed it'
+            elif kind == 'missing case':
+                reply['review']['failure_cases'] = []
+            elif kind == 'blocker':
+                reply['review']['contradictions'] = ['TEST choices conflict']
+            else:
+                reply = {**QUESTION, 'question': 'TEST choices conflict; local or synced?'}
+            run = Run(cwd, width, height, budget=2, replies=[reply, {**SEED, 'found': []}])
+            try:
+                run.open_shape()
+                run.wait('F2 look into the next question')
+                before = files(run.sessions)
+                expected = {'missing': 'needs a typed completion review', 'untyped': 'needs a typed completion review',
+                            'missing case': 'exactly one failure case', 'blocker': 'Return it as a question',
+                            'question': 'TEST choices conflict; local or synced?'}[kind]
+                run.send(F2, expected)
+                assert len(run.calls()) == 1 and not (session / 'seed-contract.md').exists()
+                if kind == 'question':
+                    run.type('TEST local')
+                    run.send(F2, 'Seed draft r1')
+                    assert len(run.calls()) == 2, 'Completion review added a call per draft'
+                else:
+                    assert files(run.sessions) == before, 'Refused review saved part of a seed'
+                print(f'Shape completion review {kind} passed at {width}x{height}: stub replies only')
+            finally:
+                run.close()
+
+
+def teach_back(width, height, exhausted=False):
+    """Capture is explicit and budget-gated; even reported mismatches leave F3 available."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-teach-back-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False)
+        mismatch = 'TEST sync is outside the draft.\r\nKeep café mismatch words.  '
+        run = Run(cwd, width, height, budget=1 if exhausted else 2,
+                  replies=[{**SEED, 'found': []}, {'mismatches': [mismatch]}])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            run.send(F2, 'Seed draft r1')
+            run.wait('F7 teach-back')
+            run.type('TEST I confirm r1')
+            before = files(run.sessions)
+            run.send(F7, 'your teach-back')
+            run.send(b'cancel me\x1b', 'Teach-back cancelled. Nothing was saved.')
+            run.wait('TEST I confirm r1')
+            assert files(run.sessions) == before and len(run.calls()) == 1
+            run.send(F7, 'your teach-back')
+            words = 'TEST build sync.\r\nNo deletes.  '
+            run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', 'No deletes.')
+            run.send(F1, 'F7 saves and compares (one model call)')
+            run.send(b'\x1b', 'your teach-back')
+            assert files(run.sessions) == before and len(run.calls()) == 1
+            if exhausted:
+                run.send(F7, 'No model calls are left')
+                assert files(run.sessions) == before and len(run.calls()) == 1
+                run.send(b'\x1b', 'Teach-back cancelled.')
+            else:
+                run.send(b'\x1b[18;1:2~' + F7, 'Teach-back compared. Mismatches never block F3.')
+                run.wait('F3 confirm seed r1')
+                run.wait('TEST I confirm r1')
+                run.read_until('Teach-back mismatch (guess): TEST sync is outside the draft.')
+                saved = helper.load(session)
+                origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
+                assert [r['observed'] for r in origin['evidence']] == [words, mismatch, 'Teach-back compared.']
+                assert len(run.calls()) == 2
+                assert run.calls()[1]['input'] == {'kind': 'teach-back',
+                    'draft': (session / 'seed-contract.md').read_text(), 'operator_words': words}
+            run.read_until('Accepted as suggested: 0; chosen otherwise: 1.')
+            os.write(run.master, b'\x1b[6~' * 10)
+            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            saved = helper.load(session)
+            origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
+            if exhausted:
+                assert origin['evidence'][-1]['observed'] == 'Skipped teach-back.'
+            else:
+                assert [r['observed'] for r in origin['evidence']] == [words, mismatch, 'Teach-back compared.']
+            assert saved['goal'] == GOAL and helper.status(session)['handoff']['verified'] is True
+            assert len(run.calls()) == (1 if exhausted else 2)
+            assert 'F7 teach-back' not in run.flat()
+            print(f'Shape teach-back {"zero budget" if exhausted else "mismatch + F3"} passed at {width}x{height}')
+        finally:
+            run.close()
+
+
+def teach_back_retry(width, height):
+    """A malformed comparison spends one call, keeps words, and retries only on another key."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-teach-back-retry-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False)
+        run = Run(cwd, width, height, budget=3,
+                  replies=[{**SEED, 'found': []}, {'mismatches': [42]}, {'mismatches': []}])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            run.send(F2, 'Seed draft r1')
+            run.type('TEST confirm r1')
+            run.send(F7, 'your teach-back')
+            run.type('TEST first teach-back')
+            run.send(F7, 'The teach-back reply needs a mismatches list.')
+            saved = helper.load(session)
+            origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
+            assert [r['observed'] for r in origin['evidence']] == ['TEST first teach-back']
+            assert len(run.calls()) == 2
+            for parser_text in ['invalid type', 'integer', 'line 1 column']:
+                assert parser_text not in run.flat(), run.screen.text()
+            run.send(F1, 'Model calls left this run: 1 of 3.')
+            run.send(b'\x1b', 'F7 teach-back')
+            assert len(run.calls()) == 2, 'A failed comparison retried on its own'
+            run.send(F7, 'your teach-back')
+            run.type('TEST corrected teach-back')
+            run.send(F7, 'Teach-back compared. Mismatches never block F3.')
+            run.read_until('Teach-back guess: no mismatches reported.')
+            run.read_until('Accepted as suggested: 0; chosen otherwise: 1.')
+            os.write(run.master, b'\x1b[6~' * 10)
+            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            saved = helper.load(session)
+            origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
+            assert [r['observed'] for r in origin['evidence']] == [
+                'TEST first teach-back', 'TEST corrected teach-back', 'Teach-back compared.']
+            assert len(run.calls()) == 3 and saved['goal'] == GOAL
+            print(f'Shape teach-back failure + explicit retry passed at {width}x{height}: exactly 3 stub calls')
+        finally:
+            run.close()
+
+
 if __name__ == '__main__':
     for size in [(100, 30), (80, 24)]:
+        teach_back_retry(*size)
+        closing_summary(*size)
+        completion_reviews(*size)
+        teach_back(*size)
+        teach_back(*size, exhausted=True)
         prerequisite_questions(*size)
     for name in ['settled prerequisites', 'unknown prerequisite', 'cyclic prerequisite']:
         case(name)

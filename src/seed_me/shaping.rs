@@ -21,6 +21,10 @@ pub struct Shaping {
     pub open: Vec<String>,
     /// A one-line, shell-quoted intake command only for a verified seed; never executed.
     pub intake: Option<String>,
+    /// Ledger-computed confirmation risks; callers display these words without recomputing them.
+    pub confirmation: Vec<String>,
+    /// The ledger's latest completed teach-back for the exact draft, with display labels.
+    pub teach_back: Vec<String>,
 }
 
 /// One settled decision: what was decided, the answer as recorded, and who settled it.
@@ -145,14 +149,20 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
             ))
         })
         .collect();
-    let ledger = serde_json::from_str(&ledger.pretty()?).map_err(|e| e.to_string())?;
+    let confirmation = super::ledger::confirmation_summary(&ledger);
+    let saved = ledger;
+    let ledger = serde_json::from_str(&saved.pretty()?).map_err(|e| e.to_string())?;
     let mut status: Value = serde_json::from_str(&status.pretty()?).map_err(|e| e.to_string())?;
     status["review_flags"] = serde_json::from_str(&flags.pretty()?).map_err(|e| e.to_string())?;
     status["revisable"] = serde_json::json!(revisable);
     status["waiting_on"] = Value::Object(waits);
     let mut shaping = classify(&ledger, &status);
-    if let Shaped::Drafted { text, .. } = &mut shaping.stage {
+    shaping.confirmation = confirmation;
+    if let Shaped::Drafted { text, revision } = &mut shaping.stage {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
+        if let (Some(seed), Some(revision)) = (text.as_ref(), revision.as_ref()) {
+            shaping.teach_back = super::ledger::teach_back_report(&saved, revision, seed);
+        }
     }
     Ok(shaping)
 }
@@ -215,6 +225,8 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         decided: decided.clone(),
         open: open_questions(nodes, &status["waiting_on"]),
         intake: None,
+        confirmation: Vec::new(),
+        teach_back: Vec::new(),
     };
     let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
     let Some(state) = text(status, "status") else {

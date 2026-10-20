@@ -29,6 +29,8 @@ const PROMPT: &str = include_str!("prompt.txt");
 #[cfg(test)]
 mod typed_tests;
 
+mod teach_back;
+
 /// Reply fields decoded here or delegated unchanged to Tinkery's record validator.
 /// The prompt's examples name the same fields.
 #[cfg(test)]
@@ -59,6 +61,12 @@ pub(super) const FIELDS: &[&str] = &[
     "against",
     "confidence",
     "confirming",
+    "review",
+    "contradictions",
+    "decided",
+    "done",
+    "failure_cases",
+    "case",
     "checks",
     "statement",
     "kind",
@@ -151,6 +159,14 @@ pub(super) enum Work {
     },
     /// Look into the next question (or the seed) from version `expected`, reading `folder`.
     Look { expected: u64, folder: PathBuf },
+    /// Compare the operator's teach-back with the exact displayed draft, using one budgeted call.
+    TeachBack {
+        revision: String,
+        words: String,
+        expected: u64,
+        folder: PathBuf,
+        seed: String,
+    },
     /// Confirm seed `revision` with the operator's own words.
     Confirm { revision: String, words: String },
 }
@@ -162,6 +178,8 @@ pub(super) enum Done {
     Asked(Asked),
     /// A seed draft was saved.
     Drafted,
+    /// Teach-back words and the model's mismatches were saved; F3 remains available.
+    Compared,
     /// The seed is confirmed.
     Confirmed,
 }
@@ -313,6 +331,7 @@ fn run(
         Work::Look { expected, folder } => {
             look(skill, session, *expected, folder, agent, cancelled, false)
         }
+        Work::TeachBack { .. } => teach_back::run(work, session, agent, cancelled, saved),
         Work::Confirm { revision, words } => {
             answering::confirm_seed(skill, session, revision, words).map_err(refused(false))?;
             Ok(Done::Confirmed)
@@ -392,8 +411,18 @@ fn look(
         Next::Seed {
             confirming,
             checks,
+            review,
             found,
         } => {
+            let records =
+                crate::seed_me::ledger::Value::parse(&checks.to_string()).map_err(|_| {
+                    fail(Why::Model(
+                        "The check records could not be read. Retry the step.".into(),
+                    ))
+                })?;
+            review
+                .validate(&records)
+                .map_err(|why| fail(Why::Model(why)))?;
             answering::draft_seed(
                 skill,
                 session,
@@ -468,6 +497,7 @@ pub(super) enum Next {
     Seed {
         confirming: Value,
         checks: Value,
+        review: crate::seed_me::ledger::CompletionReview,
         found: Vec<Found>,
     },
 }
@@ -524,6 +554,9 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
             })))
         }
         Some("seed") => Ok(Next::Seed {
+            review: serde_json::from_value(value["review"].clone()).map_err(|_| {
+                "The seed reply needs a typed completion review: contradictions, decided, done and failure_cases. Retry the step.".to_owned()
+            })?,
             confirming: value.get("confirming").cloned().ok_or_else(||
                 "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
             checks: value["checks"]

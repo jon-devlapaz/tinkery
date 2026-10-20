@@ -44,7 +44,8 @@ pub(super) fn instructions(reference: &str) -> Result<String, Refusal> {
         .ok_or_else(missing)?;
     let example: serde_json::Map<String, Value> = fields().map(|name| {
         (name.into(), Value::String(if name == "You are confirming" {
-            "Exactly five lines: goal; what gets built; what does not; accepted unchanged with accepted-versus-chosen counts; unknowns and any reversed decision.".into()
+            concat!("Exactly five lines: goal; what gets built; what does not; proposed first slice; unknowns. ",
+                "Do not invent acceptance counts or reversed decisions: Tinkery computes those from the ledger.").into()
         } else {
             "Prose only for this section; no heading, fence, HTML comment, metadata or confirmation line.".into()
         }))
