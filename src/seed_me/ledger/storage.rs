@@ -147,7 +147,12 @@ pub fn respond(
     let expected = super::value::int(expected);
     super::require(ledger["version"] == expected, "stale publication version")?;
     let (state, mut reviewed) = super::answers::change(&ledger, id, action)?;
-    let reason: Value = format!("The operator used {action:?} on {id} in Tinkery Shape.")
+    let verb = match action {
+        super::AnswerAction::Defer { .. } => "deferred",
+        super::AnswerAction::Delegate => "delegated",
+        super::AnswerAction::Revise(_) => "revised",
+    };
+    let reason: Value = format!("The operator {verb} {id} in Tinkery Shape.")
         .as_str()
         .into();
     if reviewed.get(id).is_some() {

@@ -159,6 +159,14 @@ fn revision_reopens_all_settled_dependents_with_the_changed_answer_named() {
     let state = read(&skill, &session).unwrap().state;
     assert_eq!(state["nodes"][2]["answer"], words);
     assert_eq!(state["nodes"][2]["authority"], "user");
+    let stored: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(session.join("ledger.json")).unwrap())
+            .unwrap();
+    let history = stored["nodes"][2]["history"].as_array().unwrap();
+    assert_eq!(
+        history.last().unwrap()["reason"],
+        "The operator revised choice in Tinkery Shape."
+    );
     for node in &state["nodes"].as_array().unwrap()[3..] {
         assert_eq!(node["status"], "unresolved", "{node}");
         assert!(node["answer"].is_null() && node["authority"].is_null());
