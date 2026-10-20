@@ -57,8 +57,150 @@ fn key(code: KeyCode) -> KeyEvent {
 }
 
 #[test]
+fn new_answer_keys_cannot_escape_an_ending_or_objection() {
+    for ending in [true, false] {
+        for code in [11, 12] {
+            let mut shape = done(question()).with_agent(Some(agent(1)));
+            let open = shape.open.as_mut().unwrap();
+            if ending {
+                open.asking = Some(Ending::Stopped);
+            } else {
+                open.objecting = true;
+            }
+            shape.key(key(KeyCode::F(code)), None);
+            let open = shape.open.as_ref().unwrap();
+            assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
+            assert!(open.notice.is_none());
+            assert_eq!(open.asking.is_some(), ending);
+            assert_eq!(open.objecting, !ending);
+        }
+    }
+}
+
+#[test]
+fn crowded_question_bars_keep_the_new_actions_and_both_exits_visible() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        for hard in [true, false] {
+            let mut stage = question();
+            let Shaped::Question {
+                found, hard: undo, ..
+            } = &mut stage
+            else {
+                panic!()
+            };
+            *found = vec!["TEST long evidence ".repeat(300)];
+            *undo = hard;
+            let mut shape = done(stage).with_agent(Some(agent(0)));
+            shape.open.as_mut().unwrap().assumed.push(Assumption {
+                text: "TEST default".into(),
+                why: "TEST equal".into(),
+            });
+            let text = screen(&mut shape, width, height, true);
+            let bar = text.lines().last().unwrap();
+            for key in ["F11 defer", "F7 object", "esc back", "F10 menu"] {
+                assert!(bar.contains(key), "{text}");
+            }
+            assert!(
+                bar.contains(if hard { "F9 show me" } else { "F12 delegate" }),
+                "{text}"
+            );
+        }
+    }
+}
+
+#[test]
+fn forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing() {
+    let mut shape = done(question()).with_agent(Some(agent(1)));
+    for code in [11, 12] {
+        let mut held = key(KeyCode::F(code));
+        held.kind = KeyEventKind::Repeat;
+        shape.key(held, None);
+        let open = shape.open.as_ref().unwrap();
+        assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
+    }
+    shape.key(key(KeyCode::F(11)), None);
+    let open = shape.open.as_mut().unwrap();
+    let Reading::Done(Ok(shaping)) = &mut open.reading else {
+        panic!()
+    };
+    shaping.version = Some(4);
+    let Shaped::Question { id, .. } = &mut shaping.stage else {
+        panic!()
+    };
+    *id = "TEST-another-question".into();
+    let Some(Typing {
+        act: Act::Respond { id, expected, .. },
+        ..
+    }) = open.typing()
+    else {
+        panic!()
+    };
+    assert_eq!(id, "storage");
+    assert_eq!(expected, 3);
+}
+
+#[test]
+fn only_flagged_operator_decisions_offer_a_revision_form() {
+    for revisable in [false, true] {
+        for (width, height) in [(100, 30), (80, 24)] {
+            let mut shape = done(Shaped::Review {
+                id: "TEST-answer".into(),
+                title: "TEST answer".into(),
+                answer: "TEST old".into(),
+                found: vec![],
+                revisable,
+            })
+            .with_agent(Some(agent(0)));
+            let text = screen(&mut shape, width, height, true);
+            assert_eq!(text.contains("F2 revise"), revisable, "{text}");
+            assert_eq!(shape.help_text().contains("F2 revise"), revisable);
+            shape.key(key(KeyCode::F(2)), None);
+            assert_eq!(shape.open.as_ref().unwrap().form.is_some(), revisable);
+            if revisable {
+                shape.paste("TEST replacement\r\nwords ");
+                assert!(screen(&mut shape, width, height, true).contains("replacement answer"));
+                shape.key(key(KeyCode::Esc), None);
+                assert!(shape.open.as_ref().unwrap().form.is_none());
+                assert!(shape.open.as_ref().unwrap().running.is_none());
+            }
+        }
+    }
+}
+
+#[test]
+fn deferral_form_keeps_fields_and_original_answer_without_writes() {
+    let mut shape = done(question()).with_agent(Some(agent(0)));
+    shape.paste("TEST original answer");
+    shape.key(key(KeyCode::F(11)), None);
+    shape.paste("TEST wait\r\nfor scope ");
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(text.contains("Gate: TEST gate"), "{text}");
+    shape.key(key(KeyCode::F(11)), None);
+    shape.paste("TEST before implementation ");
+    shape.key(key(KeyCode::Tab), None);
+    assert_eq!(
+        shape.open.as_ref().unwrap().form.as_ref().unwrap().action(),
+        AnswerAction::Defer {
+            reason: "TEST wait\r\nfor scope ".into(),
+            revisit: "TEST before implementation ".into(),
+        }
+    );
+    shape.key(key(KeyCode::Esc), None);
+    let open = shape.open.as_ref().unwrap();
+    assert_eq!(open.typed.text(), "TEST original answer");
+    assert!(open.running.is_none() && open.writing.is_none());
+    shape.held = true;
+    for code in [11, 12] {
+        shape.key(key(KeyCode::F(code)), None);
+        assert!(shape.open.as_ref().unwrap().form.is_none());
+        assert!(shape.open.as_ref().unwrap().running.is_none());
+    }
+}
+
+#[test]
 fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key() {
     let stage = Shaped::Review {
+        revisable: false,
         id: "storage".into(),
         title: "TEST storage".into(),
         answer: "TEST local".into(),
@@ -118,6 +260,7 @@ fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent
 #[test]
 fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
     let question = Shaped::Question {
+        gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
         ask: "Keep records local or synced?".into(),
@@ -250,6 +393,7 @@ fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String 
 fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too() {
     for no_color in [false, true] {
         let mut shape = done(Shaped::Question {
+            gate: "TEST gate".into(),
             id: "t".into(),
             title: "Label T".into(),
             ask: "Q?".into(),
@@ -428,6 +572,7 @@ fn agent(budget: usize) -> Arc<Agent> {
 
 fn question() -> Shaped {
     Shaped::Question {
+        gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
         ask: "Keep records local or synced?".into(),
@@ -476,7 +621,7 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     assert_eq!(text.matches("Next:").count(), 1, "{text}");
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu"
+        "F2 save + look   F11 defer   F12 delegate   esc back   F10 menu"
     );
 }
 
@@ -490,7 +635,7 @@ fn no_next_line_repeats_the_one_action_the_key_bar_names() {
     for (stage, keys) in [
         (
             question(),
-            "F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu",
+            "F2 save + look   F11 defer   F12 delegate   esc back   F10 menu",
         ),
         (
             Shaped::Waiting,
@@ -556,6 +701,7 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
         "this path prints the helper's error verbatim, stderr included. ".repeat(18)
     )];
     let tall = Shaped::Question {
+        gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
         ask: "Keep records local or synced?".into(),
@@ -575,7 +721,7 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
     );
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "pgup/dn read   F2 save + look   F8 stop   F5 so far   esc back   F10 menu"
+        "pgup/dn read  F2 save + look  F11 defer  F12 delegate  esc back  F10 menu"
     );
     // Scrolling moves only the reading; the answer stays where it is.
     for _ in 0..30 {
@@ -1746,6 +1892,7 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
         "{text}"
     );
     let mut grounded = done(Shaped::Question {
+        gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
         ask: "Keep records local or synced?".into(),
@@ -2437,6 +2584,7 @@ fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
 #[test]
 fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
     let hard = Shaped::Question {
+        gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
         ask: "Keep records local or synced?".into(),
@@ -2508,6 +2656,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         unreachable!()
     };
     let mut shape = done(Shaped::Question {
+        gate: "TEST gate".into(),
         id,
         title,
         ask,

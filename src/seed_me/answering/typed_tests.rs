@@ -60,7 +60,7 @@ fn typed_facts_ground_questions_and_inferences_without_settling_a_decision() {
     assert_eq!(all[4]["supported_by"], json!(["read", "inferred"]));
     assert_eq!(all[4]["status"], "unresolved");
     assert!(all[4].get("answer").is_none());
-    let text = today(&receipts(&state));
+    let text = today(&receipts(&state, true));
     for expected in [
         "observation; scope:",
         "inference; scope:",
@@ -192,7 +192,7 @@ fn contradicting_a_fact_flags_it_and_its_settled_support_dependents() {
         assert!(flags.get(expected).is_some(), "{}", flags.pretty().unwrap());
         let shaping = super::super::shaping::read(&skill, &session).unwrap();
         assert!(
-            matches!(shaping.stage, super::super::shaping::Shaped::Review { ref id, .. } if id == expected)
+            matches!(shaping.stage, super::super::shaping::Shaped::Review { ref id, revisable, .. } if id == expected && revisable == (expected == "choice"))
         );
         keep(
             &session,

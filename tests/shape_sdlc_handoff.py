@@ -60,6 +60,16 @@ def shape(root, env):
         state['nodes'].append({'id': identifier, 'kind': 'decision', 'prerequisites': [], 'evidence': [],
             'owner': 'TEST fixture', 'gate': 'TEST only', 'status': 'settled', 'answer': answer,
             'authority': 'user', 'authority_source': 'TEST replay of recorded Stacker decision, not new approval'})
+    # Synthetic transport rows, not additional Stacker decisions or operator approval.
+    state['nodes'].extend([
+        {'id': 'test-deferred', 'kind': 'decision', 'prerequisites': [], 'evidence': [],
+         'owner': 'TEST fixture', 'gate': 'TEST only', 'status': 'deferred',
+         'defer_reason': 'TEST wait for scope', 'revisit_condition': 'TEST before implementation'},
+        {'id': 'test-delegated', 'kind': 'decision', 'prerequisites': [],
+         'evidence': ['TEST synthetic grounding'], 'owner': 'TEST fixture', 'gate': 'TEST only',
+         'status': 'settled', 'answer': 'TEST suggestion', 'authority': 'delegated',
+         'authority_source': "TEST fixture replay of 'F12 delegate suggestion', not operator approval"},
+    ])
     reply = json.loads((REPO / 'tests/fixtures/stacker-r1-reply.json').read_text())
     # Historical receipts remain untyped; never guess claim types from mixed captured prose.
     legacy = [{'checked': f['checked'], 'observed': f['observed'], 'at': '2026-10-18T00:00:00+00:00',
@@ -137,6 +147,10 @@ def shape(root, env):
         assert json.loads((session / 'seed-confirmation.json').read_text())['source'] == CONFIRMATION
         ledger = helper.load(session)
         assert ledger['goal'] == GOAL
+        seed_text = (session / 'seed-contract.md').read_text()
+        assert helper.decisions_block(ledger) in seed_text
+        assert 'test-deferred deferred: TEST wait for scope (revisit if: TEST before implementation)' in seed_text
+        assert 'test-delegated [delegated] TEST suggestion' in seed_text
         facts = [n for n in ledger['nodes'] if n['kind'] == 'fact']
         assert len(facts) == len(reply['found']) == 2, facts
         assert [n['claim']['type'] for n in facts] == ['observation', 'inference'], facts

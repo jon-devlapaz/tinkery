@@ -311,7 +311,8 @@ The screen starts with the confirmed goal's first line in ink:
 Ledger review flags precede open questions and older drafts: Shape shows the first
 flagged node as the current question, its unchanged answer and the ledger's reasons.
 `F6 keep with reason` publishes the operator's typed justification without a model call.
-It never revises an answer; each remaining flag holds confirmation and completion.
+`F2 revise` opens replacement words only for an operator-answered decision; see
+[answering](#answering-and-confirming). Each remaining flag holds confirmation and completion.
 Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
 Tend's `c` with its stage wording; with a model, the key bar names the action.
 Ledger refusals say `Tinkery refused` with the first reason line; missing `--seed-me` and other
@@ -370,12 +371,34 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 | Stage | Words | Key/action |
 | --- | --- | --- |
 | Flagged node | `your reason` | `F6 keep with reason`: keep the answer unchanged and revalidate, no model call |
-| Current question | `your answer` | `F2 save answer and look into next`: save then one step |
+| Flagged operator-answered decision | `replacement answer` after `F2 revise` | `F2 save revision and look`: replace it, reopen settled dependents, then look |
+| Current question | `your answer` | `F2 save + look`: save then one step |
+| Current question | Reason, then revisit condition after `F11 defer` | `F11 save deferral`: publish deferred, then one step |
+| Current question | None required | `F12 delegate`: accept the grounded suggestion, then one step |
 | No question or seed | None | `F2 look into the next question`: one step |
 | Draft replacing goal | `your words` | `F3 confirm seed rN`: confirm displayed revision with typed words |
 
+- **Defer:** F11 opens the reason, then advances to the revisit condition; Tab switches
+  between them. The form shows the question's gate: the operator alone decides it can wait.
+  F11 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
+- **Delegate:** F12 is one press, quoting that key as the authority source, saving the
+  recorded suggestion with `delegated` authority and its supporting facts as evidence.
+  Missing facts or suggestion refuses without writing; type an answer instead.
+- **Revise:** only flagged decisions answered by the operator (including delegated answers)
+  offer F2 revise. Flagged findings (facts and inferences) and the confirmed goal offer only
+  keep-with-reason; Revise is not shown. There is no settled-answer picker: F5 remains read-only.
+  F2 saves exact replacement words with user authority; the ledger reopens every settled
+  dependent with a reason naming the changed answer. Shape asks ready dependents one at a time
+  before a new model question. Saving a revision uses F2's budget gate and next-step path:
+  an already-recorded dependent is asked without a model call; otherwise one step investigates
+  or replaces the older draft.
+- Esc cancels a form without changing the original answer editor. Ledger refusals keep the
+  question and both typed fields, show the first reason line and allow correction and retry.
+  Required fields, delegated evidence, revision eligibility and cascading reopen belong only to
+  the ledger; Shape adds no parallel rules. F1 explains applicable keys; question bars
+  leave F5 so far and F8 stop in help.
 - F2 saves exact answer bytes with `user` authority. Typing, paste, scrolling and
-  help write nothing; held F2 or F3 never repeats. Letters, capitals and `?` remain words.
+  help write nothing; held action keys never repeat. Letters, capitals and `?` remain words.
 - Pi runs one explicitly selected model with read-only `read`, `grep`, `find`, `ls`
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
@@ -386,7 +409,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
-  Exhaustion refuses F2 before saving anything and explains how to allow calls.
+  Exhaustion refuses answer, defer, delegate and revision before saving anything and explains how to allow calls.
 - Tinkery, never the model, publishes answers and questions with the displayed version
   or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
@@ -516,8 +539,8 @@ which Tend's readiness needs. It needs only `--seed-me`, never a model or budget
 ### Not adopted from Seed Me
 
 [#235](https://github.com/jon-devlapaz/tinkery/issues/235) compared Shape with Seed Me's interview.
-Delegation (#239) and deferral (#240) remain proposed separately; typed findings
-absorb #241. These stay out until their revisit condition holds:
+Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
+[the ledger](shape-ledger.md). These stay out until their revisit condition holds:
 
 | Seed Me feature | Why Shape leaves it out | Revisit when |
 | --- | --- | --- |
