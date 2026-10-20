@@ -62,8 +62,12 @@ not implicitly rejected.
 
 ### Model calls
 
-Each live send makes at most two calls: shaping, then decision review. Scope
-questions may use none. No calls follow display, and nothing retries automatically.
+Each live send makes at most two calls: shaping, then decision review. While a call
+is in flight, the initial reading or refinement status says `Thinking… (call 1 of up
+to 2)`, then `Reviewing decisions… (call 2 of up to 2)`. These name phases, not a
+claim that both calls ran; unreadable shaping skips review. Practice claims no
+model calls. Scope questions may use none. No calls follow display, and nothing
+retries automatically.
 Practice and verification use fakes; [historical evals](#decision-review-evidence-34)
 promise no general quality.
 

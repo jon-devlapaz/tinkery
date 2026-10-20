@@ -29,6 +29,8 @@ Then list every way the change could meet the goal within its Must and Must not;
 Then do exactly one of two things.
 If an operator-only decision still blocks this draft, ask the single most consequential one; settled or explicitly deferred decisions do not block it.
 Never reopen what the goal, an answer from Think or a settled user-authority ledger answer settles, including an explicit deferral until before implementation; record deferred choices as operator prerequisites in Open questions and deferrals, choose no alternative, and never ask how to carry out work an agent can decide.
+# #290 run-2: the original and confirmed goal said tally CLI, but the seed called its name unknown.
+Keep names supplied in the confirmed goal or Think answers in the seed, including its summary and knowledge map; never list a supplied name as unknown. A supplied tool name does not establish its executable path or invocation; leave those unknown unless established separately.
 Suggest an answer when the evidence points to one.
 # #232: Seed Me's question format; a hard undo cost holds the suggestion back until the operator gives their instinct.
 With a question, give exactly two real options, each with its trade-off against the other and how hard it is to undo (cheap, moderate or hard); if only one is viable, make the other leaving it as it is and say what that costs; then the strongest case against your suggestion and your confidence.

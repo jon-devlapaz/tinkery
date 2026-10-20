@@ -429,7 +429,10 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   summary lines, and each model-written prose section has its own string field named
   for the section, without heading syntax. Field order is immaterial. The summary
   covers goal, what gets built, what does not, accepted-versus-chosen counts, and
-  unknowns plus any reversed decision. Missing, blank, non-string or foreign fields
+  unknowns plus any reversed decision. Drafting instructions retain names supplied
+  in the confirmed goal or Think answers, including in the summary and knowledge
+  map; a supplied tool name does not settle its executable path or invocation.
+  Missing, blank, non-string or foreign fields
   refuse; prose cannot inject headings, fences, metadata or confirmation lines.
   Refusals name the rule and field, plus the offending line for structural text.
   A historical Markdown reply beginning `## You are confirming` is refused naming

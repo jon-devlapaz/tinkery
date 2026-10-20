@@ -45,6 +45,7 @@ pub struct PiHost {
     timeout: Duration,
     budget: Option<Arc<CallBudget>>,
     pub(super) brain_history: std::sync::Mutex<Vec<String>>,
+    pub(super) active_call: std::sync::Mutex<Option<Request>>,
 }
 
 impl PiHost {
@@ -78,6 +79,7 @@ impl PiHost {
             timeout: Duration::from_secs(90),
             budget: None,
             brain_history: std::sync::Mutex::new(Vec::new()),
+            active_call: std::sync::Mutex::new(None),
         })
     }
 
@@ -93,6 +95,7 @@ impl PiHost {
             timeout: self.timeout,
             budget: self.budget.clone(),
             brain_history: std::sync::Mutex::new(Vec::new()),
+            active_call: std::sync::Mutex::new(None),
         }
     }
 
@@ -135,7 +138,8 @@ impl PiHost {
         prompt: String,
         cancelled: &AtomicBool,
     ) -> Result<String, String> {
-        crate::pi::Call {
+        *self.active_call.lock().unwrap() = Some(kind);
+        let result = crate::pi::Call {
             program: self.program.clone(),
             model: self.model.clone(),
             thinking: self.thinking.clone(),
@@ -143,7 +147,9 @@ impl PiHost {
             folder: None,
             timeout: self.timeout,
         }
-        .complete(self.budget.as_deref(), kind, input, prompt, cancelled)
+        .complete(self.budget.as_deref(), kind, input, prompt, cancelled);
+        *self.active_call.lock().unwrap() = None;
+        result
     }
 }
 

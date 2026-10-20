@@ -470,6 +470,103 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
     );
 }
 
+/// A gated fake Pi proves both call phases reach both initial and refining screens.
+#[cfg(unix)]
+#[test]
+fn each_send_shows_the_current_call_without_claiming_practice_calls() {
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+    for refining in [false, true] {
+        let dir = tempfile::Builder::new()
+            .prefix("tinkery-TEST-call-status-")
+            .tempdir()
+            .unwrap();
+        let skill = dir.path().join("SKILL.md");
+        fs::write(
+            &skill,
+            "# Seed Me\n### Shape the working draft\nRead intent.\n### Size gate\n",
+        )
+        .unwrap();
+        let program = dir.path().join("TEST-pi");
+        fs::write(
+            &program,
+            r#"#!/usr/bin/env python3
+import json, pathlib, sys, time
+root = pathlib.Path(__file__).parent
+request = json.load(sys.stdin)
+kind = request.get('kind', 'shape')
+with (root / 'calls').open('a') as log:
+    log.write(kind + '\n')
+(root / ('started-' + kind)).touch()
+while not (root / ('release-' + kind)).exists():
+    time.sleep(.01)
+if kind == 'decision-review':
+    print('{"decisions":[]}')
+else:
+    print(json.dumps({'parts': {'who': 'I', 'outcome': 'read the result'}}))
+"#,
+        )
+        .unwrap();
+        fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+        let host = Arc::new(PiHost::new(program, "test/stub".into(), skill).unwrap());
+        let mut a = if refining {
+            board()
+        } else {
+            BrainDump::default()
+        };
+        a.host = host.clone();
+        a.paste("TEST words");
+        a.submit();
+        for (kind, phase, expected) in [
+            ("shape", Request::Shaping, "Thinking… (call 1 of up to 2)"),
+            (
+                "decision-review",
+                Request::DecisionReview,
+                "Reviewing decisions… (call 2 of up to 2)",
+            ),
+        ] {
+            let until = Instant::now() + Duration::from_secs(10);
+            while !dir.path().join(format!("started-{kind}")).exists() {
+                assert!(Instant::now() < until, "fake call did not start");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            assert_eq!(host.call_in_flight(), Some(phase));
+            assert_eq!(host.new_session().call_in_flight(), None);
+            for (w, h) in [(80, 24), (100, 30)] {
+                for mono in [false, true] {
+                    let screen = snapshot(w, h, &mut a, mono).unwrap();
+                    let right = right_text(&screen, w)
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    assert!(right.contains(expected), "{screen}");
+                    assert_eq!(right.matches("of up to 2").count(), 1);
+                }
+            }
+            if refining {
+                a.refuse("TEST refusal wins.");
+                let screen = snapshot(100, 30, &mut a, false).unwrap();
+                assert!(screen.contains("TEST refusal wins."));
+                assert!(!screen.contains("of up to 2"));
+                a.screen.refused = None;
+            }
+            fs::write(dir.path().join(format!("release-{kind}")), "TEST").unwrap();
+        }
+        super::tests::settle(&mut a);
+        assert_eq!(host.call_in_flight(), None);
+        let screen = snapshot(100, 30, &mut a, false).unwrap();
+        assert!(!screen.contains("of up to 2"));
+        assert_eq!(
+            fs::read_to_string(dir.path().join("calls")).unwrap(),
+            "shape\ndecision-review\n"
+        );
+        assert_eq!(Simulated.call_in_flight(), None);
+    }
+}
+
 #[test]
 fn empty_send_is_visible_without_a_request_and_typing_clears_it() {
     const NOTICE: &str = "Write something, then F2 sends it.";

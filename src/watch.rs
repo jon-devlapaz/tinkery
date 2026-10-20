@@ -488,6 +488,8 @@ impl Watch {
             "Watch or press r. It never runs verify, mark, decide or stage, and changes nothing.\n\n",
             "Needs you lists decisions, owed attestations, possible attestation rechecks and failed, interrupted ",
             "or unreadable runs. Opening or refreshing also reads each run's status to determine attention.\n",
+            "Checklist counts separate passed results from proof kinds: by automated check or by your attestation. ",
+            "A proof kind does not mean the item passed.\n",
             "In details: ↑↓, PgUp/PgDn and Home/End scroll the whole evidence and errors."
         )
     }
@@ -730,7 +732,7 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             }
             lines.push(Line::styled(
                 format!(
-                    "Checklist: {}/{} passed · {} with a check, {} attested",
+                    "Checklist: {}/{} passed · {} by automated check, {} by your attestation",
                     d.passed,
                     d.proven + d.attested,
                     d.proven,

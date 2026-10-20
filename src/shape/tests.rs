@@ -1813,6 +1813,104 @@ else:
     assert_eq!(agent.remaining(), 0);
 }
 
+/// Scripted drafting proves sent instructions and name transport, not model compliance.
+#[cfg(unix)]
+#[test]
+fn supplied_tally_name_reaches_drafting_and_survives_the_stub_seed() {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+    const WORDS: &str = "Build a minimal local tally CLI for developers in this README-only scratch repo: count whitespace-separated words in one UTF-8 text file and print the count. The first version is done when readable and empty files count correctly and unreadable files have clear errors; no stdin, multiple files, network access, or extra counting modes.";
+    const GOAL: &str = "Count whitespace-separated words in one UTF-8 text file and print the count, for developers, in this README-only scratch repo.\nMust: Provide a minimal local tally CLI.";
+    let skill =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md");
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-supplied-name-")
+        .tempdir()
+        .unwrap();
+    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: GOAL.into(),
+            outcome: "TEST word count".into(),
+            options: vec![],
+            originals: vec![crate::seed_me::Original {
+                id: 1,
+                in_reply_to: None,
+                text: WORDS.into(),
+            }],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    receipt.stop_viewer().unwrap();
+    let version = answered_probe(&skill, &receipt.session);
+    let template = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
+    let template_json = serde_json::to_string(&template).unwrap();
+    let checks = include_str!("../../tests/fixtures/shape-checks.json");
+    let program = temp.path().join("TEST-pi");
+    fs::write(&program, format!(r#"#!/usr/bin/env python3
+import json, sys
+request = json.load(sys.stdin)
+assert request['goal'] == {GOAL:?}
+assert {WORDS:?} in json.dumps(request['ledger'])
+prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
+assert 'Keep names supplied in the confirmed goal or Think answers in the seed, including its summary and knowledge map' in prompt
+assert 'never list a supplied name as unknown' in prompt
+assert 'leave those unknown unless established separately' in prompt
+# This is a chosen faithful reply, not a semantic correction or a live evaluation.
+body = json.loads({template_json:?})
+body['You are confirming'] = {GOAL:?}.split('\n')[0] + '\nWhat gets built: a minimal local tally CLI.\nWhat does not: extra counting modes.\nAccepted unchanged: supplied name tally; no new choices.\nUnknowns: executable invocation remains unknown.'
+body['Knowledge map'] = 'The confirmed goal supplies the tool name tally. Its executable invocation remains unknown.'
+print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({checks:?}), 'found': []}}))
+"#)).unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = Arc::new(
+        step::Agent::new(
+            program,
+            "test/stub".into(),
+            String::new(),
+            Some(temp.path().into()),
+            CallBudget::new(1),
+            None,
+        )
+        .unwrap(),
+    );
+    let running = step::Running::start(
+        step::Work::Look {
+            expected: version,
+            folder: temp.path().into(),
+        },
+        skill.clone(),
+        receipt.session.clone(),
+        agent.clone(),
+    );
+    let until = Instant::now() + Duration::from_secs(20);
+    loop {
+        if let Some(result) = running.poll() {
+            assert_eq!(result, Ok(step::Done::Drafted));
+            break;
+        }
+        assert!(Instant::now() < until, "stub drafting timed out");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let seed = fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
+    assert!(seed.contains("What gets built: a minimal local tally CLI."));
+    assert!(seed.contains("The confirmed goal supplies the tool name tally."));
+    assert!(seed.contains("executable invocation remains unknown"));
+    assert!(!seed.contains("CLI name"));
+    let ledger = crate::seed_me::answering::read(&skill, &receipt.session).unwrap();
+    assert_eq!(ledger.goal(), Some(GOAL));
+    assert!(ledger.context().contains(WORDS));
+    assert_eq!(agent.remaining(), 0);
+    assert!(!receipt.session.join("seed-confirmation.json").exists());
+}
+
 #[test]
 fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
     let prompt = step::prompt();

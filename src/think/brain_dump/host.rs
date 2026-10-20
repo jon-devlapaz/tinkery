@@ -10,6 +10,11 @@ pub trait BoardHost: Send + Sync {
     /// Reads `request` into a guess. A real host may make provider calls; the practice host
     /// makes none.
     fn reshape(&self, request: BoardRequest, cancelled: &AtomicBool) -> Result<Guess, String>;
+    /// The current model-call phase, not a completed-call count. Stateless and simulated
+    /// hosts report none; observing this never starts work.
+    fn call_in_flight(&self) -> Option<Request> {
+        None
+    }
     /// A separate goal's host with the same settings and empty diagnostics. Stateful hosts
     /// return a fresh instance; the default `None` permits sharing a stateless host.
     fn new_session(&self) -> Option<Arc<dyn BoardHost>> {
@@ -25,6 +30,9 @@ pub trait BoardHost: Send + Sync {
     }
 }
 impl BoardHost for PiHost {
+    fn call_in_flight(&self) -> Option<Request> {
+        self.active_call.try_lock().ok().and_then(|call| *call)
+    }
     fn new_session(&self) -> Option<Arc<dyn BoardHost>> {
         Some(Arc::new(PiHost::new_session(self)))
     }
