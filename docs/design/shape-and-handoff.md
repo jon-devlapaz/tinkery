@@ -383,9 +383,9 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   between them. The form shows the question's gate: the operator alone decides it can wait.
   F11 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
 - **Delegate:** F12 is one press, quoting that key as the authority source, saving the
-  recorded suggestion with `delegated` authority and its supporting facts as evidence.
-  A terminal `Confidence: low.`, `Confidence: medium.` or `Confidence: high.` stays in
-  the displayed recommendation, not the delegated answer. Other suggestion text stays unchanged.
+  recorded suggestion unchanged with `delegated` authority and its supporting facts as evidence.
+  Reply confidence is not appended to the recommendation or answer; the ledger never parses
+  suggestion text.
   Missing facts or suggestion refuses without writing; type an answer instead.
 - **Revise:** only flagged decisions answered by the operator (including delegated answers)
   offer F2 revise. Flagged findings (facts and inferences) and the confirmed goal offer only
@@ -494,8 +494,10 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 A question reply may give exactly two options, each with its trade-off and undo cost (`cheap`,
 `moderate` or `hard`), the strongest case against the suggestion, and a confidence. Anything
 else gives no options. Seed Me's ledger has no options field, so Tinkery records them as
-`Option A:`/`Option B:` lines, then `Against my suggestion:`, under the question text, and reads them back from there. The confidence joins the
-recommendation. None of it reaches the seed.
+`Option A:`/`Option B:` lines, then `Against my suggestion:`, under the question text, and reads them back from there.
+The ledger has no separate confidence field. Reply confidence is not stored or shown;
+Shape renders the recorded suggestion, not the transient reply. No schema field is added.
+None of the options or case against reaches the seed.
 
 - When either option is `hard`, Seed Me's instinct-first rule applies: the question is recorded
   without its recommendation, and Shape shows the question and its finding with

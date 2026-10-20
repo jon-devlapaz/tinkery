@@ -69,7 +69,7 @@ pub struct Ask {
     pub options: Vec<Alternative>,
     /// The strongest case against the suggestion.
     pub against: Option<String>,
-    /// How sure the suggestion is: low, medium or high.
+    /// Reply confidence: low, medium or high; not recorded in the ledger.
     pub confidence: Option<String>,
 }
 
@@ -116,16 +116,12 @@ impl Ask {
         text
     }
 
-    /// The suggestion with its confidence, as Seed Me's recommendation.
+    /// The suggestion unchanged, without reply confidence; blank suggestions are absent.
     pub fn recommendation(&self) -> Option<String> {
-        let suggestion = self
-            .suggestion
-            .as_deref()
-            .filter(|s| !s.trim().is_empty())?;
-        Some(match &self.confidence {
-            Some(c) => format!("{suggestion} Confidence: {c}."),
-            None => suggestion.to_owned(),
-        })
+        self.suggestion
+            .as_ref()
+            .filter(|s| !s.trim().is_empty())
+            .cloned()
     }
 }
 

@@ -549,9 +549,10 @@ def case(name, width=100, height=30):
                 assert 'Option B: Synced; TEST shared. Undo cost: hard.' in node['question'], node
                 run.send(F9, 'Here are the options and my suggestion.')
                 run.wait('Option B: Synced; TEST shared. Undo cost: hard.')
-                run.wait('Suggestion: Local, matching the README. Confidence: high.')
+                run.wait('Suggestion: Local, matching the README.')
+                assert 'Confidence:' not in run.screen.text(), run.screen.text()
                 node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
-                assert node['recommendation'] == 'Local, matching the README. Confidence: high.', node
+                assert node['recommendation'] == 'Local, matching the README.', node
                 assert 'F9' not in run.screen.text().splitlines()[-1], run.screen.text()
                 assert len(run.calls()) == 1, 'Showing the suggestion called a model'
             elif name == 'assumptions':
@@ -815,7 +816,7 @@ def answer_actions(width, height):
             current = state['nodes'][1]
             if action in ['delegate', 'no facts', 'no suggestion']:
                 if action != 'no suggestion':
-                    current['recommendation'] = 'TEST choose local from the evidence. Confidence: medium.'
+                    current['recommendation'] = 'TEST choose local from the evidence.'
                 if action != 'no facts':
                     state['nodes'].append({'id': 'test-grounding', 'kind': 'fact', 'status': 'settled',
                         'prerequisites': [], 'claim': {'type': 'observation', 'scope': 'TEST README'},

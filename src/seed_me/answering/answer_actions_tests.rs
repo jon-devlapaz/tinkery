@@ -112,41 +112,47 @@ fn delegation_records_the_suggestion_facts_and_operator_key() {
 }
 
 #[test]
-fn delegation_leaves_confidence_in_the_suggestion_not_the_answer() {
-    for (recommendation, expected) in [
-        ("TEST local. Confidence: low.", "TEST local."),
-        ("TEST local. Confidence: medium.", "TEST local."),
-        ("TEST local. Confidence: high.", "TEST local."),
-        (
+fn delegation_copies_the_suggestion_without_appending_reply_confidence() {
+    for confidence in [None, Some("low"), Some("medium"), Some("high")] {
+        for suggestion in [
+            "TEST local.",
             "TEST literal Confidence: medium. stays inside.",
-            "TEST literal Confidence: medium. stays inside.",
-        ),
-        (
+            "TEST local. Confidence: low.",
+            "TEST local. Confidence: medium.",
+            "TEST local. Confidence: high.",
             "TEST local. Confidence: unknown.",
-            "TEST local. Confidence: unknown.",
-        ),
-    ] {
-        let (_root, session, skill) = fixture();
-        let mut saved = read(&skill, &session).unwrap();
-        saved.state["nodes"][2]["recommendation"] = recommendation.into();
-        publish(
-            &session,
-            saved.version,
-            "TEST confidence tail",
-            &saved.state,
-        )
-        .unwrap();
-        respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
-        let state = read(&skill, &session).unwrap().state;
-        assert_eq!(state["nodes"][2]["answer"], expected);
-        assert_eq!(state["nodes"][2]["recommendation"], recommendation);
-        assert_eq!(state["nodes"][2]["authority"], "delegated");
-        assert_eq!(state["nodes"][2]["evidence"], state["nodes"][1]["evidence"]);
-        let decisions = ledger::decisions_block(&ledger::load(&session).unwrap()).unwrap();
-        assert!(
-            decisions.contains(&format!("[delegated] {expected} (source:")),
-            "{decisions}"
-        );
+        ] {
+            let (root, session, skill) = fixture();
+            respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
+            let saved = read(&skill, &session).unwrap();
+            let question = Ask {
+                id: "next-choice".into(),
+                label: "TEST next choice".into(),
+                question: "TEST local or synced?".into(),
+                gate: "TEST storage gate".into(),
+                found: vec![],
+                supported_by: Some(json!(["read"])),
+                prerequisites: None,
+                suggestion: Some(suggestion.into()),
+                assumed: vec![],
+                options: vec![],
+                against: None,
+                confidence: confidence.map(str::to_owned),
+            };
+            let version = ask(&skill, &session, saved.version(), &question, root.path()).unwrap();
+            respond(&session, version, "next-choice", &AnswerAction::Delegate).unwrap();
+            let state = read(&skill, &session).unwrap().state;
+            let node = state["nodes"].as_array().unwrap().last().unwrap();
+            assert_eq!(node["answer"], suggestion);
+            assert_eq!(node["recommendation"], suggestion);
+            assert_eq!(node["authority"], "delegated");
+            assert_eq!(node["evidence"], state["nodes"][1]["evidence"]);
+            let decisions = ledger::decisions_block(&ledger::load(&session).unwrap()).unwrap();
+            assert!(
+                decisions.contains(&format!("[delegated] {suggestion} (source:")),
+                "{decisions}"
+            );
+        }
     }
 }
 

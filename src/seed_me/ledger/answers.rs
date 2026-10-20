@@ -67,19 +67,8 @@ pub(super) fn change(
                         .extend(fact["evidence"].items().iter().cloned());
                 }
             }
-            let recommendation = before["recommendation"].string().unwrap();
-            let answer = ["low", "medium", "high"]
-                .iter()
-                .find_map(|confidence| {
-                    recommendation.strip_suffix(&format!(" Confidence: {confidence}."))
-                })
-                .unwrap_or(recommendation);
-            require(
-                !answer.trim().is_empty(),
-                "This question has no suggestion to delegate. Type your answer instead.",
-            )?;
             node.set("status", "settled".into());
-            node.set("answer", answer.into());
+            node.set("answer", before["recommendation"].clone());
             node.set("authority", "delegated".into());
             node.set(
                 "authority_source",

@@ -2616,10 +2616,7 @@ fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
     assert_eq!(ask.options[0].undo, "cheap");
     assert!(ask.hard());
     assert_eq!(ask.against.as_deref(), Some("TEST sync helps later"));
-    assert_eq!(
-        ask.recommendation().as_deref(),
-        Some("Local. Confidence: medium.")
-    );
+    assert_eq!(ask.recommendation().as_deref(), Some("Local."));
     for options in [
         r#"[{"choice":"Local","tradeoff":"TEST","undo":"cheap"}]"#.to_owned(),
         two.replace("\"hard\"", "\"never\""),
@@ -2648,7 +2645,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         against: Some("TEST sync helps later".into()),
         hard: true,
     };
-    for withheld in [None, Some("Local. Confidence: high.".to_owned())] {
+    for withheld in [None, Some("Local.".to_owned())] {
         let mut shape = done(hard.clone());
         shape.open.as_mut().unwrap().withheld = withheld.clone();
         for (width, height) in [(100, 30), (80, 24)] {
@@ -2797,22 +2794,15 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         if undo == "hard" {
             // Seed Me: not recorded until the operator answers or asks to see it.
             assert_eq!(suggestion, None);
-            answering::recommend(
-                &skill,
-                &session,
-                version,
-                "storage",
-                "Local. Confidence: high.",
-            )
-            .unwrap();
+            answering::recommend(&skill, &session, version, "storage", "Local.").unwrap();
             let Shaped::Question { suggestion, .. } =
                 shaping::read(&skill, &session).unwrap().stage
             else {
                 panic!("not a question")
             };
-            assert_eq!(suggestion.as_deref(), Some("Local. Confidence: high."));
+            assert_eq!(suggestion.as_deref(), Some("Local."));
         } else {
-            assert_eq!(suggestion.as_deref(), Some("Local. Confidence: high."));
+            assert_eq!(suggestion.as_deref(), Some("Local."));
         }
     }
 }
