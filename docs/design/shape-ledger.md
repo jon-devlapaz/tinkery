@@ -1,6 +1,6 @@
 # Shape owns the ledger
 
-**Accepted design; slices 1–2 implemented.** The operator accepted it on 2026-10-19
+**Accepted design; slices 1–3 implemented.** The operator accepted it on 2026-10-19
 ([#269](https://github.com/jon-devlapaz/tinkery/issues/269)). Each slice, Seed Me changes and any
 provider budget remain separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
 and tink-sdlc `1c6ffd5` on 2026-10-19.
@@ -102,9 +102,17 @@ The skill's closing steps move into Tinkery, computed where they can be:
 Today intake runs Seed Me's helper twice (`status`, `seed checks show`) and requires
 `handoff.verified` (tink-sdlc `assets/_system/scripts/sdlc.py:1479-1517`).
 
-**Decision:** Tinkery becomes the one verifier. A `tinkery seed status --json DIR`
-and `tinkery seed checks DIR` print today's JSON shapes, and intake takes
-`--tinkery PATH` in place of `--seed-me-helper PATH`. The session folder's files keep
+**Shipped:** Tinkery owns seed checks, confirmation, verification and ending.
+`tinkery seed status --json DIR` and `tinkery seed checks DIR` print today's JSON shapes;
+status omits `viewer`, `snapshot` and `snapshot_current` and never opens a network connection.
+Completion needs no viewer record or `--no-viewer`. `contract()` still reads Seed Me's
+installed `references/seed-contract.md` until retirement.
+
+**Pending consumer change ([tink-sdlc #90](https://github.com/jon-devlapaz/tink-sdlc/issues/90)):**
+intake will take `--tinkery PATH` in place of
+`--seed-me-helper PATH`. Tinkery's copied intake command keeps today's helper flag until
+tink-sdlc accepts the new one; that requires a separate tink-sdlc PR and pin bump, with the
+pin bump waiting for the operator's "merge". The session folder's files keep
 their names (`seed-contract.md`, `ledger.json`, `seed-checks.json`,
 `seed-confirmation.json`), so Approve and Watch's match on the seed's canonical path and
 sha256 ([#258](https://github.com/jon-devlapaz/tinkery/issues/258)) keep working.
@@ -119,8 +127,8 @@ the session root stays where it is. Proposed slices, each one PR and its own app
 1. **Rust ledger: read, validate, transition, review flags**, under the differential test.
    Shape still calls the helper; nothing visible changes.
 2. **Shape publishes through the module** (answers, questions, objections, probes).
-3. **Seed, confirmation, verification and ending in Rust**, plus the two `tinkery seed`
-   commands; a tink-sdlc issue accepts `--tinkery`.
+3. **Seed, confirmation, verification and ending in Rust** (implemented), plus the two
+   read-only `tinkery seed` commands. The consumer flag change is separate (section 4).
 4. **Typed findings and contradictions** (section 2).
 5. **Deferral, delegation and revising an answer** (#240, #239). These two can land
    earlier on today's helper, which already validates them.

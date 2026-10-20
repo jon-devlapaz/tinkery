@@ -67,12 +67,14 @@ or improved outcomes.
 | `tend/graph.rs` | Graf adapter: path-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
-| `seed_me/` | All Seed Me formats and helper calls: goal saving, session files, stages and continuation; Shape's ledger writes are Tinkery's own, under `ledger.rs`; `shaping.rs` reads seed status; `answering.rs` saves answers, questions, findings, drafts and confirmation (shared). |
+| `seed_me/` | Session formats, goal saving and continuation; `answering.rs` adapts Shape actions to the shared ledger. Goal initialization still uses Seed Me; Shape needs its installed reference only for `contract()` and its helper path only in copied intake commands (shared). |
+| `seed_me/ledger` | Validation, transitions, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
+| `seed_me/shaping.rs` | Classifying ledger-owned status for display, with optional unchanged helper-flag intake text; no subprocess or mutation. |
 | `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
 | `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words and next step. Reads and steps stay off the paint path. |
 | `shape/words.rs` | Shape's in-memory textarea adapter: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
-| `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared helper boundary. Replies contain findings with a question or seed text. |
+| `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or seed text. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
@@ -124,12 +126,14 @@ poll and shutdown interface; restore the terminal before cleanup on exit or erro
 Prepared, bounded display avoids rebuilding all content per frame. Linking, graph
 geometry and the garden footer stay separate. Think writes shared records; Tend
 reads them; the menu retains the reader. Shared `repo.rs` finds the root once.
-Only helper-backed Shape verification claims seed-ready; file discovery reports
+Only Tinkery's ledger-backed Shape verification claims seed-ready; file discovery reports
 unchecked declarations.
 
 The shared SDLC read and seed identity improve diagnostics 3 and 6: both phases
 use one source-owned join without knowing each other. The module map improves
-boundary visibility (7). No limit is relaxed; the recorded score remains 10/10.
+boundary visibility (7). Seed checks, confirmation and ending now hide behind typed ledger calls,
+extending diagnostics 3 and 6 without changing phase callers; the map keeps diagnostic 7 current.
+No limit is relaxed; the recorded score remains 10/10.
 
 ## Limits enforced by `tests/architecture.rs`
 

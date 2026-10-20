@@ -577,7 +577,7 @@ def case(name, width=100, height=30):
                 run.send(b'\r' + F1, 'Read the seed, type your confirming words on one line')
                 run.send(b'\x1b', 'your words TEST I confirm r1.')
                 # F3 reaches Seed Me, not the multiline refusal: neither Enter inserted a break.
-                run.send(F3, 'Seed Me refused:')
+                run.send(F3, 'Tinkery refused:')
                 assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
                 assert files(cwd) == before, 'Hint, Enter or refused F3 wrote a file'
                 assert run.calls() == [], 'Confirmation guidance called a model'
@@ -603,7 +603,7 @@ def case(name, width=100, height=30):
                 run.wait('Seed draft r1')
                 run.type('I confirm r1.')
                 before = files(sessions)
-                run.send(F3, 'Seed Me refused: a simulated session cannot be confirmed')
+                run.send(F3, 'Tinkery refused: a simulated session cannot be confirmed')
                 assert files(sessions) == before, 'A practice seed was confirmed'
             else:
                 if question:

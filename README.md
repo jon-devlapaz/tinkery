@@ -51,7 +51,11 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Under `--operator agent` Shape only reads. `F5` shows the whole goal and decisions.
   `F7` objects to a default the step assumed; on a hard-to-undo question, `F9` shows the
   options and suggestion after your instinct. `F6` twice completes a session whose seed is
-  ready; `F8` twice stops one still being shaped.
+  ready; `F8` twice stops one still being shaped. Tinkery owns the ledger, seed checks,
+  confirmation, verification and ending; no viewer or network read is involved.
+  `tinkery seed status --json DIR` and `tinkery seed checks DIR` expose read-only intake JSON.
+  Shape still reads Seed Me's installed artifact contract and copies today's `--seed-me-helper`
+  intake flag pending the separate consumer migration.
 - **Approve:** menu place 4 shows verified seeds, oldest first, with their exact goal
   and acceptance checks. `c` copies run creation and intake commands; nothing runs.
   Seeds already started move to Watch; without a named checkout, start status is unknown.
