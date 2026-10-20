@@ -673,8 +673,8 @@ def case(name, width=100, height=30):
 def prerequisite_questions(width, height):
     """Prepared A/B ledger: recorded ready questions still precede any model step (#286).
 
-    Operator-approved adjustment: a stub cannot propose B while ready A is unanswered,
-    because that existing scheduling rule correctly asks A before calling Pi.
+    Adjusted from #286 (Claude's call, keeping the documented order): a stub cannot propose B
+    while ready A is unanswered, because that existing scheduling rule correctly asks A before calling Pi.
     """
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-prerequisites-') as directory:
         cwd = Path(directory).resolve()
