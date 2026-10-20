@@ -2,7 +2,7 @@
 //! plus the seed draft's text when one waits for confirmation. Read-only: it never publishes,
 //! confirms or ends anything, and keeps no copy of the ledger.
 
-use super::answering::{AGAINST, OPTION_LABELS, UNFOUND};
+use super::answering::{AGAINST, OPTION_LABELS, UNFOUND, claim_suffix};
 use serde_json::Value;
 use std::path::Path;
 
@@ -338,15 +338,8 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
 
 fn format_finding(node: &Value, entry: &Value) -> Option<String> {
     let mut text = format_receipt(entry)?;
-    if let Some(kind) = node["claim"]["type"].as_str() {
-        text.push_str(&format!(
-            " ({kind}; scope: {}",
-            node["claim"]["scope"].as_str().unwrap_or("")
-        ));
-        if let Some(limits) = node["claim"]["limits"].as_str() {
-            text.push_str(&format!("; limits: {limits}"));
-        }
-        text.push(')');
+    if node["claim"]["type"].is_string() {
+        text.push_str(&claim_suffix(&node["claim"], None));
     }
     Some(text)
 }

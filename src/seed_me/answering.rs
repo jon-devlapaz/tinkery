@@ -244,30 +244,38 @@ fn receipts(state: &Value) -> Vec<Receipt> {
                 },
             };
             if node["kind"] == "fact" && !node["claim"].is_null() {
-                receipt.observed.push_str(&format!(
-                    " ({}; scope: {}",
-                    node["claim"]["type"].as_str().unwrap_or(""),
-                    node["claim"]["scope"].as_str().unwrap_or("")
-                ));
-                if let Some(limits) = node["claim"]["limits"].as_str() {
-                    receipt.observed.push_str(&format!("; limits: {limits}"));
-                }
-                if let Some(support) = node["supported_by"].as_array() {
-                    receipt.observed.push_str(&format!(
-                        "; supported by: {}",
-                        support
-                            .iter()
-                            .filter_map(Value::as_str)
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ));
-                }
-                receipt.observed.push(')');
+                receipt
+                    .observed
+                    .push_str(&claim_suffix(&node["claim"], node.get("supported_by")));
             }
             add(&mut found, receipt);
         }
     }
     found
+}
+
+/// The displayed claim type, scope and limits, with support IDs when requested.
+pub(super) fn claim_suffix(claim: &Value, supported_by: Option<&Value>) -> String {
+    let mut text = format!(
+        " ({}; scope: {}",
+        claim["type"].as_str().unwrap_or(""),
+        claim["scope"].as_str().unwrap_or("")
+    );
+    if let Some(limits) = claim["limits"].as_str() {
+        text.push_str(&format!("; limits: {limits}"));
+    }
+    if let Some(support) = supported_by.and_then(Value::as_array) {
+        text.push_str(&format!(
+            "; supported by: {}",
+            support
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    text.push(')');
+    text
 }
 
 /// Adds `receipt` unless it says nothing or repeats one already in `found`.
@@ -633,13 +641,7 @@ pub fn ask(
 
 /// Keep a flagged node's answer unchanged, publishing only the operator's review reason.
 /// The ledger alone validates the target, reason and displayed version; no model runs.
-pub fn keep(
-    _skill: &Path,
-    session: &Path,
-    expected: u64,
-    id: &str,
-    reason: &str,
-) -> Result<(), Refusal> {
+pub fn keep(session: &Path, expected: u64, id: &str, reason: &str) -> Result<(), Refusal> {
     ledger::revalidate(
         session,
         expected,

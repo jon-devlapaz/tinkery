@@ -759,7 +759,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     ))
     .unwrap_err();
     assert!(
-        refused.contains("untyped receipts aren't accepted"),
+        refused.contains("findings are incomplete or use an unsupported format"),
         "{refused}"
     );
     let seed_before = std::fs::read(receipt.session.join("seed-contract.md")).unwrap();

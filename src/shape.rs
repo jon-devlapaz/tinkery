@@ -1085,7 +1085,7 @@ impl Opened {
         std::thread::spawn(move || {
             let result = match (work, expected) {
                 (Write::Keep { id, reason }, Some(expected)) => {
-                    answering::keep(&skill, &session, expected, &id, &reason)
+                    answering::keep(&session, expected, &id, &reason)
                 }
                 (Write::End(ending), _) => answering::end(&skill, &session, ending),
                 (Write::Object(text), Some(expected)) => {

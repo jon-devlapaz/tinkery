@@ -461,8 +461,9 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
     if !matches!(value["next"].as_str(), Some("question" | "seed")) {
         return Err(unusable());
     }
-    let found: Vec<Found> = serde_json::from_value(value["found"].clone()).map_err(|e|
-        format!("Each finding needs an id, a typed claim, checked and observed; untyped receipts aren't accepted: {e}"))?;
+    let found: Vec<Found> = serde_json::from_value(value["found"].clone()).map_err(|_| {
+        "The model's findings are incomplete or use an unsupported format. Each finding needs an id, a typed claim, checked and observed. Retry the step.".to_owned()
+    })?;
     match value["next"].as_str() {
         Some("question") => {
             let question = text("question").ok_or_else(unusable)?;

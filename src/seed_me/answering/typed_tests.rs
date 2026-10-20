@@ -195,7 +195,6 @@ fn contradicting_a_fact_flags_it_and_its_settled_support_dependents() {
             matches!(shaping.stage, super::super::shaping::Shaped::Review { ref id, .. } if id == expected)
         );
         keep(
-            &skill,
             &session,
             read(&skill, &session).unwrap().version(),
             expected,
@@ -242,11 +241,10 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     assert!(!session.join("seed-confirmation.json").exists());
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
     let version = read(&skill, &session).unwrap().version();
-    assert!(keep(&skill, &session, version, "goal", " ").is_err());
-    assert!(keep(&skill, &session, version - 1, "goal", "TEST reason").is_err());
+    assert!(keep(&session, version, "goal", " ").is_err());
+    assert!(keep(&session, version - 1, "goal", "TEST reason").is_err());
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
     keep(
-        &skill,
         &session,
         version,
         "goal",

@@ -37,9 +37,14 @@ fn untyped_or_partial_findings_are_refused_never_dropped_or_guessed() {
         json!([{"id":"read","claim":{"type":"observation","scope":"TEST"},"checked":"README.md:1","observed":"TEST", "authority":"user"}]),
         json!({}),
     ] {
+        let parser_error = serde_json::from_value::<Vec<Found>>(found.clone())
+            .unwrap_err()
+            .to_string();
         let error =
             decode(&json!({"next":"question","question":"TEST?","found":found}).to_string())
                 .unwrap_err();
         assert!(error.contains("typed claim"), "{error}");
+        assert!(!error.contains(&parser_error), "{error}");
+        assert!(error.ends_with("Retry the step."), "{error}");
     }
 }
