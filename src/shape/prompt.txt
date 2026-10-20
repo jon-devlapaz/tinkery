@@ -17,6 +17,7 @@ Every reply carries found entries as typed facts with new, unique ids: claim has
 An observation records what the cited files show; an inference cites settled observation ids through supported_by and states what it does not establish in limits; unknown says "this investigation has not established X", never turns "not found" into "does not exist".
 A question names its grounding fact ids in supported_by; never cite an unknown as support, and use observation ids only to support an inference.
 A fact may name an existing settled node in contradicts; report the conflict rather than resolving it, reopening a decision, confirming or revalidating anything.
+Only operator keys defer, delegate or revise an answer; never emit those actions or settle a decision yourself.
 Omit supported_by and contradicts when inapplicable; do not send null for either.
 # #161: the #159 trial drafted first and looked at the blast radius after, so it never saw the choice the goal left open.
 Before choosing what to do, find the change's blast radius: the files, modules and tests it will touch, and what could break; record each as a found entry.

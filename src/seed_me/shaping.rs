@@ -41,6 +41,8 @@ pub enum Shaped {
         id: String,
         /// The node's label, or its id when it has none.
         title: String,
+        /// What this question settles, shown when the operator chooses deferral.
+        gate: String,
         /// The question, or the decision to make when no question is recorded.
         ask: String,
         /// The node's evidence, one entry per line: what was checked, then what was observed.
@@ -56,8 +58,10 @@ pub enum Shaped {
     },
     /// A settled node flagged by the ledger, shown before any question or seed.
     Review {
-        /// The node to revalidate, never to answer again in this slice.
+        /// The node to keep or, for an operator-answered decision, revise.
         id: String,
+        /// Ledger-owned eligibility: findings and the confirmed goal are keep-only.
+        revisable: bool,
         /// The node's label or ID.
         title: String,
         /// The unchanged settled answer.
@@ -119,9 +123,18 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
     let ledger = super::ledger::load(session)?;
     let flags = super::ledger::review_flags(&ledger["nodes"]);
     let status = super::ledger::status(session)?;
+    let revisable: Vec<_> = ledger["nodes"]
+        .array()
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|n| n["id"].string())
+        .filter(|id| super::ledger::can_revise(&ledger, id))
+        .map(str::to_owned)
+        .collect();
     let ledger = serde_json::from_str(&ledger.pretty()?).map_err(|e| e.to_string())?;
     let mut status: Value = serde_json::from_str(&status.pretty()?).map_err(|e| e.to_string())?;
     status["review_flags"] = serde_json::from_str(&flags.pretty()?).map_err(|e| e.to_string())?;
+    status["revisable"] = serde_json::json!(revisable);
     let mut shaping = classify(&ledger, &status);
     if let Shaped::Drafted { text, .. } = &mut shaping.stage {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
@@ -245,6 +258,9 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         return shaping(
             goal,
             Shaped::Review {
+                revisable: status["revisable"]
+                    .as_array()
+                    .is_some_and(|ids| ids.iter().any(|v| v == &id)),
                 title: text(node, "label").unwrap_or_else(|| id.clone()),
                 id,
                 answer: text(node, "answer").unwrap_or_default(),
@@ -292,6 +308,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         return shaping(
             goal,
             Shaped::Question {
+                gate: text(node, "gate").unwrap_or_default(),
                 title: text(node, "label").unwrap_or_else(|| id.clone()),
                 id,
                 ask,
@@ -398,6 +415,7 @@ mod tests {
             shaped.stage,
             Shaped::Question {
                 id: "storage".into(),
+                gate: "storage choice".into(),
                 title: "Where records live".into(),
                 ask: "Keep records local or synced?".into(),
                 found: vec![
@@ -419,6 +437,7 @@ mod tests {
             shaped.stage,
             Shaped::Question {
                 id: "storage".into(),
+                gate: "storage choice".into(),
                 title: "storage".into(),
                 ask: "storage choice".into(),
                 found: vec![],

@@ -3,6 +3,51 @@
 use super::*;
 
 #[test]
+fn zero_budget_refuses_revision_before_reading_or_publishing() {
+    let root = tempfile::Builder::new()
+        .prefix("TEST-revise-budget-")
+        .tempdir()
+        .unwrap();
+    let ledger = root.path().join("ledger.json");
+    std::fs::write(&ledger, "TEST untouched ledger").unwrap();
+    let agent = Agent::new(
+        root.path().join("TEST-never-run"),
+        "test/model".into(),
+        String::new(),
+        Some(root.path().into()),
+        CallBudget::new(0),
+        None,
+    )
+    .unwrap();
+    let work = Work::Respond {
+        id: "TEST-choice".into(),
+        expected: 1,
+        action: crate::seed_me::ledger::AnswerAction::Revise("TEST replacement".into()),
+        folder: root.path().into(),
+    };
+    let saved = AtomicBool::new(false);
+    assert_eq!(
+        run(
+            &work,
+            &root.path().join("TEST-skill"),
+            root.path(),
+            &agent,
+            &AtomicBool::new(false),
+            &saved
+        ),
+        Err(Failure {
+            answer_saved: false,
+            why: Why::Budget(0)
+        })
+    );
+    assert!(!saved.load(Ordering::Relaxed));
+    assert_eq!(
+        std::fs::read_to_string(ledger).unwrap(),
+        "TEST untouched ledger"
+    );
+}
+
+#[test]
 fn decodes_each_claim_and_keeps_support_and_contradiction_references() {
     let reply = json!({"next":"question","id":"choice","question":"TEST choose?",
     "supported_by":["read","inferred"], "found":[

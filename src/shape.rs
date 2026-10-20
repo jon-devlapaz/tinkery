@@ -6,9 +6,11 @@
 //! draft, a ready seed, or an honest unknown or failure, with one next step. `F5` shows the whole
 //! goal exactly as recorded, each settled decision and the current question's findings, and writes nothing. Opening,
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
-//! and starts the agent step (`F2`), or confirms a seed with the operator's own words (`F3`); see
-//! [`step`]. A flagged node comes first: `F6 keep with reason` revalidates it without changing its
-//! answer or calling a model. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
+//! and starts the agent step (`F2`, `F11` defer, `F12` delegate), or confirms a seed with the
+//! operator's own words (`F3`); see [`step`]. A flagged node comes first: `F6 keep with reason`
+//! revalidates it without changing its answer; eligible operator decisions also offer revision.
+//! The ledger alone owns these rules. Revision saves then looks, asking recorded dependents before
+//! any model call; keeping calls no model. Before a step, Shape shows its folder, and `F4` names
 //! another for this run. Ending a session for good takes the same key twice: `F6` completes one
 //! whose seed is ready, `F8` stops one still being shaped; Esc between them keeps it open. Each
 //! finished step or ending is followed by a fresh read, so the screen shows what the ledger holds.
@@ -18,9 +20,11 @@
 pub use step::Agent;
 
 mod discovery_help;
+mod forms;
 mod step;
 mod words;
 
+use crate::seed_me::ledger::AnswerAction;
 use crate::{
     Palette,
     seed_me::{
@@ -30,6 +34,7 @@ use crate::{
     },
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use forms::Form;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -93,6 +98,8 @@ struct Opened {
     reading: Reading,
     /// The operator's words being typed: an answer, or the words that confirm a seed.
     typed: Words,
+    /// A deferral or revision form; cancelling restores the untouched answer/reason editor.
+    form: Option<Form>,
     /// What the last key or step did, when it needs saying, and its own next step if any.
     notice: Option<(String, Option<String>)>,
     running: Option<Running>,
@@ -141,8 +148,22 @@ enum Write {
 #[derive(Clone, Copy)]
 enum Doing {
     Answer,
+    Defer,
+    Delegate,
+    Revise,
     Look,
     Confirm,
+}
+
+impl Doing {
+    fn saved(self) -> &'static str {
+        match self {
+            Self::Defer => "Your deferral is saved. ",
+            Self::Delegate => "Your delegated answer is saved. ",
+            Self::Revise => "Your revised answer is saved. ",
+            _ => "Your answer is saved. ",
+        }
+    }
 }
 
 /// Which folder the next step reads: not known until a read with an agent lands, then where
@@ -239,9 +260,10 @@ impl Shape {
         if self.takes_text()
             && let Some(open) = &mut self.open
         {
-            match &mut open.choosing {
-                Some(folder) => folder.insert(text),
-                None => {
+            match (&mut open.choosing, &mut open.form) {
+                (Some(folder), _) => folder.insert(text),
+                (_, Some(form)) => form.words().insert(text),
+                (None, None) => {
                     let before = open.typed.text().to_owned();
                     open.typed.insert(text);
                     open.edited(&before);
@@ -305,6 +327,7 @@ impl Shape {
                 .map_or_else(|failure| failure.answer_saved, |_| true)
             {
                 open.typed.clear();
+                open.form = None;
             }
             let asked = match &result {
                 Ok(Done::Asked(asked)) => asked.clone(),
@@ -313,7 +336,7 @@ impl Shape {
             open.assumed = asked.assumed;
             open.withheld = asked.withheld;
             open.revealed = false;
-            open.notice = said(result);
+            open.notice = said(result, open.doing);
             open.reading = Reading::NotStarted;
         }
         if let Some(open) = &mut self.open
@@ -385,12 +408,12 @@ impl Shape {
     }
 
     /// One key, with `skill` for opening a listed session. Esc stops a running step, or closes an
-    /// open session back to the list, or leaves Shape. Only `F2` (save the answer and look into the
-    /// next question, or just look) and `F3` (confirm the seed with the typed words) write or call
-    /// a model, and only with an agent. `F6` or `F8` pressed twice ends the session, without one.
+    /// open session back to the list, or leaves Shape. Explicit answer, defer and delegate keys
+    /// publish then look, as does saving a revision; keep publishes without a model. `F3` confirms only the seed.
+    /// `F6` or `F8` pressed twice ends the session, without a model.
     pub fn key(&mut self, key: KeyEvent, skill: Option<&Path>) -> Leave {
         if key.kind == KeyEventKind::Release
-            || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::F(2..=8))
+            || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::F(2..=12))
         {
             return Leave::Stay;
         }
@@ -407,7 +430,7 @@ impl Shape {
                 }
                 return Leave::Stay;
             }
-            if self.held && matches!(key.code, KeyCode::F(2 | 3 | 6 | 8)) {
+            if self.held && matches!(key.code, KeyCode::F(2 | 3 | 6 | 8 | 11 | 12)) {
                 open.notice = Some((HELD.into(), None));
                 return Leave::Stay;
             }
@@ -433,6 +456,27 @@ impl Shape {
                 return Leave::Stay;
             }
             if open.writing.is_some() {
+                return Leave::Stay;
+            }
+            if let Some(form) = &mut open.form {
+                match key.code {
+                    KeyCode::Esc => {
+                        open.form = None;
+                        open.notice = Some(("Nothing was changed.".into(), None));
+                    }
+                    KeyCode::Tab => form.toggle(),
+                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(page),
+                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(page),
+                    code if code == form.key() && key.modifiers.is_empty() => {
+                        if form.advance()
+                            && let (Some(agent), Some(typing)) = (&self.agent, open.typing())
+                        {
+                            open.act(typing.act, agent);
+                        }
+                    }
+                    KeyCode::F(_) => {}
+                    _ => form.words().key(key),
+                }
                 return Leave::Stay;
             }
             if open.objecting {
@@ -484,6 +528,58 @@ impl Shape {
                 open.asking = Some(ending);
                 open.notice = Some(asked(ending));
                 return Leave::Stay;
+            }
+            if let Some(agent) = &self.agent
+                && key.modifiers.is_empty()
+            {
+                match (&open.reading, key.code) {
+                    (
+                        Reading::Done(Ok(Shaping {
+                            stage: Shaped::Question { id, gate, .. },
+                            version: Some(expected),
+                            ..
+                        })),
+                        KeyCode::F(11),
+                    ) => {
+                        open.form = Some(Form::defer(id.clone(), *expected, gate.clone()));
+                        open.notice = None;
+                        return Leave::Stay;
+                    }
+                    (
+                        Reading::Done(Ok(Shaping {
+                            stage:
+                                Shaped::Review {
+                                    id,
+                                    revisable: true,
+                                    ..
+                                },
+                            version: Some(expected),
+                            ..
+                        })),
+                        KeyCode::F(2),
+                    ) => {
+                        open.form = Some(Form::revise(id.clone(), *expected));
+                        open.notice = None;
+                        return Leave::Stay;
+                    }
+                    (
+                        Reading::Done(Ok(Shaping {
+                            stage: Shaped::Question { id, .. },
+                            version: Some(expected),
+                            ..
+                        })),
+                        KeyCode::F(12),
+                    ) => {
+                        let act = Act::Respond {
+                            id: id.clone(),
+                            expected: *expected,
+                            action: AnswerAction::Delegate,
+                        };
+                        open.act(act, agent);
+                        return Leave::Stay;
+                    }
+                    _ => {}
+                }
             }
             if key.code == KeyCode::Char('c')
                 && key.modifiers.is_empty()
@@ -598,6 +694,7 @@ impl Shape {
         let agent = self.agent.as_deref();
         let back = match &self.open {
             Some(open) if open.running.is_some() => "Esc stop · F10 menu",
+            Some(open) if open.form.is_some() => "Esc cancel form · F10 menu",
             Some(open) if open.so_far_ready() => "Esc back · F5 so far · F10 menu",
             _ => "Esc back · F10 menu",
         };
@@ -633,6 +730,9 @@ impl Shape {
                 };
                 let now = match (agent, open.typing()) {
                     _ if open.running.is_some() => "A step is running. Esc stops it.",
+                    _ if open.form.is_some() => {
+                        "Edit the form. Enter adds a line; Esc cancels without saving."
+                    }
                     _ if open.writing.is_some() => "Tinkery is saving a change.",
                     _ if open.objecting => {
                         "Press the number of the assumption you object to; it becomes an open question. Esc keeps them all."
@@ -647,10 +747,18 @@ impl Shape {
                         "Type the folder the next step should read. Enter adds a line; F4 uses it; Esc keeps the one shown."
                     }
                     (Some(_), Some(t)) if t.key == KeyCode::F(6) => {
-                        "Type why you're keeping this answer. F6 keeps it unchanged with your reason; no model runs."
+                        if open.revisable() {
+                            "Type why you're keeping this answer. F6 keeps it unchanged with your reason; no model runs. F2 revise opens a replacement answer."
+                        } else {
+                            "Type why you're keeping this answer. F6 keeps it unchanged with your reason; no model runs."
+                        }
                     }
                     (Some(_), Some(t)) if t.key == KeyCode::F(2) => {
-                        "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call)."
+                        concat!(
+                            "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call). ",
+                            "F11 defer asks for a reason and revisit condition; F12 delegate takes the grounded suggestion in one press. ",
+                            "Both then look into the next. F5 shows so far; F8 stops the session (twice). PgUp/PgDn scroll the reading."
+                        )
                     }
                     (Some(_), Some(_)) => {
                         "Read the seed, type your confirming words on one line, then F3 confirms it. Enter shows guidance without changing your words. It is not approval to build."
@@ -660,10 +768,15 @@ impl Shape {
                     }
                     _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
                 };
+                let form = open
+                    .form
+                    .as_ref()
+                    .map(|f| format!("\n{}", f.description()))
+                    .unwrap_or_default();
                 (
                     now,
                     format!(
-                        "{failure}{model}{reads}\nSession: {}\n{skill}",
+                        "{failure}{model}{reads}{form}\nSession: {}\n{skill}",
                         open.session.display()
                     ),
                 )
@@ -683,8 +796,8 @@ impl Shape {
             "Shape reads and calls no model. Delegated answers, confirmations and endings aren't supported; Esc goes back.".to_owned()
         } else if agent.is_some() {
             format!(
-                "Opening, scrolling and typing write nothing. Only F2 saves an answer and calls a model; \
-                 only F3 confirms a seed, with your words. {ends}"
+                "Opening, scrolling and typing write nothing. F2 saves an answer, F11 saves a deferral, or F12 delegates the suggestion, then looks into the next; \
+                 only F3 confirms a seed, with your words. Revision saves and looks, asking recorded dependents before a model call. {ends}"
             )
         } else {
             format!(
@@ -698,7 +811,7 @@ impl Shape {
         } else {
             ""
         };
-        format!("Right now\n{now}{editing}\n{back}\n\nF1 close\n\n{promise}\n\nHow it works\n{how}")
+        format!("Right now\n{now}{editing}\n{back}\n\nF1 close\n\nHow it works\n{how}\n\n{promise}")
     }
 
     /// Draws Shape in `area`, with its key bar on the terminal's last row. The "So far" page,
@@ -750,6 +863,12 @@ impl Shape {
                 Ending::Completed => "F6 end for good   esc keep it".to_owned(),
                 Ending::Stopped => "F8 stop for good   esc keep it".to_owned(),
             },
+            (Some(open), _) if open.form.is_some() => {
+                format!(
+                    "{}   esc cancel   F10 menu",
+                    open.form.as_ref().unwrap().bar()
+                )
+            }
             (Some(open), _) if open.choosing.is_some() => {
                 format!(
                     "{}enter newline   F4 use folder   esc cancel",
@@ -758,11 +877,20 @@ impl Shape {
             }
             (Some(open), _) => {
                 let action = match (&self.agent, open.typing(), &open.reading) {
-                    (Some(_), Some(t), _) if t.key == KeyCode::F(6) => {
-                        Some("F6 keep with reason".to_owned())
-                    }
+                    (Some(_), Some(t), _) if t.key == KeyCode::F(6) => Some(
+                        if open.revisable() {
+                            "F6 keep with reason   F2 revise"
+                        } else {
+                            "F6 keep with reason"
+                        }
+                        .to_owned(),
+                    ),
                     (Some(_), Some(t), _) if t.key == KeyCode::F(2) => Some(
-                        if overflow {
+                        if open.offers_answers() && open.instinct_first() {
+                            "F2 save + look   F11 defer"
+                        } else if open.offers_answers() {
+                            "F2 save + look   F11 defer   F12 delegate"
+                        } else if overflow {
                             "F2 save + look"
                         } else {
                             "F2 save answer and look into next"
@@ -798,7 +926,9 @@ impl Shape {
                         .to_owned(),
                     );
                 }
-                keys.extend(action);
+                if let Some(action) = action {
+                    keys.extend(action.split("   ").map(str::to_owned));
+                }
                 if open.intake().is_some() {
                     keys.push("c copy intake".to_owned());
                 }
@@ -808,21 +938,32 @@ impl Shape {
                 if open.offers_objection() {
                     keys.push("F7 object".to_owned());
                 }
-                keys.extend(open.offers_end().filter(|_| !self.held).map(|ending| {
-                    match ending {
-                        Ending::Completed => "F6 end session",
-                        Ending::Stopped => "F8 stop",
-                    }
-                    .to_owned()
-                }));
-                if open.so_far_ready() {
+                keys.extend(
+                    open.offers_end()
+                        .filter(|_| !self.held && !(agent && open.offers_answers()))
+                        .map(|ending| {
+                            match ending {
+                                Ending::Completed => "F6 end session",
+                                Ending::Stopped => "F8 stop",
+                            }
+                            .to_owned()
+                        }),
+                );
+                if open.so_far_ready() && !(agent && open.offers_answers()) {
                     keys.push("F5 so far".to_owned());
                 }
                 keys.extend(["esc back".to_owned(), "F10 menu".to_owned()]);
                 // Esc and F10 are never cut off: a full bar closes up before it runs out of room.
                 let bar = keys.join("   ");
                 if bar.width() > frame.area().width.saturating_sub(4) as usize {
-                    keys.join("  ")
+                    let tight = keys.join("  ");
+                    if tight.width() > frame.area().width.saturating_sub(4) as usize {
+                        tight
+                            .replace("pgup/dn read", "pgup/dn")
+                            .replace("F2 save + look", "F2 answer")
+                    } else {
+                        tight
+                    }
                 } else {
                     bar
                 }
@@ -912,6 +1053,11 @@ impl Shape {
 /// What a key asks of an open session.
 #[derive(Clone)]
 enum Act {
+    Respond {
+        id: String,
+        expected: u64,
+        action: AnswerAction,
+    },
     Keep {
         id: String,
     },
@@ -940,6 +1086,17 @@ impl Opened {
         let Reading::Done(Ok(shaping)) = &self.reading else {
             return None;
         };
+        if let Some(form) = &self.form {
+            return Some(Typing {
+                key: form.key(),
+                act: Act::Respond {
+                    id: form.id.clone(),
+                    expected: form.expected,
+                    action: form.action(),
+                },
+                label: form.label(),
+            });
+        }
         match (&shaping.stage, shaping.version) {
             (Shaped::Review { id, .. }, Some(_)) => Some(Typing {
                 key: KeyCode::F(6),
@@ -967,6 +1124,29 @@ impl Opened {
             }),
             _ => None,
         }
+    }
+
+    fn offers_answers(&self) -> bool {
+        matches!(
+            &self.reading,
+            Reading::Done(Ok(Shaping {
+                stage: Shaped::Question { .. },
+                ..
+            }))
+        )
+    }
+
+    fn revisable(&self) -> bool {
+        matches!(
+            &self.reading,
+            Reading::Done(Ok(Shaping {
+                stage: Shaped::Review {
+                    revisable: true,
+                    ..
+                },
+                ..
+            }))
+        )
     }
 
     fn intake(&self) -> Option<&str> {
@@ -1172,11 +1352,16 @@ impl Opened {
             Act::Confirm(_) if !self.read_end => refuse(READ_FIRST),
             Act::Confirm(_) if words.contains(['\n', '\r']) => refuse(WORD_REFUSALS[1]),
             Act::Confirm(_) if words.trim().is_empty() => refuse(WORD_REFUSALS[2]),
-            Act::Answer { .. } | Act::Look(_) if agent.remaining() == 0 => said(Err(Failure {
-                answer_saved: false,
-                why: Why::Budget(agent.limit()),
-            })),
-            Act::Answer { .. } | Act::Look(_) if folder.is_none() => {
+            Act::Respond { .. } | Act::Answer { .. } | Act::Look(_) if agent.remaining() == 0 => {
+                said(
+                    Err(Failure {
+                        answer_saved: false,
+                        why: Why::Budget(agent.limit()),
+                    }),
+                    Doing::Answer,
+                )
+            }
+            Act::Respond { .. } | Act::Answer { .. } | Act::Look(_) if folder.is_none() => {
                 refuse("Shape is still finding which folder the step reads; nothing was saved.")
             }
             _ => None,
@@ -1186,6 +1371,26 @@ impl Opened {
         };
         let folder = folder.unwrap_or_default();
         let (work, doing) = match act {
+            Act::Respond {
+                id,
+                expected,
+                action,
+            } => {
+                let doing = match &action {
+                    AnswerAction::Defer { .. } => Doing::Defer,
+                    AnswerAction::Delegate => Doing::Delegate,
+                    AnswerAction::Revise(_) => Doing::Revise,
+                };
+                (
+                    Work::Respond {
+                        id,
+                        expected,
+                        action,
+                        folder,
+                    },
+                    doing,
+                )
+            }
             Act::Keep { id } => {
                 self.write(Write::Keep { id, reason: words }, "Saving your reason.");
                 return;
@@ -1239,6 +1444,7 @@ impl Opened {
             skill: skill.map(Path::to_path_buf),
             reading: Reading::NotStarted,
             typed: Words::new(""),
+            form: None,
             notice: None,
             running: None,
             doing: Doing::Look,
@@ -1415,6 +1621,15 @@ fn render_open(
                         (Doing::Answer, true) => {
                             format!("Answer saved. Looking in {name} for the next question.")
                         }
+                        (Doing::Defer, false) => "Saving your deferral.".into(),
+                        (Doing::Delegate, false) => "Saving the delegated suggestion.".into(),
+                        (Doing::Revise, false) => {
+                            "Revising your answer and reopening dependents.".into()
+                        }
+                        (Doing::Defer | Doing::Delegate | Doing::Revise, true) => format!(
+                            "{}Looking in {name} for the next question.",
+                            open.doing.saved()
+                        ),
                         (Doing::Look, _) => format!("Looking in {name} for the next question."),
                         (Doing::Confirm, _) => "Confirming the seed with your words.".to_owned(),
                     };
@@ -1468,13 +1683,27 @@ fn render_open(
                     instinct: open.instinct_first(),
                 },
             };
-            let (said, input) = standing(&shaping.stage, stand, palette);
+            let (said, mut input) = standing(&shaping.stage, stand, palette);
             let mut reading = top.unwrap_or_default();
-            if !reading.lines.is_empty() && !said.lines.is_empty() {
+            if let Some(form) = &open.form {
+                reading.lines.extend(said.lines);
                 reading.lines.push(Line::default());
+                reading
+                    .lines
+                    .extend(Text::styled(form.description(), palette.ink).lines);
+                if !open.notice.as_ref().is_some_and(|(_, next)| next.is_some()) {
+                    input
+                        .lines
+                        .retain(|line| !line.to_string().starts_with("Next:"));
+                }
+                (reading, input)
+            } else {
+                if !reading.lines.is_empty() && !said.lines.is_empty() {
+                    reading.lines.push(Line::default());
+                }
+                reading.lines.extend(said.lines);
+                (reading, input)
             }
-            reading.lines.extend(said.lines);
-            (reading, input)
         }
     };
     let rows = |text: &Text<'static>| {
@@ -1495,7 +1724,15 @@ fn render_open(
         ),
         None => (Text::default(), input),
     };
-    let editor = split.map(|_| open.choosing.as_mut().unwrap_or(&mut open.typed));
+    let editor = split.map(|_| {
+        if let Some(folder) = &mut open.choosing {
+            folder
+        } else if let Some(form) = &mut open.form {
+            form.words()
+        } else {
+            &mut open.typed
+        }
+    });
     let editor_rows = editor.as_ref().map_or(0, |words| words.rows(area.width));
     let (read_rows, before_rows, after_rows) = (rows(&reading), rows(&before), rows(&after));
     let input_rows = before_rows
@@ -1618,13 +1855,9 @@ fn asked(ending: Ending) -> (String, Option<String>) {
     }
 }
 
-fn said(result: Result<Done, Failure>) -> Option<(String, Option<String>)> {
+fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<String>)> {
     let Failure { answer_saved, why } = result.err()?;
-    let saved = if answer_saved {
-        "Your answer is saved. "
-    } else {
-        ""
-    };
+    let saved = if answer_saved { doing.saved() } else { "" };
     Some(match why {
         Why::Stale if answer_saved => (
             format!(
@@ -1635,7 +1868,9 @@ fn said(result: Result<Done, Failure>) -> Option<(String, Option<String>)> {
         Why::Stale => (
             "Another writer changed this session first, so nothing was saved. Shape read it again."
                 .into(),
-            None,
+            matches!(doing, Doing::Defer | Doing::Revise).then(|| {
+                "Next: Esc cancels this form; open it again from the refreshed question.".into()
+            }),
         ),
         Why::Budget(limit) => (
             format!(

@@ -185,17 +185,16 @@ impl Ledger {
             .into_iter()
             .filter(|n| n["kind"] == "fact" && n["status"] != "superseded")
             .collect();
-        let mut legacy = self.state.clone();
-        legacy["nodes"]
-            .as_array_mut()
-            .unwrap()
-            .retain(|n| n["kind"] != "fact");
         found.extend(
-            receipts(&legacy)
+            receipts(&self.state, false)
                 .into_iter()
                 .map(|r| json!({"checked": r.checked, "observed": r.observed})),
         );
         found
+    }
+    /// Whether the ledger already has a current question; looking must not replace it.
+    pub fn has_current_question(&self) -> bool {
+        !self.state["current_question"].is_null()
     }
     /// The ids of decisions still open.
     pub fn open(&self) -> Vec<String> {
@@ -223,11 +222,26 @@ struct Receipt {
 /// Every finding in the ledger, in ledger order, without repeats. The confirmed goal's own
 /// evidence records where the operator's words came from, not the repository, and superseded nodes
 /// are history, so neither counts.
-fn receipts(state: &Value) -> Vec<Receipt> {
+fn receipts(state: &Value, include_facts: bool) -> Vec<Receipt> {
     let mut found: Vec<Receipt> = Vec::new();
+    let all = nodes(state);
     let counts = |n: &&Value| n["status"] != "superseded" && n["id"] != state["origin"];
-    for node in nodes(state).iter().filter(counts) {
+    for node in all.iter().filter(counts) {
         for entry in node["evidence"].as_array().into_iter().flatten() {
+            // Delegation copies receipts, not new findings. Format each through its fact owner.
+            let fact = if node["kind"] == "fact" {
+                Some(node)
+            } else {
+                all.iter().filter(counts).find(|n| {
+                    n["kind"] == "fact"
+                        && n["evidence"]
+                            .as_array()
+                            .is_some_and(|entries| entries.contains(entry))
+                })
+            };
+            if !include_facts && fact.is_some() {
+                continue;
+            }
             let field = |key: &str| entry[key].as_str().unwrap_or("").to_owned();
             let mut receipt = match entry {
                 Value::String(line) => Receipt {
@@ -243,10 +257,10 @@ fn receipts(state: &Value) -> Vec<Receipt> {
                     check: field("check"),
                 },
             };
-            if node["kind"] == "fact" && !node["claim"].is_null() {
+            if let Some(fact) = fact.filter(|n| !n["claim"].is_null()) {
                 receipt
                     .observed
-                    .push_str(&claim_suffix(&node["claim"], node.get("supported_by")));
+                    .push_str(&claim_suffix(&fact["claim"], fact.get("supported_by")));
             }
             add(&mut found, receipt);
         }
@@ -547,6 +561,8 @@ fn publication_time(time: SystemTime) -> Result<String, Refusal> {
 }
 
 #[cfg(test)]
+mod answer_actions_tests;
+#[cfg(test)]
 mod publication_tests;
 #[cfg(test)]
 mod typed_tests;
@@ -578,6 +594,33 @@ pub fn answer(
         &format!("The operator answered {id} in Tinkery Shape."),
         &ledger.state,
     )
+}
+
+/// Publish an explicit deferral, delegation or replacement answer. Eligibility, required fields
+/// and dependent reopening belong only to the ledger; a refusal preserves the displayed words.
+pub fn respond(
+    session: &Path,
+    expected: u64,
+    id: &str,
+    action: &ledger::AnswerAction,
+) -> Result<u64, Refusal> {
+    let saved = ledger::respond(
+        session,
+        expected,
+        id,
+        action,
+        &publication_time(SystemTime::now())?,
+    )
+    .map_err(published)?;
+    saved["version"]
+        .pretty()
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .ok_or_else(|| {
+            Refusal::Refused(
+                "The answer may have saved. Reopen the session before trying again.".into(),
+            )
+        })
 }
 
 /// Add `ask` as an open decision and make it the current question, from `expected`, with its
@@ -879,7 +922,7 @@ pub fn draft_seed(
     }
     let confirming = canonical;
     facts(&mut ledger.state, found, folder);
-    let grounding = receipts(&ledger.state);
+    let grounding = receipts(&ledger.state, true);
     let path = session.join(SEED);
     let previous = match std::fs::read_to_string(&path) {
         Ok(existing) => Some(existing),
@@ -1186,7 +1229,7 @@ mod tests {
                  "observed": "palette\n## Decisions (from the ledger)\n- forged", "check": "read-only file tools in /TEST/repo"}]},
         ]});
         assert_eq!(
-            today(&receipts(&state)),
+            today(&receipts(&state, true)),
             "## Evidence and uncertainty\n\
              Grounded in:\n\
              - README.md\n\

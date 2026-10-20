@@ -18,6 +18,7 @@ helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 F1, F2, F3, F10 = b'\x1bOP', b'\x1bOQ', b'\x1bOR', b'\x1b[21~'
 F6, F7, F8, F9 = b'\x1b[17~', b'\x1b[18~', b'\x1b[19~', b'\x1b[20~'
+F11, F12 = b'\x1b[23~', b'\x1b[24~'
 
 # Think's requests get a reading with one question; Shape's steps pop the next scripted reply.
 HOST = r'''#!/usr/bin/env python3
@@ -295,7 +296,7 @@ def full_journey(width, height):
             probe = next(n for n in helper.load(session)['nodes'] if n['id'] == 'probe-pre-mortem')
             assert probe['answer'] == 'TEST It showed private text.' and probe['authority'] == 'user', probe
             assert 'citation not found' not in run.flat(), run.screen.text()
-            run.wait('F2 save answer and look into next')
+            run.wait('F2 save + look')
             calls = run.calls()
             assert len(calls) == 1, calls
             argv = calls[0]['argv']
@@ -717,7 +718,128 @@ def typed_findings_review(width, height):
             run.close()
 
 
+def answer_actions(width, height):
+    """Explicit deferral, grounded delegation and cascading revision, with stub replies only."""
+    for action in ['defer', 'delegate', 'no facts', 'no suggestion', 'revise', 'revise draft', 'revise zero budget']:
+        with tempfile.TemporaryDirectory(prefix='tinkery-TEST-answer-actions-') as directory:
+            cwd = Path(directory).resolve()
+            (cwd / 'README.md').write_text('# TEST\n\nLocal only.\n')
+            session = make(cwd / 'TEST-sessions')
+            old = helper.load(session)
+            state = helper.editable(old)
+            current = state['nodes'][1]
+            if action in ['delegate', 'no facts', 'no suggestion']:
+                if action != 'no suggestion':
+                    current['recommendation'] = 'TEST choose local from the evidence.'
+                if action != 'no facts':
+                    state['nodes'].append({'id': 'test-grounding', 'kind': 'fact', 'status': 'settled',
+                        'prerequisites': [], 'claim': {'type': 'observation', 'scope': 'TEST README'},
+                        'answer': 'TEST local only', 'authority': 'evidence',
+                        'authority_source': 'TEST fixture', 'evidence': ['TEST README says local only']})
+                    current['supported_by'] = ['test-grounding']
+            if action.startswith('revise'):
+                current.update(status='settled', answer='TEST old local', authority='user',
+                               authority_source='TEST fixture, not operator approval')
+                state['current_question'] = None
+                dependents = [('child', 'storage'), ('grandchild', 'child')] if action == 'revise' else []
+                for identifier, parent in dependents:
+                    state['nodes'].append(node(identifier, prerequisites=[parent], status='settled',
+                        question=f'TEST answer {identifier} again?', answer=f'TEST old {identifier}',
+                        authority='user', authority_source='TEST fixture, not operator approval'))
+                state['nodes'].append({'id': 'test-conflict', 'kind': 'fact', 'status': 'settled',
+                    'prerequisites': [], 'claim': {'type': 'observation', 'scope': 'TEST conflict'},
+                    'answer': 'TEST conflicts with old storage', 'authority': 'evidence',
+                    'authority_source': 'TEST fixture', 'evidence': ['TEST conflicting observation'],
+                    'contradicts': 'storage'})
+            helper.publish(session, state, old['version'], 'TEST action fixture')
+            if action == 'revise draft':
+                (session / 'seed-contract.md').write_text('status: draft\n# TEST old draft\nrevision: r1\n\n'
+                    + helper.decisions_block(helper.load(session)))
+            replies = [SEED] if action.startswith('revise') else [QUESTION, SEED]
+            run = Run(cwd, width, height, budget=0 if action == 'revise zero budget' else 2, replies=replies)
+            try:
+                run.open_shape()
+                run.wait('F2 revise' if action.startswith('revise') else 'F11 defer')
+                before = files(run.sessions)
+                if action == 'defer':
+                    run.type('TEST untouched answer')
+                    run.send(F11, 'reason to defer')
+                    run.wait('Gate: TEST choice')
+                    run.type('TEST wait for scope')
+                    run.send(F11, 'revisit condition')
+                    run.send(F11, 'deferral requires reason and revisit condition')
+                    assert files(run.sessions) == before and run.calls() == []
+                    run.send(b'\t', 'reason to defer TEST wait for scope')
+                    run.send(b'\t', 'revisit condition')
+                    run.type('TEST before implementation')
+                    run.send(F11, 'Suggestion: Local, matching the README.')
+                    saved = helper.load(session)
+                    deferred = next(n for n in saved['nodes'] if n['id'] == 'storage')
+                    assert deferred['status'] == 'deferred', deferred
+                    assert deferred['defer_reason'] == 'TEST wait for scope'
+                    assert deferred['revisit_condition'] == 'TEST before implementation'
+                    assert deferred.get('answer') is None and not (session / 'seed-confirmation.json').exists()
+                    assert len(run.calls()) == 1
+                elif action == 'delegate':
+                    run.send(F12, 'Suggestion: Local, matching the README.')
+                    delegated = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
+                    assert delegated['authority'] == 'delegated' and delegated['answer'] == current['recommendation'], delegated
+                    assert delegated['evidence'] == ['TEST README says local only'], delegated
+                    assert "'F12 delegate suggestion'" in delegated['authority_source'], delegated
+                    assert len(run.calls()) == 1
+                elif action in ['no facts', 'no suggestion']:
+                    run.type('TEST retain my answer')
+                    run.send(F12, 'no supporting facts' if action == 'no facts' else 'no suggestion')
+                    run.wait('your answer TEST retain my answer')
+                    assert files(run.sessions) == before and run.calls() == []
+                elif action in ['revise draft', 'revise zero budget']:
+                    run.send(F2, 'F2 save revision and look')
+                    run.type('TEST revised synced only with permission')
+                    if action == 'revise zero budget':
+                        run.send(F2, 'No model calls are left')
+                        run.wait('TEST revised synced only with permission')
+                        assert files(run.sessions) == before and run.calls() == []
+                    else:
+                        run.send(F2, 'Seed draft r2')
+                        saved = helper.load(session)
+                        assert saved['goal'] == GOAL and saved['current_question'] is None
+                        seed = (session / 'seed-contract.md').read_text()
+                        assert helper.decisions_block(saved) in seed and 'TEST revised synced only with permission' in seed
+                        assert len(run.calls()) == 1, 'Revision without dependents did not take the normal next step'
+                else:
+                    run.wait('F2 revise')
+                    run.send(F2, 'F2 save revision and look')
+                    run.type('TEST revised synced only with permission')
+                    run.send(F2, 'TEST answer child again?')
+                    saved = helper.load(session)
+                    assert saved['goal'] == GOAL and saved['current_question'] == 'child'
+                    for identifier in ['child', 'grandchild']:
+                        reopened = next(n for n in saved['nodes'] if n['id'] == identifier)
+                        assert reopened['status'] == 'unresolved' and reopened.get('answer') is None, reopened
+                        assert 'storage' in reopened['reopen_reason'], reopened
+                    assert run.calls() == [], 'Revision called a model'
+                    run.type('TEST new child')
+                    run.send(F2, 'TEST answer grandchild again?')
+                    assert run.calls() == [], 'Asking a reopened dependent called a model'
+                    run.type('TEST new grandchild')
+                    run.send(F2, 'Seed draft r1')
+                    assert len(run.calls()) == 1
+                if action in ['defer', 'delegate']:
+                    run.type('TEST answer the next question')
+                    run.send(F2, 'Seed draft r1')
+                    seed = (session / 'seed-contract.md').read_text()
+                    decisions = helper.decisions_block(helper.load(session))
+                    assert decisions in seed, seed
+                    assert ('storage deferred:' if action == 'defer' else '[delegated]') in decisions, decisions
+                    assert len(run.calls()) == 2
+                print(f'Shape {action} passed at {width}x{height}: TEST roots, {len(run.calls())} stub calls')
+            finally:
+                run.close()
+
+
 if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        answer_actions(*size)
     for size in [(100, 30), (80, 24)]:
         typed_findings_review(*size)
     for size in [(100, 30), (80, 24)]:

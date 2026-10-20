@@ -141,6 +141,13 @@ pub(super) enum Work {
         expected: u64,
         folder: PathBuf,
     },
+    /// Publish the operator's explicit action, then look into the next.
+    Respond {
+        id: String,
+        action: crate::seed_me::ledger::AnswerAction,
+        expected: u64,
+        folder: PathBuf,
+    },
     /// Look into the next question (or the seed) from version `expected`, reading `folder`.
     Look { expected: u64, folder: PathBuf },
     /// Confirm seed `revision` with the operator's own words.
@@ -285,6 +292,23 @@ fn run(
             saved.store(true, Ordering::Relaxed);
             look(skill, session, version, folder, agent, cancelled, true)
         }
+        Work::Respond {
+            id,
+            action,
+            expected,
+            folder,
+        } => {
+            if agent.remaining() == 0 {
+                return Err(Failure {
+                    answer_saved: false,
+                    why: Why::Budget(agent.limit()),
+                });
+            }
+            let version =
+                answering::respond(session, *expected, id, action).map_err(refused(false))?;
+            saved.store(true, Ordering::Relaxed);
+            look(skill, session, version, folder, agent, cancelled, true)
+        }
         Work::Look { expected, folder } => {
             look(skill, session, *expected, folder, agent, cancelled, false)
         }
@@ -305,6 +329,13 @@ fn look(
     answer_saved: bool,
 ) -> Result<Done, Failure> {
     let fail = |why| Failure { answer_saved, why };
+    let ledger = answering::read(skill, session).map_err(refused(answer_saved))?;
+    if ledger.version() != expected {
+        return Err(fail(Why::Stale));
+    }
+    if ledger.has_current_question() {
+        return Ok(Done::Asked(Asked::default()));
+    }
     // A decision already recorded, such as an objection, is asked before the model looks for one,
     // and the pre-mortem is put to the operator before any seed, also without a model.
     if answering::promote(skill, session, expected)
@@ -318,10 +349,6 @@ fn look(
     }
     if agent.remaining() == 0 {
         return Err(fail(Why::Budget(agent.limit())));
-    }
-    let ledger = answering::read(skill, session).map_err(refused(answer_saved))?;
-    if ledger.version() != expected {
-        return Err(fail(Why::Stale));
     }
     let goal = ledger.goal().unwrap_or("").to_owned();
     let settled = think(agent.records.as_deref(), session, &goal);

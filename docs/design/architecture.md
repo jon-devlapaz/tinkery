@@ -68,11 +68,12 @@ or improved outcomes.
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
 | `seed_me/` | Session formats, goal saving and continuation; `answering.rs` adapts Shape actions, typed facts and operator review reasons to the shared ledger without duplicating its fact rules. Goal initialization still uses Seed Me; Shape needs its installed reference only for `contract()` and its helper path only in copied intake commands (shared). |
-| `seed_me/ledger` | Validation, transitions, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
+| `seed_me/ledger` | Validation, transitions, explicit answer actions and cascading reopen, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
 | `seed_me/shaping.rs` | Classifying ledger-owned status and review flags for display, with optional unchanged helper-flag intake text; no subprocess or mutation. |
 | `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
 | `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words and next step. Reads and steps stay off the paint path. |
+| `shape/forms.rs` | Unsaved deferral and replacement-answer fields, navigation and cancellation; no validation or publication policy. |
 | `shape/words.rs` | Shape's in-memory textarea adapter: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
 | `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or seed text. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |

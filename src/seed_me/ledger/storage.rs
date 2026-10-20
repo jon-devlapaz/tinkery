@@ -123,6 +123,50 @@ pub fn revalidate(
     .map(|_| ())
 }
 
+/// Publish an explicit operator answer action from the displayed version. The ledger alone
+/// owns eligibility, required fields and reopening; stale versions never mutate anything.
+pub fn respond(
+    directory: &Path,
+    expected: u64,
+    id: &str,
+    action: &super::AnswerAction,
+    timestamp: &str,
+) -> Result<Value, PublishError> {
+    let _writer = Writer::acquire(directory).map_err(|error| {
+        if error.reason == "session already has a writer" {
+            error
+        } else {
+            "The session cannot be locked for saving. Check its folder permissions, then try again."
+                .to_owned()
+                .into()
+        }
+    })?;
+    let ledger = load(directory).map_err(|_| {
+        "The session could not be read. Reopen it and check its saved ledger before trying again.".to_owned()
+    })?;
+    let expected = super::value::int(expected);
+    super::require(ledger["version"] == expected, "stale publication version")?;
+    let (state, mut reviewed) = super::answers::change(&ledger, id, action)?;
+    let reason: Value = format!("The operator used {action:?} on {id} in Tinkery Shape.")
+        .as_str()
+        .into();
+    if reviewed.get(id).is_some() {
+        // A changed answer can itself retire a direct contradiction flag. Only revalidate
+        // flags the ordinary transition still holds, using that same rule owner.
+        let proposed = transition(&ledger, &state, &expected, &reason, None, timestamp)?;
+        if super::review_flags(&proposed["nodes"]).get(id).is_none() {
+            reviewed = super::value::object(&[]);
+        }
+    }
+    publication(directory, &ledger, &state, &expected, &reason, Some(&reviewed), timestamp)
+    .map_err(|mut error| {
+        if error.reason.starts_with("could not save the ledger:") {
+            error.reason = "The ledger save could not be verified. Check the session folder before trying again.".into();
+        }
+        error
+    })
+}
+
 fn publication(
     directory: &Path,
     ledger: &Value,

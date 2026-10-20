@@ -1,6 +1,6 @@
 """Shape reading journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls.
 Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py. Under an agent
-launch declaration Shape only reads: F2, F3, F6 and F8 are held and say why (#247)."""
+launch declaration Shape only reads: F2, F3, F6, F8, F11 and F12 are held and say why (#247)."""
 import base64, fcntl, importlib.util, os, re, select, shlex, struct, subprocess, tempfile, termios, time
 from pathlib import Path
 from vt_screen import Screen
@@ -205,8 +205,8 @@ def journey(width, height, case, no_color=False, operator='human'):
                     'unreadable': 'Tinkery refused to read this session:',
                 }[case]
                 send(b's', expected)
-                keys = {'question': 'F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu',
-                        'p051': 'F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu',
+                keys = {'question': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
+                        'p051': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
                         'drafted': 'F3 confirm seed r1   F8 stop   F5 so far   esc back   F10 menu',
                         'ready': 'c copy intake   F6 end session   ' + SHAPE_KEYS,
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
@@ -214,7 +214,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                     keys = {'ready': 'c copy intake   ' + SHAPE_KEYS}.get(case, SHAPE_KEYS)
                 # Scrolling is offered only on overflow; arrows belong to an active editor.
                 acts = case in ('question', 'p051', 'drafted') and not held
-                scroll_keys = ('pgup/dn read   ' + keys.replace('F2 save answer and look into next', 'F2 save + look')
+                scroll_keys = ('pgup/dn read   ' + keys
                                if acts else '↑↓ scroll   ' + keys)
                 bar = screen.text().splitlines()[-1].strip()
                 # A bar too wide for the terminal closes up rather than lose Esc or F10.
@@ -223,7 +223,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 assert flat().count('Next:') == (1 if held else 0 if acts or case == 'ready' else 1), screen.text()
                 if held:
                     assert HELD in flat(), screen.text()
-                    for key in (b'\x1bOQ', b'\x1bOR', b'\x1b[17~', b'\x1b[19~'):
+                    for key in (b'\x1bOQ', b'\x1bOR', b'\x1b[17~', b'\x1b[19~', b'\x1b[23~', b'\x1b[24~'):
                         os.write(master, key * 2)
                     send(b'x', HELD)
                     assert 'your answer' not in flat() and 'your words' not in flat(), screen.text()
@@ -267,7 +267,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                     assert 'Also found:' not in flat(), screen.text()
                     for finding in P051_FINDINGS[1:]:
                         assert finding.split(':')[0] not in flat(), screen.text()
-                    assert 'your answer' in flat() and 'F2 save answer' in flat(), screen.text()
+                    assert 'your answer' in flat() and 'F2 save + look' in flat(), screen.text()
                     send(b'Keep it skill-only.', 'Keep it skill-only.')
                     send(b'\x1b[15~', 'Findings for this question')
                     # Every complete observation is reachable, without saving or calling.
