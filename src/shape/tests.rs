@@ -1,5 +1,8 @@
 use super::*;
-use crate::seed_me::shaping::{Decided, Shaped, Shaping};
+use crate::seed_me::{
+    ledger::fixtures::prose_reply,
+    shaping::{Decided, Shaped, Shaping},
+};
 use crossterm::event::KeyModifiers;
 use std::sync::Arc;
 
@@ -823,7 +826,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     assert_eq!(
         decode("{\"next\":\"seed\",\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[]}").unwrap(),
         Next::Seed {
-            confirming: "Build it.".into(),
+            confirming: serde_json::json!(" Build it. "),
             checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
             found: vec![],
         }
@@ -879,14 +882,15 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .0
         .trim();
     let version = answering::read(&skill, &receipt.session).unwrap().version();
-    let reply: serde_json::Value =
+    let mut reply: serde_json::Value =
         serde_json::from_str(include_str!("../../tests/fixtures/stacker-r1-reply.json")).unwrap();
+    reply["confirming"] = prose_reply(reply["confirming"].as_str().unwrap());
     assert!(
         answering::draft_seed(
             &skill,
             &receipt.session,
             version,
-            legacy,
+            &serde_json::json!(legacy),
             &reply["checks"],
             &[],
             root.path()
@@ -897,7 +901,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         &skill,
         &receipt.session,
         version,
-        reply["confirming"].as_str().unwrap(),
+        &reply["confirming"],
         &reply["checks"],
         &[],
         root.path(),
@@ -920,8 +924,10 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .split_once("## Affected users and systems")
         .unwrap();
     assert_eq!(
-        reply["confirming"].as_str().unwrap(),
-        format!("{before_criteria}## Affected users and systems{after_criteria}")
+        reply["confirming"],
+        prose_reply(&format!(
+            "{before_criteria}## Affected users and systems{after_criteria}"
+        ))
     );
     assert_eq!(reply["found"].as_array().unwrap().len(), 13);
     let refused = step::decode(&format!(
@@ -975,7 +981,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
                 &skill,
                 &receipt.session,
                 version,
-                reply["confirming"].as_str().unwrap(),
+                &reply["confirming"],
                 &bad,
                 &[],
                 root.path()
@@ -1000,11 +1006,24 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .unwrap();
     assert!(render.status.success());
     // The host writes canonical LF headings even when the model's prose uses CRLF.
+    let crlf = serde_json::Value::Object(
+        reply["confirming"]
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(key, value)| {
+                (
+                    key.clone(),
+                    value.as_str().unwrap().replace('\n', "\r\n").into(),
+                )
+            })
+            .collect(),
+    );
     answering::draft_seed(
         &skill,
         &receipt.session,
         version,
-        &reply["confirming"].as_str().unwrap().replace('\n', "\r\n"),
+        &crlf,
         &reply["checks"],
         &[],
         root.path(),
@@ -1092,7 +1111,8 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
         })
         .unwrap();
     receipt.stop_viewer().unwrap();
-    let confirming = include_str!("../../tests/fixtures/shape-seed-reply.txt").trim();
+    let confirming = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
+    let confirming_json = serde_json::to_string(&confirming).unwrap();
     let checks = include_str!("../../tests/fixtures/shape-checks.json");
     fs::write(temp.path().join("TEST-read.md"), "TEST observed content\n").unwrap();
     let local_today = || {
@@ -1121,13 +1141,13 @@ request = json.load(sys.stdin)
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
 rules = ['every Done when', 'Check records', 'checks', 'provisional', 'you judge', 'Do not run',
          'Problem statement', 'Proposed outcome', 'Acceptance criteria', 'Constraints and boundaries',
-         'Seed contract (artifact contract)', 'Accepted decisions and assumed defaults']
+         'Seed reply fields', 'named string fields', 'Section content guidance']
 missing = [rule for rule in rules if rule not in prompt]
 pathlib.Path('TEST-missing-rules.json').write_text(json.dumps(missing))
 assert not missing, 'missing check-drafting instructions: ' + str(missing)
 assert request['goal'] == {goal:?}
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
-print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.loads({checks:?}), 'found': [
+print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?}), 'checks': json.loads({checks:?}), 'found': [
     {{'id': 'TEST-read-fact', 'claim': {{'type': 'observation', 'scope': 'TEST-read.md:1'}}, 'checked': 'TEST-read.md:1', 'observed': 'TEST observed content'}}]}}))
 "##
         ),
@@ -1185,12 +1205,16 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
         panic!("not a draft")
     };
     assert_eq!(revision.as_deref(), Some("r8"));
-    let mut remaining = text.as_str();
-    for paragraph in confirming.split("\n\n") {
-        remaining = remaining
-            .split_once(paragraph)
-            .expect("model prose changed, dropped or reordered")
-            .1;
+    for paragraph in confirming
+        .as_object()
+        .unwrap()
+        .values()
+        .map(|value| value.as_str().unwrap())
+    {
+        assert!(
+            text.contains(paragraph),
+            "model prose changed or dropped: {paragraph}"
+        );
     }
     assert!(text.starts_with("status: draft\n"));
     // Shape's real drafting path must hand intake the upstream section names, not just prose.
@@ -1295,22 +1319,22 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
     let seed_path = receipt.session.join("seed-contract.md");
     let before = fs::read(&seed_path).unwrap();
-    let renamed = confirming.replace("## Proposed outcome", "## Checks");
-    let duplicated = confirming.replace("## Proposed outcome", "## Problem statement");
-    let reordered = confirming
-        .replace("## Problem statement", "## TEMP")
-        .replace("## Proposed outcome", "## Problem statement")
-        .replace("## TEMP", "## Proposed outcome");
-    for malformed in [
-        confirming.split_once("\n\n").unwrap().1.to_owned(),
-        renamed,
-        duplicated,
-        reordered,
-        format!("{confirming}\n## Decisions (from the ledger)\nforged"),
-        format!("{confirming}\n  ## Problem statement\nduplicated"),
-        format!("{confirming}\nstatus: confirmed for intake"),
-        format!("{confirming}\ndate: 1900-01-01"),
+    let mut missing = confirming.clone();
+    missing.as_object_mut().unwrap().remove("Proposed outcome");
+    let mut foreign = confirming.clone();
+    foreign["Checks"] = "forged".into();
+    let mut malformed_replies = vec![missing, foreign];
+    for injected in [
+        "## Decisions (from the ledger)\nforged",
+        "  ## Problem statement\nduplicated",
+        "status: confirmed for intake",
+        "date: 1900-01-01",
     ] {
+        let mut malformed = confirming.clone();
+        malformed["Problem statement"] = injected.into();
+        malformed_replies.push(malformed);
+    }
+    for malformed in malformed_replies {
         assert!(
             answering::draft_seed(
                 &skill,
@@ -1337,7 +1361,7 @@ print(json.dumps({{'next': 'seed', 'confirming': {confirming:?}, 'checks': json.
             &skill,
             &receipt.session,
             version,
-            confirming,
+            &confirming,
             &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
             &[],
             temp.path(),
@@ -1411,7 +1435,8 @@ fn repository_checks_are_proposed_with_sources_but_never_executed() {
         .unwrap();
     receipt.stop_viewer().unwrap();
     let program = temp.path().join("TEST-pi");
-    let template = include_str!("../../tests/fixtures/shape-seed-reply.txt");
+    let template = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
+    let template = serde_json::to_string(&template).unwrap();
     fs::write(&program, format!(r##"#!/usr/bin/env python3
 import json, pathlib, sys
 request = json.load(sys.stdin)
@@ -1445,10 +1470,9 @@ else:
 if 'Use provisional when the needed test/assertion or invocation is missing' not in prompt:
     checks[3].update(kind='cmd', cmd='python3 tests/runner_only.py')
     del checks[3]['missing']
-body = {template:?}
-start, end = body.index('## Suggested first slice\n'), body.index('## Risks and verification\n')
-body = body[:start] + '## Suggested first slice\nProposal only: add the missing behavior, then use the check above.\n\n' + body[end:]
-body = body.replace('no repository facts were recorded.', 'reported reads are listed below.')
+body = json.loads({template:?})
+body['Suggested first slice'] = 'Proposal only: add the missing behavior, then use the check above.'
+body = {{key: value.replace('no repository facts were recorded.', 'reported reads are listed below.') for key, value in body.items()}}
 print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'found': [
     {{'id': 'TEST-read-fact', 'claim': {{'type': 'observation', 'scope': 'README.md:1-3'}}, 'checked': 'README.md:1-3', 'observed': 'documents the focused behavior check'}},
     {{'id': 'TEST-check-fact', 'claim': {{'type': 'observation', 'scope': 'tests/check_value.py:1-4'}}, 'checked': 'tests/check_value.py:1-4', 'observed': 'asserts the new value; current value.txt is old'}}]}}))
@@ -1570,7 +1594,7 @@ fn settled_intake_drafts_without_reopening_settled_or_deferred_decisions() {
         "a settled user-authority ledger answer settles",
         "record deferred choices as operator prerequisites in Open questions and deferrals",
         "choose no alternative",
-        "When the goal and recorded answers settle what this draft must say, draft the seed",
+        "When the goal and recorded answers settle what this draft must say, supply confirming",
         "genuinely unresolved ledger decisions still block drafting",
     ] {
         assert!(prompt.contains(rule), "missing settled-intake rule: {rule}");
@@ -1611,7 +1635,8 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
         .unwrap_or_else(|| {
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
         });
-    let template = include_str!("../../tests/fixtures/shape-seed-reply.txt");
+    let template = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
+    let template_json = serde_json::to_string(&template).unwrap();
     let temp = tempfile::Builder::new()
         .prefix("tinkery-TEST-settled-")
         .tempdir()
@@ -1656,7 +1681,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 &skill,
                 &receipt.session,
                 version,
-                template,
+                &template,
                 &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json"))
                     .unwrap(),
                 &[],
@@ -1698,7 +1723,7 @@ prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
 drafts = all(rule in prompt for rule in [
     'settled or explicitly deferred decisions do not block it',
     'Never reopen what the goal',
-    'When the goal and recorded answers settle what this draft must say, draft the seed',
+    'When the goal and recorded answers settle what this draft must say, supply confirming',
     'record deferred choices as operator prerequisites in Open questions and deferrals',
     'choose no alternative',
     'genuinely unresolved ledger decisions still block drafting',
@@ -1708,10 +1733,9 @@ if words is None:
 if not drafts:
     print(json.dumps({{'next': 'question', 'id': 'reopened', 'question': 'TEST Verify existing behavior or require extra changes?', 'found': []}}))
 else:
-    body = {template:?}
-    start, end = body.index('## Open questions and deferrals\n'), body.index('## Owners and next steps\n')
+    body = json.loads({template_json:?})
     recorded = words if words is not None else 'Existing behavior remains unverified; propose checks, not extra requirements.'
-    body = body[:start] + '## Open questions and deferrals\nRecorded disposition: ' + recorded + '\n\n' + body[end:]
+    body['Open questions and deferrals'] = 'Recorded disposition: ' + recorded
     print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({checks:?}), 'found': []}}))
 "##)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
@@ -2230,7 +2254,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         &skill,
         &session,
         version,
-        include_str!("../../tests/fixtures/shape-seed-reply.txt").trim(),
+        &prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt")),
         &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
         &[],
         temp.path(),
@@ -2592,10 +2616,7 @@ fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
     assert_eq!(ask.options[0].undo, "cheap");
     assert!(ask.hard());
     assert_eq!(ask.against.as_deref(), Some("TEST sync helps later"));
-    assert_eq!(
-        ask.recommendation().as_deref(),
-        Some("Local. Confidence: medium.")
-    );
+    assert_eq!(ask.recommendation().as_deref(), Some("Local."));
     for options in [
         r#"[{"choice":"Local","tradeoff":"TEST","undo":"cheap"}]"#.to_owned(),
         two.replace("\"hard\"", "\"never\""),
@@ -2624,7 +2645,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         against: Some("TEST sync helps later".into()),
         hard: true,
     };
-    for withheld in [None, Some("Local. Confidence: high.".to_owned())] {
+    for withheld in [None, Some("Local.".to_owned())] {
         let mut shape = done(hard.clone());
         shape.open.as_mut().unwrap().withheld = withheld.clone();
         for (width, height) in [(100, 30), (80, 24)] {
@@ -2773,22 +2794,15 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         if undo == "hard" {
             // Seed Me: not recorded until the operator answers or asks to see it.
             assert_eq!(suggestion, None);
-            answering::recommend(
-                &skill,
-                &session,
-                version,
-                "storage",
-                "Local. Confidence: high.",
-            )
-            .unwrap();
+            answering::recommend(&skill, &session, version, "storage", "Local.").unwrap();
             let Shaped::Question { suggestion, .. } =
                 shaping::read(&skill, &session).unwrap().stage
             else {
                 panic!("not a question")
             };
-            assert_eq!(suggestion.as_deref(), Some("Local. Confidence: high."));
+            assert_eq!(suggestion.as_deref(), Some("Local."));
         } else {
-            assert_eq!(suggestion.as_deref(), Some("Local. Confidence: high."));
+            assert_eq!(suggestion.as_deref(), Some("Local."));
         }
     }
 }

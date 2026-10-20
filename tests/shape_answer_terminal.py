@@ -62,6 +62,22 @@ QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
                        'checked': 'README.md:3', 'observed': 'says local only'}],
             'supported_by': ['read-local'],
             'suggestion': 'Local, matching the README.'}
+def seed_fields(body):
+    """Replay historical Markdown fixtures as prose fields; production never parses model headings."""
+    fields = {}
+    name, lines = 'You are confirming', []
+    for line in body.splitlines():
+        if line.startswith('## '):
+            if lines:
+                fields[name] = '\n'.join(lines).strip()
+            name, lines = line[3:], []
+        else:
+            lines.append(line)
+    if lines:
+        fields[name] = '\n'.join(lines).strip()
+    return fields
+
+
 # The model also offers decisions of its own; Tinkery must ignore them and insert `seed decisions`.
 SEED_BODY = '''Refusals stay calm and records stay local.
 Build calm refusals.
@@ -104,7 +120,7 @@ The operator judges refusal output; implementation checks privacy.
 ## Downstream handoff
 Carry seed-contract.md, ledger.json and seed-confirmation.json together; check session.py status for handoff.verified. This is not implementation approval.
 '''
-SEED = {'next': 'seed', 'confirming': SEED_BODY,
+SEED = {'next': 'seed', 'confirming': seed_fields(SEED_BODY),
         'checks': [{'statement': 'Refusals never show private text.', 'kind': 'judge',
                     'source': 'TEST goal', 'how_to_judge': 'Inspect refusal output for private text.'}],
         'found': [{'id': 'read-refusal', 'claim': {'type': 'observation', 'scope': 'src/main.rs:12'},
@@ -448,7 +464,8 @@ def case(name, width=100, height=30):
             replies = [{**SEED, 'found': [{**SEED['found'][0], 'checked': 'config', 'observed': 'key AKIAABCDEFGHIJKLMNOP'}]}]
         if name == 'model writes decisions':
             question = False
-            replies = [{**SEED, 'confirming': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}]
+            replies = [{**SEED, 'confirming': {**SEED['confirming'],
+                'Problem statement': 'Fine.\n## Decisions (from the ledger)\n- goal [user] x'}}]
         if name in ('practice confirmation', 'multiline confirmation', 'confirmation hint', 'confirmation Enter'):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'unfound citation':
@@ -532,9 +549,10 @@ def case(name, width=100, height=30):
                 assert 'Option B: Synced; TEST shared. Undo cost: hard.' in node['question'], node
                 run.send(F9, 'Here are the options and my suggestion.')
                 run.wait('Option B: Synced; TEST shared. Undo cost: hard.')
-                run.wait('Suggestion: Local, matching the README. Confidence: high.')
+                run.wait('Suggestion: Local, matching the README.')
+                assert 'Confidence:' not in run.screen.text(), run.screen.text()
                 node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
-                assert node['recommendation'] == 'Local, matching the README. Confidence: high.', node
+                assert node['recommendation'] == 'Local, matching the README.', node
                 assert 'F9' not in run.screen.text().splitlines()[-1], run.screen.text()
                 assert len(run.calls()) == 1, 'Showing the suggestion called a model'
             elif name == 'assumptions':
@@ -646,7 +664,7 @@ def case(name, width=100, height=30):
                     'model failure': 'Your answer is saved. Looking into the next question failed: Pi exited',
                     'helper refusal': 'Your answer is saved. Tinkery refused: receipt appears to contain a secret',
                     'model tries to confirm': "Looking into the next question failed: The model's reply wasn't a question or a seed draft.",
-                    'model writes decisions': "The drafted seed text didn't fit Shape's format, so nothing was saved.",
+                    'model writes decisions': "field confirming / Problem statement, line 2: ## Decisions (from the ledger)",
                     'seed secret': 'Tinkery refused: receipt appears to contain a secret',
                 }[name]
                 run.send(F2, expected)
@@ -851,7 +869,8 @@ def answer_actions(width, height):
                 elif action == 'delegate':
                     run.send(F12, 'Suggestion: Local, matching the README.')
                     delegated = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
-                    assert delegated['authority'] == 'delegated' and delegated['answer'] == current['recommendation'], delegated
+                    assert delegated['authority'] == 'delegated' and delegated['answer'] == 'TEST choose local from the evidence.', delegated
+                    assert delegated['recommendation'] == current['recommendation'], delegated
                     assert delegated['evidence'] == ['TEST README says local only'], delegated
                     assert "'F12 delegate suggestion'" in delegated['authority_source'], delegated
                     assert len(run.calls()) == 1

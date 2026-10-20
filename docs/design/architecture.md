@@ -75,7 +75,7 @@ or improved outcomes.
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words and next step. Reads and steps stay off the paint path. |
 | `shape/forms.rs` | Unsaved deferral and replacement-answer fields, navigation and cancellation; no validation or publication policy. |
 | `shape/words.rs` | Shape's in-memory textarea adapter: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
-| `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or seed text. |
+| `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or named seed prose fields; `seed_me` alone owns their layout and validation. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
@@ -134,6 +134,10 @@ The shared SDLC read and seed identity improve diagnostics 3 and 6: both phases
 use one source-owned join without knowing each other. The module map improves
 boundary visibility (7). Seed checks, confirmation and ending now hide behind typed ledger calls,
 extending diagnostics 3 and 6 without changing phase callers; the map keeps diagnostic 7 current.
+Named seed prose fields derive from the ledger's canonical artifact sequence, improving
+interface simplicity (2), format changeability (3) and hidden decisions (6): the model
+cannot choose heading order, and the prompt attaches only compatible contract guidance.
+The module map keeps that boundary visible (7).
 No limit is relaxed; the recorded score remains 10/10.
 
 ## Limits enforced by `tests/architecture.rs`

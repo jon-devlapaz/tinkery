@@ -93,6 +93,40 @@ fn settle(h: &mut Home) {
         h.discovery.requested() && !h.discovery.running() && h.discovery.fresh()
     });
 }
+#[test]
+fn watch_f10_returns_home_from_help_without_quitting() {
+    for help in [true, false] {
+        let mut h = home(Arc::new(|_| found(vec![])));
+        h.open(4);
+        if help {
+            h.handle_key(key(KeyCode::F(1)));
+        }
+        assert_eq!(h.help, help);
+        h.handle_key(key(KeyCode::F(10)));
+        assert!(
+            matches!(h.view, View::Menu) && !h.help && !h.quit,
+            "F10 from Watch (help={help}) must return Home without quitting"
+        );
+        h.handle_key(key(KeyCode::F(10)));
+        assert!(h.quit, "F10 on Home still quits");
+        for mut ignored in [
+            key(KeyCode::F(10)),
+            KeyEvent::new(KeyCode::F(10), KeyModifiers::ALT),
+        ] {
+            let mut h = home(Arc::new(|_| found(vec![])));
+            h.open(4);
+            if help {
+                h.handle_key(key(KeyCode::F(1)));
+            }
+            if ignored.modifiers == KeyModifiers::NONE {
+                ignored.kind = KeyEventKind::Repeat;
+            }
+            h.handle_key(ignored);
+            assert!(matches!(h.view, View::Watch(_)) && !h.quit);
+        }
+    }
+}
+
 fn home(source: Source) -> Home {
     Home::new(
         Box::new(BrainDump::default),

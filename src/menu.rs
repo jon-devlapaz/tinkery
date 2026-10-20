@@ -648,6 +648,13 @@ impl Home {
             self.shape_key(key);
             return;
         }
+        if matches!(self.view, View::Watch(_)) && key.code == KeyCode::F(10) {
+            if key.modifiers == KeyModifiers::NONE && key.kind == KeyEventKind::Press {
+                self.help = false;
+                self.view = View::Menu;
+            }
+            return;
+        }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') || key.code == KeyCode::F(10) {
             self.measure.cancel();

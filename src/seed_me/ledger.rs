@@ -11,6 +11,7 @@ pub use questions::{next_question, queue_question, waiting_on};
 pub(crate) mod fixtures;
 mod seed;
 mod storage;
+pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub(crate) use storage::save_draft;

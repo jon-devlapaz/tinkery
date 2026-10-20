@@ -20,6 +20,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod seed_reply;
+
 const SEED: &str = "seed-contract.md";
 
 /// Why a change wasn't completed. A later IO failure can leave unconfirmed check records;
@@ -67,7 +69,7 @@ pub struct Ask {
     pub options: Vec<Alternative>,
     /// The strongest case against the suggestion.
     pub against: Option<String>,
-    /// How sure the suggestion is: low, medium or high.
+    /// Reply confidence: low, medium or high; not recorded in the ledger.
     pub confidence: Option<String>,
 }
 
@@ -114,16 +116,12 @@ impl Ask {
         text
     }
 
-    /// The suggestion with its confidence, as Seed Me's recommendation.
+    /// The suggestion unchanged, without reply confidence; blank suggestions are absent.
     pub fn recommendation(&self) -> Option<String> {
-        let suggestion = self
-            .suggestion
-            .as_deref()
-            .filter(|s| !s.trim().is_empty())?;
-        Some(match &self.confidence {
-            Some(c) => format!("{suggestion} Confidence: {c}."),
-            None => suggestion.to_owned(),
-        })
+        self.suggestion
+            .as_ref()
+            .filter(|s| !s.trim().is_empty())
+            .cloned()
     }
 }
 
@@ -439,18 +437,21 @@ fn today(found: &[Receipt]) -> String {
 /// What the seed's evidence section says when no step recorded a finding.
 pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.";
 
-/// The installed artifact contract for drafting instructions. Refuses a missing reference;
-/// callers must not substitute another schema. No helper script is required.
+/// Prose-field instructions and installed section guidance and check schema, without conflicting
+/// artifact-writing directions. Refuses a missing or incomplete reference. No helper is required.
 pub fn contract(skill: &Path) -> Result<String, Refusal> {
-    let skill = skill
-        .canonicalize()
-        .map_err(|e| Refusal::Refused(format!("Cannot locate Shape instructions: {e}")))?;
+    let skill = skill.canonicalize().map_err(|_| {
+        Refusal::Refused(
+            "Cannot locate Shape instructions. Check the configured skill path.".into(),
+        )
+    })?;
     let reference = skill
         .parent()
         .ok_or_else(|| Refusal::Refused("Shape instructions have no directory".into()))?
         .join("references/seed-contract.md");
-    std::fs::read_to_string(reference)
-        .map_err(|error| Refusal::Refused(format!("Cannot read Shape's seed contract: {error}")))
+    let reference = std::fs::read_to_string(reference)
+        .map_err(|_| Refusal::Refused("Cannot read Shape's seed contract. Check the configured reference file and its read permission.".into()))?;
+    seed_reply::instructions(&reference)
 }
 
 /// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
@@ -843,7 +844,7 @@ pub fn promote(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64
     .map(Some)
 }
 
-/// Save a Seed Me draft: `confirming` supplies summary and prose, never criteria. `checks`
+/// Save a Seed Me draft: `confirming` supplies named summary and prose fields, never headings or criteria. `checks`
 /// are validated, stored and rendered only by Tinkery's ledger; no check is executed. Evidence
 /// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
 /// `seed decisions` unchanged, in Seed Me's canonical Full sequence with no wrapper headings.
@@ -855,7 +856,7 @@ pub fn draft_seed(
     skill: &Path,
     session: &Path,
     expected: u64,
-    confirming: &str,
+    confirming: &Value,
     checks: &Value,
     found: &[Found],
     folder: &Path,
@@ -871,64 +872,19 @@ pub fn draft_seed(
             open.join(", ")
         )));
     }
-    let confirming = confirming.trim();
-    // Seed Me owns these headings; the model may supply prose, never provenance or ledger text.
-    let sections = [
-        "Problem statement",
-        "Proposed outcome",
-        "Affected users and systems",
-        "Constraints and boundaries",
-        "Knowledge map",
-        "Suggested first slice",
-        "Risks and verification",
-        "Open questions and deferrals",
-        "Owners and next steps",
-        "Downstream handoff",
-    ];
-    let headings: Vec<_> = confirming
-        .lines()
-        .filter(|line| line.trim_start().starts_with('#'))
-        .collect();
-    let expected_headings: Vec<_> = sections.iter().map(|name| format!("## {name}")).collect();
-    let breaks = confirming.lines().any(|line| {
-        let line = line.trim_start();
-        (line.starts_with('#') && !expected_headings.iter().any(|heading| heading == line))
-            || line.starts_with("```")
-            || line.starts_with("~~~")
-            || line.starts_with("revision:")
-            || line.starts_with("date:")
-            || line.starts_with("Confirmed by:")
-            || line.starts_with("status:")
-    });
-    if confirming.is_empty()
-        || confirming.starts_with('#')
-        || breaks
-        || headings != expected_headings
-    {
-        return Err(Refusal::Refused(
-            "The drafted seed text didn't fit Shape's format, so nothing was saved.".into(),
-        ));
-    }
-    // Keep prose line endings; canonical headings belong to the host, not the model.
-    let mut canonical = String::with_capacity(confirming.len());
-    for line in confirming.split_inclusive('\n') {
-        let bare = line.trim_end_matches(['\r', '\n']);
-        if expected_headings.iter().any(|heading| heading == bare) {
-            canonical.push_str(bare);
-            canonical.push('\n');
-        } else {
-            canonical.push_str(line);
-        }
-    }
-    let confirming = canonical;
+    let prose = seed_reply::prose(confirming)?;
     facts(&mut ledger.state, found, folder);
     let grounding = receipts(&ledger.state, true);
     let path = session.join(SEED);
-    let previous = match std::fs::read_to_string(&path) {
-        Ok(existing) => Some(existing),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-        Err(error) => return Err(Refusal::Refused(format!("Cannot read the seed: {error}"))),
-    };
+    let previous =
+        match std::fs::read_to_string(&path) {
+            Ok(existing) => Some(existing),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => return Err(Refusal::Refused(
+                "Cannot read seed-contract.md. Check its text and read permission before retrying."
+                    .into(),
+            )),
+        };
     let revision = match previous.as_deref() {
         Some(existing) if existing.lines().next() == Some("status: draft") => {
             let last = existing
@@ -961,30 +917,39 @@ pub fn draft_seed(
     let decisions =
         ledger::decisions_block(&ledger::load(session).map_err(not_saved)?).map_err(not_saved)?;
     let today = today(&grounding);
-    let confirming = confirming
-        .replacen(
-            "\n## Affected users and systems",
-            &format!("\n{rendered}## Affected users and systems"),
-            1,
-        )
-        .replacen(
-            "\n## Knowledge map",
-            &format!("\n{decisions}\n## Knowledge map"),
-            1,
-        )
-        .replacen(
-            "\n## Suggested first slice",
-            &format!("\n{today}\n## Suggested first slice"),
-            1,
-        );
+    let mut body = String::new();
+    for heading in ledger::FULL {
+        match *heading {
+            "## Acceptance criteria" => body.push_str(&rendered),
+            "## Decisions (from the ledger)" => {
+                body.push_str(&decisions);
+                body.push('\n');
+            }
+            "## Assumed (not confirmed by you)" => {}
+            "## Evidence and uncertainty" => {
+                body.push_str(&today);
+                body.push('\n');
+            }
+            heading => {
+                let name = heading.strip_prefix("## ").unwrap();
+                let text = prose.iter().find(|(field, _)| *field == name).unwrap().1;
+                body.push_str(heading);
+                body.push('\n');
+                body.push_str(text);
+                if !text.ends_with('\n') {
+                    body.push('\n');
+                }
+                body.push('\n');
+            }
+        }
+    }
     let title = ledger.state["goal"]
         .as_str()
         .and_then(|g| g.lines().next())
         .unwrap_or("");
     let date = local_date();
-    let text = format!(
-        "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n"
-    );
+    let text =
+        format!("status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n{body}");
     ledger::save_draft(session, version, previous.as_deref(), &records, &text)
         .map_err(not_saved)?;
     Ok(format!("r{revision}"))
@@ -1141,11 +1106,22 @@ mod tests {
         let reference = root.path().join("references/seed-contract.md");
         std::fs::write(&skill, "TEST skill\n").unwrap();
         std::fs::create_dir(reference.parent().unwrap()).unwrap();
-        let expected = "# TEST seed contract\nKeep café words verbatim.\n";
+        let installed = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(".ci-seed-me/skills/seed-me/references/seed-contract.md"),
+        )
+        .unwrap();
+        let expected = installed.replace(
+            "Problem statement: current behavior",
+            "Problem statement: Keep café words verbatim. Current behavior",
+        );
         std::fs::write(&reference, expected).unwrap();
 
         assert!(!root.path().join("scripts/session.py").exists());
-        assert_eq!(contract(&skill).unwrap(), expected);
+        let instructions = contract(&skill).unwrap();
+        assert!(instructions.contains("Keep café words verbatim."));
+        assert!(instructions.contains("Seed reply fields"));
+        assert!(!instructions.contains("Choose Full or Lean"));
     }
 
     #[test]

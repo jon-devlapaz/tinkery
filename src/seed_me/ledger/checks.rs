@@ -174,7 +174,8 @@ pub(super) fn legacy_block(records: &Value) -> Result<String> {
     ))
 }
 
-pub(super) const FULL: &[&str] = &[
+/// The canonical Full artifact sequence; hosts derive their prose fields from this layout.
+pub(crate) const FULL: &[&str] = &[
     "## You are confirming",
     "## Problem statement",
     "## Proposed outcome",
@@ -222,15 +223,44 @@ fn without_comments(raw: &str, inside: &mut bool) -> String {
     out
 }
 
-/// Locate only literal template headings; refuse hidden, nested, Setext or unterminated headings.
+struct HeadingError {
+    rule: &'static str,
+    prose_rule: &'static str,
+    line: usize,
+    text: String,
+}
+
+/// Locate literal artifact headings, retaining the helper-compatible refusal wording.
 pub fn document_headings(body: &str) -> Result<Vec<(usize, String)>> {
+    headings(body).map_err(|error| error.rule.into())
+}
+
+/// The same structural parser with offending lines for model prose-field refusals.
+pub(crate) fn prose_headings(body: &str) -> Result<Vec<(usize, String)>> {
+    headings(body).map_err(|error| {
+        format!(
+            "{} at line {}: {}",
+            error.prose_rule,
+            error.line,
+            super::seed::repr(&error.text)
+        )
+    })
+}
+
+fn headings(body: &str) -> std::result::Result<Vec<(usize, String)>, HeadingError> {
     let opening = Regex::new(r"^ {0,3}(`{3,}|~{3,})(.*)$").unwrap();
     let setext = Regex::new(r"^(?:=+|-+)[ \t]*$").unwrap();
     let container = Regex::new(r"^(?:>[ \t]*|(?:[-+*]|\d+[.)])[ \t]+)").unwrap();
     let heading = Regex::new(r"^#{1,6}(?:[ \t]+|$)").unwrap();
     let (mut headings, mut fence, mut comment, mut offset) = (vec![], None::<String>, false, 0);
-    for line in body.split_inclusive('\n') {
+    for (index, line) in body.split_inclusive('\n').enumerate() {
         let raw = super::seed::split_terminator(line).0;
+        let refusal = |rule, prose_rule| HeadingError {
+            rule,
+            prose_rule,
+            line: index + 1,
+            text: raw.into(),
+        };
         let start = offset;
         offset += line.len();
         if let Some(ref f) = fence {
@@ -250,20 +280,24 @@ pub fn document_headings(body: &str) -> Result<Vec<(usize, String)>> {
         let visible = without_comments(raw, &mut comment);
         let mut candidate = visible.trim_start_matches(whitespace);
         loop {
-            require(
-                !setext.is_match(candidate),
-                "checks refuse injected Setext heading syntax; body prose cannot contain headings",
-            )?;
+            if setext.is_match(candidate) {
+                return Err(refusal(
+                    "checks refuse injected Setext heading syntax; body prose cannot contain headings",
+                    "Lines of dashes or equals signs create headings; Tinkery writes every heading",
+                ));
+            }
             let Some(m) = container.find(candidate) else {
                 break;
             };
             candidate = candidate[m.end()..].trim_start_matches(whitespace);
         }
         if heading.is_match(candidate) {
-            require(
-                raw == candidate && visible == raw && line == format!("{raw}\n"),
-                "checks refuse injected, indented, commented or non-literal heading lines",
-            )?;
+            if raw != candidate || visible != raw || line != format!("{raw}\n") {
+                return Err(refusal(
+                    "checks refuse injected, indented, commented or non-literal heading lines",
+                    "Prose fields cannot contain heading syntax; Tinkery writes every heading",
+                ));
+            }
             headings.push((start, raw.into()));
         }
     }

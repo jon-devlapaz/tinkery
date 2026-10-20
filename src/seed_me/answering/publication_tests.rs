@@ -273,7 +273,9 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
         &skill,
         &session,
         1,
-        include_str!("../../../tests/fixtures/shape-seed-reply.txt"),
+        &ledger::fixtures::prose_reply(include_str!(
+            "../../../tests/fixtures/shape-seed-reply.txt"
+        )),
         &checks,
         &[],
         root.path(),
