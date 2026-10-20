@@ -384,6 +384,8 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   F11 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
 - **Delegate:** F12 is one press, quoting that key as the authority source, saving the
   recorded suggestion with `delegated` authority and its supporting facts as evidence.
+  A terminal `Confidence: low.`, `Confidence: medium.` or `Confidence: high.` stays in
+  the displayed recommendation, not the delegated answer. Other suggestion text stays unchanged.
   Missing facts or suggestion refuses without writing; type an answer instead.
 - **Revise:** only flagged decisions answered by the operator (including delegated answers)
   offer F2 revise. Flagged findings (facts and inferences) and the confirmed goal offer only
@@ -421,19 +423,28 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
 - Seed Me's [seed contract](https://github.com/jon-devlapaz/seed-me/blob/main/skills/seed-me/references/seed-contract.md)
-  owns the draft format; Shape passes the installed reference to each step, rather
-  than defining another layout. Tinkery writes `status: draft`, the goal-headline
-  title, `revision: rN` one past the previous draft, and a separate `date:` line with the operator's local date (receipts stay UTC).
-  An older writer can still increment the revision after rollback. Never replace
-  a confirmed seed. The model supplies the summary and canonical prose sections,
-  excluding Acceptance criteria; reasoning, findings and questions keep their existing
-  free-text transport, not a new whole-reply schema. Tinkery follows the installed
-  contract's exact Full heading sequence: the ledger's rendered decisions block goes
-  before Knowledge map, and recorded Evidence and uncertainty before Suggested first
-  slice. Host-owned heading lines use LF while prose keeps its line endings.
-  Ledger-owned blocks remain verbatim, with no extra wrapper headings.
-  Refuse missing, duplicate, reordered or foreign model headings, fences, metadata
-  or confirmation lines. Never draft with an open decision.
+  defines the artifact. Tinkery's ledger owns its canonical Full heading sequence;
+  the reply fields and writer derive from that one layout. The model supplies
+  `confirming` as an object: `You are confirming` contains exactly five non-empty
+  summary lines, and each model-written prose section has its own string field named
+  for the section, without heading syntax. Field order is immaterial. The summary
+  covers goal, what gets built, what does not, accepted-versus-chosen counts, and
+  unknowns plus any reversed decision. Missing, blank, non-string or foreign fields
+  refuse; prose cannot inject headings, fences, metadata or confirmation lines.
+  Refusals name the rule and field, plus the offending line for structural text.
+  A historical Markdown reply beginning `## You are confirming` is refused naming
+  `confirming`, never with a generic format error.
+  Shape attaches the installed reference's section content guidance and check schema,
+  not its instructions to write or paste artifact headings. The prompt defers to the
+  generated field instructions, so there is no competing model-written layout.
+  Tinkery writes every heading, `status: draft`, the goal-headline title,
+  `revision: rN` one past the previous draft, and a separate `date:` line with the
+  operator's local date (receipts stay UTC). An older writer can still increment the
+  revision after rollback. Never replace a confirmed seed or draft with an open decision.
+  Acceptance criteria, Decisions, Assumed and Evidence and uncertainty come only from
+  recorded checks, decisions, assumptions and findings, in their canonical positions.
+  Host-owned headings use LF; prose keeps its line endings. Ledger-owned blocks remain
+  verbatim, with no extra wrappers. Findings and question transport are unchanged.
 - The separate final `checks` field carries every confirmed `Done when` line with
   its qualifiers as records in Seed Me's installed contract, not model-formatted
   criteria. Tinkery's ledger stores those records unchanged and

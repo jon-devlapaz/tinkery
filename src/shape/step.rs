@@ -364,7 +364,7 @@ fn look(
         ..agent.call.clone()
     };
     let contract = answering::contract(skill).map_err(refused(answer_saved))?;
-    let instructions = format!("{}\n\nArtifact contract for Shape:\n{contract}", prompt());
+    let instructions = format!("{}\n\nSeed reply guidance for Shape:\n{contract}", prompt());
     let reply = call
         .complete(
             Some(&agent.budget),
@@ -466,7 +466,7 @@ pub(super) enum Next {
     Question(Box<Ask>),
     /// The seed's summary and canonical prose sections, and what the step found.
     Seed {
-        confirming: String,
+        confirming: Value,
         checks: Value,
         found: Vec<Found>,
     },
@@ -524,12 +524,13 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
             })))
         }
         Some("seed") => Ok(Next::Seed {
-            confirming: text("confirming").ok_or_else(unusable)?,
+            confirming: value.get("confirming").cloned().ok_or_else(||
+                "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
             checks: value["checks"]
                 .as_array()
                 .filter(|checks| !checks.is_empty())
                 .map(|checks| Value::Array(checks.clone()))
-                .ok_or_else(unusable)?,
+                .ok_or_else(|| "Seed reply field checks must be a non-empty list of check records.".to_owned())?,
             found,
         }),
         _ => Err(unusable()),

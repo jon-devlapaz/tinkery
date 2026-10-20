@@ -72,7 +72,8 @@ A run's detail keeps the full matched goal, wrapped and untrimmed, escaping unsa
 controls only for display. Its state, next action, gates, checklist counts, individual
 expectations and recorded evidence follow, plus tink-sdlc's errors. ↑↓, PgUp/PgDn and Home/End scroll wrapped content,
 including long evidence and error tails. Opening or rereading detail resets to the top. One run
-at a time; Esc returns to the list. Scrolling launches nothing.
+at a time; Esc returns to the list. F10 returns to Home from Watch, including help,
+without quitting Tinkery. Scrolling launches nothing.
 
 ## Verification
 

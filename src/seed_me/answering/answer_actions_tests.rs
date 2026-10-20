@@ -112,6 +112,45 @@ fn delegation_records_the_suggestion_facts_and_operator_key() {
 }
 
 #[test]
+fn delegation_leaves_confidence_in_the_suggestion_not_the_answer() {
+    for (recommendation, expected) in [
+        ("TEST local. Confidence: low.", "TEST local."),
+        ("TEST local. Confidence: medium.", "TEST local."),
+        ("TEST local. Confidence: high.", "TEST local."),
+        (
+            "TEST literal Confidence: medium. stays inside.",
+            "TEST literal Confidence: medium. stays inside.",
+        ),
+        (
+            "TEST local. Confidence: unknown.",
+            "TEST local. Confidence: unknown.",
+        ),
+    ] {
+        let (_root, session, skill) = fixture();
+        let mut saved = read(&skill, &session).unwrap();
+        saved.state["nodes"][2]["recommendation"] = recommendation.into();
+        publish(
+            &session,
+            saved.version,
+            "TEST confidence tail",
+            &saved.state,
+        )
+        .unwrap();
+        respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
+        let state = read(&skill, &session).unwrap().state;
+        assert_eq!(state["nodes"][2]["answer"], expected);
+        assert_eq!(state["nodes"][2]["recommendation"], recommendation);
+        assert_eq!(state["nodes"][2]["authority"], "delegated");
+        assert_eq!(state["nodes"][2]["evidence"], state["nodes"][1]["evidence"]);
+        let decisions = ledger::decisions_block(&ledger::load(&session).unwrap()).unwrap();
+        assert!(
+            decisions.contains(&format!("[delegated] {expected} (source:")),
+            "{decisions}"
+        );
+    }
+}
+
+#[test]
 fn delegation_without_facts_or_suggestion_is_refused_without_writing() {
     for missing in ["supported_by", "recommendation"] {
         let (_root, session, skill) = fixture();

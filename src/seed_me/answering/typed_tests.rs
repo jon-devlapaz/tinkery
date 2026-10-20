@@ -134,7 +134,9 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
                     &skill,
                     &session,
                     1,
-                    include_str!("../../../tests/fixtures/shape-seed-reply.txt"),
+                    &ledger::fixtures::prose_reply(include_str!(
+                        "../../../tests/fixtures/shape-seed-reply.txt"
+                    )),
                     &checks,
                     &question.found,
                     root.path()
@@ -225,7 +227,9 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
         &skill,
         &session,
         1,
-        include_str!("../../../tests/fixtures/shape-seed-reply.txt"),
+        &ledger::fixtures::prose_reply(include_str!(
+            "../../../tests/fixtures/shape-seed-reply.txt"
+        )),
         &checks,
         &[conflict],
         root.path(),

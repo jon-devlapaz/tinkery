@@ -3,6 +3,29 @@
 use super::*;
 use std::{fs, path::Path};
 
+/// Adapt historical Markdown reply fixtures into prose fields without rewriting the evidence.
+pub(crate) fn prose_reply(body: &str) -> serde_json::Value {
+    let mut fields = serde_json::Map::new();
+    let mut name = "You are confirming";
+    let mut prose = String::new();
+    for line in body.lines() {
+        if let Some(heading) = line.strip_prefix("## ") {
+            if !prose.trim().is_empty() {
+                fields.insert(name.into(), prose.trim().into());
+            }
+            name = heading;
+            prose.clear();
+        } else {
+            prose.push_str(line);
+            prose.push('\n');
+        }
+    }
+    if !prose.trim().is_empty() {
+        fields.insert(name.into(), prose.trim().into());
+    }
+    serde_json::Value::Object(fields)
+}
+
 /// Save a valid human session and confirm its literal goal, without helpers or model calls.
 pub(crate) fn confirmed(directory: &Path, goal: &str, revision: &str) {
     let mut ledger = Value::parse(r#"{"schema_version":1,"session_id":"TEST-session","version":1,"revision":0,

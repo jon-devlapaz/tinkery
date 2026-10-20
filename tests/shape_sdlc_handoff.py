@@ -23,6 +23,7 @@ import termios
 import time
 
 from vt_screen import Screen
+from shape_answer_terminal import seed_fields
 
 REPO = Path(__file__).resolve().parents[1]
 SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
@@ -71,6 +72,7 @@ def shape(root, env):
          'authority_source': "TEST fixture replay of 'F12 delegate suggestion', not operator approval"},
     ])
     reply = json.loads((REPO / 'tests/fixtures/stacker-r1-reply.json').read_text())
+    reply['confirming'] = seed_fields(reply['confirming'])
     # Historical receipts remain untyped; never guess claim types from mixed captured prose.
     legacy = [{'checked': f['checked'], 'observed': f['observed'], 'at': '2026-10-18T00:00:00+00:00',
                'check': 'TEST replay of recorded untyped receipts'} for f in reply['found']]
@@ -240,6 +242,9 @@ def approve_watch(root, env, session, project):
         send(b'\x1b[B' if copied_first else b'\x1b[A', '› test-no-seed')
         send(b'\r', 'No confirmed seed was recorded for this run.')
         assert 'Goal unknown' not in screen.text(), screen.text()
+        send(b'?', 'What Watch does')
+        send(b'\x1b[21~', '5 watch')
+        assert process.poll() is None, 'F10 from Watch help quit Tinkery'
         assert {p: p.read_bytes() for p in originals} == originals
         assert (root / 'TEST-calls').read_text().splitlines() == ['stub']
         print('Shape → copied Approve new/stage → Approve hidden → Watch exact goal in list/detail: '
