@@ -135,7 +135,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
             Shaped::Unverified {
                 reason: "the seed changed after revision r2 was confirmed".into(),
             },
-            "but Seed Me can't verify it: the seed changed after revision r2",
+            "but Tinkery can't verify it: the seed changed after revision r2",
         ),
         (
             Shaped::Ended {
@@ -275,11 +275,10 @@ fn failures_and_missing_setup_are_said_plainly_with_the_reason_in_help() {
         "{text}"
     );
     let mut failed = done(Shaped::Waiting);
-    failed.open.as_mut().unwrap().reading =
-        Reading::Done(Err("Seed Me helper refused: no ledger".into()));
+    failed.open.as_mut().unwrap().reading = Reading::Done(Err("Tinkery refused: no ledger".into()));
     let text = screen(&mut failed, 100, 30, true);
     assert!(
-        text.contains("Seed Me refused to read this session: no ledger"),
+        text.contains("Tinkery refused to read this session: no ledger"),
         "{text}"
     );
     assert!(text.contains("Next: Esc goes back"), "{text}");
@@ -2008,10 +2007,10 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         other => panic!("not refused: {other:?}"),
     };
 
-    // Completing needs a verified seed; the helper refuses and the session stays open.
+    // Completing needs a verified seed; Tinkery refuses and the session stays open.
     let session = save();
     let reason = refused(answering::end(&skill, &session, Ending::Completed));
-    assert!(reason.starts_with("Seed Me refused:"), "{reason}");
+    assert!(reason.starts_with("Tinkery refused:"), "{reason}");
     assert!(matches!(
         shaping::read(&skill, &session).unwrap().stage,
         Shaped::Waiting
@@ -2028,7 +2027,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
     )
     .unwrap();
     answering::confirm_seed(&skill, &session, &revision, "TEST yes to this seed only").unwrap();
-    // A session whose viewer never started still completes, saying why.
+    // Completion needs no viewer record.
     fs::remove_file(session.join("viewer.json")).unwrap();
     answering::end(&skill, &session, Ending::Completed).unwrap();
     let ended = shaping::read(&skill, &session).unwrap();
@@ -2060,6 +2059,29 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
             status: "stopped".into()
         }
     );
+}
+
+#[test]
+fn uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed() {
+    let reason = "This may or may not have saved (TEST read-back failed). Reopen this session before trying again.";
+    for write in [
+        Write::End(Ending::Completed),
+        Write::Object("TEST default".into()),
+        Write::Recommend {
+            id: "TEST".into(),
+            text: "TEST".into(),
+        },
+    ] {
+        let mut shape = done(question());
+        let (sender, receiver) = std::sync::mpsc::channel();
+        shape.open.as_mut().unwrap().writing = Some((write, receiver));
+        sender.send(Err(Refusal::Refused(reason.into()))).unwrap();
+        shape.tick();
+        assert_eq!(
+            shape.open.as_ref().unwrap().notice.as_ref().unwrap().0,
+            reason
+        );
+    }
 }
 
 #[test]
@@ -2104,7 +2126,7 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
         assert!(shape.open.as_ref().unwrap().writing.is_none());
         shape.key(key(ending), None);
         assert!(shape.open.as_ref().unwrap().writing.is_some());
-        // This fixture's helper path doesn't exist, so the helper's refusal is what lands.
+        // This fixture's session path doesn't exist, so the ledger's refusal lands.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while shape.open.as_ref().unwrap().writing.is_some() {
             assert!(std::time::Instant::now() < deadline, "ending never landed");
@@ -2113,10 +2135,7 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
         }
         let open = shape.open.as_ref().unwrap();
         let said = &open.notice.as_ref().unwrap().0;
-        assert!(
-            said.starts_with("Nothing was ended. Cannot locate Seed Me"),
-            "{said}"
-        );
+        assert!(said.starts_with("Tinkery refused:"), "{said}");
     }
     // Ended, unknown and unverified sessions offer no ending.
     for stage in [
@@ -2208,7 +2227,7 @@ fn assumptions_show_with_their_question_and_f7_then_a_number_objects_to_one() {
     assert!(open.objecting && open.writing.is_none());
     shape.key(key(KeyCode::Char('2')), None);
     assert!(shape.open.as_ref().unwrap().writing.is_some());
-    // This fixture's helper path doesn't exist, so the helper's refusal lands and both stay.
+    // This fixture's session path doesn't exist, so the ledger read refusal lands and both stay.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while shape.open.as_ref().unwrap().writing.is_some() {
         assert!(
@@ -2224,7 +2243,7 @@ fn assumptions_show_with_their_question_and_f7_then_a_number_objects_to_one() {
             .as_ref()
             .unwrap()
             .0
-            .starts_with("Nothing was changed. Cannot locate Seed Me"),
+            .starts_with("Cannot read this session:"),
         "{:?}",
         open.notice
     );
@@ -2419,10 +2438,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         let said = &shape.open.as_ref().unwrap().notice.as_ref().unwrap().0;
         match withheld {
             None => assert!(said.contains("No suggestion was kept"), "{said}"),
-            Some(_) => assert!(
-                said.starts_with("Nothing was changed. Cannot locate Seed Me"),
-                "{said}"
-            ),
+            Some(_) => assert!(said.starts_with("Cannot read this session:"), "{said}"),
         }
     }
     // Once revealed, the options and the case against show, and F9 is gone.

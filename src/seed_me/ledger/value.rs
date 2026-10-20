@@ -210,6 +210,46 @@ impl Value {
         }
         Self::Int(String::from_utf8(digits).unwrap())
     }
+    pub(super) fn sorted(&self) -> Self {
+        match self {
+            Self::Object(fields) => {
+                let mut fields: Vec<_> = fields
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.sorted()))
+                    .collect();
+                fields.sort_by(|a, b| a.0.cmp(&b.0));
+                Self::Object(fields)
+            }
+            Self::Array(items) => Self::Array(items.iter().map(Self::sorted).collect()),
+            _ => self.clone(),
+        }
+    }
+    pub(super) fn compact(&self, spaced: bool) -> Result<String, String> {
+        let pretty = self.pretty()?;
+        let (mut quoted, mut escaped) = (false, false);
+        let mut out = String::new();
+        for c in pretty.chars() {
+            if quoted {
+                out.push(c);
+                if escaped {
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                } else if c == '"' {
+                    quoted = false;
+                }
+            } else if c == '"' {
+                quoted = true;
+                out.push(c);
+            } else if !c.is_ascii_whitespace() {
+                out.push(c);
+                if spaced && matches!(c, ',' | ':') {
+                    out.push(' ');
+                }
+            }
+        }
+        Ok(out)
+    }
     fn write(&self, out: &mut String, depth: usize) -> Result<(), String> {
         let indent = |n| "  ".repeat(n);
         match self {

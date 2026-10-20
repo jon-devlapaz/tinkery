@@ -24,6 +24,29 @@ use tinkery::{
     },
 };
 
+fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+    use tinkery::seed_me::ledger;
+    let refused = |reason: String| format!("Tinkery refused: {reason}");
+    let value = match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        ["status", "--json", directory] => {
+            ledger::status(std::path::Path::new(directory)).map_err(refused)?
+        }
+        ["checks", directory] => {
+            let directory = std::path::Path::new(directory);
+            ledger::load(directory).map_err(refused)?;
+            ledger::read_checks(directory).map_err(refused)?
+        }
+        _ => return Err("usage: tinkery seed status --json DIR | tinkery seed checks DIR".into()),
+    };
+    print!("{}", value.pretty().map_err(refused)?);
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut no_color = std::env::var_os("NO_COLOR").is_some();
     let mut snapshot = false;
@@ -43,6 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "seed" => return seed_read(args.collect()),
             "--no-color" => no_color = true,
             "--home" => home_menu = true,
             "--operator" => {
@@ -103,7 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Frozen launch declaration, not verified identity (default: not declared)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md (read-only views need no --shape-pi)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/seed-me/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Model calls Shape may make this run (default: 0, none)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id --seed-me PATH\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Frozen launch declaration, not verified identity (default: not declared)\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-me    Path to Seed Me's SKILL.md (read-only views need no --shape-pi)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/seed-me/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Model calls Shape may make this run (default: 0, none)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }

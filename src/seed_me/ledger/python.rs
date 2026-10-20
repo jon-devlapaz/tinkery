@@ -56,18 +56,23 @@ pub(super) fn secret(input: &str) -> bool {
     })
 }
 fn word(c: char) -> bool {
-    c == '_'
-        || super::unicode::ALNUM
-            .binary_search_by(|&(lo, hi)| {
-                if (c as u32) < lo {
-                    std::cmp::Ordering::Greater
-                } else if (c as u32) > hi {
-                    std::cmp::Ordering::Less
-                } else {
-                    std::cmp::Ordering::Equal
-                }
-            })
-            .is_ok()
+    c == '_' || in_ranges(c, super::unicode::ALNUM)
+}
+pub(super) fn printable(c: char) -> bool {
+    !in_ranges(c, super::unicode::NONPRINTABLE)
+}
+fn in_ranges(c: char, ranges: &[(u32, u32)]) -> bool {
+    ranges
+        .binary_search_by(|&(lo, hi)| {
+            if (c as u32) < lo {
+                std::cmp::Ordering::Greater
+            } else if (c as u32) > hi {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+        .is_ok()
 }
 
 pub(super) fn timestamp(input: &str) -> bool {

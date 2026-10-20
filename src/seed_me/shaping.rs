@@ -1,4 +1,4 @@
-//! Where one session's seed stands, read only through Seed Me's helper (`read` and `status`),
+//! Where one session's seed stands, read only through Tinkery's ledger and seed verifier,
 //! plus the seed draft's text when one waits for confirmation. Read-only: it never publishes,
 //! confirms or ends anything, and keeps no copy of the ledger.
 
@@ -71,9 +71,9 @@ pub enum Shaped {
         /// Whether the session is completed, so nothing more can be changed or ended.
         ended: bool,
     },
-    /// A seed that says it is confirmed but that `status` can't verify, with Seed Me's reason.
+    /// A seed that says it is confirmed but that `status` can't verify, with Tinkery's reason.
     Unverified {
-        /// Seed Me's own words for why.
+        /// Tinkery's reason for refusing verification.
         reason: String,
     },
     /// A practice session's seed, never a real one.
@@ -90,36 +90,33 @@ pub enum Shaped {
     },
 }
 
-/// Read `session` through the helper beside `skill` (`read`, then `status`). Blocks on two helper
-/// calls; run it off the paint path. Refuses a missing helper, a helper refusal or invalid JSON.
+/// Read `session` through Tinkery's ledger and verifier; run disk reads off the paint path.
+/// `skill` locates only the copied intake helper path; missing helpers cannot hide a verified seed.
 pub fn read(skill: &Path, session: &Path) -> Result<Shaping, String> {
-    let skill = skill
-        .canonicalize()
-        .map_err(|e| format!("Cannot locate Seed Me: {e}"))?;
-    let helper = skill
-        .parent()
-        .ok_or("Seed Me skill has no directory")?
-        .join("scripts/session.py");
-    if !helper.is_file() {
-        return Err(format!("Missing official helper: {}", helper.display()));
-    }
-    let call = |command: &str| -> Result<Value, String> {
-        let text = super::save::output(&helper, &[command.as_ref(), session.as_os_str()])?;
-        serde_json::from_str(&text).map_err(|e| format!("Invalid helper JSON: {e}"))
-    };
-    let ledger = call("read")?;
-    let status = call("status")?;
-    let mut shaping = classify(&ledger, &status);
-    if let Shaped::Drafted { text, .. } = &mut shaping.stage {
-        *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
-    }
+    let mut shaping =
+        read_session(session).map_err(|reason| format!("Tinkery refused: {reason}"))?;
     if matches!(shaping.stage, Shaped::Ready { .. }) {
-        shaping.intake = intake(session, &helper);
+        shaping.intake = skill
+            .canonicalize()
+            .ok()
+            .and_then(|skill| intake(session, &skill.parent()?.join("scripts/session.py")));
     }
     Ok(shaping)
 }
 
-// Copy availability never changes the helper's reading of the seed.
+fn read_session(session: &Path) -> Result<Shaping, String> {
+    let ledger = super::ledger::load(session)?;
+    let status = super::ledger::status(session)?;
+    let ledger = serde_json::from_str(&ledger.pretty()?).map_err(|e| e.to_string())?;
+    let status = serde_json::from_str(&status.pretty()?).map_err(|e| e.to_string())?;
+    let mut shaping = classify(&ledger, &status);
+    if let Shaped::Drafted { text, .. } = &mut shaping.stage {
+        *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
+    }
+    Ok(shaping)
+}
+
+// Copy availability never changes Tinkery's reading of the seed.
 fn intake(session: &Path, helper: &Path) -> Option<String> {
     let quote = |path: &Path| {
         let path = path.canonicalize().ok()?;
@@ -133,7 +130,7 @@ fn intake(session: &Path, helper: &Path) -> Option<String> {
     ))
 }
 
-/// Where the seed stands, from the helper's `read` and `status` output. An open question comes
+/// Where the seed stands, from the ledger and its verified `status`. An open question comes
 /// before a seed, so a reopened decision is never hidden behind an older draft.
 fn classify(ledger: &Value, status: &Value) -> Shaping {
     let text = |value: &Value, key: &str| {
@@ -399,8 +396,8 @@ mod tests {
     }
 
     #[test]
-    fn unreadable_copy_paths_do_not_hide_a_helper_verified_seed() {
-        for case in ["missing-seed", "control-seed", "control-helper"] {
+    fn unreadable_copy_paths_do_not_hide_a_verified_seed() {
+        for case in ["missing-helper", "control-seed", "control-helper"] {
             let temp = tempfile::Builder::new()
                 .prefix("TEST-intake-read-")
                 .tempdir()
@@ -419,14 +416,14 @@ mod tests {
             std::fs::create_dir_all(skill_dir.join("scripts")).unwrap();
             let skill = skill_dir.join("SKILL.md");
             std::fs::write(&skill, "TEST skill").unwrap();
-            std::fs::write(skill_dir.join("scripts/session.py"), concat!(
-                "import sys\n",
-                "print('{\"goal\":\"TEST goal\",\"nodes\":[]}' if sys.argv[1] == 'read' else ",
-                "'{\"status\":\"active\",\"seed\":{\"line_1\":\"status: confirmed for intake\",\"revision\":\"r2\"},\"handoff\":{\"verified\":true}}')\n"
-            )).unwrap();
-            if case != "missing-seed" {
-                std::fs::write(session.join("seed-contract.md"), "TEST seed").unwrap();
+            if case != "missing-helper" {
+                std::fs::write(
+                    skill_dir.join("scripts/session.py"),
+                    "raise Exception('TEST helper must not run')",
+                )
+                .unwrap();
             }
+            super::super::ledger::fixtures::confirmed(&session, "TEST goal", "r2");
             let shaped = read(&skill, &session).unwrap();
             assert_eq!(shaped.goal.as_deref(), Some("TEST goal"));
             assert_eq!(
@@ -438,6 +435,30 @@ mod tests {
             );
             assert_eq!(shaped.intake, None, "{case}");
         }
+    }
+
+    #[test]
+    fn a_linked_skill_keeps_the_same_canonical_intake_helper() {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-linked-intake-")
+            .tempdir()
+            .unwrap();
+        let skill = root.path().join("skill/SKILL.md");
+        std::fs::create_dir_all(skill.parent().unwrap().join("scripts")).unwrap();
+        std::fs::write(&skill, "TEST skill").unwrap();
+        std::fs::write(
+            skill.parent().unwrap().join("scripts/session.py"),
+            "raise Exception('TEST must not run')",
+        )
+        .unwrap();
+        let alias = root.path().join("TEST-linked-SKILL.md");
+        std::os::unix::fs::symlink(&skill, &alias).unwrap();
+        let session = root.path().join("session");
+        std::fs::create_dir(&session).unwrap();
+        super::super::ledger::fixtures::confirmed(&session, "TEST goal", "r1");
+        let original = read(&skill, &session).unwrap();
+        assert!(original.intake.is_some());
+        assert_eq!(read(&alias, &session).unwrap(), original);
     }
 
     #[test]

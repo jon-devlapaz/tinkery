@@ -261,6 +261,39 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
 }
 
 #[test]
+fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
+    let root = temp();
+    let session = session(root.path());
+    let skill = root.path().join("TEST-no-installed-skill/SKILL.md");
+    let checks =
+        serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
+    let revision = draft_seed(
+        &skill,
+        &session,
+        1,
+        include_str!("../../../tests/fixtures/shape-seed-reply.txt"),
+        &checks,
+        &[],
+        root.path(),
+    )
+    .unwrap();
+    confirm_seed(&skill, &session, &revision, "TEST yes to this seed only").unwrap();
+    assert!(matches!(
+        super::super::shaping::read(&skill, &session).unwrap().stage,
+        super::super::shaping::Shaped::Ready { ended: false, .. }
+    ));
+    end(&skill, &session, Ending::Completed).unwrap();
+    assert!(matches!(
+        super::super::shaping::read(&skill, &session).unwrap().stage,
+        super::super::shaping::Shaped::Ready { ended: true, .. }
+    ));
+    assert_eq!(read(&skill, &session).unwrap().goal(), Some("TEST goal"));
+    for name in ["viewer.json", "ledger-view.html"] {
+        assert!(!session.join(name).exists());
+    }
+}
+
+#[test]
 fn stale_shape_publication_refuses_without_changing_bytes() {
     let root = temp();
     let session = session(root.path());

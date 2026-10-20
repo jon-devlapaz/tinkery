@@ -111,15 +111,20 @@ pub fn publish(
 }
 
 fn atomic_write(directory: &Path, bytes: &str) -> io::Result<()> {
+    atomic_text(&directory.join("ledger.json"), bytes, None)
+}
+
+fn atomic_text(path: &Path, bytes: &str, mode: Option<std::fs::Permissions>) -> io::Result<()> {
     let mut temporary = tempfile::Builder::new()
         .prefix(".ledger-")
         .suffix(".tmp")
-        .tempfile_in(directory)?;
+        .tempfile_in(path.parent().expect("session file has a parent"))?;
     temporary.write_all(bytes.as_bytes())?;
     temporary.as_file().sync_all()?;
-    temporary
-        .persist(directory.join("ledger.json"))
-        .map_err(|e| e.error)?;
+    if let Some(mode) = mode {
+        temporary.as_file().set_permissions(mode)?;
+    }
+    temporary.persist(path).map_err(|e| e.error)?;
     Ok(())
 }
 
@@ -153,6 +158,167 @@ fn commit(
             SaveState::Unknown
         },
     })
+}
+
+/// Save an unconfirmed host draft and its records under one writer lock, rechecking the displayed
+/// ledger and prior seed. IO failures can leave records saved, but never grant confirmation.
+pub(crate) fn save_draft(
+    directory: &Path,
+    expected: u64,
+    previous: Option<&str>,
+    records: &Value,
+    seed: &str,
+) -> Result<(), String> {
+    super::checks::validate_checks(records)?;
+    super::require(
+        seed.lines().next() == Some(super::seed::DRAFT),
+        "a seed draft must start with status: draft",
+    )?;
+    let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
+    let ledger = load(directory)?;
+    super::require(
+        ledger["version"] == super::value::int(expected),
+        "stale publication version",
+    )?;
+    super::require(ledger["status"].is("active"), "ended session is read-only")?;
+    let path = directory.join(super::seed::FILE);
+    let current = match std::fs::read_to_string(&path) {
+        Ok(text) => Some(text),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e.to_string()),
+    };
+    super::require(
+        current
+            .as_ref()
+            .is_none_or(|s| s.lines().next() == Some(super::seed::DRAFT)),
+        "a seed that is not a draft already exists; never replace it",
+    )?;
+    super::require(
+        current.as_deref() == previous,
+        "the seed changed while the draft was prepared; reopen this session before trying again",
+    )?;
+    atomic_text(
+        &directory.join(super::checks::FILE),
+        &records.pretty()?,
+        None,
+    )
+    .map_err(|e| format!("could not save check records: {e}"))?;
+    atomic_text(&path, seed, None)
+        .map_err(|e| format!("check records saved, but the seed draft was not saved: {e}"))
+}
+
+/// Store strict records while holding the session writer lock; never execute a check.
+pub fn set_checks(directory: &Path, records: &Value) -> Result<Value, String> {
+    super::checks::validate_checks(records)?;
+    let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
+    super::require(
+        load(directory)?["status"].is("active"),
+        "ended session is read-only",
+    )?;
+    let path = directory.join(super::checks::FILE);
+    atomic_text(&path, &records.pretty()?, None).map_err(|e| e.to_string())?;
+    Ok(super::value::object(&[
+        ("checks", path.to_string_lossy().as_ref().into()),
+        ("count", super::value::int(records.items().len() as u64)),
+        ("sha256", super::checks::digest(records)?.as_str().into()),
+    ]))
+}
+
+/// Confirm only a displayed draft revision, after all refusals, under the shared writer lock.
+/// The receipt is written first, so an interrupted seed replacement cannot grant handoff.
+pub fn confirm_seed(
+    directory: &Path,
+    revision: &str,
+    source: &str,
+    timestamp: &str,
+) -> Result<Value, String> {
+    super::require(
+        super::python::text(&revision.into()),
+        "--revision is required: the label shown to the human",
+    )?;
+    super::require(
+        super::python::text(&source.into()),
+        "--source is required: quote the human's words that confirmed this revision",
+    )?;
+    super::require(!source.contains(['\n', '\r']), "--source must be one line")?;
+    let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
+    let ledger = load(directory)?;
+    let (confirmed, record, result) =
+        super::seed::confirmed(directory, &ledger, revision, source, timestamp)?;
+    let path = directory.join(super::seed::FILE);
+    atomic_text(
+        &directory.join(super::seed::CONFIRMATION),
+        &record.pretty()?,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+    let permissions = std::fs::metadata(&path)
+        .map_err(|e| e.to_string())?
+        .permissions();
+    atomic_text(&path, &confirmed, Some(permissions)).map_err(|e| e.to_string())?;
+    Ok(result)
+}
+
+/// End a session permanently, checking completion against the exact confirmed seed, never a viewer.
+/// Uses publication's read-back outcome and lock; a matching repeat is a no-op.
+pub fn end(
+    directory: &Path,
+    status: &str,
+    reason: &str,
+    timestamp: &str,
+) -> Result<Value, PublishError> {
+    super::require(
+        ["stopped", "completed"].contains(&status),
+        "invalid end status",
+    )?;
+    let _writer = Writer::acquire(directory)?;
+    let ledger = load(directory)?;
+    super::require(
+        ledger["status"].is("active") || ledger["status"].is(status),
+        "ended session is read-only",
+    )?;
+    let mut state = super::editable(&ledger)?;
+    state.set("status", status.into());
+    state.set("current_question", Value::Null);
+    let result = transition(
+        &ledger,
+        &state,
+        &ledger["version"],
+        &reason.into(),
+        None,
+        timestamp,
+    )?;
+    if status == "completed" {
+        let human = super::operator(&ledger).is("human");
+        super::seed::require_seed_line(
+            directory,
+            if human {
+                super::seed::CONFIRMED
+            } else {
+                super::seed::SIMULATED
+            },
+        )?;
+        if human {
+            let handoff = super::seed::verify_handoff(directory, &ledger)?;
+            super::require(
+                handoff["verified"].truth(),
+                format!(
+                    "cannot complete: {}; save the current revision as a draft, show it, and confirm it again with `seed confirm`",
+                    handoff["reason"].string().unwrap()
+                ),
+            )?;
+        }
+        super::seed::require_seed_decisions(directory, &ledger, "cannot complete")?;
+        super::checks::require_seed_checks(directory, true)?;
+    }
+    let bytes = result.pretty()?;
+    commit(
+        directory,
+        &ledger,
+        result,
+        |directory, _| atomic_write(directory, &bytes),
+        load,
+    )
 }
 
 #[cfg(test)]

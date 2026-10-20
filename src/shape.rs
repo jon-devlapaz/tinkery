@@ -113,13 +113,13 @@ struct Opened {
     withheld: Option<String>,
     /// Whether `F9` showed a hard-to-undo question's options and suggestion.
     revealed: bool,
-    /// A change without a model (an ending or an objection) the helper is carrying out.
+    /// A change without a model (an ending or an objection) the ledger is carrying out.
     writing: Option<(Write, mpsc::Receiver<Result<(), Refusal>>)>,
     /// Whether the reading's last line has been on screen since this read landed.
     read_end: bool,
 }
 
-/// A change Shape asks of the helper without a model.
+/// A change Shape asks of the ledger without a model.
 #[derive(Clone)]
 enum Write {
     End(Ending),
@@ -345,12 +345,7 @@ impl Shape {
                         open.withheld = None;
                         ("Here are the options and my suggestion.".into(), None)
                     }
-                    (Err(refusal), Write::End(_)) => {
-                        (format!("Nothing was ended. {refusal}"), None)
-                    }
-                    (Err(refusal), Write::Object(_) | Write::Recommend { .. }) => {
-                        (format!("Nothing was changed. {refusal}"), None)
-                    }
+                    (Err(refusal), _) => (refusal.to_string(), None),
                 });
                 open.reading = Reading::NotStarted;
             }
@@ -1325,11 +1320,11 @@ fn render_open(
         Reading::Done(Err(error)) => (
             plain(
                 &match error
-                    .strip_prefix("Seed Me helper refused: ")
+                    .strip_prefix("Tinkery refused: ")
                     .and_then(|reason| reason.lines().next())
                     .filter(|reason| !reason.trim().is_empty())
                 {
-                    Some(reason) => format!("Seed Me refused to read this session: {reason}"),
+                    Some(reason) => format!("Tinkery refused to read this session: {reason}"),
                     None => "Shape couldn't read this session. F1 shows why.".into(),
                 },
                 "Next: Esc goes back; F1 shows where the session is.",
@@ -1781,7 +1776,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
         }
         Shaped::Unverified { reason } => {
             lines.push(Line::styled(
-                format!("The seed says it's confirmed, but Seed Me can't verify it: {reason}."),
+                format!("The seed says it's confirmed, but Tinkery can't verify it: {reason}."),
                 palette.ink,
             ));
             Some(format!(

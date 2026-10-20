@@ -104,6 +104,52 @@ with s.writer(sys.argv[2]):
 }
 
 #[test]
+fn draft_saves_share_the_lock_and_refuse_stale_or_replaced_inputs_before_writes() {
+    let (root, _, _) = fixture();
+    let records = Value::parse(r#"[{"statement":"TEST","kind":"judge","source":"TEST"}]"#).unwrap();
+    let draft = "status: draft\nTEST unconfirmed draft\n";
+    let writer = Writer::acquire(root.path()).unwrap();
+    assert_eq!(
+        save_draft(root.path(), 0, None, &records, draft).unwrap_err(),
+        "session already has a writer"
+    );
+    drop(writer);
+    assert!(!root.path().join(super::super::checks::FILE).exists());
+    assert_eq!(
+        save_draft(root.path(), 1, None, &records, draft).unwrap_err(),
+        "stale publication version"
+    );
+    assert!(!root.path().join(super::super::checks::FILE).exists());
+    save_draft(root.path(), 0, None, &records, draft).unwrap();
+    let checks = fs::read(root.path().join(super::super::checks::FILE)).unwrap();
+    assert!(
+        save_draft(root.path(), 0, None, &records, draft)
+            .unwrap_err()
+            .contains("seed changed")
+    );
+    fs::write(
+        root.path().join(super::super::seed::FILE),
+        "status: confirmed for intake\nTEST",
+    )
+    .unwrap();
+    assert!(
+        save_draft(
+            root.path(),
+            0,
+            Some("status: confirmed for intake\nTEST"),
+            &records,
+            draft
+        )
+        .unwrap_err()
+        .contains("never replace")
+    );
+    assert_eq!(
+        fs::read(root.path().join(super::super::checks::FILE)).unwrap(),
+        checks
+    );
+}
+
+#[test]
 fn load_and_transition_refusals_release_the_writer() {
     let (root, ledger, state) = fixture();
     assert!(

@@ -1,10 +1,10 @@
 //! Shape's agent step: one operator key, then (when it says so) one model call through Pi with
-//! read-only tools, and the helper calls that record the result.
+//! read-only tools, and the shared ledger calls that record the result.
 //!
 //! The model only investigates and drafts words: what it found, with the next question or what the
-//! seed confirms, plus separate check records validated only by Seed Me. It never formats or runs checks. It reads only the folder the operator was shown. Tinkery saves the operator's
+//! seed confirms, plus separate check records validated only by Tinkery's ledger. It never formats or runs checks. It reads only the folder the operator was shown. Tinkery saves the operator's
 //! answer, the question and the findings, builds the seed's evidence and decisions from
-//! the ledger, and confirms a seed itself, each through Seed Me's helper. The model is never asked to confirm
+//! the ledger, and confirms a seed itself, each through the shared session boundary. The model is never asked to confirm
 //! anything, and nothing it replies can confirm a seed. Each step counts against the call budget
 //! before Pi starts; with none left it refuses before writing anything.
 

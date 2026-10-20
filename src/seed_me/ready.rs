@@ -1,11 +1,11 @@
-//! A verified seed's exact goal and acceptance section for read-only handoff. Seed Me alone
+//! A verified seed's exact goal and acceptance section for read-only handoff. Tinkery's ledger
 //! verifies confirmation; changing source files refuse the read. This module never writes or runs intake.
 
 use std::{fs, path::Path};
 
 use super::shaping::{self, Shaped};
 
-/// One consistent, helper-verified seed reading; commands are text, never execution permission.
+/// One consistent, ledger-verified seed reading; commands are text, never execution permission.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReadySeed {
     /// The confirmed goal exactly as recorded by Seed Me.
@@ -43,8 +43,15 @@ pub(crate) fn goal(seed: &Path) -> Result<String, String> {
 }
 
 /// Read a confirmed seed without mutation. `None` means not verified ready; errors mean unavailable.
-/// Blocks on bounded helper calls, so callers must use a worker, never an input or paint path.
+/// Blocks on disk reads, so callers must use a worker, never an input or paint path.
 pub fn read(skill: &Path, session: &Path) -> Result<Option<ReadySeed>, String> {
+    read_with(session, || shaping::read(skill, session))
+}
+
+fn read_with(
+    session: &Path,
+    inspect: impl FnOnce() -> Result<shaping::Shaping, String>,
+) -> Result<Option<ReadySeed>, String> {
     let seed_path = path(session);
     let seed = match fs::read_to_string(&seed_path) {
         Ok(seed) => seed,
@@ -56,7 +63,7 @@ pub fn read(skill: &Path, session: &Path) -> Result<Option<ReadySeed>, String> {
     }
     let ledger_path = session.join("ledger.json");
     let ledger = fs::read(&ledger_path).map_err(|e| format!("Cannot read the ledger: {e}"))?;
-    let shaped = shaping::read(skill, session)?;
+    let shaped = inspect()?;
     if fs::read(&seed_path).map_err(|e| e.to_string())? != seed.as_bytes()
         || fs::read(&ledger_path).map_err(|e| e.to_string())? != ledger
     {
@@ -118,13 +125,13 @@ mod tests {
         fs::create_dir_all(skill.parent().unwrap().join("scripts")).unwrap();
         fs::create_dir(&session).unwrap();
         fs::write(&skill, "TEST skill").unwrap();
-        fs::write(session.join("ledger.json"), "TEST unchanged ledger").unwrap();
-        fs::write(session.join("seed-contract.md"), "status: confirmed for intake\nrevision: r1\n## Acceptance criteria\n\n- TEST exact café  \n\n## Evidence\nTEST\n").unwrap();
-        let ledger = serde_json::json!({"goal":" TEST goal\nverbatim  ","nodes":[]}).to_string();
-        let status = serde_json::json!({"status":"active","seed":{"line_1":"status: confirmed for intake","revision":"r1"},"handoff":{"verified":verified}}).to_string();
+        super::super::ledger::fixtures::confirmed(&session, " TEST goal\nverbatim  ", "r1");
+        if !verified {
+            fs::remove_file(session.join("seed-confirmation.json")).unwrap();
+        }
         fs::write(
             skill.parent().unwrap().join("scripts/session.py"),
-            format!("import sys\nprint({ledger:?} if sys.argv[1] == 'read' else {status:?})\n"),
+            "raise Exception('TEST helper must not run')",
         )
         .unwrap();
         (root, skill, session)
@@ -141,7 +148,7 @@ mod tests {
                 assert_eq!(seed.goal, " TEST goal\nverbatim  ");
                 assert_eq!(
                     seed.acceptance,
-                    "## Acceptance criteria\n\n- TEST exact café  \n\n"
+                    "## Acceptance criteria\n\nTEST exact café  \nyou judge: TEST exact café  \n\n"
                 );
                 assert_eq!(
                     seed.commands.unwrap(),
@@ -160,14 +167,14 @@ mod tests {
     #[test]
     fn a_changed_source_is_refused_instead_of_displaying_unverified_bytes() {
         let (_root, skill, session) = fixture(true);
-        let helper = skill.parent().unwrap().join("scripts/session.py");
-        let mut code = fs::read_to_string(&helper).unwrap();
-        code.push_str("\nif sys.argv[1] == 'status':\n from pathlib import Path\n Path(sys.argv[2], 'seed-contract.md').write_text('TEST changed')\n");
-        fs::write(helper, code).unwrap();
         assert!(
-            read(&skill, &session)
-                .unwrap_err()
-                .contains("changed while being read")
+            read_with(&session, || {
+                let shaped = shaping::read(&skill, &session)?;
+                fs::write(session.join("seed-contract.md"), "TEST changed").unwrap();
+                Ok(shaped)
+            })
+            .unwrap_err()
+            .contains("changed while being read")
         );
     }
 

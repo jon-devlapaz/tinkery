@@ -112,7 +112,15 @@ def shape(root, env):
         os.write(master, b'\x1b[6~' * 40)
         wait('Next: type your own words, then F3 confirms r1.')
         send(b'\x1bOR', 'Seed ready: you confirmed r1, and it still matches.')
-        assert helper.status(session)['handoff']['verified'] is True
+        status = helper.status(session)
+        assert status['handoff']['verified'] is True
+        for key in ('viewer', 'snapshot', 'snapshot_current'):
+            del status[key]
+        before = {p.name: p.read_bytes() for p in session.iterdir() if p.is_file()}
+        binary = REPO / 'target/debug/tinkery'
+        assert json.loads(command([binary, '--operator', 'agent', 'seed', 'status', '--json', session], root, env).stdout) == status
+        assert json.loads(command([binary, '--operator', 'agent', 'seed', 'checks', session], root, env).stdout) == helper.read_checks(session)
+        assert {p.name: p.read_bytes() for p in session.iterdir() if p.is_file()} == before
         assert json.loads((session / 'seed-confirmation.json').read_text())['source'] == CONFIRMATION
         assert helper.load(session)['goal'] == GOAL
         assert (root / 'TEST-calls').read_text().splitlines() == ['stub']

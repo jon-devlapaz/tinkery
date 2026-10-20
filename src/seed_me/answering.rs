@@ -11,13 +11,12 @@
 //!
 //! Shape's ledger writes are Tinkery's own. A stale displayed version is refused as
 //! [`Refusal::Stale`]; nothing here retries, merges or overwrites. Seed decisions, checks,
-//! confirmation and ending still belong to the helper; the seed draft belongs to its host.
+//! confirmation and ending belong to Tinkery's ledger; the host supplies unconfirmed prose.
 //! The confirmed goal never changes. Calls block; run them off the paint path.
 
-use super::{ledger, save::output};
+use super::ledger;
 use serde_json::{Value, json};
 use std::{
-    ffi::OsStr,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -25,7 +24,7 @@ use std::{
 const SEED: &str = "seed-contract.md";
 
 /// Why a change wasn't completed. A later IO failure can leave unconfirmed check records;
-/// only the helper's verified confirmation permits handoff.
+/// only the ledger's verified confirmation permits handoff.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refusal {
     /// Another writer changed the session after the caller read it; the stale version
@@ -397,25 +396,6 @@ pub fn contract(skill: &Path) -> Result<String, Refusal> {
         .map_err(|error| Refusal::Refused(format!("Cannot read Seed Me's seed contract: {error}")))
 }
 
-/// One helper call's stdout, with a stale-version refusal told apart from the rest.
-fn call(helper: &Path, args: &[&OsStr]) -> Result<String, Refusal> {
-    output(helper, args).map_err(refusal)
-}
-
-fn refusal(error: String) -> Refusal {
-    let reason = error
-        .strip_prefix("Seed Me helper refused: ")
-        .unwrap_or(&error)
-        .lines()
-        .next()
-        .unwrap_or("");
-    if reason.contains("stale publication version") {
-        Refusal::Stale
-    } else {
-        Refusal::Refused(format!("Seed Me refused: {reason}"))
-    }
-}
-
 /// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
 /// unknown save is no refusal: it asks the operator to look before trying again.
 fn not_saved(reason: String) -> Refusal {
@@ -441,8 +421,7 @@ fn json(text: &str) -> Result<Value, Refusal> {
 }
 
 /// Read `session`'s editable ledger at one version, without writing or calling the helper.
-pub fn read(skill: &Path, session: &Path) -> Result<Ledger, Refusal> {
-    helper(skill)?;
+pub fn read(_skill: &Path, session: &Path) -> Result<Ledger, Refusal> {
     let unreadable =
         |reason: String| Refusal::Refused(format!("Cannot read this session: {reason}"));
     let saved = ledger::load(session).map_err(unreadable)?;
@@ -508,7 +487,7 @@ fn publish_at(
 fn publication_time(time: SystemTime) -> Result<String, Refusal> {
     let elapsed = time
         .duration_since(UNIX_EPOCH)
-        .map_err(|e| refusal(e.to_string()))?;
+        .map_err(|e| not_saved(e.to_string()))?;
     let secs = elapsed.as_secs();
     let rest = secs % 86_400;
     let micros = elapsed.subsec_micros();
@@ -765,13 +744,13 @@ pub fn promote(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64
 }
 
 /// Save a Seed Me draft: `confirming` supplies summary and prose, never criteria. `checks`
-/// are validated, stored and rendered only by the official helper; no check is executed. Evidence
+/// are validated, stored and rendered only by Tinkery's ledger; no check is executed. Evidence
 /// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
 /// `seed decisions` unchanged, in Seed Me's canonical Full sequence with no wrapper headings.
 /// Returns the revision label, from version `expected`.
 /// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
 /// change the seed's structure, invalid records and a finding that looks like a secret.
-/// Helper or IO failures after storing records leave an unconfirmed draft, never a ready seed.
+/// IO failures after storing records can leave unconfirmed records, never a ready seed.
 pub fn draft_seed(
     skill: &Path,
     session: &Path,
@@ -781,7 +760,6 @@ pub fn draft_seed(
     found: &[Found],
     folder: &Path,
 ) -> Result<String, Refusal> {
-    let helper = helper(skill)?;
     let ledger = read(skill, session)?;
     if ledger.version != expected {
         return Err(Refusal::Stale);
@@ -862,8 +840,13 @@ pub fn draft_seed(
         );
     }
     let path = session.join(SEED);
-    let revision = match std::fs::read_to_string(&path) {
-        Ok(existing) if existing.lines().next() == Some("status: draft") => {
+    let previous = match std::fs::read_to_string(&path) {
+        Ok(existing) => Some(existing),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(Refusal::Refused(format!("Cannot read the seed: {error}"))),
+    };
+    let revision = match previous.as_deref() {
+        Some(existing) if existing.lines().next() == Some("status: draft") => {
             let last = existing
                 .lines()
                 .find_map(|l| l.strip_prefix("revision:"))
@@ -872,42 +855,17 @@ pub fn draft_seed(
                 .unwrap_or(0);
             last + 1
         }
-        Ok(_) => {
+        Some(_) => {
             return Err(Refusal::Refused(
                 "A seed that isn't a draft already exists; Shape never replaces it.".into(),
             ));
         }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => 1,
-        Err(error) => return Err(Refusal::Refused(format!("Cannot read the seed: {error}"))),
+        None => 1,
     };
-    let decisions = call(
-        &helper,
-        &["seed".as_ref(), "decisions".as_ref(), session.as_os_str()],
-    )?;
-    // The helper alone validates records and owns their rendered bytes. Never accept model criteria.
-    let mut input = tempfile::NamedTempFile::new()
-        .map_err(|e| Refusal::Refused(format!("Cannot prepare checks: {e}")))?;
-    serde_json::to_writer(input.as_file_mut(), checks)
-        .map_err(|e| Refusal::Refused(format!("Cannot prepare checks: {e}")))?;
-    call(
-        &helper,
-        &[
-            "seed".as_ref(),
-            "checks".as_ref(),
-            "set".as_ref(),
-            session.as_os_str(),
-            input.path().as_os_str(),
-        ],
-    )?;
-    let rendered = call(
-        &helper,
-        &[
-            "seed".as_ref(),
-            "checks".as_ref(),
-            "render".as_ref(),
-            session.as_os_str(),
-        ],
-    )?;
+    let decisions =
+        ledger::decisions_block(&ledger::load(session).map_err(not_saved)?).map_err(not_saved)?;
+    let records = ledger::Value::parse(&checks.to_string()).map_err(not_saved)?;
+    let rendered = ledger::checks_block(&records).map_err(not_saved)?;
     let today = today(&grounding);
     let confirming = confirming
         .replacen(
@@ -933,43 +891,33 @@ pub fn draft_seed(
     let text = format!(
         "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n"
     );
-    let mut file = tempfile::NamedTempFile::new_in(session)
-        .map_err(|e| Refusal::Refused(format!("Cannot save the seed: {e}")))?;
-    std::io::Write::write_all(&mut file, text.as_bytes())
-        .map_err(|e| Refusal::Refused(format!("Cannot save the seed: {e}")))?;
-    file.persist(&path)
-        .map_err(|e| Refusal::Refused(format!("Cannot save the seed: {e}")))?;
+    ledger::save_draft(session, expected, previous.as_deref(), &records, &text)
+        .map_err(not_saved)?;
     Ok(format!("r{revision}"))
 }
 
-/// Confirm seed `revision` through `seed confirm`, with the operator's `words` as its source.
-/// The helper refuses a simulated session, a different revision, open decisions and a seed whose
+/// Confirm seed `revision` through the ledger, with the operator's `words` as its source.
+/// Tinkery refuses a simulated session, a different revision, open decisions and a seed whose
 /// decisions don't match the ledger.
 pub fn confirm_seed(
-    skill: &Path,
+    _skill: &Path,
     session: &Path,
     revision: &str,
     words: &str,
 ) -> Result<(), Refusal> {
     if words.trim().is_empty() || words.contains(['\n', '\r']) {
         return Err(Refusal::Refused(
-            "Seed Me needs your words on one line.".into(),
+            "Tinkery needs your words on one line.".into(),
         ));
     }
-    let helper = helper(skill)?;
-    call(
-        &helper,
-        &[
-            "seed".as_ref(),
-            "confirm".as_ref(),
-            session.as_os_str(),
-            "--revision".as_ref(),
-            revision.as_ref(),
-            "--source".as_ref(),
-            words.as_ref(),
-        ],
+    ledger::confirm_seed(
+        session,
+        revision,
+        words,
+        &publication_time(SystemTime::now())?,
     )
     .map(|_| ())
+    .map_err(|reason| Refusal::Refused(format!("Tinkery refused: {reason}")))
 }
 
 /// How the operator ends a session: Seed Me's two end statuses. Either is for good.
@@ -981,11 +929,9 @@ pub enum Ending {
     Stopped,
 }
 
-/// End `session` through `end`, after which it is read-only. The helper refuses completing a
-/// seed it can't verify, and any change to a session that has already ended. Ending completed
-/// needs the viewer to have been started; when it never was, Tinkery says so as the reason.
-pub fn end(skill: &Path, session: &Path, ending: Ending) -> Result<(), Refusal> {
-    let helper = helper(skill)?;
+/// End `session` through the ledger, after which it is read-only. Refuse completing a seed
+/// Tinkery can't verify or a conflicting ended status; completion never needs a viewer.
+pub fn end(_skill: &Path, session: &Path, ending: Ending) -> Result<(), Refusal> {
     let (status, reason) = match ending {
         Ending::Completed => (
             "completed",
@@ -996,23 +942,14 @@ pub fn end(skill: &Path, session: &Path, ending: Ending) -> Result<(), Refusal> 
             "The operator stopped the interview in Tinkery Shape.",
         ),
     };
-    let mut args: Vec<&OsStr> = vec![
-        "end".as_ref(),
-        session.as_os_str(),
-        "--status".as_ref(),
-        status.as_ref(),
-        "--reason".as_ref(),
-        reason.as_ref(),
-    ];
-    let viewer = json(&call(&helper, &["status".as_ref(), session.as_os_str()])?)?;
-    if ending == Ending::Completed && viewer["viewer"] == "not started" {
-        args.extend::<[&OsStr; 2]>([
-            "--no-viewer".as_ref(),
-            "Tinkery Shape ends sessions without a live viewer; none was started for this one."
-                .as_ref(),
-        ]);
-    }
-    call(&helper, &args).map(|_| ())
+    ledger::end(
+        session,
+        status,
+        reason,
+        &publication_time(SystemTime::now())?,
+    )
+    .map(|_| ())
+    .map_err(published)
 }
 
 /// `wanted` as a ledger id (lowercase letters, digits and dashes) not already in `taken`.

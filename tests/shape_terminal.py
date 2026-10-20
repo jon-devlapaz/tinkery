@@ -200,9 +200,9 @@ def journey(width, height, case, no_color=False, operator='human'):
                     'p051': P051_QUESTION,
                     'drafted': 'Seed draft r1' if held else 'Confirming the seed is not approval to build.',
                     'ready': 'Seed ready: you confirmed r1, and it still matches.',
-                    'stale': "Seed Me can't verify it: the seed changed after revision r1 was confirmed.",
+                    'stale': "Tinkery can't verify it: the seed changed after revision r1 was confirmed.",
                     'ended': 'This session has ended (stopped).',
-                    'unreadable': 'Seed Me refused to read this session:',
+                    'unreadable': 'Tinkery refused to read this session:',
                 }[case]
                 send(b's', expected)
                 keys = {'question': 'F2 save answer and look into next   F8 stop   F5 so far   esc back   F10 menu',
