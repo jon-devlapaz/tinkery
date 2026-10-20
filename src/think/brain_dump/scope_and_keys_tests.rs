@@ -337,7 +337,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         let receipt = snapshot(w, h, &mut a, false).unwrap();
         assert!(
             super::goal_tests::right_text(&receipt, w)
-                .contains("Next: shape it into a seed with Seed Me.")
+                .contains("Next: shape it into a seed in Shape.")
         );
         assert_eq!(
             receipt.lines().last().unwrap().trim(),

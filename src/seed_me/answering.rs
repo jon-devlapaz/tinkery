@@ -17,7 +17,7 @@
 use super::ledger;
 use serde_json::{Value, json};
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -30,7 +30,7 @@ pub enum Refusal {
     /// Another writer changed the session after the caller read it; the stale version
     /// was refused and nothing was written.
     Stale,
-    /// The helper, or a check here, refused; the reason in plain words.
+    /// Tinkery, or a check here, refused; the reason in plain words.
     Refused(String),
 }
 
@@ -366,34 +366,18 @@ fn today(found: &[Receipt]) -> String {
 /// What the seed's evidence section says when no step recorded a finding.
 pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.";
 
-/// The helper beside `skill`, refusing a missing one.
-fn helper(skill: &Path) -> Result<PathBuf, Refusal> {
+/// The installed artifact contract for drafting instructions. Refuses a missing reference;
+/// callers must not substitute another schema. No helper script is required.
+pub fn contract(skill: &Path) -> Result<String, Refusal> {
     let skill = skill
         .canonicalize()
-        .map_err(|e| Refusal::Refused(format!("Cannot locate Seed Me: {e}")))?;
-    let helper = skill
+        .map_err(|e| Refusal::Refused(format!("Cannot locate Shape instructions: {e}")))?;
+    let reference = skill
         .parent()
-        .ok_or_else(|| Refusal::Refused("Seed Me skill has no directory".into()))?
-        .join("scripts/session.py");
-    if !helper.is_file() {
-        return Err(Refusal::Refused(format!(
-            "Missing official helper: {}",
-            helper.display()
-        )));
-    }
-    Ok(helper)
-}
-
-/// Seed Me's installed artifact contract for drafting instructions. Refuses a missing reference;
-/// callers must not substitute another schema.
-pub fn contract(skill: &Path) -> Result<String, Refusal> {
-    let helper = helper(skill)?;
-    let reference = helper
-        .parent()
-        .expect("helper has a scripts directory")
-        .join("../references/seed-contract.md");
+        .ok_or_else(|| Refusal::Refused("Shape instructions have no directory".into()))?
+        .join("references/seed-contract.md");
     std::fs::read_to_string(reference)
-        .map_err(|error| Refusal::Refused(format!("Cannot read Seed Me's seed contract: {error}")))
+        .map_err(|error| Refusal::Refused(format!("Cannot read Shape's seed contract: {error}")))
 }
 
 /// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
@@ -417,7 +401,7 @@ fn published(error: ledger::PublishError) -> Refusal {
 }
 
 fn json(text: &str) -> Result<Value, Refusal> {
-    serde_json::from_str(text).map_err(|e| Refusal::Refused(format!("Invalid helper JSON: {e}")))
+    serde_json::from_str(text).map_err(|e| Refusal::Refused(format!("Invalid session JSON: {e}")))
 }
 
 /// Read `session`'s editable ledger at one version, without writing or calling the helper.
@@ -700,7 +684,7 @@ pub fn probe(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64>,
     publish(
         session,
         expected,
-        "Tinkery Shape puts Seed Me's pre-mortem probe to the operator.",
+        "Shape puts the pre-mortem probe to the operator.",
         &ledger.state,
     )
     .map(Some)
@@ -806,7 +790,7 @@ pub fn draft_seed(
         || headings != expected_headings
     {
         return Err(Refusal::Refused(
-            "The drafted seed text didn't fit Seed Me's format, so nothing was saved.".into(),
+            "The drafted seed text didn't fit Shape's format, so nothing was saved.".into(),
         ));
     }
     // Keep prose line endings; canonical headings belong to the host, not the model.
@@ -1036,6 +1020,23 @@ fn civil(secs: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contract_reads_the_installed_reference_without_a_helper_script() {
+        let root = tempfile::Builder::new()
+            .prefix("tinkery-TEST-contract-")
+            .tempdir()
+            .unwrap();
+        let skill = root.path().join("SKILL.md");
+        let reference = root.path().join("references/seed-contract.md");
+        std::fs::write(&skill, "TEST skill\n").unwrap();
+        std::fs::create_dir(reference.parent().unwrap()).unwrap();
+        let expected = "# TEST seed contract\nKeep café words verbatim.\n";
+        std::fs::write(&reference, expected).unwrap();
+
+        assert!(!root.path().join("scripts/session.py").exists());
+        assert_eq!(contract(&skill).unwrap(), expected);
+    }
 
     #[test]
     fn the_seed_is_dated_where_the_operator_is_and_receipts_stay_utc() {

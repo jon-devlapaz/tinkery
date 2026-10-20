@@ -106,10 +106,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
     };
     let cases = [
         (question, "Where records live Keep records local or synced?"),
-        (
-            Shaped::Waiting,
-            "Seed Me hasn't asked its next question yet.",
-        ),
+        (Shaped::Waiting, "Shape hasn't asked its next question yet."),
         (
             Shaped::Drafted {
                 revision: Some("r2".into()),
@@ -269,7 +266,7 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
 fn failures_and_missing_setup_are_said_plainly_with_the_reason_in_help() {
     let mut shape = Shape::session(None, Path::new("/tmp/TEST-shape/session"));
     let text = screen(&mut shape, 100, 30, true);
-    assert!(text.contains("Seed Me, which isn't set up here."), "{text}");
+    assert!(text.contains("Shape isn't set up here."), "{text}");
     assert!(
         text.contains("Next: start Tinkery with --shape-pi"),
         "{text}"
@@ -282,11 +279,16 @@ fn failures_and_missing_setup_are_said_plainly_with_the_reason_in_help() {
         "{text}"
     );
     assert!(text.contains("Next: Esc goes back"), "{text}");
-    failed.open.as_mut().unwrap().reading = Reading::Done(Err("Cannot locate Seed Me: x".into()));
+    failed.open.as_mut().unwrap().reading =
+        Reading::Done(Err("Cannot locate Shape instructions: x".into()));
     let text = screen(&mut failed, 100, 30, true);
     assert!(text.contains("Shape couldn't read this session."), "{text}");
     assert!(!text.contains("Cannot locate"), "{text}");
-    assert!(failed.help_text().contains("Cannot locate Seed Me: x"));
+    assert!(
+        failed
+            .help_text()
+            .contains("Cannot locate Shape instructions: x")
+    );
     assert!(failed.help_text().contains("/tmp/TEST-shape/session"));
 }
 
@@ -370,7 +372,7 @@ fn incomplete_lists_keep_the_count_and_f1_route() {
             assert!(
                 shape
                     .help_text()
-                    .contains("Some ledgers could not be read as Seed Me sessions")
+                    .contains("Some session ledgers could not be read")
             );
             shape.offer(Ok(&[]), 2);
             assert!(

@@ -89,7 +89,10 @@ pub(crate) fn seeds(root: &Path, cancel: &AtomicBool) -> Result<Vec<Seed>, Strin
         .iter()
         .map(|run| {
             if run["verification_status"] == "invalid" {
-                return Err("A run couldn't be read.".into());
+                return Err(
+                    "A run couldn't be read. Check it in tink-sdlc, then reopen this view to read again."
+                        .into(),
+                );
             }
             Seed::parse(run)
         })

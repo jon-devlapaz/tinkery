@@ -279,7 +279,7 @@ fn current_session(session: &Path, goal: &str) -> Result<(PathBuf, String), Unav
         _ => Err(Unavailable::new(
             "The saved session could not be read.",
             format!(
-                "{}: Seed Me could not read the current session.",
+                "{}: Tinkery could not read the current session.",
                 session.display()
             ),
         )),

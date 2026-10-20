@@ -36,7 +36,7 @@ pub const PLACES: [(&str, &str, bool); 7] = [
     ),
     (
         "shape",
-        "Answer Seed Me's questions and confirm a seed.",
+        "Answer Shape's questions and confirm a seed.",
         true,
     ),
     ("approve", "Start a shaped goal in tink-sdlc.", true),
@@ -972,7 +972,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             return;
         }
         // Shown away from the menu (Measure's report, unbuilt places), where q goes back.
-        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Seed Me's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Shape's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -1356,7 +1356,7 @@ mod tests {
         let descriptions = [
             "Make your intention a clear goal.",
             "Choose a saved goal and copy a prompt to continue.",
-            "Answer Seed Me's questions and confirm a seed.",
+            "Answer Shape's questions and confirm a seed.",
             "Start a shaped goal in tink-sdlc.",
             "See the runs in your tink-sdlc checkout, read-only.",
             "Decide whether the result meets your goal. Not built yet.",
@@ -1501,12 +1501,12 @@ mod tests {
             (
                 "status: draft",
                 Stage::SeedDrafted,
-                "confirm the seed draft with Seed Me",
+                "confirm the seed draft in Shape",
             ),
             (
                 "status: confirmed for intake",
                 Stage::SeedUnchecked,
-                "check the seed with Seed Me",
+                "check the seed in Shape",
             ),
         ] {
             let tmp = tempfile::tempdir().unwrap();
@@ -1805,7 +1805,7 @@ mod tests {
                     && !screen.contains("any harness")
                     && !screen.contains("/")
             );
-            assert!(screen.contains("Next: shape it into a seed with Seed Me."));
+            assert!(screen.contains("Next: shape it into a seed in Shape."));
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
                 "c copy prompt   s shape   r history   esc back   F10 menu"
@@ -1862,13 +1862,13 @@ mod tests {
                 "draft",
                 "active",
                 Some("status: draft"),
-                Some("Next: confirm the seed draft with Seed Me."),
+                Some("Next: confirm the seed draft in Shape."),
             ),
             (
                 "ready",
                 "active",
                 Some("status: confirmed for intake"),
-                Some("Next: check the seed with Seed Me."),
+                Some("Next: check the seed in Shape."),
             ),
             ("stopped", "stopped", None, None),
             (

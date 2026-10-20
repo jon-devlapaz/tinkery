@@ -87,7 +87,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    send(b'\x07','type confirm')
    os.write(master,b'\x1b[6~'*30);await_text('remain unresolved?')
    send(b'confirm\r','Saved.');await_text('Next:')
-   assert 'Next: shape it into a seed with Seed Me.' in right(),screen.text()
+   assert 'Next: shape it into a seed in Shape.' in right(),screen.text()
    assert screen.text().splitlines()[-1].strip()=='c copy prompt   s open in tend   F10 menu'
    assert str(root) not in screen.text() and 'seed not written yet' not in screen.text()
    first_goal=right()
@@ -143,7 +143,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert (session/'ledger.json').read_bytes()==saved and len(list(root.iterdir()))==1
    assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
    os.write(master,b'\x1b[6~'*30);await_text('Must not: build a dashboard.')
-   assert 'Next: shape it into a seed with Seed Me.' in right(),screen.text()
+   assert 'Next: shape it into a seed in Shape.' in right(),screen.text()
    for line in ledger['goal'].splitlines(): assert line in first_goal or line in right(),(line,first_goal,screen.text())
    send(b'\x1bOP','Right now');send(b'h','How it works')
    os.write(master,b'\x1b[6~');await_text('Session:')

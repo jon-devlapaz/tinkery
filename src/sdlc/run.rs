@@ -58,9 +58,9 @@ impl<T: Send + 'static> Read<T> {
         match self.result.try_recv() {
             Ok(result) => Some(result),
             Err(mpsc::TryRecvError::Empty) => None,
-            Err(mpsc::TryRecvError::Disconnected) => {
-                Some(Err("Reading runs stopped unexpectedly.".into()))
-            }
+            Err(mpsc::TryRecvError::Disconnected) => Some(Err(
+                "Reading runs stopped unexpectedly. Press r to read again.".into(),
+            )),
         }
     }
 }
@@ -90,7 +90,7 @@ pub(super) fn run(
         .stderr(Stdio::piped())
         .process_group(0)
         .spawn()
-        .map_err(|error| format!("Couldn't start python3: {error}"))?;
+        .map_err(|_| "Couldn't start reading runs. Check that Python 3 is installed and the tink-sdlc checkout is accessible, then reopen this view to read again.".to_owned())?;
     let drain = |pipe: Box<dyn std::io::Read + Send>, limit: u64| {
         thread::spawn(move || {
             let mut bytes = Vec::new();
@@ -116,9 +116,9 @@ pub(super) fn run(
         match child.try_wait() {
             Ok(Some(status)) if out.is_finished() && err.is_finished() => break status,
             Ok(_) => thread::sleep(Duration::from_millis(10)),
-            Err(error) => {
+            Err(_) => {
                 stop(&mut child);
-                return Err(format!("Couldn't wait for status: {error}"));
+                return Err("Couldn't finish reading runs. Reopen this view to read again.".into());
             }
         }
     };

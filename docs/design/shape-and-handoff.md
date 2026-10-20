@@ -1,12 +1,12 @@
 # Tend and handoff
 
-Tend holds saved goals; [Shape](#shape) runs Seed Me's interview with an explicit
+Tend holds saved goals; [Shape](#shape) asks its questions with an explicit
 model and budget. The copied prompt supports continuation outside Tinkery.
 
 ## Receipt
 
 Explicit successful saving shows `Saved.`, the exact frozen goal block and
-`Next: shape it into a seed with Seed Me.`
+`Next: shape it into a seed in Shape.`
 
 - `c copy prompt` sends OSC 52 with quiet, retryable write feedback, not verified
   host-clipboard success; see [clipboard support](../terminal-setup.md#clipboard-osc-52).
@@ -111,9 +111,9 @@ writes nothing and calls no model.
 
 | Stored state | Label | Detail next step |
 | --- | --- | --- |
-| Confirmed goal | goal saved | Shape it into a seed with Seed Me |
-| Draft seed contract | seed drafted | Confirm the seed draft with Seed Me |
-| Seed declares confirmation for intake | seed needs checking | Check the seed with Seed Me |
+| Confirmed goal | goal saved | Shape it into a seed in Shape |
+| Draft seed contract | seed drafted | Confirm the seed draft in Shape |
+| Seed declares confirmation for intake | seed needs checking | Check the seed in Shape |
 | Ended session | ended | None; copying unavailable |
 
 File-only discovery never verifies seed confirmation: even a legitimately confirmed,
@@ -302,7 +302,7 @@ The screen starts with the confirmed goal's first line in ink:
 | Tinkery reads | Shape shows |
 | --- | --- |
 | Current question | Show a muted label, jade question, `What I found:` for only the first question-attached evidence entry, and italic `Suggestion:`. F5 holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
-| No question or seed | Seed Me hasn't asked its next question yet |
+| No question or seed | Shape hasn't asked its next question yet |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status`, active or completed | `Seed ready` and revision; `c copy intake` when both paths are usable; completed adds a muted note that nothing can change |
 | Unverifiable confirmation | Tinkery's reason, e.g. changed seed |
@@ -320,7 +320,7 @@ unchanged. Status ignores viewer records and snapshots; it opens no network conn
 Only Seed ready offers `c copy intake`: one line,
 `python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<absolute seed path>' --seed-me-helper '<absolute helper path>'`.
 Both paths are canonical and shell-quoted; the helper is scripts/session.py beside
-the same Seed Me skill used to verify the seed. Run from the tink-sdlc repository
+the configured Seed Me skill; Tinkery verifies the seed itself. Run from the tink-sdlc repository
 root after replacing the visible `<run>` placeholder. If either copy path cannot
 be resolved or represented on one safe line, the verified seed stays readable but
 offers no copy. It uses Tend's OSC 52 route and `Copied.` / `Couldn't

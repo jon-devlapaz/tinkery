@@ -17,7 +17,7 @@ pub struct Shaping {
     pub version: Option<u64>,
     /// Each settled decision after the goal, in ledger order, exactly as recorded.
     pub decided: Vec<Decided>,
-    /// A one-line, shell-quoted intake command only for a helper-verified seed; never executed.
+    /// A one-line, shell-quoted intake command only for a verified seed; never executed.
     pub intake: Option<String>,
 }
 
@@ -32,10 +32,10 @@ pub struct Decided {
     pub authority: String,
 }
 
-/// Where a session's seed stands. Each says only what Seed Me's files show; nothing is guessed.
+/// Where a session's seed stands. Each says only what the ledger's files show; nothing is guessed.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shaped {
-    /// Seed Me's current question, as the ledger records it. The ledger keeps no options.
+    /// The current question, as the ledger records it. The ledger keeps no options.
     Question {
         /// The node's id, which an answer settles.
         id: String,
@@ -45,7 +45,7 @@ pub enum Shaped {
         ask: String,
         /// The node's evidence, one entry per line: what was checked, then what was observed.
         found: Vec<String>,
-        /// Seed Me's suggestion, when one is recorded.
+        /// The recorded suggestion, when one is recorded.
         suggestion: Option<String>,
         /// Each option's line, as recorded in the question: its choice, trade-off and undo cost.
         options: Vec<String>,
@@ -54,7 +54,7 @@ pub enum Shaped {
         /// Whether an option is hard to undo, so the operator's instinct comes first.
         hard: bool,
     },
-    /// Active with no current question and no seed: Seed Me hasn't asked its next question.
+    /// Active with no current question and no seed: no next question has been recorded.
     Waiting,
     /// A seed draft waiting for the operator to confirm it.
     Drafted {
@@ -176,7 +176,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
     };
     let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
     let Some(state) = text(status, "status") else {
-        return unknown("Seed Me reported no session status.");
+        return unknown("Tinkery read no session status.");
     };
     let ready = |status: &Value| {
         let seed = status.get("seed").filter(|s| !s.is_null())?;
@@ -209,10 +209,10 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
     if let Some(id) = text(status, "current_question") {
         let node = nodes.iter().find(|n| text(n, "id").as_deref() == Some(&id));
         let Some(node) = node else {
-            return unknown("Seed Me's current question isn't in its ledger.");
+            return unknown("The current question isn't in its ledger.");
         };
         let Some(asked) = text(node, "question").or_else(|| text(node, "gate")) else {
-            return unknown("Seed Me's current question has no wording.");
+            return unknown("The current question has no wording.");
         };
         // Options and the case against are lines Tinkery adds under the ask; see `answering::Ask`.
         let (mut ask, mut options, mut against) = (Vec::new(), Vec::new(), None);
@@ -288,12 +288,12 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 _ => Shaped::Unverified {
                     reason: handoff
                         .and_then(|h| text(h, "reason"))
-                        .unwrap_or_else(|| "Seed Me gave no reason.".into()),
+                        .unwrap_or_else(|| "Tinkery gave no reason.".into()),
                 },
             }
         }
         _ => Shaped::Unknown {
-            what: "The seed's first line isn't one Seed Me writes.".into(),
+            what: "Tinkery doesn't recognise the seed's first line.".into(),
         },
     };
     shaping(goal, stage)

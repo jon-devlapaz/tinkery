@@ -117,6 +117,25 @@ fn recorded_but_unreadable_originals_stay_unknown_not_unseeded() {
 }
 
 #[test]
+fn a_failed_reader_start_says_what_to_check_without_os_internals() {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-reader-")
+        .tempdir()
+        .unwrap();
+    let why = run::run(
+        &root.path().join("TEST-missing-checkout"),
+        &[],
+        &AtomicBool::new(false),
+        DEADLINE,
+    )
+    .unwrap_err();
+    assert_eq!(
+        why,
+        "Couldn't start reading runs. Check that Python 3 is installed and the tink-sdlc checkout is accessible, then reopen this view to read again."
+    );
+}
+
+#[test]
 fn unreadable_runs_refuse_all_start_classification() {
     let (root, _source, run) = fixture();
     let scripts = root.path().join("_system/scripts");
@@ -129,6 +148,12 @@ fn unreadable_runs_refuse_all_start_classification() {
         let report =
             json!({"protocol":"tink-sdlc", "api_version":1, "runs":[run, row]}).to_string();
         fs::write(scripts.join("sdlc.py"), format!("print({report:?})\n")).unwrap();
-        assert!(seeds(root.path(), &cancel).is_err());
+        let why = seeds(root.path(), &cancel).unwrap_err();
+        if row["verification_status"] == "invalid" {
+            assert_eq!(
+                why,
+                "A run couldn't be read. Check it in tink-sdlc, then reopen this view to read again."
+            );
+        }
     }
 }

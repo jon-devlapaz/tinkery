@@ -489,7 +489,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
             palette,
             SavedGoal {
                 goal: &receipt.goal,
-                next: Some("Next: shape it into a seed with Seed Me."),
+                next: Some("Next: shape it into a seed in Shape."),
                 notice,
                 saved: true,
             },

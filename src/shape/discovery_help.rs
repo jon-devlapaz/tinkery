@@ -18,7 +18,7 @@ impl Shape {
     /// Show the retained failures and disclose omitted ones without inventing a reason.
     pub(super) fn discovery_help(&self) -> String {
         let mut text = format!(
-            "Unreadable session records: {}.\nSome ledgers could not be read as Seed Me sessions. \
+            "Unreadable session records: {}.\nSome session ledgers could not be read. \
              The list may be missing goals.\nInspect the files below, then Esc to close help and Esc to return to the menu; reopen Shape to read again.\n",
             self.unreadable
         );

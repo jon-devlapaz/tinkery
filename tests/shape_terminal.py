@@ -36,7 +36,7 @@ P051_FINDINGS = [
     'needs behavior-specific assertions, including an observed red or targeted reversion probe.',
 ]
 SHAPE_KEYS = 'F5 so far   esc back   F10 menu'
-HELD = 'Delegated shaping awaits Seed Me integration. Shape only reads; Esc goes back.'
+HELD = "Delegated shaping isn't supported yet. Shape only reads; Esc goes back."
 LIST_KEYS = '↑↓ move   enter open   esc back'
 
 
@@ -186,7 +186,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                     assert 'seed ready' not in flat().lower(), screen.text()
                 send(b'\r', DETAIL_KEYS)
                 if case in ('ready', 'stale'):
-                    assert 'Next: check the seed with Seed Me.' in flat(), screen.text()
+                    assert 'Next: check the seed in Shape.' in flat(), screen.text()
                     assert 'ready for intake' not in flat(), screen.text()
                     assert files(sessions) == before_tend, 'Tend changed confirmation evidence'
                     assert not (cwd / 'provider-was-run').exists()
@@ -298,9 +298,9 @@ def journey(width, height, case, no_color=False, operator='human'):
                     send(b'\x1b', 'Saved session unavailable. F1 then h for details.')
                     assert GOAL.splitlines()[0] not in flat(), screen.text()
                 else:
-                    next_step = ('Next: confirm the seed draft with Seed Me.' if case == 'drafted' else
-                                 'Next: check the seed with Seed Me.' if case in ('ready', 'stale') else
-                                 'Next: shape it into a seed with Seed Me.')
+                    next_step = ('Next: confirm the seed draft in Shape.' if case == 'drafted' else
+                                 'Next: check the seed in Shape.' if case in ('ready', 'stale') else
+                                 'Next: shape it into a seed in Shape.')
                     send(b'\x1b', 'tinkery › tend')
                     wait(lambda: next_step in flat())
                     shows_goal()

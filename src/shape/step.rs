@@ -26,7 +26,7 @@ use std::{
 
 const PROMPT: &str = include_str!("prompt.txt");
 
-/// Reply fields decoded here or delegated unchanged to Seed Me's record validator.
+/// Reply fields decoded here or delegated unchanged to Tinkery's record validator.
 /// The prompt's examples name the same fields.
 #[cfg(test)]
 pub(super) const FIELDS: &[&str] = &[
@@ -149,7 +149,7 @@ pub(super) enum Done {
     Confirmed,
 }
 
-/// What the step that asked a question leaves for the screen, beyond what Seed Me records.
+/// What the step that asked a question leaves for the screen, beyond what the ledger records.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct Asked {
     /// Defaults assumed instead of asking.
@@ -173,7 +173,7 @@ pub(super) enum Why {
     Budget(usize),
     /// The model call failed or its reply couldn't be used.
     Model(String),
-    /// Tinkery or Seed Me refused; the reason says which and whether anything saved.
+    /// Tinkery refused; the reason says whether anything saved.
     Refused(String),
     /// The operator stopped it.
     Stopped,
@@ -297,7 +297,7 @@ fn look(
 ) -> Result<Done, Failure> {
     let fail = |why| Failure { answer_saved, why };
     // A decision already recorded, such as an objection, is asked before the model looks for one,
-    // and Seed Me's pre-mortem is put to the operator before any seed, also without a model.
+    // and the pre-mortem is put to the operator before any seed, also without a model.
     if answering::promote(skill, session, expected)
         .map_err(refused(answer_saved))?
         .is_some()
@@ -327,10 +327,7 @@ fn look(
         ..agent.call.clone()
     };
     let contract = answering::contract(skill).map_err(refused(answer_saved))?;
-    let instructions = format!(
-        "{}\n\nSeed Me's canonical artifact contract:\n{contract}",
-        prompt()
-    );
+    let instructions = format!("{}\n\nArtifact contract for Shape:\n{contract}", prompt());
     let reply = call
         .complete(
             Some(&agent.budget),

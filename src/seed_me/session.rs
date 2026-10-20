@@ -56,12 +56,12 @@ impl Stage {
             Self::GoalSaved | Self::SeedDrafted | Self::SeedUnchecked
         )
     }
-    /// What Seed Me does next at this stage; none when there is nothing to continue.
+    /// What to do next at this stage; none when there is nothing to continue.
     pub fn next(self) -> Option<&'static str> {
         match self {
-            Self::GoalSaved => Some("Next: shape it into a seed with Seed Me."),
-            Self::SeedDrafted => Some("Next: confirm the seed draft with Seed Me."),
-            Self::SeedUnchecked => Some("Next: check the seed with Seed Me."),
+            Self::GoalSaved => Some("Next: shape it into a seed in Shape."),
+            Self::SeedDrafted => Some("Next: confirm the seed draft in Shape."),
+            Self::SeedUnchecked => Some("Next: check the seed in Shape."),
             _ => None,
         }
     }
@@ -237,10 +237,7 @@ mod identity_tests {
                 panic!("the declared stage must remain readable");
             };
             assert_eq!(session.stage.label(), "seed needs checking");
-            assert_eq!(
-                session.stage.next(),
-                Some("Next: check the seed with Seed Me.")
-            );
+            assert_eq!(session.stage.next(), Some("Next: check the seed in Shape."));
             assert!(
                 session.stage.can_copy(),
                 "manual continuation stays available"
