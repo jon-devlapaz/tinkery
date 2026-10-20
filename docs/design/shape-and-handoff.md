@@ -301,13 +301,17 @@ The screen starts with the confirmed goal's first line in ink:
 
 | Tinkery reads | Shape shows |
 | --- | --- |
-| Current question | Show a muted label, jade question, `What I found:` for only the first question-attached evidence entry, and italic `Suggestion:`. F5 holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
+| Current question | Show a muted label, jade question, `What I found:` for only the first supported finding (or legacy question receipt), and italic `Suggestion:`. F5 holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
 | No question or seed | Shape hasn't asked its next question yet |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status`, active or completed | `Seed ready` and revision; `c copy intake` when both paths are usable; completed adds a muted note that nothing can change |
 | Unverifiable confirmation | Tinkery's reason, e.g. changed seed |
 | Practice, stopped, unrecognised | Name that state plainly. |
 
+Ledger review flags precede open questions and older drafts: Shape shows the first
+flagged node as the current question, its unchanged answer and the ledger's reasons.
+`F6 keep with reason` publishes the operator's typed justification without a model call.
+It never revises an answer; each remaining flag holds confirmation and completion.
 Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
 Tend's `c` with its stage wording; with a model, the key bar names the action.
 Ledger refusals say `Tinkery refused` with the first reason line; missing `--seed-me` and other
@@ -365,6 +369,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 
 | Stage | Words | Key/action |
 | --- | --- | --- |
+| Flagged node | `your reason` | `F6 keep with reason`: keep the answer unchanged and revalidate, no model call |
 | Current question | `your answer` | `F2 save answer and look into next`: save then one step |
 | No question or seed | None | `F2 look into the next question`: one step |
 | Draft replacing goal | `your words` | `F3 confirm seed rN`: confirm displayed revision with typed words |
@@ -374,8 +379,8 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Pi runs one explicitly selected model with read-only `read`, `grep`, `find`, `ls`
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
-  Seed Me's editable ledger. Replies require `found` entries (checks, paths, lines
-  and observations) plus a next question and suggestion, or seed summary, prose sections
+  Seed Me's editable ledger. Replies require typed `found` entries (see
+  [grounding](#grounding-in-the-repository)) plus a next question and suggestion, or seed summary, prose sections
   and a separate final `checks` field;
   anything else is a model error. `src/shape/prompt.txt` has one rule per line.
   It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
@@ -511,13 +516,12 @@ which Tend's readiness needs. It needs only `--seed-me`, never a model or budget
 ### Not adopted from Seed Me
 
 [#235](https://github.com/jon-devlapaz/tinkery/issues/235) compared Shape with Seed Me's interview.
-Delegation (#239), deferral (#240) and the observation/inference rule (#241) are proposed
-separately. These stay out until their revisit condition holds:
+Delegation (#239) and deferral (#240) remain proposed separately; typed findings
+absorb #241. These stay out until their revisit condition holds:
 
 | Seed Me feature | Why Shape leaves it out | Revisit when |
 | --- | --- | --- |
 | Conditional answers | Shape records "only if X" as a settled answer, not a condition to investigate; supporting it needs predicate tracking and a re-ask loop. | Dogfood shows conditional answers. |
-| Review flags (`supported_by`, `contradicts`) | Shape writes no fact nodes or `supported_by`, so its own writes raise no flags; Tinkery refuses completion while flags from other writers stand, and Shape shows why. | Shape starts writing facts. |
 | Browser viewer | Shape and Tend already show the ledger; status never opens a connection. | A separately approved viewing need cannot be met in Tinkery. |
 | Lean path | Lean is one Markdown file co-edited by hand; Shape has a ledger and Think already shapes the goal. | Full seeds prove too heavy for small goals. |
 | Agent mode | It tests the skill; Tinkery's stubs cover that, and a simulated seed never hands off. Agent work uses `--operator agent`. | A simulated run is needed in Tinkery. |
@@ -531,20 +535,29 @@ separately. These stay out until their revisit condition holds:
   path. Enter inserts newline; F4 accepts an existing absolute folder or `~/…`.
   Try exact bytes first, including breaks and trailing whitespace; only if absent,
   try trimming surrounding whitespace. Esc keeps the previous choice; missing folders are refused. Selection lasts only this Shape visit, writes nowhere; step receipts name it.
-- Each `found` becomes a Seed Me receipt: `checked`, `at`, `observed`,
-  `check: read-only file tools in FOLDER`. Question findings attach to its decision
-  and display `What I found: PATH:LINE: what was seen`. Seed findings include blast
-  radius (files, modules, tests and breakage) and go only into the seed, never the
-  ledger, so each appears once and later steps don't see them in `found_so_far`.
-  A seed finding that looks like a secret refuses the draft, as Tinkery's ledger refuses one in a receipt.
+- Each `found` becomes a settled `fact` on `evidence` authority, with a new `id`,
+  `claim` and a receipt (`checked`, `at`, `observed`, `check: read-only file tools in FOLDER`).
+  `claim.type` is `observation`, `inference` or `unknown`, and `claim.scope` names what
+  was examined. Inferences cite observations through `supported_by` and state `limits`;
+  unknown says what this investigation has not established, never that it does not exist.
+  A question cites its facts through `supported_by`; a fact may name a settled node it
+  `contradicts`. The ledger alone validates these rules and receipts; a refused reply
+  saves no findings or question and shows its reason. An answer saved before the step stays saved.
+- Question findings display `What I found: PATH:LINE: what was seen`; F5 holds all.
+  Seed-step findings also become facts, including blast radius, and later steps receive
+  them with IDs and claims in `found_so_far`. Model replies cannot revalidate, confirm
+  or settle a decision. Untyped `checked`/`observed` replies are refused, not guessed
+  into types; existing sessions' untyped receipts still read and render unchanged.
 - `found_so_far` excludes only confirmed-goal provenance; recheck relied-on findings.
 - `Grounded in:` lists deduplicated paths cited by recorded read-only findings.
   Missing read methods, absent citations and failed citation checks establish no
   read path; say when none are known. These are reported reads, not verified
   filesystem origins or an inventory of unrecorded reads; name those provenance
   gaps rather than inventing them.
-- The evidence section groups verbatim findings by check method as
-  `- PATH:LINE: what was seen (observed DATE)`, collapsing internal whitespace to
+- The evidence section groups findings by check method, with claim type, scope,
+  inference limits and support IDs for typed facts. Legacy receipts retain
+  `- PATH:LINE: what was seen (observed DATE)`. Each finding appears once in this section;
+  the ledger's canonical Decisions block remains unchanged. Collapse internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
 - A finding citing `PATH:LINE` or `PATH:FIRST-LAST` that the folder lacks (missing, outside

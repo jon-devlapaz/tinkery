@@ -10,7 +10,7 @@ mod storage;
 pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub(crate) use storage::save_draft;
-pub use storage::{PublishError, SaveState, confirm_seed, end, publish, set_checks};
+pub use storage::{PublishError, SaveState, confirm_seed, end, publish, revalidate, set_checks};
 mod python;
 mod unicode;
 mod value;

@@ -3,11 +3,10 @@
 //! assumption, a seed draft, the operator's seed confirmation, and ending the session when the
 //! operator says so. A recorded open decision is asked before any new one.
 //!
-//! Findings are Seed Me receipts naming the folder they were checked in, on the question they
-//! support. The step that drafts the seed adds nothing to the ledger: its findings go only into the
-//! seed's `## Evidence and uncertainty`, beside every saved receipt, so `seed decisions` never repeats them
-//! and each finding appears once. The model never writes that section. A finding that looks like a
-//! secret is refused, as Seed Me refuses one in a receipt.
+//! Findings become evidence-authority facts, with receipts naming the folder examined. Questions
+//! cite those facts; the ledger alone validates claims, support and contradictions. Seed evidence
+//! includes those facts and legacy receipts. Only the operator can keep a flagged answer with a
+//! reason; model replies never revalidate or settle decisions.
 //!
 //! Shape's ledger writes are Tinkery's own. A stale displayed version is refused as
 //! [`Refusal::Stale`]; nothing here retries, merges or overwrites. Seed decisions, checks,
@@ -54,8 +53,10 @@ pub struct Ask {
     pub question: String,
     /// What deciding it settles.
     pub gate: String,
-    /// What was checked and what was observed, recorded as receipts.
+    /// Typed findings, validated only by the ledger.
     pub found: Vec<Found>,
+    /// Fact IDs grounding this decision, passed unchanged to the ledger.
+    pub supported_by: Option<Value>,
     /// A suggested answer, recorded as Seed Me's recommendation.
     pub suggestion: Option<String>,
     /// Defaults the step chose instead of asking, added to Seed Me's `assumed` list.
@@ -133,13 +134,29 @@ pub struct Assumption {
     pub why: String,
 }
 
-/// One thing an agent checked and what it saw.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A proposed fact with a receipt. Claim rules belong only to the ledger.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Found {
+    /// A new fact ID, also usable by this reply's support references.
+    pub id: String,
+    /// The ledger's claim object, never inferred from prose.
+    pub claim: Value,
     /// What was checked, such as a file and line.
     pub checked: String,
-    /// What was observed there.
+    /// The finding's answer: an observation, bounded inference or explicit unknown.
     pub observed: String,
+    /// Observations supporting an inference, validated by the ledger.
+    #[serde(default, deserialize_with = "present")]
+    pub supported_by: Option<Value>,
+    /// The existing node contradicted, validated by the ledger.
+    #[serde(default, deserialize_with = "present")]
+    pub contradicts: Option<Value>,
+}
+
+// Absence is optional; explicit null is still input for the ledger to validate, not a fallback.
+fn present<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    serde::Deserialize::deserialize(deserializer).map(Some)
 }
 
 /// One session's editable state, at one version.
@@ -162,12 +179,23 @@ impl Ledger {
     pub fn goal(&self) -> Option<&str> {
         self.state["goal"].as_str()
     }
-    /// Every finding saved so far, as `{checked, observed}`, for a later step to build on.
+    /// Typed facts with IDs and legacy receipts, excluding confirmed-goal provenance and history.
     pub fn findings(&self) -> Vec<Value> {
-        receipts(&self.state)
+        let mut found: Vec<_> = nodes(&self.state)
             .into_iter()
-            .map(|r| json!({"checked": r.checked, "observed": r.observed}))
-            .collect()
+            .filter(|n| n["kind"] == "fact" && n["status"] != "superseded")
+            .collect();
+        let mut legacy = self.state.clone();
+        legacy["nodes"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|n| n["kind"] != "fact");
+        found.extend(
+            receipts(&legacy)
+                .into_iter()
+                .map(|r| json!({"checked": r.checked, "observed": r.observed})),
+        );
+        found
     }
     /// The ids of decisions still open.
     pub fn open(&self) -> Vec<String> {
@@ -201,7 +229,7 @@ fn receipts(state: &Value) -> Vec<Receipt> {
     for node in nodes(state).iter().filter(counts) {
         for entry in node["evidence"].as_array().into_iter().flatten() {
             let field = |key: &str| entry[key].as_str().unwrap_or("").to_owned();
-            let receipt = match entry {
+            let mut receipt = match entry {
                 Value::String(line) => Receipt {
                     checked: String::new(),
                     observed: line.clone(),
@@ -215,6 +243,27 @@ fn receipts(state: &Value) -> Vec<Receipt> {
                     check: field("check"),
                 },
             };
+            if node["kind"] == "fact" && !node["claim"].is_null() {
+                receipt.observed.push_str(&format!(
+                    " ({}; scope: {}",
+                    node["claim"]["type"].as_str().unwrap_or(""),
+                    node["claim"]["scope"].as_str().unwrap_or("")
+                ));
+                if let Some(limits) = node["claim"]["limits"].as_str() {
+                    receipt.observed.push_str(&format!("; limits: {limits}"));
+                }
+                if let Some(support) = node["supported_by"].as_array() {
+                    receipt.observed.push_str(&format!(
+                        "; supported by: {}",
+                        support
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+                receipt.observed.push(')');
+            }
             add(&mut found, receipt);
         }
     }
@@ -282,24 +331,24 @@ fn citations(checked: &str) -> impl Iterator<Item = regex::Captures<'_>> {
     CITE.captures_iter(checked)
 }
 
-/// Whether `text` looks like a secret, by the same patterns Seed Me refuses in a receipt.
-fn secret(text: &str) -> bool {
-    static SECRET: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(concat!(
-            r"(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{20,}",
-            r"|\bsk-[A-Za-z0-9_-]{20,}|\bxox[abprs]-[A-Za-z0-9-]{10,}|://[^/\s:@]+:[^/\s@]+@",
-            r"|\b(?:password|passwd|secret|token|api[_-]?key)\s*=\s*\S{6,}|\bbearer\s+[A-Za-z0-9._~+/=-]{16,}",
-        ))
-        .expect("the secret patterns compile")
-    });
-    SECRET.is_match(text)
-}
-
-/// Findings with something checked and something observed; the rest say nothing.
-fn usable(found: &[Found]) -> impl Iterator<Item = &Found> {
-    found
-        .iter()
-        .filter(|f| !f.checked.trim().is_empty() && !f.observed.trim().is_empty())
+/// Append proposed facts without guessing types, repairing references or duplicating ledger rules.
+fn facts(state: &mut Value, found: &[Found], folder: &Path) {
+    let at = now();
+    for f in found {
+        let mut node = json!({
+            "id": f.id, "kind": "fact", "status": "settled", "prerequisites": [],
+            "claim": f.claim, "answer": f.observed, "authority": "evidence",
+            "authority_source": "read-only investigation in Tinkery Shape",
+            "evidence": [receipt(f, &at, folder)],
+        });
+        if let Some(support) = &f.supported_by {
+            node["supported_by"] = support.clone();
+        }
+        if let Some(target) = &f.contradicts {
+            node["contradicts"] = target.clone();
+        }
+        state["nodes"].as_array_mut().unwrap().push(node);
+    }
 }
 
 /// The seed's `## Evidence and uncertainty` section: `found`, grouped by how it was checked, each on one
@@ -491,6 +540,8 @@ fn publication_time(time: SystemTime) -> Result<String, Refusal> {
 
 #[cfg(test)]
 mod publication_tests;
+#[cfg(test)]
+mod typed_tests;
 
 /// Settle the open question `id` with the operator's `words`, exactly as typed, from the version
 /// the operator saw (`expected`). Clears the current question. Returns the new version.
@@ -522,7 +573,8 @@ pub fn answer(
 }
 
 /// Add `ask` as an open decision and make it the current question, from `expected`, with its
-/// findings as receipts checked in `folder`. Returns the new version.
+/// findings as typed facts checked in `folder`. The ledger refuses invalid facts atomically.
+/// Returns the new version.
 pub fn ask(
     skill: &Path,
     session: &Path,
@@ -536,15 +588,15 @@ pub fn ask(
         .filter_map(|n| n["id"].as_str().map(str::to_owned))
         .collect();
     let id = unique_id(&ask.id, &taken);
-    let at = now();
-    let evidence: Vec<Value> = usable(&ask.found)
-        .map(|f| receipt(f, &at, folder))
-        .collect();
+    facts(&mut ledger.state, &ask.found, folder);
     let mut node = json!({
         "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
-        "evidence": evidence, "owner": "User", "gate": ask.gate, "label": ask.label,
+        "evidence": [], "owner": "User", "gate": ask.gate, "label": ask.label,
         "question": ask.text(),
     });
+    if let Some(support) = &ask.supported_by {
+        node["supported_by"] = support.clone();
+    }
     // Seed Me: a hard-to-undo question is published without its recommendation until the
     // operator answers or asks to see it, so the suggestion can't anchor their instinct.
     if let Some(recommendation) = ask.recommendation().filter(|_| !ask.hard()) {
@@ -577,6 +629,25 @@ pub fn ask(
         &format!("Tinkery Shape's agent step drafted the next question, {id}."),
         &ledger.state,
     )
+}
+
+/// Keep a flagged node's answer unchanged, publishing only the operator's review reason.
+/// The ledger alone validates the target, reason and displayed version; no model runs.
+pub fn keep(
+    _skill: &Path,
+    session: &Path,
+    expected: u64,
+    id: &str,
+    reason: &str,
+) -> Result<(), Refusal> {
+    ledger::revalidate(
+        session,
+        expected,
+        id,
+        reason,
+        &publication_time(SystemTime::now())?,
+    )
+    .map_err(published)
 }
 
 /// Record `recommendation` on open question `id`, from `expected`, once the operator asks to see
@@ -744,7 +815,7 @@ pub fn draft_seed(
     found: &[Found],
     folder: &Path,
 ) -> Result<String, Refusal> {
-    let ledger = read(skill, session)?;
+    let mut ledger = read(skill, session)?;
     if ledger.version != expected {
         return Err(Refusal::Stale);
     }
@@ -805,24 +876,8 @@ pub fn draft_seed(
         }
     }
     let confirming = canonical;
-    if usable(found).any(|f| secret(&f.checked) || secret(&f.observed)) {
-        return Err(Refusal::Refused(
-            "A finding appears to contain a secret, so no seed was drafted: record where it lives, never its value.".into(),
-        ));
-    }
-    let mut grounding = receipts(&ledger.state);
-    let at = now();
-    for f in usable(found) {
-        add(
-            &mut grounding,
-            Receipt {
-                checked: f.checked.clone(),
-                observed: f.observed.clone(),
-                at: at.clone(),
-                check: checked_in(f, folder),
-            },
-        );
-    }
+    facts(&mut ledger.state, found, folder);
+    let grounding = receipts(&ledger.state);
     let path = session.join(SEED);
     let previous = match std::fs::read_to_string(&path) {
         Ok(existing) => Some(existing),
@@ -846,10 +901,20 @@ pub fn draft_seed(
         }
         None => 1,
     };
-    let decisions =
-        ledger::decisions_block(&ledger::load(session).map_err(not_saved)?).map_err(not_saved)?;
     let records = ledger::Value::parse(&checks.to_string()).map_err(not_saved)?;
     let rendered = ledger::checks_block(&records).map_err(not_saved)?;
+    let version = if found.is_empty() {
+        expected
+    } else {
+        publish(
+            session,
+            expected,
+            "Shape recorded the seed step's typed findings.",
+            &ledger.state,
+        )?
+    };
+    let decisions =
+        ledger::decisions_block(&ledger::load(session).map_err(not_saved)?).map_err(not_saved)?;
     let today = today(&grounding);
     let confirming = confirming
         .replacen(
@@ -875,7 +940,7 @@ pub fn draft_seed(
     let text = format!(
         "status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n## You are confirming\n{confirming}\n"
     );
-    ledger::save_draft(session, expected, previous.as_deref(), &records, &text)
+    ledger::save_draft(session, version, previous.as_deref(), &records, &text)
         .map_err(not_saved)?;
     Ok(format!("r{revision}"))
 }
@@ -1067,6 +1132,7 @@ mod tests {
             undo: "cheap".into(),
         };
         let ask = Ask {
+            supported_by: None,
             id: "view".into(),
             label: "TEST view".into(),
             question: "TEST Where do ended goals go?".into(),
@@ -1241,6 +1307,10 @@ mod tests {
             Some("../tinkery-TEST-outside.rs is outside the folder")
         );
         let found = |checked: &str| Found {
+            id: "TEST-fact".into(),
+            claim: serde_json::json!({"type":"observation","scope":"TEST file"}),
+            supported_by: None,
+            contradicts: None,
             checked: checked.into(),
             observed: "seen".into(),
         };

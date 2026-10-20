@@ -54,6 +54,17 @@ pub enum Shaped {
         /// Whether an option is hard to undo, so the operator's instinct comes first.
         hard: bool,
     },
+    /// A settled node flagged by the ledger, shown before any question or seed.
+    Review {
+        /// The node to revalidate, never to answer again in this slice.
+        id: String,
+        /// The node's label or ID.
+        title: String,
+        /// The unchanged settled answer.
+        answer: String,
+        /// The ledger's reasons and their source facts.
+        found: Vec<String>,
+    },
     /// Active with no current question and no seed: no next question has been recorded.
     Waiting,
     /// A seed draft waiting for the operator to confirm it.
@@ -106,9 +117,11 @@ pub fn read(skill: &Path, session: &Path) -> Result<Shaping, String> {
 
 fn read_session(session: &Path) -> Result<Shaping, String> {
     let ledger = super::ledger::load(session)?;
+    let flags = super::ledger::review_flags(&ledger["nodes"]);
     let status = super::ledger::status(session)?;
     let ledger = serde_json::from_str(&ledger.pretty()?).map_err(|e| e.to_string())?;
-    let status = serde_json::from_str(&status.pretty()?).map_err(|e| e.to_string())?;
+    let mut status: Value = serde_json::from_str(&status.pretty()?).map_err(|e| e.to_string())?;
+    status["review_flags"] = serde_json::from_str(&flags.pretty()?).map_err(|e| e.to_string())?;
     let mut shaping = classify(&ledger, &status);
     if let Shaped::Drafted { text, .. } = &mut shaping.stage {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
@@ -206,6 +219,39 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
     if goal.as_deref().is_none_or(|g| g.trim().is_empty()) {
         return unknown("This session has no confirmed goal.");
     }
+    if let Some(node) = nodes.iter().find(|n| {
+        n["id"]
+            .as_str()
+            .is_some_and(|id| status["review_flags"].get(id).is_some())
+    }) {
+        let id = text(node, "id").unwrap();
+        let found = status["review_flags"][&id]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|flag| {
+                let source = flag["because"].as_str().unwrap_or("");
+                let answer = nodes
+                    .iter()
+                    .find(|n| n["id"] == source)
+                    .and_then(|n| n["answer"].as_str())
+                    .unwrap_or("");
+                format!(
+                    "{}: {source}: {answer}",
+                    flag["why"].as_str().unwrap_or("review")
+                )
+            })
+            .collect();
+        return shaping(
+            goal,
+            Shaped::Review {
+                title: text(node, "label").unwrap_or_else(|| id.clone()),
+                id,
+                answer: text(node, "answer").unwrap_or_default(),
+                found,
+            },
+        );
+    }
     if let Some(id) = text(status, "current_question") {
         let node = nodes.iter().find(|n| text(n, "id").as_deref() == Some(&id));
         let Some(node) = node else {
@@ -227,27 +273,20 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         }
         let ask = ask.join("\n");
         let hard = options.iter().any(|o| o.ends_with("Undo cost: hard."));
-        let found = node
-            .get("evidence")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|entry| match entry {
-                Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
-                Value::Object(_) => {
-                    let unfound = text(entry, "check")
-                        .and_then(|c| c.split_once(UNFOUND).map(|(_, why)| why.to_owned()))
-                        .map(|why| format!(" (citation not found: {why})"))
-                        .unwrap_or_default();
-                    match (text(entry, "checked"), text(entry, "observed")) {
-                        (Some(checked), Some(observed)) => {
-                            Some(format!("{checked}: {observed}{unfound}"))
-                        }
-                        (None, observed) => observed,
-                        (Some(_), None) => None,
-                    }
-                }
-                _ => None,
+        let found = std::iter::once(node)
+            .chain(
+                node["supported_by"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|id| nodes.iter().find(|n| n["id"] == *id)),
+            )
+            .flat_map(|node| {
+                node["evidence"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(move |entry| format_finding(node, entry))
             })
             .collect();
         return shaping(
@@ -276,27 +315,64 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             text: None,
         },
         Some("status: simulated") => Shaped::Practice,
-        Some("status: confirmed for intake") => {
-            match handoff
-                .and_then(|h| h.get("verified"))
-                .and_then(Value::as_bool)
-            {
-                Some(true) => Shaped::Ready {
-                    revision,
-                    ended: false,
-                },
-                _ => Shaped::Unverified {
-                    reason: handoff
-                        .and_then(|h| text(h, "reason"))
-                        .unwrap_or_else(|| "Tinkery gave no reason.".into()),
-                },
-            }
-        }
+        Some("status: confirmed for intake") => match handoff
+            .and_then(|h| h.get("verified"))
+            .and_then(Value::as_bool)
+        {
+            Some(true) => Shaped::Ready {
+                revision,
+                ended: false,
+            },
+            _ => Shaped::Unverified {
+                reason: handoff
+                    .and_then(|h| text(h, "reason"))
+                    .unwrap_or_else(|| "Tinkery gave no reason.".into()),
+            },
+        },
         _ => Shaped::Unknown {
             what: "Tinkery doesn't recognise the seed's first line.".into(),
         },
     };
     shaping(goal, stage)
+}
+
+fn format_finding(node: &Value, entry: &Value) -> Option<String> {
+    let mut text = format_receipt(entry)?;
+    if let Some(kind) = node["claim"]["type"].as_str() {
+        text.push_str(&format!(
+            " ({kind}; scope: {}",
+            node["claim"]["scope"].as_str().unwrap_or("")
+        ));
+        if let Some(limits) = node["claim"]["limits"].as_str() {
+            text.push_str(&format!("; limits: {limits}"));
+        }
+        text.push(')');
+    }
+    Some(text)
+}
+
+fn format_receipt(entry: &Value) -> Option<String> {
+    let text = |value: &Value, key: &str| {
+        value[key]
+            .as_str()
+            .filter(|s| !s.trim().is_empty())
+            .map(str::to_owned)
+    };
+    match entry {
+        Value::String(s) if !s.trim().is_empty() => Some(s.clone()),
+        Value::Object(_) => {
+            let unfound = text(entry, "check")
+                .and_then(|c| c.split_once(UNFOUND).map(|(_, why)| why.to_owned()))
+                .map(|why| format!(" (citation not found: {why})"))
+                .unwrap_or_default();
+            match (text(entry, "checked"), text(entry, "observed")) {
+                (Some(checked), Some(observed)) => Some(format!("{checked}: {observed}{unfound}")),
+                (None, observed) => observed,
+                (Some(_), None) => None,
+            }
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]

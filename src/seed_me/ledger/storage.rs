@@ -84,26 +84,74 @@ pub fn publish(
 ) -> Result<Value, PublishError> {
     let _writer = Writer::acquire(directory)?;
     let ledger = load(directory)?;
-    let result = transition(
+    publication(
+        directory,
         &ledger,
         state,
         expected_version,
         reason,
         revalidated,
         timestamp,
+    )
+}
+
+/// Revalidate one node with the operator's reason, leaving its answer unchanged. Unlike an
+/// ordinary matching publication, a stale review is refused even when the editable state matches.
+/// Holds the writer lock while checking the displayed version and publishing the review.
+pub fn revalidate(
+    directory: &Path,
+    expected: u64,
+    id: &str,
+    reason: &str,
+    timestamp: &str,
+) -> Result<(), PublishError> {
+    let _writer = Writer::acquire(directory)?;
+    let ledger = load(directory)?;
+    let expected = super::value::int(expected);
+    super::require(ledger["version"] == expected, "stale publication version")?;
+    let state = super::editable(&ledger)?;
+    let revalidated = super::value::object(&[(id, reason.into())]);
+    publication(
+        directory,
+        &ledger,
+        &state,
+        &expected,
+        &"The operator kept a flagged answer with a reason.".into(),
+        Some(&revalidated),
+        timestamp,
+    )
+    .map(|_| ())
+}
+
+fn publication(
+    directory: &Path,
+    ledger: &Value,
+    state: &Value,
+    expected_version: &Value,
+    reason: &Value,
+    revalidated: Option<&Value>,
+    timestamp: &str,
+) -> Result<Value, PublishError> {
+    let result = transition(
+        ledger,
+        state,
+        expected_version,
+        reason,
+        revalidated,
+        timestamp,
     )?;
-    if result != ledger && result["status"].string() == Some("completed") {
+    if result != *ledger && result["status"].string() == Some("completed") {
         return Err("publish cannot complete a session: use `end --status completed`, which checks the confirmed seed".to_owned().into());
     }
     // JSON refusals precede the IO attempt, as in the helper's atomic_write.
-    let bytes = if result != ledger {
+    let bytes = if result != *ledger {
         result.pretty()?
     } else {
         String::new()
     };
     commit(
         directory,
-        &ledger,
+        ledger,
         result,
         |directory, _| atomic_write(directory, &bytes),
         load,

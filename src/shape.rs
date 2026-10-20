@@ -7,7 +7,8 @@
 //! goal exactly as recorded, each settled decision and the current question's findings, and writes nothing. Opening,
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
 //! and starts the agent step (`F2`), or confirms a seed with the operator's own words (`F3`); see
-//! [`step`]. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
+//! [`step`]. A flagged node comes first: `F6 keep with reason` revalidates it without changing its
+//! answer or calling a model. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
 //! another for this run. Ending a session for good takes the same key twice: `F6` completes one
 //! whose seed is ready, `F8` stops one still being shaped; Esc between them keeps it open. Each
 //! finished step or ending is followed by a fresh read, so the screen shows what the ledger holds.
@@ -51,10 +52,11 @@ const HELD: &str = "Delegated shaping isn't supported yet. Shape only reads; Esc
 /// F3 before the whole seed draft has been on screen.
 const READ_FIRST: &str = "Read to the end first: PgDn scrolls. Nothing was confirmed.";
 /// Refusals about the typed words; changing the words clears them.
-const WORD_REFUSALS: [&str; 3] = [
+const WORD_REFUSALS: [&str; 4] = [
     "Type your answer first; nothing was saved.",
     "Put your confirming words on one line; nothing was confirmed.",
     "Type your words first; nothing was confirmed.",
+    "Type why you're keeping this answer first; nothing was saved.",
 ];
 
 /// Shape's screen: an optional list of goals waiting for a seed and, at most, one open session.
@@ -124,6 +126,10 @@ struct Opened {
 enum Write {
     End(Ending),
     Object(String),
+    Keep {
+        id: String,
+        reason: String,
+    },
     /// Record the withheld suggestion on question `id`.
     Recommend {
         id: String,
@@ -341,6 +347,10 @@ impl Shape {
                             None,
                         )
                     }
+                    (Ok(()), Write::Keep { .. }) => {
+                        open.typed.clear();
+                        ("Answer kept with your reason. No model ran.".into(), None)
+                    }
                     (Ok(()), Write::Recommend { .. }) => {
                         open.withheld = None;
                         ("Here are the options and my suggestion.".into(), None)
@@ -486,6 +496,21 @@ impl Shape {
                 open.so_far = Some(0);
                 return Leave::Stay;
             }
+            if key.code == KeyCode::F(3)
+                && matches!(
+                    &open.reading,
+                    Reading::Done(Ok(Shaping {
+                        stage: Shaped::Review { .. },
+                        ..
+                    }))
+                )
+            {
+                open.notice = Some((
+                    "Review the flagged answer first; nothing was confirmed.".into(),
+                    None,
+                ));
+                return Leave::Stay;
+            }
             if let (Some(agent), Some(typing)) = (&self.agent, open.typing()) {
                 match key.code {
                     code if code == typing.key && key.modifiers.is_empty() => {
@@ -621,6 +646,9 @@ impl Shape {
                     _ if open.choosing.is_some() => {
                         "Type the folder the next step should read. Enter adds a line; F4 uses it; Esc keeps the one shown."
                     }
+                    (Some(_), Some(t)) if t.key == KeyCode::F(6) => {
+                        "Type why you're keeping this answer. F6 keeps it unchanged with your reason; no model runs."
+                    }
                     (Some(_), Some(t)) if t.key == KeyCode::F(2) => {
                         "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call)."
                     }
@@ -730,6 +758,9 @@ impl Shape {
             }
             (Some(open), _) => {
                 let action = match (&self.agent, open.typing(), &open.reading) {
+                    (Some(_), Some(t), _) if t.key == KeyCode::F(6) => {
+                        Some("F6 keep with reason".to_owned())
+                    }
                     (Some(_), Some(t), _) if t.key == KeyCode::F(2) => Some(
                         if overflow {
                             "F2 save + look"
@@ -881,8 +912,14 @@ impl Shape {
 /// What a key asks of an open session.
 #[derive(Clone)]
 enum Act {
+    Keep {
+        id: String,
+    },
     /// Save the typed answer to question `id`, read at `expected`, then look into the next.
-    Answer { id: String, expected: u64 },
+    Answer {
+        id: String,
+        expected: u64,
+    },
     /// Look into the next question from `expected`.
     Look(u64),
     /// Confirm seed `revision` with the typed words.
@@ -904,6 +941,11 @@ impl Opened {
             return None;
         };
         match (&shaping.stage, shaping.version) {
+            (Shaped::Review { id, .. }, Some(_)) => Some(Typing {
+                key: KeyCode::F(6),
+                act: Act::Keep { id: id.clone() },
+                label: "your reason",
+            }),
             (Shaped::Question { id, .. }, Some(expected)) => Some(Typing {
                 key: KeyCode::F(2),
                 act: Act::Answer {
@@ -961,9 +1003,10 @@ impl Opened {
         };
         match shaping.stage {
             Shaped::Ready { ended: false, .. } => Some(Ending::Completed),
-            Shaped::Question { .. } | Shaped::Waiting | Shaped::Drafted { .. } => {
-                Some(Ending::Stopped)
-            }
+            Shaped::Question { .. }
+            | Shaped::Review { .. }
+            | Shaped::Waiting
+            | Shaped::Drafted { .. } => Some(Ending::Stopped),
             _ => None,
         }
     }
@@ -1041,6 +1084,9 @@ impl Opened {
         let work = write.clone();
         std::thread::spawn(move || {
             let result = match (work, expected) {
+                (Write::Keep { id, reason }, Some(expected)) => {
+                    answering::keep(&skill, &session, expected, &id, &reason)
+                }
                 (Write::End(ending), _) => answering::end(&skill, &session, ending),
                 (Write::Object(text), Some(expected)) => {
                     answering::object(&skill, &session, expected, &text).map(|_| ())
@@ -1048,9 +1094,9 @@ impl Opened {
                 (Write::Recommend { id, text }, Some(expected)) => {
                     answering::recommend(&skill, &session, expected, &id, &text).map(|_| ())
                 }
-                (Write::Object(_) | Write::Recommend { .. }, None) => Err(Refusal::Refused(
-                    "Tinkery read no version to change from.".into(),
-                )),
+                (Write::Keep { .. } | Write::Object(_) | Write::Recommend { .. }, None) => Err(
+                    Refusal::Refused("Tinkery read no version to change from.".into()),
+                ),
             };
             let _ = sender.send(result);
         });
@@ -1121,6 +1167,7 @@ impl Opened {
             _ => None,
         };
         self.notice = match &act {
+            Act::Keep { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[3]),
             Act::Answer { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[0]),
             Act::Confirm(_) if !self.read_end => refuse(READ_FIRST),
             Act::Confirm(_) if words.contains(['\n', '\r']) => refuse(WORD_REFUSALS[1]),
@@ -1139,6 +1186,10 @@ impl Opened {
         };
         let folder = folder.unwrap_or_default();
         let (work, doing) = match act {
+            Act::Keep { id } => {
+                self.write(Write::Keep { id, reason: words }, "Saving your reason.");
+                return;
+            }
             Act::Answer { id, expected } => (
                 Work::Answer {
                     id,
@@ -1251,7 +1302,7 @@ fn render_so_far(
             lines.push(Line::from(spans));
         }
     }
-    if let Shaped::Question { found, .. } = &shaping.stage
+    if let Shaped::Question { found, .. } | Shaped::Review { found, .. } = &shaping.stage
         && !found.is_empty()
     {
         lines.push(Line::default());
@@ -1653,6 +1704,34 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
     let mut lines = Vec::new();
     let mut flag = None;
     let next = match stage {
+        Shaped::Review {
+            title,
+            answer,
+            found,
+            ..
+        } => {
+            lines.push(Line::styled(
+                "Current question: review flagged answer",
+                palette.muted,
+            ));
+            lines.push(Line::styled(format!("Keep {title}?"), palette.jade));
+            lines.push(Line::styled(
+                format!("Settled answer: {answer}"),
+                palette.ink,
+            ));
+            for reason in found {
+                lines.push(Line::styled(reason.clone(), palette.ink));
+            }
+            lines.push(Line::styled(
+                "Confirmation is held until each flagged node is reviewed.",
+                palette.muted,
+            ));
+            Some(if acts {
+                "Next: type why, then F6 keeps the answer unchanged with your reason.".into()
+            } else {
+                format!("Next: review this flagged answer; {CONTINUE}")
+            })
+        }
         Shaped::Question {
             id,
             title,

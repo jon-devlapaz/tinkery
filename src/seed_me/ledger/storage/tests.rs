@@ -32,6 +32,36 @@ fn helper() -> std::path::PathBuf {
 }
 
 #[test]
+fn reviews_check_the_displayed_version_under_the_writer_lock() {
+    let (root, ledger, state) = fixture();
+    let writer = Writer::acquire(root.path()).unwrap();
+    assert_eq!(
+        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP)
+            .unwrap_err()
+            .reason,
+        "session already has a writer"
+    );
+    drop(writer);
+    publish(
+        root.path(),
+        &state,
+        &ledger["version"],
+        &"TEST update".into(),
+        None,
+        STAMP,
+    )
+    .unwrap();
+    let before = fs::read(root.path().join("ledger.json")).unwrap();
+    assert_eq!(
+        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP)
+            .unwrap_err()
+            .reason,
+        "stale publication version"
+    );
+    assert_eq!(fs::read(root.path().join("ledger.json")).unwrap(), before);
+}
+
+#[test]
 fn python_writer_blocks_rust_and_rust_writer_blocks_python() {
     let (root, ledger, state) = fixture();
     let mut python = Command::new("python3")
