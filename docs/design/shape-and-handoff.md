@@ -347,7 +347,8 @@ run stays outside Shape.
 - F5 **So far** is a full help-like page without a key bar: the entire confirmed
   goal unchanged, then settled `label: answer` decisions in ledger order. Only
   `user` authority shows `(you)`; others show their authority, e.g. `(delegated)`.
-  All current-question findings follow, unchanged and in recorded order. F5 or Esc
+  Open questions follow in ledger order; held questions say `waits for:` with the earlier
+  answer labels they need. All current-question findings follow, unchanged and in recorded order. F5 or Esc
   closes it; ↑↓ scrolls. The fixed last row says `↑↓ scroll · F5 close`.
   It accepts no words, appears after a read, never during a step; F1 lists it.
 - Say the next step once: omit `Next:` when the key bar names the stage action;
@@ -405,7 +406,13 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   Seed Me's editable ledger. Replies require typed `found` entries (see
   [grounding](#grounding-in-the-repository)) plus a next question and suggestion, or seed summary, prose sections
   and a separate final `checks` field;
-  anything else is a model error. `src/shape/prompt.txt` has one rule per line.
+  anything else is a model error. A question may include optional `prerequisites`, a list
+  of existing decision IDs, preserved unchanged (absent means `[]`). Facts belong in `supported_by`,
+  not prerequisites. The ledger alone refuses unknown IDs, cycles and invalid lists, saving no
+  findings, question or assumptions from a refused reply. A held question stays open without
+  becoming current; the ledger selects the next ready decision. Once its prerequisites settle,
+  the held question is promoted before any model call. No reply can settle, skip or reorder
+  earlier decisions. `src/shape/prompt.txt` has one rule per line.
   It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
@@ -548,7 +555,7 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 | Browser viewer | Shape and Tend already show the ledger; status never opens a connection. | A separately approved viewing need cannot be met in Tinkery. |
 | Lean path | Lean is one Markdown file co-edited by hand; Shape has a ledger and Think already shapes the goal. | Full seeds prove too heavy for small goals. |
 | Agent mode | It tests the skill; Tinkery's stubs cover that, and a simulated seed never hands off. Agent work uses `--operator agent`. | A simulated run is needed in Tinkery. |
-| Frontier progress | Each step records one question, so a count would nearly always read 1 of 1. | Shape queues questions. |
+| Frontier progress | F5 lists open and held questions; a progress count adds no next action. | Dogfood shows a need beyond the open-question list. |
 
 ### Grounding in the repository
 

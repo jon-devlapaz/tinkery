@@ -14,6 +14,7 @@ fn done(stage: Shaped) -> Shape {
         stage,
         version: Some(3),
         intake: None,
+        open: vec![],
         decided: vec![
             Decided {
                 title: "TEST where records live".into(),
@@ -54,6 +55,30 @@ fn screen(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String 
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
+}
+
+#[test]
+fn so_far_names_open_questions_and_the_answers_they_wait_for() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        for no_color in [false, true] {
+            let mut shape = done(question());
+            let open = shape.open.as_mut().unwrap();
+            let Reading::Done(Ok(shaping)) = &mut open.reading else {
+                panic!()
+            };
+            shaping.goal = Some("TEST goal".into());
+            shaping.decided.clear();
+            shaping.open = vec!["TEST A".into(), "TEST B — waits for: TEST A, TEST C".into()];
+            shape.key(key(KeyCode::F(5)), None);
+            let text = screen(&mut shape, width, height, no_color);
+            assert!(text.contains("Open questions"), "{text}");
+            assert!(
+                text.contains("TEST B — waits for: TEST A, TEST C"),
+                "{text}"
+            );
+            assert!(text.contains("F5 close"), "{text}");
+        }
+    }
 }
 
 #[test]
@@ -1609,6 +1634,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
             &receipt.session,
             version,
             &answering::Ask {
+                prerequisites: None,
                 supported_by: None,
                 id: "storage".into(),
                 label: "TEST Storage".into(),
@@ -2465,6 +2491,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         why: "TEST either way".into(),
     };
     let ask = answering::Ask {
+        prerequisites: None,
         supported_by: None,
         id: "storage".into(),
         label: "TEST Storage".into(),
@@ -2707,6 +2734,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             undo: undo.into(),
         };
         let ask = answering::Ask {
+            prerequisites: None,
             supported_by: None,
             id: "storage".into(),
             label: "TEST Storage".into(),
@@ -2876,6 +2904,7 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
     let session = save();
     let version = answering::read(&skill, &session).unwrap().version();
     let ask = answering::Ask {
+        prerequisites: None,
         supported_by: None,
         id: "storage".into(),
         label: "TEST Storage".into(),

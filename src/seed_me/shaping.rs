@@ -17,6 +17,8 @@ pub struct Shaping {
     pub version: Option<u64>,
     /// Each settled decision after the goal, in ledger order, exactly as recorded.
     pub decided: Vec<Decided>,
+    /// Open questions in ledger order, naming the earlier answers each held question waits for.
+    pub open: Vec<String>,
     /// A one-line, shell-quoted intake command only for a verified seed; never executed.
     pub intake: Option<String>,
 }
@@ -131,10 +133,23 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
         .filter(|id| super::ledger::can_revise(&ledger, id))
         .map(str::to_owned)
         .collect();
+    let waits: serde_json::Map<String, Value> = ledger["nodes"]
+        .array()
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|node| {
+            let id = node["id"].string()?;
+            Some((
+                id.to_owned(),
+                serde_json::json!(super::ledger::waiting_on(&ledger["nodes"], id)),
+            ))
+        })
+        .collect();
     let ledger = serde_json::from_str(&ledger.pretty()?).map_err(|e| e.to_string())?;
     let mut status: Value = serde_json::from_str(&status.pretty()?).map_err(|e| e.to_string())?;
     status["review_flags"] = serde_json::from_str(&flags.pretty()?).map_err(|e| e.to_string())?;
     status["revisable"] = serde_json::json!(revisable);
+    status["waiting_on"] = Value::Object(waits);
     let mut shaping = classify(&ledger, &status);
     if let Shaped::Drafted { text, .. } = &mut shaping.stage {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
@@ -198,6 +213,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         stage,
         version,
         decided: decided.clone(),
+        open: open_questions(nodes, &status["waiting_on"]),
         intake: None,
     };
     let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
@@ -351,6 +367,35 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         },
     };
     shaping(goal, stage)
+}
+
+fn open_questions(nodes: &[Value], waits: &Value) -> Vec<String> {
+    let title = |node: &Value| {
+        node["label"]
+            .as_str()
+            .or_else(|| node["id"].as_str())
+            .unwrap_or("")
+            .to_owned()
+    };
+    nodes
+        .iter()
+        .filter(|node| node["kind"] == "decision" && node["status"] == "unresolved")
+        .map(|node| {
+            let parents: Vec<_> = node["id"]
+                .as_str()
+                .and_then(|id| waits[id].as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|id| nodes.iter().find(|parent| parent["id"] == *id))
+                .map(&title)
+                .collect();
+            if parents.is_empty() {
+                title(node)
+            } else {
+                format!("{} — waits for: {}", title(node), parents.join(", "))
+            }
+        })
+        .collect()
 }
 
 fn format_finding(node: &Value, entry: &Value) -> Option<String> {

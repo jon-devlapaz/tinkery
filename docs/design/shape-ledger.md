@@ -1,6 +1,6 @@
 # Shape owns the ledger
 
-**Accepted design; slices 1–5 implemented.** The operator accepted it on 2026-10-19
+**Accepted design; slices 1–6 implemented.** The operator accepted it on 2026-10-19
 ([#269](https://github.com/jon-devlapaz/tinkery/issues/269)). Each slice, Seed Me changes and any
 provider budget remain separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
 and tink-sdlc `1c6ffd5` on 2026-10-19.
@@ -21,7 +21,7 @@ publication protections; shipped rows below now reach more of its rules:
 | Confirmation bound to seed bytes, decisions and checks | `confirm_seed` (L950), `verify_handoff` (L916) | Inherited. |
 | Check records and the seed's heading sequence | `validate_checks` (L732), `document_headings` (L846) | Inherited. |
 | Typed facts; an inference cites its observations | `validate_claim` (L78) | Shipped: typed fact nodes and `supported_by`, validated by the Rust ledger. |
-| Prerequisites, cycles, dependents wait | `validate` (L132) | Never fires: `ask` writes `"prerequisites": []` (`src/seed_me/answering.rs:516`). |
+| Prerequisites, cycles, dependents wait | `validate` (L132) | Shipped: question replies preserve prerequisite decision IDs; the Rust ledger refuses invalid dependencies and holds questions until ready. |
 | Changed evidence or answers flag dependents for review | `review_flags` (L288), `transition` | Shipped: contradictory facts flag review; answer revision reopens settled dependents. |
 | Deferral with reason and revisit condition; delegation only on grounded questions | `validate` | Shipped: explicit operator actions publish through the ledger's typed answer boundary. |
 | Completion review, teach-back, naming the riskiest items at confirmation | `SKILL.md` prose only | Missing. |
@@ -138,7 +138,8 @@ the session root stays where it is. Proposed slices, each one PR and its own app
 5. **Deferral, delegation and revising an answer** (implemented; #284, #240, #239).
    The ledger alone owns required fields, grounding, revision eligibility and dependent reopening;
    Shape presents its refusals without duplicating the rules.
-6. **Prerequisites** from question replies.
+6. **Prerequisites** from question replies (implemented; #286). The ledger alone owns
+   existence, cycles and ready order; F5 names the earlier answers held questions wait for.
 7. **Confirmation summary, completion review and teach-back** (section 3).
 8. **Retire Seed Me:** remove `--seed-me`, the `.ci-seed-me` fixture, the continuation
    prompt that names the skill (`src/seed_me/mod.rs:56`) and the pin in tink-sdlc, and move

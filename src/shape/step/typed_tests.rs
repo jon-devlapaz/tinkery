@@ -75,6 +75,27 @@ fn decodes_each_claim_and_keeps_support_and_contradiction_references() {
 }
 
 #[test]
+fn question_prerequisites_pass_unchanged_to_the_ledger_boundary() {
+    let mut reply = json!({"next":"question","question":"TEST?","found":[]});
+    let Next::Question(legacy) = decode(&reply.to_string()).unwrap() else {
+        panic!()
+    };
+    assert_eq!(legacy.prerequisites, None);
+    for proposed in [
+        json!(["b", "a"]),
+        Value::Null,
+        json!("not a list"),
+        json!([42]),
+    ] {
+        reply["prerequisites"] = proposed.clone();
+        let Next::Question(ask) = decode(&reply.to_string()).unwrap() else {
+            panic!()
+        };
+        assert_eq!(ask.prerequisites, Some(proposed));
+    }
+}
+
+#[test]
 fn untyped_or_partial_findings_are_refused_never_dropped_or_guessed() {
     for found in [
         json!([{"checked":"README.md:1","observed":"TEST local"}]),

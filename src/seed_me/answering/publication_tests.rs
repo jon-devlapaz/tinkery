@@ -218,6 +218,7 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
         &session,
         version,
         &Ask {
+            prerequisites: None,
             supported_by: None,
             id: "test-question".into(),
             label: "TEST".into(),

@@ -57,6 +57,8 @@ pub struct Ask {
     pub found: Vec<Found>,
     /// Fact IDs grounding this decision, passed unchanged to the ledger.
     pub supported_by: Option<Value>,
+    /// Earlier decision IDs this question waits for, passed unchanged to the ledger.
+    pub prerequisites: Option<Value>,
     /// A suggested answer, recorded as Seed Me's recommendation.
     pub suggestion: Option<String>,
     /// Defaults the step chose instead of asking, added to Seed Me's `assumed` list.
@@ -504,6 +506,17 @@ fn publish(session: &Path, expected: u64, reason: &str, state: &Value) -> Result
     )
 }
 
+fn ledger_value(value: &Value) -> Result<ledger::Value, Refusal> {
+    let unusable = || {
+        not_saved(
+            "The question or session could not be read. Reopen the session and retry the step."
+                .into(),
+        )
+    };
+    let text = serde_json::to_string(value).map_err(|_| unusable())?;
+    ledger::Value::parse(&text).map_err(|_| unusable())
+}
+
 fn publish_at(
     session: &Path,
     expected: u64,
@@ -512,9 +525,7 @@ fn publish_at(
     at: &str,
 ) -> Result<u64, Refusal> {
     // Shape edits sorted serde_json maps, just as the former helper input did.
-    let state =
-        ledger::Value::parse(&serde_json::to_string(state).map_err(|e| not_saved(e.to_string()))?)
-            .map_err(not_saved)?;
+    let state = ledger_value(state)?;
     let saved = ledger::publish(
         session,
         &state,
@@ -562,6 +573,8 @@ fn publication_time(time: SystemTime) -> Result<String, Refusal> {
 
 #[cfg(test)]
 mod answer_actions_tests;
+#[cfg(test)]
+mod prerequisite_tests;
 #[cfg(test)]
 mod publication_tests;
 #[cfg(test)]
@@ -623,8 +636,8 @@ pub fn respond(
         })
 }
 
-/// Add `ask` as an open decision and make it the current question, from `expected`, with its
-/// findings as typed facts checked in `folder`. The ledger refuses invalid facts atomically.
+/// Record `ask` and its findings checked in `folder`, from `expected`. The ledger refuses invalid
+/// facts or prerequisites atomically and selects the ready question; a held question stays recorded.
 /// Returns the new version.
 pub fn ask(
     skill: &Path,
@@ -641,7 +654,8 @@ pub fn ask(
     let id = unique_id(&ask.id, &taken);
     facts(&mut ledger.state, &ask.found, folder);
     let mut node = json!({
-        "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
+        "id": id, "kind": "decision", "status": "unresolved",
+        "prerequisites": ask.prerequisites.clone().unwrap_or_else(|| json!([])),
         "evidence": [], "owner": "User", "gate": ask.gate, "label": ask.label,
         "question": ask.text(),
     });
@@ -653,11 +667,9 @@ pub fn ask(
     if let Some(recommendation) = ask.recommendation().filter(|_| !ask.hard()) {
         node["recommendation"] = recommendation.into();
     }
-    ledger.state["nodes"]
-        .as_array_mut()
-        .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?
-        .push(node);
-    ledger.state["current_question"] = id.clone().into();
+    let mut state = ledger_value(&ledger.state)?;
+    ledger::queue_question(&mut state, ledger_value(&node)?).map_err(not_saved)?;
+    ledger.state = json(&state.pretty().map_err(not_saved)?)?;
     let mut assumed = ledger.state["assumed"]
         .as_array()
         .cloned()
@@ -817,19 +829,7 @@ pub fn promote(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64
     if !ledger.state["current_question"].is_null() {
         return Ok(None);
     }
-    let all = nodes(&ledger.state);
-    let settled = |id: &Value| {
-        all.iter()
-            .any(|n| n["id"] == *id && n["status"] == "settled")
-    };
-    let ready = all.iter().find(|n| {
-        n["kind"] == "decision"
-            && n["status"] == "unresolved"
-            && n["prerequisites"]
-                .as_array()
-                .is_none_or(|p| p.iter().all(settled))
-    });
-    let Some(id) = ready.and_then(|n| n["id"].as_str()).map(str::to_owned) else {
+    let Some(id) = ledger::next_question(&ledger_value(&ledger.state)?).map_err(not_saved)? else {
         return Ok(None);
     };
     let mut state = ledger.state;
@@ -1177,6 +1177,7 @@ mod tests {
             undo: "cheap".into(),
         };
         let ask = Ask {
+            prerequisites: None,
             supported_by: None,
             id: "view".into(),
             label: "TEST view".into(),

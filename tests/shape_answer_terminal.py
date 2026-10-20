@@ -453,6 +453,10 @@ def case(name, width=100, height=30):
             question, operator = False, 'simulated' if name == 'practice confirmation' else 'human'
         if name == 'unfound citation':
             replies = [{**QUESTION, 'id': 'Sync'}]
+        if name in ('settled prerequisites', 'unknown prerequisite', 'cyclic prerequisite'):
+            prerequisites = {'settled prerequisites': ['storage'],
+                             'unknown prerequisite': ['missing'], 'cyclic prerequisite': ['format']}[name]
+            replies = [{**QUESTION, 'id': 'format', 'prerequisites': prerequisites}, SEED]
         if name == 'hard to undo':
             question = False
             replies = [{**QUESTION, 'confidence': 'high', 'against': 'TEST sync helps later', 'options': [
@@ -560,6 +564,24 @@ def case(name, width=100, height=30):
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
                 run.send(F2, "What I found: README.md:3: says local only (citation not found: README.md isn't in the folder)")
+            elif name == 'settled prerequisites':
+                run.wait('Keep records local or synced?')
+                run.type('TEST local')
+                run.send(F2, 'Suggestion: Local, matching the README.')
+                saved = helper.load(session)
+                assert saved['current_question'] == 'format'
+                assert next(n for n in saved['nodes'] if n['id'] == 'format')['prerequisites'] == ['storage']
+                assert len(run.calls()) == 1
+            elif name in ('unknown prerequisite', 'cyclic prerequisite'):
+                run.wait('Keep records local or synced?')
+                run.type('TEST local')
+                run.send(F2, "isn't recorded" if name == 'unknown prerequisite' else 'in a circle')
+                run.wait('retry the step')
+                saved = helper.load(session)
+                assert saved['current_question'] is None
+                assert next(n for n in saved['nodes'] if n['id'] == 'storage')['answer'] == 'TEST local'
+                assert not any(n['id'] in ('format', 'read-local') for n in saved['nodes']), saved
+                assert not saved['assumed'] and len(run.calls()) == 1
             elif name == 'nothing found':
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
@@ -644,6 +666,52 @@ def case(name, width=100, height=30):
                     assert not (session / 'seed-confirmation.json').exists()
             assert helper.load(session)['goal'] == GOAL
             print(f'Shape answering {name} case passed at {width}x{height}')
+        finally:
+            run.close()
+
+
+def prerequisite_questions(width, height):
+    """Prepared A/B ledger: recorded ready questions still precede any model step (#286).
+
+    Adjusted from #286 (Claude's call, keeping the documented order): a stub cannot propose B
+    while ready A is unanswered, because that existing scheduling rule correctly asks A before calling Pi.
+    """
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-prerequisites-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions')
+        old = helper.load(session)
+        state = helper.editable(old)
+        state['current_question'] = None
+        state['nodes'].append(node('b', status='unresolved', prerequisites=['storage'],
+            label='TEST second choice', question='TEST which format after storage?'))
+        helper.publish(session, state, old['version'], 'TEST prepared prerequisite questions')
+        run = Run(cwd, width, height, budget=1, replies=[SEED])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            before = files(run.sessions)
+            run.send(b'\x1b[15~', 'Open questions')
+            run.read_until('TEST second choice — waits for: Where records live')
+            assert files(run.sessions) == before and run.calls() == []
+            run.send(b'\x1b[15~', 'F2 look into the next question')
+            run.send(F2, 'Keep records local or synced?')
+            assert helper.load(session)['current_question'] == 'storage'
+            assert run.calls() == [], 'Promoting A called a model'
+            run.type('TEST A stays local')
+            run.send(F2, 'TEST which format after storage?')
+            saved = helper.load(session)
+            assert saved['current_question'] == 'b'
+            assert next(n for n in saved['nodes'] if n['id'] == 'storage')['answer'] == 'TEST A stays local'
+            assert next(n for n in saved['nodes'] if n['id'] == 'b')['prerequisites'] == ['storage']
+            assert run.calls() == [], 'Promoting B called a model'
+            run.send(b'\x1b[15~', 'Open questions')
+            assert 'waits for:' not in run.flat(), run.screen.text()
+            run.send(b'\x1b[15~', 'TEST which format after storage?')
+            run.type('TEST B is Markdown')
+            run.send(F2, 'Seed draft r1')
+            assert len(run.calls()) == 1 and helper.load(session)['goal'] == GOAL
+            print(f'Shape prerequisites passed at {width}x{height}: prepared TEST A/B ledger, '
+                  'F5 names the held prerequisite, A then B without model calls, 1 final stub reply')
         finally:
             run.close()
 
@@ -838,6 +906,10 @@ def answer_actions(width, height):
 
 
 if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        prerequisite_questions(*size)
+    for name in ['settled prerequisites', 'unknown prerequisite', 'cyclic prerequisite']:
+        case(name)
     for size in [(100, 30), (80, 24)]:
         answer_actions(*size)
     for size in [(100, 30), (80, 24)]:
