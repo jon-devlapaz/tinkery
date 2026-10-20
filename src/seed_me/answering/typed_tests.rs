@@ -22,6 +22,7 @@ fn question(found: Vec<Found>, supported_by: Option<Value>) -> Ask {
         gate: "TEST gate".into(),
         found,
         supported_by,
+        prerequisites: None,
         suggestion: None,
         assumed: vec![],
         options: vec![],

@@ -5,6 +5,8 @@
 mod answers;
 pub use answers::{AnswerAction, can_revise};
 mod checks;
+mod questions;
+pub use questions::{next_question, queue_question, waiting_on};
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod seed;
@@ -540,10 +542,7 @@ fn predicate(node: &Value) -> bool {
     matches!(node.get("predicate"), None | Some(Value::Bool(true)))
 }
 fn parents_settled(nodes: &Value, node: &Value) -> bool {
-    node["prerequisites"]
-        .items()
-        .iter()
-        .all(|p| find(nodes, p.string().unwrap_or(""))["status"].is("settled"))
+    waiting_on(nodes, node["id"].string().unwrap_or("")).is_empty()
 }
 fn visit(
     nodes: &Value,

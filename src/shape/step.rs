@@ -46,6 +46,7 @@ pub(super) const FIELDS: &[&str] = &[
     "scope",
     "limits",
     "supported_by",
+    "prerequisites",
     "contradicts",
     "suggestion",
     "assumed",
@@ -462,7 +463,7 @@ fn think(records: Option<&Path>, session: &Path, goal: &str) -> Vec<Value> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Next {
     /// The next question.
-    Question(Ask),
+    Question(Box<Ask>),
     /// The seed's summary and canonical prose sections, and what the step found.
     Seed {
         confirming: String,
@@ -494,13 +495,14 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
     match value["next"].as_str() {
         Some("question") => {
             let question = text("question").ok_or_else(unusable)?;
-            Ok(Next::Question(Ask {
+            Ok(Next::Question(Box::new(Ask {
                 id: text("id").unwrap_or_else(|| "question".into()),
                 label: text("label").unwrap_or_else(|| question.clone()),
                 gate: text("gate").unwrap_or_else(|| question.clone()),
                 question,
                 found,
                 supported_by: value.get("supported_by").cloned(),
+                prerequisites: value.get("prerequisites").cloned(),
                 suggestion: text("suggestion"),
                 assumed: value["assumed"]
                     .as_array()
@@ -519,7 +521,7 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                 against: text("against"),
                 confidence: text("confidence")
                     .filter(|c| ["low", "medium", "high"].contains(&c.as_str())),
-            }))
+            })))
         }
         Some("seed") => Ok(Next::Seed {
             confirming: text("confirming").ok_or_else(unusable)?,

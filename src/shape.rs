@@ -4,7 +4,7 @@
 //! menu). Incomplete lists retain the unreadable count and never claim there are no waiting goals.
 //! It shows the confirmed goal's first line, then one thing: the current question, the seed
 //! draft, a ready seed, or an honest unknown or failure, with one next step. `F5` shows the whole
-//! goal exactly as recorded, each settled decision and the current question's findings, and writes nothing. Opening,
+//! goal exactly as recorded, settled decisions, open questions and their waits, and current findings, without writing. Opening,
 //! scrolling and typing write nothing and call no model. Only a key that names it saves an answer
 //! and starts the agent step (`F2`, `F11` defer, `F12` delegate), or confirms a seed with the
 //! operator's own words (`F3`); see [`step`]. A flagged node comes first: `F6 keep with reason`
@@ -1462,7 +1462,7 @@ impl Opened {
     }
 }
 
-/// "So far": the whole confirmed goal, settled decisions and all current-question findings.
+/// "So far": the confirmed goal, settled decisions, open questions and current findings.
 /// Only the operator's own answers are marked as theirs. It scrolls when it doesn't fit.
 fn render_so_far(
     frame: &mut Frame,
@@ -1506,6 +1506,13 @@ fn render_so_far(
                 spans.push(Span::styled(format!(" ({by})"), palette.muted));
             }
             lines.push(Line::from(spans));
+        }
+    }
+    if !shaping.open.is_empty() {
+        lines.push(Line::default());
+        lines.push(Line::styled("Open questions", palette.muted));
+        for question in &shaping.open {
+            lines.push(Line::styled(question.clone(), palette.ink));
         }
     }
     if let Shaped::Question { found, .. } | Shaped::Review { found, .. } = &shaping.stage
