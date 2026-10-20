@@ -3,7 +3,7 @@
 //! Think fills [`GoalParts`]; review, receipt, tend and Seed Me all show the text
 //! [`GoalParts::compose`] makes, so a goal reads the same everywhere it appears. Composition
 //! rewrites only what `docs/design/goal-block.md` allows (a leading `must`/`must not` prefix,
-//! clause joins); it never invents a part, and the person's original words live elsewhere,
+//! clause joins and standalone-outcome beneficiaries); it never invents a part, and originals live elsewhere,
 //! untouched.
 
 use serde::{Deserialize, Serialize};
@@ -299,14 +299,15 @@ impl GoalParts {
     }
     /// The known intent, with its beneficiary and situation when supplied, without its final
     /// period. A missing beneficiary stays unknown, never invented; only a missing outcome
-    /// prevents a headline. Repeated subjects and situations aren't said twice.
+    /// prevents a headline. Repeated subjects and situations aren't said twice. An uppercase
+    /// standalone outcome leads, with the beneficiary after it ("I" becomes "me").
     pub fn goal_line(&self) -> Option<String> {
         let outcome = self.get(Part::Outcome)?;
         let raw_who = self.get(Part::Who).map(prose).unwrap_or_default();
         let who = capitalise(&raw_who);
         let mut outcome = prose(outcome);
         let mut separator = if who.is_empty() { "" } else { " " };
-        if outcome
+        let repeated_subject = outcome
             .get(..raw_who.len())
             .is_some_and(|prefix| identity(prefix) == identity(&raw_who))
             && outcome.get(raw_who.len()..).is_some_and(|rest| {
@@ -315,8 +316,8 @@ impl GoalParts {
                         rest.strip_prefix(suffix)
                             .is_some_and(|tail| tail.starts_with(char::is_whitespace))
                     })
-            })
-        {
+            });
+        if repeated_subject {
             let rest = &outcome[raw_who.len()..];
             if !rest.starts_with(char::is_whitespace) {
                 separator = "";
@@ -326,7 +327,15 @@ impl GoalParts {
         while outcome.starts_with("can can ") {
             outcome = outcome[4..].to_owned();
         }
-        let mut goal = capitalise(&format!("{who}{separator}{outcome}"));
+        let mut goal = if !repeated_subject
+            && !raw_who.is_empty()
+            && outcome.starts_with(char::is_uppercase)
+        {
+            let beneficiary = if raw_who == "I" { "me" } else { &raw_who };
+            format!("{outcome}, for {beneficiary}")
+        } else {
+            capitalise(&format!("{who}{separator}{outcome}"))
+        };
         if let Some(when) = self.get(Part::When).map(prose)
             && !identity(&goal).contains(&identity(&when))
         {

@@ -80,6 +80,13 @@ The goal line does not repeat `who` when the outcome starts with that same subje
 The possessive suffix stays attached: `Shape` + `Shape's goal list shows…` becomes
 `Shape's goal list shows…`, not `Shape Shape's…`. Other word prefixes stay intact.
 
+Otherwise, an outcome starting with an uppercase letter is treated as a standalone
+statement: `[Outcome], for [who]`, with `I` becoming `me`. Both parts keep their
+spelling; names at the start of an outcome are not lowercased. For example,
+`developers` + `Count words` becomes `Count words, for developers`. A lowercase
+predicate keeps the subject-first composition above. The optional situation still
+follows the composed line, without repeating one already present.
+
 `GoalParts::compose` owns composition and runs once, when a reading is verified.
 `Board::goal` is then the displayed block: reading, copy, refinement, changed-line
 marks and review all read it and never compose again. `goal::confirmed::goal_block` and the shared

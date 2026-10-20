@@ -70,7 +70,11 @@ sub-lines and keeps the selected run visible.
 
 A run's detail keeps the full matched goal, wrapped and untrimmed, escaping unsafe
 controls only for display. Its state, next action, gates, checklist counts, individual
-expectations and recorded evidence follow, plus tink-sdlc's errors. ↑↓, PgUp/PgDn and Home/End scroll wrapped content,
+expectations and recorded evidence follow, plus tink-sdlc's errors. The checklist
+summary separates passed results from proof kinds: `0/4 passed · 0 by automated
+check, 4 by your attestation` does not claim four completed attestations. Individual
+items retain their reported status, including `pending (attested)`.
+↑↓, PgUp/PgDn and Home/End scroll wrapped content,
 including long evidence and error tails. Opening or rereading detail resets to the top. One run
 at a time; Esc returns to the list. F10 returns to Home from Watch, including help,
 without quitting Tinkery. Scrolling launches nothing.

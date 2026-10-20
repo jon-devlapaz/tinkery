@@ -130,7 +130,7 @@ def journey(width, height, no_color, configured=True):
                 send(b'r', 'quiet-a  verification failed')
                 assert calls() == ['status --json', 'status quiet-a --json', 'status waits --json'] * 2
                 send(b'\r', 'Stage 3 gate: approved')
-                assert 'Checklist: 1/2 passed · 2 with a check, 0 attested' in screen.text()
+                assert 'Checklist: 1/2 passed · 2 by automated check, 0 by your attestation' in ' '.join(screen.text().split())
                 assert 'No confirmed seed was recorded for this run.' in screen.text()
                 assert 'Goal unknown' not in screen.text()
                 assert calls()[-1] == 'status quiet-a --json', calls()

@@ -165,9 +165,56 @@ fn subject_prefix_without_a_boundary_is_not_removed() {
             outcome: Some(outcome.into()),
             ..Default::default()
         };
-        assert_eq!(p.goal_line().unwrap(), format!("Shape {outcome}"));
+        assert_eq!(p.goal_line().unwrap(), format!("{outcome}, for Shape"));
     }
 }
+#[test]
+fn standalone_outcomes_keep_spelling_through_display_copy_and_confirmation() {
+    for (who, outcome, when, headline) in [
+        (
+            "developers",
+            "Count whitespace-separated words in one UTF-8 text file and print the count.",
+            Some("in this README-only scratch repo"),
+            "Count whitespace-separated words in one UTF-8 text file and print the count, for developers, in this README-only scratch repo.",
+        ),
+        (
+            "I",
+            "Read a local count.",
+            None,
+            "Read a local count, for me.",
+        ),
+        (
+            "developers",
+            "Tally prints a local count.",
+            None,
+            "Tally prints a local count, for developers.",
+        ),
+        (
+            "People who sign up",
+            "return for a second session",
+            None,
+            "People who sign up return for a second session.",
+        ),
+    ] {
+        let original = format!("{who}\n{outcome}");
+        let mut a = app_with_source(
+            serde_json::json!({"parts": {"who": who, "outcome": outcome, "when": when}}),
+            &original,
+        );
+        assert_eq!(a.conversation.board().unwrap().goal(), Some(headline));
+        for mono in [false, true] {
+            assert!(snapshot(320, 40, &mut a, mono).unwrap().contains(headline));
+        }
+        assert!(a.copy_text().contains(headline));
+        a.review_goal();
+        assert_eq!(
+            a.handoff.review.as_ref().unwrap().affirmation.goal,
+            headline
+        );
+        assert_eq!(a.conversation.sources()[0].text, original);
+    }
+}
+
 #[test]
 fn outcome_is_a_behaviour_without_forced_can() {
     let p = GoalParts {

@@ -26,6 +26,14 @@ pub(super) const SAVE_NEEDS_REAL: &str = "Saving a goal needs real mode and Seed
 /// Rows a refusal may take: every fixed refusal fits in two at the narrowest pane.
 pub(super) const STATUS_ROWS: u16 = 2;
 
+fn thinking_status(app: &BrainDump) -> &'static str {
+    match app.host.call_in_flight() {
+        Some(Request::Shaping) => "Thinking… (call 1 of up to 2)",
+        Some(Request::DecisionReview) => "Reviewing decisions… (call 2 of up to 2)",
+        _ => "Thinking…",
+    }
+}
+
 /// The one status line under the writing box: why the last action did nothing, else whether
 /// a reading is coming, else what the last action did. A refusal always wins, so a blocked
 /// key is never silent.
@@ -34,7 +42,7 @@ fn status(app: &BrainDump) -> Option<&str> {
     if app.screen.refused.is_some() {
         Some(&app.notice)
     } else if app.running() && board {
-        Some("Thinking…")
+        Some(thinking_status(app))
     } else if RECEIPTS.iter().any(|p| app.notice.starts_with(p)) {
         Some(&app.notice)
     } else if !app.running()
@@ -162,7 +170,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     } else if app.conversation.board().is_some() {
         String::new()
     } else if app.running() {
-        "Thinking…".into()
+        thinking_status(app).into()
     } else if app.shaping.ready.is_some() {
         "Reply ready.".into()
     } else if !app.conversation.caught_up() {
