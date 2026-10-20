@@ -1,4 +1,4 @@
-//! Shape: where a saved goal's seed stands, and working through Seed Me's interview to a seed.
+//! Shape: where a saved goal's seed stands, and working through its questions to a seed.
 //!
 //! Opened on one session (from tend's detail) or as a list of goals waiting for a seed (from the
 //! menu). Incomplete lists retain the unreadable count and never claim there are no waiting goals.
@@ -10,9 +10,9 @@
 //! [`step`]. Before a step, Shape shows which folder it will read, and `F4` lets the operator name
 //! another for this run. Ending a session for good takes the same key twice: `F6` completes one
 //! whose seed is ready, `F8` stops one still being shaped; Esc between them keeps it open. Each
-//! finished step or ending is followed by a fresh read, so the screen shows what Seed Me holds.
+//! finished step or ending is followed by a fresh read, so the screen shows what the ledger holds.
 //! `F3` waits until the whole draft has been on screen. Under an agent launch declaration Shape
-//! only reads: Seed Me would record its every change as the operator's.
+//! only reads: Tinkery would record its every change as the operator's.
 
 pub use step::Agent;
 
@@ -46,8 +46,8 @@ use words::Words;
 
 /// The widest Shape's open view gets, so lines stay readable on a wide terminal.
 const WIDTH: u16 = 76;
-/// Why an agent-declared launch only reads: Seed Me records every Shape change as the operator's.
-const HELD: &str = "Delegated shaping awaits Seed Me integration. Shape only reads; Esc goes back.";
+/// Why an agent-declared launch only reads: Tinkery records every Shape change as the operator's.
+const HELD: &str = "Delegated shaping isn't supported yet. Shape only reads; Esc goes back.";
 /// F3 before the whole seed draft has been on screen.
 const READ_FIRST: &str = "Read to the end first: PgDn scrolls. Nothing was confirmed.";
 /// Refusals about the typed words; changing the words clears them.
@@ -159,8 +159,8 @@ enum Reading {
 }
 
 impl Shape {
-    /// Shape opened on one session; its first [`Shape::tick`] starts its read through the helper
-    /// beside `skill` off the paint path, or it says plainly that Seed Me isn't configured.
+    /// Shape opened on one session; its first [`Shape::tick`] reads the ledger off the paint
+    /// path, or it says plainly that Shape isn't configured.
     pub fn session(skill: Option<&Path>, session: &Path) -> Self {
         Self {
             list: None,
@@ -184,7 +184,7 @@ impl Shape {
         self
     }
 
-    /// The same Shape under an agent launch declaration: it only reads. Seed Me records every
+    /// The same Shape under an agent launch declaration: it only reads. Tinkery records every
     /// Shape change as the operator's, so answering, confirming and ending are held, and say why.
     pub fn held(mut self, held: bool) -> Self {
         self.held = held;
@@ -583,8 +583,8 @@ impl Shape {
                     _ => String::new(),
                 };
                 let skill = open.skill.as_ref().map_or_else(
-                    || "Seed Me skill: not configured".into(),
-                    |s| format!("Seed Me skill: {}", s.display()),
+                    || "Shape instructions: not configured".into(),
+                    |s| format!("Shape instructions: {}", s.display()),
                 );
                 let model = agent.map_or_else(
                     || {
@@ -594,7 +594,7 @@ impl Shape {
                     |a| {
                         format!(
                             "Model calls left this run: {} of {}. Each F2 step is one call, with read-only tools.\n\
-                             Seed Me's helper makes every change; the model never calls it.",
+                             Tinkery saves every change; the model never writes the session.",
                             a.remaining(),
                             a.limit()
                         )
@@ -608,7 +608,7 @@ impl Shape {
                 };
                 let now = match (agent, open.typing()) {
                     _ if open.running.is_some() => "A step is running. Esc stops it.",
-                    _ if open.writing.is_some() => "Seed Me is saving a change.",
+                    _ if open.writing.is_some() => "Tinkery is saving a change.",
                     _ if open.objecting => {
                         "Press the number of the assumption you object to; it becomes an open question. Esc keeps them all."
                     }
@@ -652,7 +652,7 @@ impl Shape {
         let ends =
             "F6 (seed ready) or F8 (still shaping), pressed twice, ends the session for good.";
         let promise = if self.held {
-            "Shape reads and calls no model. Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt.".to_owned()
+            "Shape reads and calls no model. Delegated answers, confirmations and endings aren't supported; Esc goes back.".to_owned()
         } else if agent.is_some() {
             format!(
                 "Opening, scrolling and typing write nothing. Only F2 saves an answer and calls a model; \
@@ -661,7 +661,7 @@ impl Shape {
         } else {
             format!(
                 "Shape reads and calls no model. Only {ends} \
-                 Answering Seed Me's questions happens with Seed Me: tend's c copies the prompt."
+                 To answer here, start Tinkery with a model and budget; tend's c copies a prompt to continue elsewhere."
             )
         };
         let editing = if self.takes_text() {
@@ -1049,7 +1049,7 @@ impl Opened {
                     answering::recommend(&skill, &session, expected, &id, &text).map(|_| ())
                 }
                 (Write::Object(_) | Write::Recommend { .. }, None) => Err(Refusal::Refused(
-                    "Seed Me gave no version to change from.".into(),
+                    "Tinkery read no version to change from.".into(),
                 )),
             };
             let _ = sender.send(result);
@@ -1307,7 +1307,7 @@ fn render_open(
     let (reading, input) = match &open.reading {
         _ if open.skill.is_none() => (
             plain(
-                "Shape reads sessions through Seed Me, which isn't set up here.",
+                "Shape isn't set up here.",
                 "Next: start Tinkery with --shape-pi, --model and --seed-me.",
                 palette,
             ),
@@ -1633,7 +1633,7 @@ struct Stand<'a> {
 }
 
 /// Where the seed stands, in plain words, as what to read and then what to act with (the words box,
-/// what was said and the next step). Seed Me's label is muted and its question is the one
+/// what was said and the next step). The question's label is muted and its wording is the one
 /// thing to act on (jade); its suggestion is a guess (italic). The operator's words are in ink.
 /// At most one Next line: none when the key bar already names the one next action and nothing
 /// was said, and a notice's own next step replaces the stage's. While a step runs, the question and the words
@@ -1719,20 +1719,20 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
             Some(if acts {
                 "Next: type your answer, then F2 saves it and looks into the next question.".into()
             } else {
-                format!("Next: answer it with Seed Me; {CONTINUE}")
+                format!("Next: answer this question; {CONTINUE}")
             })
         }
         Shaped::Waiting => {
             if !calm {
                 lines.push(Line::styled(
-                    "Seed Me hasn't asked its next question yet.",
+                    "Shape hasn't asked its next question yet.",
                     palette.ink,
                 ));
             }
             Some(if acts {
                 "Next: F2 looks into the next question.".into()
             } else {
-                format!("Next: shape it into a seed with Seed Me; {CONTINUE}")
+                format!("Next: shape it into a seed; {CONTINUE}")
             })
         }
         Shaped::Drafted { revision, text } => {
@@ -1755,7 +1755,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
             }
             Some(match (acts, revision) {
                 (true, Some(r)) => format!("Next: type your own words, then F3 confirms {r}."),
-                _ => format!("Next: confirm the seed draft with Seed Me; {CONTINUE}"),
+                _ => format!("Next: confirm the seed draft in Shape; {CONTINUE}"),
             })
         }
         Shaped::Ready { revision, ended } => {
@@ -1779,9 +1779,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                 format!("The seed says it's confirmed, but Tinkery can't verify it: {reason}."),
                 palette.ink,
             ));
-            Some(format!(
-                "Next: confirm the current revision with Seed Me; {CONTINUE}"
-            ))
+            Some(format!("Next: confirm the current revision; {CONTINUE}"))
         }
         Shaped::Practice => {
             lines.push(Line::styled(
@@ -1802,7 +1800,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                 format!("Shape can't tell where this seed stands. {what}"),
                 palette.ink,
             ));
-            Some(format!("Next: continue with Seed Me; {CONTINUE}"))
+            Some(format!("Next: continue shaping; {CONTINUE}"))
         }
     };
     let gap = |lines: &mut Vec<Line<'static>>| {

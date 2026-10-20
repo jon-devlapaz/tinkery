@@ -106,7 +106,7 @@ impl Receipt {
     /// The receipt printed after the terminal is restored.
     pub fn text(&self) -> String {
         format!(
-            "Saved.\n{}\nNext: shape it into a seed with Seed Me.\nSession: {}\nLedger: {}{}",
+            "Saved.\n{}\nNext: shape it into a seed in Shape.\nSession: {}\nLedger: {}{}",
             self.goal,
             self.session.display(),
             self.ledger,

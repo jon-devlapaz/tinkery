@@ -261,7 +261,7 @@ def full_journey(width, height):
             # The question's citation is in the folder; the seed's src/main.rs:12 is not (#161).
             (target / 'README.md').write_text('# TEST\n\nLocal only.\n')
             run.open_shape()
-            run.wait("Seed Me hasn't asked its next question yet.")
+            run.wait("Shape hasn't asked its next question yet.")
             run.wait('F2 look into the next question')
             # Before the first step, Shape says which folder it reads; F4 picks another.
             run.wait(f'The step reads files in {cwd.name}. F4 picks another folder.')
@@ -358,9 +358,9 @@ def full_journey(width, height):
             # Returning rereads the same session, including the garden's stage, without work.
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
-            run.wait('Next: confirm the seed draft with Seed Me.')
+            run.wait('Next: confirm the seed draft in Shape.')
             run.send(b'\x1b', 'seed drafted')
-            run.send(b'\r', 'Next: confirm the seed draft with Seed Me.')
+            run.send(b'\r', 'Next: confirm the seed draft in Shape.')
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from draft wrote or called'
             run.send(b's', 'Seed draft r1')
             run.wait('F3 confirm seed r1')
@@ -387,9 +387,9 @@ def full_journey(width, height):
             assert len(run.calls()) == 2, 'Confirmation called a model'
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
-            run.wait('Next: check the seed with Seed Me.')
+            run.wait('Next: check the seed in Shape.')
             run.send(b'\x1b', 'seed needs checking')
-            run.send(b'\r', 'Next: check the seed with Seed Me.')
+            run.send(b'\r', 'Next: check the seed in Shape.')
             assert ' '.join(goal.split()) in run.flat(), 'Return changed the displayed goal'
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from confirmation wrote or called'
             # Ending takes F6 twice; Esc between keeps the session open (#231).
@@ -512,7 +512,7 @@ def case(name, width=100, height=30):
                 assert 'answer' not in ledger['nodes'][1], ledger['nodes'][1]
                 assert run.calls() == [], 'Stopping called a model'
             elif name == 'hard to undo':
-                run.wait("Seed Me hasn't asked its next question yet.")
+                run.wait("Shape hasn't asked its next question yet.")
                 run.send(F2, "This is hard to undo, so what's your instinct?")
                 for hidden in ('Option A', 'Suggestion:', 'Against my suggestion'):
                     assert hidden not in run.flat(), run.screen.text()
@@ -527,7 +527,7 @@ def case(name, width=100, height=30):
                 assert 'F9' not in run.screen.text().splitlines()[-1], run.screen.text()
                 assert len(run.calls()) == 1, 'Showing the suggestion called a model'
             elif name == 'assumptions':
-                run.wait("Seed Me hasn't asked its next question yet.")
+                run.wait("Shape hasn't asked its next question yet.")
                 run.send(F2, "I'll assume these unless you object:")
                 run.wait('1. TEST notes are Markdown (why: TEST either format works)')
                 assert helper.load(session)['assumed'] == [{'text': 'TEST notes are Markdown', 'why': 'TEST either format works'}]
@@ -610,14 +610,14 @@ def case(name, width=100, height=30):
                     run.wait('Keep records local or synced?')
                     run.type('Local.')
                 else:
-                    run.wait("Seed Me hasn't asked its next question yet.")
+                    run.wait("Shape hasn't asked its next question yet.")
                 before = files(sessions)
                 expected = {
                     'zero budget': "No model calls are left: this run's budget is 0.",
                     'model failure': 'Your answer is saved. Looking into the next question failed: Pi exited',
                     'helper refusal': 'Your answer is saved. Tinkery refused: receipt appears to contain a secret',
                     'model tries to confirm': "Looking into the next question failed: The model's reply wasn't a question or a seed draft.",
-                    'model writes decisions': "The drafted seed text didn't fit Seed Me's format, so nothing was saved.",
+                    'model writes decisions': "The drafted seed text didn't fit Shape's format, so nothing was saved.",
                     'seed secret': 'A finding appears to contain a secret, so no seed was drafted',
                 }[name]
                 run.send(F2, expected)

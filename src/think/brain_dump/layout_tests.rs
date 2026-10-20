@@ -116,7 +116,7 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         l2.pop();
         assert_eq!(l1, l2);
         assert_eq!(receipt.matches("Saved.").count(), 1);
-        assert!(right_text(&receipt, w).contains("Next: shape it into a seed with Seed Me."));
+        assert!(right_text(&receipt, w).contains("Next: shape it into a seed in Shape."));
         assert!(!receipt.contains("Tinkery-TEST/session-id"));
         assert!(!receipt.contains("seed not written yet"));
         for s in [&before, &review, &receipt] {
@@ -179,14 +179,14 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         a.screen.paper_scroll = 0;
         let first = snapshot(w, h, &mut a, false).unwrap();
-        assert!(right_text(&first, w).contains("Next: shape it into a seed with Seed Me."));
+        assert!(right_text(&first, w).contains("Next: shape it into a seed in Shape."));
         assert!(!first.contains("Tinkery-TEST"));
         for _ in 0..50 {
             key(&mut a, KeyCode::PageDown);
         }
         let last = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&last, w).contains("END-GOAL"));
-        assert!(right_text(&last, w).contains("Next: shape it into a seed with Seed Me."));
+        assert!(right_text(&last, w).contains("Next: shape it into a seed in Shape."));
         assert!(!last.contains("END-SESSION-ID"));
         assert!(layout::how_text(&a).contains(&path));
         assert_eq!(

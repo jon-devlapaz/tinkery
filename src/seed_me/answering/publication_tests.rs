@@ -1,7 +1,7 @@
 //! Shape's real ledger boundary against the pinned writer, without provider calls.
 
 use super::*;
-use std::{fs, os::unix::fs::PermissionsExt, process::Command, time::Duration};
+use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, process::Command, time::Duration};
 
 const STAMP: &str = "2026-10-19T00:00:00+00:00";
 

@@ -324,7 +324,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         return if app.screen.help_all {
             "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nc   copy prompt to continue in Claude, Codex or Pi\ns   open in tend with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
         } else {
-            "Right now\nYour goal is saved. Next: shape it into a seed with Seed Me.\nc copy prompt · s open in tend · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
+            "Right now\nYour goal is saved. Next: shape it into a seed in Shape.\nc copy prompt · s open in tend · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
         };
     }
     let open_now;

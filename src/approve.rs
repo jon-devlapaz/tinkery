@@ -190,8 +190,7 @@ impl Approve {
         }
         self.waiting = false;
         let result = sessions.and_then(|sessions| {
-            let skill =
-                skill.ok_or("Name the Seed Me skill with --seed-me PATH to verify seeds.")?;
+            let skill = skill.ok_or("Set up Shape with --seed-me PATH to verify seeds.")?;
             if reader.start(
                 skill,
                 sessions,
