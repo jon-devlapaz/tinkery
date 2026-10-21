@@ -25,7 +25,7 @@ fn reviews_check_the_displayed_version_under_the_writer_lock() {
     let (root, ledger, state) = fixture();
     let writer = Writer::acquire(root.path()).unwrap();
     assert_eq!(
-        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP)
+        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP, None)
             .unwrap_err()
             .reason,
         "session already has a writer"
@@ -42,7 +42,7 @@ fn reviews_check_the_displayed_version_under_the_writer_lock() {
     .unwrap();
     let before = fs::read(root.path().join("ledger.json")).unwrap();
     assert_eq!(
-        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP)
+        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP, None)
             .unwrap_err()
             .reason,
         "stale publication version"

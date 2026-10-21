@@ -324,7 +324,7 @@ unchanged. Status ignores viewer records and snapshots; it opens no network conn
 `tinkery seed status --json DIR` prints the intake status without `viewer`, `snapshot` or
 `snapshot_current`; `tinkery seed checks DIR` prints the strict check records. Both are read-only.
 
-Only Seed ready offers `c copy intake`: one line,
+Only Seed ready with an external-intake-compatible confirmation offers `c copy intake`: one line,
 `python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<absolute seed path>' --tinkery '<absolute Tinkery executable>'`.
 Both paths are canonical and shell-quoted; the executable is this running Tinkery binary.
 Tinkery verifies the seed itself. Run from the tink-sdlc repository
@@ -332,7 +332,8 @@ root after replacing the visible `<run>` placeholder. If either copy path cannot
 be resolved or represented on one safe line, the verified seed stays readable but
 offers no copy. It uses Tend's OSC 52 route and `Copied.` / `Couldn't
 copy; try again.` feedback, not verified host-clipboard success. Drafts, unverifiable
-seeds and ended sessions offer no intake copy. Copying writes no files, calls no
+seeds and ended sessions offer no intake copy. Agent-confirmed seeds remain readable;
+Shape and Approve withhold external human-only intake and explain why. Copying writes no files, calls no
 model, runs no intake and grants no approval to build; choosing or creating an SDLC
 run stays outside Shape.
 
@@ -511,7 +512,8 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   unconfirmed records, never a verified handoff.
   These are drafting instructions, not a semantic completeness validator: stubs prove
   transport and preservation, not model quality or operator dogfood.
-- Under `--operator agent` Shape only reads; see [Think's integration hold](think.md#confirmation-attribution-185).
+- Agent actions require the [named confirmation context](think.md#confirmation-attribution-185).
+  Records name the acting agent and authorizing operator; seed confirmation never claims a human keypress.
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
   Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, F3 says

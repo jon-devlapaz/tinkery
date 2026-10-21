@@ -58,7 +58,7 @@ fn held_question_waits_for_ready_decisions_in_ledger_order_then_promotes() {
     assert_eq!(saved.state["nodes"][2]["prerequisites"], json!(["a"]));
     let shown = super::super::shaping::read(&session).unwrap();
     assert_eq!(shown.open, ["TEST a", "TEST b — waits for: TEST a"]);
-    let version = answer(&session, version, "a", "TEST A answered").unwrap();
+    let version = answer(&session, version, "a", "TEST A answered", None).unwrap();
     promote(&session, version).unwrap().unwrap();
     assert_eq!(read(&session).unwrap().state["current_question"], "b");
     assert_eq!(
@@ -83,6 +83,7 @@ fn held_questions_with_deferred_parents_save_without_becoming_current() {
             reason: "TEST wait".into(),
             revisit: "TEST revisit".into(),
         },
+        None,
     )
     .unwrap();
     let version = ask(
@@ -213,7 +214,7 @@ fn revising_an_answer_reopens_its_model_proposed_dependent() {
         .unwrap();
     let session = publication_tests::session(root.path());
     let version = ask(&session, 1, &proposal("a", None), root.path()).unwrap();
-    let version = answer(&session, version, "a", "TEST old A").unwrap();
+    let version = answer(&session, version, "a", "TEST old A", None).unwrap();
     let version = ask(
         &session,
         version,
@@ -221,12 +222,13 @@ fn revising_an_answer_reopens_its_model_proposed_dependent() {
         root.path(),
     )
     .unwrap();
-    let version = answer(&session, version, "b", "TEST old B").unwrap();
+    let version = answer(&session, version, "b", "TEST old B", None).unwrap();
     let version = respond(
         &session,
         version,
         "a",
         &ledger::AnswerAction::Revise("TEST new A".into()),
+        None,
     )
     .unwrap();
     let saved = read(&session).unwrap();

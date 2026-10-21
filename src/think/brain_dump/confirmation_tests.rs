@@ -62,7 +62,7 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
         a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
         if declaration == "declared: agent" {
             assert!(a.handoff.job.is_none());
-            assert!(a.notice.contains("ledger integration"));
+            assert!(a.notice.contains("--agent-confirmation"));
             assert!(!root.exists());
             continue;
         }
@@ -202,9 +202,9 @@ fn declared_agent_source_never_claims_an_operator_keypress_or_implementation_per
     a.review_goal();
     let affirmation = &a.handoff.review.as_ref().unwrap().affirmation;
     let saved = affirmation.affirmed();
-    assert!(saved.source.contains("Agent") && saved.source.contains("TEST-agent"));
-    assert!(saved.source.contains("TEST-person") && saved.source.contains("TwoWay"));
-    assert!(saved.source.contains("Small") && saved.source.contains("TEST explicit authorization"));
+    assert!(saved.source.contains("agent") && saved.source.contains("TEST-agent"));
+    assert!(saved.source.contains("TEST-person") && saved.source.contains("two-way"));
+    assert!(saved.source.contains("small") && saved.source.contains("TEST explicit authorization"));
     assert!(!saved.source.contains("operator typed confirm"));
     assert!(saved.source.contains("not seed or implementation approval"));
     assert_eq!(saved.goal, affirmation.goal);
@@ -212,25 +212,27 @@ fn declared_agent_source_never_claims_an_operator_keypress_or_implementation_per
 }
 
 #[test]
-fn delegated_goal_save_is_held_before_the_user_only_seed_me_path() {
+fn bare_agent_declaration_is_held_before_any_save_job() {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("TEST-records");
     let mut a = declared().with_record_root(root.clone());
+    a.set_goal_confirmation(GoalConfirmation::terminal(Some("agent")).unwrap())
+        .unwrap();
     a.screen.help_all = true;
     assert!(!layout::help_text(&a).contains("typing confirm saves"));
-    assert!(layout::how_text(&a).contains("ledger integration"));
+    assert!(layout::how_text(&a).contains("--agent-confirmation"));
     a.screen.help_all = false;
     a.review_goal();
     for size in [(80, 24), (100, 30)] {
         let screen = snapshot(size.0, size.1, &mut a, true).unwrap();
         let plain = screen.split_whitespace().collect::<Vec<_>>().join(" ");
-        assert!(plain.contains("ledger integration"), "{screen}");
+        assert!(plain.contains("--agent-confirmation"), "{screen}");
         assert!(!plain.contains("type confirm"), "{screen}");
-        assert!(layout::help_text(&a).contains("ledger integration"));
+        assert!(layout::help_text(&a).contains("--agent-confirmation"));
     }
     a.screen.help_all = true;
     assert!(!layout::help_text(&a).contains("typing confirm saves"));
-    assert!(layout::how_text(&a).contains("ledger integration"));
+    assert!(layout::how_text(&a).contains("--agent-confirmation"));
     a.screen.help_all = false;
     // The held review takes no words, typed or pasted: confirm couldn't save.
     for c in "confirm".chars() {
@@ -255,7 +257,10 @@ fn delegated_goal_save_is_held_before_the_user_only_seed_me_path() {
 fn new_visits_do_not_inherit_goal_authorization_and_review_cannot_be_relabelled() {
     let mut a = declared();
     let fresh = a.fresh_factory()();
-    assert_eq!(fresh.handoff.confirmation, GoalConfirmation::default());
+    assert_eq!(
+        fresh.handoff.confirmation,
+        GoalConfirmation::terminal(Some("agent")).unwrap()
+    );
     a.review_goal();
     assert!(
         a.set_goal_confirmation(operator())
@@ -300,8 +305,8 @@ fn invalid_declared_agent_class_is_refused_by_the_think_api() {
 }
 
 #[test]
-fn a_future_helper_receipt_records_the_frozen_agent_context_not_a_later_identity() {
-    // Simulated receipt injection tests record plumbing only. Production agent saves stay held.
+fn a_receipt_records_the_frozen_agent_context_not_a_later_identity() {
+    // Receipt injection tests record plumbing; PTYs exercise real ledger saving.
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("TEST-records");
     let mut a = declared().with_record_root(root.clone());

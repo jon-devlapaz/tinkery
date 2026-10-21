@@ -151,7 +151,7 @@ impl Config {
     }
     /// The session retained after an incomplete save.
     pub fn recovery_path(&self) -> Option<PathBuf> {
-        self.session.lock().unwrap().clone()
+        self.session.lock().ok().and_then(|session| session.clone())
     }
     /// The same destination, with no session yet.
     pub fn fresh(&self) -> Self {
@@ -163,13 +163,29 @@ impl Config {
     /// Save through the shared Rust ledger and read back the exact goal and originals.
     /// Retries reuse the same session; an existing origin, ended session or seed is never replaced.
     pub fn confirm(&self, a: Affirmed) -> Result<Receipt, String> {
+        self.confirm_as(a, &crate::think_record::GoalConfirmation::default())
+    }
+
+    /// Save with caller-declared authority; missing or invalid agent permission writes nothing.
+    pub fn confirm_as(
+        &self,
+        a: Affirmed,
+        context: &crate::think_record::GoalConfirmation,
+    ) -> Result<Receipt, String> {
+        let actor = crate::think_record::Actor::authorize(Some(context))?;
+        let delegation = actor.delegation();
         let root = self.root.as_ref().map_err(Clone::clone)?;
         let stamp = super::answering::now();
-        let mut retained = self.session.lock().unwrap();
+        let mut retained = self
+            .session
+            .lock()
+            .map_err(|_| "The save state is unavailable. Reopen Think.")?;
         if retained.is_none() {
             *retained = Some(super::ledger::initialize(root, &stamp)?);
         }
-        let session = retained.as_ref().unwrap();
+        let session = retained
+            .as_ref()
+            .ok_or("The session was not created. Retry saving.")?;
         let current = super::ledger::load(session).map_err(
             |_| "The session could not be read. Inspect the recovery session before retrying.",
         )?;
@@ -184,13 +200,19 @@ impl Config {
         if current["origin"] == super::ledger::Value::Null {
             let evidence = a.originals.iter().map(|s| json!({"checked":s.label(),"at":stamp,"observed":s.text}))
                 .chain(std::iter::once(json!({"checked":"Tinkery answer/question context; questions remain provisional, not settled decisions","at":stamp,"observed":a.context}))).collect::<Vec<_>>();
-            let state = json!({"status":"active", "draft":{"goal":a.goal,"outcome":a.outcome,
+            let mut state = json!({"status":"active", "draft":{"goal":a.goal,"outcome":a.outcome,
                 "options":a.options.iter().map(|o|format!("{} — benefit: {}; cost: {}; undo cost: {}",o.label,o.benefit,o.cost,o.undo_cost)).collect::<Vec<_>>()},
                 "goal":a.goal,"origin":"goal","current_question":null,"nodes":[{"id":"goal","kind":"decision","status":"settled",
                 "prerequisites":[],"evidence":evidence,"owner":"User","gate":"Explicit affirmation of the complete displayed goal; not seed or implementation approval",
                 "answer":a.goal,"authority":"user","authority_source":a.source}],"assumed":[],"operator":"human"});
+            let origin = &mut state["nodes"][0];
+            origin["authority"] = actor.authority().into();
+            if let Some(delegation) = &delegation {
+                origin["owner"] = delegation["agent"].clone();
+                origin["delegation"] = delegation.clone();
+            }
             super::ledger::publish(session, &super::ledger::Value::from(state), &current["version"],
-                &"Explicit goal affirmation in Tinkery.".into(), None, &stamp)
+                &actor.reason("confirmed the displayed goal in Tinkery.").as_str().into(), None, &stamp)
                 .map_err(|_| "The goal save could not be verified. Inspect the recovery session before retrying.")?;
         }
         let read = super::ledger::load(session).map_err(|_| {
@@ -204,8 +226,14 @@ impl Config {
             .ok_or("The saved goal has no origin. Inspect the recovery session.")?;
         if read["goal"].string() != Some(a.goal.as_str())
             || origin["answer"].string() != Some(a.goal.as_str())
-            || origin["authority"].string() != Some("user")
+            || origin["authority"].string() != Some(actor.authority())
+            || origin.get("delegation")
+                != delegation
+                    .as_ref()
+                    .map(|d| super::ledger::Value::from(d.clone()))
+                    .as_ref()
             || origin["status"].string() != Some("settled")
+            || origin["authority_source"].string() != Some(a.source.as_str())
         {
             return Err("This session already pins another goal. No origin was replaced.".into());
         }

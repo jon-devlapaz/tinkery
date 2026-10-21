@@ -12,6 +12,7 @@ mod confirmation;
 mod confirmation_tests;
 mod read;
 
+pub(crate) use confirmation::Actor;
 pub use confirmation::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
 
 #[cfg(test)]

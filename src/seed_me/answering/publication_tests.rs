@@ -66,7 +66,7 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
     let session = session(root.path());
     let version = read(&session).unwrap().version();
     let version = probe(&session, version).unwrap().unwrap();
-    let version = answer(&session, version, PROBE.0, "TEST exact\r\nanswer").unwrap();
+    let version = answer(&session, version, PROBE.0, "TEST exact\r\nanswer", None).unwrap();
     let version = ask(
         &session,
         version,
@@ -90,9 +90,9 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
         root.path(),
     )
     .unwrap();
-    let version = recommend(&session, version, "test-question", "TEST suggestion").unwrap();
-    let version = object(&session, version, "TEST default").unwrap();
-    let version = answer(&session, version, "test-question", "TEST answer").unwrap();
+    let version = recommend(&session, version, "test-question", "TEST suggestion", None).unwrap();
+    let version = object(&session, version, "TEST default", None).unwrap();
+    let version = answer(&session, version, "test-question", "TEST answer", None).unwrap();
     let version = promote(&session, version).unwrap().unwrap();
     assert_eq!(read(&session).unwrap().version(), version);
     assert_eq!(read(&session).unwrap().goal(), Some("TEST goal"));
@@ -113,7 +113,7 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
     let root = temp();
     let session = session(root.path());
     let version = probe(&session, 1).unwrap().unwrap();
-    let version = answer(&session, version, PROBE.0, "TEST my actual answer").unwrap();
+    let version = answer(&session, version, PROBE.0, "TEST my actual answer", None).unwrap();
     let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST"}]);
     let prose =
         ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
@@ -155,12 +155,12 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
         root.path(),
     )
     .unwrap();
-    confirm_seed(&session, &revision, "TEST yes to this seed only").unwrap();
+    confirm_seed(&session, &revision, "TEST yes to this seed only", None).unwrap();
     assert!(matches!(
         super::super::shaping::read(&session).unwrap().stage,
         super::super::shaping::Shaped::Ready { ended: false, .. }
     ));
-    end(&session, Ending::Completed).unwrap();
+    end(&session, Ending::Completed, None).unwrap();
     assert!(matches!(
         super::super::shaping::read(&session).unwrap().stage,
         super::super::shaping::Shaped::Ready { ended: true, .. }

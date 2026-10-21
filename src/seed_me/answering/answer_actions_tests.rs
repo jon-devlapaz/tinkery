@@ -24,8 +24,100 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
     (root, session)
 }
 
+#[test]
+fn named_agent_answer_actions_and_kept_reasons_never_claim_operator_authorship() {
+    let actor: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+        "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
+        "source":"TEST scoped Shape authorization", "class":{"door":"two_way",
+        "door_reason":"TEST reversible", "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
+    })).unwrap();
+    for action in [
+        AnswerAction::Delegate,
+        AnswerAction::Defer {
+            reason: "TEST wait\r\nexact reason ".into(),
+            revisit: "TEST before building".into(),
+        },
+    ] {
+        let (_root, session) = fixture();
+        let version = read(&session).unwrap().version();
+        let version = respond(&session, version, "choice", &action, Some(&actor)).unwrap();
+        let saved = ledger::load(&session).unwrap().to_json().unwrap();
+        let node = &saved["nodes"][2];
+        let history = node["history"].as_array().unwrap().last().unwrap();
+        for name in [
+            "TEST-agent",
+            "TEST-person",
+            "TEST scoped Shape authorization",
+        ] {
+            assert!(history["reason"].as_str().unwrap().contains(name));
+        }
+        if matches!(action, AnswerAction::Defer { .. }) {
+            assert_eq!(
+                node["defer_reason"].as_str(),
+                Some("TEST wait\r\nexact reason ")
+            );
+            continue;
+        }
+        let version = respond(
+            &session,
+            version,
+            "choice",
+            &AnswerAction::Revise("TEST agent replacement".into()),
+            Some(&actor),
+        )
+        .unwrap();
+        let mut flagged = ledger::load(&session).unwrap().to_json().unwrap();
+        flagged["nodes"][2]["reviewed_version"] = 0.into();
+        fs::write(
+            session.join("ledger.json"),
+            serde_json::to_vec(&flagged).unwrap(),
+        )
+        .unwrap();
+        keep(
+            &session,
+            version,
+            "choice",
+            "TEST kept\r\nverbatim ",
+            Some(&actor),
+        )
+        .unwrap();
+        let saved = ledger::load(&session).unwrap().to_json().unwrap();
+        let node = &saved["nodes"][2];
+        assert_eq!(node["authority"], "delegated");
+        assert!(
+            node["authority_source"]
+                .as_str()
+                .unwrap()
+                .contains("TEST-agent")
+        );
+        let reason = node["history"].as_array().unwrap().last().unwrap()["reason"]
+            .as_str()
+            .unwrap();
+        assert!(reason.contains("TEST-agent") && reason.contains("TEST-person"));
+        assert!(reason.contains("TEST kept\r\nverbatim "));
+        let before = fs::read(session.join("ledger.json")).unwrap();
+        assert!(
+            keep(
+                &session,
+                read(&session).unwrap().version(),
+                "choice",
+                " ",
+                Some(&actor)
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+    }
+}
+
 fn respond_now(session: &Path, action: &AnswerAction) -> Result<u64, Refusal> {
-    respond(session, read(session).unwrap().version(), "choice", action)
+    respond(
+        session,
+        read(session).unwrap().version(),
+        "choice",
+        action,
+        None,
+    )
 }
 
 #[test]
@@ -132,7 +224,14 @@ fn delegation_copies_the_suggestion_without_appending_reply_confidence() {
                 confidence: confidence.map(str::to_owned),
             };
             let version = ask(&session, saved.version(), &question, root.path()).unwrap();
-            respond(&session, version, "next-choice", &AnswerAction::Delegate).unwrap();
+            respond(
+                &session,
+                version,
+                "next-choice",
+                &AnswerAction::Delegate,
+                None,
+            )
+            .unwrap();
             let state = read(&session).unwrap().state;
             let node = state["nodes"].as_array().unwrap().last().unwrap();
             assert_eq!(node["answer"], suggestion);
@@ -212,7 +311,7 @@ fn revision_reopens_all_settled_dependents_with_the_changed_answer_named() {
     }
     assert_eq!(state["current_question"], "child");
     let version = read(&session).unwrap().version();
-    let version = answer(&session, version, "child", "TEST reanswered").unwrap();
+    let version = answer(&session, version, "child", "TEST reanswered", None).unwrap();
     assert!(promote(&session, version).unwrap().is_some());
     assert_eq!(
         read(&session).unwrap().state["current_question"],
@@ -259,7 +358,7 @@ fn answer_action_read_and_lock_failures_use_plain_recovery_words() {
         if path == session {
             fs::write(path.join("ledger.json"), "{ TEST broken JSON").unwrap();
         }
-        let error = respond(&path, 1, "choice", &AnswerAction::Delegate)
+        let error = respond(&path, 1, "choice", &AnswerAction::Delegate, None)
             .unwrap_err()
             .to_string();
         assert!(error.contains(expected), "{error}");
@@ -285,7 +384,8 @@ fn revision_refuses_findings_goal_blank_words_and_stale_display() {
                 &session,
                 saved.version,
                 id,
-                &AnswerAction::Revise("TEST replacement".into())
+                &AnswerAction::Revise("TEST replacement".into()),
+                None
             )
             .is_err()
         );
@@ -296,7 +396,8 @@ fn revision_refuses_findings_goal_blank_words_and_stale_display() {
             &session,
             saved.version - 1,
             "choice",
-            &AnswerAction::Revise("TEST new".into())
+            &AnswerAction::Revise("TEST new".into()),
+            None
         )
         .unwrap_err(),
         Refusal::Stale

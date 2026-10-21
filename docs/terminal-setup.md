@@ -130,6 +130,10 @@ cargo +stable run --locked -- --shape-pi \
   --link-root "$trial_root/tend"
 ```
 
+For an authorized agent trial, add `--operator agent --agent-confirmation FILE`.
+Read the [named context contract](design/think.md#confirmation-attribution-185) before supplying it;
+use TEST roots and a separately approved model budget.
+
 All three overrides keep the trial isolated: sessions,
 [think records](design/think.md#think-record), and Tend's needs links stay outside
 operator data. Omit them only when you intend to use the real data directories.

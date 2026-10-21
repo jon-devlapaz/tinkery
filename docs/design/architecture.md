@@ -89,7 +89,7 @@ or improved outcomes.
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
 | `think/drafting.rs` | Think's Pi host: its model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
-| `think_record.rs`, `think_record/read.rs` | The shared confirmed-session format, its one write, and exact-session history attribution; no phase behavior. |
+| `think_record.rs`, `think_record/confirmation.rs`, `think_record/read.rs` | Confirmed-session format, caller-declared context, the shared authorization-to-actor boundary and exact-session history attribution; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 | `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
@@ -152,6 +152,13 @@ revision-bound reading in Shape, title slugs and combined shell commands behind 
 shared handoff formatter, and older-run presentation in Watch. These improve interface
 simplicity (2), changeability without caller churn (3) and hidden decisions (6); the map
 keeps the owners visible (7). No architecture limit or recorded score changes.
+
+Agent-operated Think and Shape resolve typed actors through one shared authorization boundary.
+Persistence reads actor data rather than rewriting human prose; seed verification binds named
+attribution and keeps human-only external intake unavailable. These improve interface simplicity
+(2), changeability (3) and hidden decisions (6); this map and the
+[confirmation contract](think.md#confirmation-attribution-185) keep boundaries visible (7).
+No architecture limit or recorded score changes.
 
 ## Limits enforced by `tests/architecture.rs`
 

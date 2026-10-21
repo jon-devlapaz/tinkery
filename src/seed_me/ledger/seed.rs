@@ -284,8 +284,25 @@ fn confirmation_record(directory: &Path) -> Option<Value> {
         "seed_sha256",
         "decisions_sha256",
     ];
-    (super::exact(&record, &fields)
-        && record["schema_version"] == int(2)
+    let agent = record["schema_version"] == int(3)
+        && record["operator"].is("agent")
+        && record.get("actor").is_some_and(|actor| {
+            actor
+                .compact(false)
+                .ok()
+                .and_then(|json| {
+                    serde_json::from_str::<crate::think_record::GoalConfirmation>(&json).ok()
+                })
+                .is_some_and(|actor| {
+                    matches!(actor.actor(), Ok(crate::think_record::Actor::Agent(_)))
+                })
+        });
+    let mut allowed = fields.to_vec();
+    if agent {
+        allowed.push("actor");
+    }
+    (super::exact(&record, &allowed)
+        && (agent || record["schema_version"] == int(2))
         && fields
             .iter()
             .filter(|k| **k != "schema_version")
@@ -293,7 +310,7 @@ fn confirmation_record(directory: &Path) -> Option<Value> {
     .then_some(record)
 }
 
-/// Verify only matching human receipts, seed bytes, decisions and admitted acceptance records.
+/// Verify matching operator or named-agent receipts, seed bytes, decisions and acceptance records.
 /// Legacy or interrupted confirmation stays unverified; this proves content, not identity or truth.
 pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
     let refused = |reason: String| {
@@ -312,7 +329,7 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
     if !seed["line_1"].is(CONFIRMED) {
         return refused(format!(
             "the seed is not confirmed (line 1 is {})",
-            repr(seed["line_1"].string().unwrap())
+            repr(seed["line_1"].string().ok_or("Invalid seed status line.")?)
         ));
     }
     let Some(record) = confirmation_record(directory) else {
@@ -320,10 +337,34 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
             "the seed has no confirmation record from `seed confirm` in this session".into(),
         );
     };
-    if record["session_id"] != ledger["session_id"] || !record["operator"].is("human") {
+    if record["session_id"] != ledger["session_id"]
+        || !(record["operator"].is("human")
+            || (record["schema_version"] == int(3) && record["operator"].is("agent")))
+    {
         return refused("the confirmation record belongs to another session".into());
     }
-    let label = record["revision"].string().unwrap();
+    let Some(label) = record["revision"].string() else {
+        return refused("the confirmation revision is missing".into());
+    };
+    if record["schema_version"] == int(3) {
+        let Ok(actor) = serde_json::from_str::<crate::think_record::GoalConfirmation>(
+            &record["actor"].compact(false)?,
+        ) else {
+            return refused("the seed actor is invalid".into());
+        };
+        let (Some(source), Some(timestamp)) =
+            (record["source"].string(), record["confirmed_at"].string())
+        else {
+            return refused("the confirmation source or date is missing".into());
+        };
+        let expected = confirmation_note(source, label, timestamp, actor.actor()?)?;
+        if !seed_lines(directory)?
+            .iter()
+            .any(|line| split_terminator(line).0 == expected)
+        {
+            return refused("the agent attribution does not match the confirmed seed".into());
+        }
+    }
     if record["seed_sha256"] != seed["sha256"] {
         return refused(format!(
             "the seed changed after revision {label} was confirmed"
@@ -344,6 +385,7 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
     }
     Ok(object(&[
         ("verified", Value::Bool(true)),
+        ("operator", record["operator"].clone()),
         (
             "reason",
             format!("revision {label} as confirmed").as_str().into(),
@@ -376,12 +418,13 @@ pub fn status(directory: &Path) -> Result<Value> {
     ]))
 }
 
-pub(super) fn confirmed(
+pub(super) fn confirmed_as(
     directory: &Path,
     ledger: &Value,
     revision_label: &str,
     source: &str,
     timestamp: &str,
+    actor: crate::think_record::Actor<'_>,
 ) -> Result<(String, Value, Value)> {
     require(
         super::operator(ledger).is("human"),
@@ -394,7 +437,7 @@ pub(super) fn confirmed(
         ledger["status"].is("active"),
         format!(
             "session is not active ({}): confirm before ending it",
-            ledger["status"].string().unwrap()
+            ledger["status"].string().ok_or("Invalid session status.")?
         ),
     )?;
     require(
@@ -405,8 +448,12 @@ pub(super) fn confirmed(
         .items()
         .iter()
         .filter(|n| n["status"].is("unresolved"))
-        .map(|n| n["id"].string().unwrap())
-        .collect();
+        .map(|n| {
+            n["id"]
+                .string()
+                .ok_or_else(|| "Invalid decision identity.".to_owned())
+        })
+        .collect::<Result<Vec<_>>>()?;
     require(
         unresolved.is_empty(),
         format!("unresolved nodes remain: {}", unresolved.join(", ")),
@@ -454,11 +501,9 @@ pub(super) fn confirmed(
         .enumerate()
         .skip(1)
         .find_map(|(i, s)| revision(s).map(|r| (i, r.to_owned())));
-    require(
-        found.is_some(),
-        format!("{FILE} has no 'revision:' line, so the revision cannot be matched"),
-    )?;
-    let (index, label) = found.unwrap();
+    let (index, label) = found.ok_or_else(|| {
+        format!("{FILE} has no 'revision:' line, so the revision cannot be matched")
+    })?;
     require(
         label == revision_label.trim_matches(whitespace),
         format!(
@@ -478,13 +523,7 @@ pub(super) fn confirmed(
     }
     .to_owned();
     let (body, terminator) = split_terminator(&lines[index]);
-    let date = timestamp
-        .get(..10)
-        .ok_or("invalid confirmation timestamp")?;
-    let note = format!(
-        "Confirmed by: \"{}\" (revision {label}, {date}). Not approved for implementation.",
-        source.trim_matches(whitespace)
-    );
+    let note = confirmation_note(source, &label, timestamp, actor)?;
     let next = if !terminator.is_empty() {
         note + terminator
     } else {
@@ -496,7 +535,7 @@ pub(super) fn confirmed(
     lines.insert(index + 1, next);
     let confirmed = lines.concat();
     let digest = sha256(confirmed.as_bytes());
-    let record = object(&[
+    let mut record = object(&[
         ("schema_version", int(2)),
         ("checks_sha256", checks::digest(&records)?.as_str().into()),
         ("session_id", ledger["session_id"].clone()),
@@ -510,6 +549,16 @@ pub(super) fn confirmed(
             decisions_digest(ledger)?.as_str().into(),
         ),
     ]);
+    if let Some(context) = actor.context() {
+        record.set("schema_version", int(3));
+        record.set("operator", "agent".into());
+        record.set(
+            "actor",
+            Value::from(
+                serde_json::to_value(context).map_err(|_| "Cannot encode seed attribution.")?,
+            ),
+        );
+    }
     let result = object(&[
         (
             "seed",
@@ -520,6 +569,22 @@ pub(super) fn confirmed(
         ("sha256", digest.as_str().into()),
     ]);
     Ok((confirmed, record, result))
+}
+
+fn confirmation_note(
+    source: &str,
+    label: &str,
+    timestamp: &str,
+    actor: crate::think_record::Actor<'_>,
+) -> Result<String> {
+    let date = timestamp.get(..10).ok_or("Invalid confirmation date.")?;
+    let attribution = actor.context().map_or(String::new(), |context| {
+        format!("; caller-declared {}", one_line(&context.details()))
+    });
+    Ok(format!(
+        "Confirmed by: \"{}{attribution}\" (revision {label}, {date}). Not approved for implementation.",
+        source.trim_matches(whitespace)
+    ))
 }
 
 #[cfg(test)]

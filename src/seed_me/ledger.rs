@@ -22,8 +22,8 @@ pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub(crate) use storage::save_draft;
 pub use storage::{
-    PublishError, SaveState, confirm_seed, confirm_with_teach_back, end, initialize, publish,
-    record_teach_back, respond, revalidate, set_checks,
+    PublishError, SaveState, confirm_as, confirm_seed, confirm_with_teach_back, end, initialize,
+    publish, record_teach_back, respond, revalidate, set_checks,
 };
 mod python;
 mod value;
@@ -815,6 +815,17 @@ pub fn review_flags(nodes: &Value) -> Value {
     flags
 }
 
+fn validate_revalidation(revalidated: &Value) -> Result<()> {
+    require(
+        revalidated.object().is_some(),
+        "invalid revalidation targets",
+    )?;
+    require(
+        revalidated.fields().iter().all(|(_, v)| text(v)),
+        "revalidation requires a justification",
+    )
+}
+
 /// Propose the next ledger with a caller-supplied timestamp; never write it.
 /// Refuse stale versions, attribution changes, deletions and unreviewed dependent settlements.
 pub fn transition(
@@ -937,14 +948,7 @@ pub fn transition(
         .filter(|v| **v != Value::Null)
         .cloned()
         .unwrap_or_else(|| object(&[]));
-    require(
-        revalidated.object().is_some(),
-        "invalid revalidation targets",
-    )?;
-    require(
-        revalidated.fields().iter().all(|(_, v)| text(v)),
-        "revalidation requires a justification",
-    )?;
+    validate_revalidation(&revalidated)?;
     for id in &affected {
         let next = find(new, id);
         if next["status"].is("settled") {
