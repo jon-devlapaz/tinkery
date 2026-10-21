@@ -39,6 +39,8 @@ enum State {
     Older,
 }
 
+// Coupled to tink-sdlc's exact wording for a run without a canonical ID. If that text changes,
+// such runs fall back to "can't be read", which fails safe.
 const OLDER_ID_ERROR: &str =
     "Run run_id must be a canonical UUIDv4 string; create runs with sdlc.py new.";
 const OLDER_REASON: &str =
@@ -60,11 +62,12 @@ impl State {
     }
 
     /// Whether a person is owed something: a gate decision (tink-sdlc reports `blocked` only
-    /// while a gate isn't approved), or a failed, interrupted or unreadable run.
+    /// while a gate isn't approved), or a failed, interrupted or unreadable run. An older run
+    /// owes nothing: there is no action to take on it.
     fn needs_you(self) -> bool {
         matches!(
             self,
-            Self::Blocked | Self::Failed | Self::Interrupted | Self::Invalid | Self::Older
+            Self::Blocked | Self::Failed | Self::Interrupted | Self::Invalid
         )
     }
 
@@ -487,11 +490,18 @@ impl Watch {
 
     fn read_detail(&mut self, slug: String) {
         self.scroll = 0;
-        if let Some(run) = self
-            .runs()
-            .and_then(|runs| runs.iter().find(|run| run.slug == slug))
-            && run.state == State::Older
-        {
+        // An older run's detail comes from the same summary read, so its time is that read's.
+        let older = match &self.list {
+            Some(Load::Done(Ok(runs), at))
+                if runs
+                    .iter()
+                    .any(|run| run.slug == slug && run.state == State::Older) =>
+            {
+                Some(*at)
+            }
+            _ => None,
+        };
+        if let Some(at) = older {
             self.detail = Some((
                 slug,
                 Load::Done(
@@ -507,10 +517,7 @@ impl Watch {
                         checklist: Vec::new(),
                         errors: Vec::new(),
                     }),
-                    match &self.list {
-                        Some(Load::Done(_, at)) => *at,
-                        _ => unreachable!("a listed older run has a completed summary read"),
-                    },
+                    at,
                 ),
             ));
         } else if let Some(root) = &self.root {

@@ -109,7 +109,10 @@ fn older_runs_without_canonical_ids_are_read_only_not_unreadable() {
         let run = &watch.runs().unwrap()[0];
         assert_eq!(run.state, State::Older);
         assert_eq!(run.next, OLDER_REASON);
-        assert!(run.needs_you(), "unknown verification isn't quiet");
+        assert!(
+            !run.needs_you(),
+            "an older run owes nothing; it lists plainly"
+        );
         watch.key(KeyEvent::from(KeyCode::Enter));
         settle(&mut watch);
         let text = detail_text(
