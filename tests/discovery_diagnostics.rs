@@ -25,7 +25,6 @@ fn fixture() -> (tempfile::TempDir, Home) {
     let mut home = Home::new(
         Box::new(BrainDump::default),
         Ok(dir.path().to_path_buf()),
-        dir.path().join("TEST-no-substrate"),
         Err("TEST links disabled".into()),
     );
     home.handle_key(key(KeyCode::Char('3')));

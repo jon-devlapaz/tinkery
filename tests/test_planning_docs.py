@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = {
     "## Starting point": "019bbfbc2b2ccc0399342bd55d5b13fe3c71b7f58b1604866dff20b20f7f0cd3",
-    "## Finish line": "b914cba7df350e6638e4e331a39eb4556c18dc419a9e5e62abfb3c1561c27dd9",
+    "## Finish line": "45cf34c51c1a3d7bec834bc7d44e7797ea7979dd405f6b4eb16a3344fa780005",
     "## Milestones and dependencies": "db47e232c84d3b61042d0c7e41437cbe84d8907acab0dc4e9d6279253a772b77",
     "## How to measure the benefit": "02169dfc426f72fb0e25b3a29209ddf5507a5db78f81ba2e532611fec7e19a54"
 }
@@ -16,7 +16,7 @@ PROPOSALS = {
     "### Multiple-choice answers": "93520a3704106c8bbce67477a89e501408435326f5907655b24fa6c19833be4d",
     "### Scratch-space spike — design only": "a15e1bc9afa5bc122563d5528e68ffb588a75a6524d098b4dd1d37f1e6f7619a",
     "### A calm dark theme": "815b024ed6a9264b23cff0f39b798936b10aab5667520f3c8b1e660add88182b",
-    "### Absorb substrate: keep runs and learn from them": "b969281a1f93469e73bdd02433136c47a9b2ca2dfce446ac6e74b3fa42485cf6"
+    "### Keep runs and learn from them": "17e01c0b79d0febe90f2ad5c469d6a8f108af92349d8a4ddbba3513e8b48ab87"
 }
 
 
@@ -50,7 +50,7 @@ class PlanningDocumentationTests(unittest.TestCase):
             self.assertIn("**Read:** [safeguards](#shared-safeguards)", section)
         for boundary in ("or make copying or sending confirm anything", "imply unused words are rejected",
                          "Force choices", "mix guesses with verbatim cards", "persist canvases",
-                         "invent operator dumps", "break NO_COLOR", "Don't add features to substrate"):
+                         "invent operator dumps", "break NO_COLOR", "Don't restore the retired aggregation dependency"):
             self.assertIn(boundary, source)
 
 

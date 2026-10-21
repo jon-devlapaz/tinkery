@@ -6,7 +6,7 @@ Seed Me fixture `.ci-seed-me` at `c9d766760dbeac0c05c92108165f9e968bec0a66` (CI'
 Rust 1.99.1 stable, Node 22.22.0, Python 3.13.16, Linux cloud container.
 
 **This run is stub-driven.** The model and provider budget was zero. A stub `pi` returned fixed
-readings and Shape steps, and a fake `tink_substrate` module returned the Measure report. That
+readings and Shape steps, and a fake retired ledger module returned the Measure report. That
 proves mechanics and copy, not real-dump goal quality, human recognition or colour appearance.
 Every run used a `tinkery-TEST-dogfood-*` temporary root, with HOME, sessions, records, links
 and the substrate all inside it. `~/.local/share/seed-me` and `~/.local/share/tinkery` were never

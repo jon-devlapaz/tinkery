@@ -9,9 +9,9 @@ design, not the binding writer or R5. I2 [#110](https://github.com/jon-devlapaz/
 and R5 [#111](https://github.com/jon-devlapaz/tinkery/issues/111) are published;
 both issues remain `needs-approval`.
 
-[Substrate absorption](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
-makes Tinkery the shared-reader owner. Seed Me, SDLC and GitHub retain their records
-and decisions. Substrate formats are compatibility inputs, not a permanent service.
+[Run retention and lessons](../research/shared/backlog.md#keep-runs-and-learn-from-them)
+remain separate proposals. Seed Me, SDLC and GitHub retain their records and decisions.
+The external aggregation tool is retired; Measure currently reads no source.
 R5 requires [explicit binding](#goal-to-run-identity-prerequisite), never matching
 titles, seed paths or a manually selected pair.
 

@@ -182,10 +182,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let default_root_requested = seed_session_root.is_none();
     let link_root = tinkery::tend::needs::resolve_root(link_root);
-    let (default_sessions, substrate_dir) = Home::default_paths();
     let sessions_root = match seed_session_root {
         Some(root) => Ok(tinkery::seed_me::resolve_root(Some(root))?),
-        None => default_sessions,
+        None => tinkery::seed_me::default_root(std::env::var_os("HOME").as_deref()),
     };
     if shape_pi && !snapshot {
         sessions_root.as_ref().map_err(Clone::clone)?;
@@ -253,7 +252,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             Box::new(move || make_dump().with_voice(Box::new(tinkery::voice::ProcessHost::new())))
         };
-        let mut menu = Home::new(make_dump, sessions_root, substrate_dir, link_root.clone())
+        let mut menu = Home::new(make_dump, sessions_root, link_root.clone())
             .with_repo(repo)
             .with_shape_agent(shape_agent)
             .with_shape_held(
@@ -283,7 +282,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             migration,
         );
         ratatui::restore();
-        app.shutdown();
         if let Some(receipt) = result? {
             println!("{receipt}");
         }
@@ -330,7 +328,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         migration,
     );
     ratatui::restore();
-    app.shutdown();
     if let Some(receipt) = result? {
         println!("{receipt}");
     }
@@ -342,12 +339,6 @@ enum Intake {
     Brain(Box<BrainDump>),
 }
 impl Intake {
-    fn shutdown(&mut self) {
-        if let Self::Home(home) = self {
-            home.shutdown_measure(|notice| eprintln!("{notice}"));
-        }
-    }
-
     fn quit(&self) -> bool {
         match self {
             Self::Home(a) => a.quit,

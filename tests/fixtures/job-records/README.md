@@ -54,45 +54,27 @@ failed/interrupted checks); all 3 selected Substrate tests passed (head mismatch
 nonpassing CI states, and conflicting change-ID/PR links). The saved-shape check
 below and document link checks passed. Rust, Node and PTY tests were not run.
 
-To check the saved shapes and direct links without contacting GitHub, run from
-the Tinkery root with the pinned source checkouts as arguments:
+The aggregation dependency is retired. To check the saved JSON and direct links
+without upstream checkouts or GitHub, run from the Tinkery root. This does not
+rerun the historical upstream validation above:
 
 ```sh
-python3 -B - /path/to/pinned-seed-me /path/to/pinned-tink-substrate <<'PY'
-import hashlib, importlib.util, json, pathlib, subprocess, sys, tempfile
-from unittest.mock import patch
-seed, substrate = map(pathlib.Path, sys.argv[1:])
-for root, expected in [(seed, '1a2f31a136d53bceff51ae8c2e0e787c1a8a90bb'),
-                       (substrate, '0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02')]:
-    assert subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() == expected
-spec = importlib.util.spec_from_file_location('seed_session', seed / 'skills/seed-me/scripts/session.py')
-session = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(session)
-sys.path.insert(0, str(substrate))
-from tink_substrate.sources import pr_state, read_record
+python3 -B - <<'PY'
+import hashlib, json, pathlib
 root = pathlib.Path('tests/fixtures/job-records')
 value = json.loads((root / 'current.json').read_text())
 json.loads((root / 'cases.json').read_text())
-with tempfile.TemporaryDirectory(prefix='TEST-job-records-') as temporary:
-    folder = pathlib.Path(temporary)
-    (folder / 'ledger.json').write_text(json.dumps(value['seed_ledger']))
-    (folder / 'seed-contract.md').write_bytes((root / 'seed-contract.md').read_bytes())
-    ledger = session.load(folder)
-    session.require_seed_line(folder, session.STATUS_CONFIRMED)
-    session.require_seed_body(folder, 'TEST')
+ledger = value['seed_ledger']
 assert value['think']['goal'] == ledger['goal']
 assert value['think']['seed_me_session'] == ledger['session_id']
 assert hashlib.sha256((root / 'seed-contract.md').read_bytes()).hexdigest() == value['sdlc_run']['seed_contract']['sha256']
 assert value['sdlc_decision']['inputs'] == value['sdlc_verification']['inputs']
-record = read_record(root / 'work.md')
-with patch('tink_substrate.sources.command', return_value=json.dumps(value['github_pr'])):
-    assert pr_state(record['pr'])['ci'] == 'passed'
 try:
     json.loads((root / 'unreadable-ledger.json').read_text())
 except ValueError:
     pass
 else:
     raise AssertionError('unreadable example parsed')
-print('Saved fixture shapes and direct links checked; no real outcome asserted.')
+print('Saved JSON and direct links checked; no upstream validation or real outcome asserted.')
 PY
 ```

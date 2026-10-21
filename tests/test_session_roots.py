@@ -18,8 +18,7 @@ class SessionRootTests(unittest.TestCase):
         self.cwd = self.root / 'TEST-cwd'
         self.cwd.mkdir()
         self.env = {'PATH': os.environ['PATH'], 'TERM': 'xterm-256color',
-                    'TINKERY_NODE': '/tinkery-TEST-no-node', 'PYTHONDONTWRITEBYTECODE': '1',
-                    'TINK_SUBSTRATE_DIR': str(self.root / 'TEST-no-substrate')}
+                    'TINKERY_NODE': '/tinkery-TEST-no-node', 'PYTHONDONTWRITEBYTECODE': '1'}
         self.host = self.root / 'TEST-never-pi'
         self.called = self.root / 'TEST-provider-called'
         self.host.write_text('#!/bin/sh\nprintf unexpected > "' + str(self.called) + '"\nexit 99\n')

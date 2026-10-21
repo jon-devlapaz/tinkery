@@ -74,7 +74,6 @@ fn shape_screen(root: &Path, width: u16, height: u16, no_color: bool) -> String 
     let mut home = Home::new(
         Box::new(BrainDump::default),
         Ok(root.to_path_buf()),
-        root.join("TEST-no-substrate"),
         Err("TEST links disabled".into()),
     )
     .with_record_root(root.join("TEST-no-records"));

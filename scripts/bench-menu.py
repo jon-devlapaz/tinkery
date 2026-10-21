@@ -48,7 +48,7 @@ def sample(binary, home):
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', HEIGHT, WIDTH, 0, 0))
     screen = Screen(WIDTH, HEIGHT)
     env = {'HOME': str(home), 'TERM': 'xterm-256color', 'PATH': os.environ.get('PATH', ''),
-           'TINK_SUBSTRATE_DIR': str(home / 'no-substrate'), 'TINKERY_NODE': '/tinkery-TEST-no-node'}
+           'TINKERY_NODE': '/tinkery-TEST-no-node'}
     t0 = time.monotonic_ns()
     process = subprocess.Popen([str(binary), '--home'], stdin=slave, stdout=slave, stderr=slave, cwd=home, env=env)
 
