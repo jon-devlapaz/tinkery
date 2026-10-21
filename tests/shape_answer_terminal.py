@@ -49,7 +49,9 @@ choices = []
 if len(r['sources']) == 1:
     choices = [dict(part='must_not', text='Private text', answers=['omit', 'include'],
                     question='May refusals show private text?')]
-print(json.dumps({'parts': {'who': 'I', 'outcome': 'keep refusals calm', 'why': 'the work is stuck',
+print(json.dumps({'parts': {'who': 'I',
+                            'outcome': 'Keep refusals calm' if os.environ.get('TINKERY_TEST_WHEN') else 'keep refusals calm',
+                            'when': os.environ.get('TINKERY_TEST_WHEN'), 'why': 'the work is stuck',
                             'done_when': 'refusals never show private text'},
                   'decisions': choices, 'questions': []}))
 '''
@@ -164,7 +166,7 @@ def files(root):
 
 
 class Run:
-    def __init__(self, cwd, width, height, budget, replies=()):
+    def __init__(self, cwd, width, height, budget, replies=(), situation=None):
         self.cwd, self.width = cwd, width
         self.sessions = cwd / 'TEST-sessions'
         self.records = cwd / 'TEST-records'
@@ -181,6 +183,8 @@ class Run:
             args += ['--shape-budget', str(budget)]
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node',
                'TINKERY_TEST_DIR': str(cwd)}
+        if situation is not None:
+            env['TINKERY_TEST_WHEN'] = situation
         self.process = subprocess.Popen(args, stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                         cwd=cwd, env=subprocess.environment(env))
 
@@ -999,13 +1003,15 @@ def completion_review_display(width, height, done=False):
                 'Drafting step guess — decided: TEST café scope. Keep words.',
                 ('Drafting step guess — observed done: TEST README observed. No checks ran.' if done
                  else 'Drafting step guess: Nothing observed done.'),
-                'Drafting step guess: If TEST private text appears, Refusals never show private text. must fail.',
+                'Must fail: TEST private text appears',
+                'Check: Refusals never show private text.',
             ]:
                 run.read_until(line)
                 assert run.flat().index(line) < run.flat().index('F3 confirm seed r1'), run.screen.text()
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
             run.read_until('This is not implementation approval.')
             run.type('TEST confirm review')
+            run.send(b'\x1b[6~' * 10, 'Accepted as suggested:')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             print(f'Shape completion review display {"done" if done else "empty done"} passed at {width}x{height}: 1 stub call')
@@ -1071,12 +1077,15 @@ def teach_back(width, height, exhausted=False):
             run.type('TEST I confirm r1')
             before = files(run.sessions)
             run.send(F7, 'your teach-back')
-            run.send(b'cancel me\x1b', 'Teach-back cancelled. Nothing was saved.')
+            run.wait('TEST I confirm r1')
+            run.send(b'\x01cancel me\x1b', 'Teach-back cancelled. Nothing was saved.')
             run.wait('TEST I confirm r1')
             assert files(run.sessions) == before and len(run.calls()) == 1
             run.send(F7, 'your teach-back')
+            run.wait('TEST I confirm r1')
             words = 'TEST build sync.\r\nNo deletes.  '
-            run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', 'No deletes.')
+            # Select the prefill and replace it; the separate confirmation editor stays intact.
+            run.send(b'\x01\x1b[1;2F\x1b[200~' + words.encode() + b'\x1b[201~', 'No deletes.')
             run.send(F1, 'F7 saves and compares (one model call)')
             run.send(b'\x1b', 'your teach-back')
             assert files(run.sessions) == before and len(run.calls()) == 1
@@ -1128,6 +1137,8 @@ def teach_back_retry(width, height):
             run.send(F2, 'Seed draft r1')
             run.type('TEST confirm r1')
             run.send(F7, 'your teach-back')
+            run.wait('TEST confirm r1')
+            run.send(b'\x01\x1b[1;2F', 'your teach-back')
             run.type('TEST first teach-back')
             run.send(F7, 'The teach-back reply needs a mismatches list.')
             saved = helper.load(session)
@@ -1140,6 +1151,8 @@ def teach_back_retry(width, height):
             run.send(b'\x1b', 'F7 teach-back')
             assert len(run.calls()) == 2, 'A failed comparison retried on its own'
             run.send(F7, 'your teach-back')
+            run.wait('TEST confirm r1')
+            run.send(b'\x01\x1b[1;2F', 'your teach-back')
             run.type('TEST corrected teach-back')
             run.send(F7, 'Teach-back compared. Mismatches never block F3.')
             run.read_until('Teach-back guess: no mismatches reported.')
@@ -1156,8 +1169,74 @@ def teach_back_retry(width, height):
             run.close()
 
 
+def exit_hint(width, height, stage):
+    """An old goal receipt follows current files, not its save-time stage; all calls are stubs."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-exit-hint-') as directory:
+        cwd = Path(directory).resolve()
+        situation = 'For the first slice' if stage == 'goal' else 'for the first slice'
+        headline = ('Keep refusals calm, for me' + ('. ' if stage == 'goal' else ', ')
+                    + situation + '.')
+        run = Run(cwd, width, height, budget=1, replies=[{**SEED, 'found': []}], situation=situation)
+        try:
+            run.wait('1  think')
+            run.send(b'1', "What's on your mind?")
+            run.type('TEST calm refusals, first slice.')
+            run.send(F2, 'May refusals show private text?')
+            run.type('never')
+            run.send(F2, "Nothing I'm unsure about")
+            run.wait(headline)
+            run.send(F3, 'type confirm')
+            run.send(b'confirm\r', 'Saved.')
+            session = next(run.sessions.iterdir())
+            goal = helper.load(session)['goal']
+            assert goal.splitlines()[0] == headline, goal
+            run.send(F10, '3  shape')
+            if stage != 'goal':
+                run.open_shape()
+                run.wait('F2 look into the next question')
+                run.send(F2, 'Probe: pre-mortem')
+                run.type('TEST private text leaks.')
+                run.send(F2, 'Seed draft r1')
+                if stage in ('ready', 'stale'):
+                    helper.confirm_seed(session, 'r1', 'TEST fixture only: confirm r1')
+                if stage == 'stale':
+                    seed = session / 'seed-contract.md'
+                    seed.write_bytes(seed.read_bytes() + b'\nTEST changed after confirmation\n')
+                if stage == 'unreadable':
+                    (session / 'ledger.json').write_text('TEST invalid JSON')
+                run.send(F10, '3  shape')
+            before = files(run.sessions)
+            os.write(run.master, b'q')
+            output = bytearray()
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if select.select([run.master], [], [], .02)[0]:
+                    output.extend(os.read(run.master, 65536))
+                if run.process.poll() is not None:
+                    while select.select([run.master], [], [], .02)[0]:
+                        output.extend(os.read(run.master, 65536))
+                    break
+            assert run.process.poll() == 0, output
+            text = output.decode().replace('\r\n', '\n')
+            expected = {'goal': 'Next: shape it into a seed in Shape.',
+                        'draft': 'Next: confirm the seed draft in Shape.',
+                        'ready': 'Next: take the confirmed seed to Approve.',
+                        'stale': 'Next: check this session in Shape.',
+                        'unreadable': 'Next: check this session in Shape.'}[stage]
+            assert expected in text, text
+            assert text.count('Next:') == 1 and goal in text, text
+            assert all(word not in text for word in ('Invalid JSON', 'line 1 column', 'Error(')), text
+            assert files(run.sessions) == before, 'Exit changed session files'
+            assert len(run.calls()) == (0 if stage == 'goal' else 1)
+            print(f'Exit hint {stage} + situation spelling passed at {width}x{height}: stub replies only')
+        finally:
+            run.close()
+
+
 if __name__ == '__main__':
     for size in [(100, 30), (80, 24)]:
+        for stage in ('goal', 'draft', 'ready', 'stale', 'unreadable'):
+            exit_hint(*size, stage)
         completion_review_display(*size)
         completion_review_display(*size, done=True)
         teach_back_retry(*size)

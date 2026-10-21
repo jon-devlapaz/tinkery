@@ -213,11 +213,12 @@ pub fn completion_report(ledger: &Value, revision: &str, seed: &str) -> Vec<Stri
             lines.push(format!("Drafting step guess — observed done: {done}"));
         }
     }
+    if !review.failure_cases.is_empty() {
+        lines.push("Drafting step guess:".into());
+    }
     for failure in review.failure_cases {
-        lines.push(format!(
-            "Drafting step guess: If {}, {} must fail.",
-            failure.case, failure.statement
-        ));
+        lines.push(format!("Must fail: {}", failure.case));
+        lines.push(format!("  Check: {}", failure.statement));
     }
     lines
 }

@@ -131,10 +131,10 @@ fn detail_counts_proven_and_attested_items_and_refuses_unknown_gates() {
     assert_eq!(parsed.errors, ["TEST error"]);
     let load = Load::Done(Ok(parsed), Instant::now());
     let text = detail_text("TEST", &load, Palette::new(true)).to_string();
-    assert!(text.contains("Checklist: 1/2 passed · 1 by automated check, 1 by your attestation"));
+    assert!(text.contains("Checklist: 1/2 passed. How each is checked: 1 automated, 1 by you."));
     assert!(text.contains("pending (attested)"));
     let help = Watch::open(None).help_text();
-    assert!(help.contains("by automated check or by your attestation"));
+    assert!(help.contains("how each is checked: automated or by you"));
     assert!(help.contains("A proof kind does not mean the item passed."));
     assert!(
         parse_detail(&detail.replace("pending\",\"blocked", "skipped\",\"blocked"))
@@ -150,7 +150,7 @@ fn pending_attestation_kinds_do_not_claim_completed_attestations() {
     let parsed = parse_detail(&report.to_string()).unwrap();
     let load = Load::Done(Ok(parsed), Instant::now());
     let text = detail_text("TEST", &load, Palette::new(true)).to_string();
-    assert!(text.contains("Checklist: 0/4 passed · 0 by automated check, 4 by your attestation"));
+    assert!(text.contains("Checklist: 0/4 passed. How each is checked: 0 automated, 4 by you."));
     assert_eq!(text.matches("pending (attested)").count(), 4);
     assert!(!text.contains("4 attested"));
 }

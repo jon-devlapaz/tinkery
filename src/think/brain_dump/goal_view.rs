@@ -343,31 +343,21 @@ impl BrainDump {
             }
         }
     }
-    /// The text to print after the terminal is restored: the receipt (stopping the viewer this
-    /// visit started; the session stays active), or where to look after a save that didn't
-    /// finish. `None` when nothing was saved or attempted.
-    pub fn finish_handoff(&mut self) -> Option<String> {
-        if let Some(receipt) = self.handoff.receipt.as_mut() {
-            let mut text = receipt.text();
-            text.push_str(&format!(
-                "\nSession remains active. Saved ledger: {}",
-                receipt.session.join("ledger.json").display()
-            ));
-            if let Some(line) = self.record_line() {
-                text.push_str(&format!("\n{line}"));
-            }
-            return Some(text);
+    /// Retain a saved goal and recording notice, or an incomplete save's recovery location.
+    /// No session is read here: the exit receipt derives its next step when printed.
+    /// `None` when nothing was saved or attempted.
+    pub fn finish_handoff(&mut self) -> Option<seed_me::ExitReceipt> {
+        if let Some(receipt) = &self.handoff.receipt {
+            return Some(seed_me::ExitReceipt::Saved {
+                receipt: receipt.clone(),
+                record: self.record_line(),
+            });
         }
         self.handoff
             .config
             .as_ref()
             .and_then(Config::recovery_path)
-            .map(|p| {
-                format!(
-                    "Incomplete handoff; inspect saved session {}. No seed confirmed.",
-                    p.display()
-                )
-            })
+            .map(|session| seed_me::ExitReceipt::Incomplete { session })
     }
     pub(super) fn goal_key(&mut self, key: KeyEvent) -> bool {
         if self.handoff.job.is_some() {

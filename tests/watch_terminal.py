@@ -130,13 +130,26 @@ def journey(width, height, no_color, configured=True):
                 send(b'r', 'quiet-a  verification failed')
                 assert calls() == ['status --json', 'status quiet-a --json', 'status waits --json'] * 2
                 send(b'\r', 'Stage 3 gate: approved')
-                assert 'Checklist: 1/2 passed · 2 by automated check, 0 by your attestation' in ' '.join(screen.text().split())
+                assert 'Checklist: 1/2 passed. How each is checked: 2 automated, 0 by you.' in ' '.join(screen.text().split())
                 assert 'No confirmed seed was recorded for this run.' in screen.text()
                 assert 'Goal unknown' not in screen.text()
                 assert calls()[-1] == 'status quiet-a --json', calls()
                 send(b'\x1b', 'Needs you')
                 send(b'?', 'What Watch does')
                 send(b'?', 'Needs you')
+
+                # Four pending manual checks describe the method, never four given attestations.
+                pending = json.loads(json.dumps(DETAIL))
+                pending['run']['checklist'] = [
+                    {**pending['run']['checklist'][1], 'id': f'TEST-manual-{i}'} for i in range(4)]
+                set_state(list=envelope(runs=[run('TEST-pending', 'blocked')]),
+                          details={'TEST-pending': pending})
+                send(b'r', 'TEST-pending')
+                send(b'\r', 'Stage 3 gate: pending')
+                assert ('Checklist: 0/4 passed. How each is checked: 0 automated, 4 by you.'
+                        in ' '.join(screen.text().split())), screen.text()
+                assert '4 by your attestation' not in screen.text()
+                send(b'\x1b', 'Needs you')
 
                 # Summary counts cannot identify a manual observation. Detail must decide order.
                 long_detail = json.loads(json.dumps(DETAIL))

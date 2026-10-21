@@ -500,7 +500,7 @@ impl Shape {
                 && open.teach_back.is_none()
                 && open.offers_teach_back()
             {
-                open.teach_back = Some(Words::new(""));
+                open.teach_back = Some(Words::new(open.typed.text()));
                 open.notice = None;
                 return Leave::Stay;
             }

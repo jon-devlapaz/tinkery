@@ -483,6 +483,6 @@ fn run_shape(
     }
     Ok(match app {
         Intake::Home(a) => a.finish(),
-        Intake::Brain(a) => a.finish_handoff(),
+        Intake::Brain(a) => a.finish_handoff().map(|receipt| receipt.text()),
     })
 }

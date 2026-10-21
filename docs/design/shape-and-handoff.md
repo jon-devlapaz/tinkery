@@ -15,7 +15,11 @@ Nothing launches, opens a browser, pastes into a harness or starts implementatio
 Paths belong in F1 then `h`, with the [think record](think.md#think-record) below
 the session path. If recording fails, the goal stays saved; help and a muted receipt
 notice disclose the gap. Notices wrap without clipping in receipt and detail.
-The plain-text exit receipt may include recovery locations.
+The plain-text exit receipt may include recovery locations. Its next step is read
+from the session at exit, through the shared verifier: a verified confirmed seed
+points to Approve, a draft to confirming in Shape, and a goal without a seed to
+shaping. An unverifiable or unreadable session points to checking in Shape, never
+claims readiness; other ended sessions are named as ended.
 
 ## Tend: garden and detail
 
@@ -382,7 +386,8 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   reversals detected from earlier settled answers, delegated and assumed choices,
   exact acceptance of suggestions, and accepted-versus-chosen-otherwise counts.
   Shape displays these words without its own checks or formatter.
-- **Teach-back:** draft-only F7 opens optional words about what will and won't be built.
+- **Teach-back:** draft-only F7 opens optional words about what will and won't be built,
+  prefilled with any confirmation words already typed, editable in a separate box.
   F7 again saves them verbatim, then compares in one call behind F2's shared budget,
   with no tools or repository access;
   opening, typing, help and cancelling do not save or call. Confirmation words remain
@@ -475,10 +480,12 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   The validated review is preserved verbatim in append-only confirmed-goal receipts
   (`tinkery:review/completed`), using teach-back's revision and draft SHA-256 binding
   and recording path. These receipts are interview records, not changed goal evidence.
-  With the risk summary above F3, Shape labels each review line `Drafting step guess`:
-  settled choices, observed done (or `Nothing observed done.`), and one
-  `If <case>, <statement> must fail.` line per failure case. Only the review for these
-  exact draft bytes is shown. No check is run and F2's existing call budget is unchanged.
+  With the risk summary above F3, Shape marks the review as `Drafting step guess`:
+  settled choices, observed done (or `Nothing observed done.`), and each failure
+  case as `Must fail: <case>` followed by an indented `Check: <statement>` line.
+  Both strings stay verbatim; the label above them marks them as drafting guesses.
+  Only the review for these exact draft bytes is shown. No check is run and F2's
+  existing call budget is unchanged.
 - The separate final `checks` field carries every confirmed `Done when` line with
   its qualifiers as records in the bundled contract, not model-formatted
   criteria. Tinkery's ledger stores those records unchanged and

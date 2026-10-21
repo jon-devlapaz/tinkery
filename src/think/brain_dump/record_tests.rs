@@ -303,7 +303,7 @@ fn a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal()
         line.starts_with("Think record: ") && line.contains(&name),
         "{line}"
     );
-    assert!(a.finish_handoff().unwrap().contains(&line));
+    assert!(a.finish_handoff().unwrap().text().contains(&line));
 }
 
 #[test]
@@ -350,7 +350,7 @@ fn a_record_that_cannot_be_written_leaves_the_saved_goal_standing_and_says_so() 
         );
     }
     assert!(layout::how_text(&a).contains("Think record not written: "));
-    let printed = a.finish_handoff().unwrap();
+    let printed = a.finish_handoff().unwrap().text();
     assert!(printed.contains("Think record not written: "), "{printed}");
 }
 

@@ -132,7 +132,7 @@ fn main() {
         )
         .unwrap();
         assert!(!receipt.session.join("seed-contract.md").exists());
-        let text = app.finish_handoff().unwrap();
+        let text = app.finish_handoff().unwrap().text();
         std::fs::write(dir.join("test-receipt.txt"), &text).unwrap();
         println!("AUTOMATED TEST CONFIRMATION, NOT OPERATOR AFFIRMATION:\n{text}");
         return;

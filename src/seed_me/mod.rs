@@ -11,7 +11,7 @@ pub mod shaping;
 #[cfg(test)]
 mod tests;
 
-pub use save::{Affirmed, Choice, Config, Original, Receipt};
+pub use save::{Affirmed, Choice, Config, ExitReceipt, Original, Receipt};
 pub use session::{MAX_READ_FAILURES, ReadFailure, Record, Session, Stage, read, session_id};
 
 use std::{
