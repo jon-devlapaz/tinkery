@@ -26,9 +26,11 @@ or reinterprets it as fact. Tinkery's own words are visibly a guess.
 **The test:** is every original intact, and can the operator tell their words from Tinkery's at a glance?
 
 **4. Nothing runs by itself.** Tinkery starts no agent, harness or command, and writes no durable record, without
-an explicit human action in its interface. Copying is not running. Readiness is not consent.
+an explicit action in its interface by the operator or an agent acting within the operator's explicit
+authorization. Copying is not running. Readiness is not consent.
 **Why:** the operator decides; Tinkery prepares.
-**The test:** could this action happen without the operator pressing a key that says what it does?
+**The test:** could this action happen without the operator or an explicitly authorized agent pressing a key
+that says what it does?
 
 **5. One at a time.** One reading, at most one active question, one next step.
 **Why:** choices compete for attention; one clear thing invites an answer.
