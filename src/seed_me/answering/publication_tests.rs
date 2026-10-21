@@ -78,6 +78,7 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
             question: "TEST?".into(),
             gate: "TEST".into(),
             found: vec![],
+            resolves: None,
             suggestion: None,
             assumed: vec![Assumption {
                 text: "TEST default".into(),
@@ -121,7 +122,8 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
     for field in ["Risks and verification", "Knowledge map"] {
         let mut forged = prose.clone();
         forged[field] = "Probe: What would an expert ask? — answer: TEST invented operator answer — changed: nothing".into();
-        let error = draft_seed(&session, version, &forged, &checks, &[], root.path()).unwrap_err();
+        let error =
+            draft_seed(&session, version, &forged, &checks, &[], root.path(), None).unwrap_err();
         assert!(
             error
                 .to_string()
@@ -131,7 +133,7 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
         assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
         assert!(!session.join("seed-contract.md").exists());
     }
-    draft_seed(&session, version, &prose, &checks, &[], root.path()).unwrap();
+    draft_seed(&session, version, &prose, &checks, &[], root.path(), None).unwrap();
     let seed = fs::read_to_string(session.join("seed-contract.md")).unwrap();
     assert!(seed.contains("probe-pre-mortem [user] TEST my actual answer"));
     assert!(!seed.contains("TEST invented operator answer"));
@@ -153,6 +155,7 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
         &checks,
         &[],
         root.path(),
+        None,
     )
     .unwrap();
     confirm_seed(&session, &revision, "TEST yes to this seed only", None).unwrap();

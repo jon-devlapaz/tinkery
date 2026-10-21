@@ -28,6 +28,8 @@ const PROMPT: &str = include_str!("prompt.txt");
 
 #[cfg(test)]
 mod typed_tests;
+#[cfg(test)]
+mod unknown_tests;
 
 mod teach_back;
 
@@ -41,6 +43,9 @@ pub(super) const FIELDS: &[&str] = &[
     "question",
     "gate",
     "found",
+    "resolves",
+    "unknown",
+    "resolved_by",
     "checked",
     "observed",
     "claim",
@@ -420,14 +425,22 @@ fn look(
             checks,
             review,
             found,
+            resolves,
         } => {
             let records = crate::seed_me::ledger::Value::from(checks.clone());
             review
                 .validate(&records)
                 .map_err(|why| fail(Why::Model(why)))?;
-            let revision =
-                answering::draft_seed(session, expected, &confirming, &checks, &found, folder)
-                    .map_err(refused(answer_saved))?;
+            let revision = answering::draft_seed(
+                session,
+                expected,
+                &confirming,
+                &checks,
+                &found,
+                folder,
+                resolves.as_ref(),
+            )
+            .map_err(refused(answer_saved))?;
             let seed = std::fs::read_to_string(session.join("seed-contract.md")).map_err(|_| {
                 fail(Why::Model(
                     "The draft could not be read. Reopen Shape before trying again.".into(),
@@ -517,8 +530,9 @@ pub(super) enum Next {
     Seed {
         confirming: Value,
         checks: Value,
-        review: crate::seed_me::ledger::CompletionReview,
+        review: Box<crate::seed_me::ledger::CompletionReview>,
         found: Vec<Found>,
+        resolves: Option<Value>,
     },
 }
 
@@ -551,6 +565,7 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                 gate: text("gate").unwrap_or_else(|| question.clone()),
                 question,
                 found,
+                resolves: value.get("resolves").cloned(),
                 supported_by: value.get("supported_by").cloned(),
                 prerequisites: value.get("prerequisites").cloned(),
                 suggestion: text("suggestion"),
@@ -585,6 +600,7 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                 .map(|checks| Value::Array(checks.clone()))
                 .ok_or_else(|| "Seed reply field checks must be a non-empty list of check records.".to_owned())?,
             found,
+            resolves: value.get("resolves").cloned(),
         }),
         _ => Err(unusable()),
     }

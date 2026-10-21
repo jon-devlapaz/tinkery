@@ -11,6 +11,8 @@ pub use closing::{CompletionReview, FailureCase, confirmation_summary};
 mod answers;
 pub use answers::{AnswerAction, can_revise};
 mod checks;
+mod unknowns;
+pub use unknowns::{resolve_unknowns, resolved_unknown};
 mod questions;
 pub use questions::{next_question, queue_question, waiting_on};
 #[cfg(test)]
@@ -70,6 +72,7 @@ const NODE: &[&str] = &[
     "supported_by",
     "rationale",
     "delegation",
+    "resolved_by",
 ];
 const EVIDENCE: &[&str] = &[
     "status",
@@ -466,6 +469,9 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
         if node.has("claim") {
             validate_claim(node)?;
         }
+        if node.has("resolved_by") {
+            unknowns::validate_resolution(node, nodes)?;
+        }
         if node.has("supported_by") {
             validate_support(node, nodes)?;
         }
@@ -839,7 +845,9 @@ pub fn transition(
     let mut state = proposed.clone();
     state.default("assumed", array());
     state.default("operator", operator(ledger));
+    unknowns::reopen_changed_resolutions(ledger, &mut state);
     let ready = validate(&state)?;
+    unknowns::validate_new_resolutions(ledger, &state)?;
     require(
         state["operator"] == operator(ledger),
         "operator cannot change in a session",

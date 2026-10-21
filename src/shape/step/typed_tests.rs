@@ -122,17 +122,18 @@ fn session_sized_step_sends_findings_once_without_changing_saved_context() {
 #[cfg(unix)]
 #[test]
 fn delegated_pre_mortem_choices_reach_the_seed_as_settled() {
-    settled_probe_step(false);
+    settled_probe_step();
 }
 
 #[cfg(unix)]
 #[test]
 fn answered_pre_mortem_is_sent_once_and_not_reasked() {
-    settled_probe_step(true);
+    super::unknown_tests::resolved_read_only_step(true);
+    super::unknown_tests::resolved_read_only_step(false);
 }
 
 #[cfg(unix)]
-fn settled_probe_step(check_reask: bool) {
+fn settled_probe_step() {
     use crate::seed_me::{Affirmed, Config, ledger::fixtures::prose_reply};
     use std::{fs, os::unix::fs::PermissionsExt};
     let root = tempfile::Builder::new()
@@ -196,13 +197,10 @@ assert raw.count(probe['question']) == 1
 assert len(raw.encode()) <= 32768
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
 reply = json.loads({reply:?})
-if {check_reask} and "Read the ledger's settled probe-pre-mortem question and answer as already answered" not in prompt:
-    reply = {{'next':'question', 'id':'reasked', 'question':'TEST Reject directories or traverse them?', 'found':[]}}
-else:
-    settled = 'Carry settled Think and ledger answers, including delegated choices, into the seed as settled; never list them as unknown.' in prompt
-    reply['confirming']['Knowledge map'] = 'Settled: standard-library Python 3; see Decisions.' if settled else 'Language is unknown.'
+settled = 'Carry settled Think and ledger answers, including delegated choices, into the seed as settled; never list them as unknown.' in prompt
+reply['confirming']['Knowledge map'] = 'Settled: standard-library Python 3; see Decisions.' if settled else 'Language is unknown.'
 print(json.dumps(reply))
-"##, reply = reply.to_string(), check_reask = if check_reask { "True" } else { "False" })).unwrap();
+"##, reply = reply.to_string())).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Agent::new(
         program,
@@ -229,10 +227,8 @@ print(json.dumps(reply))
         "the answered pre-mortem was re-asked"
     );
     let seed = fs::read_to_string(session.join("seed-contract.md")).unwrap();
-    if !check_reask {
-        assert!(seed.contains("Settled: standard-library Python 3; see Decisions."));
-        assert!(!seed.contains("Language is unknown."));
-    }
+    assert!(seed.contains("Settled: standard-library Python 3; see Decisions."));
+    assert!(!seed.contains("Language is unknown."));
     assert!(seed.contains("probe-pre-mortem [delegated] TEST Use standard-library Python 3."));
     assert_eq!(agent.remaining(), 0);
     // Draft receipts may append to goal provenance; the settled answer itself stays verbatim.

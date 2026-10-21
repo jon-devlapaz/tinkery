@@ -433,7 +433,12 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   original context, stays unchanged; stored ledgers are never trimmed. Replies require typed `found` entries (see
   [grounding](#grounding-in-the-repository)) plus a next question and suggestion, or seed summary, prose sections
   and separate typed `review` and final `checks` fields;
-  anything else is a model error. A question may include optional `prerequisites`, a list
+  anything else is a model error. Either reply may include optional `resolves`, a list of
+  `{"unknown":"FACT-ID","resolved_by":"DECISION-ID"}` links to an already-settled answer.
+  Absence means no links; malformed or invalid links refuse the reply plainly, saving no
+  findings, question or resolution. An answer saved before that step stays saved.
+  [The ledger](shape-ledger.md#2-what-shape-writes) owns eligibility, history and reopening;
+  model coverage judgments are not semantic proofs. A question may include optional `prerequisites`, a list
   of existing decision IDs, preserved unchanged (absent means `[]`). Facts belong in `supported_by`,
   not prerequisites. The ledger alone refuses unknown IDs, cycles and invalid lists, saving no
   findings, question or assumptions from a refused reply. A held question stays open without
@@ -647,7 +652,9 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
   them with IDs and claims in `found_so_far`. Model replies cannot revalidate, confirm
   or settle a decision. Untyped `checked`/`observed` replies are refused, not guessed
   into types; existing sessions' untyped receipts still read and render unchanged.
-- `found_so_far` excludes only confirmed-goal provenance; recheck relied-on findings.
+- `found_so_far` excludes confirmed-goal provenance, superseded facts and resolved unknowns;
+  recheck relied-on active findings. Resolved unknowns remain in ledger history, not active
+  context or the seed's Decisions and Evidence blocks, including copied receipts.
 - `Grounded in:` lists deduplicated paths cited by recorded read-only findings.
   Missing read methods, absent citations and failed citation checks establish no
   read path; say when none are known. These are reported reads, not verified
@@ -656,7 +663,7 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 - The evidence section groups findings by check method, with claim type, scope,
   inference limits and support IDs for typed facts. Legacy receipts retain
   `- PATH:LINE: what was seen (observed DATE)`. Each finding appears once in this section;
-  the ledger's canonical Decisions block remains unchanged. Collapse internal whitespace to
+  the ledger's canonical Decisions block also omits resolved unknowns. Collapse internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
 - A finding citing `PATH:LINE` or `PATH:FIRST-LAST` that the folder lacks (missing, outside

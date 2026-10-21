@@ -863,6 +863,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
             review: serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[]})).unwrap(),
             checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
             found: vec![],
+            resolves: None,
         }
     );
     let Next::Seed { found, .. } = decode(
@@ -923,7 +924,8 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
             &serde_json::json!(legacy),
             &reply["checks"],
             &[],
-            root.path()
+            root.path(),
+            None,
         )
         .is_err()
     );
@@ -934,6 +936,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         &reply["checks"],
         &[],
         root.path(),
+        None,
     )
     .unwrap();
     let stored: serde_json::Value =
@@ -1004,7 +1007,8 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
                 &reply["confirming"],
                 &bad,
                 &[],
-                root.path()
+                root.path(),
+                None,
             )
             .is_err(),
             "accepted invalid checks: {bad}"
@@ -1043,6 +1047,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         &reply["checks"],
         &[],
         root.path(),
+        None,
     )
     .unwrap();
     let draft = std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
@@ -1496,6 +1501,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
                     .unwrap(),
                 &[],
                 temp.path(),
+                None,
             )
             .is_err()
         );
@@ -1515,6 +1521,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
             &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
             &[],
             temp.path(),
+            None,
         )
         .unwrap(),
         "r9"
@@ -1802,6 +1809,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 question: "TEST Local or synced?".into(),
                 gate: "TEST Storage disposition".into(),
                 found: vec![],
+                resolves: None,
                 suggestion: None,
                 assumed: vec![],
                 options: vec![],
@@ -1820,7 +1828,8 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json"))
                     .unwrap(),
                 &[],
-                temp.path()
+                temp.path(),
+                None,
             )
             .is_err()
         );
@@ -2467,6 +2476,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
         &[],
         temp.path(),
+        None,
     )
     .unwrap();
     answering::confirm_seed(&session, &revision, "TEST yes to this seed only", None).unwrap();
@@ -2725,6 +2735,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         question: "TEST Local or synced?".into(),
         gate: "TEST Storage disposition".into(),
         found: vec![],
+        resolves: None,
         suggestion: None,
         assumed: vec![assumption("TEST Markdown"), assumption("TEST one machine")],
         options: vec![],
@@ -2955,6 +2966,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             question: "TEST Local or synced?".into(),
             gate: "TEST Storage disposition".into(),
             found: vec![],
+            resolves: None,
             suggestion: Some("Local.".into()),
             assumed: vec![],
             options: vec![option("Local", "cheap"), option("Synced", undo)],
@@ -3109,6 +3121,7 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
             checked: "TEST-read.md:1".into(),
             observed: "TEST local only".into(),
         }],
+        resolves: None,
         suggestion: None,
         assumed: vec![],
         options: vec![],
