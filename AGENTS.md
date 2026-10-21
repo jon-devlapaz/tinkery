@@ -31,6 +31,8 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   task detail behind pointers.
   Preserve safeguards and runnable commands; brevity is not permission to weaken them.
   `tests/test_documentation.py` checks links, headings, paths, options and reachability.
+- Create each task's worktree at `~/dev/worktrees/<repo>/<branch>`, never inside a checkout
+  or beside one.
 - At rest, keep a clean `main` matching `origin/main` after a fetch, with no stashes,
   extra worktrees or leftover branches. Report open PRs instead of cleaning them up. Delete only
   merged branches (`git branch -d`); never force-delete branches, drop stashes or
