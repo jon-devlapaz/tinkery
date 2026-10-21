@@ -56,7 +56,7 @@ const WIDTH: u16 = 76;
 const HELD: &str =
     "Agent operation needs --agent-confirmation FILE. Shape only reads; Esc goes back.";
 /// F3 before the whole seed draft has been on screen.
-const READ_FIRST: &str = "Read to the end first: PgDn scrolls. Nothing was confirmed.";
+const READ_FIRST: &str = "PgDn to 'End of seed' first. Nothing was confirmed.";
 /// Refusals about the typed words; changing the words clears them.
 const WORD_REFUSALS: [&str; 4] = [
     "Type your answer first; nothing was saved.",
@@ -1833,7 +1833,7 @@ fn render_open(
                         .extend(Text::styled(line.clone(), palette.ink).lines);
                 }
             }
-            if let Some(form) = &open.form {
+            let (mut reading, input) = if let Some(form) = &open.form {
                 reading.lines.extend(said.lines);
                 reading.lines.push(Line::default());
                 reading
@@ -1851,7 +1851,14 @@ fn render_open(
                 }
                 reading.lines.extend(said.lines);
                 (reading, input)
+            };
+            if matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. }) {
+                reading.lines.push(Line::default());
+                reading
+                    .lines
+                    .push(Line::styled("End of seed", palette.muted));
             }
+            (reading, input)
         }
     };
     let rows = |text: &Text<'static>| {

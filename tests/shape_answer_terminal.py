@@ -214,12 +214,16 @@ class Run:
         os.write(self.master, data)
         self.wait(text)
 
-    def read_until(self, text, timeout=20):
+    def read_until(self, text, timeout=20, *, whole_line=False):
         """Read each rendered page; reaching the bottom can hide an earlier wrapped warning."""
         deadline = time.monotonic() + timeout
         want = ' '.join(text.split())
+        def shown():
+            if whole_line:
+                return any(line.strip() == text for line in self.screen.text().splitlines())
+            return want in self.flat()
         for _ in range(80):
-            if want in self.flat() and not self.screen.synchronized:
+            if shown() and not self.screen.synchronized:
                 return
             before = self.screen.text()
             os.write(self.master, b'\x1b[6~')
@@ -227,7 +231,7 @@ class Run:
                 if select.select([self.master], [], [], .02)[0]:
                     self.screen.feed(os.read(self.master, 65536))
                 if not self.screen.synchronized:
-                    if want in self.flat():
+                    if shown():
                         return
                     if self.screen.text() != before:
                         break
@@ -399,10 +403,10 @@ def full_journey(width, height):
             run.send(b'\x1b', 'Indeed, I confirm r1.')
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held F3 wrote or called'
             # F3 waits until the whole draft has been on screen (#250), and says so.
-            run.send(b'\x1b[H' + F3, 'Read to the end first: PgDn scrolls. Nothing was confirmed.')
+            run.send(b'\x1b[H' + F3, "PgDn to 'End of seed' first. Nothing was confirmed.")
             assert files(run.sessions) == before, 'F3 confirmed an unread draft'
             run.read_until('This is not implementation approval.')
-            run.send(b'\x1b[6~' * 10, 'Accepted as suggested:')
+            run.read_until('End of seed', whole_line=True)
             run.wait('Indeed, I confirm r1.')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
@@ -800,7 +804,7 @@ def typed_findings_review(width, height):
             run.type('TEST confirm only r1')
             run.read_until('This is not implementation approval.')
             # The handoff paragraph is not the end: confirmation rows follow it.
-            run.send(b'\x1b[6~' * 10, 'Accepted as suggested: 0; chosen otherwise: 2.')
+            run.read_until('End of seed', whole_line=True)
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == 2 and helper.load(session)['goal'] == GOAL
@@ -973,6 +977,7 @@ def closing_summary(width, height):
             for rule in ['Before drafting in this same step', 'Separate decided', 'one case that must fail']:
                 assert rule in prompt, rule
             run.type('TEST confirm only this seed')
+            run.read_until('End of seed', whole_line=True)
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
@@ -1037,7 +1042,7 @@ def completion_review_display(width, height, done=False, replay_299=False):
                     assert rows[check_row].index('Check:') > rows[case_row].index('Must fail:'), run.screen.text()
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
             run.type('TEST confirm review')
-            run.send(b'\x1b[6~' * 10, 'Accepted as suggested:')
+            run.read_until('End of seed', whole_line=True)
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             print(f'Shape completion review display {"#299 exact replay" if replay_299 else "done" if done else "empty done"} passed at {width}x{height}: 1 stub call')
@@ -1097,12 +1102,14 @@ def read_end_revision(width, height):
             run.open_shape()
             run.wait('F2 look into the next question')
             run.send(F2, 'Seed draft r1')
-            run.send(F3, 'Read to the end first: PgDn scrolls. Nothing was confirmed.')
+            seed_before = (session / 'seed-contract.md').read_text()
+            run.send(F3, "PgDn to 'End of seed' first. Nothing was confirmed.")
+            assert 'End of seed' not in seed_before
             run.read_until('TEST-SEED-END')
-            # Reach the risk summary too, then grow the editor without another scroll.
-            run.read_until('Accepted as suggested: 0; chosen otherwise: 1.')
-            os.write(run.master, b'\x1b[6~' * 10)
-            run.wait('Accepted as suggested: 0; chosen otherwise: 1.')
+            run.read_until('End of seed', whole_line=True)
+            assert sum(line.strip() == 'End of seed' for line in run.screen.text().splitlines()) == 1
+            assert (session / 'seed-contract.md').read_text() == seed_before
+            # The marker follows the risk summary too; grow the editor without another scroll.
             words = 'TEST I confirm r1. ' + 'TEST read already. ' * 30
             os.write(run.master, b'\x1b[200~' + words.encode() + b'\x1b[201~')
             run.wait('TEST read already.')
@@ -1167,8 +1174,7 @@ def teach_back(width, height, exhausted=False):
                 assert run.calls()[1]['cwd'] == str(cwd), run.calls()
                 assert run.calls()[1]['input'] == {'kind': 'teach-back',
                     'draft': (session / 'seed-contract.md').read_text(), 'operator_words': words}
-            run.read_until('Accepted as suggested: 0; chosen otherwise: 1.')
-            os.write(run.master, b'\x1b[6~' * 10)
+            run.read_until('End of seed', whole_line=True)
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
@@ -1216,8 +1222,7 @@ def teach_back_retry(width, height):
             run.type('TEST corrected teach-back')
             run.send(F7, 'Teach-back compared. Mismatches never block F3.')
             run.read_until('Teach-back guess: no mismatches reported.')
-            run.read_until('Accepted as suggested: 0; chosen otherwise: 1.')
-            os.write(run.master, b'\x1b[6~' * 10)
+            run.read_until('End of seed', whole_line=True)
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])

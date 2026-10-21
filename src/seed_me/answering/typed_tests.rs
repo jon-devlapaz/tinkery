@@ -21,6 +21,7 @@ fn question(found: Vec<Found>, supported_by: Option<Value>) -> Ask {
         question: "TEST choose?".into(),
         gate: "TEST gate".into(),
         found,
+        resolves: None,
         supported_by,
         prerequisites: None,
         suggestion: None,
@@ -136,7 +137,8 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
                     )),
                     &checks,
                     &question.found,
-                    root.path()
+                    root.path(),
+                    None,
                 )
                 .is_err()
             );
@@ -226,6 +228,7 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
         &checks,
         &[conflict],
         root.path(),
+        None,
     )
     .unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();

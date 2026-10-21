@@ -215,6 +215,7 @@ fn delegation_copies_the_suggestion_without_appending_reply_confidence() {
                 question: "TEST local or synced?".into(),
                 gate: "TEST storage gate".into(),
                 found: vec![],
+                resolves: None,
                 supported_by: Some(json!(["read"])),
                 prerequisites: None,
                 suggestion: Some(suggestion.into()),

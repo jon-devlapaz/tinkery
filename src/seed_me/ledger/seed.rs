@@ -158,6 +158,9 @@ fn one_line(s: &str) -> String {
 fn decisions_lines(ledger: &Value) -> Result<Vec<(String, String)>> {
     let mut rows = vec![("heading".into(), "## Decisions (from the ledger)".into())];
     for node in ledger["nodes"].items() {
+        if super::resolved_unknown(node) {
+            continue;
+        }
         let after = if node["prerequisites"].truth() {
             format!(
                 " (after: {})",

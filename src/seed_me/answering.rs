@@ -57,6 +57,8 @@ pub struct Ask {
     pub gate: String,
     /// Typed findings, validated only by the ledger.
     pub found: Vec<Found>,
+    /// Optional unknown-to-answer links, validated only by the ledger.
+    pub resolves: Option<Value>,
     /// Fact IDs grounding this decision, passed unchanged to the ledger.
     pub supported_by: Option<Value>,
     /// Earlier decision IDs this question waits for, passed unchanged to the ledger.
@@ -198,11 +200,11 @@ impl Ledger {
     pub fn goal(&self) -> Option<&str> {
         self.state["goal"].as_str()
     }
-    /// Typed facts with IDs and legacy receipts, excluding confirmed-goal provenance and history.
+    /// Active typed facts and legacy receipts, excluding provenance, history and resolved unknowns.
     pub fn findings(&self) -> Vec<Value> {
         let mut found: Vec<_> = nodes(&self.state)
             .into_iter()
-            .filter(|n| n["kind"] == "fact" && n["status"] != "superseded")
+            .filter(|n| n["kind"] == "fact" && n["status"] != "superseded" && !resolved_unknown(n))
             .collect();
         found.extend(
             receipts(&self.state, false)
@@ -223,6 +225,10 @@ impl Ledger {
             .filter_map(|n| n["id"].as_str().map(str::to_owned))
             .collect()
     }
+}
+
+fn resolved_unknown(node: &Value) -> bool {
+    ledger::resolved_unknown(&ledger::Value::from(node.clone()))
 }
 
 fn nodes(state: &Value) -> Vec<Value> {
@@ -258,7 +264,7 @@ fn receipts(state: &Value, include_facts: bool) -> Vec<Receipt> {
                             .is_some_and(|entries| entries.contains(entry))
                 })
             };
-            if !include_facts && fact.is_some() {
+            if fact.is_some_and(resolved_unknown) || (!include_facts && fact.is_some()) {
                 continue;
             }
             let field = |key: &str| entry[key].as_str().unwrap_or("").to_owned();
@@ -588,6 +594,8 @@ mod prerequisite_tests;
 #[cfg(test)]
 mod publication_tests;
 #[cfg(test)]
+mod resolution_tests;
+#[cfg(test)]
 mod typed_tests;
 
 /// Settle the open question `id` with the operator's `words`, exactly as typed, from the version
@@ -670,6 +678,7 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
         .filter_map(|n| n["id"].as_str().map(str::to_owned))
         .collect();
     let id = unique_id(&ask.id, &taken);
+    resolutions(&mut ledger.state, ask.resolves.as_ref())?;
     facts(&mut ledger.state, &ask.found, folder);
     let mut node = json!({
         "id": id, "kind": "decision", "status": "unresolved",
@@ -710,6 +719,15 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
         &format!("Tinkery Shape's agent step drafted the next question, {id}."),
         &ledger.state,
     )
+}
+
+fn resolutions(state: &mut Value, links: Option<&Value>) -> Result<(), Refusal> {
+    if let Some(links) = links {
+        let mut proposed = ledger_value(state)?;
+        ledger::resolve_unknowns(&mut proposed, &ledger_value(links)?).map_err(not_saved)?;
+        *state = json(&proposed.pretty().map_err(not_saved)?)?;
+    }
+    Ok(())
 }
 
 /// Keep a flagged node's answer unchanged, publishing only the operator's review reason.
@@ -883,6 +901,7 @@ pub fn promote(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
 /// are validated, stored and rendered only by Tinkery's ledger; no check is executed. Evidence
 /// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
 /// `seed decisions` unchanged, in the canonical Full sequence with no wrapper headings.
+/// Optional `resolves` links retire covered unknowns atomically with this step's findings.
 /// Returns the revision label, from version `expected`.
 /// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
 /// change the seed's structure, invalid records and a finding that looks like a secret.
@@ -894,6 +913,7 @@ pub fn draft_seed(
     checks: &Value,
     found: &[Found],
     folder: &Path,
+    resolves: Option<&Value>,
 ) -> Result<String, Refusal> {
     let mut ledger = read(session)?;
     if ledger.version != expected {
@@ -907,6 +927,7 @@ pub fn draft_seed(
         )));
     }
     let prose = seed_reply::prose(confirming)?;
+    resolutions(&mut ledger.state, resolves)?;
     facts(&mut ledger.state, found, folder);
     let grounding = receipts(&ledger.state, true);
     let path = session.join(SEED);
@@ -938,7 +959,7 @@ pub fn draft_seed(
     };
     let records = ledger::Value::parse(&checks.to_string()).map_err(not_saved)?;
     let rendered = ledger::checks_block(&records).map_err(not_saved)?;
-    let version = if found.is_empty() {
+    let version = if found.is_empty() && resolves.is_none() {
         expected
     } else {
         publish(
@@ -1198,6 +1219,7 @@ mod tests {
             question: "TEST Where do ended goals go?".into(),
             gate: "TEST view".into(),
             found: vec![],
+            resolves: None,
             suggestion: None,
             assumed: vec![],
             options: vec![

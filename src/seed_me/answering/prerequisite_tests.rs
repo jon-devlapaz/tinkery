@@ -10,6 +10,7 @@ fn proposal(id: &str, prerequisites: Option<Value>) -> Ask {
         question: format!("TEST choose {id}?"),
         gate: "TEST choice".into(),
         found: vec![],
+        resolves: None,
         supported_by: None,
         prerequisites,
         suggestion: None,

@@ -863,6 +863,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
             review: serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[]})).unwrap(),
             checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
             found: vec![],
+            resolves: None,
         }
     );
     let Next::Seed { found, .. } = decode(
@@ -923,7 +924,8 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
             &serde_json::json!(legacy),
             &reply["checks"],
             &[],
-            root.path()
+            root.path(),
+            None,
         )
         .is_err()
     );
@@ -934,6 +936,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         &reply["checks"],
         &[],
         root.path(),
+        None,
     )
     .unwrap();
     let stored: serde_json::Value =
@@ -1004,7 +1007,8 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
                 &reply["confirming"],
                 &bad,
                 &[],
-                root.path()
+                root.path(),
+                None,
             )
             .is_err(),
             "accepted invalid checks: {bad}"
@@ -1043,6 +1047,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         &reply["checks"],
         &[],
         root.path(),
+        None,
     )
     .unwrap();
     let draft = std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
@@ -1184,7 +1189,8 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
                         seen[index] = true;
                     }
                 }
-                view.key(key(KeyCode::Down));
+                // Down edits confirmation words; inspect each reading offset instead.
+                view.scroll = view.scroll.saturating_add(1);
             }
             assert!(
                 seen.iter().all(|s| *s),
@@ -1495,6 +1501,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
                     .unwrap(),
                 &[],
                 temp.path(),
+                None,
             )
             .is_err()
         );
@@ -1514,6 +1521,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
             &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
             &[],
             temp.path(),
+            None,
         )
         .unwrap(),
         "r9"
@@ -1733,7 +1741,7 @@ fn settled_intake_drafts_without_reopening_settled_or_deferred_decisions() {
     for rule in [
         "settled or explicitly deferred decisions do not block it",
         "Never reopen what the goal",
-        "a settled user-authority ledger answer settles",
+        "a settled user or delegated ledger answer settles",
         "record deferred choices as operator prerequisites in Open questions and deferrals",
         "choose no alternative",
         "When the goal and recorded answers settle what this draft must say, supply confirming",
@@ -1801,6 +1809,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 question: "TEST Local or synced?".into(),
                 gate: "TEST Storage disposition".into(),
                 found: vec![],
+                resolves: None,
                 suggestion: None,
                 assumed: vec![],
                 options: vec![],
@@ -1819,7 +1828,8 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json"))
                     .unwrap(),
                 &[],
-                temp.path()
+                temp.path(),
+                None,
             )
             .is_err()
         );
@@ -2466,6 +2476,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
         &[],
         temp.path(),
+        None,
     )
     .unwrap();
     answering::confirm_seed(&session, &revision, "TEST yes to this seed only", None).unwrap();
@@ -2724,6 +2735,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         question: "TEST Local or synced?".into(),
         gate: "TEST Storage disposition".into(),
         found: vec![],
+        resolves: None,
         suggestion: None,
         assumed: vec![assumption("TEST Markdown"), assumption("TEST one machine")],
         options: vec![],
@@ -2954,6 +2966,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             question: "TEST Local or synced?".into(),
             gate: "TEST Storage disposition".into(),
             found: vec![],
+            resolves: None,
             suggestion: Some("Local.".into()),
             assumed: vec![],
             options: vec![option("Local", "cheap"), option("Synced", undo)],
@@ -3108,6 +3121,7 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
             checked: "TEST-read.md:1".into(),
             observed: "TEST local only".into(),
         }],
+        resolves: None,
         suggestion: None,
         assumed: vec![],
         options: vec![],
@@ -3188,27 +3202,36 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
 
 #[test]
 fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
-    let mut shape = done(long_draft()).with_agent(Some(agent(0)));
-    screen(&mut shape, 80, 24, true);
-    shape.paste("I confirm r1.");
-    shape.key(key(KeyCode::F(3)));
-    assert!(shape.open.as_ref().unwrap().running.is_none());
-    assert!(screen(&mut shape, 80, 24, true).contains(READ_FIRST));
-    for _ in 0..30 {
-        shape.key(key(KeyCode::PageDown));
-        screen(&mut shape, 80, 24, true);
+    for (width, height) in [(100, 30), (80, 24)] {
+        let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+        screen(&mut shape, width, height, true);
+        shape.paste("I confirm r1.");
+        shape.key(key(KeyCode::F(3)));
+        assert!(shape.open.as_ref().unwrap().running.is_none());
+        let refusal = screen(&mut shape, width, height, true);
+        assert!(
+            refusal.contains("PgDn to 'End of seed' first."),
+            "{refusal}"
+        );
+        for _ in 0..30 {
+            shape.key(key(KeyCode::PageDown));
+            screen(&mut shape, width, height, true);
+        }
+        let text = screen(&mut shape, width, height, true);
+        let last = text.find("LAST TEST LINE").expect(&text);
+        let end = text.find("End of seed").expect(&text);
+        assert!(last < end, "{text}");
+        assert_eq!(text.matches("End of seed").count(), 1, "{text}");
+        assert!(
+            !text.contains(READ_FIRST),
+            "reaching the end left the refusal: {text}"
+        );
+        assert!(shape.open.as_ref().unwrap().read_end.is_some());
+        // A taller editor afterwards doesn't take back what was read.
+        shape.paste("\nmore words");
+        screen(&mut shape, width, height, true);
+        assert!(shape.open.as_ref().unwrap().read_end.is_some());
     }
-    let text = screen(&mut shape, 80, 24, true);
-    assert!(text.contains("LAST TEST LINE"), "{text}");
-    assert!(
-        !text.contains(READ_FIRST),
-        "reaching the end left the refusal: {text}"
-    );
-    assert!(shape.open.as_ref().unwrap().read_end.is_some());
-    // A taller editor afterwards doesn't take back what was read.
-    shape.paste("\nmore words");
-    screen(&mut shape, 80, 24, true);
-    assert!(shape.open.as_ref().unwrap().read_end.is_some());
 }
 
 #[test]

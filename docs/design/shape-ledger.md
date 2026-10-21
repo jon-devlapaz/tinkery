@@ -75,6 +75,17 @@ resolve a review flag.
   established X"). A question cites its facts through `supported_by`. "Not found" is never
   written as "does not exist". The seed's evidence section renders from these facts.
   This absorbs [#241](https://github.com/jon-devlapaz/tinkery/issues/241).
+- **Resolved unknowns (#310 live recheck).** The next step may link an open unknown fact
+  to the settled user or delegated decision whose answer covers it. The ledger alone validates
+  those IDs and authority, refusing any invalid link without changing the fact or saving the
+  reply. Accepted links retain the original claim, answer and receipts with `resolved_by` naming
+  that decision; publication preserves the unlinked state in history. Resolved unknowns leave
+  active findings and both ledger-rendered seed blocks (Decisions and Evidence), not the ledger.
+  If the covering answer changes or reopens, publication removes its link and preserves it in
+  history, making the unknown active again. No model reply settles a decision or resolves a
+  review flag; semantic coverage remains the model's judgment, not a code proof.
+  These defaults are Claude's call, not jondev's. The fixed pre-mortem cannot make a link at
+  question time; a later reply names the answer already recorded.
 - **Contradictions.** A fact may name the settled node it contradicts. The module flags that
   node and its dependents, and Shape shows the first flagged node as the current question:
   keep it and say why, or revise an operator-answered decision (see the [revision boundary](shape-and-handoff.md#answering-and-confirming)).
@@ -169,8 +180,11 @@ slice 8 moves only their location. Each slice had its own PR and approval:
 
 - Row 3 (implementation changes without touching callers) improves: ledger rules sit
   behind typed calls, not a JSON subprocess every caller decodes.
-- Row 6 (each module hides an important decision) improves: transitions, cascade and
-  review flags hide in one module.
+- Row 6 (each module hides an important decision) improves: transitions, cascade,
+  review flags and unknown-resolution eligibility hide in one module.
+- Rows 2 and 3 improve: a step proposes ID links without owning their rules; active findings
+  and seed projections consume the ledger's resolution marker, with no answer parser.
+  The existing ledger and Shape contracts keep that ownership visible (row 7).
 - The phase rule holds: the ledger is shared code that names no phase; Think, Tend,
   Shape and Approve use it as they use `seed_me/` today.
 - No limit in `tests/architecture.rs` changes in this document.
