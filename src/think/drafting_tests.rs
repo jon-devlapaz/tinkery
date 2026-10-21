@@ -84,7 +84,7 @@ fn failures_timeout_overflow_and_cancellation_never_return_output() {
     assert!(
         call(&limited, &"x".repeat(LIMIT + 1), &AtomicBool::new(false))
             .unwrap_err()
-            .contains("Encoded request exceeds 32 KiB")
+            .contains("This is too much to send at once.")
     );
     let (_directory, host) = host("import time; time.sleep(10)");
     let job = Job::launch(move |cancelled| call(&host, "words", cancelled));

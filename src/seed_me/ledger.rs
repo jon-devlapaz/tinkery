@@ -20,11 +20,11 @@ mod storage;
 pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
-pub(crate) use storage::save_draft;
 pub use storage::{
     PublishError, SaveState, confirm_as, confirm_seed, confirm_with_teach_back, end, initialize,
     publish, record_teach_back, respond, revalidate, set_checks,
 };
+pub(crate) use storage::{initialize_for, save_draft};
 mod python;
 mod value;
 pub use value::Value;
@@ -274,8 +274,8 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
     )?;
     let operator = operator(state);
     require(
-        one_of(&operator, &["human", "simulated"]),
-        "invalid operator: human or simulated",
+        one_of(&operator, &["human", "agent", "simulated"]),
+        "invalid operator: human, agent or simulated",
     )?;
     let assumed = state.get("assumed").cloned().unwrap_or_else(array);
     require(
@@ -441,8 +441,8 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
                 node["id"] == state["origin"]
                     && node["authority"].is("delegated")
                     && node["status"].is("settled")
-                    && operator.is("human"),
-                "delegation is only allowed on a delegated goal origin in a human session",
+                    && one_of(&operator, &["human", "agent"]),
+                "delegation is only allowed on a delegated goal origin in a human or agent session",
             )?;
             let delegation = &node["delegation"];
             require(

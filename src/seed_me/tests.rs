@@ -88,6 +88,57 @@ fn confirmed_goal_and_originals_are_read_back_without_a_skill_or_viewer() {
 }
 
 #[test]
+fn session_operator_and_answers_share_the_authorized_actor() {
+    let agent: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+        "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
+        "source":"TEST scoped goal and Shape permission", "class":{"door":"two_way",
+        "door_reason":"TEST reversible", "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
+    })).unwrap();
+    for (context, operator, authority) in [
+        (
+            crate::think_record::GoalConfirmation::default(),
+            "human",
+            "user",
+        ),
+        (agent, "agent", "delegated"),
+    ] {
+        let root = tempfile::Builder::new()
+            .prefix("tinkery-TEST-session-actor-")
+            .tempdir()
+            .unwrap();
+        let config = Config::new(Some(root.path().join("TEST-sessions")));
+        let receipt = config.confirm_as(affirmed(), &context).unwrap();
+        let saved = ledger::load(&receipt.session).unwrap().to_json().unwrap();
+        assert_eq!(saved["operator"], operator);
+        assert_eq!(saved["nodes"][0]["authority"], authority);
+        let before = fs::read(receipt.session.join("ledger.json")).unwrap();
+        assert_eq!(
+            config.confirm_as(affirmed(), &context).unwrap().session,
+            receipt.session
+        );
+        assert_eq!(
+            fs::read(receipt.session.join("ledger.json")).unwrap(),
+            before
+        );
+        let version = answering::probe(&receipt.session, saved["version"].as_u64().unwrap())
+            .unwrap()
+            .unwrap();
+        answering::answer(
+            &receipt.session,
+            version,
+            answering::PROBE.0,
+            "TEST exact answer\r\n ",
+            Some(&context),
+        )
+        .unwrap();
+        let saved = ledger::load(&receipt.session).unwrap().to_json().unwrap();
+        assert_eq!(saved["operator"], operator);
+        assert_eq!(saved["nodes"][1]["authority"], authority);
+        assert_eq!(saved["nodes"][1]["answer"], "TEST exact answer\r\n ");
+    }
+}
+
+#[test]
 fn evidence_labels_are_plain_and_leave_original_bytes_untouched() {
     let mut original = Original {
         id: 2,

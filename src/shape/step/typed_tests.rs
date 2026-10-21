@@ -3,6 +3,123 @@
 use super::*;
 
 #[test]
+fn session_sized_step_sends_findings_once_without_changing_saved_context() {
+    use crate::seed_me::{Affirmed, Config, Original};
+    let root = tempfile::Builder::new()
+        .prefix("TEST-send-once-")
+        .tempdir()
+        .unwrap();
+    let context = "TEST Think context: ".to_owned() + &"c".repeat(3920);
+    let goal = "TEST goal: ".to_owned() + &"g".repeat(1015);
+    let actor: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+        "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
+        "source":"TEST scoped authorization: ".to_owned() + &"s".repeat(200),
+        "class":{"door":"two_way", "door_reason":"TEST reversible scratch session",
+        "blast_radius":"small", "blast_radius_reason":"TEST isolated scratch roots"}
+    }))
+    .unwrap();
+    let session = Config::new(Some(root.path().join("TEST-sessions")))
+        .confirm_as(
+            Affirmed {
+                goal: goal.clone(),
+                outcome: "TEST outcome".into(),
+                options: vec![],
+                originals: vec![Original {
+                    id: 1,
+                    in_reply_to: None,
+                    text: "TEST original: ".to_owned() + &"o".repeat(700),
+                }],
+                context: context.clone(),
+                source: actor.source(),
+            },
+            &actor,
+        )
+        .unwrap()
+        .session;
+    let path = session.join("ledger.json");
+    let mut saved: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let origin = saved["nodes"][0].clone();
+    let actor = actor.actor().unwrap();
+    let receipt = json!({"checked":"Caller-declared authorization, not authenticated identity",
+        "at":"2026-10-21T00:00:00Z", "observed":actor.context().unwrap().details()});
+    // The dogfood had nine facts and four agent answers; these payloads are slightly larger.
+    let all = saved["nodes"].as_array_mut().unwrap();
+    for index in 0..9 {
+        let observed = format!("TEST finding {index}: {}", "f".repeat(300));
+        all.push(json!({"id":format!("fact-{index}"), "kind":"fact", "status":"settled",
+            "prerequisites":[], "answer":observed, "authority":"evidence", "authority_source":"TEST read-only investigation",
+            "claim":{"type":"observation", "scope":"TEST README.md:1"},
+            "evidence":[{"checked":"TEST README.md:1", "at":"2026-10-21T00:00:00Z", "observed":observed}],
+            "history":[], "revision":0}));
+    }
+    for index in 0..4 {
+        all.push(json!({"id":format!("answer-{index}"), "kind":"decision", "status":"settled",
+            "prerequisites":[], "owner":"User", "gate":"TEST settled choice", "label":format!("TEST choice {index}"),
+            "question":"TEST question: ".to_owned() + &"q".repeat(300),
+            "recommendation":"TEST suggestion: ".to_owned() + &"r".repeat(400),
+            "answer":"TEST answer: ".to_owned() + &"a".repeat(700), "authority":actor.authority(),
+            "authority_source":actor.reason("answered with these words in Tinkery Shape."),
+            "evidence":[receipt], "supported_by":["fact-0"], "history":[], "revision":0}));
+    }
+    std::fs::write(&path, serde_json::to_vec(&saved).unwrap()).unwrap();
+    let before = std::fs::read(&path).unwrap();
+    let ledger = answering::read(&session).unwrap();
+    let think = vec![json!({"question":"TEST Think question", "answer":"t".repeat(250)}); 2];
+    let request = input(&ledger, think.clone());
+    let mut duplicated = request.clone();
+    duplicated["ledger"] = serde_json::from_str(&ledger.context()).unwrap();
+    let before_size = serde_json::to_vec(&duplicated).unwrap().len();
+    let after_size = serde_json::to_vec(&request).unwrap().len();
+    eprintln!("TEST session-sized step: duplicated={before_size}, send-once={after_size}");
+    assert!(
+        before_size >= 37451,
+        "fixture must cover the measured dogfood size"
+    );
+    assert!(
+        after_size <= pi::LIMIT,
+        "{after_size} exceeds the unchanged request limit"
+    );
+    assert_eq!(request["goal"], goal);
+    assert_eq!(request["answered_in_think"], json!(think));
+    let decisions = request["ledger"]["nodes"].as_array().unwrap();
+    assert_eq!(decisions.len(), 5);
+    assert!(decisions.iter().all(|n| n["kind"] == "decision"));
+    let mut original = origin;
+    for field in ["history", "revision", "premise_version", "reviewed_version"] {
+        original.as_object_mut().unwrap().remove(field);
+    }
+    assert_eq!(decisions[0], original, "goal provenance must stay verbatim");
+    assert!(
+        decisions[0]["evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["observed"] == context)
+    );
+    assert!(decisions[1..].iter().all(|n| n["evidence"] == json!([])));
+    let findings = request["found_so_far"].as_array().unwrap();
+    assert_eq!(
+        findings.len(),
+        10,
+        "nine facts and one deduplicated attribution receipt"
+    );
+    for index in 0..9 {
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|n| n["id"] == format!("fact-{index}"))
+                .count(),
+            1
+        );
+    }
+    assert_eq!(std::fs::read(path).unwrap(), before);
+    assert_eq!(
+        ledger.context(),
+        answering::read(&session).unwrap().context()
+    );
+}
+
+#[test]
 fn zero_budget_refuses_revision_before_reading_or_publishing() {
     let root = tempfile::Builder::new()
         .prefix("TEST-revise-budget-")

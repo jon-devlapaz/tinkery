@@ -44,6 +44,7 @@ def journey(width, height):
             assert record['goal_confirmation'] == ACTOR
             session = run.sessions / record['seed_me_session']
             ledger = helper.load(session)
+            assert ledger['operator'] == 'agent'
             goal = ledger['goal']
             origin = next(n for n in ledger['nodes'] if n['id'] == ledger['origin'])
             assert origin['authority'] == 'delegated'
@@ -63,6 +64,7 @@ def journey(width, height):
             run.type('TEST I confirm r1 for this isolated run.')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             ledger = helper.load(session)
+            assert ledger['operator'] == 'agent'
             assert ledger['goal'] == record['goal'] == goal
             for node in ledger['nodes']:
                 if node['id'] in ('storage', 'probe-pre-mortem'):

@@ -175,6 +175,25 @@ impl Ledger {
     pub fn context(&self) -> String {
         serde_json::to_string_pretty(&self.state).unwrap_or_default()
     }
+    /// Model-only context paired with `findings()`: omit their fact nodes and copied evidence,
+    /// retaining goal provenance and superseded nodes. Never use this view for publication.
+    pub fn context_without_findings(&self) -> Value {
+        let mut context = self.state.clone();
+        context["nodes"] = nodes(&self.state)
+            .into_iter()
+            .filter_map(|mut node| {
+                if node["id"] == self.state["origin"] || node["status"] == "superseded" {
+                    return Some(node);
+                }
+                if node["kind"] == "fact" {
+                    return None;
+                }
+                node["evidence"] = json!([]);
+                Some(node)
+            })
+            .collect();
+        context
+    }
     /// The confirmed goal exactly as recorded, if any.
     pub fn goal(&self) -> Option<&str> {
         self.state["goal"].as_str()

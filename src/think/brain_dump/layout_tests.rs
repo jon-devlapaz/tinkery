@@ -336,7 +336,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*3150
                 assert!(logs.contains("provider rejected the input/context size"));
             }
             if mode == "review-cap" {
-                assert!(logs.contains("Encoded request exceeds 32 KiB"));
+                assert!(logs.contains("Start a smaller goal, keeping this one as a reference."));
                 let decision: checks::Decision =
                     serde_json::from_str(&pi.diagnostics()[0]).unwrap();
                 let raw = decision.raw.as_ref().unwrap();

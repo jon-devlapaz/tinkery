@@ -25,6 +25,39 @@ fn assert_blocked(directory: &Path, expected: &str) {
     assert_eq!(fs::read(directory.join("ledger.json")).unwrap(), before);
 }
 #[test]
+fn agent_sessions_require_verified_confirmation_to_complete() {
+    let root = fixture();
+    let directory = root.path();
+    let mut saved = load(directory).unwrap();
+    saved.set("operator", "agent".into());
+    fs::write(directory.join("ledger.json"), saved.pretty().unwrap()).unwrap();
+    let seed_path = directory.join(FILE);
+    let draft = fs::read_to_string(&seed_path)
+        .unwrap()
+        .replace(CONFIRMED, DRAFT)
+        .split_inclusive('\n')
+        .filter(|line| !line.starts_with("Confirmed by:"))
+        .collect::<String>();
+    fs::write(&seed_path, draft).unwrap();
+    assert_blocked(directory, "not confirmed");
+    let actor = serde_json::from_value(serde_json::json!({
+        "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
+        "source":"TEST scoped seed permission", "class":{"door":"two_way",
+        "door_reason":"TEST reversible", "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
+    })).unwrap();
+    ledger::confirm_as(directory, "r1", "TEST seed only", STAMP, Some(&actor)).unwrap();
+    assert!(verify_handoff(directory, &load(directory).unwrap()).unwrap()["verified"].truth());
+    let confirmed = fs::read(&seed_path).unwrap();
+    fs::write(&seed_path, [confirmed.as_slice(), b" "].concat()).unwrap();
+    assert_blocked(directory, "seed changed");
+    fs::write(seed_path, confirmed).unwrap();
+    ledger::end(directory, "completed", "TEST complete", STAMP).unwrap();
+    let saved = load(directory).unwrap();
+    assert!(saved["operator"].is("agent"));
+    assert!(saved["status"].is("completed"));
+}
+
+#[test]
 fn changed_seed_bytes_cannot_verify_or_complete() {
     let root = fixture();
     let path = root.path().join(FILE);

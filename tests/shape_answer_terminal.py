@@ -362,6 +362,7 @@ def full_journey(width, height):
             recorded = second['input']['found_so_far']
             assert len(recorded) == 1 and recorded[0]['id'] == 'read-local', recorded
             assert recorded[0]['claim'] == QUESTION['found'][0]['claim'], recorded
+            assert not any(n['kind'] == 'fact' for n in second['input']['ledger']['nodes'])
             # The seed's grounding is the saved findings, word for word, before the decisions.
             date = next(n for n in ledger['nodes'] if n['id'] == 'read-local')['evidence'][0]['at'][:10]
             today = ("## Evidence and uncertainty\n"

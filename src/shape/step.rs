@@ -385,12 +385,7 @@ fn look(
     }
     let goal = ledger.goal().unwrap_or("").to_owned();
     let settled = think(agent.records.as_deref(), session, &goal);
-    let input = json!({
-        "goal": goal,
-        "answered_in_think": settled,
-        "found_so_far": ledger.findings(),
-        "ledger": serde_json::from_str::<Value>(&ledger.context()).unwrap_or(Value::Null),
-    });
+    let input = input(&ledger, settled);
     let call = Call {
         folder: Some(folder.to_path_buf()),
         ..agent.call.clone()
@@ -452,6 +447,15 @@ fn look(
             Ok(Done::Drafted)
         }
     }
+}
+
+fn input(ledger: &answering::Ledger, settled: Vec<Value>) -> Value {
+    json!({
+        "goal": ledger.goal().unwrap_or(""),
+        "answered_in_think": settled,
+        "found_so_far": ledger.findings(),
+        "ledger": ledger.context_without_findings(),
+    })
 }
 
 /// Exactly two complete options, each with a known undo cost; anything else gives none.
