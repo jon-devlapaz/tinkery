@@ -16,7 +16,12 @@ pub(crate) fn prose_reply(body: &str) -> serde_json::Value {
             name = heading;
             prose.clear();
         } else {
-            prose.push_str(line);
+            // Historical evidence stays intact; replay its probe readings as guesses, not answers.
+            prose.push_str(
+                &line
+                    .replace("Probe:", "Probe reading (guess):")
+                    .replace("— answer:", "— evidence reading:"),
+            );
             prose.push('\n');
         }
     }

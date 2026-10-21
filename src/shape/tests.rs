@@ -3015,7 +3015,8 @@ fn the_step_answers_the_other_probes_from_evidence_and_records_every_probe() {
         "answer two probes from evidence: a counter-example",
         "an outside view",
         "if either raises an operator-only decision, ask it instead of drafting",
-        "record the operator's pre-mortem answer from the ledger and both probes",
+        "Only asked and answered ledger questions are operator answers",
+        "Record counter-example and outside-view probe readings as typed inference or unknown findings",
         "`Where we did not look:`",
     ] {
         assert!(prompt.contains(rule), "missing probe rule: {rule}");
@@ -3082,11 +3083,49 @@ fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
         !text.contains(READ_FIRST),
         "reaching the end left the refusal: {text}"
     );
-    assert!(shape.open.as_ref().unwrap().read_end);
+    assert!(shape.open.as_ref().unwrap().read_end.is_some());
     // A taller editor afterwards doesn't take back what was read.
     shape.paste("\nmore words");
     screen(&mut shape, 80, 24, true);
-    assert!(shape.open.as_ref().unwrap().read_end);
+    assert!(shape.open.as_ref().unwrap().read_end.is_some());
+}
+
+#[test]
+fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+        for _ in 0..30 {
+            shape.key(key(KeyCode::PageDown));
+            screen(&mut shape, width, height, true);
+        }
+        for changed in [false, true] {
+            let open = shape.open.as_mut().unwrap();
+            let Reading::Done(Ok(mut reading)) =
+                std::mem::replace(&mut open.reading, Reading::NotStarted)
+            else {
+                panic!()
+            };
+            if changed {
+                reading.stage = Shaped::Drafted {
+                    revision: Some("r2".into()),
+                    text: Some("status: draft\nrevision: r2\nTEST unread new revision".repeat(80)),
+                };
+            }
+            let (tx, rx) = mpsc::channel();
+            open.reading = Reading::Waiting(rx);
+            tx.send((Ok(reading), None)).unwrap();
+            shape.scroll = 0;
+            shape.tick();
+            assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
+            shape.paste(
+                "TEST confirmation words that grow the box "
+                    .repeat(15)
+                    .as_str(),
+            );
+            screen(&mut shape, width, height, true);
+            assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
+        }
+    }
 }
 
 #[test]

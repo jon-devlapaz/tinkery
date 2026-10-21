@@ -31,21 +31,23 @@ results never reopen a view or populate a different visit.
 The goal and acceptance checks precede the manual handoff explanation and commands:
 
 ```text
-python3 _system/scripts/sdlc.py new <run>
-python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<seed path>' --tinkery '<Tinkery executable path>'
+cd '<named checkout>' && python3 _system/scripts/sdlc.py new seed-title && python3 _system/scripts/sdlc.py stage seed-title 1 --seed-contract '<seed path>' --tinkery '<Tinkery executable path>'
 ```
 
-The operator replaces the visible `<run>` in both commands and runs them from the
-chosen tink-sdlc checkout. The first creates the run; the second imports the seed
-and checks for definition review. Copying does neither and grants no approval.
-Unresolvable or unsafe copy paths leave the verified seed readable, with a reason
-and no copy action. Copy uses the existing OSC 52 transport and feedback.
+One shell line changes to the explicitly named `--sdlc-root`, creates a run and
+imports its seed and checks for definition review. The default slug comes from the
+seed's H1 title (without `Seed:`): lowercase ASCII words joined by hyphens, capped
+at tink-sdlc's 80 characters without a trailing hyphen. Paths use the shared canonical
+shell quoting; no placeholder needs replacing. Existing run names still refuse creation.
+Copying runs nothing and grants no approval. Missing checkout, an empty slug or
+unsafe paths leave the verified seed readable with a reason and no copy action.
+Copy uses the existing OSC 52 transport and feedback.
 
 | Key | Action |
 | --- | --- |
 | `n` / `p`, Right / Left | Next / previous seed, clamped. |
 | Up / Down, `k` / `j`, PgUp / PgDn, Home / End | Read wrapped content. |
-| `c` | Copy both commands, only when available. |
+| `c` | Copy the combined command, only when available. |
 | F1 / `?` | Help and bounded unreadable-session details; no underlying actions. |
 | Esc | Close help or return to the menu. |
 | F10 | Return to the menu. |
@@ -65,8 +67,8 @@ Shared-boundary tests prove verified-only selection, exact bytes, shared intake
 quoting and refusal on changed sources. View tests cover copying, help isolation,
 scrolling and abandoned reads. [PTY journeys](../../tests/approve_terminal.py)
 use the actual Rust ledger and temporary TEST roots at 80×24 and 100×30,
-with and without colour. They cover ordering, excluded drafts/stale seeds, both
-copied commands, empty/incomplete/unreadable roots, matched/edited/moved seeds,
+with and without colour. They cover ordering, excluded drafts/stale seeds, the
+combined command, empty/incomplete/unreadable roots, matched/edited/moved seeds,
 no checkout, unreadable runs and unchanged source trees. The
 [real handoff journey](../../tests/shape_sdlc_handoff.py) proves the move to Watch.
 These prove mechanics, not operator acceptance or real-work benefit.

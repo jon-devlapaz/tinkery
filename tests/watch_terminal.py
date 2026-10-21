@@ -69,6 +69,10 @@ def journey(width, height, no_color, configured=True):
         checkout = base / 'TEST-checkout'
         (checkout / '_system/scripts').mkdir(parents=True)
         (checkout / '_system/scripts/sdlc.py').write_text(FAKE)
+        legacy = checkout / 'runs/TEST-older'
+        legacy.mkdir(parents=True)
+        (legacy / 'meta.json').write_text('{"slug":"TEST-older"}\n')
+        (legacy / 'approval.json').write_text('TEST older approval bytes\n')
         state, log, pid = base / 'state.json', base / 'calls', base / 'pid'
         binary = base / 'bin'
         binary.mkdir()
@@ -179,6 +183,19 @@ def journey(width, height, no_color, configured=True):
                              'not-run': 'not verified yet', 'stale': 'verification out of date',
                              'invalid': "can't be read"}
                     send(b'r', words[status])
+                # Scaffold upgrades can reject old metadata; Watch names that gap without migration.
+                older = {'slug': 'TEST-older', 'verification_status': 'invalid',
+                         'error': 'Run run_id must be a canonical UUIDv4 string; create runs with sdlc.py new.',
+                         'checklist_summary': {'passed': 0, 'total': 0}}
+                set_state(list=envelope(runs=[older]))
+                send(b'r', 'older run')
+                assert "can't be read" not in screen.text() and 'UUIDv4' not in screen.text(), screen.text()
+                read_count = len(calls())
+                send(b'\r', 'No run files were changed.')
+                assert 'This run has no canonical run ID.' in screen.text(), screen.text()
+                assert 'Checklist:' not in screen.text() and 'Stage' not in screen.text(), screen.text()
+                send(b'r', 'Needs you')
+                assert calls()[read_count:] == ['status --json'], 'older refresh tried the unsupported detail read'
                 # Only the source path AND the recorded bytes lend a goal to a run.
                 seed = base / 'TEST-session/seed-contract.md'
                 seed.parent.mkdir()

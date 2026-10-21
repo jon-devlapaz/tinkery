@@ -119,7 +119,7 @@ pub fn read(session: &Path) -> Result<Shaping, String> {
     if matches!(shaping.stage, Shaped::Ready { .. }) {
         shaping.intake = std::env::current_exe()
             .ok()
-            .and_then(|executable| intake(session, &executable));
+            .and_then(|executable| intake(session, &executable, "<run>", None));
     }
     Ok(shaping)
 }
@@ -171,17 +171,30 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
 }
 
 // Copy availability never changes Tinkery's reading of the seed.
-fn intake(session: &Path, executable: &Path) -> Option<String> {
+/// Format the shared, shell-quoted handoff; a named checkout adds run creation and a directory change.
+pub(super) fn intake(
+    session: &Path,
+    executable: &Path,
+    run: &str,
+    root: Option<&Path>,
+) -> Option<String> {
     let quote = |path: &Path| {
         let path = path.canonicalize().ok()?;
         let path = path.to_str()?;
         (!path.chars().any(char::is_control)).then(|| format!("'{}'", path.replace('\'', "'\\''")))
     };
-    Some(format!(
-        "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --tinkery {}",
+    let stage = format!(
+        "python3 _system/scripts/sdlc.py stage {run} 1 --seed-contract {} --tinkery {}",
         quote(&session.join("seed-contract.md"))?,
         quote(executable)?,
-    ))
+    );
+    Some(match root {
+        Some(root) => format!(
+            "cd {} && python3 _system/scripts/sdlc.py new {run} && {stage}",
+            quote(root)?,
+        ),
+        None => stage,
+    })
 }
 
 /// Where the seed stands, from the ledger and its verified `status`. An open question comes
@@ -534,7 +547,7 @@ mod tests {
             )
         };
         assert_eq!(
-            intake(&session, &helper),
+            intake(&session, &helper, "<run>", None),
             Some(format!(
                 "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --tinkery {}",
                 quote(&seed),
@@ -543,7 +556,10 @@ mod tests {
         );
         let alias = temp.path().join("TEST-linked-executable");
         std::os::unix::fs::symlink(&helper, &alias).unwrap();
-        assert_eq!(intake(&session, &alias), intake(&session, &helper));
+        assert_eq!(
+            intake(&session, &alias, "<run>", None),
+            intake(&session, &helper, "<run>", None)
+        );
     }
 
     #[test]

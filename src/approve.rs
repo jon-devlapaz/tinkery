@@ -109,7 +109,7 @@ impl Reader {
                         }
                     }
                 }
-                match ready::read(&session.path) {
+                match ready::read(&session.path, root.as_deref()) {
                     Ok(Some(seed)) => found.seeds.push(seed),
                     Ok(None) => {}
                     Err(reason) => {
@@ -286,7 +286,7 @@ impl Approve {
             keys = "↑↓ scroll   esc close help";
             lines.push(Line::styled("Right now", palette.jade));
             lines.push(Line::raw(
-                "n/p choose seed · ↑↓ or PgUp/PgDn read · c copy both commands",
+                "n/p choose seed · ↑↓ or PgUp/PgDn read · c copy command",
             ));
             lines.push(Line::raw(
                 "Esc returns to the menu. F10 returns to the menu even from help.",
@@ -337,7 +337,7 @@ impl Approve {
                     }
                     if let Some(seed) = found.seeds.get(self.selected) {
                         keys = if seed.commands.is_some() {
-                            "n/p seed   ↑↓ read   c copy commands   esc back   ? help"
+                            "n/p seed   ↑↓ read   c copy command   esc back   ? help"
                         } else {
                             "n/p seed   ↑↓ read   esc back   ? help"
                         };
@@ -362,16 +362,15 @@ impl Approve {
                             "Manual handoff · not approval to implement",
                             palette.muted,
                         ));
-                        lines.push(Line::raw(concat!(
-                            "In your tink-sdlc checkout, replace <run> in both commands. ",
-                            "The first creates a run; the second imports this seed and its checks for definition review."
-                        )));
+                        lines.push(Line::raw(
+                            "Paste this command to create the titled run and import its checks for definition review. Copying runs nothing."
+                        ));
                         if let Some(commands) = &seed.commands {
                             for line in commands.lines() {
                                 lines.push(Line::raw(line.to_owned()));
                             }
                         } else {
-                            lines.push(Line::raw("Cannot copy: a seed or helper path cannot be resolved or represented safely."));
+                            lines.push(Line::raw("Cannot copy: name a checkout with --sdlc-root PATH; checkout, seed, title and executable must be safe for one shell line."));
                         }
                     } else {
                         lines.push(Line::raw(

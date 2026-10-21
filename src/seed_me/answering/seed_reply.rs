@@ -98,6 +98,10 @@ pub(super) fn prose(value: &Value) -> Result<Vec<(&'static str, &str)>, Refusal>
                 .any(|(i, byte)| *byte == b'\r' && line.as_bytes().get(i + 1) != Some(&b'\n'))
             {
                 Some("line endings must be LF or CRLF, not a lone carriage return")
+            } else if line.contains("Probe:") || line.contains("— answer:") {
+                Some(
+                    "probe answers belong to the ledger; put evidence-based probe readings in found, or ask the operator a question",
+                )
             } else if bare.starts_with("```") || bare.starts_with("~~~") {
                 Some("prose fields cannot contain code fences")
             } else if line.contains("<!--") {

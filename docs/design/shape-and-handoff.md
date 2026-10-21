@@ -259,7 +259,7 @@ operator approval.
 
 The [handoff regression](../../tests/shape_sdlc_handoff.py) carries Shape's real
 seed writer through confirmation, a fresh TEST-only SDLC install and intake:
-Approve's copied commands start a real run, Approve hides the matched seed, and
+Approve's combined command, pasted unchanged from outside the checkout, starts a real run, Approve hides the matched seed, and
 Watch shows its goal's first line under needs-you runs and the full goal in detail,
 while a run with no seed stays distinct from an unknown match. A failing confirmed command blocks
 verification despite passing worker-written checks, and a passing command completes it.
@@ -514,8 +514,10 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 - Under `--operator agent` Shape only reads; see [Think's integration hold](think.md#confirmation-attribution-185).
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
   Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
-  draft's last line has been on screen since this read, F3 says
+  draft revision's last line has been on screen during this Shape visit, F3 says
   `Read to the end first: PgDn scrolls. Nothing was confirmed.`; reaching it clears that.
+  The exact revision and draft bytes retain that satisfaction through typing, box growth,
+  resize and rereads, including teach-back. A new revision or changed bytes require reading again.
   F3 refuses CR or LF with `Put your confirming words on one line; nothing was confirmed.`
   Changing the words clears a refusal about them.
   It retains words and neither writes nor calls. The empty `your words` field shows
@@ -559,9 +561,12 @@ before any finding is shown. Shape puts the pre-mortem to the operator itself.
   question, without a model call or budget. The operator answers it with F2 like any question,
   in their own words, or says skip. Asked after findings were already recorded, it carries
   `NOT independent: asked after findings were shown.`
-- The step answers the counter-example and outside-view probes from evidence, asks instead of
-  drafting when either raises an operator-only decision, and records every probe and a
-  `Where we did not look:` line in Risks and verification.
+- The step investigates counter-example and outside-view probes as typed inference or unknown
+  findings, asks instead of drafting when either raises an operator-only decision, and records
+  consequences and a `Where we did not look:` line in Risks and verification. Only asked and
+  answered ledger questions appear as operator answers in Decisions. Seed prose refuses the old
+  `Probe:` / `— answer:` template, including inline in Knowledge map; unasked probes are readings,
+  not answers. This format guard is not a semantic verifier of arbitrary model prose.
 - These are instructions and transport; whether probes improve real seeds needs a separately
   approved budgeted trial.
 
