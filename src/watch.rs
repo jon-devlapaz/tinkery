@@ -36,7 +36,15 @@ enum State {
     Failed,
     Interrupted,
     Invalid,
+    Older,
 }
+
+// Coupled to tink-sdlc's exact wording for a run without a canonical ID. If that text changes,
+// such runs fall back to "can't be read", which fails safe.
+const OLDER_ID_ERROR: &str =
+    "Run run_id must be a canonical UUIDv4 string; create runs with sdlc.py new.";
+const OLDER_REASON: &str =
+    "This run has no canonical run ID. Its approvals and verification can't be checked here.";
 
 impl State {
     fn parse(word: &str) -> Option<Self> {
@@ -54,7 +62,8 @@ impl State {
     }
 
     /// Whether a person is owed something: a gate decision (tink-sdlc reports `blocked` only
-    /// while a gate isn't approved), or a failed, interrupted or unreadable run.
+    /// while a gate isn't approved), or a failed, interrupted or unreadable run. An older run
+    /// owes nothing: there is no action to take on it.
     fn needs_you(self) -> bool {
         matches!(
             self,
@@ -72,6 +81,7 @@ impl State {
             Self::Failed => "verification failed",
             Self::Interrupted => "verification interrupted",
             Self::Invalid => "can't be read",
+            Self::Older => "older run",
         }
     }
 }
@@ -143,7 +153,10 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
         .ok_or("status printed no runs list.")?;
     runs.iter()
         .map(|run| {
-            let state = state(run)?;
+            let state = match state(run)? {
+                State::Invalid if run["error"] == OLDER_ID_ERROR => State::Older,
+                state => state,
+            };
             let count = |key| {
                 run["checklist_summary"][key]
                     .as_u64()
@@ -151,14 +164,18 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
             };
             Ok(Run {
                 slug: text(run, "slug")?,
-                next: text(
-                    run,
-                    if state == State::Invalid {
-                        "error"
-                    } else {
-                        "next_action"
-                    },
-                )?,
+                next: if state == State::Older {
+                    OLDER_REASON.into()
+                } else {
+                    text(
+                        run,
+                        if state == State::Invalid {
+                            "error"
+                        } else {
+                            "next_action"
+                        },
+                    )?
+                },
                 passed: count("passed")?,
                 total: count("total")?,
                 state,
@@ -399,9 +416,9 @@ impl Watch {
         }
         if self.inspection.is_none()
             && let Some(Load::Done(Ok(runs), _)) = &self.list
-            && let Some(index) = runs
-                .iter()
-                .position(|r| r.state != State::Invalid && r.attention.is_none())
+            && let Some(index) = runs.iter().position(|r| {
+                !matches!(r.state, State::Invalid | State::Older) && r.attention.is_none()
+            })
             && let Some(root) = &self.root
         {
             self.inspection = Some((
@@ -430,10 +447,15 @@ impl Watch {
         {
             return false;
         }
-        if let Some((slug, _)) = &self.detail {
+        if let Some((slug, detail)) = &self.detail {
             match key.code {
                 KeyCode::Esc => self.detail = None,
                 KeyCode::Char('q') => return true,
+                KeyCode::Char('r') if matches!(detail, Load::Done(Ok(d), _) if d.state == State::Older) =>
+                {
+                    self.detail = None;
+                    self.read_list();
+                }
                 KeyCode::Char('r') => self.read_detail(slug.clone()),
                 KeyCode::Down | KeyCode::Char('j') => self.scroll = self.scroll.saturating_add(1),
                 KeyCode::Up | KeyCode::Char('k') => self.scroll = self.scroll.saturating_sub(1),
@@ -468,7 +490,37 @@ impl Watch {
 
     fn read_detail(&mut self, slug: String) {
         self.scroll = 0;
-        if let Some(root) = &self.root {
+        // An older run's detail comes from the same summary read, so its time is that read's.
+        let older = match &self.list {
+            Some(Load::Done(Ok(runs), at))
+                if runs
+                    .iter()
+                    .any(|run| run.slug == slug && run.state == State::Older) =>
+            {
+                Some(*at)
+            }
+            _ => None,
+        };
+        if let Some(at) = older {
+            self.detail = Some((
+                slug,
+                Load::Done(
+                    Ok(Detail {
+                        goal: Goal::Unknown,
+                        state: State::Older,
+                        next: OLDER_REASON.into(),
+                        gates: Vec::new(),
+                        passed: 0,
+                        proven: 0,
+                        attested: 0,
+                        attention: Attention::default(),
+                        checklist: Vec::new(),
+                        errors: Vec::new(),
+                    }),
+                    at,
+                ),
+            ));
+        } else if let Some(root) = &self.root {
             let read = Load::start(
                 root,
                 vec!["status".into(), slug.clone(), "--json".into()],
@@ -607,7 +659,7 @@ impl Watch {
                             ));
                         }
                         lines.push(Line::styled(format!("    {}", run.next), palette.muted));
-                        if run.goal != Goal::NoSeed {
+                        if run.goal != Goal::NoSeed && run.state != State::Older {
                             let first = goal_text(&run.goal).split('\n').next().unwrap_or("");
                             lines.extend(goal_lines(&format!("    {first}"), palette));
                         }
@@ -707,7 +759,11 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
     let mut lines = vec![
         Line::styled(slug.to_owned(), palette.jade),
         Line::styled(
-            source(&["status", slug, "--json"], Some(detail)),
+            if matches!(detail, Load::Done(Ok(d), _) if d.state == State::Older) {
+                source(&["status", "--json"], Some(detail))
+            } else {
+                source(&["status", slug, "--json"], Some(detail))
+            },
             palette.muted,
         ),
         Line::default(),
@@ -717,6 +773,13 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
         Load::Done(Err(why), _) => {
             lines.push(Line::styled("! Couldn't read this run.", palette.rust));
             lines.push(Line::styled(why.clone(), palette.ink));
+        }
+        Load::Done(Ok(d), _) if d.state == State::Older => {
+            lines.push(Line::styled(d.state.words(), palette.ink.bold()));
+            lines.push(Line::styled(d.next.clone(), palette.ink));
+            lines.push(Line::raw(
+                "No run files were changed. Esc returns to the runs.",
+            ));
         }
         Load::Done(Ok(d), _) => {
             lines.extend(goal_lines(goal_text(&d.goal), palette));

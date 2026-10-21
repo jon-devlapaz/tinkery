@@ -92,6 +92,57 @@ fn an_invalid_run_needs_you_and_shows_its_reason() {
 }
 
 #[test]
+fn older_runs_without_canonical_ids_are_read_only_not_unreadable() {
+    for id in [serde_json::Value::Null, serde_json::json!("old-slug")] {
+        let row = serde_json::json!({
+            "slug": "TEST-older", "run_id": id, "verification_status": "invalid",
+            "error": OLDER_ID_ERROR, "checklist_summary": {"passed": 0, "total": 0}
+        });
+        let dir = checkout(&envelope(&row.to_string()), 0.0);
+        let legacy = dir.path().join("runs/TEST-older");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("meta.json"), "{\"slug\":\"TEST-older\"}\n").unwrap();
+        fs::write(legacy.join("approval.json"), "TEST older approval bytes\n").unwrap();
+        let before = tree(dir.path());
+        let mut watch = Watch::open(Some(dir.path().to_path_buf()));
+        settle(&mut watch);
+        let run = &watch.runs().unwrap()[0];
+        assert_eq!(run.state, State::Older);
+        assert_eq!(run.next, OLDER_REASON);
+        assert!(
+            !run.needs_you(),
+            "an older run owes nothing; it lists plainly"
+        );
+        watch.key(KeyEvent::from(KeyCode::Enter));
+        settle(&mut watch);
+        let text = detail_text(
+            "TEST-older",
+            &watch.detail.as_ref().unwrap().1,
+            Palette::new(true),
+        )
+        .to_string();
+        assert!(
+            text.contains("older run") && text.contains(OLDER_REASON),
+            "{text}"
+        );
+        for absent in [
+            "can't be read",
+            "UUIDv4",
+            "Checklist:",
+            "Stage",
+            "Goal unknown",
+        ] {
+            assert!(!text.contains(absent), "{text}");
+        }
+        watch.key(KeyEvent::from(KeyCode::Char('r')));
+        settle(&mut watch);
+        assert!(watch.detail.is_none());
+        assert_eq!(watch.runs().unwrap()[0].state, State::Older);
+        assert_eq!(tree(dir.path()), before);
+    }
+}
+
+#[test]
 fn another_interface_or_an_unknown_state_is_refused_not_shown() {
     let body = run("a", "current");
     for (text, needle) in [

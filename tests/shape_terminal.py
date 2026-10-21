@@ -65,9 +65,9 @@ def make(root, name, goal=GOAL, question=True):
     return session
 
 
-def seed(session, confirm=False):
+def seed(session, confirm=False, title='TEST seed'):
     helper.set_checks(session, [{'statement': 'Keep records local.', 'kind': 'judge', 'source': 'TEST fixture'}])
-    body = ('status: draft\n# TEST seed\nrevision: r1\n## You are confirming\nKeep records local.\n\n'
+    body = (f'status: draft\n# Seed: {title}\nrevision: r1\n## You are confirming\nKeep records local.\n\n'
             '## Now  (the agent keeps these current)\nTEST draft.\n\n## Goal\nKeep records local.\n\n'
             + helper.decisions_block(helper.load(session))
             + '\n## Constraints and exclusions\nTEST only.\n\n'

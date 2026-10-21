@@ -147,6 +147,12 @@ remove an external implementation dependency (3). Ledger saving, byte-preserving
 hide their decisions behind shared boundaries (6); the module map records the owners (7).
 No limit is relaxed; the recorded score remains 10/10.
 
+First-run friction fixes keep probe-answer provenance at the seed prose boundary,
+revision-bound reading in Shape, title slugs and combined shell commands behind the
+shared handoff formatter, and older-run presentation in Watch. These improve interface
+simplicity (2), changeability without caller churn (3) and hidden decisions (6); the map
+keeps the owners visible (7). No architecture limit or recorded score changes.
+
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today |

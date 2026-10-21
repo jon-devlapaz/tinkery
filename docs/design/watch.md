@@ -12,7 +12,7 @@ root without `_system/scripts/sdlc.py` is refused by a file check, without runni
 
 Watch reads with that checkout's own `python3 _system/scripts/sdlc.py status --json`, from the
 checkout's folder, when Watch opens and when the operator presses `r`. It then reads each valid
-run's `status <slug> --json`, serially, before offering the list: the summary cannot identify owed
+run's `status <slug> --json`, serially, before offering the list (except older runs below): the summary cannot identify owed
 attestations or gates during a running verification. An unreadable detail refuses the list rather
 than claiming that run is quiet. Enter reads the selected run's detail again. The screen names the checkout and the exact command behind what it
 shows, with how long ago it was read, to the minute. Watch never runs `verify`, `mark`, `decide`,
@@ -38,8 +38,16 @@ owns matching and keeps three states distinct:
 
 Watch reads only tink-sdlc API 1: `protocol` must be `tink-sdlc` and `api_version` the integer 1.
 Any other interface, an unknown `verification_status` or gate state, or a run missing a field
-fails the whole read closed, with what was wrong, rather than display a guess. An agent saying
-it is done is never evidence; Watch shows only what tink-sdlc computes.
+fails the whole read closed, with what was wrong, rather than display a guess.
+
+An API 1 invalid summary whose exact reason is the canonical-run-ID requirement is
+an `older run`, not `can't be read`. Show `This run has no canonical run ID. Its approvals
+and verification can't be checked here.` under Needs you; never infer stale approval or
+verified work. Its detail uses that summary, names the same gap and offers Esc, without
+requesting the unsupported per-run status or inventing gates and checklist counts.
+`r` from this detail rereads the summary and returns to the list. Other invalid reasons
+stay invalid. Watch neither migrates nor edits run files; tink-sdlc is unchanged.
+An agent saying it is done is never evidence; Watch shows only what tink-sdlc computes.
 
 ## Needs you first
 
@@ -88,7 +96,8 @@ is gone afterwards) and that opening and reading again leave the checkout byte-i
 [The terminal journey](../../tests/watch_terminal.py) drives the real binary over a fake
 `sdlc.py` at 100x30, 80x24 and with NO_COLOR, including owed-attestation ordering after successful
 verification, every verification state, scrolling to long evidence/error tails, and
-matched, edited, moved and missing originals, no-seed runs, and one-line quiet rows.
+matched, edited, moved and missing originals, no-seed runs, one-line quiet rows and
+older runs missing canonical IDs, summary refresh and no unsupported detail calls or file changes.
 Unit tests cover all three goal states in list/detail, exact first-line indentation,
 full detail words, wide quiet rows and selected-row scrolling. Stubs prove
 mechanics, not operator dogfood.

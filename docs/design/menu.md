@@ -5,7 +5,7 @@
 | 1 | think | Refine, review and explicitly save a goal. |
 | 2 | tend | Explore active goals, needs, history and opening Shape. |
 | 3 | shape | Read seed status; with a model and budget, answer and confirm ([Shape](shape-and-handoff.md#shape)). |
-| 4 | approve | Read verified seeds not yet started and copy both manual intake commands ([Approve](approve.md)). |
+| 4 | approve | Read verified seeds not yet started and copy one runnable manual intake command ([Approve](approve.md)). |
 | 5 | watch | Read runs with their matched goals in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
 | 6 | taste | Not built. No end-report or review integration exists. |
 | 7 | measure | Read an installed Substrate ledger report, otherwise show unknown; no verified metric is promised. |

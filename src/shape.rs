@@ -125,8 +125,8 @@ struct Opened {
     revealed: bool,
     /// A change without a model (an ending or an objection) the ledger is carrying out.
     writing: Option<(Write, mpsc::Receiver<Result<(), Refusal>>)>,
-    /// Whether the reading's last line has been on screen since this read landed.
-    read_end: bool,
+    /// The exact draft revision whose last line has been on screen; layout changes don't revoke it.
+    read_end: Option<Shaped>,
 }
 
 /// A change Shape asks of the ledger without a model.
@@ -403,8 +403,10 @@ impl Shape {
         {
             match receiver.try_recv() {
                 Ok((result, folder)) => {
+                    if result.as_ref().ok().map(|read| &read.stage) != open.read_end.as_ref() {
+                        open.read_end = None;
+                    }
                     open.reading = Reading::Done(result);
-                    open.read_end = false;
                     if let (Folder::Unknown, Some(folder)) = (&open.folder, folder) {
                         open.folder = Folder::Known(folder);
                     }
@@ -1454,7 +1456,7 @@ impl Opened {
             }
             Act::Keep { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[3]),
             Act::Answer { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[0]),
-            Act::Confirm(_) if !self.read_end => refuse(READ_FIRST),
+            Act::Confirm(_) if self.read_end.is_none() => refuse(READ_FIRST),
             Act::Confirm(_) if words.contains(['\n', '\r']) => refuse(WORD_REFUSALS[1]),
             Act::Confirm(_) if words.trim().is_empty() => refuse(WORD_REFUSALS[2]),
             Act::TeachBack { .. } | Act::Respond { .. } | Act::Answer { .. } | Act::Look(_)
@@ -1572,7 +1574,7 @@ impl Opened {
             withheld: None,
             revealed: false,
             writing: None,
-            read_end: false,
+            read_end: None,
         }
     }
 }
@@ -1884,9 +1886,15 @@ fn render_open(
             ));
     let height = read_rows.min(area.height.saturating_sub(input_height + gap));
     *scroll = (*scroll).min(read_rows.saturating_sub(height));
-    open.read_end |= *scroll >= read_rows.saturating_sub(height);
+    if open.read_end.is_none()
+        && *scroll >= read_rows.saturating_sub(height)
+        && let Reading::Done(Ok(shaping)) = &open.reading
+        && matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. })
+    {
+        open.read_end = Some(shaping.stage.clone());
+    }
     // Reaching the end answers "read to the end first".
-    if open.read_end
+    if open.read_end.is_some()
         && open
             .notice
             .as_ref()

@@ -25,11 +25,11 @@ def journey(width, height, case, no_color):
         root = Path(directory).resolve()
         sessions = root / "TEST sessions' folder"
         expected = []
-        if case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable'):
+        if case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout'):
             for name, date in [('TEST oldest café', '2026-01-01T00:00:00Z'),
                                ('TEST newest', '2026-02-01T00:00:00Z')]:
                 session = make(sessions, name, goal=name + '\nTEST original goal.', question=False)
-                seed(session, confirm=True)
+                seed(session, confirm=True, title=name)
                 ledger = session / 'ledger.json'
                 value = json.loads(ledger.read_text())
                 value['updated_at'] = date
@@ -48,8 +48,8 @@ def journey(width, height, case, no_color):
             (broken / 'ledger.json').write_text('not JSON')
         elif case == 'unreadable':
             sessions.write_text('TEST not a directory')
-        checkout = root / 'TEST-checkout'
-        configured = case in ('started', 'edited', 'moved', 'runs-unreadable')
+        checkout = root / "TEST checkout's folder"
+        configured = case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable')
         if configured:
             script = checkout / '_system/scripts/sdlc.py'
             script.parent.mkdir(parents=True)
@@ -57,7 +57,7 @@ def journey(width, height, case, no_color):
             record = {'path': 'runs/TEST-other/seed-contract.md', 'source': str(original.resolve()),
                       'sha256': hashlib.sha256(original.read_bytes()).hexdigest()}
             report = {'protocol': 'tink-sdlc', 'api_version': 1, 'runs': [
-                {'slug': 'TEST-unrelated-name', 'seed_contract': record}]}
+                {'slug': 'TEST-unrelated-name', 'seed_contract': record}] if case != 'ready' else []}
             script.write_text('print(' + repr(json.dumps(report)) + ')\n'
                               if case != 'runs-unreadable' else 'raise SystemExit("TEST unreadable runs")\n')
             if case == 'edited':
@@ -119,9 +119,16 @@ def journey(width, height, case, no_color):
                     assert 'unknown start' in flat(), screen.text()
                 else:
                     assert 'unknown start' not in flat(), screen.text()
+            elif case == 'no-checkout':
+                wait(lambda: 'Seed 1 of 2' in flat())
+                send(b'\x1b[F', 'Cannot copy:')
+                assert 'c copy command' not in flat(), screen.text()
+                os.write(master, b'c')
+                send(b'\x1b', '4 approve')
+                assert not copies()
             elif case in ('ready', 'moved', 'runs-unreadable'):
                 wait(lambda: 'Seed 1 of 2' in flat())
-                if case != 'moved':
+                if case == 'runs-unreadable':
                     assert "Can't tell which seeds have started; none are hidden." in flat(), screen.text()
                 assert 'TEST oldest café' in flat() and 'TEST newest' not in flat(), screen.text()
                 assert 'TEST original goal.' in flat(), screen.text()
@@ -133,8 +140,11 @@ def journey(width, height, case, no_color):
                 send(b'c', 'Copied.')
                 wait(lambda: len(copies()) == 1)
                 commands = copies()[0].splitlines()
-                assert commands[0] == 'python3 _system/scripts/sdlc.py new <run>'
-                assert shlex.split(commands[1]) == ['python3', '_system/scripts/sdlc.py', 'stage', '<run>', '1',
+                assert len(commands) == 1 and '<run>' not in commands[0], commands
+                words = shlex.split(commands[0])
+                assert words[:10] == ['cd', str(checkout.resolve()), '&&', 'python3',
+                    '_system/scripts/sdlc.py', 'new', 'test-oldest-caf', '&&', 'python3', '_system/scripts/sdlc.py'], words
+                assert words[10:] == ['stage', 'test-oldest-caf', '1',
                     '--seed-contract', str((expected[0] / 'seed-contract.md').resolve()),
                     '--tinkery', str((REPO / 'target/debug/tinkery').resolve())]
                 send(b'\x1b[F', '--tinkery')
@@ -173,5 +183,5 @@ def journey(width, height, case, no_color):
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
         for no_color in [False, True]:
-            for case in ['ready', 'empty', 'incomplete', 'unreadable', 'started', 'edited', 'moved', 'runs-unreadable']:
+            for case in ['ready', 'empty', 'incomplete', 'unreadable', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout']:
                 journey(*size, case, no_color)

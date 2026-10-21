@@ -77,7 +77,7 @@ def seed_fields(body):
                 fields[name] = '\n'.join(lines).strip()
             name, lines = line[3:], []
         else:
-            lines.append(line)
+            lines.append(line.replace('Probe:', 'Probe reading (guess):').replace('— answer:', '— evidence reading:'))
     if lines:
         fields[name] = '\n'.join(lines).strip()
     return fields
@@ -1057,6 +1057,40 @@ def completion_reviews(width, height):
                 run.close()
 
 
+def read_end_revision(width, height):
+    """Reading belongs to draft bytes, not editor size or a same-draft teach-back reread."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-read-end-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False)
+        reply = json.loads(json.dumps(SEED))
+        reply['found'] = []
+        reply['confirming']['Downstream handoff'] += '\n' + ''.join(f'TEST draft row {i}.\n' for i in range(60)) + 'TEST-SEED-END'
+        run = Run(cwd, width, height, budget=2,
+                  replies=[reply, {'mismatches': []}])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            run.send(F2, 'Seed draft r1')
+            run.send(F3, 'Read to the end first: PgDn scrolls. Nothing was confirmed.')
+            run.read_until('TEST-SEED-END')
+            # Reach the risk summary too, then grow the editor without another scroll.
+            run.read_until('Accepted as suggested: 0; chosen otherwise: 1.')
+            os.write(run.master, b'\x1b[6~' * 10)
+            run.wait('Accepted as suggested: 0; chosen otherwise: 1.')
+            words = 'TEST I confirm r1. ' + 'TEST read already. ' * 30
+            os.write(run.master, b'\x1b[200~' + words.encode() + b'\x1b[201~')
+            run.wait('TEST read already.')
+            run.send(F7, 'your teach-back')
+            run.send(F7, 'Teach-back compared. Mismatches never block F3.')
+            # No page key after typing or the fresh read of the same revision.
+            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            assert helper.status(session)['handoff']['verified'] is True
+            assert len(run.calls()) == 2
+            print(f'Shape read-to-end retained through typing, box growth and same-r1 reread at {width}x{height}; 2 stub calls')
+        finally:
+            run.close()
+
+
 def teach_back(width, height, exhausted=False):
     """Capture is explicit and budget-gated; even reported mismatches leave F3 available."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-teach-back-') as directory:
@@ -1234,6 +1268,8 @@ def exit_hint(width, height, stage):
 
 
 if __name__ == '__main__':
+    for width, height in [(100, 30), (80, 24)]:
+        read_end_revision(width, height)
     for size in [(100, 30), (80, 24)]:
         for stage in ('goal', 'draft', 'ready', 'stale', 'unreadable'):
             exit_hint(*size, stage)

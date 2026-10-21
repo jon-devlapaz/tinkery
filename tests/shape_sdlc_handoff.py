@@ -209,13 +209,16 @@ def approve_watch(root, env, session, project):
         copies = re.findall(rb'\x1b\]52;[^;]*;([^\x07\x1b]*)(?:\x07|\x1b\\)', output)
         assert len(copies) == 1
         commands = base64.b64decode(copies[0]).decode().splitlines()
-        assert len(commands) == 2
-        assert commands[0] == 'python3 _system/scripts/sdlc.py new <run>'
-        for line in commands:
-            command(shlex.split(line.replace('<run>', 'test-copied-intake')), project, env)
+        assert len(commands) == 1 and '<run>' not in commands[0], commands
+        words = shlex.split(commands[0])
+        copied_slug = words[6]
+        title = (session / 'seed-contract.md').read_text().split('# Seed: ', 1)[1].splitlines()[0]
+        assert copied_slug == re.sub('[^a-z0-9]+', '-', title.lower()).strip('-')[:80].rstrip('-'), words
+        # Paste byte-for-byte from outside the checkout: no slug replacement or split shell.
+        command(['bash', '-c', commands[0]], root, env)
         runtime = project / '_system/scripts/sdlc.py'
         summary = json.loads(command([sys.executable, runtime, 'status', '--json'], project, env).stdout)
-        detail = json.loads(command([sys.executable, runtime, 'status', 'test-copied-intake', '--json'], project, env).stdout)
+        detail = json.loads(command([sys.executable, runtime, 'status', copied_slug, '--json'], project, env).stdout)
         seed = session / 'seed-contract.md'
         for row in [summary['runs'][0], detail['run']]:
             assert row['seed_contract']['source'] == str(seed.resolve())
@@ -229,11 +232,11 @@ def approve_watch(root, env, session, project):
         send(b'\x1b', '4 approve')
         send(b'5', 'Needs you')
         wait(GOAL)
-        assert 'test-copied-intake' in screen.text(), screen.text()
+        assert copied_slug[:30] in screen.text(), screen.text()
         assert 'Goal unknown' not in screen.text() and 'No confirmed seed' not in screen.text(), screen.text()
-        copied_first = '› test-copied-intake' in screen.text()
+        copied_first = f'› {copied_slug[:30]}' in screen.text()
         if not copied_first:
-            send(b'\x1b[B', '› test-copied-intake')
+            send(b'\x1b[B', f'› {copied_slug[:30]}')
         send(b'\r', 'Stage 3 gate:')
         wait(GOAL)
         assert 'Goal unknown' not in screen.text(), screen.text()

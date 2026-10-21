@@ -109,6 +109,36 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
 }
 
 #[test]
+fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
+    let root = temp();
+    let session = session(root.path());
+    let version = probe(&session, 1).unwrap().unwrap();
+    let version = answer(&session, version, PROBE.0, "TEST my actual answer").unwrap();
+    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST"}]);
+    let prose =
+        ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
+    let before = fs::read(session.join("ledger.json")).unwrap();
+    for field in ["Risks and verification", "Knowledge map"] {
+        let mut forged = prose.clone();
+        forged[field] = "Probe: What would an expert ask? — answer: TEST invented operator answer — changed: nothing".into();
+        let error = draft_seed(&session, version, &forged, &checks, &[], root.path()).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("probe answers belong to the ledger"),
+            "{error}"
+        );
+        assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+        assert!(!session.join("seed-contract.md").exists());
+    }
+    draft_seed(&session, version, &prose, &checks, &[], root.path()).unwrap();
+    let seed = fs::read_to_string(session.join("seed-contract.md")).unwrap();
+    assert!(seed.contains("probe-pre-mortem [user] TEST my actual answer"));
+    assert!(!seed.contains("TEST invented operator answer"));
+    assert!(!seed.contains("What would an expert ask?"));
+}
+
+#[test]
 fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
     let root = temp();
     let session = session(root.path());

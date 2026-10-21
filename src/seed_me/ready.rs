@@ -14,7 +14,7 @@ pub struct ReadySeed {
     pub revision: String,
     /// The acceptance section, including its heading and original whitespace.
     pub acceptance: String,
-    /// Both manual commands, or no copy when a canonical path cannot be safely represented.
+    /// One combined manual command, or no copy without a safely representable named checkout.
     pub commands: Option<String>,
 }
 
@@ -45,13 +45,14 @@ pub(crate) fn goal(seed: &Path) -> Result<String, String> {
 
 /// Read a confirmed seed without mutation. `None` means not verified ready; errors mean unavailable.
 /// Blocks on disk reads, so callers must use a worker, never an input or paint path.
-pub fn read(session: &Path) -> Result<Option<ReadySeed>, String> {
+pub fn read(session: &Path, root: Option<&Path>) -> Result<Option<ReadySeed>, String> {
     super::migration::refuse_old_root(session)?;
-    read_with(session, || shaping::read(session))
+    read_with(session, root, || shaping::read(session))
 }
 
 fn read_with(
     session: &Path,
+    root: Option<&Path>,
     inspect: impl FnOnce() -> Result<shaping::Shaping, String>,
 ) -> Result<Option<ReadySeed>, String> {
     let seed_path = path(session);
@@ -83,10 +84,23 @@ fn read_with(
             .ok_or("The verified seed has no goal.")?,
         revision: revision.ok_or("The verified seed has no revision.")?,
         acceptance: acceptance(&seed)?,
-        commands: shaped
-            .intake
-            .map(|intake| format!("python3 _system/scripts/sdlc.py new <run>\n{intake}")),
+        commands: root.and_then(|root| {
+            let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
+            let run = slug(title.strip_prefix("Seed: ").unwrap_or(title))?;
+            shaping::intake(session, &std::env::current_exe().ok()?, &run, Some(root))
+        }),
     }))
+}
+
+fn slug(title: &str) -> Option<String> {
+    let words: Vec<_> = title
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect();
+    let mut slug = words.join("-").to_ascii_lowercase();
+    slug.truncate(80);
+    let slug = slug.trim_end_matches('-');
+    (!slug.is_empty()).then(|| slug.to_owned())
 }
 
 fn acceptance(seed: &str) -> Result<String, String> {
@@ -136,7 +150,7 @@ mod tests {
         for verified in [false, true] {
             let (_root, session) = fixture(verified);
             let before = fs::read(session.join("seed-contract.md")).unwrap();
-            let seed = read(&session).unwrap();
+            let seed = read(&session, Some(&session)).unwrap();
             assert_eq!(seed.is_some(), verified);
             if let Some(seed) = seed {
                 assert_eq!(seed.goal, " TEST goal\nverbatim  ");
@@ -146,15 +160,18 @@ mod tests {
                 );
                 assert_eq!(
                     seed.commands.unwrap(),
-                    format!(
-                        "python3 _system/scripts/sdlc.py new <run>\n{}",
-                        shaping::read(&session).unwrap().intake.unwrap()
+                    shaping::intake(
+                        &session,
+                        &std::env::current_exe().unwrap(),
+                        "test",
+                        Some(&session),
                     )
+                    .unwrap()
                 );
             }
             assert_eq!(fs::read(session.join("seed-contract.md")).unwrap(), before);
             fs::write(session.join("seed-contract.md"), "status: draft\n").unwrap();
-            assert!(read(&session).unwrap().is_none());
+            assert!(read(&session, Some(&session)).unwrap().is_none());
         }
     }
 
@@ -162,7 +179,7 @@ mod tests {
     fn a_changed_source_is_refused_instead_of_displaying_unverified_bytes() {
         let (_root, session) = fixture(true);
         assert!(
-            read_with(&session, || {
+            read_with(&session, Some(&session), || {
                 let shaped = shaping::read(&session)?;
                 fs::write(session.join("seed-contract.md"), "TEST changed").unwrap();
                 Ok(shaped)
@@ -177,9 +194,22 @@ mod tests {
         let (root, session) = fixture(true);
         let moved = root.path().join("session\nunsafe");
         fs::rename(session, &moved).unwrap();
-        let seed = read(&moved).unwrap().unwrap();
+        let seed = read(&moved, Some(root.path())).unwrap().unwrap();
         assert!(seed.commands.is_none());
         assert_eq!(seed.revision, "r1");
+    }
+
+    #[test]
+    fn title_slugs_are_bounded_shell_words_and_missing_checkouts_offer_no_copy() {
+        assert_eq!(
+            slug("TEST café; $(touch nope)"),
+            Some("test-caf-touch-nope".into())
+        );
+        assert_eq!(slug("你好"), None);
+        assert_eq!(slug(&"a".repeat(200)).unwrap().len(), 80);
+        assert_eq!(slug(&format!("{} next", "a".repeat(79))).unwrap().len(), 79);
+        let (_root, session) = fixture(true);
+        assert!(read(&session, None).unwrap().unwrap().commands.is_none());
     }
 
     #[test]
