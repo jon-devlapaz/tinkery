@@ -8,7 +8,7 @@ use super::shaping::{self, Shaped};
 /// One consistent, ledger-verified seed reading; commands are text, never execution permission.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReadySeed {
-    /// The confirmed goal exactly as recorded by Seed Me.
+    /// The confirmed goal exactly as recorded.
     pub goal: String,
     /// The confirmed seed revision.
     pub revision: String,
@@ -26,6 +26,7 @@ pub(crate) fn path(session: &Path) -> std::path::PathBuf {
 /// Read the exact saved goal beside an original seed, never a placeholder or a run's copy.
 /// The caller must establish the seed's identity separately; this does not verify confirmation.
 pub(crate) fn goal(seed: &Path) -> Result<String, String> {
+    super::migration::refuse_old_root(seed)?;
     let ledger = seed
         .parent()
         .ok_or("The seed has no session folder.")?
@@ -44,8 +45,9 @@ pub(crate) fn goal(seed: &Path) -> Result<String, String> {
 
 /// Read a confirmed seed without mutation. `None` means not verified ready; errors mean unavailable.
 /// Blocks on disk reads, so callers must use a worker, never an input or paint path.
-pub fn read(skill: &Path, session: &Path) -> Result<Option<ReadySeed>, String> {
-    read_with(session, || shaping::read(skill, session))
+pub fn read(session: &Path) -> Result<Option<ReadySeed>, String> {
+    super::migration::refuse_old_root(session)?;
+    read_with(session, || shaping::read(session))
 }
 
 fn read_with(
@@ -115,34 +117,26 @@ fn acceptance(seed: &str) -> Result<String, String> {
 mod tests {
     use super::*;
 
-    fn fixture(verified: bool) -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+    fn fixture(verified: bool) -> (tempfile::TempDir, std::path::PathBuf) {
         let root = tempfile::Builder::new()
             .prefix("tinkery-TEST-ready-'")
             .tempdir()
             .unwrap();
-        let skill = root.path().join("skill/SKILL.md");
         let session = root.path().join("session");
-        fs::create_dir_all(skill.parent().unwrap().join("scripts")).unwrap();
         fs::create_dir(&session).unwrap();
-        fs::write(&skill, "TEST skill").unwrap();
         super::super::ledger::fixtures::confirmed(&session, " TEST goal\nverbatim  ", "r1");
         if !verified {
             fs::remove_file(session.join("seed-confirmation.json")).unwrap();
         }
-        fs::write(
-            skill.parent().unwrap().join("scripts/session.py"),
-            "raise Exception('TEST helper must not run')",
-        )
-        .unwrap();
-        (root, skill, session)
+        (root, session)
     }
 
     #[test]
     fn only_verified_seeds_supply_exact_words_and_shared_intake_commands() {
         for verified in [false, true] {
-            let (_root, skill, session) = fixture(verified);
+            let (_root, session) = fixture(verified);
             let before = fs::read(session.join("seed-contract.md")).unwrap();
-            let seed = read(&skill, &session).unwrap();
+            let seed = read(&session).unwrap();
             assert_eq!(seed.is_some(), verified);
             if let Some(seed) = seed {
                 assert_eq!(seed.goal, " TEST goal\nverbatim  ");
@@ -154,22 +148,22 @@ mod tests {
                     seed.commands.unwrap(),
                     format!(
                         "python3 _system/scripts/sdlc.py new <run>\n{}",
-                        shaping::read(&skill, &session).unwrap().intake.unwrap()
+                        shaping::read(&session).unwrap().intake.unwrap()
                     )
                 );
             }
             assert_eq!(fs::read(session.join("seed-contract.md")).unwrap(), before);
             fs::write(session.join("seed-contract.md"), "status: draft\n").unwrap();
-            assert!(read(&skill, &session).unwrap().is_none());
+            assert!(read(&session).unwrap().is_none());
         }
     }
 
     #[test]
     fn a_changed_source_is_refused_instead_of_displaying_unverified_bytes() {
-        let (_root, skill, session) = fixture(true);
+        let (_root, session) = fixture(true);
         assert!(
             read_with(&session, || {
-                let shaped = shaping::read(&skill, &session)?;
+                let shaped = shaping::read(&session)?;
                 fs::write(session.join("seed-contract.md"), "TEST changed").unwrap();
                 Ok(shaped)
             })
@@ -180,10 +174,10 @@ mod tests {
 
     #[test]
     fn unsafe_copy_paths_keep_the_seed_readable_but_offer_no_command() {
-        let (root, skill, session) = fixture(true);
+        let (root, session) = fixture(true);
         let moved = root.path().join("session\nunsafe");
         fs::rename(session, &moved).unwrap();
-        let seed = read(&skill, &moved).unwrap().unwrap();
+        let seed = read(&moved).unwrap().unwrap();
         assert!(seed.commands.is_none());
         assert_eq!(seed.revision, "r1");
     }

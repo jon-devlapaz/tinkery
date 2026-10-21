@@ -8,7 +8,7 @@ const GOAL: &str = "I TEST a calm morning.\nWhy: I need space.\nDone when: I can
 const WORDS: &str = "  Café 👩‍💻\n\"quoted\"\ttab  ";
 
 fn session(root: &Path, branch: &str) -> PathBuf {
-    let path = root.join(branch).join("TEST-sessions/same-name");
+    let path = root.join("TEST-sessions").join(format!("TEST-id-{branch}"));
     fs::create_dir_all(&path).unwrap();
     fs::write(
         path.join("ledger.json"),
@@ -119,18 +119,128 @@ fn reads_all_turns_verbatim_and_changes_no_saved_bytes() {
 }
 
 #[test]
-fn same_folder_names_and_identical_goals_in_other_roots_never_match() {
-    let dir = tempfile::tempdir().unwrap();
+fn history_uses_ledger_ids_in_one_root_and_refuses_ambiguous_live_sessions() {
+    let dir = tempfile::Builder::new()
+        .prefix("tinkery-TEST-history-id-")
+        .tempdir()
+        .unwrap();
     let selected = session(dir.path(), "TEST-a");
     let other = session(dir.path(), "TEST-b");
     let root = dir.path().join("TEST-records");
-    let other_record = record(&root, &other, 10);
-    let missing = read(&root, &selected, GOAL).unwrap_err();
-    assert!(missing.message.contains("No Think history"));
-    let selected_record = record(&root, &selected, 20);
-    let history = read(&root, &selected, GOAL).unwrap();
-    assert!(history.details.contains(selected_record.to_str().unwrap()));
-    assert!(!history.details.contains(other_record.to_str().unwrap()));
+    let selected_record = record(&root, &selected, 10);
+    record(&root, &other, 20);
+    let moved = selected
+        .parent()
+        .unwrap()
+        .join("TEST-different-folder-name");
+    fs::rename(&selected, &moved).unwrap();
+    assert!(
+        read(&root, &moved, GOAL)
+            .unwrap()
+            .details
+            .contains(selected_record.to_str().unwrap())
+    );
+    amend(&other.join("ledger.json"), |v| {
+        v["session_id"] = "TEST-id-TEST-a".into()
+    });
+    let error = read(&root, &moved, GOAL).unwrap_err();
+    assert!(
+        error.message.contains("More than one saved session"),
+        "{error:?}"
+    );
+    assert_eq!(
+        read_origins(&root, &[(moved.as_path(), GOAL), (other.as_path(), GOAL)]).unwrap(),
+        vec![MadeIn::Unknown, MadeIn::Unknown]
+    );
+}
+
+#[test]
+fn default_root_move_preserves_history_bytes_and_matches_ledger_identity() {
+    for path_only in [false, true] {
+        let temporary = tempfile::Builder::new()
+            .prefix("tinkery-TEST-history-move-")
+            .tempdir()
+            .unwrap();
+        let home = temporary.path().canonicalize().unwrap();
+        let old = home.join(".local/share/seed-me/sessions");
+        let new = home.join(".local/share/tinkery/sessions");
+        let selected = old.join("TEST-moved-id");
+        fs::create_dir_all(&selected).unwrap();
+        fs::write(
+            selected.join("ledger.json"),
+            serde_json::json!({
+                "schema_version":1, "session_id":"TEST-moved-id", "status":"active", "goal":GOAL
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let records = home.join(".local/share/tinkery/think");
+        let record_path = record(&records, &selected, 10);
+        if path_only {
+            amend(&record_path, |v| {
+                v.as_object_mut().unwrap().remove("seed_me_session_id");
+            });
+        }
+        let original = fs::read(&record_path).unwrap();
+        let original_ledger = fs::read(selected.join("ledger.json")).unwrap();
+        assert!(
+            crate::seed_me::migration::migrate(Some(home.as_os_str()))
+                .unwrap()
+                .is_some()
+        );
+        let moved = new.join("TEST-moved-id");
+        let history = read(&records, &moved, GOAL).unwrap();
+        assert_eq!(history.turns[0].event, turns()[0].event);
+        assert_eq!(
+            fs::read(moved.join("ledger.json")).unwrap(),
+            original_ledger
+        );
+        assert_eq!(
+            fs::read(&record_path).unwrap(),
+            original,
+            "move must never rewrite Think records"
+        );
+        assert_eq!(
+            read_origins(&records, &[(moved.as_path(), GOAL)]).unwrap(),
+            vec![MadeIn::NoRepo]
+        );
+        assert_eq!(fs::read(record_path).unwrap(), original);
+        assert!(!old.exists());
+        assert!(
+            crate::seed_me::migration::migrate(Some(home.as_os_str()))
+                .unwrap()
+                .is_none()
+        );
+    }
+}
+
+#[test]
+fn missing_path_fallback_compares_ledger_id_not_the_live_folder_name() {
+    let dir = tempfile::Builder::new()
+        .prefix("tinkery-TEST-history-path-")
+        .tempdir()
+        .unwrap();
+    let selected = session(dir.path(), "TEST-a");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &selected, 10);
+    amend(&path, |v| {
+        v.as_object_mut().unwrap().remove("seed_me_session_id");
+        v["seed_me_session_path"] = dir
+            .path()
+            .join("TEST-absent/TEST-not-the-id")
+            .to_str()
+            .unwrap()
+            .into();
+        v["seed_me_session"] = "TEST-not-the-id".into();
+    });
+    let moved = selected.parent().unwrap().join("TEST-not-the-id");
+    fs::rename(selected, &moved).unwrap();
+    assert!(
+        read(&root, &moved, GOAL)
+            .unwrap_err()
+            .message
+            .contains("No Think history")
+    );
 }
 
 #[test]
@@ -279,10 +389,7 @@ fn same_path_and_same_goal_with_a_replaced_session_identity_refuses_old_history(
         value["session_id"] = "TEST-replacement-id".into();
     });
     let error = read(&root, &session, GOAL).unwrap_err();
-    assert!(
-        error.message.contains("different saved session"),
-        "{error:?}"
-    );
+    assert!(error.message.contains("No Think history"), "{error:?}");
     assert_eq!(fs::read(record_path).unwrap(), original_record);
 }
 

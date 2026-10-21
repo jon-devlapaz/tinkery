@@ -1,5 +1,5 @@
 //! Tinkery-owned needs links: strict reads, explicit edits and derived readiness.
-//! Never edits Seed Me sessions. Unreadable stores refuse mutation; readiness uses only
+//! Never edits saved sessions. Unreadable stores refuse mutation; readiness uses only
 //! supplied sessions, including ended ones, and never infers identity from names or paths.
 
 use crate::seed_me::{Session, Stage};

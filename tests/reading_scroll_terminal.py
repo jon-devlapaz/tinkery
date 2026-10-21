@@ -1,5 +1,6 @@
 """Long Think exclusions stay reachable before review; fake replies, isolated TEST roots."""
-import fcntl, json, os, select, struct, subprocess, tempfile, termios, time
+import fcntl, json, os, select, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 
@@ -30,7 +31,6 @@ def journey(width, height, no_color):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-reading-scroll-') as directory:
         cwd = Path(directory)
         host = cwd / 'pi'; host.write_text(HOST); host.chmod(0o755)
-        skill = cwd / 'SKILL.md'; skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
         environment = {**os.environ, 'TERM': 'xterm-256color', 'HOME': str(cwd / 'TEST-home'), 'TINKERY_NODE': '/tinkery-TEST-no-node'}
         environment.pop('NO_COLOR', None)
         if no_color:
@@ -39,10 +39,9 @@ def journey(width, height, no_color):
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
         process = subprocess.Popen(
-            [str(BINARY), '--shape-pi', '--model', 'test/model', '--seed-me', str(skill),
-             '--pi-command', str(host), '--record-root', str(cwd / 'TEST-records'),
+            [str(BINARY), '--shape-pi', '--model', 'test/model', '--pi-command', str(host), '--record-root', str(cwd / 'TEST-records'),
              '--seed-session-root', str(cwd / 'TEST-sessions')],
-            stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=environment)
+            stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(environment))
 
         def pump(seconds=0.08):
             deadline = time.monotonic() + seconds
@@ -145,7 +144,7 @@ def journey(width, height, no_color):
             process.wait(timeout=5)
             assert process.returncode == 0
             assert (cwd / 'calls.jsonl').read_bytes() == calls, 'Navigation or copying started a call'
-            assert {p.name for p in cwd.iterdir()} == {'pi', 'SKILL.md', 'calls.jsonl'}, 'Unexpected persistence'
+            assert {p.name for p in cwd.iterdir()} == {'pi', 'calls.jsonl'}, 'Unexpected persistence'
             print(json.dumps(dict(width=width, height=height, NO_COLOR=no_color, exclusions=len(EXCLUSIONS), fake_calls=len(requests), journey='reading hint/full Unicode text/PgUp/help/copy/review/guarded exit', saved=False)))
         finally:
             if process.poll() is None:

@@ -141,8 +141,7 @@ fn screen(h: &mut Home) -> String {
 }
 
 fn garden(count: usize) -> Home {
-    let mut h = home(Arc::new(|_| panic!("input and painting never read")))
-        .with_seed_me("/TEST/SKILL.md".into());
+    let mut h = home(Arc::new(|_| panic!("input and painting never read")));
     let mut tend = Tend::new(Err("TEST links unavailable".into()));
     tend.apply(
         &found(
@@ -295,7 +294,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
                     );
                     assert_eq!(text.matches("couldn't be read").count(), 1, "{frame}");
                 }
-                assert!(!text.contains("No Seed Me sessions"), "{frame}");
+                assert!(!text.contains("No saved sessions"), "{frame}");
                 assert!(
                     text.contains(&format!("{count} ended not shown")),
                     "{frame}"
@@ -321,7 +320,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
     };
     tend.apply(&found(vec![]), true, 2);
     let frame = screen(&mut h);
-    assert!(frame.contains("No Seed Me sessions yet. Confirm a goal in think to start one."));
+    assert!(frame.contains("No saved sessions yet. Confirm a goal in think to start one."));
     assert!(!frame.contains("ended not shown"));
 }
 
@@ -389,9 +388,9 @@ fn garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize() {
     assert_eq!(tend.scroll, 1);
     assert_eq!(tend.selected, 22);
     h.handle_key(key(KeyCode::Char('c')));
-    assert_eq!(
-        h.take_copy_request().unwrap(),
-        crate::seed_me::continuation_prompt(Path::new("/TEST/SKILL.md"), Path::new("/TEST/22"))
+    assert!(
+        h.take_copy_request().is_none(),
+        "the retired skill prompt is not copied"
     );
     h.handle_key(key(KeyCode::Esc));
     let View::Tend(tend) = &h.view else { panic!() };
@@ -647,7 +646,7 @@ fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
         for name in ["think", "tend", "approve", "watch", "taste", "measure"] {
             assert!(frame.contains(name), "{frame}");
         }
-        assert!(!frame.contains("Reading") && !frame.contains("No Seed Me"));
+        assert!(!frame.contains("Reading") && !frame.contains("No saved"));
     }
     assert_eq!(h.count(1), None, "unknown is not shown as a number or zero");
     assert_eq!(gate.entered.load(SeqCst), 1, "painting never reads sources");
@@ -718,7 +717,7 @@ fn tend_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
         frame.contains("Reading your sessions. Esc goes back."),
         "{frame}"
     );
-    assert!(!frame.contains("No Seed Me sessions"), "{frame}");
+    assert!(!frame.contains("No saved sessions"), "{frame}");
     assert!(frame.to_lowercase().contains("esc back"));
     assert!(
         !frame.contains("move") && !frame.contains("enter open"),
@@ -891,7 +890,7 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
         frame.contains("Still reading your sessions. Esc goes back."),
         "{frame}"
     );
-    assert!(!frame.contains("No Seed Me sessions"), "{frame}");
+    assert!(!frame.contains("No saved sessions"), "{frame}");
     assert!(!frame.contains("enter open"), "{frame}");
     gate.release(8);
     settle(&mut h);
@@ -1155,13 +1154,13 @@ fn counts_are_exact_only_after_complete_current_reads() {
     h.open(1);
     settle(&mut h);
     assert_eq!(h.count(1), None);
-    assert!(!screen(&mut h).contains("No Seed Me sessions"));
+    assert!(!screen(&mut h).contains("No saved sessions"));
     // Complete and empty is the only way to "no sessions".
     gate.set(found(vec![]));
     gate.release(1);
     h.open(1);
     settle(&mut h);
-    assert!(screen(&mut h).contains("No Seed Me sessions yet"));
+    assert!(screen(&mut h).contains("No saved sessions yet"));
     assert_eq!(h.count(1), None, "zero is never printed");
 }
 
@@ -1181,7 +1180,7 @@ fn only_unreadable_records_never_read_as_no_sessions() {
         frame.contains("2 saved records couldn't be read"),
         "{frame}"
     );
-    assert!(!frame.contains("No Seed Me sessions"), "{frame}");
+    assert!(!frame.contains("No saved sessions"), "{frame}");
 }
 
 #[test]
@@ -1395,10 +1394,10 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
         assert_eq!(tend.error.as_deref(), Some(reason));
         assert!(!tend.pending);
         tend.how = true;
-        assert!(tend.help_text(None).contains("--seed-session-root PATH"));
+        assert!(tend.help_text().contains("--seed-session-root PATH"));
         let frame = snapshot(80, 24, &mut h, false).unwrap();
         assert!(frame.contains("unavailable"), "{frame}");
-        assert!(!frame.contains("No Seed Me sessions"), "{frame}");
+        assert!(!frame.contains("No saved sessions"), "{frame}");
         assert!(!h.discovery.running());
     }
 }

@@ -27,14 +27,7 @@ fn zero_budget_refuses_revision_before_reading_or_publishing() {
     };
     let saved = AtomicBool::new(false);
     assert_eq!(
-        run(
-            &work,
-            &root.path().join("TEST-skill"),
-            root.path(),
-            &agent,
-            &AtomicBool::new(false),
-            &saved
-        ),
+        run(&work, root.path(), &agent, &AtomicBool::new(false), &saved),
         Err(Failure {
             answer_saved: false,
             why: Why::Budget(0)
@@ -72,14 +65,7 @@ fn teach_back_zero_budget_refuses_before_capture_or_any_read() {
     };
     let saved = AtomicBool::new(false);
     assert_eq!(
-        run(
-            &work,
-            &root.path().join("TEST-skill"),
-            root.path(),
-            &agent,
-            &AtomicBool::new(false),
-            &saved
-        ),
+        run(&work, root.path(), &agent, &AtomicBool::new(false), &saved),
         Err(Failure {
             answer_saved: false,
             why: Why::Budget(0)

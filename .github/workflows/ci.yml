@@ -51,47 +51,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Documentation contracts (fast failure)
-        run: |
-          python3 tests/test_documentation.py
-          python3 tests/test_planning_docs.py
-          python3 tests/test_job_record_docs.py
-      - name: Official Seed Me contract fixture (not vendored)
-        uses: actions/checkout@v4
-        with:
-          repository: jon-devlapaz/seed-me
-          ref: c9d766760dbeac0c05c92108165f9e968bec0a66
-          path: .ci-seed-me
-      - name: Seed Me test runtime
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: Formatting
-        run: cargo fmt --all -- --check
-      - name: Tests (Tinkery and vendored Pinstar)
+      - name: Full guarded zero-call verification
         env:
-          SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
-        run: cargo test --workspace --locked
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Build
-        run: cargo build --locked
-      - name: Local voice helper (fake-only; runner Node is required)
-        run: node --test voice/*.test.mjs
-      - name: Terminal journeys (real binary in a pseudo-terminal)
-        env:
-          TINKERY_NODE: /tinkery-TEST-no-node
-          SEED_ME_TEST_SKILL: ${{ github.workspace }}/.ci-seed-me/skills/seed-me/SKILL.md
-        shell: bash
-        run: |
-          for t in tests/*.py; do
-            case "$t" in tests/vt_screen.py) continue;; esac
-            echo "== $t"; python3 "$t"
-          done
+          TINKERY_TEST_SDLC_REF: 4b6415a9aa8548f6486c97e5b60d4fea0d0662a0
+        run: python3 scripts/full-check.py
   cold-clone:
     needs: scope
     if: github.event_name == 'pull_request' && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.setup != 'false'
@@ -111,7 +81,7 @@ jobs:
           set -euo pipefail
           apt-get update
           apt-get install -y --no-install-recommends git ca-certificates
-          export HOME=$(mktemp -d "$RUNNER_TEMP/tinkery-home.XXXXXX")
+          export HOME=$(mktemp -d "$RUNNER_TEMP/tinkery-TEST-home.XXXXXX")
           unset CARGO_HOME RUSTUP_HOME
           cold=$(mktemp -d "$RUNNER_TEMP/tinkery-cold.XXXXXX")
           git clone --single-branch --branch "$HEAD_REF" "$HEAD_REPO" "$cold"
@@ -120,15 +90,7 @@ jobs:
           echo "Cold source: $(git rev-parse HEAD)"
           ./scripts/cloud-setup.sh
           ./scripts/cloud-setup.sh
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          source = Path('AGENTS.md').read_text().split('<!-- full-check:start -->', 1)[1].split('<!-- full-check:end -->', 1)[0]
-          blocks = re.findall(r'```bash\n(.*?)\n```', source, re.S)
-          assert len(blocks) == 1, 'Expected exactly one documented verification block'
-          Path('/tmp/tinkery-cold-check.sh').write_text(blocks[0] + '\n')
-          PY
-          bash -euo pipefail /tmp/tinkery-cold-check.sh
+          python3 scripts/full-check.py
           ./scripts/cloud-setup.sh
           test -z "$(git status --porcelain --untracked-files=all)"
   ready:

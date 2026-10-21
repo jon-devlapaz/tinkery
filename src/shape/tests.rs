@@ -9,9 +9,8 @@ use std::sync::Arc;
 const GOAL: &str = "TEST I can shape a goal calmly.\nWhy: I lose the thread between tools.\nDone when: I see the next question.\nMust: Keep my words.\nMust not: Run agents.";
 
 fn done(stage: Shaped) -> Shape {
-    let mut shape = Shape::session(None, Path::new("/tmp/TEST-shape/session"));
+    let mut shape = Shape::session(Path::new("/tmp/TEST-shape/session"));
     let open = shape.open.as_mut().unwrap();
-    open.skill = Some("/tmp/TEST-shape/SKILL.md".into());
     open.reading = Reading::Done(Ok(Shaping {
         goal: Some(GOAL.into()),
         stage,
@@ -74,7 +73,7 @@ fn so_far_names_open_questions_and_the_answers_they_wait_for() {
             shaping.goal = Some("TEST goal".into());
             shaping.decided.clear();
             shaping.open = vec!["TEST A".into(), "TEST B — waits for: TEST A, TEST C".into()];
-            shape.key(key(KeyCode::F(5)), None);
+            shape.key(key(KeyCode::F(5)));
             let text = screen(&mut shape, width, height, no_color);
             assert!(text.contains("Open questions"), "{text}");
             assert!(
@@ -97,7 +96,7 @@ fn new_answer_keys_cannot_escape_an_ending_or_objection() {
             } else {
                 open.objecting = true;
             }
-            shape.key(key(KeyCode::F(code)), None);
+            shape.key(key(KeyCode::F(code)));
             let open = shape.open.as_ref().unwrap();
             assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
             assert!(open.notice.is_none());
@@ -144,11 +143,11 @@ fn forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing() {
     for code in [11, 12] {
         let mut held = key(KeyCode::F(code));
         held.kind = KeyEventKind::Repeat;
-        shape.key(held, None);
+        shape.key(held);
         let open = shape.open.as_ref().unwrap();
         assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
     }
-    shape.key(key(KeyCode::F(11)), None);
+    shape.key(key(KeyCode::F(11)));
     let open = shape.open.as_mut().unwrap();
     let Reading::Done(Ok(shaping)) = &mut open.reading else {
         panic!()
@@ -184,12 +183,12 @@ fn only_flagged_operator_decisions_offer_a_revision_form() {
             let text = screen(&mut shape, width, height, true);
             assert_eq!(text.contains("F2 revise"), revisable, "{text}");
             assert_eq!(shape.help_text().contains("F2 revise"), revisable);
-            shape.key(key(KeyCode::F(2)), None);
+            shape.key(key(KeyCode::F(2)));
             assert_eq!(shape.open.as_ref().unwrap().form.is_some(), revisable);
             if revisable {
                 shape.paste("TEST replacement\r\nwords ");
                 assert!(screen(&mut shape, width, height, true).contains("replacement answer"));
-                shape.key(key(KeyCode::Esc), None);
+                shape.key(key(KeyCode::Esc));
                 assert!(shape.open.as_ref().unwrap().form.is_none());
                 assert!(shape.open.as_ref().unwrap().running.is_none());
             }
@@ -201,13 +200,13 @@ fn only_flagged_operator_decisions_offer_a_revision_form() {
 fn deferral_form_keeps_fields_and_original_answer_without_writes() {
     let mut shape = done(question()).with_agent(Some(agent(0)));
     shape.paste("TEST original answer");
-    shape.key(key(KeyCode::F(11)), None);
+    shape.key(key(KeyCode::F(11)));
     shape.paste("TEST wait\r\nfor scope ");
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("Gate: TEST gate"), "{text}");
-    shape.key(key(KeyCode::F(11)), None);
+    shape.key(key(KeyCode::F(11)));
     shape.paste("TEST before implementation ");
-    shape.key(key(KeyCode::Tab), None);
+    shape.key(key(KeyCode::Tab));
     assert_eq!(
         shape.open.as_ref().unwrap().form.as_ref().unwrap().action(),
         AnswerAction::Defer {
@@ -215,13 +214,13 @@ fn deferral_form_keeps_fields_and_original_answer_without_writes() {
             revisit: "TEST before implementation ".into(),
         }
     );
-    shape.key(key(KeyCode::Esc), None);
+    shape.key(key(KeyCode::Esc));
     let open = shape.open.as_ref().unwrap();
     assert_eq!(open.typed.text(), "TEST original answer");
     assert!(open.running.is_none() && open.writing.is_none());
     shape.held = true;
     for code in [11, 12] {
-        shape.key(key(KeyCode::F(code)), None);
+        shape.key(key(KeyCode::F(code)));
         assert!(shape.open.as_ref().unwrap().form.is_none());
         assert!(shape.open.as_ref().unwrap().running.is_none());
     }
@@ -247,7 +246,7 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
     let mut writable = done(stage).with_agent(Some(agent(0)));
     let text = screen(&mut writable, 80, 24, true);
     assert!(text.contains("F6 keep with reason"), "{text}");
-    writable.key(key(KeyCode::F(6)), None);
+    writable.key(key(KeyCode::F(6)));
     assert!(screen(&mut writable, 80, 24, true).contains(WORD_REFUSALS[3]));
     assert!(writable.open.as_ref().unwrap().writing.is_none());
     assert!(writable.open.as_ref().unwrap().running.is_none());
@@ -263,12 +262,12 @@ fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent
     let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
         panic!()
     };
-    let command = "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '/tmp/TEST-shape/seed-contract.md' --seed-me-helper '/tmp/TEST-shape/scripts/session.py'";
+    let command = "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '/tmp/TEST-shape/seed-contract.md' --tinkery '/tmp/TEST-shape/tinkery'";
     shaping.intake = Some(command.into());
     for sent in [false, true] {
         let text = screen(&mut shape, 80, 24, false);
         assert!(text.contains("c copy intake"), "{text}");
-        shape.key(key(KeyCode::Char('c')), None);
+        shape.key(key(KeyCode::Char('c')));
         assert_eq!(shape.take_copy_request().as_deref(), Some(command));
         assert_eq!(shape.take_copy_request(), None);
         shape.copy_result(sent);
@@ -282,8 +281,8 @@ fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent
             "{text}"
         );
     }
-    shape.key(key(KeyCode::F(5)), None);
-    shape.key(key(KeyCode::Char('c')), None);
+    shape.key(key(KeyCode::F(5)));
+    shape.key(key(KeyCode::Char('c')));
     assert_eq!(shape.take_copy_request(), None);
 }
 
@@ -381,7 +380,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
 /// Opens "So far" with F5 and returns the goal it shows, after checking the page around it and
 /// that Esc closes it.
 fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String {
-    shape.key(key(KeyCode::F(5)), None);
+    shape.key(key(KeyCode::F(5)));
     assert!(!shape.takes_text(), "F5's page took words");
     let text = screen(shape, width, height, no_color);
     let rows: Vec<&str> = text.lines().map(str::trim_start).collect();
@@ -406,8 +405,8 @@ fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String 
         !text.contains("esc back"),
         "a key bar on F5's page:\n{text}"
     );
-    shape.key(key(KeyCode::Char('x')), None);
-    shape.key(key(KeyCode::Esc), None);
+    shape.key(key(KeyCode::Char('x')));
+    shape.key(key(KeyCode::Esc));
     assert!(
         shape.open.as_ref().unwrap().so_far.is_none(),
         "Esc kept F5's page"
@@ -464,13 +463,10 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
 
 #[test]
 fn failures_and_missing_setup_are_said_plainly_with_the_reason_in_help() {
-    let mut shape = Shape::session(None, Path::new("/tmp/TEST-shape/session"));
+    let mut shape = Shape::session(Path::new("/tmp/TEST-shape/session"));
     let text = screen(&mut shape, 100, 30, true);
-    assert!(text.contains("Shape isn't set up here."), "{text}");
-    assert!(
-        text.contains("Next: start Tinkery with --shape-pi"),
-        "{text}"
-    );
+    assert!(text.contains("Reading where this seed stands."), "{text}");
+    assert!(!text.contains("--seed-me"), "{text}");
     let mut failed = done(Shaped::Waiting);
     failed.open.as_mut().unwrap().reading = Reading::Done(Err("Tinkery refused: no ledger".into()));
     let text = screen(&mut failed, 100, 30, true);
@@ -524,27 +520,27 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     for hidden in ["ready goal", "ended goal", "unknown goal"] {
         assert!(!text.contains(hidden), "{text}");
     }
-    assert_eq!(shape.key(key(KeyCode::Down), None), Leave::Stay);
-    assert_eq!(shape.key(key(KeyCode::Enter), None), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::Down)), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::Enter)), Leave::Stay);
     let text = screen(&mut shape, 100, 30, true);
-    assert!(text.contains("isn't set up here"), "{text}");
+    assert!(text.contains("Reading where this seed stands."), "{text}");
     assert!(shape.help_text().contains("/tmp/TEST-shape/drafted"));
-    assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Stay);
     // Back at the list, Shape reads again: a goal whose seed was confirmed meanwhile leaves it.
     assert!(shape.wants_sessions());
     shape.offer(Ok(&sessions), 0);
     assert!(screen(&mut shape, 100, 30, true).contains("› drafted goal"));
     let mut moved = sessions.clone();
     moved[2].stage = Stage::SeedUnchecked;
-    assert_eq!(shape.key(key(KeyCode::Enter), None), Leave::Stay);
-    assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::Enter)), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Stay);
     shape.offer(Ok(&moved), 0);
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("› saved goal") && !text.contains("drafted goal"),
         "{text}"
     );
-    assert_eq!(shape.key(key(KeyCode::Esc), None), Leave::Back);
+    assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Back);
     let mut empty = Shape::list();
     empty.offer(Ok(&sessions[1..2]), 0);
     assert!(screen(&mut empty, 100, 30, true).contains("No goals are waiting for a seed."));
@@ -553,7 +549,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert!(screen(&mut failed, 100, 30, true).contains("couldn't be read"));
     assert!(failed.help_text().contains("TEST read failed"));
     let mut direct = done(Shaped::Waiting);
-    assert_eq!(direct.key(key(KeyCode::Esc), None), Leave::Back);
+    assert_eq!(direct.key(key(KeyCode::Esc)), Leave::Back);
 }
 
 #[test]
@@ -618,19 +614,19 @@ fn question() -> Shaped {
 fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_starting() {
     let mut shape = done(question()).with_agent(Some(agent(0)));
     assert!(shape.takes_text());
-    assert_eq!(shape.key(key(KeyCode::F(2)), None), Leave::Stay);
+    assert_eq!(shape.key(key(KeyCode::F(2))), Leave::Stay);
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("Type your answer first; nothing was saved."),
         "{text}"
     );
     for c in "Local? Yes".chars() {
-        shape.key(key(KeyCode::Char(c)), None);
+        shape.key(key(KeyCode::Char(c)));
     }
-    shape.key(key(KeyCode::Backspace), None);
-    shape.key(key(KeyCode::Char('s')), None);
+    shape.key(key(KeyCode::Backspace));
+    shape.key(key(KeyCode::Char('s')));
     shape.paste("\nkept");
-    shape.key(key(KeyCode::F(2)), None);
+    shape.key(key(KeyCode::F(2)));
     let open = shape.open.as_ref().unwrap();
     assert!(open.running.is_none(), "a step started with no budget");
     assert_eq!(open.typed.text(), "Local? Yes\nkept");
@@ -692,7 +688,7 @@ fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
     let dir = tempfile::tempdir().unwrap();
     let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
     shape.paste("TEST keep it local");
-    shape.key(key(KeyCode::F(2)), None);
+    shape.key(key(KeyCode::F(2)));
     assert!(
         shape.open.as_ref().unwrap().running.is_some(),
         "no step started"
@@ -713,7 +709,7 @@ fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
         assert_eq!(text.lines().last().unwrap().trim(), "esc stop");
     }
     // F5 waits until the step is done, and help says what Esc does now.
-    shape.key(key(KeyCode::F(5)), None);
+    shape.key(key(KeyCode::F(5)));
     assert!(shape.open.as_ref().unwrap().so_far.is_none());
     assert!(
         shape
@@ -755,7 +751,7 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
     );
     // Scrolling moves only the reading; the answer stays where it is.
     for _ in 0..30 {
-        shape.key(key(KeyCode::PageDown), None);
+        shape.key(key(KeyCode::PageDown));
     }
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("F4 picks another folder."), "{text}");
@@ -766,10 +762,10 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
 fn without_an_agent_shape_only_reads_and_letters_scroll() {
     let mut shape = done(question());
     assert!(!shape.takes_text());
-    shape.key(key(KeyCode::Char('j')), None);
+    shape.key(key(KeyCode::Char('j')));
     assert!(shape.open.as_ref().unwrap().typed.is_empty());
     assert_eq!(shape.scroll, 1);
-    shape.key(key(KeyCode::F(2)), None);
+    shape.key(key(KeyCode::F(2)));
     assert!(shape.open.as_ref().unwrap().running.is_none());
     let text = screen(&mut shape, 100, 30, true);
     assert!(text.contains("tend's c copies the prompt"), "{text}");
@@ -798,8 +794,8 @@ fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
         text.contains("  your words\n  a line saying you confirm, then F3\n\n  Confirming the seed is not approval to build."),
         "{text}"
     );
-    shape.key(key(KeyCode::F(2)), None);
-    shape.key(key(KeyCode::F(3)), None);
+    shape.key(key(KeyCode::F(2)));
+    shape.key(key(KeyCode::F(3)));
     assert!(shape.open.as_ref().unwrap().running.is_none());
     assert!(
         screen(&mut shape, 100, 30, true).contains("Type your words first; nothing was confirmed.")
@@ -862,9 +858,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .prefix("tinkery-TEST-214-")
         .tempdir()
         .unwrap();
-    let skill =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md");
-    let mut receipt = Config::new(skill.clone(), Some(root.path().join("TEST-sessions")))
+    let receipt = Config::new(Some(root.path().join("TEST-sessions")))
         .confirm(Affirmed {
             goal: GOAL.into(),
             outcome: "TEST Stacker".into(),
@@ -874,7 +868,6 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
             source: "TEST fixture, not approval".into(),
         })
         .unwrap();
-    receipt.stop_viewer().unwrap();
     let original = include_str!("../../tests/fixtures/stacker-r1-seed-contract.md");
     let legacy = original
         .split_once("## You are confirming\n")
@@ -884,13 +877,12 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .unwrap()
         .0
         .trim();
-    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let version = answering::read(&receipt.session).unwrap().version();
     let mut reply: serde_json::Value =
         serde_json::from_str(include_str!("../../tests/fixtures/stacker-r1-reply.json")).unwrap();
     reply["confirming"] = prose_reply(reply["confirming"].as_str().unwrap());
     assert!(
         answering::draft_seed(
-            &skill,
             &receipt.session,
             version,
             &serde_json::json!(legacy),
@@ -901,7 +893,6 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .is_err()
     );
     answering::draft_seed(
-        &skill,
         &receipt.session,
         version,
         &reply["confirming"],
@@ -914,14 +905,6 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         serde_json::from_slice(&std::fs::read(receipt.session.join("seed-checks.json")).unwrap())
             .unwrap();
     assert_eq!(stored, reply["checks"]);
-    let upstream_fixture = skill
-        .parent()
-        .unwrap()
-        .join("../../tests/fixtures/stacker-r1-seed-contract.md");
-    assert_eq!(
-        std::fs::read(upstream_fixture).unwrap(),
-        original.as_bytes()
-    );
     let (before_criteria, criteria) = legacy.split_once("## Acceptance criteria\n").unwrap();
     let (_, after_criteria) = criteria
         .split_once("## Affected users and systems")
@@ -981,7 +964,6 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     for bad in invalid {
         assert!(
             answering::draft_seed(
-                &skill,
                 &receipt.session,
                 version,
                 &reply["confirming"],
@@ -1001,13 +983,10 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
             records_before
         );
     }
-    let render = std::process::Command::new("python3")
-        .arg(skill.parent().unwrap().join("scripts/session.py"))
-        .args(["seed", "checks", "render"])
-        .arg(&receipt.session)
-        .output()
-        .unwrap();
-    assert!(render.status.success());
+    let render = crate::seed_me::ledger::checks_block(
+        &crate::seed_me::ledger::read_checks(&receipt.session).unwrap(),
+    )
+    .unwrap();
     // The host writes canonical LF headings even when the model's prose uses CRLF.
     let crlf = serde_json::Value::Object(
         reply["confirming"]
@@ -1023,7 +1002,6 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
             .collect(),
     );
     answering::draft_seed(
-        &skill,
         &receipt.session,
         version,
         &crlf,
@@ -1033,20 +1011,14 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     )
     .unwrap();
     let draft = std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
-    assert!(draft.contains(std::str::from_utf8(&render.stdout).unwrap()));
+    assert!(draft.contains(&render));
     assert!(draft.contains("## Problem statement\nYou played Stacker"));
     assert!(
         draft.contains("You are confirming the goal: create a software version of Stacker.\r\n")
     );
-    answering::confirm_seed(
-        &skill,
-        &receipt.session,
-        "r2",
-        "TEST fixture confirmation only",
-    )
-    .unwrap();
+    answering::confirm_seed(&receipt.session, "r2", "TEST fixture confirmation only").unwrap();
     assert!(matches!(
-        crate::seed_me::shaping::read(&skill, &receipt.session)
+        crate::seed_me::shaping::read(&receipt.session)
             .unwrap()
             .stage,
         Shaped::Ready { .. }
@@ -1059,7 +1031,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     assert!(confirmation["checks_sha256"].as_str().is_some());
     std::fs::write(receipt.session.join("seed-checks.json"), "[]").unwrap();
     assert!(!matches!(
-        crate::seed_me::shaping::read(&skill, &receipt.session)
+        crate::seed_me::shaping::read(&receipt.session)
             .unwrap()
             .stage,
         Shaped::Ready { .. }
@@ -1097,13 +1069,8 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
         .prefix("tinkery-TEST-183-")
         .tempdir()
         .unwrap();
-    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
-        });
     let goal = "TEST I can check a seed.\nWhy: Intake needs an eval.\nDone when: Existing output is correct.\n- New output is correct.\n- The result feels calm.\nMust: Keep my words; existing check is ./TEST-check with expected output TEST existing output in cwd .\nMust not: Build without approval.";
-    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+    let receipt = Config::new(Some(temp.path().join("TEST-sessions")))
         .confirm(Affirmed {
             goal: goal.into(),
             outcome: "TEST checks".into(),
@@ -1113,7 +1080,6 @@ fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
             source: "TEST fixture, not real approval".into(),
         })
         .unwrap();
-    receipt.stop_viewer().unwrap();
     let confirming = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
     let confirming_json = serde_json::to_string(&confirming).unwrap();
     let checks = include_str!("../../tests/fixtures/shape-checks.json");
@@ -1162,7 +1128,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
         fs::write(&command, "#!/bin/sh\ntouch TEST-CHECK-WAS-RUN\n").unwrap();
         fs::set_permissions(&command, fs::Permissions::from_mode(0o755)).unwrap();
     }
-    let version = answered_probe(&skill, &receipt.session);
+    let version = answered_probe(&receipt.session);
     let agent = Arc::new(
         step::Agent::new(
             program,
@@ -1179,7 +1145,6 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
             expected: version,
             folder: temp.path().into(),
         },
-        skill.clone(),
         receipt.session.clone(),
         agent.clone(),
     );
@@ -1198,7 +1163,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     );
     assert_eq!(result, Ok(step::Done::Drafted));
     assert_eq!(agent.remaining(), 0);
-    let draft = shaping::read(&skill, &receipt.session).unwrap();
+    let draft = shaping::read(&receipt.session).unwrap();
     assert_eq!(draft.goal.as_deref(), Some(goal));
     let checks_value: serde_json::Value = serde_json::from_str(checks).unwrap();
     let mut expected_review = vec!["Drafting step guess: Nothing observed done.".to_owned()];
@@ -1252,8 +1217,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     }
     assert!(text.starts_with("status: draft\n"));
     // Shape's real drafting path must hand intake the upstream section names, not just prose.
-    let contract =
-        fs::read_to_string(skill.parent().unwrap().join("references/seed-contract.md")).unwrap();
+    let contract = include_str!("../seed_me/seed-contract.txt");
     for section in [
         "Problem statement",
         "Proposed outcome",
@@ -1342,14 +1306,11 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
         records,
         serde_json::from_str::<serde_json::Value>(checks).unwrap()
     );
-    let decisions = std::process::Command::new("python3")
-        .arg(skill.parent().unwrap().join("scripts/session.py"))
-        .args(["seed", "decisions"])
-        .arg(&receipt.session)
-        .output()
-        .unwrap();
-    assert!(decisions.status.success());
-    assert!(text.contains(&String::from_utf8(decisions.stdout).unwrap()));
+    let decisions = crate::seed_me::ledger::decisions_block(
+        &crate::seed_me::ledger::load(&receipt.session).unwrap(),
+    )
+    .unwrap();
+    assert!(text.contains(&decisions));
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
     let seed_path = receipt.session.join("seed-contract.md");
     let before = fs::read(&seed_path).unwrap();
@@ -1371,7 +1332,6 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     for malformed in malformed_replies {
         assert!(
             answering::draft_seed(
-                &skill,
                 &receipt.session,
                 version,
                 &malformed,
@@ -1389,10 +1349,9 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
         );
     }
     // A redraft retains the facts already recorded; old writers still verify it.
-    let version = answering::read(&skill, &receipt.session).unwrap().version();
+    let version = answering::read(&receipt.session).unwrap().version();
     assert_eq!(
         answering::draft_seed(
-            &skill,
             &receipt.session,
             version,
             &confirming,
@@ -1409,12 +1368,12 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     assert!(redrafted.contains("observation; scope: TEST-read.md:1"));
     assert!(redrafted.contains("Provenance unavailable:"));
     assert_eq!(
-        answering::read(&skill, &receipt.session).unwrap().goal(),
+        answering::read(&receipt.session).unwrap().goal(),
         Some(goal)
     );
-    answering::confirm_seed(&skill, &receipt.session, "r9", "TEST yes to this seed only").unwrap();
+    answering::confirm_seed(&receipt.session, "r9", "TEST yes to this seed only").unwrap();
     assert!(matches!(
-        shaping::read(&skill, &receipt.session).unwrap().stage,
+        shaping::read(&receipt.session).unwrap().stage,
         Shaped::Ready { .. }
     ));
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
@@ -1437,11 +1396,6 @@ fn repository_checks_are_proposed_with_sources_but_never_executed() {
         .prefix("tinkery-TEST-198-")
         .tempdir()
         .unwrap();
-    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
-        });
     let goal = "TEST I can check a seed.\nWhy: Checks need evidence.\nDone when: The parsed value is new.\n- The future checker validates the result.\n- The result feels calm.\n- The missing boundary assertion detects the defect.\nMust: Keep my words. The proposed ./TEST-future-check does not exist yet.\nMust not: Run checks or build without approval.";
     fs::create_dir(temp.path().join("tests")).unwrap();
     fs::write(
@@ -1457,7 +1411,7 @@ fn repository_checks_are_proposed_with_sources_but_never_executed() {
     .unwrap();
     fs::write(temp.path().join("tests/check_value.py"),
         "from pathlib import Path\nPath('TEST-CHECK-WAS-RUN').touch()\nassert Path('value.txt').read_text().strip() == 'new'\nprint('new value')\n").unwrap();
-    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+    let receipt = Config::new(Some(temp.path().join("TEST-sessions")))
         .confirm(Affirmed {
             goal: goal.into(),
             outcome: "TEST checks".into(),
@@ -1467,7 +1421,6 @@ fn repository_checks_are_proposed_with_sources_but_never_executed() {
             source: "TEST fixture, not real approval".into(),
         })
         .unwrap();
-    receipt.stop_viewer().unwrap();
     let program = temp.path().join("TEST-pi");
     let template = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
     let template = serde_json::to_string(&template).unwrap();
@@ -1523,13 +1476,12 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'review
         )
         .unwrap(),
     );
-    let version = answered_probe(&skill, &receipt.session);
+    let version = answered_probe(&receipt.session);
     let running = step::Running::start(
         step::Work::Look {
             expected: version,
             folder: temp.path().into(),
         },
-        skill.clone(),
         receipt.session.clone(),
         agent.clone(),
     );
@@ -1566,20 +1518,19 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'review
     assert!(seed.starts_with("status: draft\n"));
     assert!(!receipt.session.join("seed-confirmation.json").exists());
     assert_eq!(
-        answering::read(&skill, &receipt.session).unwrap().goal(),
+        answering::read(&receipt.session).unwrap().goal(),
         Some(goal)
     );
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());
     assert!(!temp.path().join("TEST-future-check").exists());
     answering::confirm_seed(
-        &skill,
         &receipt.session,
         "r1",
         "TEST yes to proposed checks, not implementation",
     )
     .unwrap();
     assert!(matches!(
-        shaping::read(&skill, &receipt.session).unwrap().stage,
+        shaping::read(&receipt.session).unwrap().stage,
         Shaped::Ready { .. }
     ));
     assert_eq!(agent.remaining(), 0);
@@ -1664,18 +1615,13 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
         time::{Duration, Instant},
     };
 
-    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
-        });
     let template = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
     let template_json = serde_json::to_string(&template).unwrap();
     let temp = tempfile::Builder::new()
         .prefix("tinkery-TEST-settled-")
         .tempdir()
         .unwrap();
-    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+    let receipt = Config::new(Some(temp.path().join("TEST-sessions")))
         .confirm(Affirmed {
             goal: GOAL.into(),
             outcome: "TEST draft".into(),
@@ -1685,11 +1631,9 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
             source: "TEST fixture, not real approval".into(),
         })
         .unwrap();
-    receipt.stop_viewer().unwrap();
-    let version = answered_probe(&skill, &receipt.session);
+    let version = answered_probe(&receipt.session);
     let version = if words.is_some() {
         let version = answering::ask(
-            &skill,
             &receipt.session,
             version,
             &answering::Ask {
@@ -1712,7 +1656,6 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
         // A genuinely open decision still refuses a draft before the answer is saved.
         assert!(
             answering::draft_seed(
-                &skill,
                 &receipt.session,
                 version,
                 &template,
@@ -1796,7 +1739,7 @@ else:
             folder: temp.path().into(),
         },
     };
-    let running = step::Running::start(work, skill.clone(), receipt.session.clone(), agent.clone());
+    let running = step::Running::start(work, receipt.session.clone(), agent.clone());
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         if let Some(result) = running.poll() {
@@ -1810,7 +1753,7 @@ else:
         assert!(Instant::now() < deadline, "stub drafting timed out");
         std::thread::sleep(Duration::from_millis(10));
     }
-    let ledger = answering::read(&skill, &receipt.session).unwrap();
+    let ledger = answering::read(&receipt.session).unwrap();
     assert_eq!(ledger.goal(), Some(GOAL));
     assert!(ledger.open().is_empty());
     let context: serde_json::Value = serde_json::from_str(&ledger.context()).unwrap();
@@ -1862,13 +1805,11 @@ fn supplied_tally_name_reaches_drafting_and_survives_the_stub_seed() {
     };
     const WORDS: &str = "Build a minimal local tally CLI for developers in this README-only scratch repo: count whitespace-separated words in one UTF-8 text file and print the count. The first version is done when readable and empty files count correctly and unreadable files have clear errors; no stdin, multiple files, network access, or extra counting modes.";
     const GOAL: &str = "Count whitespace-separated words in one UTF-8 text file and print the count, for developers, in this README-only scratch repo.\nMust: Provide a minimal local tally CLI.";
-    let skill =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md");
     let temp = tempfile::Builder::new()
         .prefix("tinkery-TEST-supplied-name-")
         .tempdir()
         .unwrap();
-    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+    let receipt = Config::new(Some(temp.path().join("TEST-sessions")))
         .confirm(Affirmed {
             goal: GOAL.into(),
             outcome: "TEST word count".into(),
@@ -1882,8 +1823,7 @@ fn supplied_tally_name_reaches_drafting_and_survives_the_stub_seed() {
             source: "TEST fixture, not real approval".into(),
         })
         .unwrap();
-    receipt.stop_viewer().unwrap();
-    let version = answered_probe(&skill, &receipt.session);
+    let version = answered_probe(&receipt.session);
     let template = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
     let template_json = serde_json::to_string(&template).unwrap();
     let checks = include_str!("../../tests/fixtures/shape-checks.json");
@@ -1920,7 +1860,6 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({che
             expected: version,
             folder: temp.path().into(),
         },
-        skill.clone(),
         receipt.session.clone(),
         agent.clone(),
     );
@@ -1938,7 +1877,7 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({che
     assert!(seed.contains("The confirmed goal supplies the tool name tally."));
     assert!(seed.contains("executable invocation remains unknown"));
     assert!(!seed.contains("CLI name"));
-    let ledger = crate::seed_me::answering::read(&skill, &receipt.session).unwrap();
+    let ledger = crate::seed_me::answering::read(&receipt.session).unwrap();
     assert_eq!(ledger.goal(), Some(GOAL));
     assert!(ledger.context().contains(WORDS));
     assert_eq!(agent.remaining(), 0);
@@ -1991,7 +1930,7 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
             "The next step reads files in: {}",
             first.display()
         )));
-        shape.key(key(KeyCode::F(4)), None);
+        shape.key(key(KeyCode::F(4)));
         assert!(shape.takes_text());
         let text = screen(&mut shape, 80, 24, true);
         // A long folder path wraps, so compare without the wrapping whitespace.
@@ -2010,15 +1949,15 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
             "enter newline   F4 use folder   esc cancel"
         );
         // Esc keeps the folder shown; the typed answer is untouched.
-        shape.key(key(KeyCode::Char('x')), None);
-        shape.key(key(KeyCode::Esc), None);
+        shape.key(key(KeyCode::Char('x')));
+        shape.key(key(KeyCode::Esc));
         assert!(shape.open.is_some(), "Esc while choosing left Shape");
         assert!(screen(&mut shape, 80, 24, true).contains("reads files in TEST-first."));
         assert!(shape.open.as_ref().unwrap().typed.is_empty());
         // A folder that isn't there is refused and the shown one stays.
-        shape.key(key(KeyCode::F(4)), None);
+        shape.key(key(KeyCode::F(4)));
         shape.paste("-missing");
-        shape.key(key(KeyCode::F(4)), None);
+        shape.key(key(KeyCode::F(4)));
         let text = screen(&mut shape, 100, 30, true);
         let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
         assert!(
@@ -2027,12 +1966,12 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
         );
         assert!(text.contains("reads files in TEST-first."), "{text}");
         // An existing folder is used for the next step.
-        shape.key(key(KeyCode::F(4)), None);
+        shape.key(key(KeyCode::F(4)));
         for _ in 0..first.display().to_string().chars().count() + 20 {
-            shape.key(key(KeyCode::Backspace), None);
+            shape.key(key(KeyCode::Backspace));
         }
         shape.paste(&other.display().to_string());
-        shape.key(key(KeyCode::F(4)), None);
+        shape.key(key(KeyCode::F(4)));
         let text = screen(&mut shape, 100, 30, true);
         assert!(
             text.contains("The step reads files in TEST-other."),
@@ -2050,7 +1989,7 @@ fn no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_
     let dir = tempfile::tempdir().unwrap();
     let mut read_only = reading(done(question()), dir.path());
     assert!(!screen(&mut read_only, 100, 30, true).contains("F4"));
-    read_only.key(key(KeyCode::F(4)), None);
+    read_only.key(key(KeyCode::F(4)));
     assert!(read_only.open.as_ref().unwrap().choosing.is_none());
     let seed = Shaped::Drafted {
         revision: Some("r1".into()),
@@ -2060,7 +1999,7 @@ fn no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_
     assert!(!screen(&mut drafted, 100, 30, true).contains("F4"));
     let mut finding = done(Shaped::Waiting).with_agent(Some(agent(1)));
     assert!(screen(&mut finding, 100, 30, true).contains("Finding which folder the step reads."));
-    finding.key(key(KeyCode::F(2)), None);
+    finding.key(key(KeyCode::F(2)));
     assert!(finding.open.as_ref().unwrap().running.is_none());
     assert!(screen(&mut finding, 100, 30, true).contains("still finding which folder"));
 }
@@ -2103,17 +2042,17 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
 #[test]
 fn so_far_scrolls_on_a_short_screen_and_always_says_how_to_close() {
     let mut shape = done(Shaped::Waiting);
-    shape.key(key(KeyCode::F(5)), None);
+    shape.key(key(KeyCode::F(5)));
     let text = screen(&mut shape, 80, 14, true);
     assert!(text.contains("Your goal, as you confirmed it"), "{text}");
     assert!(text.contains("↑↓ scroll · F5 close"), "{text}");
     for _ in 0..20 {
-        shape.key(key(KeyCode::Down), None);
+        shape.key(key(KeyCode::Down));
     }
     let text = screen(&mut shape, 80, 14, true);
     assert!(text.contains("TEST format: Markdown"), "{text}");
     assert!(text.contains("↑↓ scroll · F5 close"), "{text}");
-    shape.key(key(KeyCode::F(5)), None);
+    shape.key(key(KeyCode::F(5)));
     assert!(
         shape.open.as_ref().unwrap().so_far.is_none(),
         "F5 didn't close its page"
@@ -2132,7 +2071,7 @@ fn a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing() {
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("Keep records local or synced?"), "{text}");
     assert!(text.contains("TEST line 20"), "{text}");
-    shape.key(key(KeyCode::F(2)), None);
+    shape.key(key(KeyCode::F(2)));
     assert!(
         shape.open.as_ref().unwrap().running.is_some(),
         "no step started"
@@ -2168,7 +2107,7 @@ fn enter_at_seed_confirmation_guides_without_editing_or_starting_a_step() {
         })
         .with_agent(Some(agent(0)));
         shape.paste(words);
-        shape.key(key(KeyCode::Enter), None);
+        shape.key(key(KeyCode::Enter));
         let open = shape.open.as_ref().unwrap();
         assert_eq!(open.typed.text(), words);
         assert!(open.running.is_none());
@@ -2197,7 +2136,7 @@ fn multiline_confirmation_is_refused_before_a_step_and_keeps_the_words() {
         .with_agent(Some(agent(0)));
         screen(&mut shape, 80, 24, true);
         shape.paste(words);
-        shape.key(key(KeyCode::F(3)), None);
+        shape.key(key(KeyCode::F(3)));
         let open = shape.open.as_ref().unwrap();
         assert!(
             open.running.is_none(),
@@ -2220,23 +2159,17 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         let folder = dir.path().join(name);
         std::fs::create_dir(&folder).unwrap();
         let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
-        shape.key(key(KeyCode::F(4)), None);
-        shape.key(
-            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
-            None,
-        );
-        shape.key(
-            KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
-            None,
-        );
+        shape.key(key(KeyCode::F(4)));
+        shape.key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+        shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
         shape.paste(folder.to_str().unwrap());
-        shape.key(key(KeyCode::Enter), None);
+        shape.key(key(KeyCode::Enter));
         assert!(
             shape.open.as_ref().unwrap().choosing.is_some(),
             "Enter applied the folder"
         );
-        shape.key(key(KeyCode::Backspace), None);
-        shape.key(key(KeyCode::F(4)), None);
+        shape.key(key(KeyCode::Backspace));
+        shape.key(key(KeyCode::F(4)));
         let open = shape.open.as_ref().unwrap();
         assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
         assert!(open.notice.is_none(), "the exact folder was refused");
@@ -2250,17 +2183,11 @@ fn a_pasted_folder_with_a_trailing_line_break_is_used() {
     let folder = dir.path().join("TEST-pasted");
     std::fs::create_dir(&folder).unwrap();
     let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
-    shape.key(key(KeyCode::F(4)), None);
-    shape.key(
-        KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
-        None,
-    );
-    shape.key(
-        KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
-        None,
-    );
+    shape.key(key(KeyCode::F(4)));
+    shape.key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+    shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
     shape.paste(&format!("  {}\r\n", folder.display()));
-    shape.key(key(KeyCode::F(4)), None);
+    shape.key(key(KeyCode::F(4)));
     let open = shape.open.as_ref().unwrap();
     assert!(open.notice.is_none(), "the pasted folder was refused");
     assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
@@ -2284,11 +2211,11 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
             );
             // Resize down from a larger viewport, then return from the end to the beginning.
             screen(&mut shape, width + 20, height + 6, no_color);
-            shape.key(
-                KeyEvent::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::ALT),
-                None,
-            );
-            shape.key(key(KeyCode::Home), None);
+            shape.key(KeyEvent::new(
+                KeyCode::Up,
+                KeyModifiers::CONTROL | KeyModifiers::ALT,
+            ));
+            shape.key(key(KeyCode::Home));
             let backend = ratatui::backend::TestBackend::new(width, height);
             let mut terminal = ratatui::Terminal::new(backend).unwrap();
             terminal
@@ -2315,7 +2242,7 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
                 "the editor displaced more than half the reading"
             );
             assert_eq!(shape.scroll, 0, "arrows scrolled the reading");
-            shape.key(key(KeyCode::PageDown), None);
+            shape.key(key(KeyCode::PageDown));
             assert_eq!(
                 shape.scroll,
                 crate::page(shape.page),
@@ -2343,19 +2270,13 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         answering::{self, Ending},
         shaping,
     };
-    use std::fs;
 
     let temp = tempfile::Builder::new()
         .prefix("tinkery-TEST-231-")
         .tempdir()
         .unwrap();
-    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
-        });
     let save = || {
-        let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        let receipt = Config::new( Some(temp.path().join("TEST-sessions")))
             .confirm(Affirmed {
                 goal: "TEST I can end a session.\nWhy: Tend needs it ended.\nDone when: It ends.\nMust: Keep my words.\nMust not: Build without approval.".into(),
                 outcome: "TEST ending".into(),
@@ -2365,7 +2286,6 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
                 source: "TEST fixture, not real approval".into(),
             })
             .unwrap();
-        receipt.stop_viewer().unwrap();
         receipt.session.clone()
     };
     let refused = |result: Result<(), answering::Refusal>| match result {
@@ -2375,15 +2295,14 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
 
     // Completing needs a verified seed; Tinkery refuses and the session stays open.
     let session = save();
-    let reason = refused(answering::end(&skill, &session, Ending::Completed));
+    let reason = refused(answering::end(&session, Ending::Completed));
     assert!(reason.starts_with("Tinkery refused:"), "{reason}");
     assert!(matches!(
-        shaping::read(&skill, &session).unwrap().stage,
+        shaping::read(&session).unwrap().stage,
         Shaped::Waiting
     ));
-    let version = answering::read(&skill, &session).unwrap().version();
+    let version = answering::read(&session).unwrap().version();
     let revision = answering::draft_seed(
-        &skill,
         &session,
         version,
         &prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt")),
@@ -2392,11 +2311,11 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         temp.path(),
     )
     .unwrap();
-    answering::confirm_seed(&skill, &session, &revision, "TEST yes to this seed only").unwrap();
+    answering::confirm_seed(&session, &revision, "TEST yes to this seed only").unwrap();
     // Completion needs no viewer record.
-    fs::remove_file(session.join("viewer.json")).unwrap();
-    answering::end(&skill, &session, Ending::Completed).unwrap();
-    let ended = shaping::read(&skill, &session).unwrap();
+    assert!(!session.join("viewer.json").exists());
+    answering::end(&session, Ending::Completed).unwrap();
+    let ended = shaping::read(&session).unwrap();
     assert_eq!(
         ended.stage,
         Shaped::Ready {
@@ -2413,14 +2332,14 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
     };
     assert_eq!(read.stage, Stage::Ended, "tend counts it ended");
     // Ended is for good: neither ending applies again.
-    let reason = refused(answering::end(&skill, &session, Ending::Stopped));
+    let reason = refused(answering::end(&session, Ending::Stopped));
     assert!(reason.contains("read-only"), "{reason}");
 
     // Stopping keeps what's open, and Shape then says plainly that it ended.
     let session = save();
-    answering::end(&skill, &session, Ending::Stopped).unwrap();
+    answering::end(&session, Ending::Stopped).unwrap();
     assert_eq!(
-        shaping::read(&skill, &session).unwrap().stage,
+        shaping::read(&session).unwrap().stage,
         Shaped::Ended {
             status: "stopped".into()
         }
@@ -2472,25 +2391,25 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
     ] {
         let mut shape = done(stage);
         // The other ending key, and a held one, ask nothing.
-        shape.key(key(other), None);
-        shape.key(repeat(ending), None);
+        shape.key(key(other));
+        shape.key(repeat(ending));
         assert!(shape.open.as_ref().unwrap().asking.is_none());
-        shape.key(key(ending), None);
+        shape.key(key(ending));
         assert!(shape.open.as_ref().unwrap().asking.is_some());
         let text = screen(&mut shape, 80, 24, true);
         assert!(text.contains("read-only for good"), "{text}");
         assert!(text.contains("esc keep it"), "{text}");
         // Esc keeps it open; nothing started.
-        shape.key(key(KeyCode::Esc), None);
+        shape.key(key(KeyCode::Esc));
         let open = shape.open.as_ref().unwrap();
         assert!(open.asking.is_none() && open.writing.is_none());
         assert!(screen(&mut shape, 80, 24, true).contains("Nothing was ended."));
         // Asked, other keys do nothing; the same key again ends it through the helper.
-        shape.key(key(ending), None);
-        shape.key(key(KeyCode::Char('x')), None);
-        shape.key(key(other), None);
+        shape.key(key(ending));
+        shape.key(key(KeyCode::Char('x')));
+        shape.key(key(other));
         assert!(shape.open.as_ref().unwrap().writing.is_none());
-        shape.key(key(ending), None);
+        shape.key(key(ending));
         assert!(shape.open.as_ref().unwrap().writing.is_some());
         // This fixture's session path doesn't exist, so the ledger's refusal lands.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -2517,8 +2436,8 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
         },
     ] {
         let mut shape = done(stage);
-        shape.key(key(KeyCode::F(6)), None);
-        shape.key(key(KeyCode::F(8)), None);
+        shape.key(key(KeyCode::F(6)));
+        shape.key(key(KeyCode::F(8)));
         assert!(shape.open.as_ref().unwrap().asking.is_none());
     }
 }
@@ -2548,7 +2467,7 @@ fn a_step_may_assume_at_most_five_complete_defaults() {
 fn assumptions_show_with_their_question_and_f7_then_a_number_objects_to_one() {
     let mut shape = done(question());
     // No assumptions: F7 offers nothing.
-    shape.key(key(KeyCode::F(7)), None);
+    shape.key(key(KeyCode::F(7)));
     assert!(!shape.open.as_ref().unwrap().objecting);
     shape.open.as_mut().unwrap().assumed = vec![
         Assumption {
@@ -2573,25 +2492,25 @@ fn assumptions_show_with_their_question_and_f7_then_a_number_objects_to_one() {
         );
         assert!(text.lines().last().unwrap().contains("F7 object"), "{text}");
     }
-    shape.key(key(KeyCode::F(7)), None);
+    shape.key(key(KeyCode::F(7)));
     assert!(shape.open.as_ref().unwrap().objecting);
     assert!(screen(&mut shape, 80, 24, true).contains("esc keep them all"));
     // Esc keeps them all; a number with no assumption and other keys do nothing.
-    shape.key(key(KeyCode::Esc), None);
+    shape.key(key(KeyCode::Esc));
     assert!(!shape.open.as_ref().unwrap().objecting);
     assert!(screen(&mut shape, 80, 24, true).contains("Nothing was changed."));
-    shape.key(key(KeyCode::F(7)), None);
+    shape.key(key(KeyCode::F(7)));
     for code in [
         KeyCode::Char('3'),
         KeyCode::Char('0'),
         KeyCode::Char('x'),
         KeyCode::F(2),
     ] {
-        shape.key(key(code), None);
+        shape.key(key(code));
     }
     let open = shape.open.as_ref().unwrap();
     assert!(open.objecting && open.writing.is_none());
-    shape.key(key(KeyCode::Char('2')), None);
+    shape.key(key(KeyCode::Char('2')));
     assert!(shape.open.as_ref().unwrap().writing.is_some());
     // This fixture's session path doesn't exist, so the ledger read refusal lands and both stay.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -2625,12 +2544,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         .prefix("tinkery-TEST-233-")
         .tempdir()
         .unwrap();
-    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
-        });
-    let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+    let receipt = Config::new( Some(temp.path().join("TEST-sessions")))
         .confirm(Affirmed {
             goal: "TEST I can object.\nWhy: Defaults can be wrong.\nDone when: It asks.\nMust: Keep my words.\nMust not: Build without approval.".into(),
             outcome: "TEST objection".into(),
@@ -2640,7 +2554,6 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
             source: "TEST fixture, not real approval".into(),
         })
         .unwrap();
-    receipt.stop_viewer().unwrap();
     let session = receipt.session.clone();
     let assumption = |text: &str| answering::Assumption {
         text: text.into(),
@@ -2660,23 +2573,21 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         against: None,
         confidence: None,
     };
-    let version = answering::read(&skill, &session).unwrap().version();
-    let version = answering::ask(&skill, &session, version, &ask, temp.path()).unwrap();
+    let version = answering::read(&session).unwrap().version();
+    let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
     // Both defaults are recorded.
     let state = || {
-        serde_json::from_str::<serde_json::Value>(
-            &answering::read(&skill, &session).unwrap().context(),
-        )
-        .unwrap()
+        serde_json::from_str::<serde_json::Value>(&answering::read(&session).unwrap().context())
+            .unwrap()
     };
     assert_eq!(state()["assumed"].as_array().unwrap().len(), 2);
     // An unrecorded assumption refuses; a stale version refuses.
-    assert!(answering::object(&skill, &session, version, "TEST never assumed").is_err());
+    assert!(answering::object(&session, version, "TEST never assumed").is_err());
     assert_eq!(
-        answering::object(&skill, &session, version - 1, "TEST Markdown"),
+        answering::object(&session, version - 1, "TEST Markdown"),
         Err(answering::Refusal::Stale)
     );
-    let version = answering::object(&skill, &session, version, "TEST Markdown").unwrap();
+    let version = answering::object(&session, version, "TEST Markdown").unwrap();
     let after = state();
     assert_eq!(
         after["assumed"],
@@ -2698,17 +2609,15 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
     );
     // The current question stays current; nothing is promoted while one is.
     assert_eq!(after["current_question"], "storage");
-    assert_eq!(answering::promote(&skill, &session, version).unwrap(), None);
+    assert_eq!(answering::promote(&session, version).unwrap(), None);
     // Once it's answered, the objection is asked next, with no model.
-    let version = answering::answer(&skill, &session, version, "storage", "TEST local").unwrap();
-    let version = answering::promote(&skill, &session, version)
-        .unwrap()
-        .unwrap();
-    let Shaped::Question { id, .. } = shaping::read(&skill, &session).unwrap().stage else {
+    let version = answering::answer(&session, version, "storage", "TEST local").unwrap();
+    let version = answering::promote(&session, version).unwrap().unwrap();
+    let Shaped::Question { id, .. } = shaping::read(&session).unwrap().stage else {
         panic!("the objection isn't the current question")
     };
     assert_eq!(serde_json::Value::from(id.as_str()), objection["id"]);
-    assert_eq!(answering::promote(&skill, &session, version).unwrap(), None);
+    assert_eq!(answering::promote(&session, version).unwrap(), None);
 }
 
 #[test]
@@ -2722,11 +2631,11 @@ fn asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing() {
         }];
         shape.paste("TEST kept");
         assert!(shape.takes_text());
-        shape.key(key(ask), None);
+        shape.key(key(ask));
         assert!(!shape.takes_text(), "{ask:?} still takes words");
         shape.paste(" TEST pasted while asked");
         assert_eq!(shape.open.as_ref().unwrap().typed.text(), "TEST kept");
-        shape.key(key(KeyCode::Esc), None);
+        shape.key(key(KeyCode::Esc));
         assert!(shape.takes_text());
     }
 }
@@ -2792,7 +2701,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
                 "{text}"
             );
         }
-        shape.key(key(KeyCode::F(9)), None);
+        shape.key(key(KeyCode::F(9)));
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while shape.open.as_ref().unwrap().writing.is_some() {
             assert!(std::time::Instant::now() < deadline, "reveal never landed");
@@ -2863,13 +2772,8 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         .prefix("tinkery-TEST-232-")
         .tempdir()
         .unwrap();
-    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
-        });
     for undo in ["moderate", "hard"] {
-        let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        let receipt = Config::new( Some(temp.path().join("TEST-sessions")))
             .confirm(Affirmed {
                 goal: "TEST I can weigh options.\nWhy: Choices have costs.\nDone when: I see them.\nMust: Keep my words.\nMust not: Build without approval.".into(),
                 outcome: "TEST options".into(),
@@ -2879,7 +2783,6 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
                 source: "TEST fixture, not real approval".into(),
             })
             .unwrap();
-        receipt.stop_viewer().unwrap();
         let session = receipt.session.clone();
         let option = |choice: &str, undo: &str| answering::Alternative {
             choice: choice.into(),
@@ -2900,8 +2803,8 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             against: Some("TEST sync helps later".into()),
             confidence: Some("high".into()),
         };
-        let version = answering::read(&skill, &session).unwrap().version();
-        let version = answering::ask(&skill, &session, version, &ask, temp.path()).unwrap();
+        let version = answering::read(&session).unwrap().version();
+        let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
         let Shaped::Question {
             ask: shown,
             options,
@@ -2909,7 +2812,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             hard,
             suggestion,
             ..
-        } = shaping::read(&skill, &session).unwrap().stage
+        } = shaping::read(&session).unwrap().stage
         else {
             panic!("not a question")
         };
@@ -2926,10 +2829,8 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         if undo == "hard" {
             // Seed Me: not recorded until the operator answers or asks to see it.
             assert_eq!(suggestion, None);
-            answering::recommend(&skill, &session, version, "storage", "Local.").unwrap();
-            let Shaped::Question { suggestion, .. } =
-                shaping::read(&skill, &session).unwrap().stage
-            else {
+            answering::recommend(&session, version, "storage", "Local.").unwrap();
+            let Shaped::Question { suggestion, .. } = shaping::read(&session).unwrap().stage else {
                 panic!("not a question")
             };
             assert_eq!(suggestion.as_deref(), Some("Local."));
@@ -2940,12 +2841,11 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
 }
 
 /// A TEST session whose pre-mortem probe the operator already answered, for steps about drafting.
-fn answered_probe(skill: &Path, session: &Path) -> u64 {
+fn answered_probe(session: &Path) -> u64 {
     use crate::seed_me::answering;
-    let version = answering::read(skill, session).unwrap().version();
-    let version = answering::probe(skill, session, version).unwrap().unwrap();
+    let version = answering::read(session).unwrap().version();
+    let version = answering::probe(session, version).unwrap().unwrap();
     answering::answer(
-        skill,
         session,
         version,
         answering::PROBE.0,
@@ -2971,13 +2871,8 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
         .prefix("tinkery-TEST-234-")
         .tempdir()
         .unwrap();
-    let skill = std::env::var_os("SEED_ME_TEST_SKILL")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md")
-        });
     let save = || {
-        let mut receipt = Config::new(skill.clone(), Some(temp.path().join("TEST-sessions")))
+        let receipt = Config::new( Some(temp.path().join("TEST-sessions")))
             .confirm(Affirmed {
                 goal: "TEST I can probe.\nWhy: Blind spots.\nDone when: It asks.\nMust: Keep my words.\nMust not: Build without approval.".into(),
                 outcome: "TEST probe".into(),
@@ -2987,7 +2882,6 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
                 source: "TEST fixture, not real approval".into(),
             })
             .unwrap();
-        receipt.stop_viewer().unwrap();
         receipt.session.clone()
     };
     // A model that would draft at once; the step must not reach it.
@@ -3006,13 +2900,12 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
         .unwrap(),
     );
     let session = save();
-    let version = answering::read(&skill, &session).unwrap().version();
+    let version = answering::read(&session).unwrap().version();
     let running = step::Running::start(
         step::Work::Look {
             expected: version,
             folder: temp.path().into(),
         },
-        skill.clone(),
         session.clone(),
         agent.clone(),
     );
@@ -3027,28 +2920,20 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
     assert_eq!(result, Ok(step::Done::Asked(step::Asked::default())));
     assert_eq!(agent.remaining(), 1, "the pre-mortem used a model call");
     assert!(!temp.path().join("TEST-MODEL-WAS-CALLED").exists());
-    let Shaped::Question { id, ask, found, .. } = shaping::read(&skill, &session).unwrap().stage
-    else {
+    let Shaped::Question { id, ask, found, .. } = shaping::read(&session).unwrap().stage else {
         panic!("the pre-mortem isn't the current question")
     };
     assert_eq!((id.as_str(), ask.as_str()), answering::PROBE);
     assert!(found.is_empty());
     // Asked once: answered, it never comes back.
-    let version = answering::read(&skill, &session).unwrap().version();
-    assert_eq!(answering::probe(&skill, &session, version).unwrap(), None);
-    let version = answering::answer(
-        &skill,
-        &session,
-        version,
-        answering::PROBE.0,
-        "TEST skipped",
-    )
-    .unwrap();
-    assert_eq!(answering::probe(&skill, &session, version).unwrap(), None);
+    let version = answering::read(&session).unwrap().version();
+    assert_eq!(answering::probe(&session, version).unwrap(), None);
+    let version = answering::answer(&session, version, answering::PROBE.0, "TEST skipped").unwrap();
+    assert_eq!(answering::probe(&session, version).unwrap(), None);
 
     // Asked after findings were shown, it says its answer isn't independent of them.
     let session = save();
-    let version = answering::read(&skill, &session).unwrap().version();
+    let version = answering::read(&session).unwrap().version();
     let ask = answering::Ask {
         prerequisites: None,
         supported_by: None,
@@ -3071,14 +2956,12 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
         confidence: None,
     };
     fs::write(temp.path().join("TEST-read.md"), "TEST local only\n").unwrap();
-    let version = answering::ask(&skill, &session, version, &ask, temp.path()).unwrap();
+    let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
     // A current question is never displaced.
-    assert_eq!(answering::probe(&skill, &session, version).unwrap(), None);
-    let version = answering::answer(&skill, &session, version, "storage", "TEST local").unwrap();
-    answering::probe(&skill, &session, version)
-        .unwrap()
-        .unwrap();
-    let Shaped::Question { ask, .. } = shaping::read(&skill, &session).unwrap().stage else {
+    assert_eq!(answering::probe(&session, version).unwrap(), None);
+    let version = answering::answer(&session, version, "storage", "TEST local").unwrap();
+    answering::probe(&session, version).unwrap().unwrap();
+    let Shaped::Question { ask, .. } = shaping::read(&session).unwrap().stage else {
         panic!("the pre-mortem isn't the current question")
     };
     assert!(
@@ -3127,8 +3010,8 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
             let flat = |text: String| text.split_whitespace().collect::<Vec<_>>().join(" ");
             assert!(flat(screen(&mut shape, 100, 30, true)).contains(HELD));
             for code in [KeyCode::F(2), KeyCode::F(3), KeyCode::F(6), KeyCode::F(8)] {
-                shape.key(key(code), None);
-                shape.key(key(code), None);
+                shape.key(key(code));
+                shape.key(key(code));
                 let open = shape.open.as_ref().unwrap();
                 assert!(open.running.is_none() && open.writing.is_none() && open.asking.is_none());
             }
@@ -3148,11 +3031,11 @@ fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
     let mut shape = done(long_draft()).with_agent(Some(agent(0)));
     screen(&mut shape, 80, 24, true);
     shape.paste("I confirm r1.");
-    shape.key(key(KeyCode::F(3)), None);
+    shape.key(key(KeyCode::F(3)));
     assert!(shape.open.as_ref().unwrap().running.is_none());
     assert!(screen(&mut shape, 80, 24, true).contains(READ_FIRST));
     for _ in 0..30 {
-        shape.key(key(KeyCode::PageDown), None);
+        shape.key(key(KeyCode::PageDown));
         screen(&mut shape, 80, 24, true);
     }
     let text = screen(&mut shape, 80, 24, true);
@@ -3177,14 +3060,14 @@ fn changing_the_words_clears_a_refusal_about_them_and_only_then() {
     .with_agent(Some(agent(0)));
     screen(&mut shape, 80, 24, true);
     shape.paste("I confirm\nr1.");
-    shape.key(key(KeyCode::F(3)), None);
+    shape.key(key(KeyCode::F(3)));
     assert!(screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
-    shape.key(key(KeyCode::Left), None);
+    shape.key(key(KeyCode::Left));
     assert!(
         screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]),
         "moving the caret changed no words but cleared the refusal"
     );
-    shape.key(key(KeyCode::Backspace), None);
+    shape.key(key(KeyCode::Backspace));
     assert!(!screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
 }
 
@@ -3194,9 +3077,9 @@ fn page_keys_move_about_one_screen_of_reading() {
         let mut shape = done(long_draft());
         screen(&mut shape, width, height, true);
         assert!(shape.page > 5, "{width}x{height}: {} rows", shape.page);
-        shape.key(key(KeyCode::PageDown), None);
+        shape.key(key(KeyCode::PageDown));
         assert_eq!(shape.scroll, crate::page(shape.page));
-        shape.key(key(KeyCode::PageUp), None);
+        shape.key(key(KeyCode::PageUp));
         assert_eq!(shape.scroll, 0);
     }
 }

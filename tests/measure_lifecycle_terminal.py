@@ -6,7 +6,7 @@ from pathlib import Path
 import select
 import signal
 import struct
-import subprocess
+import test_launch as subprocess
 import sys
 import tempfile
 import termios
@@ -56,7 +56,7 @@ def journey(width, height, kind, no_color):
             env['NO_COLOR'] = '1'
         process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--home',
                                     '--seed-session-root', str(root / 'TEST-sessions')],
-                                   cwd=root, env=env, stdin=slave, stdout=slave, stderr=slave)
+                                   cwd=root, env=subprocess.environment(env, home=(env)['HOME']), stdin=slave, stdout=slave, stderr=slave)
 
         def wait(predicate):
             deadline = time.monotonic() + 8
@@ -79,7 +79,7 @@ def journey(width, height, kind, no_color):
 
         def assert_owned_stopped():
             for index, pid in enumerate(map(int, pids.read_text().splitlines())):
-                state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
+                state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True, env=subprocess.environment()).stdout.strip()
                 is_helper = with_helper and index % 2 == 1
                 assert not state or (is_helper and state.startswith('Z')), (pid, state)
 

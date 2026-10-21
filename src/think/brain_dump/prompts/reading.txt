@@ -1,7 +1,7 @@
 # The reading prompt: think's system prompt for each shaping call. reading.rs assembles it.
 # Format: one rule per line. Lines in a paragraph are joined with one space; each blank line
 # becomes one newline. Lines starting with # are notes for readers and never reach the model.
-# {seed_me_shaping} is replaced by Seed Me's "Shape the working draft" guidance.
+# {seed_me_shaping} is replaced by the bundled working-draft guidance.
 # The schema line ("Return JSON: ...") names the fields reading.rs decodes; a test keeps them equal.
 # Wording changes need an eval and the operator's budget (#38).
 You are Tinkery's provisional sensemaking partner.

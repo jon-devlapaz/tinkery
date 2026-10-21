@@ -16,7 +16,7 @@ import select
 import shlex
 import shutil
 import struct
-import subprocess
+import test_launch as subprocess
 import sys
 import tempfile
 import termios
@@ -26,12 +26,10 @@ from vt_screen import Screen
 from shape_answer_terminal import completion_review, seed_fields
 
 REPO = Path(__file__).resolve().parents[1]
-SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
-# Merged API 1 seed record contract (tink-sdlc #68, scaffold 1.33.0).
-SDLC_REF = '1c6ffd59902a742a2b3bb607ab75c41dc2e95e55'
-spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
-helper = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(helper)
+# Tinkery-owned intake (tink-sdlc #90 / PR #91, scaffold 1.34.0).
+SDLC_REF = '4b6415a9aa8548f6486c97e5b60d4fea0d0662a0'
+assert os.environ.get('TINKERY_TEST_SDLC_REF', SDLC_REF) == SDLC_REF
+import session_fixture as helper
 CONFIRMATION = 'TEST confirmation of r1 only; not operator approval or permission to build.'
 # Original copied verbatim from /tmp/tinkery-TEST-stacker-KZcCiq/sessions/
 # 37bc32a6-e13d-4558-ab44-6d00fabbd54a/seed-contract.md; never edit that evidence.
@@ -40,7 +38,7 @@ GOAL = ORIGINAL.split('- goal [user] ', 1)[1].split(' (source:', 1)[0]
 
 
 def command(argv, cwd, env, expected=0):
-    result = subprocess.run([str(a) for a in argv], cwd=cwd, env=env,
+    result = subprocess.run([str(a) for a in argv], cwd=cwd, env=subprocess.environment(env, home=(env)['HOME']),
                             capture_output=True, text=True, timeout=120)
     if expected is not None:
         assert result.returncode == expected, (argv, result.stdout, result.stderr)
@@ -102,10 +100,10 @@ def shape(root, env):
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 100, 0, 0))
     screen = Screen(100, 30)
     args = [REPO / 'target/debug/tinkery', '--home', '--shape-pi', '--model', 'test/model',
-            '--shape-budget', '1', '--seed-me', SKILL, '--seed-session-root', sessions,
+            '--shape-budget', '1', '--seed-session-root', sessions,
             '--record-root', root / 'TEST-records', '--link-root', root / 'TEST-links',
             '--pi-command', host]
-    process = subprocess.Popen([str(a) for a in args], cwd=root, env=env,
+    process = subprocess.Popen([str(a) for a in args], cwd=root, env=subprocess.environment(env, home=(env)['HOME']),
                                stdin=slave, stdout=slave, stderr=slave)
 
     def wait(text):
@@ -141,7 +139,7 @@ def shape(root, env):
         status = helper.status(session)
         assert status['handoff']['verified'] is True
         for key in ('viewer', 'snapshot', 'snapshot_current'):
-            del status[key]
+            assert key not in status
         before = {p.name: p.read_bytes() for p in session.iterdir() if p.is_file()}
         binary = REPO / 'target/debug/tinkery'
         assert json.loads(command([binary, '--operator', 'agent', 'seed', 'status', '--json', session], root, env).stdout) == status
@@ -180,10 +178,10 @@ def approve_watch(root, env, session, project):
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 100, 0, 0))
     screen, output = Screen(100, 30), bytearray()
     args = [REPO / 'target/debug/tinkery', '--home', '--operator', 'agent',
-            '--seed-me', SKILL, '--seed-session-root', session.parent,
+            '--seed-session-root', session.parent,
             '--record-root', root / 'TEST-records', '--link-root', root / 'TEST-links',
             '--sdlc-root', project]
-    process = subprocess.Popen([str(a) for a in args], cwd=root, env=env,
+    process = subprocess.Popen([str(a) for a in args], cwd=root, env=subprocess.environment(env, home=(env)['HOME']),
                                stdin=slave, stdout=slave, stderr=slave)
     originals = {p: p.read_bytes() for p in session.iterdir() if p.is_file()}
 
@@ -288,7 +286,7 @@ def handoff(root, env, session):
         'seed-contract.md', 'ledger.json', 'seed-confirmation.json', 'seed-checks.json')}
     sdlc('new', 'stacker-r1')
     sdlc('stage', 'stacker-r1', '1', '--here', '--seed-contract', str(session / 'seed-contract.md'),
-         '--seed-me-helper', SKILL.parent / 'scripts/session.py')
+         '--tinkery', REPO / 'target/debug/tinkery')
     stacker_run = project / 'runs/stacker-r1'
     assert (stacker_run / 'seed-contract.md').read_bytes() == original_files['seed-contract.md']
     stacker_checks = json.loads((stacker_run / 'seed-checks.json').read_text())['items']
@@ -328,7 +326,7 @@ def handoff(root, env, session):
                  for name in ('seed-contract.md', 'ledger.json', 'seed-confirmation.json', 'seed-checks.json')}
     # Stage 1 is the real intake. --here prevents worktrees; it prints a prompt, not an agent launch.
     sdlc('stage', 'test-handoff', '1', '--here', '--seed-contract', str(seed),
-         '--seed-me-helper', SKILL.parent / 'scripts/session.py')
+         '--tinkery', REPO / 'target/debug/tinkery')
     assert (run / 'seed-contract.md').read_bytes() == confirmed['seed-contract.md']
     definition_path = run / 'seed-checks.json'
     definitions = definition_path.read_bytes()

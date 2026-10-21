@@ -1,4 +1,4 @@
-//! Review and receipt: freezing the displayed goal, the typed `confirm`, saving through Seed Me,
+//! Review and receipt: freezing the displayed goal, the typed `confirm`, saving through the ledger,
 //! and the receipt that follows a save that read back. Saving records the goal and the
 //! person's originals, then the think record when a record folder is set; it never approves a
 //! seed or any implementation. A record that fails to write leaves the saved goal standing.
@@ -20,9 +20,9 @@ const RECORD_FAILED: &str = "The think record wasn't written; F1 then h shows wh
 const HANDOFF_FAILED: &str = "Handoff not complete:";
 /// What review shows for a save that didn't finish, short enough for the narrowest pane.
 const HANDOFF_FAILED_TEXT: &str = "Handoff not complete. F1 then h shows why; Enter retries.";
-/// The partial API records attribution but cannot use Seed Me's user-only goal origin as an agent.
+/// The partial API records attribution but cannot use the user-only goal origin as an agent.
 pub(super) const DELEGATED_SAVE_HELD: &str =
-    "Delegated goal saving awaits Seed Me integration. Nothing saved; Esc goes back.";
+    "Delegated goal saving awaits ledger integration. Nothing saved; Esc goes back.";
 
 /// The goal under review and everything think records with it.
 #[derive(Clone)]
@@ -41,7 +41,7 @@ pub(super) struct Affirmation {
     pub confirmation: record::GoalConfirmation,
 }
 impl Affirmation {
-    /// What Seed Me records: the originals verbatim, and think's questions as provisional context.
+    /// What the ledger records: the originals verbatim, and think's questions as provisional context.
     pub(super) fn affirmed(&self) -> seed_me::Affirmed {
         let context = json!({
             "answered": self.answered,
@@ -94,7 +94,7 @@ impl BrainDump {
     /// authorization is inferred; invalid or late changes refuse without losing words or review.
     /// Named context is visit-scoped; a terminal launch declaration instead stays frozen across
     /// visits in this session. Neither grants seed confirmation or implementation approval.
-    /// Agent saves remain blocked until Seed Me integration supports delegated goal origins.
+    /// Agent saves remain blocked until ledger integration supports delegated goal origins.
     pub fn set_goal_confirmation(
         &mut self,
         confirmation: record::GoalConfirmation,
@@ -129,10 +129,10 @@ impl BrainDump {
     pub(super) fn delegated_goal_save_held(&self) -> bool {
         self.handoff.review.is_some() && self.goal_confirmation().is_agent()
     }
-    /// Saves confirmed goals with the Seed Me skill at `skill`, under `root` or Seed Me's own
+    /// Saves confirmed goals under `root` or the checked HOME default,
     /// default. Without this, review explains that saving needs it.
-    pub fn with_seed_me(mut self, skill: PathBuf, root: Option<PathBuf>) -> Self {
-        self.handoff.config = Some(Config::new(skill, root));
+    pub fn with_sessions(mut self, root: Option<PathBuf>) -> Self {
+        self.handoff.config = Some(Config::new(root));
         self
     }
     /// Writes a think record into `root` with every confirmed save, and says so on the review
@@ -151,7 +151,7 @@ impl BrainDump {
     pub(crate) fn repo(&self) -> Option<&crate::repo::Repo> {
         self.handoff.repo.as_ref()
     }
-    /// True when a goal can be saved here: real mode with Seed Me. Practice never saves, so it
+    /// True when a goal can be saved here: real mode with a sessions folder. Practice never saves, so it
     /// never offers review.
     pub(super) fn can_save(&self) -> bool {
         self.real && self.handoff.config.is_some()
@@ -198,7 +198,7 @@ impl BrainDump {
         )
     }
     /// F3: opens review on the displayed goal, frozen as shown. Refused, with a visible reason, in
-    /// practice, without Seed Me, during a take, or while words are unsent or a reading is
+    /// practice, without a sessions folder, during a take, or while words are unsent or a reading is
     /// still coming, so what is confirmed is exactly what was read.
     pub fn review_goal(&mut self) {
         if self.voice_active() {
@@ -348,17 +348,13 @@ impl BrainDump {
     /// finish. `None` when nothing was saved or attempted.
     pub fn finish_handoff(&mut self) -> Option<String> {
         if let Some(receipt) = self.handoff.receipt.as_mut() {
-            let stopped = receipt.stop_viewer();
             let mut text = receipt.text();
             text.push_str(&format!(
                 "\nSession remains active. Saved ledger: {}",
-                receipt.saved_view().display()
+                receipt.session.join("ledger.json").display()
             ));
             if let Some(line) = self.record_line() {
                 text.push_str(&format!("\n{line}"));
-            }
-            if let Err(e) = stopped {
-                text.push_str(&format!("\nViewer shutdown failed: {e}"));
             }
             return Some(text);
         }
@@ -368,7 +364,7 @@ impl BrainDump {
             .and_then(Config::recovery_path)
             .map(|p| {
                 format!(
-                    "Incomplete handoff; inspect Seed Me session {}. No seed confirmed.",
+                    "Incomplete handoff; inspect saved session {}. No seed confirmed.",
                     p.display()
                 )
             })
@@ -380,13 +376,6 @@ impl BrainDump {
         }
         if self.handoff.receipt.is_some() {
             match key.code {
-                KeyCode::Char('c') if key.modifiers.is_empty() => {
-                    self.copy = self
-                        .handoff
-                        .receipt
-                        .as_ref()
-                        .map(Receipt::continuation_prompt);
-                }
                 KeyCode::Char('s') if key.modifiers.is_empty() => {
                     if let Some(receipt) = &self.handoff.receipt {
                         self.exit = Exit::Tend(receipt.session.clone());

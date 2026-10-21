@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import re
-import subprocess
+import test_launch as subprocess
 import tempfile
 import unittest
 
@@ -20,8 +20,6 @@ class SessionRootTests(unittest.TestCase):
         self.env = {'PATH': os.environ['PATH'], 'TERM': 'xterm-256color',
                     'TINKERY_NODE': '/tinkery-TEST-no-node', 'PYTHONDONTWRITEBYTECODE': '1',
                     'TINK_SUBSTRATE_DIR': str(self.root / 'TEST-no-substrate')}
-        self.skill = self.root / 'TEST-SKILL.md'
-        self.skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
         self.host = self.root / 'TEST-never-pi'
         self.called = self.root / 'TEST-provider-called'
         self.host.write_text('#!/bin/sh\nprintf unexpected > "' + str(self.called) + '"\nexit 99\n')
@@ -31,6 +29,8 @@ class SessionRootTests(unittest.TestCase):
         env = dict(self.env)
         if home is not None:
             env['HOME'] = home
+            if Path(home).is_absolute():
+                return subprocess.environment(env, home=home)
         return env
 
     def run_cli(self, args, home):
@@ -47,31 +47,166 @@ class SessionRootTests(unittest.TestCase):
         return re.search(r'\btend\s+' + str(count) + r'\b', output) is not None
 
     def live_args(self):
-        return ['--shape-pi', '--model', 'test/model', '--seed-me', self.skill,
-                '--pi-command', self.host]
+        return ['--shape-pi', '--model', 'test/model', '--pi-command', self.host]
 
-    def test_invalid_home_never_discovers_or_creates_implicit_relative_sessions(self):
+    def test_one_time_move_preserves_session_bytes_and_reports_it(self):
+        home = self.root / 'TEST-home'
+        old = home / '.local/share/seed-me/sessions'
+        new = home / '.local/share/tinkery/sessions'
+        sentinel = self.ledger(old)
+        before = sentinel.read_bytes()
+        result = self.run_cli(['--operator', 'agent', '--home', '--snapshot'], str(home))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Moved saved sessions', result.stderr)
+        self.assertFalse(old.exists())
+        self.assertEqual((new / sentinel.relative_to(old)).read_bytes(), before)
+        again = self.run_cli(['--operator', 'agent', '--home', '--snapshot'], str(home))
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertNotIn('Moved saved sessions', again.stderr)
+        self.assertTrue(self.has_count(again.stdout, 1))
+
+    def test_leftover_old_root_refuses_without_merging_or_reading_it(self):
+        home = self.root / 'TEST-home'
+        old = home / '.local/share/seed-me/sessions'
+        new = home / '.local/share/tinkery/sessions'
+        old_file = self.ledger(old)
+        new_file = self.ledger(new)
+        before = (old_file.read_bytes(), new_file.read_bytes())
+        result = self.run_cli(['--operator', 'agent', '--home', '--snapshot'], str(home))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Both old and new sessions roots exist', result.stderr)
+        self.assertEqual(before, (old_file.read_bytes(), new_file.read_bytes()))
+        alias = self.root / 'TEST-old-alias'
+        alias.symlink_to(old, target_is_directory=True)
+        for args in (['seed', 'checks', alias / old_file.parent.name],
+                     ['--home', '--snapshot', '--seed-session-root', old],
+                     ['seed', 'status', '--json', old_file.parent],
+                     ['seed', 'checks', old_file.parent]):
+            result = self.run_cli(['--operator', 'agent', *args], str(home))
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn('old sessions root is retired', result.stderr)
+
+    def test_symlinked_old_root_is_refused_without_following_it(self):
+        home = self.root / 'TEST-home'
+        old = home / '.local/share/seed-me/sessions'
+        target = self.root / 'TEST-symlink-target'
+        sentinel = self.ledger(target)
+        old.parent.mkdir(parents=True)
+        old.symlink_to(target, target_is_directory=True)
+        before = sentinel.read_bytes()
+        result = self.run_cli(['--home', '--snapshot'], str(home))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('not an ordinary folder', result.stderr)
+        self.assertTrue(old.is_symlink())
+        self.assertEqual(sentinel.read_bytes(), before)
+
+    def test_sessions_move_never_reads_or_rewrites_think_records(self):
+        home = self.root / 'TEST-home'
+        old = home / '.local/share/seed-me/sessions'
+        sentinel = self.ledger(old)
+        records = home / '.local/share/tinkery/think'
+        records.mkdir(parents=True)
+        malformed = records / 'TEST-broken.json'
+        malformed.write_text('TEST not JSON')
+        before = sentinel.read_bytes()
+        result = self.run_cli(['--home', '--snapshot'], str(home))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Moved saved sessions', result.stderr)
+        self.assertFalse(old.exists())
+        moved = home / '.local/share/tinkery/sessions' / sentinel.relative_to(old)
+        self.assertEqual(moved.read_bytes(), before)
+        self.assertEqual(malformed.read_text(), 'TEST not JSON')
+        self.assertEqual(list(records.iterdir()), [malformed])
+
+    def test_old_format_session_moves_with_every_folder_byte_untouched(self):
+        home = self.root / 'TEST-home'
+        old = home / '.local/share/seed-me/sessions'
+        session = old / 'TEST-legacy-id'
+        session.mkdir(parents=True)
+        ledger = dict(schema_version=1, session_id=session.name, version=0, revision=0,
+                      created_at='2026-10-19T00:00:00+00:00', updated_at='2026-10-19T00:00:00+00:00',
+                      status='active', draft=dict(goal='', outcome='', options=[]), goal=None,
+                      origin=None, current_question=None, frontier=[], nodes=[], assumed=[],
+                      operator='human', legacy_viewer='TEST older schema field')
+        (session / 'ledger.json').write_text(json.dumps(ledger))
+        (session / 'ledger-view.html').write_bytes(b'TEST old view\\r\\n')
+        (session / 'TEST-originals').mkdir()
+        (session / 'TEST-originals/bytes').write_bytes(b'\\x00TEST original\\xff')
+        before = {p.relative_to(session): p.read_bytes() for p in session.rglob('*') if p.is_file()}
+        result = self.run_cli(['--home', '--snapshot'], str(home))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(old.exists())
+        moved = home / '.local/share/tinkery/sessions' / session.name
+        self.assertEqual({p.relative_to(moved): p.read_bytes() for p in moved.rglob('*') if p.is_file()}, before)
+        refused = self.run_cli(['seed', 'status', '--json', moved], str(home))
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn('invalid stored ledger fields', refused.stderr)
+        self.assertEqual({p.relative_to(moved): p.read_bytes() for p in moved.rglob('*') if p.is_file()}, before)
+
+    def test_move_notice_is_visible_in_the_terminal_before_navigation(self):
+        import fcntl
+        import select
+        import struct
+        import termios
+        import time
+        from vt_screen import Screen
+        home = self.root / 'TEST-home'
+        self.ledger(home / '.local/share/seed-me/sessions')
+        master, slave = os.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
+        screen = Screen(80, 24)
+        process = subprocess.Popen([str(BINARY), '--operator', 'agent', '--home'],
+                                   cwd=self.cwd, env=self.environment(str(home)),
+                                   stdin=slave, stdout=slave, stderr=slave)
+        try:
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], .02)[0]:
+                    screen.feed(os.read(master, 65536))
+                if 'Press any key to continue.' in screen.text() and not screen.synchronized:
+                    break
+            self.assertIn('Moved saved sessions', screen.text())
+            self.assertIn('Press any key to continue.', screen.text())
+            os.write(master, b'q')
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], .02)[0]:
+                    screen.feed(os.read(master, 65536))
+                if '1  think' in screen.text() and not screen.synchronized:
+                    break
+            self.assertIsNone(process.poll(), 'acknowledging the notice also navigated')
+            self.assertIn('1  think', screen.text())
+            os.write(master, b'q')
+            process.wait(timeout=5)
+            self.assertEqual(process.returncode, 0)
+            self.assertFalse(self.called.exists())
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            os.close(master)
+            os.close(slave)
+
+    def test_removed_skill_flag_is_not_an_alias_or_requirement(self):
+        home = str(self.root / 'TEST-home')
+        help_text = self.run_cli(['--help'], home)
+        self.assertNotIn('--seed-me', help_text.stdout)
+        removed = self.run_cli(['--seed-me', '/TEST/unused'], home)
+        self.assertNotEqual(removed.returncode, 0)
+        self.assertIn('unknown argument: --seed-me', removed.stderr)
+
+    def test_invalid_home_is_refused_before_discovery_or_directory_creation(self):
         for home in (None, '', 'TEST-relative-home'):
-            with self.subTest(home=home):
-                implicit = self.cwd / (home or '') / '.local/share/seed-me/sessions'
-                empty = self.run_cli(['--home', '--snapshot'], home)
-                self.assertEqual(0, empty.returncode, empty.stderr)
-                self.assertFalse(implicit.exists())
-                sentinel = self.ledger(implicit)
-                before = hashlib.sha256(sentinel.read_bytes()).hexdigest()
-                result = self.run_cli(['--home', '--snapshot'], home)
-                self.assertEqual(0, result.returncode, result.stderr)
-                self.assertFalse(self.has_count(result.stdout, 1), result.stdout)
-                self.assertEqual(before, hashlib.sha256(sentinel.read_bytes()).hexdigest())
-                sentinel.unlink()
-                sentinel.parent.rmdir()
-                implicit.rmdir()
+            with self.subTest(home=home), self.assertRaises(subprocess.UnsafeTestHome):
+                self.run_cli(['--home', '--snapshot'], home)
+        self.assertEqual([], list(self.cwd.iterdir()))
+        self.assertFalse(self.called.exists())
 
     def test_explicit_roots_work_in_practice_without_persistence(self):
         destination = self.root / 'TEST-selected'
         sentinel = self.ledger(destination)
         before = sentinel.read_bytes()
-        for home in (None, '', 'TEST-relative-home'):
+        for home in (str(self.root / 'TEST-home'),):
             for selected in (destination, Path('../TEST-selected')):
                 with self.subTest(home=home, selected=selected):
                     result = self.run_cli(['--home', '--snapshot', '--seed-session-root', selected], home)
@@ -91,38 +226,34 @@ class SessionRootTests(unittest.TestCase):
                 self.assertFalse(records.exists())
                 self.assertFalse(self.called.exists())
 
-    def test_live_refuses_missing_session_root_before_host_or_helper_access(self):
+    # Unsafe HOME integration cases now exercise the shared refusal before any executable;
+    # application-level absent/relative HOME rules remain covered by pure Rust tests.
+    def test_live_invalid_home_refuses_before_host_or_binary_access(self):
         for home in (None, '', 'TEST-relative-home'):
             for entry in ([], ['--home']):
-                with self.subTest(home=home, entry=entry):
-                    records = self.root / 'TEST-records'
-                    result = self.run_cli(entry + self.live_args() + ['--record-root', records], home)
-                    self.assertNotEqual(0, result.returncode)
-                    self.assertIn('pass --seed-session-root PATH', result.stderr)
-                    self.assertFalse(records.exists())
-                    self.assertFalse(self.called.exists())
-                    self.assertFalse((self.cwd / (home or '') / '.local').exists())
+                records = self.root / 'TEST-records'
+                with self.subTest(home=home, entry=entry), self.assertRaises(subprocess.UnsafeTestHome):
+                    self.run_cli(entry + self.live_args() + ['--record-root', records], home)
+                self.assertFalse(records.exists())
+                self.assertFalse(self.called.exists())
 
-    def test_session_root_does_not_bypass_separate_record_root_guard(self):
+    def test_explicit_session_root_cannot_bypass_the_test_home_guard(self):
         for home in (None, '', 'TEST-relative-home'):
-            result = self.run_cli(self.live_args() + ['--seed-session-root', self.root / 'TEST-sessions'], home)
-            self.assertNotEqual(0, result.returncode)
-            self.assertIn('pass --record-root PATH', result.stderr)
+            with self.subTest(home=home), self.assertRaises(subprocess.UnsafeTestHome):
+                self.run_cli(self.live_args() + ['--seed-session-root', self.root / 'TEST-sessions'], home)
             self.assertFalse(self.called.exists())
 
-    def test_live_snapshot_remains_usable_without_a_session_root(self):
+    def test_live_snapshot_cannot_bypass_the_test_home_guard(self):
         for home in (None, '', 'TEST-relative-home'):
-            result = self.run_cli(['--home', '--snapshot'] + self.live_args() +
-                                  ['--record-root', self.root / 'TEST-records'], home)
-            self.assertEqual(0, result.returncode, result.stderr)
-            self.assertFalse(self.has_count(result.stdout, 1))
+            with self.subTest(home=home), self.assertRaises(subprocess.UnsafeTestHome):
+                self.run_cli(['--home', '--snapshot'] + self.live_args() +
+                             ['--record-root', self.root / 'TEST-records'], home)
             self.assertFalse(self.called.exists())
             self.assertFalse((self.root / 'TEST-records').exists())
-            self.assertFalse((self.cwd / (home or '') / '.local').exists())
 
     def test_absolute_home_default_and_explicit_override_are_distinct(self):
         home = self.root / 'TEST-home'
-        default = home / '.local/share/seed-me/sessions'
+        default = home / '.local/share/tinkery/sessions'
         self.ledger(default)
         selected = self.root / 'TEST-selected'
         self.ledger(selected, 'one')

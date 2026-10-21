@@ -15,8 +15,7 @@ pub(super) fn right_text(screen: &str, width: u16) -> String {
         .join(" ")
 }
 pub(super) fn board() -> BrainDump {
-    let mut a =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     a.conversation.sources_mut().push(Source{id:1,text:"PR ready for human review; restaurateur, not cook; both harness and codebases compound.".into(),in_reply_to:None});
     a.conversation.set_applied(1);
     let r = BoardRequest {
@@ -114,20 +113,10 @@ fn receipt_copy_is_exact_and_tend_is_an_explicit_request() {
             .last()
             .unwrap()
             .trim(),
-        "c copy prompt   s open in tend   F10 menu"
+        "s open in tend   F10 menu"
     );
-    let expected = "Use the seed-me skill at \"/TEST/seed-me/SKILL.md\" to continue the existing Seed Me session at \"/tmp/TEST-receipt/session\". I want to continue this session and shape its confirmed goal into a seed contract.\n\nRead the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\nFollow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.";
     key(&mut a, KeyCode::Char('c'));
-    assert_eq!(a.take_copy_request().as_deref(), Some(expected));
     assert!(a.take_copy_request().is_none());
-    a.copy_result(true);
-    assert!(
-        snapshot(100, 30, &mut a, false)
-            .unwrap()
-            .contains("Copied.")
-    );
-    a.copy_result(false);
-    assert!(a.notice.starts_with("Clipboard send failed"));
     let mut repeated = KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE);
     repeated.kind = KeyEventKind::Repeat;
     a.handle_key(repeated);
@@ -203,6 +192,10 @@ fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
 #[test]
 fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source() {
     let mut a = board();
+    let blocked = tempfile::tempdir().unwrap();
+    let file = blocked.path().join("TEST-not-a-folder");
+    std::fs::write(&file, "TEST blocker").unwrap();
+    a.handoff.config = Some(seed_me::Config::new(Some(file)));
     amend_board(&mut a, |g| g.questions.clear());
     let text = snapshot(100, 30, &mut a, false).unwrap();
     assert!(text.contains("Nothing I'm unsure about."));
@@ -381,7 +374,11 @@ fn a_failed_save_says_so_whole_above_back_and_retries() {
     for (w, h) in [(80, 24), (100, 30), (160, 40)] {
         for no_color in [false, true] {
             let dir = tempfile::tempdir().unwrap();
-            let mut a = board().with_record_root(dir.path().join("TEST-records"));
+            let file = dir.path().join("TEST-not-a-folder");
+            std::fs::write(&file, "TEST blocker").unwrap();
+            let mut a = board()
+                .with_record_root(dir.path().join("TEST-records"))
+                .with_sessions(Some(file));
             a.review_goal();
             let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
             snapshot(w, h, &mut a, no_color).unwrap();
@@ -412,7 +409,7 @@ fn a_failed_save_says_so_whole_above_back_and_retries() {
                 "{w}x{h}: Back stands alone\n{screen}"
             );
             assert!(
-                layout::how_text(&a).contains("Cannot locate Seed Me"),
+                layout::how_text(&a).contains("Cannot create the sessions folder"),
                 "{w}x{h}: the reason is in How it works"
             );
             assert!(a.handoff.receipt.is_none(), "no false Saved");

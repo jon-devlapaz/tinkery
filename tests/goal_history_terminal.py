@@ -1,11 +1,10 @@
 """Two confirmed goals in one real CLI process; fake Pi and isolated TEST roots only."""
-import fcntl,json,os,select,signal,struct,subprocess,tempfile,termios,time
+import fcntl, json, os, select, signal, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 REPO=Path(__file__).resolve().parents[1]
 BINARY=REPO/'target/debug/tinkery'
-SKILL=Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
-HELPER=SKILL.parent/'scripts/session.py'
 HOST='''#!/usr/bin/env python3
 import json,sys,pathlib
 r=json.load(sys.stdin)
@@ -24,13 +23,16 @@ if len(r['sources'])==1:
  if marker=='BRAVO':choices.append(dict(part='must_not',text='Uploads',answers=['local','cloud'],question='May logs upload?'))
 print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work is stuck',done_when='tests pass for '+marker),decisions=choices,questions=[])))
 '''
+import session_fixture as fixture
+
 def helper(*args):
- return json.loads(subprocess.check_output(['python3',str(HELPER),*map(str,args)],text=True))
+ if args[0]=='init':return {'session':str(fixture.create(args[2]))}
+ return getattr(fixture, {'read':'load'}.get(args[0],args[0]))(*args[1:])
 def journey(w,h,home):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-goal-history-') as directory:
   cwd=Path(directory);root=cwd/'TEST-sessions';records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));screen=Screen(w,h)
-  p=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),'--pi-command',str(host),'--seed-session-root',str(root),'--record-root',str(records)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  p=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--pi-command',str(host),'--seed-session-root',str(root),'--record-root',str(records)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def drain(until,timeout=20):
    end=time.monotonic()+timeout
    while time.monotonic()<end:
@@ -75,22 +77,12 @@ def journey(w,h,home):
    assert not (root/bravo['seed_me_session']/'seed-contract.md').exists()
    send(b'\x1b[21~','1  think');os.write(master,b'q');drain(lambda s:p.poll() is not None);assert p.returncode==0
    assert alpha_file.read_bytes()==alpha_bytes,'Starting a new goal changed the older record'
-   for session in root.iterdir():assert helper('status',session)['viewer']=='started earlier, not running now'
+   for session in root.iterdir():assert not (session/'viewer.json').exists()
    calls=[json.loads(l) for l in (cwd/'calls.jsonl').read_text().splitlines()]
    assert len(calls)==6,'Navigation or confirmation launched extra provider calls'
    print(json.dumps(dict(width=w,height=h,entry='home' if home else 'standalone',provider='stub',journey='two goals/first refined/record isolation/linked decision once/distinct same-part decision retained/record folder/viewer stop',confirmed_goals=2)))
   finally:
    if p.poll() is None:p.kill();p.wait()
-   if root.exists():
-    for session in root.iterdir():
-     record=session/'viewer.json'
-     if record.exists():
-      pid=json.loads(record.read_text()).get('pid')
-      if pid:
-       command=subprocess.run(['ps','-p',str(pid),'-o','command='],capture_output=True,text=True)
-       if str(SKILL.parent/'scripts/viewer.py') in command.stdout and str(session.resolve()) in command.stdout:
-        try:os.kill(pid,signal.SIGTERM)
-        except ProcessLookupError:pass
    os.close(master);os.close(slave)
 for home in [False,True]:
  for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size,home)

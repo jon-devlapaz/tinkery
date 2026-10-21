@@ -15,7 +15,7 @@ fn fields() -> impl Iterator<Item = &'static str> {
 pub(super) fn instructions(reference: &str) -> Result<String, Refusal> {
     let missing = || {
         Refusal::Refused(
-        "Shape's seed contract is missing its section guidance or Check records schema. Restore the configured reference before retrying.".into(),
+        "Shape's bundled seed contract is incomplete. Rebuild Tinkery from a complete checkout before retrying.".into(),
     )
     };
     let mut guidance = String::new();
@@ -34,7 +34,10 @@ pub(super) fn instructions(reference: &str) -> Result<String, Refusal> {
             .flatten()
             .min()
             .unwrap_or(section.len());
-        guidance.push_str(&section[..end]);
+        guidance.push_str(&section[..end].replace(
+            "session.py status <session>",
+            "tinkery seed status --json <session>",
+        ));
         guidance.push('\n');
     }
     let schema = reference
@@ -143,7 +146,6 @@ pub(super) fn prose(value: &Value) -> Result<Vec<(&'static str, &str)>, Refusal>
 mod tests {
     use super::*;
     use crate::seed_me::ledger::fixtures::prose_reply;
-    use std::path::Path;
 
     fn reply() -> Value {
         prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"))
@@ -157,7 +159,6 @@ mod tests {
             .unwrap();
         let session = super::super::publication_tests::session(root.path());
         super::super::draft_seed(
-            Path::new("TEST-unused-skill"),
             &session,
             1,
             &reply(),
@@ -238,7 +239,6 @@ mod tests {
             let mut value = reply();
             value["Problem statement"] = bad.into();
             let error = super::super::draft_seed(
-                Path::new("TEST-unused-skill"),
                 &session,
                 1,
                 &value,
@@ -297,12 +297,8 @@ mod tests {
 
     #[test]
     fn attached_instructions_have_one_field_layout_and_no_markdown_writing_directions() {
-        let reference = std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(".ci-seed-me/skills/seed-me/references/seed-contract.md"),
-        )
-        .unwrap();
-        let instructions = instructions(&reference).unwrap();
+        let reference = include_str!("../seed-contract.txt");
+        let instructions = instructions(reference).unwrap();
         for name in fields() {
             assert!(instructions.contains(&format!("\"{name}\":")));
         }
@@ -317,5 +313,7 @@ mod tests {
         assert!(instructions.contains("Exactly five lines"));
         assert!(instructions.contains("Check records schema"));
         assert!(instructions.contains("four parts:"));
+        assert!(instructions.contains("tinkery seed status --json <session>"));
+        assert!(!instructions.contains("session.py"));
     }
 }

@@ -6,7 +6,7 @@ from pathlib import Path
 import select
 import signal
 import struct
-import subprocess
+import test_launch as subprocess
 import sys
 import tempfile
 import termios
@@ -66,7 +66,7 @@ def journey(width, height, kind, no_color):
             env['NO_COLOR'] = '1'
         process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--home',
                                     '--seed-session-root', str(root / 'TEST-sessions')],
-                                   cwd=root, env=env, stdin=slave, stdout=slave, stderr=slave)
+                                   cwd=root, env=subprocess.environment(env, home=(env)['HOME']), stdin=slave, stdout=slave, stderr=slave)
 
         def wait(predicate):
             deadline = time.monotonic() + 5

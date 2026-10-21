@@ -94,7 +94,6 @@ pub enum Leave {
 
 struct Opened {
     session: PathBuf,
-    skill: Option<PathBuf>,
     reading: Reading,
     /// The operator's words being typed: an answer, or the words that confirm a seed.
     typed: Words,
@@ -192,14 +191,14 @@ enum Reading {
 impl Shape {
     /// Shape opened on one session; its first [`Shape::tick`] reads the ledger off the paint
     /// path, or it says plainly that Shape isn't configured.
-    pub fn session(skill: Option<&Path>, session: &Path) -> Self {
+    pub fn session(session: &Path) -> Self {
         Self {
             list: None,
             unreadable: 0,
             failures: Vec::new(),
             help_scroll: 0,
             selected: 0,
-            open: Some(Opened::start(skill, session)),
+            open: Some(Opened::start(session)),
             scroll: 0,
             page: 1,
             agent: None,
@@ -418,11 +417,11 @@ impl Shape {
         }
     }
 
-    /// One key, with `skill` for opening a listed session. Esc stops a running step, or closes an
+    /// One key, opening only the selected session when requested. Esc stops a running step, or closes an
     /// open session back to the list, or leaves Shape. Explicit answer, defer and delegate keys
     /// publish then look, as does saving a revision; keep publishes without a model. `F3` confirms only the seed.
     /// `F6` or `F8` pressed twice ends the session, without a model.
-    pub fn key(&mut self, key: KeyEvent, skill: Option<&Path>) -> Leave {
+    pub fn key(&mut self, key: KeyEvent) -> Leave {
         if key.kind == KeyEventKind::Release
             || key.kind == KeyEventKind::Repeat && matches!(key.code, KeyCode::F(2..=12))
         {
@@ -711,7 +710,7 @@ impl Shape {
             KeyCode::Up | KeyCode::Char('k') => self.selected = self.selected.saturating_sub(1),
             KeyCode::Enter if !listed.is_empty() => {
                 let path = listed[self.selected].path.clone();
-                self.open = Some(Opened::start(skill, &path));
+                self.open = Some(Opened::start(&path));
                 self.scroll = 0;
             }
             _ => {}
@@ -735,10 +734,6 @@ impl Shape {
                     Reading::Done(Err(error)) => format!("What went wrong:\n{error}\n\n"),
                     _ => String::new(),
                 };
-                let skill = open.skill.as_ref().map_or_else(
-                    || "Shape instructions: not configured".into(),
-                    |s| format!("Shape instructions: {}", s.display()),
-                );
                 let model = agent.map_or_else(
                     || {
                         if self.held {
@@ -824,7 +819,7 @@ impl Shape {
                 (
                     now,
                     format!(
-                        "{failure}{model}{reads}{form}\nSession: {}\n{skill}",
+                        "{failure}{model}{reads}{form}\nSession: {}",
                         open.session.display()
                     ),
                 )
@@ -1283,7 +1278,6 @@ impl Opened {
     /// How this stage can be ended, with the helper configured: completed once the seed is
     /// ready, stopped while it's still being shaped. Never for an ended or unknown session.
     fn offers_end(&self) -> Option<Ending> {
-        self.skill.as_ref()?;
         let Reading::Done(Ok(shaping)) = &self.reading else {
             return None;
         };
@@ -1299,8 +1293,7 @@ impl Opened {
 
     /// Whether `F7` can object to an assumption: the question its step asked is still current.
     fn offers_objection(&self) -> bool {
-        self.skill.is_some()
-            && !self.assumed.is_empty()
+        !self.assumed.is_empty()
             && matches!(
                 &self.reading,
                 Reading::Done(Ok(Shaping {
@@ -1335,9 +1328,7 @@ impl Opened {
             _ => return,
         };
         match self.withheld.clone() {
-            Some(text) if self.skill.is_some() => {
-                self.write(Write::Recommend { id, text }, "Saving my suggestion.")
-            }
+            Some(text) => self.write(Write::Recommend { id, text }, "Saving my suggestion."),
             _ => {
                 self.notice = Some((
                     "Here are the options. No suggestion was kept for this question.".into(),
@@ -1361,7 +1352,7 @@ impl Opened {
 
     /// Carry out `write` through the helper off the paint path; [`Shape::tick`] reports it.
     fn write(&mut self, write: Write, said: &str) {
-        let (Some(skill), Reading::Done(Ok(shaping))) = (self.skill.clone(), &self.reading) else {
+        let Reading::Done(Ok(shaping)) = &self.reading else {
             return;
         };
         let expected = shaping.version;
@@ -1373,12 +1364,12 @@ impl Opened {
                 (Write::Keep { id, reason }, Some(expected)) => {
                     answering::keep(&session, expected, &id, &reason)
                 }
-                (Write::End(ending), _) => answering::end(&skill, &session, ending),
+                (Write::End(ending), _) => answering::end(&session, ending),
                 (Write::Object(text), Some(expected)) => {
-                    answering::object(&skill, &session, expected, &text).map(|_| ())
+                    answering::object(&session, expected, &text).map(|_| ())
                 }
                 (Write::Recommend { id, text }, Some(expected)) => {
-                    answering::recommend(&skill, &session, expected, &id, &text).map(|_| ())
+                    answering::recommend(&session, expected, &id, &text).map(|_| ())
                 }
                 (Write::Keep { .. } | Write::Object(_) | Write::Recommend { .. }, None) => Err(
                     Refusal::Refused("Tinkery read no version to change from.".into()),
@@ -1482,7 +1473,7 @@ impl Opened {
             }
             _ => None,
         };
-        let (Some(skill), None) = (&self.skill, &self.notice) else {
+        let None = &self.notice else {
             return;
         };
         let folder = folder.unwrap_or_default();
@@ -1537,21 +1528,16 @@ impl Opened {
             Act::Confirm(revision) => (Work::Confirm { revision, words }, Doing::Confirm),
         };
         self.doing = doing;
-        self.running = Some(Running::start(
-            work,
-            skill.clone(),
-            self.session.clone(),
-            agent.clone(),
-        ));
+        self.running = Some(Running::start(work, self.session.clone(), agent.clone()));
     }
 
     /// Read the session off the paint path and, with an agent, find the folder its step reads.
     fn begin(&mut self, agent: Option<Arc<Agent>>) {
         let (sender, receiver) = mpsc::channel();
-        if let Some(skill) = self.skill.clone() {
+        {
             let session = self.session.clone();
             std::thread::spawn(move || {
-                let read = shaping::read(&skill, &session);
+                let read = shaping::read(&session);
                 let folder = match (&agent, &read) {
                     (
                         Some(agent),
@@ -1567,10 +1553,9 @@ impl Opened {
         self.reading = Reading::Waiting(receiver);
     }
 
-    fn start(skill: Option<&Path>, session: &Path) -> Self {
+    fn start(session: &Path) -> Self {
         Self {
             session: session.to_path_buf(),
-            skill: skill.map(Path::to_path_buf),
             reading: Reading::NotStarted,
             typed: Words::new(""),
             form: None,
@@ -1699,14 +1684,6 @@ fn render_open(
         return (false, 1);
     }
     let (reading, input) = match &open.reading {
-        _ if open.skill.is_none() => (
-            plain(
-                "Shape isn't set up here.",
-                "Next: start Tinkery with --shape-pi, --model and --seed-me.",
-                palette,
-            ),
-            Text::default(),
-        ),
         Reading::NotStarted | Reading::Waiting(_) => (
             Text::styled("Reading where this seed stands.", palette.muted),
             Text::default(),

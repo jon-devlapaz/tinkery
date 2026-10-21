@@ -1,19 +1,17 @@
-//! One complete record scan attributes many saved goals without retaining their histories.
-//! Malformed records invalidate the scan; duplicates and older matches never establish an origin.
+//! One complete record scan attributes saved goals by unique live ledger identity, never by root.
+//! Malformed records invalidate the scan; duplicate records and live IDs refuse attribution.
 
 use super::*;
 use std::collections::{HashMap, HashSet};
 
 struct Attribution {
-    id: Option<String>,
     goal: String,
     made_in: MadeIn,
 }
 
-/// Origins in input order, using the history reader's exact identity, goal and uniqueness rules.
-/// Enumerates the root once and reads each JSON file at most once; retains only attribution
-/// fields. Individual refusals are Unknown; unreadable or unsupported records refuse the whole
-/// scan. Sessions must remain unchanged across the scan. Nothing is written or run.
+/// Origins in input order, sharing history's identity, exact-goal and uniqueness rules.
+/// Scans each current session root and the record root once before rechecking identities.
+/// Retains attribution only, never turns; malformed files refuse the scan. Writes nothing.
 pub(crate) fn read_origins(
     root: &Path,
     sessions: &[(&Path, &str)],
@@ -22,7 +20,8 @@ pub(crate) fn read_origins(
         .iter()
         .map(|(path, goal)| current_session(path, goal))
         .collect();
-    let mut records: HashMap<PathBuf, Option<Attribution>> = HashMap::new();
+    let identities = identity_index(sessions.iter().map(|(path, _)| *path))?;
+    let mut records: HashMap<String, Option<Attribution>> = HashMap::new();
     let mut older = HashSet::new();
     for entry in entries(root)? {
         let path = entry
@@ -36,17 +35,17 @@ pub(crate) fn read_origins(
             older.insert(record.seed_me_session);
             continue;
         }
-        let stored = reference(&path, &record)?.clone();
+        let identity = record_identity(&path, &record)?;
         let attribution = Attribution {
-            id: record.seed_me_session_id,
             goal: record.goal,
             made_in: origin(record.schema, record.repo),
         };
         records
-            .entry(stored)
+            .entry(identity)
             .and_modify(|found| *found = None)
             .or_insert(Some(attribution));
     }
+    let after = identity_index(sessions.iter().map(|(path, _)| *path))?;
     Ok(sessions
         .iter()
         .zip(selected)
@@ -54,11 +53,12 @@ pub(crate) fn read_origins(
             let Ok(selected) = selected else {
                 return MadeIn::Unknown;
             };
-            let Some(Some(record)) = records.get(&selected.0) else {
+            let Some(Some(record)) = records.get(&selected.1) else {
                 return MadeIn::Unknown;
             };
             if older.contains(&session_id(&selected.0))
-                || record.id.as_deref() != Some(selected.1.as_str())
+                || require_unique(&identities, &selected).is_err()
+                || require_unique(&after, &selected).is_err()
                 || record.goal != *goal
                 || current_session(path, goal).ok().as_ref() != Some(&selected)
             {

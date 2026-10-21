@@ -48,7 +48,7 @@ pub type Outcome = Result<Found, String>;
 /// The blocking read. Injectable so tests can hold it open.
 pub type Source = Arc<dyn Fn(&Path) -> Outcome + Send + Sync>;
 
-/// Seed Me sessions, newest first. Each folder is read by [`seed_me::read`].
+/// saved sessions, newest first. Each folder is read by [`seed_me::read`].
 pub fn scan(root: &Path) -> Outcome {
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,

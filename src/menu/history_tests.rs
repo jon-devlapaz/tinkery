@@ -38,8 +38,7 @@ fn home() -> (tempfile::TempDir, Home, PathBuf, Vec<u8>) {
         "/TEST/no-substrate".into(),
         Ok(dir.path().join("TEST-links")),
     )
-    .with_record_root(records)
-    .with_seed_me("/TEST/no-skill".into());
+    .with_record_root(records);
     home.discover_for_snapshot(Duration::from_secs(3));
     home.open(1);
     (dir, home, path, bytes)

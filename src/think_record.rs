@@ -160,7 +160,7 @@ pub struct Session<'a> {
     pub checks: Vec<serde_json::Value>,
     /// The goal block exactly as confirmed.
     pub goal: &'a str,
-    /// The Seed Me session folder the goal was saved in.
+    /// The saved session folder the goal was saved in.
     pub seed_me_session: &'a Path,
     /// The repository root Tinkery was started in, or `None` outside one. Where the goal was
     /// made, never what it is about.
@@ -181,9 +181,9 @@ pub fn hash(text: &str) -> String {
 }
 
 /// Writes one record for `session` into `root` (created if missing) and returns its path. The
-/// file is named by confirm time and Seed Me session, written whole, and never replaces another
+/// file is named by confirm time and saved session, written whole, and never replaces another
 /// file: a clash is an error, not an overwrite. The session must resolve to an existing
-/// directory whose saved goal still matches; its canonical path and existing Seed Me identity
+/// directory whose saved goal still matches; its canonical path and existing ledger identity
 /// bind this local record to that session. Missing identity is an error, never a generated ID.
 pub fn write(root: &Path, session: &Session<'_>) -> Result<PathBuf, String> {
     write_with_confirmation(root, session, &GoalConfirmation::default())
@@ -261,7 +261,7 @@ pub fn write_with_confirmation(
     Ok(path)
 }
 
-/// The Seed Me session's folder name, kept to characters that are safe in a file name.
+/// The saved session's folder name, kept to characters that are safe in a file name.
 fn session_id(session: &Path) -> String {
     let name = session
         .file_name()

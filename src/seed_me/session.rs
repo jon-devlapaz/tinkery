@@ -1,4 +1,4 @@
-//! Reading one saved session straight from Seed Me's files. Read-only: nothing here writes.
+//! Reading one saved session straight from session files. Read-only: nothing here writes.
 //! Files are read directly rather than through the helper, so a scan of thousands of
 //! sessions stays fast (see menu.md's measured scope).
 
@@ -9,7 +9,7 @@ use std::{
 
 use serde_json::Value;
 
-/// The stage declared by Seed Me's files, not verification of a seed's confirmation.
+/// The stage declared by session files, not verification of a seed's confirmation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     /// Active, with a confirmed goal and no seed contract yet.
@@ -49,8 +49,8 @@ impl Stage {
             Self::Simulated => "practice seed",
         }
     }
-    /// Whether the continuation prompt applies: only a live session with a real goal.
-    pub fn can_copy(self) -> bool {
+    /// Whether Shape can open it: only a live session with a real goal.
+    pub fn can_shape(self) -> bool {
         matches!(
             self,
             Self::GoalSaved | Self::SeedDrafted | Self::SeedUnchecked
@@ -78,7 +78,7 @@ pub struct Session {
     pub goal: String,
     /// Its declared stage; seed confirmation has not been verified by this file read.
     pub stage: Stage,
-    /// The ledger's last update time as Seed Me wrote it; empty when absent.
+    /// The ledger's last update time as recorded; empty when absent.
     pub updated: String,
 }
 
@@ -121,6 +121,9 @@ pub enum Record {
 /// Read the session in folder `path`. Promises a `Session` only when the ledger parses and has
 /// a status; refuses to guess a stage for an active session with no goal (`Stage::Unknown`).
 pub fn read(path: &Path) -> Record {
+    if let Err(reason) = super::migration::refuse_old_root(path) {
+        return Record::Unreadable(ReadFailure::new(path.to_path_buf(), reason));
+    }
     use std::io::ErrorKind::{NotADirectory, NotFound};
     let ledger_path = path.join("ledger.json");
     let text = match fs::read_to_string(&ledger_path) {
@@ -189,10 +192,11 @@ pub fn read(path: &Path) -> Record {
     }
 }
 
-/// Read Seed Me's existing session identifier only while its saved goal still equals `goal`.
+/// Read the ledger's existing session identifier only while its saved goal still equals `goal`.
 /// Refuses missing identity, an unsupported ledger format or a changed goal; never invents an
 /// identifier from the directory name and never changes the ledger.
 pub fn session_id(path: &Path, goal: &str) -> Result<String, String> {
+    super::migration::refuse_old_root(path)?;
     let ledger_path = path.join("ledger.json");
     let text = fs::read_to_string(&ledger_path)
         .map_err(|error| format!("{}: {error}", ledger_path.display()))?;
@@ -200,7 +204,7 @@ pub fn session_id(path: &Path, goal: &str) -> Result<String, String> {
         .map_err(|error| format!("{}: {error}", ledger_path.display()))?;
     let refuse = |reason: &str| format!("{}: {reason}", ledger_path.display());
     if ledger.get("schema_version").and_then(Value::as_u64) != Some(1) {
-        return Err(refuse("unsupported Seed Me ledger schema"));
+        return Err(refuse("unsupported session ledger schema"));
     }
     if ledger.get("goal").and_then(Value::as_str) != Some(goal) {
         return Err(refuse("the saved goal changed"));
@@ -239,7 +243,7 @@ mod identity_tests {
             assert_eq!(session.stage.label(), "seed needs checking");
             assert_eq!(session.stage.next(), Some("Next: check the seed in Shape."));
             assert!(
-                session.stage.can_copy(),
+                session.stage.can_shape(),
                 "manual continuation stays available"
             );
             assert_eq!(fs::read(&seed).unwrap(), before);

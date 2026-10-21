@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import select
 import struct
-import subprocess
+import test_launch as subprocess
 import tempfile
 import termios
 import time
@@ -13,7 +13,6 @@ import time
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
-SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 KEYS = '↑↓←→ move   enter open   l link   esc back'
 LABELS = ['TEST A goal', 'TEST B goal', 'TEST unknown goal', 'TEST legacy goal', 'TEST outside goal']
 
@@ -28,11 +27,10 @@ class Terminal:
         if no_color:
             env['NO_COLOR'] = '1'
         self.process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--home',
-            '--shape-pi', '--model', 'test/model', '--seed-me', str(SKILL),
-            '--pi-command', str(root / 'TEST-never-pi'),
+            '--shape-pi', '--model', 'test/model', '--pi-command', str(root / 'TEST-never-pi'),
             '--seed-session-root', str(root / 'TEST-sessions'),
             '--record-root', str(root / 'TEST-records'), '--link-root', str(root / 'TEST-links')],
-            cwd=cwd, stdin=self.slave, stdout=self.slave, stderr=self.slave, env=env)
+            cwd=cwd, stdin=self.slave, stdout=self.slave, stderr=self.slave, env=subprocess.environment(env))
 
     def wait(self, predicate):
         deadline = time.monotonic() + 10

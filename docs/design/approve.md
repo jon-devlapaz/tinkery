@@ -8,22 +8,21 @@ implementation permission remain separate.
 
 The menu supplies its existing session discovery result, without Tend's repository
 filter. Approve reads across that configured session root, oldest update first.
-`--seed-me PATH` names the helper skill without requiring a model or `--shape-pi`.
-Only Seed Me helper-verified ready seeds not already started appear, including
+No skill or model configuration is needed. Only Tinkery-verified ready seeds not already started appear, including
 completed sessions whose seed remains verified. Drafts, stopped sessions and unverifiable confirmations do not.
-Missing skill configuration, failed discovery and unreadable seeds stay unavailable;
+Failed discovery and unreadable seeds stay unavailable;
 an incomplete scan cannot claim there are no waiting seeds.
 
 `seed_me::ready` owns the handoff reading: exact confirmed goal, revision and the
 seed's Acceptance criteria section, including original whitespace. It uses the
-same helper verification and canonical, shell-quoted intake formatter as Shape.
+same ledger verification and canonical, shell-quoted intake formatter as Shape.
 Seed and ledger bytes are checked before and after verification; observed changes
 refuse the reading. This is a snapshot, not a live freshness claim. Return to the
 menu and reopen to read again. Unsafe terminal controls are escaped only for display.
 
 One menu-owned verifier survives visits. Reads run off input and paint paths through
-the existing bounded helper calls. Leaving stops publication and further session
-reads; the current helper finishes within its existing limit. Reopening while it
+disk reads. Leaving stops publication and further session
+reads; the current file read finishes before the verifier is reused. Reopening while it
 finishes refuses a replacement worker and asks the operator to reopen later. Late
 results never reopen a view or populate a different visit.
 
@@ -33,7 +32,7 @@ The goal and acceptance checks precede the manual handoff explanation and comman
 
 ```text
 python3 _system/scripts/sdlc.py new <run>
-python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<seed path>' --seed-me-helper '<helper path>'
+python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<seed path>' --tinkery '<Tinkery executable path>'
 ```
 
 The operator replaces the visible `<run>` in both commands and runs them from the
@@ -65,7 +64,7 @@ verified seed or justifies a complete empty-waiting claim.
 Shared-boundary tests prove verified-only selection, exact bytes, shared intake
 quoting and refusal on changed sources. View tests cover copying, help isolation,
 scrolling and abandoned reads. [PTY journeys](../../tests/approve_terminal.py)
-use the official pinned Seed Me helper and temporary TEST roots at 80×24 and 100×30,
+use the actual Rust ledger and temporary TEST roots at 80×24 and 100×30,
 with and without colour. They cover ordering, excluded drafts/stale seeds, both
 copied commands, empty/incomplete/unreadable roots, matched/edited/moved seeds,
 no checkout, unreadable runs and unchanged source trees. The

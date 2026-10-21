@@ -1,11 +1,7 @@
 //! Persistence fault outcomes and Python/Rust writer exclusion in TEST sessions.
 
 use super::*;
-use std::{
-    fs,
-    io::{BufRead, BufReader},
-    process::{Command, Stdio},
-};
+use std::fs;
 
 const STAMP: &str = "2026-10-19T00:00:00+00:00";
 
@@ -22,13 +18,6 @@ fn fixture() -> (tempfile::TempDir, Value, Value) {
     let mut state = super::super::editable(&ledger).unwrap();
     state["draft"].set("goal", "TEST changed".into());
     (root, ledger, state)
-}
-
-fn helper() -> std::path::PathBuf {
-    Path::new(&std::env::var_os("SEED_ME_TEST_SKILL").expect("pinned fixture required"))
-        .parent()
-        .unwrap()
-        .join("scripts/session.py")
 }
 
 #[test]
@@ -62,64 +51,23 @@ fn reviews_check_the_displayed_version_under_the_writer_lock() {
 }
 
 #[test]
-fn python_writer_blocks_rust_and_rust_writer_blocks_python() {
+fn one_writer_blocks_another_and_releases_after_drop() {
     let (root, ledger, state) = fixture();
-    let mut python = Command::new("python3")
-        .args([
-            "-u",
-            "-c",
-            r#"
-import importlib.util,sys
-spec=importlib.util.spec_from_file_location('TEST_session',sys.argv[1])
-s=importlib.util.module_from_spec(spec); spec.loader.exec_module(s)
-with s.writer(sys.argv[2]):
-    print('TEST locked',flush=True)
-    sys.stdin.read(1)
-"#,
-        ])
-        .arg(helper())
-        .arg(root.path())
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut line = String::new();
-    BufReader::new(python.stdout.take().unwrap())
-        .read_line(&mut line)
-        .unwrap();
-    assert_eq!(line.trim(), "TEST locked");
-    let result = publish(
-        root.path(),
-        &state,
-        &ledger["version"],
-        &"TEST update".into(),
-        None,
-        STAMP,
-    );
-    python.stdin.take().unwrap().write_all(b"x").unwrap();
-    assert!(python.wait().unwrap().success());
-    assert_eq!(result.unwrap_err().reason, "session already has a writer");
-    assert_eq!(load(root.path()).unwrap(), ledger);
-
     let writer = Writer::acquire(root.path()).unwrap();
-    let payload = root.path().join("TEST-payload.json");
-    let mut value = Value::parse(r#"{"expected_version":0,"reason":"TEST update"}"#).unwrap();
-    value.set("state", state.clone());
-    fs::write(&payload, value.pretty().unwrap()).unwrap();
-    let output = Command::new("python3")
-        .arg(helper())
-        .arg("publish")
-        .arg(root.path())
-        .arg(payload)
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
     assert_eq!(
-        String::from_utf8_lossy(&output.stderr).lines().next(),
-        Some("session already has a writer")
+        publish(
+            root.path(),
+            &state,
+            &ledger["version"],
+            &"TEST update".into(),
+            None,
+            STAMP
+        )
+        .unwrap_err()
+        .reason,
+        "session already has a writer"
     );
+    assert_eq!(load(root.path()).unwrap(), ledger);
     drop(writer);
     publish(
         root.path(),
@@ -130,7 +78,7 @@ with s.writer(sys.argv[2]):
         STAMP,
     )
     .unwrap();
-    let _released = Writer::acquire(root.path()).unwrap();
+    drop(Writer::acquire(root.path()).unwrap());
 }
 
 #[test]
@@ -325,18 +273,6 @@ fn serialization_refusal_precedes_io_without_a_save_failure_prefix() {
     assert_eq!(failed.save_state, SaveState::NotSaved);
     assert_eq!(fs::read_to_string(path).unwrap(), raw);
     drop(Writer::acquire(root.path()).unwrap());
-}
-
-#[test]
-fn os_permission_denied_diagnostic_is_rust_not_python_oserror() {
-    // A deterministic OS error seam works for root-run CI too; no real permissions are left changed.
-    let rust = io::Error::from_raw_os_error(libc::EACCES).to_string();
-    let output = Command::new("python3").args(["-c", "import errno; print(str(PermissionError(errno.EACCES, 'Permission denied', 'TEST-ledger.json')))"])
-        .output().unwrap();
-    let python = String::from_utf8(output.stdout).unwrap();
-    assert!(rust.contains("os error 13"), "{rust}");
-    assert!(python.starts_with("[Errno 13]"), "{python}");
-    assert_ne!(rust, python.trim());
 }
 
 #[test]

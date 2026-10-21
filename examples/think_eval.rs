@@ -21,7 +21,7 @@ use tinkery::think::{
 use tinkery::think_record::hash;
 
 const USAGE: &str = "Supply --dataset FILE --output NEW_DIRECTORY --max-requests N. Replies are scripted. \
-Add --live --model provider/model-id --seed-me SKILL.md [--pi-command PATH] [--thinking LEVEL] to call Pi; \
+Add --live --model provider/model-id [--pi-command PATH] [--thinking LEVEL] to call Pi; \
 there is no default dataset, model or limit.";
 
 #[derive(Deserialize)]
@@ -108,7 +108,6 @@ impl BoardHost for Fake {
 struct Live {
     pi_command: PathBuf,
     model: String,
-    seed_me: PathBuf,
     thinking: String,
 }
 #[derive(Debug)]
@@ -133,7 +132,6 @@ fn options(args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--output",
             "--max-requests",
             "--model",
-            "--seed-me",
             "--pi-command",
             "--thinking",
         ];
@@ -154,7 +152,6 @@ fn options(args: impl Iterator<Item = String>) -> Result<Options, String> {
     let live = if live {
         Some(Live {
             model: take("--model").ok_or(USAGE)?,
-            seed_me: take("--seed-me").ok_or(USAGE)?.into(),
             pi_command: take("--pi-command").unwrap_or_else(|| "pi".into()).into(),
             thinking: take("--thinking").unwrap_or_else(|| "low".into()),
         })
@@ -291,13 +288,9 @@ fn run(options: &Options) -> Result<Value, String> {
         None => (fake.clone(), Duration::from_secs(5)),
         Some(live) => (
             Arc::new(
-                PiHost::new(
-                    live.pi_command.clone(),
-                    live.model.clone(),
-                    live.seed_me.clone(),
-                )?
-                .with_thinking(&live.thinking)?
-                .with_budget(budget.clone()),
+                PiHost::new(live.pi_command.clone(), live.model.clone())?
+                    .with_thinking(&live.thinking)?
+                    .with_budget(budget.clone()),
             ),
             // Two 90-second Pi calls per send, plus room to settle.
             Duration::from_secs(200),

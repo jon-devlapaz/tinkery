@@ -1,53 +1,6 @@
 use super::*;
-use serde_json::{Value, json};
+use serde_json::json;
 use std::fs;
-
-/// A Seed Me skill whose helper keeps its state in a TEST folder and records what it was asked
-/// to publish. `tamper` makes the helper save the origin with another authority.
-fn fake_skill(dir: &Path, tamper: bool) -> PathBuf {
-    let scripts = dir.join("skill/scripts");
-    fs::create_dir_all(&scripts).unwrap();
-    fs::write(dir.join("skill/SKILL.md"), "TEST").unwrap();
-    fs::write(
-        scripts.join("session.py"),
-        r#"import json, sys
-from pathlib import Path
-session = Path(__file__).resolve().parent.parent / "TEST-session"
-state_file = session / "state.json"
-def load():
-    return json.loads(state_file.read_text())
-cmd = sys.argv[1]
-if cmd == "init":
-    assert sys.argv[2] == "--root" and sys.argv[3], "Tinkery must pass its resolved root"
-    session.mkdir()
-    state_file.write_text(json.dumps({"status": "active", "operator": "human", "version": 1, "origin": None, "goal": None, "nodes": []}))
-    print(json.dumps({"session": str(session)}))
-elif cmd == "read":
-    print(json.dumps(load()))
-elif cmd == "publish":
-    payload = json.loads(Path(sys.argv[3]).read_text())
-    (session / "published.json").write_text(json.dumps(payload))
-    state = load()
-    state.update(payload["state"])
-    if (session.parent / "tamper").exists():
-        state["nodes"][0]["authority"] = "model"
-    state_file.write_text(json.dumps(state))
-    print("{}")
-elif cmd == "status":
-    print(json.dumps({"status": "active", "snapshot_current": True, "viewer": "live http://127.0.0.1:9/ledger-view.html"}))
-"#,
-    )
-    .unwrap();
-    fs::write(
-        scripts.join("viewer.py"),
-        "import time\nprint('http://127.0.0.1:9/ledger-view.html', flush=True)\ntime.sleep(30)\n",
-    )
-    .unwrap();
-    if tamper {
-        fs::write(dir.join("skill/tamper"), "").unwrap();
-    }
-    dir.join("skill/SKILL.md")
-}
 
 fn affirmed() -> Affirmed {
     Affirmed {
@@ -76,74 +29,62 @@ fn affirmed() -> Affirmed {
     }
 }
 
-/// The publish payload with its two clock readings replaced, so it can be compared.
-fn published(skill: &Path) -> Value {
-    let path = skill.parent().unwrap().join("TEST-session/published.json");
-    let mut payload: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
-    payload["reason"] = "TEST reason".into();
-    for entry in payload["state"]["nodes"][0]["evidence"]
-        .as_array_mut()
-        .unwrap()
-    {
-        entry["at"] = "TEST at".into();
-    }
-    payload
-}
-
 #[test]
-fn confirm_publishes_the_origin_seed_me_expects_and_reads_it_back() {
-    let tmp = tempfile::tempdir().unwrap();
-    let skill = fake_skill(tmp.path(), false);
-    let mut receipt = Config::new(skill.clone(), None)
-        .confirm(affirmed())
+fn confirmed_goal_and_originals_are_read_back_without_a_skill_or_viewer() {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-save-")
+        .tempdir()
         .unwrap();
-    receipt.stop_viewer().unwrap();
-    assert_eq!(receipt.goal, "TEST goal");
-    assert_eq!(receipt.ledger, "http://127.0.0.1:9/ledger-view.html");
+    let config = Config::new(Some(root.path().join("sessions")));
+    let receipt = config.confirm(affirmed()).unwrap();
+    assert_eq!(receipt.goal, affirmed().goal);
+    let ledger = ledger::load(&receipt.session).unwrap().to_json().unwrap();
+    let origin = &ledger["nodes"][0];
+    assert_eq!(origin["answer"], affirmed().goal);
+    assert_eq!(origin["authority"], "user");
+    for original in affirmed().originals {
+        assert!(
+            origin["evidence"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["observed"] == original.text)
+        );
+    }
+    assert!(!receipt.session.join("seed-contract.md").exists());
+    assert!(!receipt.session.join("viewer.json").exists());
+    let before = fs::read(receipt.session.join("ledger.json")).unwrap();
+    assert_eq!(config.confirm(affirmed()).unwrap().session, receipt.session);
     assert_eq!(
-        receipt.saved_view(),
-        receipt.session.join("ledger-view.html")
+        fs::read(receipt.session.join("ledger.json")).unwrap(),
+        before
     );
-    let evidence = |checked: &str, observed: &str| json!({"checked": checked, "at": "TEST at", "observed": observed});
+    let mut different = affirmed();
+    different.goal = "TEST other goal".into();
+    assert!(
+        config
+            .confirm(different)
+            .err()
+            .unwrap()
+            .contains("another goal")
+    );
     assert_eq!(
-        published(&skill),
-        json!({
-            "expected_version": 1,
-            "reason": "TEST reason",
-            "state": {
-                "status": "active",
-                "draft": {"goal": "TEST goal", "outcome": "PR ready", "options": ["A — benefit: b; cost: c; undo cost: u"]},
-                "goal": "TEST goal",
-                "origin": "goal",
-                "current_question": null,
-                "nodes": [{
-                    "id": "goal",
-                    "kind": "decision",
-                    "status": "settled",
-                    "prerequisites": [],
-                    "evidence": [
-                        evidence("Tinkery original 0", "  dump 👩‍💻\n"),
-                        evidence("Tinkery original 1 / reply to q0", "answer"),
-                        evidence("Tinkery answer/question context; questions remain provisional, not settled Seed Me decisions", r#"{"TEST":"context"}"#),
-                    ],
-                    "owner": "User",
-                    "gate": "Explicit affirmation of the complete displayed goal; not seed or implementation approval",
-                    "answer": "TEST goal",
-                    "authority": "user",
-                    "authority_source": "TEST typed confirm"
-                }]
-            }
-        })
+        fs::read(receipt.session.join("ledger.json")).unwrap(),
+        before
     );
-}
-
-#[test]
-fn confirm_refuses_a_read_back_that_does_not_match_the_affirmed_goal() {
-    let tmp = tempfile::tempdir().unwrap();
-    let config = Config::new(fake_skill(tmp.path(), true), None);
-    let error = config.confirm(affirmed()).err().unwrap();
-    assert_eq!(error, "Helper read-back did not match the affirmed goal");
-    assert!(config.recovery_path().is_some());
+    let mut changed = affirmed();
+    changed.originals[0].text = "TEST changed".into();
+    assert!(
+        config
+            .confirm(changed)
+            .err()
+            .unwrap()
+            .contains("originals differ")
+    );
+    assert_eq!(
+        fs::read(receipt.session.join("ledger.json")).unwrap(),
+        before
+    );
 }
 
 #[test]
@@ -233,7 +174,7 @@ fn default_root_is_under_the_given_home() {
     }
     assert_eq!(
         default_root(Some(std::ffi::OsStr::new("/TEST/home"))).unwrap(),
-        Path::new("/TEST/home/.local/share/seed-me/sessions")
+        Path::new("/TEST/home/.local/share/tinkery/sessions")
     );
 }
 

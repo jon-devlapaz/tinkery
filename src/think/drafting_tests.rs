@@ -12,9 +12,7 @@ fn host(script: &str) -> (tempfile::TempDir, PiHost) {
     let program = directory.path().join("pi");
     std::fs::write(&program, format!("#!/usr/bin/env python3\n{script}\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let skill = directory.path().join("SKILL.md");
-    std::fs::write(&skill, "# Seed Me\n\n## Write for the person reading\nUse common words.\n\n## 1. Triage the ask and extract context\n\n### Shape the working draft\nACTUAL DRAFT INSTRUCTIONS\n\n### Size gate\nDO NOT RUN THIS LATER STEP\n").unwrap();
-    let host = PiHost::new(program, "anthropic/claude-haiku-4-5".into(), skill).unwrap();
+    let host = PiHost::new(program, "anthropic/claude-haiku-4-5".into()).unwrap();
     (directory, host)
 }
 
@@ -28,7 +26,7 @@ assert all(flag in sys.argv for flag in required)
 assert 'PI_SESSION_FILE' not in os.environ
 assert 'PI_SESSION_ID' not in os.environ
 instructions = sys.argv[sys.argv.index('--system-prompt') + 1]
-assert 'ACTUAL DRAFT INSTRUCTIONS' in instructions
+assert 'Distill whatever arrived' in instructions
 assert 'DO NOT RUN THIS LATER STEP' not in instructions
 assert sys.argv[sys.argv.index('--thinking') + 1] == 'low'
 assert sys.argv[sys.argv.index('--model') + 1] == 'anthropic/claude-haiku-4-5'
@@ -39,14 +37,10 @@ print('done')
 "#;
     let (directory, host) = host(script);
     assert!(
-        PiHost::new(
-            directory.path().join("pi"),
-            "test/model".into(),
-            directory.path().join("SKILL.md")
-        )
-        .unwrap()
-        .with_thinking("automatic")
-        .is_err()
+        PiHost::new(directory.path().join("pi"), "test/model".into())
+            .unwrap()
+            .with_thinking("automatic")
+            .is_err()
     );
     let before = std::fs::read_dir(directory.path()).unwrap().count();
     let prompt = host.working_instructions().to_owned();

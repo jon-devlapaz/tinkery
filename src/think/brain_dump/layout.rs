@@ -21,8 +21,8 @@ const RECEIPTS: [&str; 5] = [
     "Skip undone",
     "Added words",
 ];
-/// Why practice, or real mode without Seed Me, can't review or save a goal.
-pub(super) const SAVE_NEEDS_REAL: &str = "Saving a goal needs real mode and Seed Me.";
+/// Why practice, or real mode without a sessions folder, can't review or save a goal.
+pub(super) const SAVE_NEEDS_REAL: &str = "Saving a goal needs real mode and a sessions folder.";
 /// Rows a refusal may take: every fixed refusal fits in two at the narrowest pane.
 pub(super) const STATUS_ROWS: u16 = 2;
 
@@ -330,9 +330,9 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
 pub(super) fn help_text(app: &BrainDump) -> String {
     if app.handoff.receipt.is_some() {
         return if app.screen.help_all {
-            "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nc   copy prompt to continue in Claude, Codex or Pi\ns   open in tend with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
+            "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\ns   open in tend with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
         } else {
-            "Right now\nYour goal is saved. Next: shape it into a seed in Shape.\nc copy prompt · s open in tend · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
+            "Right now\nYour goal is saved. Next: shape it into a seed in Shape.\ns open in tend · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
         };
     }
     let open_now;
@@ -416,7 +416,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     let finish = if !app.can_save() {
         SAVE_NEEDS_REAL
     } else if app.goal_confirmation().is_agent() {
-        "F3   review the goal; delegated saving awaits Seed Me integration"
+        "F3   review the goal; delegated saving awaits ledger integration"
     } else if app.records() {
         "! F3   review the goal; typing confirm saves it and its think record for good"
     } else {
@@ -448,7 +448,7 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         "Only typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept."
     };
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nContinue in Seed Me.\n\nOther keys\nCtrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why, Ctrl-E extract, Ctrl-X cards, Ctrl-L repaint, Ctrl-PgUp/PgDn switch originals. Mac F-keys may need fn.{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nOther keys\nCtrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why, Ctrl-E extract, Ctrl-X cards, Ctrl-L repaint, Ctrl-PgUp/PgDn switch originals. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {
             "Real: your words go to the model you chose and may cost money."
         } else {
@@ -467,7 +467,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     if app.screen.leave_prompt || app.handoff.job.is_some() {
         vec![]
     } else if app.handoff.receipt.is_some() {
-        vec![("c", "copy prompt"), ("s", "open in tend"), ("F10", "menu")]
+        vec![("s", "open in tend"), ("F10", "menu")]
     } else if app.delegated_goal_save_held() {
         vec![("esc", "back")]
     } else if app.handoff.review.is_some() {

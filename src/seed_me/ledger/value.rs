@@ -22,6 +22,49 @@ pub enum Value {
     Object(Vec<(String, Value)>),
 }
 
+impl From<serde_json::Value> for Value {
+    fn from(value: serde_json::Value) -> Self {
+        match value {
+            serde_json::Value::Null => Self::Null,
+            serde_json::Value::Bool(v) => Self::Bool(v),
+            serde_json::Value::String(v) => Self::String(v),
+            serde_json::Value::Array(v) => Self::Array(v.into_iter().map(Self::from).collect()),
+            serde_json::Value::Object(v) => {
+                Self::Object(v.into_iter().map(|(k, v)| (k, Self::from(v))).collect())
+            }
+            serde_json::Value::Number(v) if v.is_i64() || v.is_u64() => Self::Int(v.to_string()),
+            serde_json::Value::Number(v) => Self::Float(v.as_f64().expect("JSON number")),
+        }
+    }
+}
+
+impl Value {
+    /// Convert to the application's JSON type without serializing through text.
+    /// Refuses numbers that the destination cannot represent.
+    pub fn to_json(&self) -> Result<serde_json::Value, String> {
+        Ok(match self {
+            Self::Null => serde_json::Value::Null,
+            Self::Bool(v) => (*v).into(),
+            Self::String(v) => v.clone().into(),
+            Self::Int(v) => serde_json::Value::Number(
+                v.parse()
+                    .map_err(|_| "Ledger number cannot be represented.")?,
+            ),
+            Self::Float(v) => serde_json::Value::Number(
+                serde_json::Number::from_f64(*v).ok_or("Ledger number must be finite.")?,
+            ),
+            Self::Array(v) => {
+                serde_json::Value::Array(v.iter().map(Self::to_json).collect::<Result<_, _>>()?)
+            }
+            Self::Object(v) => serde_json::Value::Object(
+                v.iter()
+                    .map(|(k, v)| Ok((k.clone(), v.to_json()?)))
+                    .collect::<Result<_, String>>()?,
+            ),
+        })
+    }
+}
+
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         use Value::*;

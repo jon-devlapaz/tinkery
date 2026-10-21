@@ -118,27 +118,33 @@ cargo +stable run --locked -- --home
 Without `--home` the binary opens think directly. `--help` lists every option.
 
 Real drafting sends your submitted words to a model and can cost money. It needs
-an explicit budget from the operator, Pi, an explicit model, and a Seed Me
-checkout. `./scripts/cloud-setup.sh` checks out the Seed Me commit CI pins into
-`.ci-seed-me/`:
+an explicit budget from the operator, Pi and an explicit model. Draft guidance and
+the seed-contract reference are bundled; no external skill checkout is needed:
 
 ```sh
 trial_root=$(mktemp -d /tmp/tinkery-TEST-trial-XXXXXX) &&
 cargo +stable run --locked -- --shape-pi \
   --model provider/model-id \
-  --seed-me .ci-seed-me/skills/seed-me/SKILL.md \
   --seed-session-root "$trial_root/sessions" \
   --record-root "$trial_root/think" \
   --link-root "$trial_root/tend"
 ```
 
-All three overrides keep the trial isolated: Seed Me sessions,
+All three overrides keep the trial isolated: sessions,
 [think records](design/think.md#think-record), and Tend's needs links stay outside
 operator data. Omit them only when you intend to use the real data directories.
 `--link-root PATH` also works without `--shape-pi`; its default is
 `~/.local/share/tinkery/tend` and requires an absolute HOME. In Tend's garden, `l`
 starts [linking or unlinking a need](design/shape-and-handoff.md#linking-needs);
-only Enter or a picked-goal click saves that change. Seed Me sessions stay unchanged.
+only Enter or a picked-goal click saves that change. Saved sessions stay unchanged.
+Default sessions live in `~/.local/share/tinkery/sessions`. The first default-root
+launch renames only the old sessions folder, leaving every session byte and Think record
+unchanged. History matches ledger session IDs across the move. A visible notice names it.
+If both roots exist, Tinkery refuses; move the leftover old root aside yourself, never merge blindly.
+Explicit roots do not trigger the default move and cannot read the retired old root.
+The installed launcher still passes the removed `--seed-me` flag; its separate,
+operator-authorized edit must remove that line after this change merges.
+
 `--thinking` sets Pi's reasoning level (default `low`).
 
 Shape makes no model call unless you add `--shape-budget CALLS`; each `F2` agent step is one

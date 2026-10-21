@@ -1,5 +1,6 @@
 """Plain POSIX PTY: no Herdr routing/pacing, no actual provider charges."""
-import fcntl, json, os, select, struct, subprocess, tempfile, termios, time
+import fcntl, json, os, select, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 BINARY=Path(__file__).resolve().parents[1]/'target/debug/tinkery'
@@ -22,9 +23,9 @@ print(json.dumps(dict(parts=dict(who='I',outcome='keep review evidence understan
 '''
 def journey(width,height):
  with tempfile.TemporaryDirectory(prefix='tinkery-brain-pty-') as directory:
-  cwd=Path(directory);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
+  cwd=Path(directory);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',height,width,0,0));original=termios.tcgetattr(slave);screen=Screen(width,height);out=bytearray()
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--seed-me',str(skill),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_text(text,timeout=5):
    deadline=time.monotonic()+timeout
    while time.monotonic()<deadline:
@@ -86,7 +87,7 @@ def journey(width,height):
     out.extend(chunk)
    assert b'\x1b[?2004l' in out and b'\x1b[?1006l' in out and b'\x1b[>0s' in out
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
-   assert {p.name for p in cwd.iterdir()}=={'pi','SKILL.md','requests.jsonl'},'Unexpected persistence'
+   assert {p.name for p in cwd.iterdir()}=={'pi','requests.jsonl'},'Unexpected persistence'
    print(json.dumps(dict(width=width,height=height,burst_seconds=round(burst,4),answer_burst_seconds=round(answer_burst,4),paced_1ms_seconds=round(stream,4),journey='submit/answer/original/copy/failure/cancel/restore',provider='stub')))
   finally:
    if process.poll() is None:process.kill();process.wait()

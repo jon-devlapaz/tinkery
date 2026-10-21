@@ -1,6 +1,7 @@
 """Original selection by keyboard and mouse: Tab, Shift-arrows, Ctrl-C, exact OSC 52 bytes.
 Plain POSIX PTY, stub provider (counts invocations), temporary cwd. No audio, no live calls."""
-import fcntl, json, os, select, signal, struct, subprocess, tempfile, termios, time
+import fcntl, json, os, select, signal, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 BINARY = Path(__file__).resolve().parents[1] / 'target/debug/tinkery'
@@ -28,14 +29,13 @@ def journey(width, height):
     with tempfile.TemporaryDirectory(prefix='tinkery-selection-pty-') as directory:
         cwd = Path(directory)
         host = cwd / 'pi'; host.write_text(HOST); host.chmod(0o755)
-        skill = cwd / 'SKILL.md'; skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
         terminal_output = bytearray()
         process = subprocess.Popen(
-            [str(BINARY), '--shape-pi', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model', '--seed-me', str(skill), '--pi-command', str(host)],
-            stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env={**os.environ, 'TERM': 'xterm-256color', 'HOME': str(cwd / 'TEST-home'), 'TINKERY_NODE': '/tinkery-TEST-no-node'})
+            [str(BINARY), '--shape-pi', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model', '--pi-command', str(host)],
+            stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color', 'HOME': str(cwd / 'TEST-home'), 'TINKERY_NODE': '/tinkery-TEST-no-node'}))
 
         def pump(seconds=0.05):
             deadline = time.monotonic() + seconds
@@ -202,7 +202,7 @@ def journey(width, height):
             os.write(master, b'\x1b[5;5~\x01'); pump(0.2); copy(TEXT)
             os.write(master, b'\t\x01'); pump(0.2); copy('local words')
             assert len(starts()) == 4
-            assert {p.name for p in cwd.iterdir()} == {'pi', 'SKILL.md', 'requests.jsonl', 'starts.jsonl'}, 'Unexpected persistence'
+            assert {p.name for p in cwd.iterdir()} == {'pi', 'requests.jsonl', 'starts.jsonl'}, 'Unexpected persistence'
             print(json.dumps(dict(width=width, height=height, journey='large bracketed paste/selection/controls/full copy/fake source/resize', shaping_requests=len(requests()), fake_process_starts=len(starts()), refused_draft_bytes=len(huge.encode()), fitting_bytes=len(fitting.encode()), raw_bytes=len(TEXT.encode()), encoded_bytes=measured, elapsed_seconds=round(elapsed, 3))))
         finally:
             if process.poll() is None:

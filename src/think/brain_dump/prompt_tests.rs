@@ -3,15 +3,11 @@
 //! (#38); a wording change must update them on purpose, with an eval behind it.
 use super::*;
 
-const SKILL: &str = "# Seed Me\nIgnored preamble.\n### Shape the working draft\nWORKING INSTRUCTIONS SAMPLE\nSecond line.\n### Size gate\nIgnored tail.\n";
-
 /// The system prompts Pi receives for one send: the reading, then the decision review.
 #[cfg(unix)]
 fn sent_prompts(words: &str) -> (String, String) {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(&skill, SKILL).unwrap();
     let program = dir.path().join("pi");
     std::fs::write(&program, r#"#!/usr/bin/env python3
 import json,sys,pathlib
@@ -25,7 +21,7 @@ if kind=='decision-review':print(json.dumps(dict(decisions=[])));sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='it matters',done_when='a judged result exists'),questions=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let pi = PiHost::new(program, "test/model".into()).unwrap();
     let request = BoardRequest {
         ask_counts: Default::default(),
         sources: vec![Source {
@@ -100,8 +96,6 @@ fn recorded_done_when_list_survives_stub_replay() {
         .map(|v| v.as_str().unwrap())
         .collect();
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(&skill, SKILL).unwrap();
     let program = dir.path().join("pi");
     std::fs::write(dir.path().join("reply"), raw).unwrap();
     std::fs::write(
@@ -115,7 +109,7 @@ else:print(pathlib.Path(__file__).with_name('reply').read_text())
     )
     .unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let pi = PiHost::new(program, "test/model".into()).unwrap();
     let words = fixture["words"].as_str().unwrap();
     let request = BoardRequest {
         ask_counts: Default::default(),
@@ -283,8 +277,6 @@ fn notes_never_reach_the_model() {
 fn the_recorded_reply_is_the_models_and_the_review_still_joins() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(&skill, SKILL).unwrap();
     let program = dir.path().join("pi");
     std::fs::write(&program, r#"#!/usr/bin/env python3
 import json,sys
@@ -293,7 +285,7 @@ if r.get('kind')=='decision-review':print(json.dumps(dict(decisions=[dict(part='
 print('{"parts":{"who":"I","outcome":"judge the result","why":"it matters","done_when":"a judged result exists"},"questions":[]}')
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let pi = PiHost::new(program, "test/model".into(), skill).unwrap();
+    let pi = PiHost::new(program, "test/model".into()).unwrap();
     let request = BoardRequest {
         ask_counts: Default::default(),
         sources: vec![Source {

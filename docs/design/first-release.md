@@ -34,7 +34,7 @@ Propose three comparable changes. The operator selects the sample and success
 threshold before live work; establish the baseline before full-loop views.
 This trial is not a statistical claim about all work.
 
-An explicit key starts each Seed Me agent step in Shape. Implementation retains
+An explicit key starts each seed agent step in Shape. Implementation retains
 the manual handoff. Integrated launching, automatic approval or merge, multi-run
 dashboards and Think conveniences are excluded absent a demonstrated blocker.
 [Substrate absorption](../research/shared/backlog.md#absorb-substrate-keep-runs-and-learn-from-them)
@@ -54,7 +54,7 @@ Code completion requires issue evidence, review and merge.
 | M3. Approve | The displayed revision agrees with the decision mechanism. | [R6](first-release-issues.md#r6) |
 | M4. Watch | One job has a reliable state, freshness and next action. | [R7](first-release-issues.md#r7) |
 | M5. Taste | The operator judges the exact result against the goal and checks. | [R8](first-release-issues.md#r8) |
-| M7. Shape | A confirmed goal becomes a confirmed seed; Seed Me alone owns the session. | [R11](first-release-issues.md#r11) |
+| M7. Shape | A confirmed goal becomes a confirmed seed; Tinkery owns the session and ledger. | [R11](first-release-issues.md#r11) |
 | M6. Save attention | The complete permitted journey and trial demonstrate improvement. | [R9](first-release-issues.md#r9), [R10](first-release-issues.md#r10) |
 
 ```mermaid

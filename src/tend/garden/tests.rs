@@ -168,7 +168,7 @@ fn long_needs_keep_source_and_readiness_visible_with_full_help() {
                 assert!(footer.contains("F1 needs"), "{footer}");
                 let (goal, status) = tend.selected_line((width - 4).into(), None);
                 assert!(goal.width() + status.width() <= usize::from(width - 4));
-                let help = tend.help_text(None);
+                let help = tend.help_text();
                 for title in &titles {
                     assert!(
                         help.contains(title),
@@ -249,7 +249,7 @@ fn empty_goal_view_discloses_unreadable_links() {
             assert!(line(buffer, 3).starts_with(if ended {
                 "No active goals."
             } else {
-                "No Seed Me sessions yet."
+                "No saved sessions yet."
             }));
             assert_eq!(std::fs::read_to_string(path).unwrap(), "{broken");
         }
@@ -316,7 +316,7 @@ fn unreadable_links_have_a_persistent_muted_note_with_other_notes() {
             }
         }
         tend.how = true;
-        assert!(tend.help_text(None).contains("Cannot read links"));
+        assert!(tend.help_text().contains("Cannot read links"));
         assert_eq!(
             std::fs::read(root.join("needs.json")).unwrap(),
             bytes.as_bytes()

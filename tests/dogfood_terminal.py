@@ -1,5 +1,6 @@
 """Synthetic PTY regression, not live-model or clipboard-permission evidence."""
-import fcntl,json,os,select,signal,struct,subprocess,tempfile,termios,time
+import fcntl, json, os, select, signal, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 BINARY=Path(__file__).resolve().parents[1]/'target/debug/tinkery'
@@ -15,9 +16,9 @@ print(json.dumps(dict(parts=dict(who='I',outcome='remember books and notes',why=
 '''
 def journey(w,h):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-dogfood-') as d:
-  cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
+  cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));original=termios.tcgetattr(slave);screen=Screen(w,h);raw=bytearray()
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--seed-me',str(skill),'--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_condition(check):
    end=time.monotonic()+6
    while time.monotonic()<end:
@@ -72,9 +73,9 @@ def journey(w,h):
 def exit_during_shaping(w,h):
  # Leaving while a shaping call is in flight must stop the owned provider process.
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-dogfood-') as d:
-  cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
+  cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));screen=Screen(w,h)
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--seed-me',str(skill),'--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   pid=cwd/'shaping.pid'
   def await_condition(check):
    end=time.monotonic()+6

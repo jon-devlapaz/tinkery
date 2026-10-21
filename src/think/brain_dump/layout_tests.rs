@@ -243,12 +243,6 @@ fn one_shape_then_one_review_never_auto_repairs_or_withholds() {
         ("review-cap", true),
     ] {
         let dir = tempfile::tempdir().unwrap();
-        let skill = dir.path().join("SKILL.md");
-        std::fs::write(
-            &skill,
-            "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
-        )
-        .unwrap();
         let r = BoardRequest {
             ask_counts: Default::default(),
             sources: vec![Source {
@@ -294,7 +288,7 @@ if mode=='syntax':print('not JSON');sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*31500 if mode=='review-cap' else 'A judged result'),uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote='invented' if mode=='invalid' else r['sources'][0]['text'][:10] if mode=='review-cap' else r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#)).unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let pi = PiHost::new(program, "test/model".into(), skill)
+        let pi = PiHost::new(program, "test/model".into())
             .unwrap()
             .with_default_thinking();
         let result = pi.reshape(r.clone(), &AtomicBool::new(false));
@@ -389,12 +383,6 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*3150
 fn a_send_costs_a_shaping_call_and_a_review_and_nothing_runs_after_display() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(
-        &skill,
-        "# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n",
-    )
-    .unwrap();
     let program = dir.path().join("pi");
     std::fs::write(&program,r#"#!/usr/bin/env python3
 import json,sys,pathlib
@@ -407,7 +395,7 @@ if (root/'reject').exists():print('provider input/context rejected',file=sys.std
 print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(PiHost::new(program, "test/model".into(), skill).unwrap());
+    let host = Arc::new(PiHost::new(program, "test/model".into()).unwrap());
     let mut a = BrainDump::with_host(host);
     a.paste("the restaurateur judges the result");
     a.submit();
@@ -484,12 +472,6 @@ fn each_send_shows_the_current_call_without_claiming_practice_calls() {
             .prefix("tinkery-TEST-call-status-")
             .tempdir()
             .unwrap();
-        let skill = dir.path().join("SKILL.md");
-        fs::write(
-            &skill,
-            "# Seed Me\n### Shape the working draft\nRead intent.\n### Size gate\n",
-        )
-        .unwrap();
         let program = dir.path().join("TEST-pi");
         fs::write(
             &program,
@@ -511,7 +493,7 @@ else:
         )
         .unwrap();
         fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-        let host = Arc::new(PiHost::new(program, "test/stub".into(), skill).unwrap());
+        let host = Arc::new(PiHost::new(program, "test/stub".into()).unwrap());
         let mut a = if refining {
             board()
         } else {
