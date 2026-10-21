@@ -12,6 +12,15 @@ use std::{
 /// Create a private session with a unique folder identity and an empty validated ledger.
 /// Never replaces a session; no browser, provider or external helper is involved.
 pub fn initialize(root: &Path, timestamp: &str) -> Result<std::path::PathBuf, String> {
+    initialize_for(root, timestamp, crate::think_record::Actor::Operator)
+}
+
+/// Create a session for the same authorized actor that will publish its goal and answers.
+pub(crate) fn initialize_for(
+    root: &Path,
+    timestamp: &str,
+    actor: crate::think_record::Actor<'_>,
+) -> Result<std::path::PathBuf, String> {
     std::fs::create_dir_all(root)
         .map_err(|_| "Cannot create the sessions folder. Check its permissions.")?;
     let directory = tempfile::Builder::new()
@@ -30,7 +39,7 @@ pub fn initialize(root: &Path, timestamp: &str) -> Result<std::path::PathBuf, St
         "schema_version":1,"session_id":id,"version":0,"revision":0,
         "created_at":timestamp,"updated_at":timestamp,"status":"active",
         "draft":{"goal":"","outcome":"","options":[]},"goal":null,"origin":null,
-        "current_question":null,"frontier":[],"nodes":[],"assumed":[],"operator":"human"
+        "current_question":null,"frontier":[],"nodes":[],"assumed":[],"operator":actor.session_operator()
     }));
     atomic_write(&path, &value.pretty()?)
         .map_err(|_| "Cannot save the new session. Check its folder permissions.")?;
@@ -570,16 +579,16 @@ pub fn end(
         timestamp,
     )?;
     if status == "completed" {
-        let human = super::operator(&ledger).is("human");
+        let simulated = super::operator(&ledger).is("simulated");
         super::seed::require_seed_line(
             directory,
-            if human {
-                super::seed::CONFIRMED
-            } else {
+            if simulated {
                 super::seed::SIMULATED
+            } else {
+                super::seed::CONFIRMED
             },
         )?;
-        if human {
+        if !simulated {
             let handoff = super::seed::verify_handoff(directory, &ledger)?;
             super::require(
                 handoff["verified"].truth(),

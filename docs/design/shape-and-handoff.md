@@ -426,7 +426,9 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 - Pi runs one explicitly selected model with read-only `read`, `grep`, `find`, `ls`
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
-  the editable ledger. Replies require typed `found` entries (see
+  a model-only ledger view: findings appear only in `found_so_far`, not again as
+  ledger fact nodes or copied decision evidence. Goal provenance, including Think's
+  original context, stays unchanged; stored ledgers are never trimmed. Replies require typed `found` entries (see
   [grounding](#grounding-in-the-repository)) plus a next question and suggestion, or seed summary, prose sections
   and separate typed `review` and final `checks` fields;
   anything else is a model error. A question may include optional `prerequisites`, a list
@@ -531,7 +533,9 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 - Failures name what happened and one `Next:`. Budget exhaustion points to
   `--shape-budget`; a model error or stop offers F2 retry, or F7 for teach-back
   (saved words stay saved);
-  a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line. Esc stops a step; an
+  a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
+  An oversized step sends nothing and keeps the words, asking the operator to start a
+  smaller goal with this session as a reference. Esc stops a step; an
   already-started save finishes, then rereads. Stopped model calls still count,
   disclosed in the notice.
 

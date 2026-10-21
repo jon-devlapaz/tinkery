@@ -178,7 +178,7 @@ impl Call {
     ) -> Result<String, String> {
         if input.len() > LIMIT {
             return Err(
-                "Encoded request exceeds 32 KiB; originals and local words retained. No provider request sent.".into(),
+                "This is too much to send at once. Nothing was sent; your words are kept. Start a smaller goal, keeping this one as a reference.".into(),
             );
         }
         if cancelled.load(Ordering::Relaxed) {
@@ -340,6 +340,36 @@ fn read_pipe(
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn oversized_input_keeps_words_and_offers_a_next_step_before_spending_budget() {
+        let call = Call {
+            program: "/TEST-never-start-pi".into(),
+            model: "TEST/fake".into(),
+            thinking: String::new(),
+            read_only_tools: true,
+            folder: None,
+            timeout: Duration::from_secs(1),
+        };
+        let budget = CallBudget::new(1);
+        let words = vec![b'x'; LIMIT + 1];
+        let error = call
+            .complete(
+                Some(&budget),
+                Request::SeedStep,
+                words.clone(),
+                "TEST instructions".into(),
+                &AtomicBool::new(false),
+            )
+            .unwrap_err();
+        assert_eq!(
+            error,
+            "This is too much to send at once. Nothing was sent; your words are kept. Start a smaller goal, keeping this one as a reference."
+        );
+        assert_eq!(words.len(), LIMIT + 1);
+        assert!(words.iter().all(|b| *b == b'x'));
+        assert!(budget.attempts().is_empty());
+    }
 
     #[test]
     fn inherited_pipes_do_not_extend_timeout_cancel_or_overflow() {

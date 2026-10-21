@@ -319,7 +319,7 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
             ("reason", reason.as_str().into()),
         ]))
     };
-    if !super::operator(ledger).is("human") {
+    if !super::one_of(&super::operator(ledger), &["human", "agent"]) {
         return refused("a simulated session is a practice run that no person confirmed".into());
     }
     let seed = seed_summary(directory)?;
@@ -427,7 +427,7 @@ pub(super) fn confirmed_as(
     actor: crate::think_record::Actor<'_>,
 ) -> Result<(String, Value, Value)> {
     require(
-        super::operator(ledger).is("human"),
+        super::one_of(&super::operator(ledger), &["human", "agent"]),
         format!(
             "a simulated session cannot be confirmed: its seed stays {}",
             repr(SIMULATED)
@@ -539,7 +539,7 @@ pub(super) fn confirmed_as(
         ("schema_version", int(2)),
         ("checks_sha256", checks::digest(&records)?.as_str().into()),
         ("session_id", ledger["session_id"].clone()),
-        ("operator", "human".into()),
+        ("operator", actor.session_operator().into()),
         ("revision", label.as_str().into()),
         ("source", source.trim_matches(whitespace).into()),
         ("confirmed_at", timestamp.into()),
@@ -551,7 +551,6 @@ pub(super) fn confirmed_as(
     ]);
     if let Some(context) = actor.context() {
         record.set("schema_version", int(3));
-        record.set("operator", "agent".into());
         record.set(
             "actor",
             Value::from(

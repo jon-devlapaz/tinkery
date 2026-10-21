@@ -99,6 +99,14 @@ impl<'a> Actor<'a> {
         }
     }
 
+    /// The session mode for this actor, never inferred from a terminal declaration alone.
+    pub(crate) fn session_operator(self) -> &'static str {
+        match self {
+            Self::Operator => "human",
+            Self::Agent(_) => "agent",
+        }
+    }
+
     /// The answer authority understood by the ledger.
     pub(crate) fn authority(self) -> &'static str {
         match self {

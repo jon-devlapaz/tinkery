@@ -181,7 +181,7 @@ impl Config {
             .lock()
             .map_err(|_| "The save state is unavailable. Reopen Think.")?;
         if retained.is_none() {
-            *retained = Some(super::ledger::initialize(root, &stamp)?);
+            *retained = Some(super::ledger::initialize_for(root, &stamp, actor)?);
         }
         let session = retained
             .as_ref()
@@ -190,9 +190,9 @@ impl Config {
             |_| "The session could not be read. Inspect the recovery session before retrying.",
         )?;
         if current["status"].string() != Some("active")
-            || current["operator"].string() != Some("human")
+            || current["operator"].string() != Some(actor.session_operator())
         {
-            return Err("Session is not an active human goal session; nothing overwritten.".into());
+            return Err("Session is not active for this actor; nothing overwritten.".into());
         }
         if session.join("seed-contract.md").exists() {
             return Err("A seed file already exists; reopen this session in Shape.".into());
@@ -204,7 +204,7 @@ impl Config {
                 "options":a.options.iter().map(|o|format!("{} — benefit: {}; cost: {}; undo cost: {}",o.label,o.benefit,o.cost,o.undo_cost)).collect::<Vec<_>>()},
                 "goal":a.goal,"origin":"goal","current_question":null,"nodes":[{"id":"goal","kind":"decision","status":"settled",
                 "prerequisites":[],"evidence":evidence,"owner":"User","gate":"Explicit affirmation of the complete displayed goal; not seed or implementation approval",
-                "answer":a.goal,"authority":"user","authority_source":a.source}],"assumed":[],"operator":"human"});
+                "answer":a.goal,"authority":"user","authority_source":a.source}],"assumed":[],"operator":actor.session_operator()});
             let origin = &mut state["nodes"][0];
             origin["authority"] = actor.authority().into();
             if let Some(delegation) = &delegation {

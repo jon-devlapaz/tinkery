@@ -153,8 +153,9 @@ Shape records agent answers as delegated and action reasons name the agent and
 authorizing operator. Version-3 seed confirmation receipts contain the same context,
 bound to confirmed seed bytes and checked against the seed's attribution line.
 Missing, malformed or changed attribution refuses verification. Human version-2
-receipts and legacy histories remain valid. The ledger's historical `operator: human`
-session mode means non-practice, not the identity of the actor; action attribution
+receipts and legacy histories remain valid. New ledgers derive `operator: human|agent`
+from the same authorized actor as goal and answer attribution. Historical agent sessions
+stored as `operator: human` remain readable; they are not rewritten. Action attribution
 and seed receipts distinguish the actual confirmer.
 
 External human-only intake cannot consume agent confirmations. Shape and Approve
