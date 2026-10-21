@@ -119,6 +119,137 @@ fn session_sized_step_sends_findings_once_without_changing_saved_context() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn delegated_pre_mortem_choices_reach_the_seed_as_settled() {
+    settled_probe_step(false);
+}
+
+#[cfg(unix)]
+#[test]
+fn answered_pre_mortem_is_sent_once_and_not_reasked() {
+    settled_probe_step(true);
+}
+
+#[cfg(unix)]
+fn settled_probe_step(check_reask: bool) {
+    use crate::seed_me::{Affirmed, Config, ledger::fixtures::prose_reply};
+    use std::{fs, os::unix::fs::PermissionsExt};
+    let root = tempfile::Builder::new()
+        .prefix("TEST-settled-probe-")
+        .tempdir()
+        .unwrap();
+    let confirmation: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+        "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
+        "source":"TEST permission to plan this disposable CLI",
+        "class":{"door":"two_way", "door_reason":"TEST disposable plan",
+        "blast_radius":"small", "blast_radius_reason":"TEST root only"}
+    }))
+    .unwrap();
+    let session = Config::new(Some(root.path().join("TEST-sessions")))
+        .confirm_as(
+            Affirmed {
+                goal: "TEST count words in files".into(),
+                outcome: "TEST CLI".into(),
+                options: vec![],
+                originals: vec![],
+                context: "{}".into(),
+                source: confirmation.source(),
+            },
+            &confirmation,
+        )
+        .unwrap()
+        .session;
+    let version = answering::read(&session).unwrap().version();
+    let version = answering::probe(&session, version).unwrap().unwrap();
+    let answer = "TEST Use standard-library Python 3. Reject directories, continue other inputs, exit 1 and omit total on any input failure.\n";
+    let version = answering::answer(
+        &session,
+        version,
+        answering::PROBE.0,
+        answer,
+        Some(&confirmation),
+    )
+    .unwrap();
+    let ledger_path = session.join("ledger.json");
+    let before = fs::read(&ledger_path).unwrap();
+    let body = prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
+    let checks: Value =
+        serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
+    let reply = json!({"next":"seed", "confirming":body, "checks":checks, "found":[],
+        "review":{"contradictions":[], "decided":[], "done":[],
+        "failure_cases":checks.as_array().unwrap().iter().map(|c| json!({
+            "statement":c["statement"], "case":"TEST wrong output must fail"
+        })).collect::<Vec<_>>()}});
+    let program = root.path().join("TEST-pi");
+    fs::write(&program, format!(r##"#!/usr/bin/env python3
+import json, sys
+raw = sys.stdin.read()
+request = json.loads(raw)
+probe = next(n for n in request['ledger']['nodes'] if n['id'] == 'probe-pre-mortem')
+assert probe['status'] == 'settled' and probe['authority'] == 'delegated'
+assert probe['answer'] == {answer:?}
+assert probe['question'] == 'Imagine this shipped and turned out wrong. What is the most likely reason?'
+# Both verbatim strings have one transport owner, the decision node.
+assert raw.count(json.dumps(probe['answer'], ensure_ascii=False)[1:-1]) == 1
+assert raw.count(probe['question']) == 1
+assert len(raw.encode()) <= 32768
+prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
+reply = json.loads({reply:?})
+if {check_reask} and "Read the ledger's settled probe-pre-mortem question and answer as already answered" not in prompt:
+    reply = {{'next':'question', 'id':'reasked', 'question':'TEST Reject directories or traverse them?', 'found':[]}}
+else:
+    settled = 'Carry settled Think and ledger answers, including delegated choices, into the seed as settled; never list them as unknown.' in prompt
+    reply['confirming']['Knowledge map'] = 'Settled: standard-library Python 3; see Decisions.' if settled else 'Language is unknown.'
+print(json.dumps(reply))
+"##, reply = reply.to_string(), check_reask = if check_reask { "True" } else { "False" })).unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = Agent::new(
+        program,
+        "test/stub".into(),
+        String::new(),
+        Some(root.path().into()),
+        CallBudget::new(1),
+        None,
+    )
+    .unwrap();
+    let result = run(
+        &Work::Look {
+            expected: version,
+            folder: root.path().into(),
+        },
+        &session,
+        &agent,
+        &AtomicBool::new(false),
+        &AtomicBool::new(false),
+    );
+    assert_eq!(
+        result,
+        Ok(Done::Drafted),
+        "the answered pre-mortem was re-asked"
+    );
+    let seed = fs::read_to_string(session.join("seed-contract.md")).unwrap();
+    if !check_reask {
+        assert!(seed.contains("Settled: standard-library Python 3; see Decisions."));
+        assert!(!seed.contains("Language is unknown."));
+    }
+    assert!(seed.contains("probe-pre-mortem [delegated] TEST Use standard-library Python 3."));
+    assert_eq!(agent.remaining(), 0);
+    // Draft receipts may append to goal provenance; the settled answer itself stays verbatim.
+    let previous: Value = serde_json::from_slice(&before).unwrap();
+    let current: Value = serde_json::from_slice(&fs::read(ledger_path).unwrap()).unwrap();
+    let probe = |state: &Value| {
+        state["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == answering::PROBE.0)
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(probe(&previous), probe(&current));
+}
+
 #[test]
 fn zero_budget_refuses_revision_before_reading_or_publishing() {
     let root = tempfile::Builder::new()

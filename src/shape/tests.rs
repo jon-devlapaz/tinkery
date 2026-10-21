@@ -1184,7 +1184,8 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
                         seen[index] = true;
                     }
                 }
-                view.key(key(KeyCode::Down));
+                // Down edits confirmation words; inspect each reading offset instead.
+                view.scroll = view.scroll.saturating_add(1);
             }
             assert!(
                 seen.iter().all(|s| *s),
@@ -1733,7 +1734,7 @@ fn settled_intake_drafts_without_reopening_settled_or_deferred_decisions() {
     for rule in [
         "settled or explicitly deferred decisions do not block it",
         "Never reopen what the goal",
-        "a settled user-authority ledger answer settles",
+        "a settled user or delegated ledger answer settles",
         "record deferred choices as operator prerequisites in Open questions and deferrals",
         "choose no alternative",
         "When the goal and recorded answers settle what this draft must say, supply confirming",
@@ -3188,27 +3189,36 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
 
 #[test]
 fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
-    let mut shape = done(long_draft()).with_agent(Some(agent(0)));
-    screen(&mut shape, 80, 24, true);
-    shape.paste("I confirm r1.");
-    shape.key(key(KeyCode::F(3)));
-    assert!(shape.open.as_ref().unwrap().running.is_none());
-    assert!(screen(&mut shape, 80, 24, true).contains(READ_FIRST));
-    for _ in 0..30 {
-        shape.key(key(KeyCode::PageDown));
-        screen(&mut shape, 80, 24, true);
+    for (width, height) in [(100, 30), (80, 24)] {
+        let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+        screen(&mut shape, width, height, true);
+        shape.paste("I confirm r1.");
+        shape.key(key(KeyCode::F(3)));
+        assert!(shape.open.as_ref().unwrap().running.is_none());
+        let refusal = screen(&mut shape, width, height, true);
+        assert!(
+            refusal.contains("PgDn to 'End of seed' first."),
+            "{refusal}"
+        );
+        for _ in 0..30 {
+            shape.key(key(KeyCode::PageDown));
+            screen(&mut shape, width, height, true);
+        }
+        let text = screen(&mut shape, width, height, true);
+        let last = text.find("LAST TEST LINE").expect(&text);
+        let end = text.find("End of seed").expect(&text);
+        assert!(last < end, "{text}");
+        assert_eq!(text.matches("End of seed").count(), 1, "{text}");
+        assert!(
+            !text.contains(READ_FIRST),
+            "reaching the end left the refusal: {text}"
+        );
+        assert!(shape.open.as_ref().unwrap().read_end.is_some());
+        // A taller editor afterwards doesn't take back what was read.
+        shape.paste("\nmore words");
+        screen(&mut shape, width, height, true);
+        assert!(shape.open.as_ref().unwrap().read_end.is_some());
     }
-    let text = screen(&mut shape, 80, 24, true);
-    assert!(text.contains("LAST TEST LINE"), "{text}");
-    assert!(
-        !text.contains(READ_FIRST),
-        "reaching the end left the refusal: {text}"
-    );
-    assert!(shape.open.as_ref().unwrap().read_end.is_some());
-    // A taller editor afterwards doesn't take back what was read.
-    shape.paste("\nmore words");
-    screen(&mut shape, 80, 24, true);
-    assert!(shape.open.as_ref().unwrap().read_end.is_some());
 }
 
 #[test]

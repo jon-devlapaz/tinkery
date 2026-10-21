@@ -276,7 +276,8 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
   and the seed-contract reference are bundled, with their pinned source recorded in code.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
-- Shape never reasks settled Think intent or changes the confirmed goal.
+- Shape never reasks settled Think intent or ledger answers, including delegated pre-mortem
+  choices, or changes the confirmed goal. Seed drafting treats these choices as settled, not unknown.
 - Failed reads, unknown stages and stale confirmations get honest reasons and one
   next step.
 
@@ -427,7 +428,8 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   a model-only ledger view: findings appear only in `found_so_far`, not again as
-  ledger fact nodes or copied decision evidence. Goal provenance, including Think's
+  ledger fact nodes or copied decision evidence. Settled pre-mortem questions and answers stay
+  once in their ledger decision nodes, not a second answer list. Goal provenance, including Think's
   original context, stays unchanged; stored ledgers are never trimmed. Replies require typed `found` entries (see
   [grounding](#grounding-in-the-repository)) plus a next question and suggestion, or seed summary, prose sections
   and separate typed `review` and final `checks` fields;
@@ -519,7 +521,8 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
   Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, F3 says
-  `Read to the end first: PgDn scrolls. Nothing was confirmed.`; reaching it clears that.
+  `PgDn to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
+  `End of seed` marker after the last section clears that. The saved seed is unchanged.
   The exact revision and draft bytes retain that satisfaction through typing, box growth,
   resize and rereads, including teach-back. A new revision or changed bytes require reading again.
   F3 refuses CR or LF with `Put your confirming words on one line; nothing was confirmed.`
