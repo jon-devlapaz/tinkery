@@ -65,7 +65,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `status --json` when opened or on `r`, runs waiting on you first. Matched runs show their
   exact saved goal; changed or missing originals stay unknown. It runs only read-only
   status commands and changes no records.
-- **Measure:** reads an existing ledger report or says unavailable.
+- **Measure:** says recorded work and attention are unknown; reads no external source.
 
 On first default-root launch, old saved sessions move once to Tinkery's sessions folder,
 with a visible notice and no Think-record writes. History matches unique ledger session IDs. Leftover old and new roots
@@ -76,9 +76,8 @@ in Watch, not a guessed match.
 
 ## Where we’re going next
 
-Absorbing useful Substrate responsibilities is planned, not complete; Measure still
-uses its ledger. See the [first-release plan](docs/design/first-release.md) and
-[task index](docs/design/first-release-issues.md). Published tasks are not implementation
+Measure's results and effort sources are not built. See the
+[first-release plan](docs/design/first-release.md) and [task index](docs/design/first-release-issues.md). Published tasks are not implementation
 permission; unpublished ideas belong in the [parked backlog](docs/research/shared/backlog.md).
 
 ## What success means

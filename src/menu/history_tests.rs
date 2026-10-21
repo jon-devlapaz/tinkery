@@ -35,7 +35,6 @@ fn home() -> (tempfile::TempDir, Home, PathBuf, Vec<u8>) {
     let mut home = Home::new(
         Box::new(BrainDump::default),
         Ok(sessions),
-        "/TEST/no-substrate".into(),
         Ok(dir.path().join("TEST-links")),
     )
     .with_record_root(records);

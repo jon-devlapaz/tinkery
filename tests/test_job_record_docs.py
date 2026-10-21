@@ -17,7 +17,7 @@ PROPOSAL = {
     "Proposed R6: external approval handoff": "8bab68c0ab263c24ee4252ae48c51ce6ad63c924ffcd6da5df0da5e81c06a0ad",
     "Evidence and checks": "7da90f7549f4a2a172cc5612558e19f75914dda9d9720d2ccc7df13a578faaba"
 }
-CITATIONS = "76d64a8e045bc169c9db8d5cb57c9adc109a460ef893c51a302f767104d9d0d9"
+CITATIONS = "d527a72f7f9ac0e000832a86a9ffc05b983d7c72c9f954a5791fbb69e043678d"
 
 
 def sections(source):

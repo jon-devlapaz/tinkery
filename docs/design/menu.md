@@ -8,7 +8,7 @@
 | 4 | approve | Read verified seeds not yet started and copy one runnable manual intake command ([Approve](approve.md)). |
 | 5 | watch | Read runs with their matched goals in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
 | 6 | taste | Not built. No end-report or review integration exists. |
-| 7 | measure | Read an installed Substrate ledger report, otherwise show unknown; no verified metric is promised. |
+| 7 | measure | Recorded work and attention are unknown; no results source or verified metric is built. |
 
 Only selection reveals a description; [menu.rs](../../src/menu.rs) owns the copy.
 Name the purpose without borrowing another place's name. [Tend](shape-and-handoff.md)
@@ -39,98 +39,22 @@ Digits or arrows followed by Enter open a place; home `q` quits.
 [Think's exit guard](think.md#sending-and-leaving) protects unsaved work.
 `--home` opens the menu; otherwise Think opens. The installed launcher passes `--home`.
 
-## Measure failure and recovery
+## Measure
 
-A deliberate open requests one owned ledger read. Launch, collection, diagnosis
-and text preparation run off input and render paths. Accepted success preserves
-report text, scrolling and help, above `esc back   ? help`; that help says
-`q goes back to the menu`. There is no polling, log, agent or automatic retry.
+Opening shows `Recorded work and attention are unknown.` above `esc back   ? help`.
+There is no source read, subprocess, provider call, metric or durable write.
+Reopening and resizing start no work. Results and effort sources require separate
+approved work in [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
+[#115](https://github.com/jon-devlapaz/tinkery/issues/115).
 
-`Reading ledger…` and `esc back   ? help` keep navigation available; work and
-attention stay unknown. Help and resizing never restart or cancel reads. Leaving
-invalidates publication and requests stop; the reader stays occupied through cleanup.
-Reopening starts or queues nothing: `Finishing the previous read…` becomes
-`Previous read stopped. Return to the menu and open Measure to read again.`
-Only a fresh deliberate open starts again; repeated opens per visit coalesce.
+F1 or ? toggles the existing Right now help, which says `q goes back to the menu`.
+Esc closes help, then returns to the menu; q returns from either view with help
+closed. F10 or Ctrl-C quits Tinkery. The retired reader's failure and technical
+detail layers no longer apply.
 
-Each request has a generation and a 30-second monotonic acceptance deadline from
-open, including launch and preparation. Refuse success at or after the deadline.
-Late results cannot undo cancellation, reopen views or move selection. Timeout
-means unavailable and unknown, never zero activity or proof of missing installation.
-
-On Linux and macOS, the reader owns a process group, null stdin and separate,
-concurrently drained nonblocking stdout and stderr. Stop closes owned pipes,
-sends TERM, then KILL after one second before reaping the leader. This prevents
-PID reuse before the final group signal. Normal EOF or leader exit uses the same
-path; neither proves helpers finished. Accept the original report or exit only
-after cleanup, subject to cancellation, deadline and errors. Normal completion
-also pays the grace. Coverage includes ordinary same-group descendants, not those
-that escape or change privileges. Cleanup means the child was reaped, pipes closed
-and worker finished, not merely signalled. Signal or collection errors refuse
-further session reads. On macOS, EPERM counts as stopped only when a complete,
-bounded snapshot proves all remaining members are zombies. Unknown or inaccessible
-snapshots retain the error. There is no per-descendant reap or status tracking or
-universal termination guarantee; OS-stalled descendants can outlast signals.
-
-Limits:
-
-- Retain at most 16 MiB combined raw stdout and stderr; the next byte refuses the
-  report and starts cleanup. Use bounded queues and no disk spools. Partial output
-  never succeeds. Disclose incomplete prefixes.
-- During off-thread preparation, displayed report or diagnostic graphemes over
-  4 KiB refuse with a display-limit explanation, never silent truncation or partial
-  success. Count UTF-8 after diagnostic escaping; success keeps existing decoding.
-  Ordinary Unicode and emoji below the limit stay unchanged.
-- The raw cap is not a total-memory cap: decoding, escaping and caches amplify
-  within bounds. Success uses prepared glyph and row offsets, visiting visible
-  glyphs only; decoded text stays unchanged. The index uses up to eight bytes per
-  nonzero-width grapheme. These limits are policy, not measured ledger timings.
-
-Quitting and terminal-loop errors stop through the same owner. Restore the terminal
-before draining. After three seconds pending, one stderr notice says exit time is
-unknown; wait rather than detach. OS launch or reap stalls can make exceptional
-shutdown indefinite. Forced termination or fatal runtime failure cannot guarantee
-cleanup. Reader panic refuses further reads and reports unconfirmed cleanup.
-Timeout help, later refusals and shutdown retain cleanup errors. Add no force-quit UI.
-
-Failures say `Ledger report unavailable`, give an evidence-supported plain cause,
-and say work and attention are unknown. Distinguish missing Python, unavailable
-modules or directories, other launch failures and nonzero exits. Ambiguous errors
-get a generic launch or exit explanation, never invented installation diagnoses
-or zero activity. Ordinary views omit paths, raw errors and Python details.
-Missing prerequisites are things Tinkery couldn't find or load. The summary wraps
-and scrolls above fixed `esc back   ? help`.
-
-F1 or ? opens failure-specific Right now help. `h` opens How it works: the attempted
-command, working directory, exit status or full launch error, and full stderr within
-limits. Empty stderr says no details were returned. Warn that paths and output may
-be private before sharing. Visibly escape unsafe controls, bidi formatting and
-invalid UTF-8; never interpret or discard them. Retain ordinary Unicode and newlines.
-Opening help starts no read, writes nothing and uploads nothing.
-
-| Key | Summary | Help | How it works |
-| --- | --- | --- | --- |
-| F1 or ? | Open help | Close help | Close help |
-| h | Nothing | Details | Help |
-| Esc | Menu | Close help | Help |
-| q | Menu | Menu | Menu |
-| ↑↓, j k, PgUp or PgDn | Scroll summary | Scroll help | Scroll details |
-| F10 or Ctrl-C | Quit | Quit | Quit |
-
-Help owns scrolling. Switching layers resets help position; closing restores the
-summary position. Only the fixed footer holds return and close instructions.
-The technical footer is `esc back   h help   ?/F1 close   q menu`. Scroll and quit
-shortcuts appear once in the body. Resize, including 80×24, reflows content and
-limits; NO_COLOR retains meaning. Machine-sized positions and indexes handle more
-than 65,535 rows. The cached viewport gives Ratatui a bounded local offset. Reflow
-indexes bounded chunks across frames after width or text changes; `Preparing report…`
-stays until ready. Never rebuild the full diagnostic per frame. Split long logical
-lines at graphemes without losing source; chunk boundaries may add wraps. Ordinary
-paragraphs retain Ratatui wrapping. Other places and Measure's quit routes are unchanged.
-
-[Terminal tests](../../tests) cover these contracts with fake commands and TEST roots
-at 80×24, 100×30, 160×40 and 320×40, with and without NO_COLOR. Reversion probes
-protect disclosure, wrapping, safe rendering and visible recovery.
+[Terminal tests](../../tests) cover unknown, help, reopening, resizing and quit
+routes at 80×24, 100×30, 160×40 and 320×40, with and without NO_COLOR. Command traps
+and a reversion probe protect the no-launch boundary.
 
 ## Direction, not built behavior
 
@@ -180,7 +104,6 @@ Late results retain selection by session path, never row, and never reopen exite
 views. Detail and picking freeze replacements until return. Shape return waits
 for fresh same-goal detail and garden stage together. Receipt `s` waits for a read
 capable of containing the save; pre-save reads cannot imply unavailable.
-Measure still requires explicit opening and completed cleanup of the previous read.
 
 After three seconds from read start, Tend says `Still reading your sessions.`
 Only the wording changes; no extra worker, spinner or timer starts. Navigation and

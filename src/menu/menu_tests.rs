@@ -131,7 +131,6 @@ fn home(source: Source) -> Home {
     Home::new(
         Box::new(BrainDump::default),
         Ok(PathBuf::from("/TEST/sessions")),
-        PathBuf::from("/TEST/no-substrate"),
         Err("TEST links unavailable".into()),
     )
     .with_discovery_source(source)
@@ -1190,7 +1189,6 @@ fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
     let mut h = Home::new(
         Box::new(BrainDump::default),
         Ok(tmp.path().to_path_buf()),
-        tmp.path().join("no-substrate"),
         Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
@@ -1258,7 +1256,6 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
     let mut h = Home::new(
         Box::new(BrainDump::default),
         Ok(tmp.path().to_path_buf()),
-        tmp.path().join("no-substrate"),
         Ok(tmp.path().join("TEST-links")),
     );
     settle(&mut h);
@@ -1377,7 +1374,6 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
     let mut h = Home::new(
         Box::new(BrainDump::default),
         Err(reason.into()),
-        PathBuf::from("/TEST/no-substrate"),
         Err("TEST links unavailable".into()),
     )
     .with_discovery_source(Arc::new(|_| panic!("No root must never reach a source")));
@@ -1427,7 +1423,6 @@ fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
             Home::new(
                 Box::new(BrainDump::default),
                 Ok(sessions.clone()),
-                tmp.path().join("no-substrate"),
                 Ok(links.clone()),
             )
         };
@@ -1461,55 +1456,6 @@ fn unavailable_linking_does_not_stop_tend_reading_sessions() {
     assert_eq!(
         tend.needs.read(),
         tend::needs::Read::Unreadable(reason.into())
-    );
-}
-
-#[test]
-fn menu_startup_and_navigation_never_run_the_measure_subprocess() {
-    let tmp = tempfile::tempdir().unwrap();
-    let substrate = tmp.path().join("substrate");
-    fs::create_dir_all(substrate.join("tink_substrate")).unwrap();
-    fs::write(substrate.join("tink_substrate/__init__.py"), "").unwrap();
-    fs::write(
-        substrate.join("tink_substrate/__main__.py"),
-        "open('measure-ran', 'w').write('ran')\nprint('report')\n",
-    )
-    .unwrap();
-    let mut h = Home::new(
-        Box::new(BrainDump::default),
-        Ok(tmp.path().join("sessions")),
-        substrate.clone(),
-        Ok(tmp.path().join("TEST-links")),
-    );
-    settle(&mut h);
-    for code in [
-        KeyCode::Down,
-        KeyCode::Down,
-        KeyCode::Down,
-        KeyCode::Down,
-        KeyCode::Down,
-        KeyCode::Up,
-    ] {
-        h.handle_key(key(code));
-        screen(&mut h);
-    }
-    h.open(1);
-    settle(&mut h);
-    h.handle_key(key(KeyCode::Esc));
-    assert!(
-        !substrate.join("measure-ran").exists(),
-        "measure stays behind its action"
-    );
-    h.handle_key(key(KeyCode::Char('7')));
-    let watchdog = Instant::now() + Duration::from_secs(5);
-    while matches!(&h.view, View::Measure(r) if r.local_help() && !r.failed()) {
-        assert!(Instant::now() < watchdog, "explicit read did not finish");
-        h.tick();
-        std::thread::yield_now();
-    }
-    assert!(
-        substrate.join("measure-ran").exists(),
-        "explicit opening still runs it"
     );
 }
 

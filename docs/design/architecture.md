@@ -20,9 +20,9 @@ Published task specifications live in GitHub Issues. The
 ideas; the area entry points below contain navigation only.
 
 Use the [Think backlog](../research/shared/backlog.md#think) for unpublished Think
-work. Measure's [failure presentation](https://github.com/jon-devlapaz/tinkery/issues/119)
-and [owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) have separate
-issues. The module map below describes responsibilities; `MODULES` owns area assignments.
+work. Measure's former [failure presentation](https://github.com/jon-devlapaz/tinkery/issues/119)
+and [owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) are retired.
+The module map below describes responsibilities; `MODULES` owns area assignments.
 
 [Shape](shape-and-handoff.md#shape), [Approve](approve.md) and [Watch](watch.md) have separate modules. Taste will
 get its own module when built. There are no dependency exceptions: Think hands
@@ -56,10 +56,7 @@ or improved outcomes.
 | `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools, the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |
-| `measure.rs` | The ledger's read-only report, display safety limits, failure facts and safe two-layer disclosure. |
-| `measure/reader.rs` | One reader across visits: request ownership, deadline, bounded pipes, process-group cancellation and cleanup-first shutdown. |
-| `measure/viewport.rs` | Incremental machine-sized diagnostic scrolling over bounded, grapheme-safe source segments; no subprocess or navigation policy. |
-| `measure/plain.rs` | Prepared success-report offsets for glyphs and rows; visible-only clipping equivalent to the original Paragraph, including invisible runs. |
+| `measure.rs` | The unknown state and return footer; no source reads, writes or provider calls. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
 | `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/linking.rs` | The source and target selection state, link refusals and derived needs wording, independent of garden drawing. |
@@ -122,11 +119,9 @@ Each pass scores 1.25. Structural PRs name the rows they move.
 The remaining debt is `brain_dump.rs`'s narrow interface over substantial routing.
 
 The module map owns these boundaries. Preview and sending share conversation
-staging and one drafting request boundary. The menu routes Measure's open, cancel,
-poll and shutdown interface; restore the terminal before cleanup on exit or error.
-Prepared, bounded display avoids rebuilding all content per frame. Linking, graph
-geometry and the garden footer stay separate. Think writes shared records; Tend
-reads them; the menu retains the reader. Shared `repo.rs` finds the root once.
+staging and one drafting request boundary. Measure renders only unknown; the menu
+owns its navigation and help. Linking, graph geometry and the garden footer stay separate. Think writes shared records; Tend
+reads them. Shared `repo.rs` finds the root once.
 Only Tinkery's ledger-backed Shape verification claims seed-ready; file discovery reports
 unchecked declarations.
 
@@ -159,6 +154,11 @@ attribution and keeps human-only external intake unavailable. These improve inte
 (2), changeability (3) and hidden decisions (6); this map and the
 [confirmation contract](think.md#confirmation-attribution-185) keep boundaries visible (7).
 No architecture limit or recorded score changes.
+
+Removing Measure's external reader and configuration simplifies interfaces (2),
+removes an external implementation dependency (3) and confines its unknown display
+without reader lifecycle decisions (6). The module map keeps boundaries visible (7).
+No diagnostic worsens; no architecture limit or recorded score is loosened.
 
 ## Limits enforced by `tests/architecture.rs`
 

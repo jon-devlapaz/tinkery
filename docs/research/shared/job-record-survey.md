@@ -127,8 +127,8 @@ five-change reporting threshold is historical behavior, not an accepted R9 rule.
 [D-status]: https://github.com/jon-devlapaz/tink-sdlc/blob/8ffa2bdf2743c8904c5eebd27c8ff2f45ec972a3/assets/_system/scripts/sdlc.py#L628-L829
 [D-decide]: https://github.com/jon-devlapaz/tink-sdlc/blob/8ffa2bdf2743c8904c5eebd27c8ff2f45ec972a3/assets/_system/scripts/sdlc.py#L188-L224
 [D-seed]: https://github.com/jon-devlapaz/tink-sdlc/blob/8ffa2bdf2743c8904c5eebd27c8ff2f45ec972a3/assets/_system/scripts/sdlc.py#L1205-L1217
-[B-surface]: https://github.com/jon-devlapaz/tink-substrate/blob/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02/tink_substrate/surface.py
-[B-sources]: https://github.com/jon-devlapaz/tink-substrate/blob/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02/tink_substrate/sources.py
-[B-ledger]: https://github.com/jon-devlapaz/tink-substrate/blob/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02/tink_substrate/ledger.py
-[B-sessions]: https://github.com/jon-devlapaz/tink-substrate/blob/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02/tink_substrate/sessions.py
+[B-surface]: https://github.com/jon-devlapaz/tink-substrate/tree/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02
+[B-sources]: https://github.com/jon-devlapaz/tink-substrate/tree/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02
+[B-ledger]: https://github.com/jon-devlapaz/tink-substrate/tree/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02
+[B-sessions]: https://github.com/jon-devlapaz/tink-substrate/tree/0f1f7e552ccc0b35c40cb4c6880f5add8f1b0c02
 [G-cli]: https://cli.github.com/manual/gh_pr_view

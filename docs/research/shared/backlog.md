@@ -19,7 +19,7 @@ do not approve any proposal.
 - [Release tasks R4–R10 and I2](../../design/first-release-issues.md) hold their specifications.
 - Think exclusions are in [#117](https://github.com/jon-devlapaz/tinkery/issues/117);
   unsafe session-root refusal is in [#118](https://github.com/jon-devlapaz/tinkery/issues/118).
-- Measure failure and responsiveness are in [#119](https://github.com/jon-devlapaz/tinkery/issues/119)
+- Retired Measure reader history is in [#119](https://github.com/jon-devlapaz/tinkery/issues/119)
   and [#120](https://github.com/jon-devlapaz/tinkery/issues/120).
   Neither authorizes a backend migration.
 - Historical dogfood stays in [findings](../../../findings/README.md).
@@ -139,20 +139,20 @@ consequence prompts and NO_COLOR. Preserve input, navigation and the confirmed g
 
 **Don't:** Use generic black, category colours, settings mazes or break NO_COLOR.
 
-### Absorb substrate: keep runs and learn from them
+### Keep runs and learn from them
 
-Move Substrate's handoff to Think and Shape, dashboard to Watch, retro to Taste,
-and archive to Measure. Deprecate it only after absorption.
+The external aggregation tool is retired, not awaiting absorption. Measure reads
+no source; [its contract](../../design/menu.md#measure) owns current behavior.
 [R7](../../design/first-release-issues.md#r7) owns Watch.
 
 **Build:** Keep these as separate slices:
 
 1. Explicitly retain local run records outside Tinkery history. Follow the identity
    and revision evidence in the [binding contract](../../design/job-records.md#goal-to-run-identity-prerequisite)
-   and [R5](../../design/first-release-issues.md#r5). Tinkery owns shared reading,
-   rather than permanently relying on Substrate. Separately approved identity and
-   initial binding precede R5; retention and lessons do not. Revisions and relocation
-   stay deferred. A binding doesn't archive a deleted worktree.
+   and [R5](../../design/first-release-issues.md#r5). Use source-owned records,
+   not the retired aggregation tool. Separately approved identity and initial binding
+   precede R5; retention and lessons do not. Revisions and relocation stay deferred.
+   A binding doesn't archive a deleted worktree.
 2. After Taste, the operator may request one guessed lesson. Show the proposed test
    or rule, its destination and source run. Before calling, show the text and
    destination and require an explicit budgeted send. If accepted lessons fail to
@@ -169,13 +169,7 @@ that unreviewed memory is safe.
 **Read:** [safeguards](#shared-safeguards), [first release](../../design/first-release.md), [the constitution](../../yohaku.md).
 
 **Don't:** Add multi-agent dashboards, notifications, restart controls, hosted traces
-or agent-written memory. Don't add features to substrate.
-
-### Measure installation-path follow-up
-
-[#104](https://github.com/jon-devlapaz/tinkery/issues/104) observed Measure's historical
-`~/.claude/skills/tink-substrate` default. Reconsider it under absorption before
-publishing. Don't polish a retiring dependency or treat old line numbers as current.
+or agent-written memory. Don't restore the retired aggregation dependency.
 
 ### Deferred binding changes
 

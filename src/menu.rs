@@ -64,7 +64,6 @@ pub struct Home {
     pub quit: bool,
     make_dump: Box<dyn Fn() -> BrainDump>,
     sessions_root: Option<PathBuf>,
-    substrate_dir: PathBuf,
     link_root: Result<PathBuf, String>,
     selected: usize,
     view: View,
@@ -75,7 +74,6 @@ pub struct Home {
     discovery: Discovery,
     record_root: Result<PathBuf, String>,
     history_reader: tend::history::Reader,
-    measure: measure::Reader,
     repo: Option<crate::repo::Repo>,
     shape_agent: Option<Arc<crate::shape::Agent>>,
     sdlc_root: Option<PathBuf>,
@@ -91,7 +89,7 @@ enum View {
     /// Shape, and the tend it was opened from, restored as it was when Shape is left.
     Shape(Box<Shape>, Option<Box<Tend>>),
     Approve(Box<approve::Approve>),
-    Measure(Box<measure::Reading>),
+    Measure,
     Watch(Box<Watch>),
     Soon(usize),
 }
@@ -99,11 +97,10 @@ enum View {
 impl Home {
     /// A menu on its first row. `make_dump` makes a fresh think each time think is opened;
     /// tend reads the selected sessions root or shows its refusal without scanning. Links use
-    /// the separate captured `link_root` (or its refusal); measure uses `substrate_dir`.
+    /// the separate captured `link_root` (or its refusal).
     pub fn new(
         make_dump: Box<dyn Fn() -> BrainDump>,
         sessions_root: Result<PathBuf, String>,
-        substrate_dir: PathBuf,
         link_root: Result<PathBuf, String>,
     ) -> Self {
         let (sessions_root, discovery) = match sessions_root {
@@ -114,7 +111,6 @@ impl Home {
             quit: false,
             make_dump,
             sessions_root,
-            substrate_dir,
             link_root,
             selected: 0,
             view: View::Menu,
@@ -124,7 +120,6 @@ impl Home {
             discovery,
             record_root: crate::think_record::default_root(std::env::var_os("HOME").as_deref()),
             history_reader: tend::history::Reader::default(),
-            measure: measure::Reader::default(),
             repo: None,
             shape_agent: None,
             sdlc_root: None,
@@ -180,13 +175,12 @@ impl Home {
         link_root: Result<PathBuf, String>,
         shape_agent: Option<Arc<crate::shape::Agent>>,
     ) -> Self {
-        let (default_root, substrate) = Self::default_paths();
         let root = session
             .parent()
             .map(|path| Ok(path.to_path_buf()))
-            .unwrap_or(default_root);
-        let mut home = Self::new(dump.fresh_factory(), root, substrate, link_root)
-            .with_shape_agent(shape_agent);
+            .unwrap_or_else(|| crate::seed_me::default_root(std::env::var_os("HOME").as_deref()));
+        let mut home =
+            Self::new(dump.fresh_factory(), root, link_root).with_shape_agent(shape_agent);
         if let Some(root) = dump.record_root() {
             home.record_root = Ok(root.to_path_buf());
         }
@@ -201,20 +195,6 @@ impl Home {
         home
     }
 
-    /// Checked default sessions root and the unchanged installed tink-substrate location.
-    pub fn default_paths() -> (Result<PathBuf, String>, PathBuf) {
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_default();
-        let substrate = std::env::var_os("TINK_SUBSTRATE_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| home.join(".claude/skills/tink-substrate"));
-        (
-            crate::seed_me::default_root(Some(home.as_os_str())),
-            substrate,
-        )
-    }
-
     /// Advances time: keeps the session scan moving and tend's wait notice current. Never
     /// blocks; a slow scan shows as waiting, not as a frozen screen.
     pub fn tick(&mut self) {
@@ -223,14 +203,6 @@ impl Home {
 
     /// [`Home::tick`] with the clock as an input, so tests never sleep.
     fn tick_at(&mut self, now: Instant) {
-        self.measure.poll(
-            if let View::Measure(reading) = &mut self.view {
-                Some(reading)
-            } else {
-                None
-            },
-            now,
-        );
         if let View::Watch(watch) = &mut self.view {
             watch.poll();
         }
@@ -452,12 +424,6 @@ impl Home {
         if self.quit {
             return;
         }
-        if matches!(self.view, View::Measure(_)) {
-            if index == 6 {
-                return;
-            }
-            self.measure.cancel();
-        }
         self.history_reader.cancel();
         self.approve_reader.cancel();
         self.selected = index;
@@ -485,20 +451,12 @@ impl Home {
                 View::Approve(Box::new(approve::Approve::open(self.sdlc_root.clone())))
             }
             4 => View::Watch(Box::new(Watch::open(self.sdlc_root.clone()))),
-            6 => View::Measure(Box::new(
-                self.measure.open(&self.substrate_dir, Instant::now()),
-            )),
+            6 => View::Measure,
             other => View::Soon(other),
         };
         self.sync_tend();
         self.sync_shape();
         self.sync_approve();
-    }
-
-    /// After terminal restoration, stop and collect Measure's reader. Exceptional OS stalls
-    /// may keep this foreground drain pending indefinitely; notices go to the caller, not a log.
-    pub fn shutdown_measure(&mut self, notice: impl FnMut(&str)) {
-        self.measure.shutdown(notice);
     }
 
     /// One key press, routed to the open place or the menu. Releases are ignored.
@@ -641,18 +599,7 @@ impl Home {
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') || key.code == KeyCode::F(10) {
-            self.measure.cancel();
             self.quit = true;
-            return;
-        }
-        if let View::Measure(reading) = &mut self.view
-            && reading.local_help()
-        {
-            if reading.key(key, &mut self.help) {
-                self.measure.cancel();
-                self.help = false;
-                self.view = View::Menu;
-            }
             return;
         }
         if matches!(key.code, KeyCode::Char('?') | KeyCode::F(1)) {
@@ -735,9 +682,9 @@ impl Home {
                 }
                 _ => {}
             },
-            View::Measure(reading) => {
-                if reading.key(key, &mut self.help) {
-                    self.measure.cancel();
+            View::Measure => {
+                if matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
+                    self.help = false;
                     self.view = View::Menu;
                 }
             }
@@ -899,7 +846,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Tend(_) => "tinkery › tend".into(),
         View::Shape(..) => "tinkery › shape".into(),
         View::Approve(_) => "tinkery › approve".into(),
-        View::Measure(_) => "tinkery › measure".into(),
+        View::Measure => "tinkery › measure".into(),
         View::Watch(_) => "tinkery › watch".into(),
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
         View::Think(_) => unreachable!(),
@@ -923,12 +870,6 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         && let Some(history) = &mut tend.history
     {
         history.render(frame, body, palette, home.help, tend.how);
-        return;
-    }
-    if let View::Measure(reading) = &mut home.view
-        && reading.local_help()
-    {
-        reading.render(frame, body, palette, home.help);
         return;
     }
     if let View::Approve(view) = &mut home.view {
@@ -960,8 +901,8 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             frame.render_widget(p.scroll((tend.help_scroll, 0)), body);
             return;
         }
-        // Shown away from the menu (Measure's report, unbuilt places), where q goes back.
-        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        // Shown away from the menu (Measure, unbuilt places), where q goes back.
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure recorded work and attention are unknown\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -1023,7 +964,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         }
         View::Tend(tend) => tend::render(frame, tend, body, palette),
         View::Shape(shape, _) => shape.render(frame, body, palette),
-        View::Measure(reading) => reading.render(frame, body, palette, home.help),
+        View::Measure => measure::render(frame, body, palette),
         View::Watch(watch) => watch.render(frame, body, palette),
         View::Soon(i) => frame.render_widget(
             Paragraph::new(format!("{}\n\nNot built yet. Esc goes back.", PLACES[*i].1))
@@ -1120,7 +1061,6 @@ mod tests {
         Home::new(
             Box::new(BrainDump::default),
             Ok(root.to_path_buf()),
-            root.join("no-substrate"),
             Ok(root.join("TEST-links")),
         )
     }
