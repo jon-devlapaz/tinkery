@@ -148,7 +148,17 @@ fn completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence() 
     let report = ledger::completion_report(&saved, "r1", &seed);
     assert!(report[0].contains(&review.decided[0]));
     assert!(report[1].contains(&review.done[0]));
-    assert!(report[2].contains(&review.failure_cases[0].case));
+    assert_eq!(report[2], "Drafting step guess:");
+    for (lines, failure) in report[3..]
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .zip(&review.failure_cases)
+    {
+        assert_eq!(lines[0], format!("Must fail: {}", failure.case));
+        assert_eq!(lines[1], format!("  Check: {}", failure.statement));
+    }
+    assert_eq!(report.len(), 3 + review.failure_cases.len() * 2);
     let mut erased = ledger::editable(&saved).unwrap();
     erased["nodes"].list_mut()[0].set("evidence", Value::Array(vec![]));
     assert!(

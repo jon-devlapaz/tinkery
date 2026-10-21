@@ -652,6 +652,40 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
 }
 
 #[test]
+fn teach_back_prefills_exact_confirmation_words_without_sharing_edits() {
+    let dir = tempfile::tempdir().unwrap();
+    for words in ["", "  TEST café\r\nkeep these words.  "] {
+        let mut shape = reading(
+            done(Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
+            })
+            .with_agent(Some(agent(0))),
+            dir.path(),
+        );
+        shape.paste(words);
+        shape.key(key(KeyCode::F(7)));
+        let open = shape.open.as_ref().unwrap();
+        assert_eq!(open.teach_back.as_ref().unwrap().text(), words);
+        assert_eq!(open.typed.text(), words);
+        shape.paste("TEST changed teach-back");
+        let open = shape.open.as_ref().unwrap();
+        assert!(
+            open.teach_back
+                .as_ref()
+                .unwrap()
+                .text()
+                .contains("TEST changed teach-back")
+        );
+        assert_eq!(open.typed.text(), words);
+        shape.key(key(KeyCode::Esc));
+        let open = shape.open.as_ref().unwrap();
+        assert!(open.teach_back.is_none() && open.running.is_none());
+        assert_eq!(open.typed.text(), words);
+    }
+}
+
+#[test]
 fn no_next_line_repeats_the_one_action_the_key_bar_names() {
     let dir = tempfile::tempdir().unwrap();
     let seed = Shaped::Drafted {
@@ -1166,13 +1200,17 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     let draft = shaping::read(&receipt.session).unwrap();
     assert_eq!(draft.goal.as_deref(), Some(goal));
     let checks_value: serde_json::Value = serde_json::from_str(checks).unwrap();
-    let mut expected_review = vec!["Drafting step guess: Nothing observed done.".to_owned()];
-    expected_review.extend(checks_value.as_array().unwrap().iter().map(|c| {
-        format!(
-            "Drafting step guess: If TEST wrong result must fail, {} must fail.",
-            c["statement"].as_str().unwrap()
-        )
-    }));
+    let mut expected_review = vec![
+        "Drafting step guess: Nothing observed done.".to_owned(),
+        "Must fail: TEST wrong result must fail".to_owned(),
+    ];
+    expected_review.extend(
+        checks_value
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| format!("Check: {}", c["statement"].as_str().unwrap())),
+    );
     for (width, height) in [(100, 30), (80, 24)] {
         let mut view = done(draft.stage.clone()).with_agent(Some(agent.clone()));
         view.open.as_mut().unwrap().reading = Reading::Done(Ok(draft.clone()));

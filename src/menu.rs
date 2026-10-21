@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    Palette, approve, measure,
+    Palette, approve, measure, seed_me,
     shape::{Leave, Shape},
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump, Exit},
@@ -71,7 +71,7 @@ pub struct Home {
     help: bool,
     /// The muted key bar preference lasts the session, across visits to think.
     key_bar: bool,
-    receipts: Vec<String>,
+    receipts: Vec<seed_me::ExitReceipt>,
     discovery: Discovery,
     record_root: Result<PathBuf, String>,
     history_reader: tend::history::Reader,
@@ -397,7 +397,13 @@ impl Home {
         {
             self.receipts.push(receipt);
         }
-        (!self.receipts.is_empty()).then(|| self.receipts.join("\n"))
+        (!self.receipts.is_empty()).then(|| {
+            self.receipts
+                .iter()
+                .map(seed_me::ExitReceipt::text)
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
     }
 
     /// Bracketed paste. Think, and Shape while it takes words, take text; elsewhere a paste
@@ -990,10 +996,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                     Rect::new(2, y, area.width.saturating_sub(4), 1),
                 );
             }
-            let note = home
-                .receipts
-                .last()
-                .map(|r| r.lines().next().unwrap_or("").to_string());
+            let note = home.receipts.last().map(|r| r.label().to_owned());
             let line = note.unwrap_or_else(|| PLACES[home.selected].1.to_string());
             frame.render_widget(
                 Paragraph::new(line).style(palette.muted),

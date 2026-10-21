@@ -300,7 +300,8 @@ impl GoalParts {
     /// The known intent, with its beneficiary and situation when supplied, without its final
     /// period. A missing beneficiary stays unknown, never invented; only a missing outcome
     /// prevents a headline. Repeated subjects and situations aren't said twice. An uppercase
-    /// standalone outcome leads, with the beneficiary after it ("I" becomes "me").
+    /// standalone outcome leads, with the beneficiary after it ("I" becomes "me"). An uppercase
+    /// situation starts its own sentence; a lowercase situation keeps the comma join.
     pub fn goal_line(&self) -> Option<String> {
         let outcome = self.get(Part::Outcome)?;
         let raw_who = self.get(Part::Who).map(prose).unwrap_or_default();
@@ -339,7 +340,13 @@ impl GoalParts {
         if let Some(when) = self.get(Part::When).map(prose)
             && !identity(&goal).contains(&identity(&when))
         {
-            goal.push_str(&format!(", {when}"));
+            let join = if when.starts_with(char::is_uppercase) {
+                ". "
+            } else {
+                ", "
+            };
+            goal.push_str(join);
+            goal.push_str(&when);
         }
         Some(goal)
     }

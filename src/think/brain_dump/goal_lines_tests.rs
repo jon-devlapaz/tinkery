@@ -184,6 +184,24 @@ fn standalone_outcomes_keep_spelling_through_display_copy_and_confirmation() {
             "Read a local count, for me.",
         ),
         (
+            "I",
+            "Count words.",
+            Some("For the first slice"),
+            "Count words, for me. For the first slice.",
+        ),
+        (
+            "I",
+            "Count words.",
+            Some("London only"),
+            "Count words, for me. London only.",
+        ),
+        (
+            "I",
+            "count words",
+            Some("for the first slice"),
+            "I count words, for the first slice.",
+        ),
+        (
             "developers",
             "Tally prints a local count.",
             None,

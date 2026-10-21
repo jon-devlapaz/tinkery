@@ -84,8 +84,11 @@ Otherwise, an outcome starting with an uppercase letter is treated as a standalo
 statement: `[Outcome], for [who]`, with `I` becoming `me`. Both parts keep their
 spelling; names at the start of an outcome are not lowercased. For example,
 `developers` + `Count words` becomes `Count words, for developers`. A lowercase
-predicate keeps the subject-first composition above. The optional situation still
-follows the composed line, without repeating one already present.
+predicate keeps the subject-first composition above. The optional situation follows
+without repeating one already present. When it starts with an uppercase letter,
+it becomes its own sentence: `Count words, for me. For the first slice.` A lowercase
+situation keeps the comma join: `Count words, for me, for the first slice.` Its
+spelling stays unchanged; proper nouns are never lowercased to make a join.
 
 `GoalParts::compose` owns composition and runs once, when a reading is verified.
 `Board::goal` is then the displayed block: reading, copy, refinement, changed-line

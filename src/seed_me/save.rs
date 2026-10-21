@@ -62,7 +62,53 @@ impl Original {
         )
     }
 }
+/// An exit receipt retained as data until printing; navigation never freezes its next step.
+pub enum ExitReceipt {
+    /// A saved goal and its optional Think record location or recording notice.
+    Saved {
+        /// The exact saved goal and session to reread at exit.
+        receipt: Receipt,
+        /// A recording location or failure notice, already known without further reads.
+        record: Option<String>,
+    },
+    /// An attempted save whose recovery location must remain available.
+    Incomplete {
+        /// The session to inspect before retrying.
+        session: PathBuf,
+    },
+}
+impl ExitReceipt {
+    /// A read-free menu note; never verifies a session while painting.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Saved { .. } => "Saved.",
+            Self::Incomplete { .. } => "Incomplete handoff; inspect the saved session.",
+        }
+    }
+    /// Render after leaving the UI, reading the saved session's current next step only now.
+    pub fn text(&self) -> String {
+        match self {
+            Self::Saved { receipt, record } => {
+                let mut text = receipt.text();
+                text.push_str(&format!(
+                    "\nSaved ledger: {}",
+                    receipt.session.join("ledger.json").display()
+                ));
+                if let Some(line) = record {
+                    text.push_str(&format!("\n{line}"));
+                }
+                text
+            }
+            Self::Incomplete { session } => format!(
+                "Incomplete handoff; inspect saved session {}. No seed confirmed.",
+                session.display()
+            ),
+        }
+    }
+}
+
 /// A goal read back unchanged from its durable session.
+#[derive(Clone)]
 pub struct Receipt {
     /// The saved session folder.
     pub session: PathBuf,
@@ -77,10 +123,19 @@ impl Receipt {
             goal: "TEST confirmed goal".into(),
         }
     }
-    /// A plain receipt for after terminal restoration.
+    /// A plain receipt after terminal restoration, with the next step read from the current
+    /// session through the shared verifier, never inferred from this earlier goal save.
     pub fn text(&self) -> String {
+        use super::shaping::Shaped;
+        let next = match super::shaping::read(&self.session).map(|s| s.stage) {
+            Ok(Shaped::Ready { .. }) => "Next: take the confirmed seed to Approve.",
+            Ok(Shaped::Drafted { .. }) => "Next: confirm the seed draft in Shape.",
+            Ok(Shaped::Waiting | Shaped::Question { .. }) => "Next: shape it into a seed in Shape.",
+            Ok(Shaped::Ended { .. }) => "This session has ended.",
+            _ => "Next: check this session in Shape.",
+        };
         format!(
-            "Saved.\n{}\nNext: shape it into a seed in Shape.\nSession: {}",
+            "Saved.\n{}\n{next}\nSession: {}",
             self.goal,
             self.session.display()
         )
