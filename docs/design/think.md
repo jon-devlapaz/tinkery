@@ -87,8 +87,8 @@ With no focused question (none left, skipped or a part asked twice), show one mu
 | Required parts present, other intent open | Some parts remain open for the seed. Review when you're ready. |
 
 Without a composed goal, omit the review invitation. F1 uses the same first sentence
-and offers F3 only with a saveable goal. In practice or without Seed Me, help says
-saving needs real mode and Seed Me. With no goal, offer adding words then F2,
+and offers F3 only with a saveable goal. In practice or without a sessions folder, help says
+saving needs real mode and a sessions folder. With no goal, offer adding words then F2,
 without a missing-field interview. If the first reading was unapplied or cancelled,
 offer an F2 retry. State depends only on goal
 content, including sent-but-unapplied words and unanswered skips, never recording
@@ -134,15 +134,15 @@ context cannot be replaced by named attribution through the API. It never enters
 model requests and grants neither seed confirmation nor implementation permission.
 
 **Integration held:** an agent launch declaration or explicit named agent context
-cannot save a goal through the existing Seed Me path:
-review and help explain the hold and Esc, and Enter refuses before any helper job.
+cannot save a goal through the user-only ledger save path:
+review and help explain the hold and Esc, and Enter refuses before any save job.
 The held review takes no typed or pasted words. Shape holds the same way (#247):
 its every write is recorded as the operator's, so under an agent declaration it only
 reads, offers no words box or ending, and F2, F3, F6 and F8 say
-`Delegated shaping awaits Seed Me integration. Shape only reads; Esc goes back.`
-Seed Me's pinned helper requires a `user` goal origin and does not expose structured
-seed-confirmer fields; Tinkery does not relabel an agent as `user`, use simulation as
-a bypass, or change that helper's contract. Shape F3, Seed Me publication/readback,
+`Delegated shaping awaits ledger integration. Shape only reads; Esc goes back.`
+The user-only save adapter requires a `user` goal origin and does not expose structured
+seed-confirmer fields; Tinkery does not relabel an agent as `user` or use simulation as
+a bypass. Shape F3, ledger publication/readback,
 and seed-confirmation provenance need a separately assigned integration slice after
 #198 and #208 clear. This partial slice does not complete #185's end-to-end goal/seed
 confirmation support or authorize delegated seed confirmation. Seed Me PR #15 at
@@ -155,7 +155,7 @@ enables its integration.
 
 ## Think record
 
-Typed `confirm` also writes one pretty JSON `<UTC confirm time>_<Seed Me session id>.json`
+Typed `confirm` also writes one pretty JSON `<UTC confirm time>_<session folder>.json`
 in `~/.local/share/tinkery/think/`, overridden by `--record-root`. Without an explicit
 root, unset, empty or relative HOME refuses `--shape-pi` startup and asks for a root,
 rather than writing under the current directory. The review and bar label
@@ -187,13 +187,13 @@ process or file read and cannot mix goals. Standalone return and reentry preserv
 the record folder.
 
 `repo` means made in, not about. Review shows `made in <folder>` before confirmation.
-It never enters the goal, Seed Me ledger or model requests. Observations stay
+It never enters the goal, session ledger or model requests. Observations stay
 separate from operator words.
 
 Shared `src/think_record.rs` owns the format; Conversation owns turns. Write only
-after Seed Me saving and readback succeed. Record failure leaves the goal saved
+after ledger saving and readback succeed. Record failure leaves the goal saved
 and adds a receipt notice; the reason and path live in How it works. Think never
-reads records. This is not Seed Me's `ledger.json`. Tend's deliberate
+reads records. This is not the session's `ledger.json`. Tend's deliberate
 [history](shape-and-handoff.md#think-history) adds no model context.
 Eval record reading and gap flags are separate slices.
 
@@ -208,7 +208,7 @@ content fits, including after resize. Scrolling changes no goal or original text
 ### Help
 
 The muted bar and help agree on F2, F3, F6, F8 and F10. Offer only permitted actions;
-F3 needs real mode with Seed Me. Empty help says “Type, then F2 sends it.”
+F3 needs real mode with a sessions folder. Empty help says “Type, then F2 sends it.”
 F1 opens bounded reading-side help without changing originals or drafts.
 Right now leads with the state; F1 opens Every key, and `h` opens How it works.
 The layer title is jade, headings and keys bold ink, and labels and borders muted.

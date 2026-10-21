@@ -9,6 +9,35 @@ use std::{
     path::Path,
 };
 
+/// Create a private session with a unique folder identity and an empty validated ledger.
+/// Never replaces a session; no browser, provider or external helper is involved.
+pub fn initialize(root: &Path, timestamp: &str) -> Result<std::path::PathBuf, String> {
+    std::fs::create_dir_all(root)
+        .map_err(|_| "Cannot create the sessions folder. Check its permissions.")?;
+    let directory = tempfile::Builder::new()
+        .prefix("session-")
+        .tempdir_in(root)
+        .map_err(|_| "Cannot create a private session. Check the sessions folder.")?;
+    let path = directory
+        .path()
+        .canonicalize()
+        .map_err(|_| "Cannot locate the new session.")?;
+    let id = path
+        .file_name()
+        .and_then(|v| v.to_str())
+        .ok_or("The session has no usable identity.")?;
+    let value = Value::from(serde_json::json!({
+        "schema_version":1,"session_id":id,"version":0,"revision":0,
+        "created_at":timestamp,"updated_at":timestamp,"status":"active",
+        "draft":{"goal":"","outcome":"","options":[]},"goal":null,"origin":null,
+        "current_question":null,"frontier":[],"nodes":[],"assumed":[],"operator":"human"
+    }));
+    atomic_write(&path, &value.pretty()?)
+        .map_err(|_| "Cannot save the new session. Check its folder permissions.")?;
+    let _ = directory.keep();
+    Ok(path)
+}
+
 /// What a refused publication established about the durable ledger.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SaveState {

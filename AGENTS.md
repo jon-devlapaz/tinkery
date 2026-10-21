@@ -61,21 +61,20 @@ Fresh Debian or Ubuntu clone with Bash and Git:
 ```
 
 The script installs missing prerequisites, stable Rust with rustfmt and Clippy, and Node.
-It checks out CI's Seed Me ref in `.ci-seed-me` and prints exports.
-It refuses dirty or unrelated fixture checkouts rather than resetting them; rerunning is safe.
-Git-local excludes keep bytecode untracked without fixture edits. It downloads only
-packages and Git repositories, not providers, microphones, native voice engines or speech models.
+It prints the verification exports and can be rerun safely. It downloads only
+prerequisite packages, not providers, microphones, native voice engines or speech models.
 Apt may need root or sudo.
 
 CI uses stable Rust on Ubuntu and macOS; use that updated stable for Clippy.
 Never alter operator toolchains without approval. On macOS, provision Rust, Python 3
-and Node separately (bootstrap refuses macOS), then clone Seed Me into `.ci-seed-me`
-at `.github/workflows/ci.yml`'s ref. No other developer's files are needed.
+and Node separately (bootstrap refuses macOS). No external skill checkout or other
+developer's files are needed.
 
 ## Full zero-call verification
 
-Run this exact block from the repository root after setup; cold-clone CI runs it
-when setup may change. [CI routing](scripts/ci-scope.py) and its
+Run `python3 scripts/full-check.py` from the repository root after setup. Its shared
+launch guard gives the exact block below a temporary TEST HOME; do not run binary
+verification against the operator's HOME. Cold-clone CI runs the block when setup may change. [CI routing](scripts/ci-scope.py) and its
 [regressions](tests/test_ci_scope.py) define prose-only exceptions and fail-closed gates;
 code changes require the full block.
 
@@ -85,14 +84,13 @@ Python journeys use the real binary, stub providers and temporary roots.
 <!-- full-check:start -->
 ```bash
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
-export SEED_ME_TEST_SKILL="$PWD/.ci-seed-me/skills/seed-me/SKILL.md"
 export TINKERY_NODE=/tinkery-TEST-no-node
 rustc +stable --version
 node --version
 python3 --version
 cargo +stable build --locked
-cargo +stable run --locked -- --home --snapshot
-cargo +stable run --locked -- --snapshot --no-color
+cargo +stable run --locked -- --operator agent --home --snapshot
+cargo +stable run --locked -- --operator agent --snapshot --no-color
 cargo +stable test --workspace --locked
 node --test voice/*.test.mjs
 for t in tests/*.py; do

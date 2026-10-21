@@ -1,6 +1,6 @@
 # Shape owns the ledger
 
-**Accepted design; slices 1–7 implemented.** The operator accepted it on 2026-10-19
+**Accepted design; slices 1–8 implemented.** The operator accepted it on 2026-10-19
 ([#269](https://github.com/jon-devlapaz/tinkery/issues/269)). Each slice, Seed Me changes and any
 provider budget remain separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
 and tink-sdlc `1c6ffd5` on 2026-10-19.
@@ -46,7 +46,7 @@ module that replaces `seed_me/`.** Vendoring `session.py` behind the subprocess 
 Contain the drift with a **differential test**: during migration, run the Rust module and
 the pinned `session.py` on the same fixtures and require identical refusals and ledgers.
 Seed Me's own suite (`tests/`, about 5,400 lines, mostly epistemics, session and checks)
-supplies the fixtures. When the last slice lands, the pinned helper and its fixture go.
+supplies the fixtures. Slice 8 retired that differential harness and fixture; Rust-only regressions now own the protections.
 
 The module promises what the helper promises today:
 - **Validation:** node schema and statuses; prerequisites exist, are acyclic, and settle first;
@@ -113,20 +113,18 @@ shipped keys, reply schema, receipt format, failure behavior and budget gate.
 
 ## 4. The tink-sdlc intake contract
 
-Today intake runs Seed Me's helper twice (`status`, `seed checks show`) and requires
-`handoff.verified` (tink-sdlc `assets/_system/scripts/sdlc.py:1479-1517`).
+**Shipped:** intake uses Tinkery as its sole verifier. The consumer runs exactly
+`PATH seed status --json DIR`, `PATH seed checks DIR`, then status again for stability,
+requiring `handoff.verified`. Tinkery's status omits viewer and snapshot records and
+opens no network connection; completion needs no viewer.
+Think's working-draft guidance and the artifact reference are bundled verbatim from
+Seed Me `c9d766760dbeac0c05c92108165f9e968bec0a66`; no runtime reads an installed skill.
 
-**Shipped:** Tinkery owns seed checks, confirmation, verification and ending.
-`tinkery seed status --json DIR` and `tinkery seed checks DIR` print today's JSON shapes;
-status omits `viewer`, `snapshot` and `snapshot_current` and never opens a network connection.
-Completion needs no viewer record or `--no-viewer`. `contract()` still reads Seed Me's
-installed `references/seed-contract.md` until retirement.
-
-**Pending consumer change ([tink-sdlc #90](https://github.com/jon-devlapaz/tink-sdlc/issues/90)):**
-intake will take `--tinkery PATH` in place of
-`--seed-me-helper PATH`. Tinkery's copied intake command keeps today's helper flag until
-tink-sdlc accepts the new one; that requires a separate tink-sdlc PR and pin bump, with the
-pin bump waiting for the operator's "merge". The session folder's files keep
+[tink-sdlc #90](https://github.com/jon-devlapaz/tink-sdlc/issues/90) shipped in PR #91,
+scaffold 1.34.0, pinned in CI and the handoff journey at
+`4b6415a9aa8548f6486c97e5b60d4fea0d0662a0`. Copied intake commands use
+`--tinkery PATH`; the old helper flag is refused by that consumer.
+The session folder's files keep
 their names (`seed-contract.md`, `ledger.json`, `seed-checks.json`,
 `seed-confirmation.json`), so Approve and Watch's match on the seed's canonical path and
 sha256 ([#258](https://github.com/jon-devlapaz/tinkery/issues/258)) keep working.
@@ -136,7 +134,7 @@ This renames the flag in [tink-sdlc #88](https://github.com/jon-devlapaz/tink-sd
 ## 5. Migration
 
 The module reads today's `ledger.json` unchanged, so existing sessions keep working and
-the session root stays where it is. Proposed slices, each one PR and its own approval:
+slice 8 moves only their location. Each slice had its own PR and approval:
 
 1. **Rust ledger: read, validate, transition, review flags**, under the differential test.
    Shape still calls the helper; nothing visible changes.
@@ -153,11 +151,19 @@ the session root stays where it is. Proposed slices, each one PR and its own app
 6. **Prerequisites** from question replies (implemented; #286). The ledger alone owns
    existence, cycles and ready order; F5 names the earlier answers held questions wait for.
 7. **Confirmation summary, completion review and teach-back** (implemented; #292, section 3).
-8. **Retire Seed Me:** remove `--seed-me`, the `.ci-seed-me` fixture, the continuation
-   prompt that names the skill (`src/seed_me/mod.rs:56`) and the pin in tink-sdlc, and move
-   sessions to `~/.local/share/tinkery/sessions` once, with no reader for the old root.
-   Runs whose seed path was under the old root then show as unknown in Watch. This
-   touches the operator's installs and launcher, so it waits for the operator's explicit "merge".
+8. **Retire Seed Me** (implemented; #294): remove the skill flag, external CI fixture,
+   skill continuation prompt and helper subprocesses, including Think saving and its viewer.
+   Sessions move once to `~/.local/share/tinkery/sessions` on a default-root launch;
+   a visible notice names the move. Existing old and new roots refuse rather than merge.
+   There is no old-root reader. Watch's old-path joins become unknown.
+   Think records remain byte-identical: history matches unique live ledger session IDs.
+   A path-only record whose folder is missing may use its final folder name as that ID;
+   duplicate live IDs refuse. This identity rule was Claude's call, not jondev's.
+   Old-format ledgers move with all their folder bytes untouched, even when today's ledger
+   reader refuses their stored fields; the move never parses or repairs sessions.
+   Differential tests retire; Rust-only protections remain. Receipt times now require
+   RFC 3339; Unicode categories replace the Python table, and JSON adaptation is typed.
+   The installed launcher's removed flag is a separate held edit after merge.
 
 ## Design score and limits
 

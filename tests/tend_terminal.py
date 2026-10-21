@@ -1,11 +1,11 @@
 """Tend journeys with synthetic sessions and explicit TEST links; no model calls."""
-import base64, fcntl, json, os, re, select, struct, subprocess, tempfile, termios, time
+import base64, fcntl, json, os, re, select, struct, tempfile, termios, time
+import test_launch as subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
-SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 GOAL = ('I can read a calm dark theme while preserving every confirmed goal line and keeping a clear next step with manual control.\n'
         'Why: I work at night.\nDone when: Nothing strands me.\n'
         'Must: Keep manual control.\nMust not: Run agents.')
@@ -53,10 +53,10 @@ def journey(width, height, kind='garden'):
             master, slave = os.openpty()
             fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
             process = subprocess.Popen([str(REPO/'target/debug/tinkery'), '--home', '--shape-pi', '--record-root', str(root / 'TEST-records'),
-                '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
+                '--model', 'test/model', '--seed-session-root', str(sessions),
                 '--link-root', str(root / 'TEST-links'),
                 '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=root,
-                env={**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'})
+                env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}))
             return process, master, slave, Screen(width, height), bytearray()
 
         process, master, slave, screen, raw = launch()
@@ -260,7 +260,7 @@ def journey(width, height, kind='garden'):
                 assert screen.text().splitlines()[-1].strip() == GARDEN_KEYS, screen.text()
                 time.sleep(.55)
                 os.write(master, click(column, row) * 2)
-                wait(lambda: 'c copy prompt   s shape   r history   esc back   F10 menu' in screen.text())
+                wait(lambda: 's shape   r history   esc back   F10 menu' in screen.text())
                 assert labels[1] in screen.text(), screen.text()
                 send(b'\x1b', GARDEN_KEYS)
                 wait(lambda: selected(1))
@@ -276,15 +276,8 @@ def journey(width, height, kind='garden'):
                 for line in GOAL.splitlines(): assert line in ' '.join(screen.text().split()), (line, screen.text())
                 ordinary()
                 assert next_line in screen.text(), screen.text()
-                for _ in range(2):
-                    count = len(copies())
-                    os.write(master, b'c')
-                    wait(lambda: len(copies()) == count+1)
-                    text = base64.b64decode(copies()[-1]).decode()
-                    target = sessions / ['saved','drafted','ready'][index]
-                    assert f'"{target}"' in text and f'"{SKILL}"' in text
-                    wait(lambda: 'Copied.' in screen.text())
-                assert copies()[-1] == copies()[-2]
+                os.write(master, b'c'); time.sleep(.1)
+                assert not copies(), 'Retired continuation prompt was copied'
                 send(b'\x1bOP', 'Right now')
                 ordinary()
                 send(b'h', 'How it works')

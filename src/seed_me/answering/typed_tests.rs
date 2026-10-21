@@ -38,7 +38,6 @@ fn typed_facts_ground_questions_and_inferences_without_settling_a_decision() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
     fs::write(root.path().join("README.md"), "TEST local\n").unwrap();
     let observation = fact("read", "observation");
     let mut inference = fact("inferred", "inference");
@@ -49,8 +48,8 @@ fn typed_facts_ground_questions_and_inferences_without_settling_a_decision() {
         vec![observation, inference, unknown],
         Some(json!(["read", "inferred"])),
     );
-    ask_step(&skill, &session, &ask, root.path());
-    let state = read(&skill, &session).unwrap().state;
+    ask_step(&session, &ask, root.path());
+    let state = read(&session).unwrap().state;
     let all = nodes(&state);
     for node in &all[1..4] {
         assert_eq!(node["kind"], "fact");
@@ -72,9 +71,9 @@ fn typed_facts_ground_questions_and_inferences_without_settling_a_decision() {
     }
 }
 
-fn ask_step(skill: &Path, session: &Path, question: &Ask, folder: &Path) {
-    let version = read(skill, session).unwrap().version();
-    ask(skill, session, version, question, folder).unwrap();
+fn ask_step(session: &Path, question: &Ask, folder: &Path) {
+    let version = read(session).unwrap().version();
+    ask(session, version, question, folder).unwrap();
 }
 
 #[test]
@@ -84,7 +83,6 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
     let mut unsupported = fact("inferred", "inference");
     unsupported.claim["limits"] = "TEST bounded".into();
     let mut no_limits = fact("inferred", "inference");
@@ -122,7 +120,7 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
         ),
     ] {
         let before = fs::read(session.join("ledger.json")).unwrap();
-        let error = ask(&skill, &session, 1, &question, root.path())
+        let error = ask(&session, 1, &question, root.path())
             .unwrap_err()
             .to_string();
         assert!(error.contains(reason), "{error}");
@@ -131,7 +129,6 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
         if question.supported_by.is_none() {
             assert!(
                 draft_seed(
-                    &skill,
                     &session,
                     1,
                     &ledger::fixtures::prose_reply(include_str!(
@@ -148,7 +145,7 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
             assert!(!session.join("seed-contract.md").exists());
         }
     }
-    let mut state = read(&skill, &session).unwrap().state;
+    let mut state = read(&session).unwrap().state;
     facts(&mut state, &[fact("read", "observation")], root.path());
     state["nodes"][0]["contradicts"] = "read".into();
     let error = publish(&session, 1, "TEST invalid decision contradiction", &state)
@@ -164,12 +161,10 @@ fn contradicting_a_fact_flags_it_and_its_settled_support_dependents() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
     let mut inferred = fact("inferred", "inference");
     inferred.claim["limits"] = "TEST no runtime proof".into();
     inferred.supported_by = Some(json!(["read"]));
     ask_step(
-        &skill,
         &session,
         &question(
             vec![fact("read", "observation"), inferred],
@@ -177,12 +172,11 @@ fn contradicting_a_fact_flags_it_and_its_settled_support_dependents() {
         ),
         root.path(),
     );
-    let version = read(&skill, &session).unwrap().version();
-    let version = answer(&skill, &session, version, "choice", "TEST unchanged choice").unwrap();
+    let version = read(&session).unwrap().version();
+    let version = answer(&session, version, "choice", "TEST unchanged choice").unwrap();
     let mut conflict = fact("conflict", "observation");
     conflict.contradicts = Some(json!("read"));
     ask(
-        &skill,
         &session,
         version,
         &question(vec![conflict], None),
@@ -193,20 +187,20 @@ fn contradicting_a_fact_flags_it_and_its_settled_support_dependents() {
         let saved = ledger::load(&session).unwrap();
         let flags = ledger::review_flags(&saved["nodes"]);
         assert!(flags.get(expected).is_some(), "{}", flags.pretty().unwrap());
-        let shaping = super::super::shaping::read(&skill, &session).unwrap();
+        let shaping = super::super::shaping::read(&session).unwrap();
         assert!(
             matches!(shaping.stage, super::super::shaping::Shaped::Review { ref id, revisable, .. } if id == expected && revisable == (expected == "choice"))
         );
         keep(
             &session,
-            read(&skill, &session).unwrap().version(),
+            read(&session).unwrap().version(),
             expected,
             "TEST checked the conflict",
         )
         .unwrap();
     }
     assert!(
-        matches!(super::super::shaping::read(&skill, &session).unwrap().stage,
+        matches!(super::super::shaping::read( &session).unwrap().stage,
         super::super::shaping::Shaped::Question { ref id, .. } if id == "choice-2")
     );
 }
@@ -218,13 +212,11 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
     let mut conflict = fact("conflict", "observation");
     conflict.contradicts = Some(json!("goal"));
     let checks =
         json!([{"statement":"TEST","kind":"judge","source":"TEST","how_to_judge":"TEST inspect"}]);
     let revision = draft_seed(
-        &skill,
         &session,
         1,
         &ledger::fixtures::prose_reply(include_str!(
@@ -236,7 +228,7 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     )
     .unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();
-    let error = confirm_seed(&skill, &session, &revision, "TEST confirm")
+    let error = confirm_seed(&session, &revision, "TEST confirm")
         .unwrap_err()
         .to_string();
     assert!(
@@ -245,7 +237,7 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     );
     assert!(!session.join("seed-confirmation.json").exists());
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
-    let version = read(&skill, &session).unwrap().version();
+    let version = read(&session).unwrap().version();
     assert!(keep(&session, version, "goal", " ").is_err());
     assert!(keep(&session, version - 1, "goal", "TEST reason").is_err());
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
@@ -273,6 +265,6 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
             .unwrap()
             .is_empty()
     );
-    confirm_seed(&skill, &session, &revision, "TEST confirm").unwrap();
-    end(&skill, &session, Ending::Completed).unwrap();
+    confirm_seed(&session, &revision, "TEST confirm").unwrap();
+    end(&session, Ending::Completed).unwrap();
 }

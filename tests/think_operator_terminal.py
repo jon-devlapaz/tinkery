@@ -2,7 +2,7 @@
 """Launch declarations are explicit, visible and never inferred from terminal input."""
 import os
 from pathlib import Path
-import subprocess
+import test_launch as subprocess
 import tempfile
 import unittest
 
@@ -14,7 +14,7 @@ class OperatorDeclaration(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="tinkery-TEST-operator-") as root:
             env = dict(os.environ, HOME=root, NO_COLOR="1")
             return subprocess.run(
-                [str(BINARY), *args], env=env, text=True,
+                [str(BINARY), *args], env=subprocess.environment(env, home=(env)['HOME']), text=True,
                 capture_output=True, timeout=10, check=False,
             )
 

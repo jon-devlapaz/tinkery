@@ -21,11 +21,10 @@ fn main() {
     assert!(!dir.exists(), "Refuse overwrite");
     std::fs::create_dir_all(&dir).unwrap();
     let model = std::env::var("TINKERY_LIVE_MODEL").expect("Explicit model");
-    let skill = std::env::var("TINKERY_SEED_ME").expect("Actual skill path");
     let program = std::env::var_os("TINKERY_LIVE_PI_COMMAND")
         .map(PathBuf::from)
         .unwrap_or_else(|| "pi".into());
-    let host = PiHost::new(program, model.clone(), PathBuf::from(&skill))
+    let host = PiHost::new(program, model.clone())
         .unwrap()
         .with_thinking(&std::env::var("TINKERY_LIVE_THINKING").unwrap_or_else(|_| "low".into()))
         .unwrap();
@@ -35,7 +34,7 @@ fn main() {
             PathBuf::from(&root).is_absolute(),
             "Explicit isolated test root required"
         );
-        app = app.with_seed_me(PathBuf::from(&skill), Some(root.into()));
+        app = app.with_sessions(Some(root.into()));
     }
     capture(&mut app, &dir, "00-entry");
     assert!(app.conversation().board().is_none());

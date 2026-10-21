@@ -66,10 +66,10 @@ or improved outcomes.
 | `tend/garden.rs` | The graph's framing: selected-line needs, read notes and explicit refusals. |
 | `tend/graph.rs` | Graf adapter: path-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
-| `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
-| `seed_me/` | Session formats, goal saving and continuation; `answering.rs` adapts Shape actions, typed facts and operator review reasons to the shared ledger without duplicating its fact rules. Goal initialization still uses Seed Me; Shape needs its installed reference only for `contract()` and its helper path only in copied intake commands (shared). |
+| `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes session files. |
+| `seed_me/` | Session formats, goal saving and the one-time root migration; `answering.rs` adapts Shape actions, typed facts and operator review reasons to the shared ledger without duplicating its fact rules. Goal initialization uses the Rust ledger; contract guidance is bundled, and copied intake commands name this Tinkery executable (shared). |
 | `seed_me/ledger` | Validation, transitions, explicit answer actions and cascading reopen, confirmation risks and completion-review coverage, byte-bound teach-back records, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
-| `seed_me/shaping.rs` | Classifying ledger-owned status and review flags for display, with optional unchanged helper-flag intake text; no subprocess or mutation. |
+| `seed_me/shaping.rs` | Classifying ledger-owned status and review flags for display, with optional Tinkery-executable intake text; no subprocess or mutation. |
 | `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
 | `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words and next step. Reads and steps stay off the paint path. |
@@ -88,7 +88,7 @@ or improved outcomes.
 | `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
-| `think/drafting.rs` | Think's Pi host: its model settings and Seed Me working-draft instructions, over the shared `pi.rs` boundary. |
+| `think/drafting.rs` | Think's Pi host: its model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
 | `think_record.rs`, `think_record/read.rs` | The shared confirmed-session format, its one write, and exact-session history attribution; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
@@ -142,6 +142,9 @@ Closing risks and completion-review rules remain ledger-owned, as do append-only
 receipts that do not change decision premises (3, 6). Shape only displays risks and obtains
 explicit keys for capture, comparison and confirmation (2); the map keeps these boundaries
 visible (7). Mismatches never become a confirmation gate.
+Retiring skill parameters simplifies interfaces (2); bundled guidance and Rust initialization
+remove an external implementation dependency (3). Ledger saving, byte-preserving migration and unique-ID history attribution
+hide their decisions behind shared boundaries (6); the module map records the owners (7).
 No limit is relaxed; the recorded score remains 10/10.
 
 ## Limits enforced by `tests/architecture.rs`
@@ -150,7 +153,7 @@ No limit is relaxed; the recorded score remains 10/10.
 | --- | --- |
 | Phase reaches across phases | none allowed |
 | `BrainDump` fields / `pub` fields | 13 / 0 |
-| Non-test source lines over 200 characters | 13 |
+| Non-test source lines over 200 characters | 8 |
 | Library files without a `//!` comment, `pub` items without a doc comment | none allowed |
 
 Checks fail whenever code differs from a limit, even by improving it. Lower improved

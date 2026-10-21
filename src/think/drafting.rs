@@ -4,6 +4,8 @@
 //! only the prompt and the words sent. The process boundary (caps, timeout, cancellation) and the
 //! call budget are shared in [`crate::pi`]; this module adds think's instructions and settings.
 //! An evaluation can give Pi a [`CallBudget`]; then no request starts once its limit is reached.
+//! Bundled guidance is verbatim from Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66,
+//! between its title and Size gate; no installed skill is read.
 
 use std::{
     path::PathBuf,
@@ -36,12 +38,11 @@ pub struct Approach {
 }
 
 /// Pi, configured for think's shaping calls: an explicit model, a thinking level, and the
-/// working-draft section of the Seed Me skill as standing instructions.
+/// bundled working-draft guidance as standing instructions.
 pub struct PiHost {
     program: PathBuf,
     pub(super) model: String,
     pub(super) thinking: String,
-    instructions: String,
     timeout: Duration,
     budget: Option<Arc<CallBudget>>,
     pub(super) brain_history: std::sync::Mutex<Vec<String>>,
@@ -49,33 +50,15 @@ pub struct PiHost {
 }
 
 impl PiHost {
-    /// Pi at `program` with `model` (`provider/model-id`, no default) and the Seed Me skill at
-    /// `skill`. Refuses a vague model or a skill whose working-draft section it can't find,
-    /// rather than shaping with the wrong instructions. Starts nothing.
-    pub fn new(program: PathBuf, model: String, skill: PathBuf) -> Result<Self, String> {
+    /// Pi at `program` with an explicit model and bundled working-draft guidance. Starts nothing.
+    pub fn new(program: PathBuf, model: String) -> Result<Self, String> {
         if !crate::pi::explicit_model(&model) {
             return Err("Use an explicit --model provider/model-id.".into());
-        }
-        let text = std::fs::read_to_string(&skill).map_err(|error| {
-            format!(
-                "Cannot read Seed Me instructions at {}: {error}",
-                skill.display()
-            )
-        })?;
-        let (_, instructions) = text
-            .split_once("# Seed Me\n")
-            .ok_or("Unsupported Seed Me instructions: missing title.")?;
-        let (instructions, _) = instructions
-            .split_once("### Size gate")
-            .ok_or("Unsupported Seed Me instructions: missing working-draft boundary.")?;
-        if !instructions.contains("### Shape the working draft") || instructions.len() > LIMIT {
-            return Err("Unsupported Seed Me working-draft instructions.".into());
         }
         Ok(Self {
             program,
             model,
             thinking: "low".into(),
-            instructions: instructions.into(),
             timeout: Duration::from_secs(90),
             budget: None,
             brain_history: std::sync::Mutex::new(Vec::new()),
@@ -91,7 +74,6 @@ impl PiHost {
             program: self.program.clone(),
             model: self.model.clone(),
             thinking: self.thinking.clone(),
-            instructions: self.instructions.clone(),
             timeout: self.timeout,
             budget: self.budget.clone(),
             brain_history: std::sync::Mutex::new(Vec::new()),
@@ -112,9 +94,9 @@ impl PiHost {
     }
 
     pub(super) fn working_instructions(&self) -> &str {
-        self.instructions
+        include_str!("working-draft.txt")
             .split_once("### Shape the working draft")
-            .expect("Constructor validates the shaping boundary")
+            .expect("Bundled working-draft boundary")
             .1
     }
 

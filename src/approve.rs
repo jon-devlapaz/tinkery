@@ -72,13 +72,7 @@ impl Reader {
         }
     }
 
-    fn start(
-        &mut self,
-        skill: PathBuf,
-        sessions: Vec<Session>,
-        root: Option<PathBuf>,
-        mut found: Found,
-    ) -> bool {
+    fn start(&mut self, sessions: Vec<Session>, root: Option<PathBuf>, mut found: Found) -> bool {
         if self.running.is_some() {
             return false;
         }
@@ -115,7 +109,7 @@ impl Reader {
                         }
                     }
                 }
-                match ready::read(&skill, &session.path) {
+                match ready::read(&session.path) {
                     Ok(Some(seed)) => found.seeds.push(seed),
                     Ok(None) => {}
                     Err(reason) => {
@@ -176,13 +170,12 @@ impl Approve {
     }
 
     /// Hand off the discovered sessions without reaching into another phase. Missing discovery
-    /// or skill is unavailable, never an empty ready list. At most one verifier runs.
+    /// is unavailable, never an empty ready list. At most one verifier runs.
     pub(crate) fn offer(
         &mut self,
         sessions: Result<Vec<Session>, String>,
         unavailable: usize,
         reasons: Vec<String>,
-        skill: Option<PathBuf>,
         reader: &mut Reader,
     ) {
         if !self.waiting {
@@ -190,9 +183,7 @@ impl Approve {
         }
         self.waiting = false;
         let result = sessions.and_then(|sessions| {
-            let skill = skill.ok_or("Set up Shape with --seed-me PATH to verify seeds.")?;
             if reader.start(
-                skill,
                 sessions,
                 self.root.clone(),
                 Found {

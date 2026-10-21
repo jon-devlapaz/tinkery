@@ -13,7 +13,7 @@ without losing your words or your control. Nothing runs without you: one next st
 | --- | --- |
 | **Think** | Clarify what you want: one reading, one question at a time. |
 | **Tend** | Choose a saved goal and open its detail. |
-| **Shape** | Run Seed Me's interview to turn the goal into a seed. |
+| **Shape** | Investigate and turn the goal into a confirmed seed. |
 | **Approve** | Understand the decision and exactly what you're authorizing. |
 | **Watch** | See progress, blockers and decisions needing your attention. |
 | **Taste** | Compare the result with your original goal; accept or correct it. |
@@ -24,7 +24,6 @@ confirmed goals stay unchanged through handoffs. Readings and suggestions are gu
 
 ## What Tinkery builds on
 
-- **Seed Me** keeps saved goals, working briefs and separate decisions.
 - **SDLC** organizes external implementation, checks and review.
 - **GitHub** holds issues, PRs, checks and reviews.
 - **You** authorize work and judge results.
@@ -37,10 +36,10 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 ## What works today
 
 - **Think:** clarify a dump and explicitly save the confirmed goal, unchanged, to
-  `~/.local/share/seed-me/sessions/` with a record in `~/.local/share/tinkery/think/`.
+  `~/.local/share/tinkery/sessions/` with a record in `~/.local/share/tinkery/think/`.
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
-  continuation prompts for Claude, Codex or Pi without changing Seed Me sessions.
+  Shape without changing saved sessions.
   Press `r` in detail for [Think history](docs/design/shape-and-handoff.md#think-history)
   when its saved record verifies.
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
@@ -55,8 +54,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   ready; `F8` twice stops one still being shaped. Tinkery owns the ledger, seed checks,
   confirmation, verification and ending; no viewer or network read is involved.
   `tinkery seed status --json DIR` and `tinkery seed checks DIR` expose read-only intake JSON.
-  Shape still reads Seed Me's installed artifact contract and copies today's `--seed-me-helper`
-  intake flag pending the separate consumer migration.
+  Its draft guidance and artifact reference are bundled; no external skill is needed.
+  Intake commands use `--tinkery PATH` to recheck the seed through this executable.
 - **Approve:** menu place 4 shows verified seeds, oldest first, with their exact goal
   and acceptance checks. `c` copies run creation and intake commands; nothing runs.
   Seeds already started move to Watch; without a named checkout, start status is unknown.
@@ -66,6 +65,11 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   exact saved goal; changed or missing originals stay unknown. It runs only read-only
   status commands and changes no records.
 - **Measure:** reads an existing ledger report or says unavailable.
+
+On first default-root launch, old saved sessions move once to Tinkery's sessions folder,
+with a visible notice and no Think-record writes. History matches unique ledger session IDs. Leftover old and new roots
+refuse rather than merge; no old-root reader remains. Runs bound to moved seeds show unknown
+in Watch, not a guessed match.
 
 **Taste isn't built.** The complete journey and its benefit remain unproven.
 
@@ -97,7 +101,7 @@ Think is practice: no model calls or saved goals. Tend writes needs only when yo
 explicitly link or unlink. F2 sends, Enter adds a line, F1 helps, F10 returns to the menu.
 Add `--snapshot` for text output.
 
-Real drafting requires `--shape-pi --model provider/model-id --seed-me PATH` and an
+Real drafting requires `--shape-pi --model provider/model-id` and an
 explicitly authorized budget; provider charges may apply. `--help` lists options.
 [Terminal setup](docs/terminal-setup.md#launch) gives an isolated trial.
 

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 import shutil
-import subprocess
+import test_launch as subprocess
 import sys
 import tempfile
 import unittest
@@ -17,7 +17,7 @@ ENTRY = "AGENTS.md"
 
 def tracked_files():
     listed = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, check=True,
-                            capture_output=True, text=True).stdout
+                            capture_output=True, text=True, env=subprocess.environment()).stdout
     return {path for path in listed.split("\0") if path and (REPO / path).is_file()}
 
 
@@ -199,7 +199,7 @@ class DocumentationTests(unittest.TestCase):
         blocks = re.findall(r"```bash\n(.*?)\n```", section, re.S)
         self.assertEqual(len(blocks), 1)
         result = subprocess.run(["bash", "-n"], input=blocks[0], text=True,
-                                capture_output=True, timeout=10)
+                                capture_output=True, timeout=10, env=subprocess.environment())
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_live_trial_isolates_sessions_and_think_records(self):
@@ -228,8 +228,8 @@ class DocumentationTests(unittest.TestCase):
                 return subprocess.run(
                     [shutil.which("bash"), "-c", blocks[0]],
                     cwd=root, text=True, capture_output=True, timeout=10,
-                    env={"HOME": str(root / "home"), "PATH": str(binary),
-                         "TEST_TRIAL_ROOT": str(trial), "TEST_CAPTURE": str(capture)},
+                    env=subprocess.environment({"HOME": str(root / "home"), "PATH": str(binary),
+                         "TEST_TRIAL_ROOT": str(trial), "TEST_CAPTURE": str(capture)}),
                 )
 
             result = run_trial()

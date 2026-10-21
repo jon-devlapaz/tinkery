@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 import runpy
-import subprocess
+import test_launch as subprocess
 import tempfile
 import textwrap
 import unittest
@@ -36,7 +36,7 @@ class ScopeTests(unittest.TestCase):
             ["git", "-c", "user.name=CI fixture", "-c", "user.email=ci@example.invalid",
              "-c", "commit.gpgsign=false", *args], cwd=self.root, text=True,
             stderr=subprocess.PIPE,
-        )
+         env=subprocess.environment())
 
     def commit(self):
         self.git("add", "--all")
@@ -146,7 +146,7 @@ class ScopeTests(unittest.TestCase):
         result = subprocess.run(
             ["python3", str(ROOT / "scripts/ci-scope.py"), "--base", "", "--head", "0" * 40],
             capture_output=True, text=True, timeout=10,
-        )
+         env=subprocess.environment())
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "docs_only=false\nsetup=true\n")
         self.assertIn("full verification", result.stderr)
@@ -155,7 +155,7 @@ class ScopeTests(unittest.TestCase):
         result = subprocess.run(
             ["python3", str(ROOT / "scripts/ci-scope.py"), "--base", "f" * 40,
              "--head", self.base], capture_output=True, text=True, timeout=10,
-        )
+         env=subprocess.environment())
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
         self.assertIn("Cannot classify committed changes", result.stderr)
@@ -196,7 +196,7 @@ class WorkflowGateTests(unittest.TestCase):
                         SETUP="true", GITHUB_STEP_SUMMARY=os.devnull)
 
     def result(self, **changes):
-        return subprocess.run(["bash", "-c", self.gate], env=dict(self.env, **changes),
+        return subprocess.run(["bash", "-c", self.gate], env=subprocess.environment(dict(self.env, **changes)),
                               capture_output=True, text=True, timeout=10)
 
     def test_workflow_always_publishes_one_gate_without_path_filters(self):

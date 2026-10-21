@@ -3,7 +3,7 @@
 | Key | Place | Scope |
 | --- | --- | --- |
 | 1 | think | Refine, review and explicitly save a goal. |
-| 2 | tend | Explore active goals, needs, history and manual continuation. |
+| 2 | tend | Explore active goals, needs, history and opening Shape. |
 | 3 | shape | Read seed status; with a model and budget, answer and confirm ([Shape](shape-and-handoff.md#shape)). |
 | 4 | approve | Read verified seeds not yet started and copy both manual intake commands ([Approve](approve.md)). |
 | 5 | watch | Read runs with their matched goals in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
@@ -137,11 +137,13 @@ protect disclosure, wrapping, safe rendering and visible recovery.
 Approve prepares manual intake; Watch shows read-only progress. Future Taste supports
 evidence-based review. Use session, run, ledger and PR artifacts, not harness
 self-report. Missing sources stay unknown. Add no run-now, skip-review or global
-auto-merge switch. Future launching requires separate Seed Me confirmation and
+auto-merge switch. Future launching requires separate seed confirmation and
 externally enforced gates; menu navigation launches no agents.
 
 ## Session discovery
 
+Sessions default to `~/.local/share/tinkery/sessions`;
+[the one-time move](shape-and-handoff.md#continuation-contract) owns retirement of the old root.
 Default roots require absolute, nonempty HOME. Otherwise discovery is unavailable:
 no worker, scan, directory creation or empty-list claim.
 Technical help names `--seed-session-root PATH`. Practice and snapshots still work;

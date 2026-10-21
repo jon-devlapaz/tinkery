@@ -224,13 +224,13 @@ pub(super) struct Running {
 
 impl Running {
     /// Start `work` on `session`.
-    pub(super) fn start(work: Work, skill: PathBuf, session: PathBuf, agent: Arc<Agent>) -> Self {
+    pub(super) fn start(work: Work, session: PathBuf, agent: Arc<Agent>) -> Self {
         let cancelled = Arc::new(AtomicBool::new(false));
         let saved = Arc::new(AtomicBool::new(false));
         let (flag, answered) = (cancelled.clone(), saved.clone());
         let (sender, result) = mpsc::channel();
         std::thread::spawn(move || {
-            let _ = sender.send(run(&work, &skill, &session, &agent, &flag, &answered));
+            let _ = sender.send(run(&work, &session, &agent, &flag, &answered));
         });
         Self {
             cancelled,
@@ -286,7 +286,6 @@ fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
 
 fn run(
     work: &Work,
-    skill: &Path,
     session: &Path,
     agent: &Agent,
     cancelled: &AtomicBool,
@@ -306,9 +305,9 @@ fn run(
                 });
             }
             let version =
-                answering::answer(skill, session, *expected, id, words).map_err(refused(false))?;
+                answering::answer(session, *expected, id, words).map_err(refused(false))?;
             saved.store(true, Ordering::Relaxed);
-            look(skill, session, version, folder, agent, cancelled, true)
+            look(session, version, folder, agent, cancelled, true)
         }
         Work::Respond {
             id,
@@ -325,21 +324,20 @@ fn run(
             let version =
                 answering::respond(session, *expected, id, action).map_err(refused(false))?;
             saved.store(true, Ordering::Relaxed);
-            look(skill, session, version, folder, agent, cancelled, true)
+            look(session, version, folder, agent, cancelled, true)
         }
         Work::Look { expected, folder } => {
-            look(skill, session, *expected, folder, agent, cancelled, false)
+            look(session, *expected, folder, agent, cancelled, false)
         }
         Work::TeachBack { .. } => teach_back::run(work, session, agent, cancelled, saved),
         Work::Confirm { revision, words } => {
-            answering::confirm_seed(skill, session, revision, words).map_err(refused(false))?;
+            answering::confirm_seed(session, revision, words).map_err(refused(false))?;
             Ok(Done::Confirmed)
         }
     }
 }
 
 fn look(
-    skill: &Path,
     session: &Path,
     expected: u64,
     folder: &Path,
@@ -348,7 +346,7 @@ fn look(
     answer_saved: bool,
 ) -> Result<Done, Failure> {
     let fail = |why| Failure { answer_saved, why };
-    let ledger = answering::read(skill, session).map_err(refused(answer_saved))?;
+    let ledger = answering::read(session).map_err(refused(answer_saved))?;
     if ledger.version() != expected {
         return Err(fail(Why::Stale));
     }
@@ -357,10 +355,10 @@ fn look(
     }
     // A decision already recorded, such as an objection, is asked before the model looks for one,
     // and the pre-mortem is put to the operator before any seed, also without a model.
-    if answering::promote(skill, session, expected)
+    if answering::promote(session, expected)
         .map_err(refused(answer_saved))?
         .is_some()
-        || answering::probe(skill, session, expected)
+        || answering::probe(session, expected)
             .map_err(refused(answer_saved))?
             .is_some()
     {
@@ -381,7 +379,7 @@ fn look(
         folder: Some(folder.to_path_buf()),
         ..agent.call.clone()
     };
-    let contract = answering::contract(skill).map_err(refused(answer_saved))?;
+    let contract = answering::contract().map_err(refused(answer_saved))?;
     let instructions = format!("{}\n\nSeed reply guidance for Shape:\n{contract}", prompt());
     let reply = call
         .complete(
@@ -400,8 +398,7 @@ fn look(
         })?;
     match decode(&reply).map_err(|e| fail(Why::Model(e)))? {
         Next::Question(ask) => {
-            answering::ask(skill, session, expected, &ask, folder)
-                .map_err(refused(answer_saved))?;
+            answering::ask(session, expected, &ask, folder).map_err(refused(answer_saved))?;
             Ok(Done::Asked(Asked {
                 withheld: ask.recommendation().filter(|_| ask.hard()),
                 assumed: ask.assumed,
@@ -413,25 +410,13 @@ fn look(
             review,
             found,
         } => {
-            let records =
-                crate::seed_me::ledger::Value::parse(&checks.to_string()).map_err(|_| {
-                    fail(Why::Model(
-                        "The check records could not be read. Retry the step.".into(),
-                    ))
-                })?;
+            let records = crate::seed_me::ledger::Value::from(checks.clone());
             review
                 .validate(&records)
                 .map_err(|why| fail(Why::Model(why)))?;
-            let revision = answering::draft_seed(
-                skill,
-                session,
-                expected,
-                &confirming,
-                &checks,
-                &found,
-                folder,
-            )
-            .map_err(refused(answer_saved))?;
+            let revision =
+                answering::draft_seed(session, expected, &confirming, &checks, &found, folder)
+                    .map_err(refused(answer_saved))?;
             let seed = std::fs::read_to_string(session.join("seed-contract.md")).map_err(|_| {
                 fail(Why::Model(
                     "The draft could not be read. Reopen Shape before trying again.".into(),
@@ -439,7 +424,7 @@ fn look(
             })?;
             answering::teach_back(
                 session,
-                answering::read(skill, session)
+                answering::read(session)
                     .map_err(refused(answer_saved))?
                     .version(),
                 &revision,

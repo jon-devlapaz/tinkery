@@ -33,7 +33,7 @@ fn session_with(
     repo: Option<crate::repo::Repo>,
 ) -> BrainDump {
     let mut a = BrainDump::with_host(host)
-        .with_seed_me("/missing/SKILL.md".into(), None)
+        .with_sessions(None)
         .with_record_root(root.to_path_buf())
         .with_repo(repo);
     a.paste(DUMP);
@@ -388,8 +388,7 @@ fn review_says_confirm_also_saves_the_record_only_when_one_will_be_written() {
         screen.contains("type confirm to save the goal and its record."),
         "{screen}"
     );
-    let mut plain =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut plain = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     plain.paste(DUMP);
     plain.submit();
     settle(&mut plain);
@@ -413,12 +412,6 @@ fn shaping_checks(record: &serde_json::Value) -> usize {
 fn records_keep_the_model_reply_only_for_rejected_checks() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(
-        &skill,
-        "# Seed Me\n### Shape the working draft\nTEST\n### Size gate\n",
-    )
-    .unwrap();
     let program = dir.path().join("pi");
     std::fs::write(&program, r#"#!/usr/bin/env python3
 import json,sys
@@ -429,10 +422,10 @@ if marker=='TEST-BAD':print('TEST not a reading');sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='the work is stuck',done_when='tests pass'),questions=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(PiHost::new(program, "test/model".into(), skill.clone()).unwrap());
+    let host = Arc::new(PiHost::new(program, "test/model".into()).unwrap());
     let root = dir.path().join("TEST-records");
     let mut a = BrainDump::with_host(host)
-        .with_seed_me(skill, None)
+        .with_sessions(None)
         .with_record_root(root.clone());
     a.paste("TEST-BAD");
     a.submit();
@@ -471,12 +464,6 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='t
 fn new_goals_keep_their_own_checks_and_the_standalone_record_setting() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
-    let skill = dir.path().join("SKILL.md");
-    std::fs::write(
-        &skill,
-        "# Seed Me\n### Shape the working draft\nTEST\n### Size gate\n",
-    )
-    .unwrap();
     let program = dir.path().join("pi");
     std::fs::write(&program, r#"#!/usr/bin/env python3
 import json,sys
@@ -486,10 +473,10 @@ marker=r['sources'][0]['text']
 print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work is stuck',done_when='tests pass for '+marker),questions=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(PiHost::new(program, "test/model".into(), skill.clone()).unwrap());
+    let host = Arc::new(PiHost::new(program, "test/model".into()).unwrap());
     let root = dir.path().join("TEST-records");
     let mut first = BrainDump::with_host(host.clone())
-        .with_seed_me(skill.clone(), None)
+        .with_sessions(None)
         .with_record_root(root.clone());
     first.paste("ALPHA");
     first.submit();
@@ -517,7 +504,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
         (
             "BRAVO",
             BrainDump::with_host(host)
-                .with_seed_me(skill, None)
+                .with_sessions(None)
                 .with_record_root(root.clone()),
         ),
         ("CHARLIE", first.fresh_factory()()),

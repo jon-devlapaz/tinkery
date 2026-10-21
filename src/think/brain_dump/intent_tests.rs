@@ -12,8 +12,7 @@ const HEAD: &str =
     "I keep field notes.\nWhy: signal drops.\nDone when: a week of notes syncs later.";
 /// Decoded and verified through the same path as a provider reply.
 fn app(raw: serde_json::Value) -> BrainDump {
-    let mut a =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     a.conversation.sources_mut().push(Source {
         id: 1,
         text: SOURCE.into(),
@@ -341,8 +340,7 @@ impl BoardHost for Missing {
     }
 }
 fn missing(part: Part) -> BrainDump {
-    let mut a = BrainDump::with_host(Arc::new(Missing { part }))
-        .with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(Arc::new(Missing { part })).with_sessions(None);
     a.paste(SOURCE);
     a.submit();
     settle(&mut a);
@@ -357,6 +355,10 @@ fn screens(a: &mut BrainDump) -> Vec<String> {
 }
 /// Review lists every open item, and readiness is not needed to try saving.
 fn review_lists_and_saves(a: &mut BrainDump, open: &[&str]) {
+    let blocked = tempfile::tempdir().unwrap();
+    let file = blocked.path().join("TEST-not-a-folder");
+    std::fs::write(&file, "TEST blocker").unwrap();
+    a.handoff.config = Some(seed_me::Config::new(Some(file)));
     a.review_goal();
     let mut seen = String::new();
     for _ in 0..30 {
@@ -497,8 +499,8 @@ impl BoardHost for FailsAfterFirst {
 }
 #[test]
 fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
-    let mut a = BrainDump::with_host(Arc::new(FailsAfterFirst(Default::default())))
-        .with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a =
+        BrainDump::with_host(Arc::new(FailsAfterFirst(Default::default()))).with_sessions(None);
     a.paste(SOURCE);
     a.submit();
     settle(&mut a);
@@ -596,8 +598,7 @@ fn clause_splitting_stays_linear_on_many_initials() {
 }
 #[test]
 fn a_cancelled_first_reading_offers_f2_retry_not_more_typing() {
-    let mut a =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     a.conversation.sources_mut().push(Source {
         id: 1,
         text: SOURCE.into(),

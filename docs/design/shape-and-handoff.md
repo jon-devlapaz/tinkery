@@ -1,21 +1,19 @@
 # Tend and handoff
 
 Tend holds saved goals; [Shape](#shape) asks its questions with an explicit
-model and budget. The copied prompt supports continuation outside Tinkery.
+model and budget. There is no skill continuation prompt; continue the saved goal in Shape.
 
 ## Receipt
 
 Explicit successful saving shows `Saved.`, the exact frozen goal block and
 `Next: shape it into a seed in Shape.`
 
-- `c copy prompt` sends OSC 52 with quiet, retryable write feedback, not verified
-  host-clipboard success; see [clipboard support](../terminal-setup.md#clipboard-osc-52).
 - `s open in tend` opens this session's detail, not the garden.
 - F10 returns to the menu, including from standalone Think.
 
 Nothing launches, opens a browser, pastes into a harness or starts implementation.
 Paths belong in F1 then `h`, with the [think record](think.md#think-record) below
-Seed Me's path. If recording fails, the goal stays saved; help and a muted receipt
+the session path. If recording fails, the goal stays saved; help and a muted receipt
 notice disclose the gap. Notices wrap without clipping in receipt and detail.
 The plain-text exit receipt may include recovery locations.
 
@@ -53,7 +51,7 @@ Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
 Needs lines join only active, uniquely identified endpoints. Missing, ambiguous or
 ended endpoints draw no line; the selected-line summary still names them. Straight
 lines leave gaps around unrelated rings, never implied junctions or routed paths.
-Seed Me sessions stay read-only; linking writes only Tend's store.
+Saved sessions stay read-only; linking writes only Tend's store.
 
 Ended sessions are omitted. `N ended not shown` and
 `Links couldn't be read. F1 then h for details.` share the muted incomplete-read
@@ -102,8 +100,7 @@ keep zoom and pan. Resize reflows slots with relative zoom and pan retained.
 Following selection may pan again.
 
 Detail uses the receipt's shared renderer for the exact stored goal, without
-`Saved.`. ↑↓, `j k`, PgUp or PgDn scroll (a page moves the view less one row); `c` copies on permitted stages, `s`
-opens Shape on those stages, and `r` opens history. Esc goes detail → garden →
+`Saved.`. ↑↓, `j k`, PgUp or PgDn scroll (a page moves the view less one row); `s` opens Shape on permitted stages, and `r` opens history. Esc goes detail → garden →
 menu; F10 goes to the menu. F1 opens help; `h` opens technical details. Returning from Shape
 requests a fresh read and restores this goal's detail; next step and garden stage
 update together. Ended or unreadable sessions disappear from active goals. Returning
@@ -118,7 +115,7 @@ writes nothing and calls no model.
 
 File-only discovery never verifies seed confirmation: even a legitimately confirmed,
 unchanged seed says `seed needs checking`. Missing receipts or changed seeds cannot
-claim readiness. Copying and Shape remain available; only Shape's Tinkery-owned
+claim readiness. Shape remains available; only Shape's Tinkery-owned
 status verifier can say ready. Discovery invokes no helper or duplicate verification.
 Unknown and practice stages stay distinct.
 
@@ -148,14 +145,18 @@ to the saving folder. One background reader lasts the menu's lifetime. Pending
 requests coalesce; leaving discards results. A stuck read occupies that worker,
 but never blocks navigation or starts another. Reopening explicitly requests a read.
 
-The shared reader requires one schema-2 or schema-3 record matching canonical session path,
-Seed Me session ID and exact confirmed goal, then rechecks the selected session.
+The shared reader requires one schema-2 or schema-3 record matching the ledger session ID
+and exact confirmed goal, then rechecks the selected session and live-ID uniqueness.
 Duplicate matches refuse selection. Matching schema-1 records lack exact attribution;
 never migrate or guess from text. Unreadable or unsupported JSON may hide another
 match, so it prevents selection. Each file is limited to 16 MiB; oversized records are
 unavailable, never partial. Missing, unreadable and conflicting history explain
-the gap without changing the goal. Session moves and unfinished-session recording
-are outside this feature.
+the gap without changing the goal. The one-time move rewrites no Think record. A recorded ledger ID remains the authority,
+not the full path or the live folder name. For a path-only record whose old folder is missing,
+compare its final folder name against live ledger IDs. Two live sessions with the same ID
+refuse plainly rather than choose one; current-root identity scans happen off the paint path.
+An existing path without a recorded ID cannot prove attribution. Unfinished-session recording
+remains outside this feature.
 
 ## Linking needs
 
@@ -181,7 +182,7 @@ follows it. Timeout refuses outright; later lock release never retries.
 ## Needs store
 
 `--link-root PATH` selects `needs.json` (default `~/.local/share/tinkery/tend`,
-requiring absolute HOME). Tend never writes Seed Me files. Navigation and copying
+requiring absolute HOME). Tend never writes session files. Navigation and copying
 create no links; landed session reads and starting a pick refresh cached links.
 Painting reads only the cache.
 
@@ -211,19 +212,16 @@ stages are not ready.
 
 ## Continuation contract
 
-One formatter serves receipt and detail. It names the skill and existing session,
-requests `session.py read` and `status` before mutation, preserves the confirmed
-goal, decisions and context, and stops on inactive sessions. It asks Seed Me to draft
-`seed-contract.md` there and obtain explicit confirmation of the displayed revision.
-It neither initializes a replacement nor grants implementation permission. The
-operator pastes it manually into an authorized harness; prompts need paths even
-when ordinary UI does not.
+The former skill-based copy prompt is retired. Receipt and Tend detail open Shape;
+navigation launches nothing and writes no session. Approve and verified Shape seeds
+still copy manual intake commands through [OSC 52](../terminal-setup.md#clipboard-osc-52).
 
-Use official Seed Me helpers, not another schema. Capture and check the destination
-before helper access, always pass `init --root`, and retain it for retries and fresh
-dumps. Never use a second implicit HOME default. [Discovery](menu.md#session-discovery)
-owns root selection. Recovery errors stay explicit. Tests use temporary roots;
-the external CI-pinned Seed Me fixture is neither vendored nor edited here.
+Default sessions live in `~/.local/share/tinkery/sessions`. On the first default-root
+launch, move the old sessions folder once and show a notice. If both roots exist,
+refuse rather than merge or read the old root. Explicit roots never trigger the move.
+The migration renames only the sessions folder, never parses its ledgers and never reads or
+writes Think records. Old-format session folders move byte-for-byte too. History uses the
+identity rule above; no old-root session reader remains.
 
 ### SDLC handoff
 
@@ -270,8 +268,8 @@ Think settles intent; Shape investigates facts, then asks one decision at a time
 with evidence and a suggestion, ending in an operator-confirmed seed.
 
 - Tinkery owns Shape's ledger, seed checks, confirmation, verification and ending;
-  [the accepted design](shape-ledger.md) tracks the migration. Only `contract()`'s installed
-  reference and the copied intake helper flag remain Seed Me dependencies on this path.
+  [the accepted design](shape-ledger.md) records the completed migration. Draft instructions
+  and the seed-contract reference are bundled, with their pinned source recorded in code.
 - Each agent step needs an explicitly labelled key and budget (default zero).
   Manual continuation remains available.
 - Shape never reasks settled Think intent or changes the confirmed goal.
@@ -314,18 +312,18 @@ flagged node as the current question, its unchanged answer and the ledger's reas
 `F2 revise` opens replacement words only for an operator-answered decision; see
 [answering](#answering-and-confirming). Each remaining flag holds confirmation and completion.
 Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
-Tend's `c` with its stage wording; with a model, the key bar names the action.
-Ledger refusals say `Tinkery refused` with the first reason line; missing `--seed-me` and other
-failures are explicit, with reasons and paths in F1. Reads stay off paint paths.
+the next Shape setup or confirmation action; with a model, the key bar names the action.
+Ledger refusals say `Tinkery refused` with the first reason line; other failures
+are explicit, with reasons and paths in F1. Reads stay off paint paths.
 Opening, reading and scrolling write or copy nothing, call no model and leave prompts
 unchanged. Status ignores viewer records and snapshots; it opens no network connection.
 `tinkery seed status --json DIR` prints the intake status without `viewer`, `snapshot` or
 `snapshot_current`; `tinkery seed checks DIR` prints the strict check records. Both are read-only.
 
 Only Seed ready offers `c copy intake`: one line,
-`python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<absolute seed path>' --seed-me-helper '<absolute helper path>'`.
-Both paths are canonical and shell-quoted; the helper is scripts/session.py beside
-the configured Seed Me skill; Tinkery verifies the seed itself. Run from the tink-sdlc repository
+`python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<absolute seed path>' --tinkery '<absolute Tinkery executable>'`.
+Both paths are canonical and shell-quoted; the executable is this running Tinkery binary.
+Tinkery verifies the seed itself. Run from the tink-sdlc repository
 root after replacing the visible `<run>` placeholder. If either copy path cannot
 be resolved or represented on one safe line, the verified seed stays readable but
 offers no copy. It uses Tend's OSC 52 route and `Copied.` / `Couldn't
@@ -367,7 +365,7 @@ run stays outside Shape.
 
 ### Answering and confirming
 
-With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
+With `--shape-pi` and `--model`, only these stages accept actions:
 
 | Stage | Words | Key/action |
 | --- | --- | --- |
@@ -422,7 +420,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Pi runs one explicitly selected model with read-only `read`, `grep`, `find`, `ls`
   tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
-  Seed Me's editable ledger. Replies require typed `found` entries (see
+  the editable ledger. Replies require typed `found` entries (see
   [grounding](#grounding-in-the-repository)) plus a next question and suggestion, or seed summary, prose sections
   and separate typed `review` and final `checks` fields;
   anything else is a model error. A question may include optional `prerequisites`, a list
@@ -439,7 +437,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 - Tinkery, never the model, publishes answers and questions with the displayed version
   or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
-- Seed Me's [seed contract](https://github.com/jon-devlapaz/seed-me/blob/main/skills/seed-me/references/seed-contract.md)
+- Tinkery's bundled copy of the [seed contract source](https://github.com/jon-devlapaz/seed-me/blob/c9d766760dbeac0c05c92108165f9e968bec0a66/skills/seed-me/references/seed-contract.md)
   defines the artifact. Tinkery's ledger owns its canonical Full heading sequence;
   the reply fields and writer derive from that one layout. The model supplies
   `confirming` as an object: `You are confirming` contains exactly five non-empty
@@ -455,7 +453,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   Refusals name the rule and field, plus the offending line for structural text.
   A historical Markdown reply beginning `## You are confirming` is refused naming
   `confirming`, never with a generic format error.
-  Shape attaches the installed reference's section content guidance and check schema,
+  Shape attaches the bundled reference's section content guidance and check schema,
   not its instructions to write or paste artifact headings. The prompt defers to the
   generated field instructions, so there is no competing model-written layout.
   Tinkery writes every heading, `status: draft`, the goal-headline title,
@@ -482,7 +480,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   `If <case>, <statement> must fail.` line per failure case. Only the review for these
   exact draft bytes is shown. No check is run and F2's existing call budget is unchanged.
 - The separate final `checks` field carries every confirmed `Done when` line with
-  its qualifiers as records in Seed Me's installed contract, not model-formatted
+  its qualifiers as records in the bundled contract, not model-formatted
   criteria. Tinkery's ledger stores those records unchanged and
   validates required fields, kinds, unknown fields and repository-relative
   `cwd`. Invalid records refuse drafting. There is no Markdown-criteria writing
@@ -530,13 +528,13 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 
 A question reply may give exactly two options, each with its trade-off and undo cost (`cheap`,
 `moderate` or `hard`), the strongest case against the suggestion, and a confidence. Anything
-else gives no options. Seed Me's ledger has no options field, so Tinkery records them as
+else gives no options. The ledger has no options field, so Tinkery records them as
 `Option A:`/`Option B:` lines, then `Against my suggestion:`, under the question text, and reads them back from there.
 The ledger has no separate confidence field. Reply confidence is not stored or shown;
 Shape renders the recorded suggestion, not the transient reply. No schema field is added.
 None of the options or case against reaches the seed.
 
-- When either option is `hard`, Seed Me's instinct-first rule applies: the question is recorded
+- When either option is `hard`, The instinct-first rule applies: the question is recorded
   without its recommendation, and Shape shows the question and its finding with
   `This is hard to undo, so what's your instinct? F9 shows the options and my suggestion.`
 - `F9 show me` records the withheld suggestion through `publish`, then shows the options, the case
@@ -546,7 +544,7 @@ None of the options or case against reaches the seed.
 
 ### Probes
 
-Seed Me requires at least three probes before a seed, with at least one put to the operator
+Drafting requires at least three probes before a seed, with at least one put to the operator
 before any finding is shown. Shape puts the pre-mortem to the operator itself.
 
 - With no current question and no `probe-pre-mortem` node, a step records `Probe: pre-mortem`
@@ -563,14 +561,14 @@ before any finding is shown. Shape puts the pre-mortem to the operator itself.
 ### Assumptions
 
 A step may list up to five defaults it chose instead of asking, where either answer leaves the
-work, risk, cost, reversibility and behavior about the same. Tinkery adds them to Seed Me's
+work, risk, cost, reversibility and behavior about the same. Tinkery adds them to the ledger's
 `assumed` list with the question (once per text) and shows them under that question only, headed
 `I'll assume these unless you object:`, each with its why. An assumption is never an answer.
 
 - `F7 object` then the assumption's number takes it off `assumed` and records an open decision,
   `Instead of assuming`, which blocks drafting. Esc says `Nothing was changed.`; other keys do
   nothing while asked. A refusal shows Tinkery's first line and keeps the list.
-- Seed Me's entries are exactly `{text, why}`, so "shown" lives with the question in this run,
+- The ledger's entries are exactly `{text, why}`, so "shown" lives with the question in this run,
   not in the ledger; the seed's Assumed block always lists what remains.
 - With no current question, a step first makes the first ready open decision current, without a
   model call or budget, so an objection (or any recorded open decision) is asked before a new one.
@@ -578,7 +576,7 @@ work, risk, cost, reversibility and behavior about the same. Tinkery adds them t
 ### Ending a session
 
 Ending is for good: Tinkery makes the session read-only and Tend stops listing it,
-which Tend's readiness needs. It needs only `--seed-me`, never a model or budget.
+which Tend's readiness needs. It needs no model or budget.
 
 - `F6 end session` on an active Seed ready completes it; `F8 stop` on a question,
   waiting or draft stops it, keeping open questions recorded and typed words unsaved.
@@ -650,9 +648,8 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 ## Rationale and verification
 
 [Tests](../../tests) cover these contracts with stubs and temporary TEST roots.
-Shape compares saved drafts with Seed Me and a [pinned consumer section list](../../tests/fixtures/tink-sdlc-intake-sections.txt),
-never an operator's consumer checkout.
-PTYs preserve Seed Me fixture bytes and cover
+Shape checks saved drafts against the bundled contract and a [pinned consumer section list](../../tests/fixtures/tink-sdlc-intake-sections.txt),
+never an operator's consumer checkout. PTYs use Tinkery's real Rust ledger in temporary TEST roots and cover
 80×24, 100×30, 160×40 and 320×40 where applicable, including NO_COLOR. These establish
 mechanics, not operator acceptance or the quality of real goals, questions or seeds. Lock timeout
 coverage does not establish pre-deadline cancellation; matching read-only no-op

@@ -5,7 +5,7 @@ import json
 import os
 import select
 import struct
-import subprocess
+import test_launch as subprocess
 import sys
 import tempfile
 import termios
@@ -54,8 +54,6 @@ def journey(width, height, no_color):
             p.write_text(source)
             p.chmod(0o755)
         (cwd / 'python3').symlink_to(sys.executable)
-        skill = cwd / 'SKILL.md'
-        skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         original = termios.tcgetattr(slave)
@@ -66,8 +64,8 @@ def journey(width, height, no_color):
         else:
             env.pop('NO_COLOR', None)
         process = subprocess.Popen([str(ROOT / 'target/debug/tinkery'), '--shape-pi', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model',
-                                    '--seed-me', str(skill), '--pi-command', str(cwd / 'pi')],
-                                   stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=env)
+                                    '--pi-command', str(cwd / 'pi')],
+                                   stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(env))
 
         def pump():
             if select.select([master], [], [], .02)[0]:
@@ -165,7 +163,7 @@ def journey(width, height, no_color):
             original[3] &= ~getattr(termios, 'PENDIN', 0)
             after[3] &= ~getattr(termios, 'PENDIN', 0)
             assert after == original
-            assert {p.name for p in cwd.iterdir()} == {'node', 'pi', 'python3', 'SKILL.md', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-closed.txt', 'node-ready.txt'}
+            assert {p.name for p in cwd.iterdir()} == {'node', 'pi', 'python3', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-closed.txt', 'node-ready.txt'}
             print(json.dumps(dict(width=width, height=height, no_color=no_color, journey='current cursor/stop/F2/cancel/alias/review/EOF/reap', pi_calls=0, microphone=False, node_runtime=False)))
         finally:
             if process.poll() is None:

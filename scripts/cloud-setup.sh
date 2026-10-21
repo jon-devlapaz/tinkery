@@ -4,20 +4,6 @@ set -euo pipefail
 fail() { printf 'cloud setup: %s\n' "$*" >&2; exit 1; }
 [[ $(uname -s) == Linux ]] || fail 'Linux only; provision macOS prerequisites manually (see AGENTS.md).'
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-fixture="$repo/.ci-seed-me"
-remote=https://github.com/jon-devlapaz/seed-me.git
-ref=$(awk '$1 == "repository:" && $2 == "jon-devlapaz/seed-me" { found=1; next }
-  found && $1 == "ref:" { print $2; exit }' "$repo/.github/workflows/ci.yml")
-[[ $ref =~ ^[0-9a-f]{40}$ ]] || fail 'CI must specify one full Seed Me commit SHA.'
-
-# Reject unrelated or dirty checkouts before fetching packages or changing tools.
-if [[ -e $fixture ]]; then
-  [[ -d $fixture/.git ]] || fail '.ci-seed-me exists but is not a Git checkout; move it aside yourself.'
-  [[ $(git -C "$fixture" remote get-url origin) == "$remote" ]] || fail '.ci-seed-me has an unexpected origin; leaving it untouched.'
-  status=$(git -C "$fixture" status --porcelain) || fail 'Cannot read .ci-seed-me status; leaving it untouched.'
-  [[ -z $status ]] || fail '.ci-seed-me is dirty; leaving it untouched.'
-fi
-
 missing=false
 for cmd in curl python3 cc make ar tar xz sha256sum; do
   command -v "$cmd" >/dev/null || missing=true
@@ -62,25 +48,6 @@ python3 --version
 rustc +stable --version
 cargo +stable clippy --version
 
-if [[ ! -d $fixture/.git ]]; then
-  git init -q "$fixture"
-  git -C "$fixture" remote add origin "$remote"
-fi
-git -C "$fixture" fetch --depth=1 origin "$ref"
-git -C "$fixture" checkout --detach --quiet FETCH_HEAD
-[[ $(git -C "$fixture" rev-parse HEAD) == "$ref" ]] || fail 'Seed Me checkout did not match the CI pin.'
-[[ -f $fixture/skills/seed-me/SKILL.md ]] || fail 'Pinned fixture has no Seed Me skill.'
-# Official Python helpers create bytecode caches; ignore only those generated files.
-python3 - "$fixture/.git/info/exclude" <<'PY'
-from pathlib import Path
-import sys
-path = Path(sys.argv[1])
-if '__pycache__/' not in path.read_text().splitlines():
-    with path.open('a') as file:
-        file.write('\n__pycache__/\n')
-PY
-
 printf '\nSetup complete. Set these in your current shell, then run the AGENTS.md verification block:\n'
 printf 'export PATH=%q:"$PATH"\n' "${CARGO_HOME:-$HOME/.cargo}/bin:$tools/node/bin"
-printf 'export SEED_ME_TEST_SKILL=%q\n' "$fixture/skills/seed-me/SKILL.md"
 printf 'export TINKERY_NODE=/tinkery-TEST-no-node\n'

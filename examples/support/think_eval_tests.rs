@@ -54,12 +54,12 @@ fn explicit_input_is_required_and_pi_options_need_live() {
         &["--provider", "pi"],
         &["--pi-command", "pi"],
         &["--live"],
-        &["--live", "--model", "a/b"],
-        &["--live", "--seed-me", "S.md"],
+        &["--live", "--model", "a/b", "--seed-me", "S.md"],
+        &["--live", "--live"],
     ] {
         assert!(parse(extra).is_err(), "{extra:?}");
     }
-    let live = parse(&["--live", "--model", "a/b", "--seed-me", "S.md"]).unwrap();
+    let live = parse(&["--live", "--model", "a/b"]).unwrap();
     assert_eq!(live.live.unwrap().pi_command, PathBuf::from("pi"));
     let mut data = dataset();
     data["provider"] = json!("real");
@@ -360,11 +360,7 @@ impl FakePi {
         )
         .unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::write(
-            root.path().join("SKILL.md"),
-            "# Seed Me\n\n### Shape the working draft\nTEST DRAFT INSTRUCTIONS\n\n### Size gate\nNOT USED\n",
-        )
-        .unwrap();
+
         Self { root }
     }
     fn starts(&self) -> usize {
@@ -382,7 +378,6 @@ impl FakePi {
             live: Some(Live {
                 pi_command: self.root.path().join("pi"),
                 model: "test/fake-model".into(),
-                seed_me: self.root.path().join("SKILL.md"),
                 thinking: "low".into(),
             }),
         }

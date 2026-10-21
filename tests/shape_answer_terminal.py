@@ -1,21 +1,19 @@
-"""Shape answering journeys (#150, #159): a stub Pi, real Seed Me helper sessions in TEST roots, no model calls.
+"""Shape answering journeys (#150, #159): a stub Pi, real Rust ledger sessions in TEST roots, no model calls.
 
 The full journey confirms a goal in Think, opens Shape from tend, sees which folder the step reads and
 picks another, looks into the first question, answers it, sees the second step build on the saved
-finding, and confirms the drafted seed with Seed Me's canonical sections. Short cases cover the zero budget, a stale version, a
+finding, and confirms the drafted seed with the ledger's canonical sections. Short cases cover the zero budget, a stale version, a
 model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
 seed finding that looks like a secret, a practice session's confirmation, a citation that isn't in the folder,
 and steps that found nothing."""
-import fcntl, hashlib, importlib.util, json, os, select, signal, struct, subprocess, tempfile, termios, time
+import fcntl, hashlib, importlib.util, json, os, select, signal, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
 BINARY = REPO / 'target/debug/tinkery'
-SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
-spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
-helper = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(helper)
+import session_fixture as helper
 F1, F2, F3, F10 = b'\x1bOP', b'\x1bOQ', b'\x1bOR', b'\x1b[21~'
 F6, F7, F8, F9 = b'\x1b[17~', b'\x1b[18~', b'\x1b[19~', b'\x1b[20~'
 F11, F12 = b'\x1b[23~', b'\x1b[24~'
@@ -177,15 +175,14 @@ class Run:
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         self.screen = Screen(width, height)
-        args = [str(BINARY), '--home', '--shape-pi', '--model', 'test/model', '--seed-me', str(SKILL),
-                '--seed-session-root', str(self.sessions), '--record-root', str(self.records),
+        args = [str(BINARY), '--home', '--shape-pi', '--model', 'test/model', '--seed-session-root', str(self.sessions), '--record-root', str(self.records),
                 '--link-root', str(cwd / 'TEST-links'), '--pi-command', str(host)]
         if budget is not None:
             args += ['--shape-budget', str(budget)]
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node',
                'TINKERY_TEST_DIR': str(cwd)}
         self.process = subprocess.Popen(args, stdin=self.slave, stdout=self.slave, stderr=self.slave,
-                                        cwd=cwd, env=env)
+                                        cwd=cwd, env=subprocess.environment(env))
 
     def flat(self):
         return ' '.join(self.screen.text().split())
@@ -248,17 +245,6 @@ class Run:
         if self.process.poll() is None:
             self.process.kill()
             self.process.wait()
-        for session in self.sessions.glob('*'):
-            record = session / 'viewer.json'
-            if record.exists():
-                pid = json.loads(record.read_text()).get('pid')
-                if pid:
-                    command = subprocess.run(['ps', '-p', str(pid), '-o', 'command='], capture_output=True, text=True)
-                    if str(SKILL.parent / 'scripts/viewer.py') in command.stdout:
-                        try:
-                            os.kill(pid, signal.SIGTERM)
-                        except ProcessLookupError:
-                            pass
         os.close(self.master)
         os.close(self.slave)
 

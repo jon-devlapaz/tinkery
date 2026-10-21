@@ -22,11 +22,10 @@ pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub(crate) use storage::save_draft;
 pub use storage::{
-    PublishError, SaveState, confirm_seed, confirm_with_teach_back, end, publish,
+    PublishError, SaveState, confirm_seed, confirm_with_teach_back, end, initialize, publish,
     record_teach_back, respond, revalidate, set_checks,
 };
 mod python;
-mod unicode;
 mod value;
 pub use value::Value;
 
@@ -589,6 +588,7 @@ fn visit(
 /// Read today's ledger without rewriting it. Unknown schemas, inconsistent frontiers and
 /// malformed helper history refuse; duplicate JSON keys keep their first position and last value.
 pub fn load(directory: &Path) -> Result<Value> {
+    super::migration::refuse_old_root(directory)?;
     let input =
         std::fs::read_to_string(directory.join("ledger.json")).map_err(|e| e.to_string())?;
     let input = input.replace("\r\n", "\n").replace('\r', "\n");

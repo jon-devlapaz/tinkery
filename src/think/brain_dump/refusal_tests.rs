@@ -115,7 +115,10 @@ fn other_review_refusals_name_their_own_reason() {
         let mut a = BrainDump::with_host(Arc::new(Simulated));
         a.conversation = board().conversation;
         key(&mut a, KeyCode::F(3));
-        assert!(shown(&mut a, w, h, false).contains("Saving a goal needs real mode and Seed Me."));
+        assert!(
+            shown(&mut a, w, h, false)
+                .contains("Saving a goal needs real mode and a sessions folder.")
+        );
         assert!(a.handoff.review.is_none());
     }
 }

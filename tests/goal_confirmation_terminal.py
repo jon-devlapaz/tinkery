@@ -1,11 +1,10 @@
-"""Actual binary + official Seed Me helper, isolated TEST roots; no provider charge/browser."""
-import ast,base64,fcntl,json,os,re,select,struct,subprocess,sys,tempfile,termios,time
+"""Actual binary + Rust ledger, isolated TEST roots; no provider charge/browser."""
+import ast, base64, fcntl, json, os, re, select, struct, sys, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 REPO=Path(__file__).resolve().parents[1]
 BINARY=REPO/'target/debug/tinkery'
-SKILL=Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
-HELPER=SKILL.parent/'scripts/session.py'
 HOST='''#!/usr/bin/env python3
 import json,sys
 from pathlib import Path
@@ -17,11 +16,14 @@ if r.get('kind')=='meaning-preservation': print(json.dumps(dict(missing=[],false
 if r.get('kind')=='question-continuity':print('{"repeated":[]}');sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='judge a PR ready for human review as restaurateur while both the harness and codebase compound',why='I retain final judgment',done_when='a PR is ready for human review',must=['human taste'],must_not=['cook','show cost unless it is way off','build a dashboard']),open=['why'],supports=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']],misfits=[],questions=[dict(target='why',id='open',text='Which UI or consequential design checkpoints remain unresolved?')],alternatives=[])))
 '''
+import session_fixture as fixture
+
 def helper(*args):
- p=subprocess.run(['python3',str(HELPER),*map(str,args)],capture_output=True,text=True,check=True);return json.loads(p.stdout)
+ if args[0]=='init':return {'session':str(fixture.create(args[2]))}
+ return getattr(fixture, {'read':'load'}.get(args[0],args[0]))(*args[1:])
 def journey(width,height,home=False,menu_only=False,home_case='absolute',session_case='explicit',in_repo=False):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-goal-') as directory:
-  cwd=Path(directory);root=cwd/'TEST-sessions' if session_case!='default' else cwd/'TEST-home/.local/share/seed-me/sessions'
+  cwd=Path(directory);root=cwd/'TEST-sessions' if session_case!='default' else cwd/'TEST-home/.local/share/tinkery/sessions'
   records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   # Inside a repository, start from a nested folder: Tinkery names the root; stores stay outside it.
   repo=cwd/'TEST-repo';run=repo/'nested' if in_repo else cwd
@@ -36,14 +38,14 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
   if home_case=='unset':environment.pop('HOME')
   elif home_case=='empty':environment['HOME']=''
   elif home_case=='relative':environment['HOME']='TEST-relative-home'
-  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--seed-me',str(SKILL),*root_args,'--record-root',str(records),'--link-root',str(cwd/'TEST-links'),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=run,env=environment)
+  process=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model',*root_args,'--record-root',str(records),'--link-root',str(cwd/'TEST-links'),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=run,env=subprocess.environment(environment, home=(environment)['HOME']))
   raw=bytearray()
   def feed():
    data=os.read(master,65536);raw.extend(data);screen.feed(data)
   def right():
    return ' '.join(' '.join(line[width*48//100+2:].strip() for line in screen.text().splitlines()).split())
   def descendants():
-   rows=subprocess.run(['ps','-axo','pid=,ppid=,command='],capture_output=True,text=True,check=True).stdout.splitlines()
+   rows=subprocess.run(['ps','-axo','pid=,ppid=,command='],capture_output=True,text=True,check=True, env=subprocess.environment()).stdout.splitlines()
    entries=[line.strip().split(None,2) for line in rows]
    found={process.pid};children=set()
    while True:
@@ -88,13 +90,13 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    os.write(master,b'\x1b[6~'*30);await_text('remain unresolved?')
    send(b'confirm\r','Saved.');await_text('Next:')
    assert 'Next: shape it into a seed in Shape.' in right(),screen.text()
-   assert screen.text().splitlines()[-1].strip()=='c copy prompt   s open in tend   F10 menu'
+   assert screen.text().splitlines()[-1].strip()=='s open in tend   F10 menu'
    assert str(root) not in screen.text() and 'seed not written yet' not in screen.text()
    first_goal=right()
    sessions=list(root.iterdir());assert len(sessions)==1
    session=sessions[0].resolve();ledger=helper('read',session);status=helper('status',session)
-   assert ledger['status']=='active' and ledger['operator']=='human';assert status['snapshot_current']
-   assert status['viewer'].startswith('live http://127.0.0.1:'),json.dumps(dict(status=status,screen=screen.text(),viewer_record=json.loads((session/'viewer.json').read_text()) if (session/'viewer.json').exists() else None))
+   assert ledger['status']=='active' and ledger['operator']=='human'
+   assert not any(k in status for k in ('viewer','snapshot','snapshot_current'))
    origin=next(n for n in ledger['nodes'] if n['id']==ledger['origin'])
    assert origin['status']=='settled' and origin['kind']=='decision' and origin['authority']=='user'
    assert origin['answer']==ledger['goal']=='I judge a PR ready for human review as restaurateur while both the harness and codebase compound.\nWhy: I retain final judgment.\nDone when: a PR is ready for human review.\nMust: human taste.\nMust not: cook.\nMust not: show cost unless it is way off.\nMust not: build a dashboard.'
@@ -112,34 +114,31 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert Path(record['seed_me_session_path']) == session
    assert (Path(record['repo']).resolve()==repo.resolve()) if in_repo else record['repo'] is None,record['repo']
    assert 'TEST-repo' not in (run/'provider-requests').read_text(),'the repository reached the provider'
-   assert 'TEST-repo' not in (session/'ledger.json').read_text(),'the repository reached the Seed Me ledger'
+   assert 'TEST-repo' not in (session/'ledger.json').read_text(),'the repository reached the session ledger'
    assert record['goal']==ledger['goal'],(record['goal'],ledger['goal'])
    assert [t['kind'] for t in record['turns']]==['words','asked'],record['turns']
    assert record['turns'][0]['text']==dump and record['turns'][1]['id']=='open'
    assert record['checks'] and all(c['decision']=='pass' for c in record['checks'])
    assert all(c['raw'] is None for c in record['checks']),'a passing check kept the model reply'
-   failed=subprocess.run(['python3',str(HELPER),'end',str(session),'--status','completed','--reason','TEST must refuse incomplete seed'],capture_output=True,text=True)
+   failed=subprocess.run([str(fixture.BINARY)],input=json.dumps(dict(op='end',path=str(session),status='completed',reason='TEST must refuse incomplete seed')),capture_output=True,text=True, env=subprocess.environment())
    assert failed.returncode!=0 and 'seed-contract.md' in failed.stderr
    assert helper('read',session)['status']=='active'
    saved=(session/'ledger.json').read_bytes()
    calls=(run/'provider-calls').read_bytes()
-   launches=(cwd/'python-launches').read_bytes()
-   initialized=[args for args in map(ast.literal_eval,launches.decode().splitlines()) if len(args)>1 and args[1]=='init']
-   expected_root=str(root.resolve()) if session_case=='relative' else str(root)
-   assert initialized==[[str(HELPER),'init','--root',expected_root]],initialized
+   launches=(cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b''
+   assert not any('init' in args for args in map(ast.literal_eval,launches.decode().splitlines())), 'Saving invoked an external session helper'
+   deadline=time.monotonic()+3
    owned=descendants()
-   assert len(owned)==1,owned  # Only the already-started official viewer.
+   while owned and time.monotonic()<deadline:
+    time.sleep(.02)
+    owned=descendants()
+   assert not owned, subprocess.check_output(['ps','-p',','.join(map(str,owned)),'-o','pid=,command='],text=True, env=subprocess.environment()) if owned else owned
    os.write(master,b'\x07confirm\r\x1bOQ\x1bOR\x1bOS\x1b[15~\x1b[17~\x1b[19~\x1b[20~\x0e\x0f\x04q')
    time.sleep(.2)
-   send(b'c','Copied.')
-   matches=re.findall(rb'\x1b\]52;c;([^\x07\x1b]+)(?:\x07|\x1b\\)',bytes(raw))
-   assert matches,bytes(raw)[-3000:]
-   expected=(f'Use the seed-me skill at "{SKILL}" to continue the existing Seed Me session at "{session}". I want to continue this session and shape its confirmed goal into a seed contract.\n\n'
-    "Read the session with the skill's scripts/session.py read and status commands before changing anything. Do not initialize a new session or replace the confirmed goal. Preserve recorded decisions, constraints, exclusions and unresolved context. Tinkery's answered and skipped questions are context, not additional settled Seed Me decisions. If the session is not active, stop and report its status.\n\n"
-    "Follow the skill's interview and viewer lifecycle. Goal confirmation is not seed confirmation or permission to implement. Save the draft as this session's seed-contract.md; ask me to confirm the displayed revision before using session.py seed confirm. Do not start implementation.")
-   assert base64.b64decode(matches[-1]).decode()==expected,(base64.b64decode(matches[-1]).decode(),expected)
+   os.write(master,b'c');time.sleep(.1)
+   assert not re.findall(rb'\x1b\]52;c;',bytes(raw)), 'Retired continuation prompt was copied'
    assert descendants()==owned and (run/'provider-calls').read_bytes()==calls
-   assert (cwd/'python-launches').read_bytes()==launches
+   assert ((cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b'')==launches
    assert (session/'ledger.json').read_bytes()==saved and len(list(root.iterdir()))==1
    assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
    os.write(master,b'\x1b[6~'*30);await_text('Must not: build a dashboard.')
@@ -166,32 +165,24 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    else:
     # Make the target non-first with the official helper, not hand-written canonical files.
     newer=Path(helper('init','--root',root)['session'])
-    send(b's','c copy prompt   s shape   r history   esc back   F10 menu')
+    send(b's','s shape   r history   esc back   F10 menu')
     assert 'tinkery › tend' in screen.text()
     assert 'Saved.' not in screen.text() and 'any harness' not in screen.text()
     assert str(root) not in screen.text() and session.name not in screen.text()
     tend_block=' '.join(screen.text().split())
     for line in ledger['goal'].splitlines(): assert line in tend_block,(line,screen.text())
-    # Copy again after leaving the receipt, and repeat it without launching anything.
-    before=len(re.findall(rb'\x1b\]52;c;([^\x07\x1b]+)(?:\x07|\x1b\\)',bytes(raw)))
-    for extra in [1,2]:
-     os.write(master,b'c');deadline=time.monotonic()+5
-     while time.monotonic()<deadline:
-      if select.select([master],[],[],.02)[0]:feed()
-      copied=re.findall(rb'\x1b\]52;c;([^\x07\x1b]+)(?:\x07|\x1b\\)',bytes(raw))
-      if len(copied)>=before+extra:break
-     assert len(copied)==before+extra and base64.b64decode(copied[-1]).decode()==expected
-    await_text('Copied.')
+    os.write(master,b'c');time.sleep(.1)
+    assert not re.findall(rb'\x1b\]52;c;',bytes(raw))
     send(b'\x1b','↑↓←→ move   enter open   l link   esc back')
     assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
-    send(b'\r','c copy prompt   s shape   r history   esc back   F10 menu')
+    send(b'\r','s shape   r history   esc back   F10 menu')
     assert 'Must not: build a dashboard.' in screen.text()
     send(b'\x1b[21~','think')
    assert (session/'ledger.json').read_bytes()==saved
    assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
-   assert helper('status',session)['viewer']=='started earlier, not running now'
+   assert not (session/'viewer.json').exists()
    assert not descendants() and (run/'provider-calls').read_bytes()==calls
-   assert (cwd/'python-launches').read_bytes()==launches
+   assert ((cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b'')==launches
    os.write(master,b'\x1b[21~');deadline=time.monotonic()+10
    while process.poll() is None and time.monotonic()<deadline:
     if select.select([master],[],[],.02)[0]:feed()
@@ -200,27 +191,14 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     try:feed()
     except OSError:break
    assert ('Think record: '+str(written[0])).encode() in bytes(raw),bytes(raw)[-2000:]
-   assert helper('status',session)['viewer']=='started earlier, not running now'
+   assert not (session/'viewer.json').exists()
    assert helper('read',session)['status']=='active';assert not (session/'seed-contract.md').exists()
-   print(json.dumps(dict(width=width,height=height,provider='stub',helper='official',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['c','s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_stopped=True,session_root='isolated temporary directory',home_case=home_case,session_case=session_case,in_repo=in_repo)))
+   print(json.dumps(dict(width=width,height=height,provider='stub',ledger='Rust',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_started=False,session_root='isolated temporary directory',home_case=home_case,session_case=session_case,in_repo=in_repo)))
   finally:
    if process.poll() is None:process.kill();process.wait()
-   # If an assertion failed, stop only the viewer recorded by this TEST session.
-   if root.exists():
-    for s in root.iterdir():
-     record=s/'viewer.json'
-     if record.exists():
-      pid=json.loads(record.read_text()).get('pid')
-      if pid:
-       command=subprocess.run(['ps','-p',str(pid),'-o','command='],capture_output=True,text=True)
-       if str(SKILL.parent/'scripts/viewer.py') in command.stdout and str(s.resolve()) in command.stdout:
-        try:os.kill(pid,15)
-        except ProcessLookupError:pass
    os.close(master);os.close(slave)
 for home in [False,True]:journey(80,24,home=home,session_case='default')
-for home in [False,True]:journey(80,24,home=home,home_case='unset',session_case='relative')
-for home_case in ['unset','empty','relative']:
- for home in [False,True]:journey(80,24,home=home,home_case=home_case)
+# Unsafe HOME launches are refused by test_launch; its mock-only suite covers them.
 for home in [False,True]:
  for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size,home=home)
  journey(80,24,home=home,menu_only=True)

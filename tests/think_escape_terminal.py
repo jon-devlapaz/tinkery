@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import select
 import struct
-import subprocess
+import test_launch as subprocess
 import tempfile
 import termios
 import time
@@ -24,7 +24,7 @@ def journey(width, height):
         process = subprocess.Popen(
             [str(BINARY), '--home'],
             stdin=slave, stdout=slave, stderr=slave, cwd=root,
-            env={**os.environ, 'HOME': str(root), 'TERM': 'xterm-256color'},
+            env=subprocess.environment({**os.environ, 'HOME': str(root), 'TERM': 'xterm-256color'}, home=({**os.environ, 'HOME': str(root), 'TERM': 'xterm-256color'})['HOME']),
         )
 
         def wait(check):
@@ -60,7 +60,7 @@ def journey(width, height):
             os.write(master, b'q')
             process.wait(timeout=5)
             assert process.returncode == 0
-            assert not (root / '.local/share/seed-me/sessions').exists(), 'Escape saved a goal'
+            assert not (root / '.local/share/tinkery/sessions').exists(), 'Escape saved a goal'
             assert not (root / '.local/share/tinkery/think').exists(), 'Escape wrote a record'
             print(json.dumps(dict(width=width, height=height, provider='none',
                                   journey='home/think/Escape/reopen/unsaved guard/decline/discard/reopen')))

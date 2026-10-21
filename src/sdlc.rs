@@ -52,6 +52,7 @@ impl Seed {
 
     /// True only for the canonical source path and the bytes recorded at intake.
     pub(crate) fn matches(&self, path: &Path) -> Result<bool, String> {
+        crate::seed_me::migration::refuse_old_root(path)?;
         let path = path
             .canonicalize()
             .map_err(|e| format!("Cannot locate the original seed: {e}"))?;

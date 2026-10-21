@@ -1,63 +1,64 @@
-"""Run after cargo build: python3 tests/terminal_smoke.py (POSIX)."""
+"""Noninteractive CLI checks; every actual launch has a temporary guarded TEST HOME."""
 from pathlib import Path
 import os
-import subprocess
 import tempfile
 
-BINARY = Path(__file__).resolve().parents[1] / "target/debug/tinkery"
+import test_launch as subprocess
 
-for arguments in (["--help"], ["--snapshot"], ["--no-color", "--snapshot"]):
-    result = subprocess.run([str(BINARY), *arguments], capture_output=True, check=True)
-    assert b"\x1b" not in result.stdout, "Noninteractive mode emitted terminal escapes"
+BINARY = Path(__file__).resolve().parents[1] / 'target/debug/tinkery'
+ENV = subprocess.environment()
 
-result = subprocess.run([str(BINARY), "--help"], capture_output=True, check=True)
-assert b"prototype" not in result.stdout, "Help still calls Tinkery a prototype"
-assert b"--workbench" not in result.stdout, "Help still lists the removed demo"
-assert b"--no-color   Turn off colors" in result.stdout, "Help misdescribes --no-color"
+for arguments in (['--help'], ['--snapshot'], ['--no-color', '--snapshot']):
+    result = subprocess.run([str(BINARY), *arguments], env=ENV, capture_output=True, check=True)
+    assert b'\x1b' not in result.stdout, 'Noninteractive mode emitted terminal escapes'
 
-result = subprocess.run([str(BINARY)], capture_output=True)
-assert result.returncode != 0 and b"needs a terminal" in result.stderr
-result = subprocess.run([str(BINARY), "--unknown"], capture_output=True)
-assert result.returncode != 0 and b"unknown argument" in result.stderr
-for removed in ("--scratchpad", "--workbench"):
-    result = subprocess.run([str(BINARY), removed], capture_output=True)
-    assert result.returncode != 0 and f"unknown argument: {removed}".encode() in result.stderr, f"The removed {removed} is still reachable"
+result = subprocess.run([str(BINARY), '--help'], env=ENV, capture_output=True, check=True)
+assert b'prototype' not in result.stdout
+assert b'--workbench' not in result.stdout
+assert b'--no-color   Turn off colors' in result.stdout
+
+result = subprocess.run([str(BINARY)], env=ENV, capture_output=True)
+assert result.returncode != 0 and b'needs a terminal' in result.stderr
+result = subprocess.run([str(BINARY), '--unknown'], env=ENV, capture_output=True)
+assert result.returncode != 0 and b'unknown argument' in result.stderr
+for removed in ('--scratchpad', '--workbench', '--seed-me'):
+    result = subprocess.run([str(BINARY), removed], env=ENV, capture_output=True)
+    assert result.returncode != 0 and f'unknown argument: {removed}'.encode() in result.stderr
 for arguments, error in [
-    (["--shape-pi"], b"requires an explicit --model"),
-    (["--model", "test/model"], b"require --shape-pi"),
-    (["--thinking", "low"], b"require --shape-pi"),
-    (["--record-root", ""], b"--record-root needs a folder"),
-    (["--shape-pi", "--model", "test/model"], b"requires --seed-me"),
-    (["--shape-pi", "--model", "bare", "--seed-me", "/nonexistent/SKILL.md"], b"explicit --model provider/model-id"),
+    (['--shape-pi'], b'requires an explicit --model'),
+    (['--model', 'test/model'], b'require --shape-pi'),
+    (['--thinking', 'low'], b'require --shape-pi'),
+    (['--record-root', ''], b'--record-root needs a folder'),
+    (['--shape-pi', '--model', 'bare'], b'explicit --model provider/model-id'),
 ]:
-    result = subprocess.run([str(BINARY), *arguments], capture_output=True)
+    result = subprocess.run([str(BINARY), *arguments], env=ENV, capture_output=True)
     assert result.returncode != 0 and error in result.stderr, (arguments, result.stderr)
-    assert b"\x1b" not in result.stdout, "Invalid configuration entered terminal mode"
-# No HOME means no default record folder: refuse rather than write under the current folder.
-pi = ["--shape-pi", "--model", "test/model", "--seed-me", "/nonexistent/TEST-SKILL.md"]
-no_home = {k: v for k, v in os.environ.items() if k != "HOME"}
-for env in (no_home, {**no_home, "HOME": ""}, {**no_home, "HOME": "TEST-relative"}):
-    result = subprocess.run([str(BINARY), *pi], capture_output=True, env=env)
-    assert result.returncode != 0 and b"pass --record-root PATH" in result.stderr, (env.get("HOME"), result.stderr)
-result = subprocess.run([str(BINARY), *pi, "--record-root", "/tmp/tinkery-TEST-records"], capture_output=True, env=no_home)
-assert result.returncode != 0 and b"pass --seed-session-root PATH" in result.stderr, result.stderr
-result = subprocess.run([str(BINARY), *pi, "--record-root", "/tmp/tinkery-TEST-records", "--seed-session-root", "/tmp/tinkery-TEST-sessions"], capture_output=True, env=no_home)
-assert result.returncode != 0 and b"HOME" not in result.stderr, result.stderr
-for arguments in (["--snapshot"], ["--home", "--snapshot"]):
-    subprocess.run([str(BINARY), *arguments], capture_output=True, check=True, env=no_home)
-# Tend's destination is independent of live drafting, and never created by navigation/snapshots.
-with tempfile.TemporaryDirectory(prefix="tinkery-TEST-link-cli-") as directory:
+    assert b'\x1b' not in result.stdout
+
+# Invalid-HOME scenarios now stop at the test boundary, never by executing Tinkery.
+# Rust's pure root tests retain the application-level invalid-HOME contracts.
+no_home = {key: value for key, value in ENV.items() if key != 'HOME'}
+for env in (no_home, {**no_home, 'HOME': ''}, {**no_home, 'HOME': 'TEST-relative'}):
+    for arguments in (['--snapshot'], ['--home', '--snapshot'],
+                      ['--shape-pi', '--model', 'test/model']):
+        try:
+            subprocess.run([str(BINARY), *arguments], env=env, capture_output=True)
+        except subprocess.UnsafeTestHome:
+            pass
+        else:
+            raise AssertionError('Unsafe HOME bypassed the shared test launch guard')
+
+with tempfile.TemporaryDirectory(prefix='tinkery-TEST-link-cli-') as directory:
     root = Path(directory)
-    for home in (no_home, {**no_home, "HOME": ""}, {**no_home, "HOME": "TEST-relative"}):
-        for entry in ([], ["--home"]):
-            result = subprocess.run([str(BINARY), *entry, "--snapshot",
-                                     "--seed-session-root", str(root / "TEST-sessions"),
-                                     "--link-root", str(root / "TEST-links")],
-                                    capture_output=True, env=home)
-            assert result.returncode == 0, result.stderr
-    for arguments in (["--link-root"], ["--link-root", ""]):
-        result = subprocess.run([str(BINARY), *arguments], capture_output=True, env=no_home)
-        assert result.returncode != 0 and b"--link-root needs a folder" in result.stderr
-    assert not (root / "TEST-links").exists()
-assert b"--link-root PATH" in subprocess.check_output([str(BINARY), "--help"])
-print("PASS: noninteractive modes, removed entry points, explicit CLI errors, HOME refusal and practice link roots")
+    for entry in ([], ['--home']):
+        result = subprocess.run([str(BINARY), *entry, '--snapshot',
+                                 '--seed-session-root', str(root / 'TEST-sessions'),
+                                 '--link-root', str(root / 'TEST-links')],
+                                env=ENV, capture_output=True)
+        assert result.returncode == 0, result.stderr
+    for arguments in (['--link-root'], ['--link-root', '']):
+        result = subprocess.run([str(BINARY), *arguments], env=ENV, capture_output=True)
+        assert result.returncode != 0 and b'--link-root needs a folder' in result.stderr
+    assert not (root / 'TEST-links').exists()
+assert b'--link-root PATH' in subprocess.check_output([str(BINARY), '--help'], env=ENV)
+print('PASS: guarded TEST-HOME CLI modes, removed flags, explicit errors and practice link roots')

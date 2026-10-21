@@ -1,4 +1,4 @@
-//! Changing a session as the operator works through Seed Me's interview: their answer, the next
+//! Changing a session as the operator works through the seed interview: their answer, the next
 //! question an agent drafted with the defaults it assumed, what a step found, an objection to an
 //! assumption, a seed draft, the operator's seed confirmation, and ending the session when the
 //! operator says so. A recorded open decision is asked before any new one.
@@ -44,7 +44,7 @@ impl std::fmt::Display for Refusal {
     }
 }
 
-/// A question an agent drafted, as Seed Me records it. Its id is made unique when it's added.
+/// A question an agent drafted, as the ledger records it. Its id is made unique when it's added.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ask {
     /// A short id for the decision.
@@ -61,9 +61,9 @@ pub struct Ask {
     pub supported_by: Option<Value>,
     /// Earlier decision IDs this question waits for, passed unchanged to the ledger.
     pub prerequisites: Option<Value>,
-    /// A suggested answer, recorded as Seed Me's recommendation.
+    /// A suggested answer, recorded as the recorded recommendation.
     pub suggestion: Option<String>,
-    /// Defaults the step chose instead of asking, added to Seed Me's `assumed` list.
+    /// Defaults the step chose instead of asking, added to the ledger's `assumed` list.
     pub assumed: Vec<Assumption>,
     /// The two ways to settle it, each with its trade-off and undo cost; empty when none were given.
     pub options: Vec<Alternative>,
@@ -73,7 +73,7 @@ pub struct Ask {
     pub confidence: Option<String>,
 }
 
-/// One way to settle a decision, as Seed Me's question format names it.
+/// One way to settle a decision, as the question format names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Alternative {
     /// The choice.
@@ -85,7 +85,7 @@ pub struct Alternative {
 }
 
 /// The question's lines that name its options, then the case against the suggestion. Shape
-/// reads them back from the question text; Seed Me's ledger has no options field.
+/// reads them back from the question text; the ledger has no options field.
 pub const OPTION_LABELS: [&str; 2] = ["Option A: ", "Option B: "];
 /// The line that carries the strongest case against the suggestion.
 pub const AGAINST: &str = "Against my suggestion: ";
@@ -97,7 +97,7 @@ impl Ask {
         self.options.iter().any(|o| o.undo == "hard")
     }
 
-    /// The question as Seed Me records it: the ask, then each option and the case against.
+    /// The question as the ledger records it: the ask, then each option and the case against.
     fn text(&self) -> String {
         // The model may end its own words with punctuation; the line supplies its own.
         let bare = |s: &str| s.trim_end_matches(['.', ';', ',', ' ']).to_owned();
@@ -171,7 +171,7 @@ impl Ledger {
     pub fn version(&self) -> u64 {
         self.version
     }
-    /// The state as Seed Me's own JSON, for an agent to read as context.
+    /// The state as the ledger's JSON, for an agent to read as context.
     pub fn context(&self) -> String {
         serde_json::to_string_pretty(&self.state).unwrap_or_default()
     }
@@ -437,21 +437,11 @@ fn today(found: &[Receipt]) -> String {
 /// What the seed's evidence section says when no step recorded a finding.
 pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.";
 
-/// Prose-field instructions and installed section guidance and check schema, without conflicting
-/// artifact-writing directions. Refuses a missing or incomplete reference. No helper is required.
-pub fn contract(skill: &Path) -> Result<String, Refusal> {
-    let skill = skill.canonicalize().map_err(|_| {
-        Refusal::Refused(
-            "Cannot locate Shape instructions. Check the configured skill path.".into(),
-        )
-    })?;
-    let reference = skill
-        .parent()
-        .ok_or_else(|| Refusal::Refused("Shape instructions have no directory".into()))?
-        .join("references/seed-contract.md");
-    let reference = std::fs::read_to_string(reference)
-        .map_err(|_| Refusal::Refused("Cannot read Shape's seed contract. Check the configured reference file and its read permission.".into()))?;
-    seed_reply::instructions(&reference)
+/// Prose-field instructions and bundled section guidance, without conflicting artifact directions.
+/// The reference is verbatim from Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66.
+/// No installed skill or helper is read.
+pub fn contract() -> Result<String, Refusal> {
+    seed_reply::instructions(include_str!("seed-contract.txt"))
 }
 
 /// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
@@ -479,7 +469,7 @@ fn json(text: &str) -> Result<Value, Refusal> {
 }
 
 /// Read `session`'s editable ledger at one version, without writing or calling the helper.
-pub fn read(_skill: &Path, session: &Path) -> Result<Ledger, Refusal> {
+pub fn read(session: &Path) -> Result<Ledger, Refusal> {
     let unreadable =
         |reason: String| Refusal::Refused(format!("Cannot read this session: {reason}"));
     let saved = ledger::load(session).map_err(unreadable)?;
@@ -584,14 +574,8 @@ mod typed_tests;
 /// Settle the open question `id` with the operator's `words`, exactly as typed, from the version
 /// the operator saw (`expected`). Clears the current question. Returns the new version.
 /// Refuses a question that isn't open or a stale version.
-pub fn answer(
-    skill: &Path,
-    session: &Path,
-    expected: u64,
-    id: &str,
-    words: &str,
-) -> Result<u64, Refusal> {
-    let mut ledger = read(skill, session)?;
+pub fn answer(session: &Path, expected: u64, id: &str, words: &str) -> Result<u64, Refusal> {
+    let mut ledger = read(session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
         .and_then(|nodes| nodes.iter_mut().find(|n| n["id"] == id))
@@ -640,14 +624,8 @@ pub fn respond(
 /// Record `ask` and its findings checked in `folder`, from `expected`. The ledger refuses invalid
 /// facts or prerequisites atomically and selects the ready question; a held question stays recorded.
 /// Returns the new version.
-pub fn ask(
-    skill: &Path,
-    session: &Path,
-    expected: u64,
-    ask: &Ask,
-    folder: &Path,
-) -> Result<u64, Refusal> {
-    let mut ledger = read(skill, session)?;
+pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u64, Refusal> {
+    let mut ledger = read(session)?;
     let taken: Vec<String> = nodes(&ledger.state)
         .iter()
         .filter_map(|n| n["id"].as_str().map(str::to_owned))
@@ -711,13 +689,12 @@ pub fn keep(session: &Path, expected: u64, id: &str, reason: &str) -> Result<(),
 /// Record `recommendation` on open question `id`, from `expected`, once the operator asks to see
 /// what a hard-to-undo question withheld. Returns the new version.
 pub fn recommend(
-    skill: &Path,
     session: &Path,
     expected: u64,
     id: &str,
     recommendation: &str,
 ) -> Result<u64, Refusal> {
-    let mut ledger = read(skill, session)?;
+    let mut ledger = read(session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
         .and_then(|nodes| nodes.iter_mut().find(|n| n["id"] == id))
@@ -732,11 +709,11 @@ pub fn recommend(
     )
 }
 
-/// The operator objects to assuming `text`, from `expected`: it leaves Seed Me's `assumed` list
+/// The operator objects to assuming `text`, from `expected`: it leaves the ledger's `assumed` list
 /// and becomes an open decision, which blocks drafting until it's answered. Returns the new version.
 /// Refuses an assumption that isn't recorded.
-pub fn object(skill: &Path, session: &Path, expected: u64, text: &str) -> Result<u64, Refusal> {
-    let mut ledger = read(skill, session)?;
+pub fn object(session: &Path, expected: u64, text: &str) -> Result<u64, Refusal> {
+    let mut ledger = read(session)?;
     let mut assumed = ledger.state["assumed"]
         .as_array()
         .cloned()
@@ -774,7 +751,7 @@ pub fn object(skill: &Path, session: &Path, expected: u64, text: &str) -> Result
 /// The label of a decision recorded from an objection to an assumption.
 pub const OBJECTION: &str = "Instead of assuming";
 
-/// The probe Seed Me requires the operator to answer before the seed: its ledger id and wording.
+/// The probe the interview requires the operator to answer before the seed: its ledger id and wording.
 pub const PROBE: (&str, &str) = (
     "probe-pre-mortem",
     "Imagine this shipped and turned out wrong. What is the most likely reason?",
@@ -784,8 +761,8 @@ pub const PROBE: (&str, &str) = (
 /// `expected`, so the operator answers it in their own words before any seed. Said plainly when
 /// findings were already shown, since the answer is then not independent of them. Returns the new
 /// version, or `None` when it was asked before or a question is current.
-pub fn probe(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
-    let mut ledger = read(skill, session)?;
+pub fn probe(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
+    let mut ledger = read(session)?;
     if ledger.version != expected {
         return Err(Refusal::Stale);
     }
@@ -822,8 +799,8 @@ pub fn probe(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64>,
 /// With no current question, make the first open decision whose prerequisites are settled
 /// current, from `expected`, so a decision already recorded is asked before any new one.
 /// Returns the new version, or `None` when there's a current question or nothing is ready.
-pub fn promote(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
-    let ledger = read(skill, session)?;
+pub fn promote(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
+    let ledger = read(session)?;
     if ledger.version != expected {
         return Err(Refusal::Stale);
     }
@@ -844,16 +821,15 @@ pub fn promote(skill: &Path, session: &Path, expected: u64) -> Result<Option<u64
     .map(Some)
 }
 
-/// Save a Seed Me draft: `confirming` supplies named summary and prose fields, never headings or criteria. `checks`
+/// Save a seed draft: `confirming` supplies named summary and prose fields, never headings or criteria. `checks`
 /// are validated, stored and rendered only by Tinkery's ledger; no check is executed. Evidence
 /// comes from saved findings and what this step `found` in `folder`, and accepted decisions from
-/// `seed decisions` unchanged, in Seed Me's canonical Full sequence with no wrapper headings.
+/// `seed decisions` unchanged, in the canonical Full sequence with no wrapper headings.
 /// Returns the revision label, from version `expected`.
 /// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
 /// change the seed's structure, invalid records and a finding that looks like a secret.
 /// IO failures after storing records can leave unconfirmed records, never a ready seed.
 pub fn draft_seed(
-    skill: &Path,
     session: &Path,
     expected: u64,
     confirming: &Value,
@@ -861,7 +837,7 @@ pub fn draft_seed(
     found: &[Found],
     folder: &Path,
 ) -> Result<String, Refusal> {
-    let mut ledger = read(skill, session)?;
+    let mut ledger = read(session)?;
     if ledger.version != expected {
         return Err(Refusal::Stale);
     }
@@ -978,12 +954,7 @@ pub fn teach_back(
 /// Confirm seed `revision` through the ledger, with the operator's `words` as its source.
 /// Tinkery refuses a simulated session, a different revision, open decisions and a seed whose
 /// decisions don't match the ledger.
-pub fn confirm_seed(
-    _skill: &Path,
-    session: &Path,
-    revision: &str,
-    words: &str,
-) -> Result<(), Refusal> {
+pub fn confirm_seed(session: &Path, revision: &str, words: &str) -> Result<(), Refusal> {
     if words.trim().is_empty() || words.contains(['\n', '\r']) {
         return Err(Refusal::Refused(
             "Tinkery needs your words on one line.".into(),
@@ -999,7 +970,7 @@ pub fn confirm_seed(
     .map_err(|reason| Refusal::Refused(format!("Tinkery refused: {reason}")))
 }
 
-/// How the operator ends a session: Seed Me's two end statuses. Either is for good.
+/// How the operator ends a session: the ledger's two end statuses. Either is for good.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Ending {
     /// The seed is confirmed and verified; the interview is finished.
@@ -1010,7 +981,7 @@ pub enum Ending {
 
 /// End `session` through the ledger, after which it is read-only. Refuse completing a seed
 /// Tinkery can't verify or a conflicting ended status; completion never needs a viewer.
-pub fn end(_skill: &Path, session: &Path, ending: Ending) -> Result<(), Refusal> {
+pub fn end(session: &Path, ending: Ending) -> Result<(), Refusal> {
     let (status, reason) = match ending {
         Ending::Completed => (
             "completed",
@@ -1059,7 +1030,7 @@ fn unique_id(wanted: &str, taken: &[String]) -> String {
 }
 
 /// Now as an ISO 8601 UTC timestamp, as receipts need.
-fn now() -> String {
+pub(super) fn now() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
@@ -1118,28 +1089,7 @@ mod tests {
 
     #[test]
     fn contract_reads_the_installed_reference_without_a_helper_script() {
-        let root = tempfile::Builder::new()
-            .prefix("tinkery-TEST-contract-")
-            .tempdir()
-            .unwrap();
-        let skill = root.path().join("SKILL.md");
-        let reference = root.path().join("references/seed-contract.md");
-        std::fs::write(&skill, "TEST skill\n").unwrap();
-        std::fs::create_dir(reference.parent().unwrap()).unwrap();
-        let installed = std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(".ci-seed-me/skills/seed-me/references/seed-contract.md"),
-        )
-        .unwrap();
-        let expected = installed.replace(
-            "Problem statement: current behavior",
-            "Problem statement: Keep café words verbatim. Current behavior",
-        );
-        std::fs::write(&reference, expected).unwrap();
-
-        assert!(!root.path().join("scripts/session.py").exists());
-        let instructions = contract(&skill).unwrap();
-        assert!(instructions.contains("Keep café words verbatim."));
+        let instructions = contract().unwrap();
         assert!(instructions.contains("Seed reply fields"));
         assert!(!instructions.contains("Choose Full or Lean"));
     }

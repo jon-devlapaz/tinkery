@@ -27,10 +27,9 @@ fn question_prerequisites_are_preserved_and_settled_parents_allow_current() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
     let question = proposal("b", Some(json!(["goal"])));
-    ask(&skill, &session, 1, &question, root.path()).unwrap();
-    let saved = read(&skill, &session).unwrap();
+    ask(&session, 1, &question, root.path()).unwrap();
+    let saved = read(&session).unwrap();
     assert_eq!(saved.state["nodes"][1]["prerequisites"], json!(["goal"]));
     assert_eq!(saved.state["current_question"], "b");
 }
@@ -42,33 +41,28 @@ fn held_question_waits_for_ready_decisions_in_ledger_order_then_promotes() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
-    let version = ask(&skill, &session, 1, &proposal("a", None), root.path()).unwrap();
+    let version = ask(&session, 1, &proposal("a", None), root.path()).unwrap();
     // No current question, as after a saved answer; A must be selected from the frontier.
-    let mut state = read(&skill, &session).unwrap().state;
+    let mut state = read(&session).unwrap().state;
     state["current_question"] = Value::Null;
     let version = publish(&session, version, "TEST leave A open", &state).unwrap();
     let version = ask(
-        &skill,
         &session,
         version,
         &proposal("b", Some(json!(["a"]))),
         root.path(),
     )
     .unwrap();
-    let saved = read(&skill, &session).unwrap();
+    let saved = read(&session).unwrap();
     assert_eq!(saved.state["current_question"], "a");
     assert_eq!(saved.state["nodes"][2]["prerequisites"], json!(["a"]));
-    let shown = super::super::shaping::read(&skill, &session).unwrap();
+    let shown = super::super::shaping::read(&session).unwrap();
     assert_eq!(shown.open, ["TEST a", "TEST b — waits for: TEST a"]);
-    let version = answer(&skill, &session, version, "a", "TEST A answered").unwrap();
-    promote(&skill, &session, version).unwrap().unwrap();
+    let version = answer(&session, version, "a", "TEST A answered").unwrap();
+    promote(&session, version).unwrap().unwrap();
+    assert_eq!(read(&session).unwrap().state["current_question"], "b");
     assert_eq!(
-        read(&skill, &session).unwrap().state["current_question"],
-        "b"
-    );
-    assert_eq!(
-        super::super::shaping::read(&skill, &session).unwrap().open,
+        super::super::shaping::read(&session).unwrap().open,
         ["TEST b"]
     );
 }
@@ -80,8 +74,7 @@ fn held_questions_with_deferred_parents_save_without_becoming_current() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
-    let version = ask(&skill, &session, 1, &proposal("a", None), root.path()).unwrap();
+    let version = ask(&session, 1, &proposal("a", None), root.path()).unwrap();
     let version = respond(
         &session,
         version,
@@ -93,17 +86,16 @@ fn held_questions_with_deferred_parents_save_without_becoming_current() {
     )
     .unwrap();
     let version = ask(
-        &skill,
         &session,
         version,
         &proposal("b", Some(json!(["a"]))),
         root.path(),
     )
     .unwrap();
-    assert!(!read(&skill, &session).unwrap().has_current_question());
-    assert_eq!(promote(&skill, &session, version).unwrap(), None);
+    assert!(!read(&session).unwrap().has_current_question());
+    assert_eq!(promote(&session, version).unwrap(), None);
     assert_eq!(
-        super::super::shaping::read(&skill, &session).unwrap().open,
+        super::super::shaping::read(&session).unwrap().open,
         ["TEST b — waits for: TEST a"]
     );
 }
@@ -115,7 +107,6 @@ fn prerequisite_refusals_save_no_question_findings_or_assumptions() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
     fs::write(root.path().join("README.md"), "TEST fact\n").unwrap();
     for (prerequisites, expected) in [
         (json!(["missing"]), "isn't recorded"),
@@ -140,7 +131,7 @@ fn prerequisite_refusals_save_no_question_findings_or_assumptions() {
             why: "TEST equivalent".into(),
         });
         let before = fs::read(session.join("ledger.json")).unwrap();
-        let error = ask(&skill, &session, 1, &question, root.path())
+        let error = ask(&session, 1, &question, root.path())
             .unwrap_err()
             .to_string();
         assert!(
@@ -168,26 +159,24 @@ fn current_question_is_not_replaced_and_multiple_prerequisites_keep_their_order(
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
-    let version = ask(&skill, &session, 1, &proposal("a", None), root.path()).unwrap();
+    let version = ask(&session, 1, &proposal("a", None), root.path()).unwrap();
     let version = ask(
-        &skill,
         &session,
         version,
         &proposal("b", Some(json!(["goal", "a"]))),
         root.path(),
     )
     .unwrap();
-    let saved = read(&skill, &session).unwrap();
+    let saved = read(&session).unwrap();
     assert_eq!(saved.state["current_question"], "a");
     assert_eq!(saved.state["nodes"][1]["prerequisites"], json!([]));
     assert_eq!(
         saved.state["nodes"][2]["prerequisites"],
         json!(["goal", "a"])
     );
-    assert_eq!(promote(&skill, &session, version).unwrap(), None);
+    assert_eq!(promote(&session, version).unwrap(), None);
     assert_eq!(
-        super::super::shaping::read(&skill, &session).unwrap().open,
+        super::super::shaping::read(&session).unwrap().open,
         ["TEST a", "TEST b — waits for: TEST a"]
     );
 }
@@ -199,26 +188,21 @@ fn ready_selection_skips_inactive_decisions_and_held_questions() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
-    let version = ask(&skill, &session, 1, &proposal("a", None), root.path()).unwrap();
-    let mut state = read(&skill, &session).unwrap().state;
+    let version = ask(&session, 1, &proposal("a", None), root.path()).unwrap();
+    let mut state = read(&session).unwrap().state;
     state["nodes"][1]["predicate"] = Value::Null;
     state["current_question"] = Value::Null;
     let version = publish(&session, version, "TEST unknown predicate", &state).unwrap();
     let version = ask(
-        &skill,
         &session,
         version,
         &proposal("b", Some(json!(["a"]))),
         root.path(),
     )
     .unwrap();
-    assert_eq!(promote(&skill, &session, version).unwrap(), None);
-    ask(&skill, &session, version, &proposal("c", None), root.path()).unwrap();
-    assert_eq!(
-        read(&skill, &session).unwrap().state["current_question"],
-        "c"
-    );
+    assert_eq!(promote(&session, version).unwrap(), None);
+    ask(&session, version, &proposal("c", None), root.path()).unwrap();
+    assert_eq!(read(&session).unwrap().state["current_question"], "c");
 }
 
 #[test]
@@ -228,18 +212,16 @@ fn revising_an_answer_reopens_its_model_proposed_dependent() {
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
-    let version = ask(&skill, &session, 1, &proposal("a", None), root.path()).unwrap();
-    let version = answer(&skill, &session, version, "a", "TEST old A").unwrap();
+    let version = ask(&session, 1, &proposal("a", None), root.path()).unwrap();
+    let version = answer(&session, version, "a", "TEST old A").unwrap();
     let version = ask(
-        &skill,
         &session,
         version,
         &proposal("b", Some(json!(["a"]))),
         root.path(),
     )
     .unwrap();
-    let version = answer(&skill, &session, version, "b", "TEST old B").unwrap();
+    let version = answer(&session, version, "b", "TEST old B").unwrap();
     let version = respond(
         &session,
         version,
@@ -247,10 +229,10 @@ fn revising_an_answer_reopens_its_model_proposed_dependent() {
         &ledger::AnswerAction::Revise("TEST new A".into()),
     )
     .unwrap();
-    let saved = read(&skill, &session).unwrap();
+    let saved = read(&session).unwrap();
     assert_eq!(saved.state["nodes"][2]["status"], "unresolved");
     assert!(saved.state["nodes"][2]["answer"].is_null());
     assert_eq!(saved.state["nodes"][2]["prerequisites"], json!(["a"]));
     assert_eq!(saved.state["current_question"], "b");
-    assert_eq!(promote(&skill, &session, version).unwrap(), None);
+    assert_eq!(promote(&session, version).unwrap(), None);
 }

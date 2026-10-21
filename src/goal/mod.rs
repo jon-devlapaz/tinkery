@@ -1,6 +1,6 @@
 //! The goal block: seven typed parts and the one way they compose into text.
 //!
-//! Think fills [`GoalParts`]; review, receipt, tend and Seed Me all show the text
+//! Think fills [`GoalParts`]; review, receipt, tend and Shape all show the text
 //! [`GoalParts::compose`] makes, so a goal reads the same everywhere it appears. Composition
 //! rewrites only what `docs/design/goal-block.md` allows (a leading `must`/`must not` prefix,
 //! clause joins and standalone-outcome beneficiaries); it never invents a part, and originals live elsewhere,

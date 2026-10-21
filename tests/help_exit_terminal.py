@@ -1,5 +1,6 @@
 """Concern text is a synthetic regression, not a new operator dump or live model run."""
-import fcntl,json,os,select,struct,subprocess,tempfile,termios,time
+import fcntl, json, os, select, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 BINARY=Path(__file__).resolve().parents[1]/'target/debug/tinkery'
@@ -11,9 +12,9 @@ print(json.dumps(dict(parts=dict(who='I',outcome='understand whether its complex
 '''
 def journey(w,h):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-help-exit-') as d:
-  cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755);skill=cwd/'SKILL.md';skill.write_text('# Seed Me\n### Shape the working draft\nUnderstand intent.\n### Size gate\n')
+  cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));original=termios.tcgetattr(slave);screen=Screen(w,h);raw=bytearray()
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--seed-me',str(skill),'--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env={**os.environ,'TERM':'xterm-256color'})
+  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_condition(condition):
    deadline=time.monotonic()+5
    while time.monotonic()<deadline:
@@ -49,7 +50,7 @@ def journey(w,h):
    while select.select([master],[],[],.02)[0]:raw.extend(os.read(master,65536))
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw and b'\x1b[>0s' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
-   assert {p.name for p in cwd.iterdir()}=={'pi','SKILL.md'},'Unexpected persistence'
+   assert {p.name for p in cwd.iterdir()}=={'pi'},'Unexpected persistence'
    print(json.dumps(dict(width=w,height=h,provider='stub',journey='contextual help/source wheel/review/header/live resize/guarded exit/restore',test_source='synthetic concern; not operator recognition')))
   finally:
    if process.poll() is None:process.kill();process.wait()

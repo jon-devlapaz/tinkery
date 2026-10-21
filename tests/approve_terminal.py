@@ -8,13 +8,13 @@ import re
 import select
 import shlex
 import struct
-import subprocess
+import test_launch as subprocess
 import tempfile
 import termios
 import time
 from pathlib import Path
 
-from shape_terminal import SKILL, make, seed, files
+from shape_terminal import make, seed, files
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
@@ -79,9 +79,9 @@ def journey(width, height, case, no_color):
         else:
             env.pop('NO_COLOR', None)
         proc = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
-            '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
+            '--seed-session-root', str(sessions),
             '--record-root', str(root / 'TEST-records'), '--link-root', str(root / 'TEST-links'),
-            *(['--sdlc-root', str(checkout)] if configured else [])], stdin=slave, stdout=slave, stderr=slave, cwd=root, env=env)
+            *(['--sdlc-root', str(checkout)] if configured else [])], stdin=slave, stdout=slave, stderr=slave, cwd=root, env=subprocess.environment(env, home=(env)['HOME']))
         screen = Screen(width, height)
         output = bytearray()
 
@@ -136,12 +136,12 @@ def journey(width, height, case, no_color):
                 assert commands[0] == 'python3 _system/scripts/sdlc.py new <run>'
                 assert shlex.split(commands[1]) == ['python3', '_system/scripts/sdlc.py', 'stage', '<run>', '1',
                     '--seed-contract', str((expected[0] / 'seed-contract.md').resolve()),
-                    '--seed-me-helper', str((SKILL.parent / 'scripts/session.py').resolve())]
-                send(b'\x1b[F', '--seed-me-helper')
+                    '--tinkery', str((REPO / 'target/debug/tinkery').resolve())]
+                send(b'\x1b[F', '--tinkery')
                 assert 'esc back' in flat()
                 send(b'?', 'Right now')
                 os.write(master, b'cnp')
-                send(b'\x1b', '--seed-me-helper')
+                send(b'\x1b', '--tinkery')
                 assert len(copies()) == 1, 'help leaked a copy key'
                 send(b'n', 'TEST newest')
                 send(b'p', 'TEST oldest café')

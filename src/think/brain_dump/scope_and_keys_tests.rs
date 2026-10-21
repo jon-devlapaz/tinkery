@@ -66,7 +66,7 @@ fn wait(a: &mut BrainDump) {
 #[test]
 fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     let host = Arc::new(Counting::default());
-    let mut a = BrainDump::with_host(host.clone()).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(host.clone()).with_sessions(None);
     a.paste("Books I've read this year.");
     a.submit();
     wait(&mut a);
@@ -129,7 +129,7 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
 #[test]
 fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them() {
     let host = Arc::new(Counting::default());
-    let mut a = BrainDump::with_host(host.clone()).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(host.clone()).with_sessions(None);
     a.paste("Books I've read.");
     a.submit();
     wait(&mut a);
@@ -287,7 +287,8 @@ fn practice_never_offers_review_it_would_refuse() {
         amend_board(&mut a, |g| g.questions.clear());
         let help = layout::help_text(&a);
         assert!(
-            !help.contains("F3") && help.contains("Saving a goal needs real mode and Seed Me.")
+            !help.contains("F3")
+                && help.contains("Saving a goal needs real mode and a sessions folder.")
         );
     }
     let mut a = board();
@@ -341,7 +342,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         );
         assert_eq!(
             receipt.lines().last().unwrap().trim(),
-            "c copy prompt   s open in tend   F10 menu"
+            "s open in tend   F10 menu"
         );
         assert_eq!(rect, a.screen.source_area);
     }

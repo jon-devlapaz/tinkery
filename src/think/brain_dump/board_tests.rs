@@ -423,8 +423,7 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     assert_eq!(b.goal().unwrap(), "Must not: no dashboard.");
     assert!(changes.iter().any(|s| s.contains("Ignored freeform")));
     assert_eq!(b.unresolved_notes, ["Unresolved note"]);
-    let mut app =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut app = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     *app.conversation.sources_mut() = request().sources;
     app.conversation.set_applied(1);
     app.conversation.set_board(Some(b));
@@ -558,8 +557,7 @@ fn review_shows_a_linked_decision_once_and_keeps_other_choices_on_the_same_part(
     let shape = serde_json::json!({"parts":{"who":"Tinkery users","outcome":"understand refused sends","why":"empty sends look like nothing happened","done_when":"tests show the reason"},"decisions":[{"part":"must_not","text":"Whether refusal messages may include private text","answers":["may include private text","must omit private text"]},{"part":"must_not","text":"Whether drafts may leave this machine","answers":["local only","may upload"]}],"questions":[{"target":"must_not","text":"May refusals show private text?"}]}).to_string();
     let review = r#"{"decisions":[{"part":"must_not","text":"Whether refusal messages may include private text","answers":["omit private text","may include private text"],"question":"May refusals show private text?","covers":[0]}]}"#;
     let b = reviewed(&shape, review, &mut vec![]).unwrap();
-    let mut app =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut app = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     *app.conversation.sources_mut() = request().sources;
     app.conversation.set_applied(1);
     app.conversation.set_board(Some(b));
@@ -630,8 +628,7 @@ fn coverage_never_removes_a_choice_on_invalid_indices_parts_or_replies() {
 fn unasked_decisions_and_unlinked_notes_remain_visible_in_review_and_handoff() {
     let partial = r#"{"parts":{"who":"I","outcome":"review refusals","why":"nothing appears"},"decisions":[{"part":"must_not","text":"Private text","answers":["omit","include"],"question":"May private text appear?"}],"unresolved_notes":["Keep this different unresolved note"],"questions":[{"target":"done_when","text":"What would show that the refusal is understood?"}]}"#;
     let (board, _) = parsed(partial);
-    let mut a =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     *a.conversation.sources_mut() = request().sources;
     a.conversation.set_applied(1);
     a.conversation.set_board(Some(board));
@@ -681,8 +678,7 @@ fn approaches_keyed_option_are_kept_through_review_and_saving() {
             .any(|c| c.contains("candidate 2 field \"option\"")),
         "an ignored option beside a label is noted: {changes:?}"
     );
-    let mut app =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut app = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     *app.conversation.sources_mut() = request().sources;
     app.conversation.set_applied(1);
     app.conversation.set_board(Some(b));

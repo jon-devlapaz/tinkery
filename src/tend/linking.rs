@@ -54,7 +54,7 @@ impl Tend {
             .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))
             .ok_or_else(|| {
                 format!(
-                    "Cannot link {}: no valid Seed Me session id.",
+                    "Cannot link {}: no valid ledger session id.",
                     session.path.display()
                 )
             })?;
@@ -66,7 +66,7 @@ impl Tend {
             != 1
         {
             return Err(format!(
-                "Cannot link {}: its Seed Me session id is not unique.",
+                "Cannot link {}: its ledger session id is not unique.",
                 session.path.display()
             ));
         }

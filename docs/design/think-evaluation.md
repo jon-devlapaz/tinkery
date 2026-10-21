@@ -20,7 +20,7 @@ cargo +stable run --locked --example think_eval -- \
 The named fixture is synthetic test data. The runner refuses missing input;
 it never substitutes that fixture. A scripted run's output must be a new absolute
 directory below the system temporary directory, with an existing parent. It writes captures and
-`report.json` there only. It never configures Seed Me, confirms a goal, or writes a
+`report.json` there only. It never creates a saved goal or writes a
 Think session record. There is no second session-record format.
 
 The dataset has a `provenance` (`kind`: `synthetic_test_data` or
@@ -73,7 +73,7 @@ mechanics separately; their results are not invented or imported by this runner.
 ```bash
 cargo +stable run --locked --example think_eval -- --live \
   --dataset /path/to/operator-dump.json --output /path/outside/repo/run-1 \
-  --max-requests 4 --model provider/model-id --seed-me /path/to/seed-me/SKILL.md
+  --max-requests 4 --model provider/model-id
 ```
 
 `--pi-command` (default `pi`) and `--thinking` (default `low`) are optional. Pi

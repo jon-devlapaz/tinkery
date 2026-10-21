@@ -4,14 +4,13 @@ use super::*;
 use ledger::AnswerAction;
 use std::fs;
 
-fn fixture() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
     let root = tempfile::Builder::new()
         .prefix("TEST-answer-actions-")
         .tempdir()
         .unwrap();
     let session = publication_tests::session(root.path());
-    let skill = root.path().join("TEST-no-helper");
-    let mut state = read(&skill, &session).unwrap().state;
+    let mut state = read(&session).unwrap().state;
     state["nodes"].as_array_mut().unwrap().extend([
         json!({"id":"read","kind":"fact","status":"settled","prerequisites":[],
             "claim":{"type":"observation","scope":"TEST file"},"answer":"TEST local",
@@ -22,33 +21,27 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
     ]);
     state["current_question"] = "choice".into();
     publish(&session, 1, "TEST question", &state).unwrap();
-    (root, session, skill)
+    (root, session)
 }
 
-fn respond_now(session: &Path, skill: &Path, action: &AnswerAction) -> Result<u64, Refusal> {
-    respond(
-        session,
-        read(skill, session).unwrap().version(),
-        "choice",
-        action,
-    )
+fn respond_now(session: &Path, action: &AnswerAction) -> Result<u64, Refusal> {
+    respond(session, read(session).unwrap().version(), "choice", action)
 }
 
 #[test]
 fn deferral_records_both_fields_and_never_confirms() {
-    let (_root, session, skill) = fixture();
+    let (_root, session) = fixture();
     let reason = "TEST wait\r\nfor the operator ";
     let revisit = "TEST before implementation\nwhen scope is known ";
     respond_now(
         &session,
-        &skill,
         &AnswerAction::Defer {
             reason: reason.into(),
             revisit: revisit.into(),
         },
     )
     .unwrap();
-    let state = read(&skill, &session).unwrap().state;
+    let state = read(&session).unwrap().state;
     let node = &state["nodes"][2];
     assert_eq!(node["status"], "deferred");
     assert_eq!(node["defer_reason"], reason);
@@ -65,12 +58,11 @@ fn deferral_records_both_fields_and_never_confirms() {
 
 #[test]
 fn deferral_without_revisit_is_refused_without_writing() {
-    let (_root, session, skill) = fixture();
+    let (_root, session) = fixture();
     for (reason, revisit) in [("TEST wait", ""), ("", "TEST later")] {
         let before = fs::read(session.join("ledger.json")).unwrap();
         let error = respond_now(
             &session,
-            &skill,
             &AnswerAction::Defer {
                 reason: reason.into(),
                 revisit: revisit.into(),
@@ -87,9 +79,9 @@ fn deferral_without_revisit_is_refused_without_writing() {
 
 #[test]
 fn delegation_records_the_suggestion_facts_and_operator_key() {
-    let (_root, session, skill) = fixture();
-    respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
-    let state = read(&skill, &session).unwrap().state;
+    let (_root, session) = fixture();
+    respond_now(&session, &AnswerAction::Delegate).unwrap();
+    let state = read(&session).unwrap().state;
     let node = &state["nodes"][2];
     assert_eq!(node["answer"], "TEST local");
     assert_eq!(node["authority"], "delegated");
@@ -100,7 +92,7 @@ fn delegation_records_the_suggestion_facts_and_operator_key() {
             .count(),
         1
     );
-    assert_eq!(read(&skill, &session).unwrap().findings().len(), 1);
+    assert_eq!(read(&session).unwrap().findings().len(), 1);
     assert!(
         node["authority_source"]
             .as_str()
@@ -122,9 +114,9 @@ fn delegation_copies_the_suggestion_without_appending_reply_confidence() {
             "TEST local. Confidence: high.",
             "TEST local. Confidence: unknown.",
         ] {
-            let (root, session, skill) = fixture();
-            respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
-            let saved = read(&skill, &session).unwrap();
+            let (root, session) = fixture();
+            respond_now(&session, &AnswerAction::Delegate).unwrap();
+            let saved = read(&session).unwrap();
             let question = Ask {
                 id: "next-choice".into(),
                 label: "TEST next choice".into(),
@@ -139,9 +131,9 @@ fn delegation_copies_the_suggestion_without_appending_reply_confidence() {
                 against: None,
                 confidence: confidence.map(str::to_owned),
             };
-            let version = ask(&skill, &session, saved.version(), &question, root.path()).unwrap();
+            let version = ask(&session, saved.version(), &question, root.path()).unwrap();
             respond(&session, version, "next-choice", &AnswerAction::Delegate).unwrap();
-            let state = read(&skill, &session).unwrap().state;
+            let state = read(&session).unwrap().state;
             let node = state["nodes"].as_array().unwrap().last().unwrap();
             assert_eq!(node["answer"], suggestion);
             assert_eq!(node["recommendation"], suggestion);
@@ -159,15 +151,15 @@ fn delegation_copies_the_suggestion_without_appending_reply_confidence() {
 #[test]
 fn delegation_without_facts_or_suggestion_is_refused_without_writing() {
     for missing in ["supported_by", "recommendation"] {
-        let (_root, session, skill) = fixture();
-        let mut read = read(&skill, &session).unwrap();
+        let (_root, session) = fixture();
+        let mut read = read(&session).unwrap();
         read.state["nodes"][2]
             .as_object_mut()
             .unwrap()
             .remove(missing);
         publish(&session, read.version, "TEST ungrounded", &read.state).unwrap();
         let before = fs::read(session.join("ledger.json")).unwrap();
-        let error = respond_now(&session, &skill, &AnswerAction::Delegate).unwrap_err();
+        let error = respond_now(&session, &AnswerAction::Delegate).unwrap_err();
         assert!(
             error.to_string().contains(if missing == "supported_by" {
                 "no supporting facts"
@@ -182,9 +174,9 @@ fn delegation_without_facts_or_suggestion_is_refused_without_writing() {
 
 #[test]
 fn revision_reopens_all_settled_dependents_with_the_changed_answer_named() {
-    let (_root, session, skill) = fixture();
-    respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
-    let mut saved = read(&skill, &session).unwrap();
+    let (_root, session) = fixture();
+    respond_now(&session, &AnswerAction::Delegate).unwrap();
+    let mut saved = read(&session).unwrap();
     for (id, parent) in [("child", "choice"), ("grandchild", "child")] {
         saved.state["nodes"].as_array_mut().unwrap().push(json!({
             "id":id,"kind":"decision","status":"settled","prerequisites":[parent],"evidence":[],
@@ -200,8 +192,8 @@ fn revision_reopens_all_settled_dependents_with_the_changed_answer_named() {
     )
     .unwrap();
     let words = "TEST synced\r\nonly with permission ";
-    respond_now(&session, &skill, &AnswerAction::Revise(words.into())).unwrap();
-    let state = read(&skill, &session).unwrap().state;
+    respond_now(&session, &AnswerAction::Revise(words.into())).unwrap();
+    let state = read(&session).unwrap().state;
     assert_eq!(state["nodes"][2]["answer"], words);
     assert_eq!(state["nodes"][2]["authority"], "user");
     let stored: serde_json::Value =
@@ -219,11 +211,11 @@ fn revision_reopens_all_settled_dependents_with_the_changed_answer_named() {
         assert!(node["reopen_reason"].as_str().unwrap().contains(words));
     }
     assert_eq!(state["current_question"], "child");
-    let version = read(&skill, &session).unwrap().version();
-    let version = answer(&skill, &session, version, "child", "TEST reanswered").unwrap();
-    assert!(promote(&skill, &session, version).unwrap().is_some());
+    let version = read(&session).unwrap().version();
+    let version = answer(&session, version, "child", "TEST reanswered").unwrap();
+    assert!(promote(&session, version).unwrap().is_some());
     assert_eq!(
-        read(&skill, &session).unwrap().state["current_question"],
+        read(&session).unwrap().state["current_question"],
         "grandchild"
     );
 }
@@ -231,9 +223,9 @@ fn revision_reopens_all_settled_dependents_with_the_changed_answer_named() {
 #[test]
 fn revision_resolves_its_own_flag_without_revalidating_findings() {
     for target in ["choice", "read"] {
-        let (_root, session, skill) = fixture();
-        respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
-        let mut saved = read(&skill, &session).unwrap();
+        let (_root, session) = fixture();
+        respond_now(&session, &AnswerAction::Delegate).unwrap();
+        let mut saved = read(&session).unwrap();
         saved.state["nodes"].as_array_mut().unwrap().push(json!({
             "id":"conflict","kind":"fact","status":"settled","prerequisites":[],
             "claim":{"type":"observation","scope":"TEST conflict"},"answer":"TEST conflicting fact",
@@ -245,18 +237,13 @@ fn revision_resolves_its_own_flag_without_revalidating_findings() {
                 .get("choice")
                 .is_some()
         );
-        respond_now(
-            &session,
-            &skill,
-            &AnswerAction::Revise("TEST replacement".into()),
-        )
-        .unwrap();
+        respond_now(&session, &AnswerAction::Revise("TEST replacement".into())).unwrap();
         let saved = ledger::load(&session).unwrap();
         let flags = ledger::review_flags(&saved["nodes"]);
         assert!(flags.get("choice").is_none(), "{}", flags.pretty().unwrap());
         assert_eq!(flags.get("read").is_some(), target == "read");
         assert_eq!(
-            read(&skill, &session).unwrap().state["nodes"][1]["answer"],
+            read(&session).unwrap().state["nodes"][1]["answer"],
             "TEST local"
         );
     }
@@ -264,7 +251,7 @@ fn revision_resolves_its_own_flag_without_revalidating_findings() {
 
 #[test]
 fn answer_action_read_and_lock_failures_use_plain_recovery_words() {
-    let (root, session, _skill) = fixture();
+    let (root, session) = fixture();
     for (path, expected) in [
         (root.path().join("TEST-missing"), "cannot be locked"),
         (session.clone(), "could not be read"),
@@ -288,9 +275,9 @@ fn answer_action_read_and_lock_failures_use_plain_recovery_words() {
 
 #[test]
 fn revision_refuses_findings_goal_blank_words_and_stale_display() {
-    let (_root, session, skill) = fixture();
-    respond_now(&session, &skill, &AnswerAction::Delegate).unwrap();
-    let saved = read(&skill, &session).unwrap();
+    let (_root, session) = fixture();
+    respond_now(&session, &AnswerAction::Delegate).unwrap();
+    let saved = read(&session).unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();
     for id in ["goal", "read"] {
         assert!(
@@ -303,7 +290,7 @@ fn revision_refuses_findings_goal_blank_words_and_stale_display() {
             .is_err()
         );
     }
-    assert!(respond_now(&session, &skill, &AnswerAction::Revise(" ".into())).is_err());
+    assert!(respond_now(&session, &AnswerAction::Revise(" ".into())).is_err());
     assert_eq!(
         respond(
             &session,

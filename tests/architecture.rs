@@ -18,9 +18,8 @@ const BRAIN_DUMP_FIELDS: usize = 13;
 /// Most `pub` fields `BrainDump` may have. The menu reads `exit()` and `saved()` instead.
 const BRAIN_DUMP_PUB_FIELDS: usize = 0;
 /// Most non-test source lines longer than [`LONG_LINE`] characters. Since #38 the model prompts
-/// live in their own files; what remains is help and display text and the Seed Me continuation
-/// prompt.
-const LONG_LINES: usize = 13;
+/// live in their own files; what remains is help and display text.
+const LONG_LINES: usize = 8;
 const LONG_LINE: usize = 200;
 
 /// Every top-level module and its area. Each phase has its own module; the menu (which also lists

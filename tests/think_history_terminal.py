@@ -5,7 +5,7 @@ import os
 import select
 import signal
 import struct
-import subprocess
+import test_launch as subprocess
 import tempfile
 import termios
 import time
@@ -15,7 +15,6 @@ from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
 BINARY = REPO / 'target/debug/tinkery'
-SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
 SIZES = [(80, 24), (100, 30), (160, 40), (320, 40)]
 MENU = '1  think'
 GARDEN = '↑↓←→ move   enter open   l link   esc back'
@@ -45,7 +44,7 @@ class Terminal:
         self.screen = Screen(width, height)
         self.process = subprocess.Popen([str(BINARY), '--link-root', str(root / 'TEST-links'), *map(str, args)],
             stdin=self.slave, stdout=self.slave, stderr=self.slave, cwd=root,
-            env={**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'})
+            env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}))
 
     def wait(self, predicate, timeout=20):
         deadline = time.monotonic() + timeout
@@ -92,26 +91,13 @@ def files(root):
             for path in root.rglob('*') if path.is_file()}
 
 
-def stop_viewers(sessions):
-    for record in sessions.glob('*/viewer.json'):
-        pid = json.loads(record.read_text()).get('pid')
-        if pid:
-            command = subprocess.run(['ps', '-p', str(pid), '-o', 'command='],
-                                     capture_output=True, text=True).stdout
-            if str(SKILL.parent / 'scripts/viewer.py') in command and str(record.parent) in command:
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-
-
 def confirm_goals(root, width, height, no_color):
     sessions, records = root / 'TEST-sessions', root / 'TEST-records'
     host = root / 'pi'
     host.write_text(HOST)
     host.chmod(0o755)
     terminal = Terminal(root, width, height, ['--home', '--shape-pi', '--model', 'test/model',
-        '--seed-me', SKILL, '--pi-command', host, '--seed-session-root', sessions,
+        '--pi-command', host, '--seed-session-root', sessions,
         '--record-root', records, *(['--no-color'] if no_color else [])])
     saved = {}
     try:
@@ -142,7 +128,6 @@ def confirm_goals(root, width, height, no_color):
         terminal.quit()
     finally:
         terminal.close()
-        stop_viewers(sessions)
     return saved
 
 

@@ -34,7 +34,7 @@ pub struct Decided {
     pub title: String,
     /// The recorded answer, byte for byte.
     pub answer: String,
-    /// Seed Me's authority word: `user` means the operator's own words; anything else isn't.
+    /// The ledger's authority word: `user` means the operator's own words; anything else isn't.
     pub authority: String,
 }
 
@@ -112,15 +112,14 @@ pub enum Shaped {
 }
 
 /// Read `session` through Tinkery's ledger and verifier; run disk reads off the paint path.
-/// `skill` locates only the copied intake helper path; missing helpers cannot hide a verified seed.
-pub fn read(skill: &Path, session: &Path) -> Result<Shaping, String> {
+/// Copying names this running executable; unavailable copy paths never hide a verified seed.
+pub fn read(session: &Path) -> Result<Shaping, String> {
     let mut shaping =
         read_session(session).map_err(|reason| format!("Tinkery refused: {reason}"))?;
     if matches!(shaping.stage, Shaped::Ready { .. }) {
-        shaping.intake = skill
-            .canonicalize()
+        shaping.intake = std::env::current_exe()
             .ok()
-            .and_then(|skill| intake(session, &skill.parent()?.join("scripts/session.py")));
+            .and_then(|executable| intake(session, &executable));
     }
     Ok(shaping)
 }
@@ -151,9 +150,9 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
         .collect();
     let confirmation = super::ledger::confirmation_summary(&ledger);
     let saved = ledger;
-    let ledger = serde_json::from_str(&saved.pretty()?).map_err(|e| e.to_string())?;
-    let mut status: Value = serde_json::from_str(&status.pretty()?).map_err(|e| e.to_string())?;
-    status["review_flags"] = serde_json::from_str(&flags.pretty()?).map_err(|e| e.to_string())?;
+    let ledger = saved.to_json()?;
+    let mut status = status.to_json()?;
+    status["review_flags"] = flags.to_json()?;
     status["revisable"] = serde_json::json!(revisable);
     status["waiting_on"] = Value::Object(waits);
     let mut shaping = classify(&ledger, &status);
@@ -172,16 +171,16 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
 }
 
 // Copy availability never changes Tinkery's reading of the seed.
-fn intake(session: &Path, helper: &Path) -> Option<String> {
+fn intake(session: &Path, executable: &Path) -> Option<String> {
     let quote = |path: &Path| {
         let path = path.canonicalize().ok()?;
         let path = path.to_str()?;
         (!path.chars().any(char::is_control)).then(|| format!("'{}'", path.replace('\'', "'\\''")))
     };
     Some(format!(
-        "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --seed-me-helper {}",
+        "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --tinkery {}",
         quote(&session.join("seed-contract.md"))?,
-        quote(helper)?,
+        quote(executable)?,
     ))
 }
 
@@ -517,11 +516,11 @@ mod tests {
             .tempdir()
             .unwrap();
         let session = temp.path().join("session");
-        let scripts = temp.path().join("skill's scripts");
+        let scripts = temp.path().join("TEST executable's folder");
         std::fs::create_dir(&session).unwrap();
         std::fs::create_dir(&scripts).unwrap();
         let seed = session.join("seed-contract.md");
-        let helper = scripts.join("session.py");
+        let helper = scripts.join("tinkery");
         std::fs::write(&seed, "TEST seed").unwrap();
         std::fs::write(&helper, "TEST helper").unwrap();
         let quote = |path: &Path| {
@@ -537,11 +536,14 @@ mod tests {
         assert_eq!(
             intake(&session, &helper),
             Some(format!(
-                "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --seed-me-helper {}",
+                "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --tinkery {}",
                 quote(&seed),
                 quote(&helper)
             ))
         );
+        let alias = temp.path().join("TEST-linked-executable");
+        std::os::unix::fs::symlink(&helper, &alias).unwrap();
+        assert_eq!(intake(&session, &alias), intake(&session, &helper));
     }
 
     #[test]
@@ -556,24 +558,9 @@ mod tests {
             } else {
                 "session"
             });
-            let skill_dir = temp.path().join(if case == "control-helper" {
-                "skill\n"
-            } else {
-                "skill"
-            });
             std::fs::create_dir(&session).unwrap();
-            std::fs::create_dir_all(skill_dir.join("scripts")).unwrap();
-            let skill = skill_dir.join("SKILL.md");
-            std::fs::write(&skill, "TEST skill").unwrap();
-            if case != "missing-helper" {
-                std::fs::write(
-                    skill_dir.join("scripts/session.py"),
-                    "raise Exception('TEST helper must not run')",
-                )
-                .unwrap();
-            }
             super::super::ledger::fixtures::confirmed(&session, "TEST goal", "r2");
-            let shaped = read(&skill, &session).unwrap();
+            let shaped = read(&session).unwrap();
             assert_eq!(shaped.goal.as_deref(), Some("TEST goal"));
             assert_eq!(
                 shaped.stage,
@@ -582,32 +569,8 @@ mod tests {
                     ended: false,
                 }
             );
-            assert_eq!(shaped.intake, None, "{case}");
+            assert_eq!(shaped.intake.is_none(), case == "control-seed", "{case}");
         }
-    }
-
-    #[test]
-    fn a_linked_skill_keeps_the_same_canonical_intake_helper() {
-        let root = tempfile::Builder::new()
-            .prefix("TEST-linked-intake-")
-            .tempdir()
-            .unwrap();
-        let skill = root.path().join("skill/SKILL.md");
-        std::fs::create_dir_all(skill.parent().unwrap().join("scripts")).unwrap();
-        std::fs::write(&skill, "TEST skill").unwrap();
-        std::fs::write(
-            skill.parent().unwrap().join("scripts/session.py"),
-            "raise Exception('TEST must not run')",
-        )
-        .unwrap();
-        let alias = root.path().join("TEST-linked-SKILL.md");
-        std::os::unix::fs::symlink(&skill, &alias).unwrap();
-        let session = root.path().join("session");
-        std::fs::create_dir(&session).unwrap();
-        super::super::ledger::fixtures::confirmed(&session, "TEST goal", "r1");
-        let original = read(&skill, &session).unwrap();
-        assert!(original.intake.is_some());
-        assert_eq!(read(&alias, &session).unwrap(), original);
     }
 
     #[test]

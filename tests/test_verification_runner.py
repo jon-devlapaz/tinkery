@@ -49,10 +49,6 @@ class FullCheckTests(unittest.TestCase):
         check = config['checks'][0]
         self.assertEqual(check['argv'], ['python3', 'scripts/full-check.py'])
         self.assertGreater(check['timeout_seconds'], 0)
-        revision = '1' * 40
-        (self.root / '.github/workflows').mkdir(parents=True)
-        (self.root / '.github/workflows/ci.yml').write_text(f'    ref: {revision}\n')
-        (self.root / '.ci-seed-me').mkdir()
         commands = 'echo "exact commands"\n'
         self.source('<!-- full-check:start -->\n```bash\n' + commands +
                     '```\n<!-- full-check:end -->\n')
@@ -70,11 +66,10 @@ class FullCheckTests(unittest.TestCase):
                 self.assertEqual(kwargs['env']['TINKERY_NODE'], '/tinkery-TEST-no-node')
                 self.assertTrue(kwargs['check'])
 
-        with patch('subprocess.check_output', return_value=revision + '\n'), \
-             patch('subprocess.run', side_effect=run):
+        with patch('subprocess.run', side_effect=run):
             self.main()
-        self.assertEqual(len(calls), 2)
-        self.assertEqual(calls[0][0], 'git')
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], 'bash')
 
 
 if __name__ == '__main__':

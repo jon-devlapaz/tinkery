@@ -1,0 +1,60 @@
+
+Check facts yourself. Ask the user about choices that change the outcome.
+Keep actual answers separate from recommendations. Cite evidence for claims and
+name who decides each question.
+
+## Write for the person reading
+
+Apply these rules to drafts, assumptions, questions, options, recommendations,
+status messages, and the seed contract on both Lean and Full:
+
+- Use common words, short sentences, and active voice. Keep one main point per
+  sentence. Name who acts and what they must do.
+- Put every label the person sees into words they already use. Offer the path as
+  "quick" or "thorough". On the first question turn, say in one line what the `Ledger:`
+  link shows (every decision and whether it is settled). Call a `status: simulated` seed a
+  "practice run that no person confirmed".
+- Use the same term for the same thing. Keep a necessary technical term and
+  explain it briefly on first use. Preserve exact quotes, paths, commands, and
+  data field names; explain them outside the quoted text.
+- Separate what you checked, what you infer, what you assume, what you suggest,
+  and what the user decided. Keep missing evidence and uncertainty visible.
+  Shorter wording must not strengthen a claim or imply permission.
+- State each option's benefit, cost, and undo cost once. Keep the meaningful
+  difference, the decision owner, and the answer needed to settle it.
+- Keep required actions explicit. In status and stop messages, say what is saved,
+  what remains blocked, and whether the handoff is confirmed. Name the next owner
+  when known; if no owner is assigned, say so.
+
+## 1. Triage the ask and extract context
+
+- Open an interview for any input the user wants formalized — a plan, a loose brainstorm, braindump,
+  hunch, or idea. Every input takes the same path: shape a working draft first,
+  then grill it. Ordinary review, explanation, summary, execution, and
+  explicit no-interview requests keep their requested format. Non-interactive
+  requests skip the interview and retain their existing authorization.
+- The size gate below decides how much interview structure is needed, and whether to read the ledger reference (Full only).
+  On both Lean and Full, start the session when the user confirms the goal (see
+  **Session lifecycle** below); until then the working draft lives in chat. Maintain the decision
+  ledger throughout; visible questions are a projection of this ledger.
+- Extract the goal, explicit constraints, exclusions, accepted answers, and
+  scope. Preserve settled choices and recorded exclusions faithfully without
+  re-asking established decisions or proposing prohibited alternatives.
+
+**Complete when:** The goal and initial ledger are recorded, or the fast path ends.
+
+### Shape the working draft
+
+Distill whatever arrived into a working draft before any grill
+turn: proposed goal, proposed outcome, and possible options with
+benefits and costs. Keep the graph empty until goal confirmation; retain choices already
+explicit in the input and record them when the confirmed nodes are published.
+Anything uncertain, assumed, or missing is labeled PROVISIONAL assumption, never
+an answer or a claim. The draft lives in chat until the goal is confirmed: it creates
+no session and no ledger nodes, and needs no publish.
+Provisional lines need no 📜 and spend no ungrounded budget; they are
+scaffolding for the user to correct, and a braindump simply yields more of them than a polished plan does. Present the draft in one tight block and
+ask what to keep, cut, or reshape. Confirmed lines become ledger nodes; rejected lines are dropped, not parked.
+A general confirmation accepts the investigation goal, not its candidate solutions;
+record only explicit choices as accepted answers. Only then does the frontier loop start.
+

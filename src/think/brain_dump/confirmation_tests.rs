@@ -34,7 +34,7 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
             fixture["turns"][0]["text"].as_str().unwrap(),
         );
         let mut a = BrainDump::with_host(Arc::new(Simulated))
-            .with_seed_me("/missing/SKILL.md".into(), None)
+            .with_sessions(None)
             .with_record_root(root.clone());
         a.paste(fixture["turns"][0]["text"].as_str().unwrap());
         a.submit();
@@ -62,7 +62,7 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
         a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
         if declaration == "declared: agent" {
             assert!(a.handoff.job.is_none());
-            assert!(a.notice.contains("Seed Me integration"));
+            assert!(a.notice.contains("ledger integration"));
             assert!(!root.exists());
             continue;
         }
@@ -218,19 +218,19 @@ fn delegated_goal_save_is_held_before_the_user_only_seed_me_path() {
     let mut a = declared().with_record_root(root.clone());
     a.screen.help_all = true;
     assert!(!layout::help_text(&a).contains("typing confirm saves"));
-    assert!(layout::how_text(&a).contains("Seed Me integration"));
+    assert!(layout::how_text(&a).contains("ledger integration"));
     a.screen.help_all = false;
     a.review_goal();
     for size in [(80, 24), (100, 30)] {
         let screen = snapshot(size.0, size.1, &mut a, true).unwrap();
         let plain = screen.split_whitespace().collect::<Vec<_>>().join(" ");
-        assert!(plain.contains("Seed Me integration"), "{screen}");
+        assert!(plain.contains("ledger integration"), "{screen}");
         assert!(!plain.contains("type confirm"), "{screen}");
-        assert!(layout::help_text(&a).contains("Seed Me integration"));
+        assert!(layout::help_text(&a).contains("ledger integration"));
     }
     a.screen.help_all = true;
     assert!(!layout::help_text(&a).contains("typing confirm saves"));
-    assert!(layout::how_text(&a).contains("Seed Me integration"));
+    assert!(layout::how_text(&a).contains("ledger integration"));
     a.screen.help_all = false;
     // The held review takes no words, typed or pasted: confirm couldn't save.
     for c in "confirm".chars() {

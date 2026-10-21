@@ -1,4 +1,4 @@
-//! Think: turning a messy brain dump into a goal the person confirms, then saving it to Seed Me.
+//! Think: turning a messy brain dump into a goal the person confirms, then saving it to a session.
 //!
 //! Think reads no files or repository: it sees only what the person types or says, which keeps
 //! the goal theirs. [`brain_dump`] is the screen and conversation, [`drafting`] the bounded

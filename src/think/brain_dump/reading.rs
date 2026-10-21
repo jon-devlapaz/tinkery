@@ -6,7 +6,7 @@ use super::*;
 /// The reading prompt as written: one rule per line, with notes on why. See its header.
 pub(super) const PROMPT: &str = include_str!("prompts/reading.txt");
 
-/// The system prompt for one shaping call, with Seed Me's shaping guidance in its place.
+/// The system prompt for one shaping call, with the bundled shaping guidance in its place.
 pub(super) fn prompt(seed_me_shaping: &str) -> String {
     assemble(PROMPT).replace("{seed_me_shaping}", seed_me_shaping)
 }
@@ -200,7 +200,7 @@ pub struct Guess {
     /// One reading, composed from the parts with every citation the reply made. Free text
     /// the model writes as a reading is ignored, so the goal comes only from its parts.
     pub framings: Vec<Framing>,
-    /// The done-when part again, under the name Seed Me's draft uses.
+    /// The done-when part again, under the draft outcome field.
     pub outcome: String,
     /// The person's words that don't fit the reading, kept visible as open.
     pub misfits: Vec<Anchor>,

@@ -199,10 +199,7 @@ fn held_lock_refuses_within_deadline_and_never_saves_after_release_or_cancel() {
         2,
     );
     tend.how = true;
-    assert!(
-        tend.help_text(None)
-            .contains("another Tinkery is saving links")
-    );
+    assert!(tend.help_text().contains("another Tinkery is saving links"));
     tend.start_link();
     tend.selected = 1;
     tend.cancel_link();
@@ -261,7 +258,7 @@ fn deleted_loaded_links_refuse_before_or_during_picking() {
         assert!(!tend.is_linking());
         assert!(tend.notice.starts_with("Links couldn't be"));
         tend.how = true;
-        assert!(tend.help_text(None).contains("missing"));
+        assert!(tend.help_text().contains("missing"));
     }
 }
 
@@ -313,9 +310,9 @@ fn unreadable_at_start_or_commit_preserves_bytes_and_discloses_only_in_help() {
         assert_eq!(tend.selected, 0);
         assert_eq!(tend.notice, UNAVAILABLE);
         assert!(!tend.notice.contains("needs.json"));
-        assert!(!tend.help_text(None).contains("needs.json"));
+        assert!(!tend.help_text().contains("needs.json"));
         tend.how = true;
-        let help = tend.help_text(None);
+        let help = tend.help_text();
         assert!(help.contains("Session: /TEST/0"));
         assert!(help.contains("Cannot read links: needs.json is not valid JSON."));
         assert_eq!(fs::read(root.join("needs.json")).unwrap(), bytes);
@@ -410,7 +407,7 @@ fn ambiguous_source_never_inherits_needs_or_readiness() {
         let (_, suffix) = tend.selected_line(76, None);
         assert!(suffix.ends_with(" · readiness unknown"), "{suffix}");
         assert!(!suffix.contains("Local records"));
-        assert!(!tend.help_text(None).contains("needs Local records"));
+        assert!(!tend.help_text().contains("needs Local records"));
         tend.start_link();
         assert_eq!(tend.notice, "This goal can't be linked yet.");
     }

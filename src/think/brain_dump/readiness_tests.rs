@@ -16,8 +16,7 @@ pub(super) fn app(raw: serde_json::Value) -> BrainDump {
     app_with_source(raw, "An intact original")
 }
 pub(super) fn app_with_source(raw: serde_json::Value, source: &str) -> BrainDump {
-    let mut a =
-        BrainDump::with_host(Arc::new(Simulated)).with_seed_me("/missing/SKILL.md".into(), None);
+    let mut a = BrainDump::with_host(Arc::new(Simulated)).with_sessions(None);
     a.conversation.sources_mut().push(Source {
         id: 1,
         text: source.into(),

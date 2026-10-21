@@ -1,8 +1,8 @@
-//! Tend: the saved goals garden and one goal's detail, read from Seed Me sessions.
+//! Tend: the saved goals garden and one goal's detail, read from saved sessions.
 //!
 //! Shows what discovery has landed, says plainly when that is unknown, incomplete or failed,
 //! and offers explicit needs links and a continuation prompt to copy; it never edits a session,
-//! starts an agent or guesses a stage. Everything about Seed Me's files comes from `seed_me`.
+//! starts an agent or guesses a stage. Everything about session files comes from `seed_me`.
 
 pub mod discovery;
 mod garden;
@@ -16,7 +16,6 @@ pub use crate::seed_me::{Session, Stage};
 use crate::{
     Palette,
     goal::confirmed::{SavedGoal, render_saved_goal},
-    seed_me::continuation_prompt,
 };
 use ratatui::{
     Frame,
@@ -331,16 +330,7 @@ impl Tend {
     pub(super) fn current(&self) -> Option<&Session> {
         self.sessions.get(self.selected)
     }
-    pub(super) fn copy_prompt(&mut self, skill: Option<&Path>) {
-        if let Some(session) = self.current().filter(|s| s.stage.can_copy()) {
-            if let Some(skill) = skill {
-                self.copy = Some(continuation_prompt(skill, &session.path));
-            } else {
-                self.notice = "Couldn't copy; try again.".into();
-            }
-        }
-    }
-    pub(super) fn help_text(&self, skill: Option<&Path>) -> String {
+    pub(super) fn help_text(&self) -> String {
         if self.how {
             let session = self.current().map_or(String::new(), |s| {
                 format!(
@@ -349,16 +339,15 @@ impl Tend {
                     s.stage.label()
                 )
             });
-            let skill = skill.map_or("\nSeed Me skill is not configured. Start Tinkery with --shape-pi, --model and --seed-me to copy a continuation prompt.".into(), |s| format!("\nSeed Me skill: {}", s.display()));
             return format!(
-                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}{skill}\n{}\n{}\n{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it yourself. Nothing starts on its own. Ended sessions can't be continued.",
+                "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n{session}\n{}\n{}\n{}\n\nNothing starts on its own.",
                 self.error.as_deref().unwrap_or(""),
                 self.link_error.as_deref().unwrap_or(""),
                 self.graph.error.as_deref().unwrap_or("")
             );
         }
-        let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_copy()) {
-            "\nc copy prompt to continue in Claude, Codex or Pi\ns shape: answer its questions and confirm its seed"
+        let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_shape()) {
+            "\ns shape: answer its questions and confirm its seed"
         } else {
             ""
         };
@@ -435,8 +424,8 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     let keys = if tend.linking.is_some() {
         linking_keys.as_str()
     } else if tend.detail {
-        if tend.current().is_some_and(|s| s.stage.can_copy()) {
-            "c copy prompt   s shape   r history   esc back   F10 menu"
+        if tend.current().is_some_and(|s| s.stage.can_shape()) {
+            "s shape   r history   esc back   F10 menu"
         } else {
             "r history   esc back   F10 menu"
         }
@@ -507,7 +496,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
                     tend.ended
                 )
             } else {
-                "No Seed Me sessions yet. Confirm a goal in think to start one.".into()
+                "No saved sessions yet. Confirm a goal in think to start one.".into()
             })
             .style(palette.muted)
             .wrap(Wrap { trim: false }),
@@ -645,7 +634,7 @@ fn relative_time(updated: &str, now: u64) -> String {
     }
 }
 
-/// Seed Me sessions, newest first (blocking). Unreadable records are left out here;
+/// saved sessions, newest first (blocking). Unreadable records are left out here;
 /// [`scan`] reports how many.
 pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
     scan(root).map(|found| found.sessions)
@@ -687,7 +676,7 @@ mod tests {
                 .map(|x| terminal.backend().buffer()[(x, 29)].symbol())
                 .collect();
             assert!(footer.contains("F10 menu"), "{footer}");
-            assert_eq!(footer.contains("c copy prompt"), stage.can_copy());
+            assert_eq!(footer.contains("s shape"), stage.can_shape());
         }
     }
 

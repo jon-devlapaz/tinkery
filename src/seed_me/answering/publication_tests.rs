@@ -13,140 +13,6 @@ fn temp() -> tempfile::TempDir {
 }
 
 #[test]
-fn pinned_python_publications_match_through_shape_boundary() {
-    let root = temp();
-    let output = Command::new("python3")
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/ledger/publication.py"))
-        .arg(root.path())
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        .env("PYTHONHASHSEED", "0")
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let mut count = 0;
-    let mut through_shape = 0;
-    let mut nonfinite = 0;
-    for line in String::from_utf8(output.stdout).unwrap().lines() {
-        let answer = ledger::Value::parse(line).unwrap();
-        let case = &answer["case"];
-        let pair = Path::new(answer["pair"].string().unwrap());
-        let rust = pair.join("rust");
-        let python = pair.join("python");
-        let name = case["name"].string().unwrap();
-        if let Some(expected_read) = answer.get("read") {
-            let skill = PathBuf::from(std::env::var_os("SEED_ME_TEST_SKILL").unwrap());
-            let actual = read(&skill, &rust).unwrap();
-            assert_eq!(
-                actual.version().to_string(),
-                expected_read["expected_version"].pretty().unwrap().trim(),
-                "{name}"
-            );
-            assert_eq!(
-                serde_json::from_str::<Value>(&actual.context()).unwrap(),
-                serde_json::from_str::<Value>(&expected_read["state"].pretty().unwrap()).unwrap(),
-                "{name}"
-            );
-        }
-        if let Some(message) = answer.get("read_message") {
-            nonfinite += 1;
-            assert_eq!(answer["real_path"], ledger::Value::Bool(true), "{name}");
-            let skill = PathBuf::from(std::env::var_os("SEED_ME_TEST_SKILL").unwrap());
-            assert_eq!(
-                read(&skill, &rust).unwrap_err(),
-                Refusal::Refused(format!(
-                    "Cannot read this session: {}",
-                    message.string().unwrap()
-                )),
-                "{name}"
-            );
-        }
-        let result = if answer["real_path"] == ledger::Value::Bool(true) {
-            through_shape += 1;
-            let state = serde_json::from_str(&case["state"].pretty().unwrap()).unwrap();
-            let version = case["expected_version"]
-                .pretty()
-                .unwrap()
-                .trim()
-                .parse()
-                .unwrap();
-            // Exactly the production path, with only the clock supplied rather than sampled.
-            publish_at(
-                &rust,
-                version,
-                case["reason"].string().unwrap(),
-                &state,
-                STAMP,
-            )
-        } else {
-            ledger::publish(
-                &rust,
-                &case["state"],
-                &case["expected_version"],
-                &case["reason"],
-                case.get("revalidated"),
-                STAMP,
-            )
-            .map(|v| v["version"].pretty().unwrap().trim().parse().unwrap())
-            .map_err(published)
-        };
-        match answer["verdict"].string().unwrap() {
-            "accept" => assert_eq!(
-                result.unwrap_or_else(|e| panic!("{name}: {e}")),
-                answer["version"]
-                    .pretty()
-                    .unwrap()
-                    .trim()
-                    .parse::<u64>()
-                    .unwrap(),
-                "{name}"
-            ),
-            "refuse" => assert_eq!(
-                result.unwrap_err(),
-                not_saved(answer["message"].string().unwrap().into()),
-                "{name}"
-            ),
-            _ => panic!("unknown verdict"),
-        }
-        assert_eq!(
-            fs::read(rust.join("ledger.json")).unwrap(),
-            fs::read(python.join("ledger.json")).unwrap(),
-            "{name}"
-        );
-        assert_eq!(
-            fs::metadata(rust.join("ledger.json"))
-                .unwrap()
-                .permissions()
-                .mode()
-                & 0o777,
-            fs::metadata(python.join("ledger.json"))
-                .unwrap()
-                .permissions()
-                .mode()
-                & 0o777,
-            "{name}"
-        );
-        assert!(
-            !rust.join("ledger-view.html").exists(),
-            "Rust must not write the view"
-        );
-        count += 1;
-    }
-    assert_eq!(
-        nonfinite, 6,
-        "all non-finite read and publication cases must run"
-    );
-    assert!(
-        count >= 1069 && through_shape >= 457,
-        "incomplete publication corpus: {count}, Shape {through_shape}"
-    );
-    println!("publication differential: {count} cases, {through_shape} through answering.rs");
-}
-
-#[test]
 fn publication_clock_matches_python_including_zero_microseconds() {
     let instants = [
         (0, 0),
@@ -198,23 +64,10 @@ pub(super) fn session(root: &Path) -> PathBuf {
 fn every_shape_ledger_action_works_without_launching_the_helper() {
     let root = temp();
     let session = session(root.path());
-    let skill = root.path().join("SKILL.md");
-    fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join(".ci-seed-me/skills/seed-me/SKILL.md"),
-        &skill,
-    )
-    .unwrap();
-    fs::create_dir(root.path().join("scripts")).unwrap();
-    fs::write(
-        root.path().join("scripts/session.py"),
-        "raise SystemExit('TEST helper must never run')",
-    )
-    .unwrap();
-    let version = read(&skill, &session).unwrap().version();
-    let version = probe(&skill, &session, version).unwrap().unwrap();
-    let version = answer(&skill, &session, version, PROBE.0, "TEST exact\r\nanswer").unwrap();
+    let version = read(&session).unwrap().version();
+    let version = probe(&session, version).unwrap().unwrap();
+    let version = answer(&session, version, PROBE.0, "TEST exact\r\nanswer").unwrap();
     let version = ask(
-        &skill,
         &session,
         version,
         &Ask {
@@ -237,19 +90,12 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
         root.path(),
     )
     .unwrap();
-    let version = recommend(
-        &skill,
-        &session,
-        version,
-        "test-question",
-        "TEST suggestion",
-    )
-    .unwrap();
-    let version = object(&skill, &session, version, "TEST default").unwrap();
-    let version = answer(&skill, &session, version, "test-question", "TEST answer").unwrap();
-    let version = promote(&skill, &session, version).unwrap().unwrap();
-    assert_eq!(read(&skill, &session).unwrap().version(), version);
-    assert_eq!(read(&skill, &session).unwrap().goal(), Some("TEST goal"));
+    let version = recommend(&session, version, "test-question", "TEST suggestion").unwrap();
+    let version = object(&session, version, "TEST default").unwrap();
+    let version = answer(&session, version, "test-question", "TEST answer").unwrap();
+    let version = promote(&session, version).unwrap().unwrap();
+    assert_eq!(read(&session).unwrap().version(), version);
+    assert_eq!(read(&session).unwrap().goal(), Some("TEST goal"));
     let saved = fs::read_to_string(session.join("ledger.json")).unwrap();
     assert!(saved.contains("TEST exact\\r\\nanswer"));
     assert_eq!(
@@ -266,11 +112,9 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
 fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
     let root = temp();
     let session = session(root.path());
-    let skill = root.path().join("TEST-no-installed-skill/SKILL.md");
     let checks =
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
     let revision = draft_seed(
-        &skill,
         &session,
         1,
         &ledger::fixtures::prose_reply(include_str!(
@@ -281,17 +125,17 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
         root.path(),
     )
     .unwrap();
-    confirm_seed(&skill, &session, &revision, "TEST yes to this seed only").unwrap();
+    confirm_seed(&session, &revision, "TEST yes to this seed only").unwrap();
     assert!(matches!(
-        super::super::shaping::read(&skill, &session).unwrap().stage,
+        super::super::shaping::read(&session).unwrap().stage,
         super::super::shaping::Shaped::Ready { ended: false, .. }
     ));
-    end(&skill, &session, Ending::Completed).unwrap();
+    end(&session, Ending::Completed).unwrap();
     assert!(matches!(
-        super::super::shaping::read(&skill, &session).unwrap().stage,
+        super::super::shaping::read(&session).unwrap().stage,
         super::super::shaping::Shaped::Ready { ended: true, .. }
     ));
-    assert_eq!(read(&skill, &session).unwrap().goal(), Some("TEST goal"));
+    assert_eq!(read(&session).unwrap().goal(), Some("TEST goal"));
     for name in ["viewer.json", "ledger-view.html"] {
         assert!(!session.join(name).exists());
     }

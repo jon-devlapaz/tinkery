@@ -111,7 +111,7 @@ def main():
     for size in [int(x) for x in args.sizes.split(',')]:
         with tempfile.TemporaryDirectory(prefix='tinkery-bench-') as tmp:
             home = Path(tmp)
-            root = home / '.local/share/seed-me/sessions'
+            root = home / '.local/share/tinkery/sessions'
             nbytes = make_fixture(root, size) if size else 0
             if not size:
                 root.mkdir(parents=True)

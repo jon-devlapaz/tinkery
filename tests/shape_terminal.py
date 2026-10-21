@@ -1,21 +1,19 @@
-"""Shape reading journeys: real Seed Me helper sessions in TEST roots, a Pi that must never run, no model calls.
+"""Shape reading journeys: real Rust ledger sessions in TEST roots, a Pi that must never run, no model calls.
 Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py. Under an agent
 launch declaration Shape only reads: F2, F3, F6, F7, F8, F11 and F12 are held and say why (#247)."""
-import base64, fcntl, importlib.util, os, re, select, shlex, struct, subprocess, tempfile, termios, time
+import base64, fcntl, importlib.util, os, re, select, shlex, struct, tempfile, termios, time
+import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
-SKILL = Path(os.environ['SEED_ME_TEST_SKILL']).resolve()
-spec = importlib.util.spec_from_file_location('seed_me_session', SKILL.parent / 'scripts/session.py')
-helper = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(helper)
+import session_fixture as helper
 
 GOAL = ('I can see where my seed stands without switching tools.\n'
         'Why: I lose the thread between tools.\nDone when: Shape shows the next question.\n'
         'Must: Keep my words.\nMust not: Run agents.')
 DECIDED = 'In one file I can search.'
-DETAIL_KEYS = 'c copy prompt   s shape   r history   esc back   F10 menu'
+DETAIL_KEYS = 's shape   r history   esc back   F10 menu'
 # P-051-inspired TEST reconstruction, not a transcript or repository evidence.
 P051_QUESTION = 'Should Stacker be skill-based or simulate payout interference?'
 P051_FINDINGS = [
@@ -113,9 +111,9 @@ def journey(width, height, case, no_color=False, operator='human'):
             env['NO_COLOR'] = '1'
         process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', operator, '--home',
             '--shape-pi',
-            '--model', 'test/model', '--seed-me', str(SKILL), '--seed-session-root', str(sessions),
+            '--model', 'test/model', '--seed-session-root', str(sessions),
             '--record-root', str(cwd / 'TEST-records'), '--link-root', str(cwd / 'TEST-links'),
-            '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=env)
+            '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(env))
         screen = Screen(width, height)
         output = bytearray()
 
@@ -191,7 +189,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                     assert files(sessions) == before_tend, 'Tend changed confirmation evidence'
                     assert not (cwd / 'provider-was-run').exists()
                 if case == 'ended':
-                    helper.end(next(sessions.iterdir()), 'stopped', 'TEST fixture', no_viewer='TEST fixture')
+                    helper.end(next(sessions.iterdir()), 'stopped', 'TEST fixture')
                 if case == 'unreadable':
                     (next(sessions.iterdir()) / 'ledger.json').write_text('not JSON')
                 before = files(sessions)
@@ -238,14 +236,14 @@ def journey(width, height, case, no_color=False, operator='human'):
                 os.write(master, b'c')
                 if case == 'ready':
                     seed_path = str((session / 'seed-contract.md').resolve())
-                    helper_path = str((SKILL.parent / 'scripts/session.py').resolve())
+                    tinkery_path = str((REPO / 'target/debug/tinkery').resolve())
                     quote = lambda path: "'" + path.replace("'", "'\\''") + "'"
                     expected_command = ('python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract ' +
-                        quote(seed_path) + ' --seed-me-helper ' + quote(helper_path))
+                        quote(seed_path) + ' --tinkery ' + quote(tinkery_path))
                     wait(lambda: copies() == [expected_command] and 'Copied.' in flat())
                     assert shlex.split(copies()[0]) == ['python3', '_system/scripts/sdlc.py',
                         'stage', '<run>', '1', '--seed-contract', seed_path,
-                        '--seed-me-helper', helper_path]
+                        '--tinkery', tinkery_path]
                     send(b'c', 'Copied.')
                     wait(lambda: copies() == [expected_command, expected_command])
                 else:

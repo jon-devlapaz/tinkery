@@ -1,5 +1,5 @@
 //! Think's screen: the writing box, the original, the reading and its one question, review and
-//! the receipt, wired to the conversation, the model and Seed Me.
+//! the receipt, wired to the conversation, the model and ledger.
 //!
 //! The rules live in the parts: [`Conversation`] decides what is asked and sent, `reading` and
 //! `review` own the model's contracts, [`board`] verifies a reply, and `seed_me` saves. This
@@ -73,7 +73,7 @@ pub enum Exit {
     Stay,
     /// Back to the menu, or out when think was opened on its own.
     Menu,
-    /// Open this saved Seed Me session in tend.
+    /// Open this saved session in tend.
     Tend(std::path::PathBuf),
 }
 
@@ -172,7 +172,7 @@ struct Shaping {
     encoded_bytes: Option<Option<usize>>,
 }
 
-/// Saving a confirmed goal through Seed Me: the review, the save in flight, and its receipt.
+/// Saving a confirmed goal through the ledger: the review, the save in flight, and its receipt.
 #[derive(Default)]
 struct Handoff {
     config: Option<seed_me::Config>,
@@ -729,7 +729,7 @@ impl BrainDump {
             self.refuse(layout::LIMIT_TEXT);
         }
     }
-    /// Makes a blank think with this one's host, Seed Me and voice settings, for the next visit
+    /// Makes a blank think with this one's host, saving and voice settings, for the next visit
     /// from the menu. Only the session's frozen launch declaration carries over, never
     /// conversation, named confirmer attribution or goal-scoped authorization.
     pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {

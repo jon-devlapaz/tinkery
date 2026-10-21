@@ -109,12 +109,7 @@ fn abandoned_read_cannot_publish_or_spawn_a_second_worker() {
         running: Some((rx, Arc::new(AtomicBool::new(false)))),
     };
     reader.cancel();
-    assert!(!reader.start(
-        PathBuf::from("TEST no helper"),
-        Vec::new(),
-        None,
-        Found::default()
-    ));
+    assert!(!reader.start(Vec::new(), None, Found::default()));
     tx.send(Found {
         seeds: vec![seed("TEST stale")],
         ..Found::default()

@@ -29,11 +29,7 @@ use ratatui::{
 /// Name, one-line purpose, and whether the place exists yet.
 pub const PLACES: [(&str, &str, bool); 7] = [
     ("think", "Make your intention a clear goal.", true),
-    (
-        "tend",
-        "Choose a saved goal and copy a prompt to continue.",
-        true,
-    ),
+    ("tend", "Choose a saved goal and open its detail.", true),
     (
         "shape",
         "Answer Shape's questions and confirm a seed.",
@@ -76,7 +72,6 @@ pub struct Home {
     /// The muted key bar preference lasts the session, across visits to think.
     key_bar: bool,
     receipts: Vec<String>,
-    seed_me: Option<PathBuf>,
     discovery: Discovery,
     record_root: Result<PathBuf, String>,
     history_reader: tend::history::Reader,
@@ -126,7 +121,6 @@ impl Home {
             help: false,
             key_bar: true,
             receipts: Vec::new(),
-            seed_me: None,
             discovery,
             record_root: crate::think_record::default_root(std::env::var_os("HOME").as_deref()),
             history_reader: tend::history::Reader::default(),
@@ -165,12 +159,6 @@ impl Home {
         self
     }
 
-    /// The Seed Me skill tend's continuation prompt names.
-    pub fn with_seed_me(mut self, skill: PathBuf) -> Self {
-        self.seed_me = Some(skill);
-        self
-    }
-
     /// The repository Tinkery was started in, named once on the menu; `None` shows nothing.
     pub fn with_repo(mut self, repo: Option<crate::repo::Repo>) -> Self {
         self.repo = repo;
@@ -204,7 +192,6 @@ impl Home {
         }
         home.key_bar = dump.key_bar_on();
         home.repo = dump.repo().cloned();
-        home.seed_me = dump.saved().map(|r| r.skill.clone());
         if let Some(receipt) = dump.finish_handoff() {
             home.receipts.push(receipt);
         }
@@ -270,9 +257,6 @@ impl Home {
         let mut tend_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
-            if let Some(receipt) = dump.saved() {
-                self.seed_me = Some(receipt.skill.clone());
-            }
             if let Exit::Tend(path) = dump.exit() {
                 tend_request = Some(path.clone());
             }
@@ -358,13 +342,7 @@ impl Home {
                 ),
                 Err(reason) => (Err(reason.clone()), 0, Vec::new()),
             };
-            view.offer(
-                sessions,
-                unavailable,
-                reasons,
-                self.seed_me.clone(),
-                &mut self.approve_reader,
-            );
+            view.offer(sessions, unavailable, reasons, &mut self.approve_reader);
         }
     }
 
@@ -710,14 +688,12 @@ impl Home {
                     tend.notice.clear();
                 }
                 KeyCode::Esc => self.view = View::Menu,
-                KeyCode::Char('c') if tend.detail => tend.copy_prompt(self.seed_me.as_deref()),
                 KeyCode::Char('s')
-                    if tend.detail && tend.current().is_some_and(|s| s.stage.can_copy()) =>
+                    if tend.detail && tend.current().is_some_and(|s| s.stage.can_shape()) =>
                 {
-                    let shape =
-                        Shape::session(self.seed_me.as_deref(), &tend.current().unwrap().path)
-                            .with_agent(self.shape_agent.clone())
-                            .held(self.shape_held);
+                    let shape = Shape::session(&tend.current().unwrap().path)
+                        .with_agent(self.shape_agent.clone())
+                        .held(self.shape_held);
                     let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) else {
                         unreachable!()
                     };
@@ -816,7 +792,7 @@ impl Home {
             }
             KeyCode::Char('?') if typing && !self.help => {
                 if let View::Shape(shape, _) = &mut self.view {
-                    shape.key(key, self.seed_me.as_deref());
+                    shape.key(key);
                 }
             }
             KeyCode::F(1) | KeyCode::Char('?') => {
@@ -835,7 +811,7 @@ impl Home {
                 let View::Shape(shape, _) = &mut self.view else {
                     return;
                 };
-                let leave = shape.key(key, self.seed_me.as_deref());
+                let leave = shape.key(key);
                 if shape.wants_sessions() {
                     self.request_sessions();
                 }
@@ -968,7 +944,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             return;
         }
         if let View::Tend(tend) = &mut home.view {
-            let p = Paragraph::new(tend.help_text(home.seed_me.as_deref()))
+            let p = Paragraph::new(tend.help_text())
                 .wrap(Wrap { trim: false })
                 .style(palette.ink);
             let max = p
@@ -979,7 +955,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             return;
         }
         // Shown away from the menu (Measure's report, unbuilt places), where q goes back.
-        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals and seeds; copy a prompt to continue\nshape   answer Shape's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure the ledger report (read-only)\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -1362,7 +1338,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let descriptions = [
             "Make your intention a clear goal.",
-            "Choose a saved goal and copy a prompt to continue.",
+            "Choose a saved goal and open its detail.",
             "Answer Shape's questions and confirm a seed.",
             "Start a shaped goal in tink-sdlc.",
             "See the runs in your tink-sdlc checkout, read-only.",
@@ -1479,7 +1455,10 @@ mod tests {
         assert!(matches!(h.view, View::Shape(..)));
         let screen = snapshot(100, 30, &mut h, true).unwrap();
         assert!(screen.contains("tinkery › shape"), "{screen}");
-        assert!(screen.contains("isn't set up here"), "{screen}");
+        assert!(
+            screen.contains("Reading where this seed stands."),
+            "{screen}"
+        );
         // A terminal may report ? with Shift; it still opens and closes help.
         let shifted = KeyEvent::new(KeyCode::Char('?'), KeyModifiers::SHIFT);
         h.handle_key(shifted);
@@ -1789,7 +1768,7 @@ mod tests {
         let mut receipt = crate::seed_me::Receipt::test(path.clone());
         receipt.goal = goal.into();
         for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
-            let mut h = home(tmp.path()).with_seed_me(receipt.skill.clone());
+            let mut h = home(tmp.path());
             h.open_tend_session(&path);
             settle(&mut h);
             let screen = snapshot(w, height, &mut h, false).unwrap();
@@ -1815,28 +1794,10 @@ mod tests {
             assert!(screen.contains("Next: shape it into a seed in Shape."));
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "c copy prompt   s shape   r history   esc back   F10 menu"
+                "s shape   r history   esc back   F10 menu"
             );
-            for _ in 0..2 {
-                h.handle_key(key(KeyCode::Char('c')));
-                assert_eq!(
-                    h.take_copy_request().unwrap(),
-                    receipt.continuation_prompt()
-                );
-                assert!(h.take_copy_request().is_none());
-                h.copy_result(true);
-                assert!(
-                    snapshot(w, height, &mut h, false)
-                        .unwrap()
-                        .contains("Copied.")
-                );
-            }
-            h.copy_result(false);
-            assert!(
-                snapshot(w, height, &mut h, false)
-                    .unwrap()
-                    .contains("Couldn't copy; try again.")
-            );
+            h.handle_key(key(KeyCode::Char('c')));
+            assert!(h.take_copy_request().is_none());
             h.handle_key(key(KeyCode::F(1)));
             assert!(
                 !snapshot(w, height, &mut h, false)
@@ -1845,10 +1806,7 @@ mod tests {
             );
             h.handle_key(key(KeyCode::Char('h')));
             let View::Tend(tend) = &h.view else { panic!() };
-            assert!(
-                tend.help_text(h.seed_me.as_deref())
-                    .contains(path.to_str().unwrap())
-            );
+            assert!(tend.help_text().contains(path.to_str().unwrap()));
             h.handle_key(key(KeyCode::Esc));
             h.handle_key(key(KeyCode::Esc));
             h.handle_key(key(KeyCode::Esc));
@@ -1886,7 +1844,7 @@ mod tests {
             ),
         ] {
             session(tmp.path(), id, status, "2026-10-11T00:00:00Z", seed);
-            let mut h = home(tmp.path()).with_seed_me("/TEST/SKILL.md".into());
+            let mut h = home(tmp.path());
             h.open_tend_session(&tmp.path().join(id));
             settle(&mut h);
             let screen = snapshot(100, 30, &mut h, false).unwrap();
@@ -1896,18 +1854,18 @@ mod tests {
                 assert!(!screen.contains("Next:") && !screen.contains("c copy prompt"));
             }
             h.handle_key(key(KeyCode::Char('c')));
-            assert_eq!(h.take_copy_request().is_some(), next.is_some());
+            assert!(h.take_copy_request().is_none());
         }
         assert_eq!(
             Stage::from_files("active", Some("status: simulated")),
             Stage::Simulated
         );
-        assert!(!Stage::Simulated.can_copy());
+        assert!(!Stage::Simulated.can_shape());
         assert_eq!(
             Stage::from_files("active", Some("not a status")),
             Stage::Unknown
         );
-        assert!(!Stage::Unknown.can_copy());
+        assert!(!Stage::Unknown.can_shape());
     }
 
     #[test]

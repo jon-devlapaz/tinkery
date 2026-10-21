@@ -251,7 +251,7 @@ pub(super) fn require_seed_decisions(
         format!("not current: {}", stale.join(", "))
     };
     Err(format!(
-        "{refusal}: the seed's decisions do not match the ledger ({detail}); replace its Decisions and Assumed sections with the output of `session.py seed decisions <session>`"
+        "{refusal}: the seed's decisions do not match the ledger ({detail}); reopen Shape and draft again from the current ledger"
     ))
 }
 

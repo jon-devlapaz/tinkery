@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import select
 import struct
-import subprocess
+import test_launch as subprocess
 import tempfile
 import termios
 import time
@@ -43,12 +43,6 @@ class ShapeIncompleteReadJourney(unittest.TestCase):
                     (session / 'ledger.json').write_text(json.dumps({
                         'session_id': name, 'status': status, 'goal': goal,
                         'updated_at': '2026-10-17T00:00:00Z'}))
-            skill = root / 'TEST-skill' / 'SKILL.md'
-            skill.parent.mkdir()
-            skill.write_bytes((REPO / '.ci-seed-me/skills/seed-me/SKILL.md').read_bytes())
-            helper = skill.parent / 'scripts' / 'session.py'
-            helper.parent.mkdir()
-            helper.write_text("from pathlib import Path\nPath(__file__).parents[2].joinpath('helper-was-run').write_text('unexpected')\nraise SystemExit(86)\n")
             provider = root / 'never-run-pi'
             provider.write_text('#!/bin/sh\necho unexpected > provider-was-run\nexit 86\n')
             provider.chmod(0o755)
@@ -66,10 +60,9 @@ class ShapeIncompleteReadJourney(unittest.TestCase):
             fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
             process = subprocess.Popen([
                 str(REPO / 'target/debug/tinkery'), '--home', '--shape-pi',
-                '--model', 'test/model', '--shape-budget', '0', '--seed-me', str(skill),
-                '--seed-session-root', str(sessions), '--record-root', str(root / 'TEST-records'),
+                '--model', 'test/model', '--shape-budget', '0', '--seed-session-root', str(sessions), '--record-root', str(root / 'TEST-records'),
                 '--link-root', str(root / 'TEST-links'), '--pi-command', str(provider),
-            ], cwd=root, env=env, stdin=slave, stdout=slave, stderr=slave)
+            ], cwd=root, env=subprocess.environment(env, home=(env)['HOME']), stdin=slave, stdout=slave, stderr=slave)
             screen = Screen(width, height)
 
             def flat():

@@ -69,7 +69,7 @@ fn review_and_receipt_help_cannot_confirm_copy_or_open_tend() {
     assert_eq!(app.handoff.receipt.as_ref().unwrap().text(), receipt);
     key(&mut app, KeyCode::Esc);
     key(&mut app, KeyCode::Char('c'));
-    assert!(app.take_copy_request().is_some());
+    assert!(app.take_copy_request().is_none());
 }
 
 fn key(app: &mut BrainDump, code: KeyCode) {

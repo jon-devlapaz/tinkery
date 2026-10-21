@@ -8,8 +8,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location('tend_repo_journey', ROOT / 'tests/tend_repo_terminal.py')
 JOURNEY = importlib.util.module_from_spec(SPEC)
-with mock.patch.dict(os.environ, {'SEED_ME_TEST_SKILL': str(ROOT / '.ci-seed-me/skills/seed-me/SKILL.md')}):
-    SPEC.loader.exec_module(JOURNEY)
+SPEC.loader.exec_module(JOURNEY)
 
 
 class ExitWaitTests(unittest.TestCase):

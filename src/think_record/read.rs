@@ -1,6 +1,6 @@
 //! Read one saved conversation without changing its files. Attribution requires a complete scan,
-//! one schema-2 or schema-3 record with the exact session path and Seed Me identity, and an unchanged goal.
-//! Older records cannot prove that connection; malformed files cannot hide a possible duplicate.
+//! one record matching a unique live ledger session_id and the unchanged goal. Missing-folder
+//! path-only records may use their final folder name as that ID; ambiguous identities refuse.
 
 mod origins;
 pub(crate) use origins::read_origins;
@@ -102,10 +102,12 @@ struct SavedRecord {
 
 /// Reads the unique history for `session` and its exact `goal`, without writing or running
 /// commands. Scans JSON files under `root`; missing, unreadable, unsupported, conflicting or
-/// older matching records refuse attribution. A record over 16 MiB is unreadable. The session
-/// must retain the same goal and identity before and after the scan; moved sessions are not guessed.
+/// older matching records refuse attribution. A record over 16 MiB is unreadable. Ledger IDs
+/// must be unique among readable live sessions before and after the read. A path-only record may use
+/// its final folder name as the ID only when that folder is missing. Nothing is rewritten.
 pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavailable> {
     let selected = current_session(session, goal)?;
+    require_unique(&identity_index([session])?, &selected)?;
     let entries = entries(root)?;
     let mut found = None;
     for entry in entries {
@@ -128,8 +130,8 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             }
             continue;
         }
-        let stored = reference(&path, &record)?;
-        if *stored != selected.0 {
+        let identity = record_identity(&path, &record)?;
+        if identity != selected.1 {
             continue;
         }
         if found.is_some() {
@@ -145,15 +147,6 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         found = Some((path, record));
     }
     let (path, record) = found.ok_or_else(|| missing(root))?;
-    if record.seed_me_session_id.as_deref() != Some(selected.1.as_str()) {
-        return Err(Unavailable::new(
-            "Think history belongs to a different saved session.",
-            format!(
-                "{}: the recorded Seed Me identity differs from the current session at this path.",
-                path.display()
-            ),
-        ));
-    }
     if record.goal != goal {
         return Err(Unavailable::new(
             "Think history disagrees with the saved goal.",
@@ -169,6 +162,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             "Open the saved goal again before reading its history.",
         ));
     }
+    require_unique(&identity_index([session])?, &selected)?;
     let made_in = origin(record.schema, record.repo);
     let details = format!(
         concat!(
@@ -215,32 +209,122 @@ fn entries(root: &Path) -> Result<fs::ReadDir, Unavailable> {
     })
 }
 
-fn reference<'a>(path: &Path, record: &'a SavedRecord) -> Result<&'a PathBuf, Unavailable> {
-    let stored = record
-        .seed_me_session_path
-        .as_ref()
-        .ok_or_else(|| Unavailable::unreadable(path, "the saved session path is missing"))?;
-    if !stored.is_absolute()
-        || stored
-            .components()
-            .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
-        || record.seed_me_session != session_id(stored)
-    {
-        return Err(Unavailable::unreadable(
-            path,
-            "the saved session reference is invalid",
-        ));
+fn record_identity(path: &Path, record: &SavedRecord) -> Result<String, Unavailable> {
+    let stored = record.seed_me_session_path.as_ref();
+    if let Some(stored) = stored {
+        if !stored.is_absolute()
+            || stored
+                .components()
+                .any(|part| matches!(part, Component::CurDir | Component::ParentDir))
+            || record.seed_me_session != session_id(stored)
+        {
+            return Err(Unavailable::unreadable(
+                path,
+                "the saved session reference is invalid",
+            ));
+        }
+        if let Ok(canonical) = stored.canonicalize()
+            && canonical != *stored
+        {
+            return Err(Unavailable::unreadable(
+                path,
+                "the saved session path is no longer canonical",
+            ));
+        }
     }
-    // Missing unrelated sessions are allowed, but changed symlinks cannot become matches.
-    if let Ok(canonical) = stored.canonicalize()
-        && canonical != *stored
-    {
-        return Err(Unavailable::unreadable(
-            path,
-            "the saved session path is no longer canonical",
-        ));
+    if let Some(id) = &record.seed_me_session_id {
+        return Ok(id.clone());
     }
-    Ok(stored)
+    let stored = stored.ok_or_else(|| {
+        Unavailable::unreadable(
+            path,
+            "the recorded ledger identity and session path are missing",
+        )
+    })?;
+    match fs::symlink_metadata(stored) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let id = stored
+                .file_name()
+                .and_then(|name| name.to_str())
+                .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))
+                .ok_or_else(|| {
+                    Unavailable::unreadable(
+                        path,
+                        "the missing session folder has no usable identity",
+                    )
+                })?;
+            Ok(id.to_owned())
+        }
+        Ok(_) => Err(Unavailable::unreadable(
+            path,
+            "a path-only history needs a missing session folder before its final name can identify a moved session",
+        )),
+        Err(_) => Err(Unavailable::unreadable(
+            path,
+            "the recorded session location could not be inspected",
+        )),
+    }
+}
+
+type Identities = std::collections::HashMap<String, Option<PathBuf>>;
+
+// Scan readable live identities in each current root, never an old recorded location.
+// Discovery discloses unreadable siblings separately; they supply no matching identity.
+fn identity_index<'a>(
+    sessions: impl IntoIterator<Item = &'a Path>,
+) -> Result<Identities, Unavailable> {
+    let roots: std::collections::BTreeSet<_> =
+        sessions.into_iter().filter_map(Path::parent).collect();
+    let mut identities = Identities::new();
+    for root in roots {
+        let entries = fs::read_dir(root).map_err(|_| {
+            Unavailable::new(
+                "Saved session identities could not be checked.",
+                "Reopen Tend after checking the sessions folder.",
+            )
+        })?;
+        for entry in entries {
+            let entry = entry.map_err(|_| {
+                Unavailable::new(
+                    "Saved session identities could not be checked.",
+                    "The sessions folder could not be listed completely.",
+                )
+            })?;
+            match seed_me::read(&entry.path()) {
+                seed_me::Record::NotASession => {}
+                seed_me::Record::Unreadable(_) => continue,
+                seed_me::Record::Session(session) => {
+                    let Some(id) = session.id else { continue };
+                    identities
+                        .entry(id)
+                        .and_modify(|found| {
+                            if found.as_ref() != Some(&session.path) {
+                                *found = None;
+                            }
+                        })
+                        .or_insert(Some(session.path));
+                }
+            }
+        }
+    }
+    Ok(identities)
+}
+
+fn require_unique(
+    identities: &Identities,
+    selected: &(PathBuf, String),
+) -> Result<(), Unavailable> {
+    match identities.get(&selected.1) {
+        Some(Some(path)) if *path == selected.0 => Ok(()),
+        Some(None) => Err(Unavailable::new(
+            "More than one saved session has this identity.",
+            "Think history is ambiguous; no session was chosen. Check the sessions folder before reopening.",
+        )),
+        _ => Err(Unavailable::new(
+            "The saved session changed while history was read.",
+            "Reopen the saved goal before reading its history.",
+        )),
+    }
 }
 
 fn origin(schema: u8, repo: Option<PathBuf>) -> MadeIn {
@@ -343,15 +427,14 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
         .goal_confirmation
         .validate()
         .map_err(|error| Unavailable::unreadable(path, error))?;
-    if record.schema >= 2
-        && record
-            .seed_me_session_id
-            .as_ref()
-            .is_none_or(|id| id.trim().is_empty())
+    if record
+        .seed_me_session_id
+        .as_ref()
+        .is_some_and(|id| id.trim().is_empty() || id.chars().any(char::is_control))
     {
         return Err(Unavailable::unreadable(
             path,
-            "the recorded Seed Me identity is missing",
+            "the recorded ledger identity is invalid",
         ));
     }
     if record.started.is_empty()
