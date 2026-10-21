@@ -1083,6 +1083,117 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     );
 }
 
+#[test]
+fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
+    use crate::seed_me::{Affirmed, Config, ledger, shaping};
+
+    let cases = [
+        (
+            "A saved loan must not disappear after a real close and reopen.",
+            "The list survives closing and reopening.",
+        ),
+        (
+            "Attempting to save a loan with one required field missing must fail or be rejected.",
+            "The tool records a title, borrower, and date.",
+        ),
+    ];
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-299-")
+        .tempdir()
+        .unwrap();
+    let receipt = Config::new(Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: GOAL.into(),
+            outcome: "TEST loan review".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    let seed = "status: draft\n# TEST loan review\nrevision: r1\n\nTEST draft.\n";
+    std::fs::write(receipt.session.join("seed-contract.md"), seed).unwrap();
+    let review = ledger::CompletionReview {
+        contradictions: vec![],
+        decided: vec![],
+        done: vec![],
+        failure_cases: cases
+            .iter()
+            .map(|(case, statement)| ledger::FailureCase {
+                case: (*case).into(),
+                statement: (*statement).into(),
+            })
+            .collect(),
+    };
+    ledger::record_teach_back(
+        &receipt.session,
+        1,
+        "r1",
+        seed,
+        &ledger::TeachBackRecord::Review(&review),
+        "2026-10-21T00:00:00+00:00",
+        None,
+    )
+    .unwrap();
+    let draft = shaping::read(&receipt.session).unwrap();
+    assert_eq!(
+        draft
+            .confirmation
+            .iter()
+            .take(6)
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        [
+            "Drafting step guess: Nothing observed done.",
+            "Drafting step guess:",
+            "Must fail: A saved loan must not disappear after a real close and reopen.",
+            "  Check: The list survives closing and reopening.",
+            "Must fail: Attempting to save a loan with one required field missing must fail or be rejected.",
+            "  Check: The tool records a title, borrower, and date.",
+        ]
+    );
+    for (width, height) in [(100, 30), (80, 24)] {
+        for no_color in [false, true] {
+            let mut view = done(draft.stage.clone()).with_agent(Some(agent(0)));
+            view.open.as_mut().unwrap().reading = Reading::Done(Ok(draft.clone()));
+            let mut seen = [false; 2];
+            for _ in 0..200 {
+                let rendered = screen(&mut view, width, height, no_color);
+                let flat = rendered.split_whitespace().collect::<Vec<_>>().join(" ");
+                for forbidden in [
+                    "Drafting step guess: If ",
+                    "., ",
+                    ". must fail",
+                    "Must fail: The list survives closing and reopening.",
+                ] {
+                    assert!(!flat.contains(forbidden), "{rendered}");
+                }
+                for (index, (case, statement)) in cases.iter().enumerate() {
+                    if flat.contains(&format!("Must fail: {case} Check: {statement}")) {
+                        assert!(
+                            rendered
+                                .lines()
+                                .any(|l| l.trim_start().starts_with("Must fail:"))
+                        );
+                        assert!(
+                            rendered
+                                .lines()
+                                .any(|l| l.trim_start().starts_with("Check:"))
+                        );
+                        assert!(flat.contains("F3 confirm seed r1"), "{rendered}");
+                        seen[index] = true;
+                    }
+                }
+                view.key(key(KeyCode::Down));
+            }
+            assert!(
+                seen.iter().all(|s| *s),
+                "Missing review at {width}x{height}: {seen:?}"
+            );
+        }
+    }
+}
+
 // Pinned consumer expectations are deliberately independent of the producer's heading list.
 fn missing_intake_sections(seed: &str, consumer: &str) -> Vec<String> {
     consumer
