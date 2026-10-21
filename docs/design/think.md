@@ -130,28 +130,36 @@ across Think visits in that terminal session. Header and confirmation review sho
 The record retains that exact declaration, `typed confirm at this terminal`, and
 `declaration is not verified identity`, never an operator identity inferred from
 keys. No declaration stays unknown; existing records are not backfilled. Launch
-context cannot be replaced by named attribution through the API. It never enters
+context cannot be replaced by named attribution through the API once installed. It never enters
 model requests and grants neither seed confirmation nor implementation permission.
 
-**Integration held:** an agent launch declaration or explicit named agent context
-cannot save a goal through the user-only ledger save path:
-review and help explain the hold and Esc, and Enter refuses before any save job.
-The held review takes no typed or pasted words. Shape holds the same way (#247):
-its every write is recorded as the operator's, so under an agent declaration it only
-reads, offers no words box or ending, and F2, F3, F6 and F8 say
-`Delegated shaping awaits ledger integration. Shape only reads; Esc goes back.`
-The user-only save adapter requires a `user` goal origin and does not expose structured
-seed-confirmer fields; Tinkery does not relabel an agent as `user` or use simulation as
-a bypass. Shape F3, ledger publication/readback,
-and seed-confirmation provenance need a separately assigned integration slice after
-#198 and #208 clear. This partial slice does not complete #185's end-to-end goal/seed
-confirmation support or authorize delegated seed confirmation. Seed Me PR #15 at
-`9a3d597` separates `authority_source` (agent confirmation) from
-`delegation.authorization_source`, with `agent`, `authorizing_operator`, `door`
-(`two-way`) and `blast_radius` (`small`). A launch kind supplies none of that named,
-goal-scoped authorization, so it is not a delegation object. The existing named
-API and held adapter are unchanged; this slice neither depends on #15 merging nor
-enables its integration.
+**Agent operation:** `--operator agent` alone stays read-only at confirmation.
+`--agent-confirmation FILE` supplies the existing `GoalConfirmation::Agent` JSON:
+`by: "agent"`, `agent`, `authorizing_operator`, `source`, and `class` containing
+`door: "two_way"`, `door_reason`, `blast_radius: "small"`, and `blast_radius_reason`.
+Names, the actual scoped permission source and both reasons must be nonblank.
+Invalid or ineligible context refuses at launch, before writing. These are caller
+declarations, not authentication. The source must cover the goals and Shape actions
+performed in this run; it grants no model budget, private-data access or implementation
+approval. Bare launches explain the missing context and offer no write actions.
+
+The CLI freezes the context for the run. One shared authorization boundary resolves
+a typed actor before goal saving or Shape writes. Tinkery's own Rust ledger saves
+and reads back delegated goal origins; no Seed Me checkout or helper is used.
+Original words and confirmed goals stay unchanged. A fresh Think visit from a
+standalone receipt retains the agent declaration but drops named permission;
+menu-created visits retain the explicit run context. Neither can become a human save.
+Shape records agent answers as delegated and action reasons name the agent and
+authorizing operator. Version-3 seed confirmation receipts contain the same context,
+bound to confirmed seed bytes and checked against the seed's attribution line.
+Missing, malformed or changed attribution refuses verification. Human version-2
+receipts and legacy histories remain valid. The ledger's historical `operator: human`
+session mode means non-practice, not the identity of the actor; action attribution
+and seed receipts distinguish the actual confirmer.
+
+External human-only intake cannot consume agent confirmations. Shape and Approve
+keep the verified seed readable but withhold intake commands and explain why.
+This does not authorize implementation or change the consumer's contract.
 
 ## Think record
 

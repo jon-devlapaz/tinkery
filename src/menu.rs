@@ -79,7 +79,7 @@ pub struct Home {
     repo: Option<crate::repo::Repo>,
     shape_agent: Option<Arc<crate::shape::Agent>>,
     sdlc_root: Option<PathBuf>,
-    /// An agent launch declaration: Shape only reads.
+    /// An agent launch without named confirmation context: Shape only reads.
     shape_held: bool,
     approve_reader: approve::Reader,
 }
@@ -145,7 +145,7 @@ impl Home {
         self
     }
 
-    /// Under an agent launch declaration Shape only reads; see [`Shape::held`].
+    /// An agent launch without named context only reads; see [`Shape::held`].
     pub fn with_shape_held(mut self, held: bool) -> Self {
         self.shape_held = held;
         self

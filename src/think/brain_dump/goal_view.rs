@@ -20,9 +20,9 @@ const RECORD_FAILED: &str = "The think record wasn't written; F1 then h shows wh
 const HANDOFF_FAILED: &str = "Handoff not complete:";
 /// What review shows for a save that didn't finish, short enough for the narrowest pane.
 const HANDOFF_FAILED_TEXT: &str = "Handoff not complete. F1 then h shows why; Enter retries.";
-/// The partial API records attribution but cannot use the user-only goal origin as an agent.
+/// A launch declaration alone cannot authorize durable agent work.
 pub(super) const DELEGATED_SAVE_HELD: &str =
-    "Delegated goal saving awaits ledger integration. Nothing saved; Esc goes back.";
+    "Agent saving needs --agent-confirmation FILE. Nothing saved; Esc goes back.";
 
 /// The goal under review and everything think records with it.
 #[derive(Clone)]
@@ -94,7 +94,7 @@ impl BrainDump {
     /// authorization is inferred; invalid or late changes refuse without losing words or review.
     /// Named context is visit-scoped; a terminal launch declaration instead stays frozen across
     /// visits in this session. Neither grants seed confirmation or implementation approval.
-    /// Agent saves remain blocked until ledger integration supports delegated goal origins.
+    /// Named agent context must satisfy the scoped delegation rules; launch kind alone cannot save.
     pub fn set_goal_confirmation(
         &mut self,
         confirmation: record::GoalConfirmation,
@@ -125,9 +125,9 @@ impl BrainDump {
             .as_ref()
             .map_or(&self.handoff.confirmation, |r| &r.affirmation.confirmation)
     }
-    /// Whether this frozen review declares an agent, whose save integration is still held.
+    /// Whether the frozen review lacks the named authority required for agent saving.
     pub(super) fn delegated_goal_save_held(&self) -> bool {
-        self.handoff.review.is_some() && self.goal_confirmation().is_agent()
+        self.handoff.review.is_some() && self.goal_confirmation().saving_held()
     }
     /// Saves confirmed goals under `root` or the checked HOME default,
     /// default. Without this, review explains that saving needs it.
@@ -397,19 +397,20 @@ impl BrainDump {
             KeyCode::Char(c)
                 if !key.modifiers.contains(KeyModifiers::CONTROL)
                     && review.input.len() < 32
-                    && !review.affirmation.confirmation.is_agent() =>
+                    && !review.affirmation.confirmation.saving_held() =>
             {
                 review.input.push(c)
             }
-            KeyCode::Enter if review.affirmation.confirmation.is_agent() => {
+            KeyCode::Enter if review.affirmation.confirmation.saving_held() => {
                 self.refuse(DELEGATED_SAVE_HELD);
             }
             KeyCode::Enter if review.input == "confirm" && review.scroll >= review.max => {
                 let config = self.handoff.config.clone().unwrap();
                 let affirmation = review.affirmation.affirmed();
+                let confirmation = review.affirmation.confirmation.clone();
                 let (tx, rx) = mpsc::channel();
                 std::thread::spawn(move || {
-                    let _ = tx.send(config.confirm(affirmation));
+                    let _ = tx.send(config.confirm_as(affirmation, &confirmation));
                 });
                 self.handoff.job = Some(rx);
                 self.notice = "Saving your goal…".into();
@@ -429,7 +430,7 @@ impl BrainDump {
         if let Some(review) = self.handoff.review.as_mut() {
             if text.chars().all(|c| !c.is_control())
                 && review.input.len() + text.len() <= 32
-                && !review.affirmation.confirmation.is_agent()
+                && !review.affirmation.confirmation.saving_held()
             {
                 review.input.push_str(text);
             }
@@ -441,6 +442,7 @@ impl BrainDump {
 pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let declaration = match app.goal_confirmation() {
         record::GoalConfirmation::Terminal { declaration, .. } => declaration.as_str(),
+        record::GoalConfirmation::Agent { .. } => "declared: agent",
         _ => return,
     };
     let area = frame.area();
@@ -486,7 +488,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         "Saving…".into()
     } else if app.notice.starts_with(HANDOFF_FAILED) {
         HANDOFF_FAILED_TEXT.into()
-    } else if review.affirmation.confirmation.is_agent() {
+    } else if review.affirmation.confirmation.saving_held() {
         DELEGATED_SAVE_HELD.into()
     } else {
         format!(

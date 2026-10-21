@@ -1,4 +1,4 @@
-//! Caller-declared goal confirmation provenance. It records identity claims, not authenticated
+//! Caller-declared confirmation provenance. It records identity claims, not authenticated
 //! identity or new authority; risk classification never replaces scoped operator authorization.
 use serde::{Deserialize, Serialize};
 
@@ -36,8 +36,8 @@ pub struct ConfirmationClass {
     pub blast_radius_reason: String,
 }
 
-/// Who the caller says confirmed this goal. No declaration means unrecorded, never operator.
-/// This records goal confirmation only: neither seed confirmation nor implementation approval.
+/// Who the caller says performed a confirmation. No declaration means unrecorded, never operator.
+/// Think and Shape record this separately; supplying it for a goal never confirms a seed or approves work.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "by", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GoalConfirmation {
@@ -74,6 +74,64 @@ pub enum GoalConfirmation {
     },
 }
 
+/// The actor permitted to write, resolved only from explicit caller context.
+#[derive(Clone, Copy)]
+pub(crate) enum Actor<'a> {
+    /// The existing operator path; no named identity is inferred.
+    Operator,
+    /// A named agent and its authorizing operator, with validated scoped context.
+    Agent(&'a GoalConfirmation),
+}
+
+impl<'a> Actor<'a> {
+    /// The one authorization boundary shared by goal saving and every Shape write route.
+    pub(crate) fn authorize(context: Option<&'a GoalConfirmation>) -> Result<Self, String> {
+        context.map_or(Ok(Self::Operator), GoalConfirmation::actor)
+    }
+
+    /// Attribute an action without rewriting operator prose or claiming authenticated identity.
+    pub(crate) fn reason(self, action: &str) -> String {
+        match self {
+            Self::Operator => format!("The operator {action}"),
+            Self::Agent(context) => {
+                format!("The agent {action}; caller-declared {}", context.details())
+            }
+        }
+    }
+
+    /// The answer authority understood by the ledger.
+    pub(crate) fn authority(self) -> &'static str {
+        match self {
+            Self::Operator => "user",
+            Self::Agent(_) => "delegated",
+        }
+    }
+
+    /// Existing structured goal-origin delegation; all original context stays in its source.
+    pub(crate) fn delegation(self) -> Option<serde_json::Value> {
+        match self {
+            Self::Agent(GoalConfirmation::Agent {
+                agent,
+                authorizing_operator,
+                source,
+                ..
+            }) => Some(
+                serde_json::json!({"agent":agent,"authorizing_operator":authorizing_operator,
+                    "authorization_source":source,"door":"two-way","blast_radius":"small"}),
+            ),
+            _ => None,
+        }
+    }
+
+    /// The exact named agent context, absent on legacy operator paths.
+    pub(crate) fn context(self) -> Option<&'a GoalConfirmation> {
+        match self {
+            Self::Operator => None,
+            Self::Agent(context) => Some(context),
+        }
+    }
+}
+
 impl Default for GoalConfirmation {
     fn default() -> Self {
         Self::Unrecorded {}
@@ -90,11 +148,24 @@ impl GoalConfirmation {
             None => "not declared",
             _ => return Err("--operator needs human or agent".into()),
         };
-        Ok(Self::Terminal {
+        Ok(Self::terminal_declaration(declaration))
+    }
+
+    fn terminal_declaration(declaration: &str) -> Self {
+        Self::Terminal {
             declaration: declaration.into(),
             action: "typed confirm at this terminal".into(),
             identity: "declaration is not verified identity".into(),
-        })
+        }
+    }
+
+    /// Keep launch kind across a fresh visit without carrying goal-scoped named authority.
+    pub(crate) fn fresh_declaration(&self) -> Self {
+        match self {
+            Self::Terminal { .. } => self.clone(),
+            Self::Agent { .. } => Self::terminal_declaration("declared: agent"),
+            _ => Self::default(),
+        }
     }
 
     /// Checks completeness and delegation eligibility, not whether the cited source grants authority.
@@ -149,10 +220,38 @@ impl GoalConfirmation {
         Ok(())
     }
 
-    /// True only for an explicitly declared agent; unrecorded identity is not operator identity.
-    pub(crate) fn is_agent(&self) -> bool {
-        matches!(self, Self::Agent { .. })
-            || matches!(self, Self::Terminal { declaration, .. } if declaration == "declared: agent")
+    /// Read existing named confirmation context for an explicitly agent-operated run.
+    /// It remains caller-declared: the source must describe the operator's actual permission.
+    pub fn read_agent(path: &std::path::Path) -> Result<Self, String> {
+        let bytes = std::fs::read(path)
+            .map_err(|_| "Cannot read agent confirmation. Check the file and its permissions.")?;
+        let actor: Self = serde_json::from_slice(&bytes).map_err(
+            |_| "Invalid agent confirmation. Supply the named confirmation JSON fields.",
+        )?;
+        if !matches!(actor, Self::Agent { .. }) {
+            return Err(
+                "Agent confirmation must name an agent and the authorizing operator.".into(),
+            );
+        }
+        actor.validate()?;
+        Ok(actor)
+    }
+
+    /// An agent declaration without complete authorization cannot write.
+    pub(crate) fn saving_held(&self) -> bool {
+        self.actor().is_err()
+    }
+
+    /// Resolve write authority before any durable action. A launch kind alone is not permission.
+    pub(crate) fn actor(&self) -> Result<Actor<'_>, String> {
+        self.validate()?;
+        match self {
+            Self::Agent { .. } => Ok(Actor::Agent(self)),
+            Self::Terminal { declaration, .. } if declaration == "declared: agent" => {
+                Err("Agent operation needs --agent-confirmation FILE.".into())
+            }
+            _ => Ok(Actor::Operator),
+        }
     }
 
     /// Escaped attribution for technical display; stored source words remain unchanged.
@@ -165,8 +264,47 @@ impl GoalConfirmation {
         {
             return format!("{declaration}; {action}; {identity}");
         }
-        // Debug escaping keeps control/bidi characters out of display without changing metadata.
-        format!("{self:?}")
+        let (who, source, class) = match self {
+            Self::Unrecorded {} => return "unrecorded".into(),
+            Self::Operator {
+                operator,
+                source,
+                class,
+            } => (
+                format!("operator {}", operator.escape_debug()),
+                source,
+                class,
+            ),
+            Self::Agent {
+                agent,
+                authorizing_operator,
+                source,
+                class,
+            } => (
+                format!(
+                    "agent {}; authorized by operator {}",
+                    agent.escape_debug(),
+                    authorizing_operator.escape_debug()
+                ),
+                source,
+                class,
+            ),
+            Self::Terminal { .. } => return "unrecorded".into(),
+        };
+        let door = match class.door {
+            Door::OneWay => "one-way",
+            Door::TwoWay => "two-way",
+        };
+        let radius = match class.blast_radius {
+            BlastRadius::Small => "small",
+            BlastRadius::Large => "large",
+        };
+        format!(
+            "{who}; source: {}; door: {door} ({}); blast radius: {radius} ({})",
+            source.escape_debug(),
+            class.door_reason.escape_debug(),
+            class.blast_radius_reason.escape_debug()
+        )
     }
 
     /// A goal-only receipt that never turns an unknown or agent keypress into the operator's.

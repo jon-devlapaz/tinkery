@@ -7,6 +7,7 @@ fn seed(goal: &str) -> ReadySeed {
         revision: "r1".into(),
         acceptance: "## Acceptance criteria\n- TEST exact check  \n".into(),
         commands: Some("python3 _system/scripts/sdlc.py new <run>\nTEST intake".into()),
+        intake_note: None,
     }
 }
 

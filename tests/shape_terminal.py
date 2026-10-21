@@ -34,7 +34,7 @@ P051_FINDINGS = [
     'needs behavior-specific assertions, including an observed red or targeted reversion probe.',
 ]
 SHAPE_KEYS = 'F5 so far   esc back   F10 menu'
-HELD = "Delegated shaping isn't supported yet. Shape only reads; Esc goes back."
+HELD = "Agent operation needs --agent-confirmation FILE. Shape only reads; Esc goes back."
 LIST_KEYS = '↑↓ move   enter open   esc back'
 
 

@@ -41,7 +41,9 @@ at tink-sdlc's 80 characters without a trailing hyphen. Paths use the shared can
 shell quoting; no placeholder needs replacing. Existing run names still refuse creation.
 Copying runs nothing and grants no approval. Missing checkout, an empty slug or
 unsafe paths leave the verified seed readable with a reason and no copy action.
-Copy uses the existing OSC 52 transport and feedback.
+Copy uses the existing OSC 52 transport and feedback. For
+[agent-confirmed seeds](think.md#confirmation-attribution-185), show why the external
+human-only intake command is withheld, not a missing-checkout excuse.
 
 | Key | Action |
 | --- | --- |

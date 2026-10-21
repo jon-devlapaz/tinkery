@@ -415,8 +415,8 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     };
     let finish = if !app.can_save() {
         SAVE_NEEDS_REAL
-    } else if app.goal_confirmation().is_agent() {
-        "F3   review the goal; delegated saving awaits ledger integration"
+    } else if app.goal_confirmation().saving_held() {
+        "F3   review the goal; agent saving needs --agent-confirmation FILE"
     } else if app.records() {
         "! F3   review the goal; typing confirm saves it and its think record for good"
     } else {
@@ -442,7 +442,7 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         );
     }
     let diagnostics = app.diagnostics().join("\n\n");
-    let saving = if app.goal_confirmation().is_agent() {
+    let saving = if app.goal_confirmation().saving_held() {
         goal_view::DELEGATED_SAVE_HELD
     } else {
         "Only typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept."

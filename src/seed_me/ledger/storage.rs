@@ -133,19 +133,29 @@ pub fn revalidate(
     id: &str,
     reason: &str,
     timestamp: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<(), PublishError> {
+    let actor = crate::think_record::Actor::authorize(actor)?;
     let _writer = Writer::acquire(directory)?;
     let ledger = load(directory)?;
     let expected = super::value::int(expected);
     super::require(ledger["version"] == expected, "stale publication version")?;
     let state = super::editable(&ledger)?;
-    let revalidated = super::value::object(&[(id, reason.into())]);
+    super::validate_revalidation(&super::value::object(&[(id, reason.into())]))?;
+    let review_reason = actor.context().map_or_else(
+        || reason.to_owned(),
+        |_| actor.reason(&format!("kept this answer with reason:\n{reason}")),
+    );
+    let revalidated = super::value::object(&[(id, review_reason.as_str().into())]);
     publication(
         directory,
         &ledger,
         &state,
         &expected,
-        &"The operator kept a flagged answer with a reason.".into(),
+        &actor
+            .reason("kept a flagged answer with a reason.")
+            .as_str()
+            .into(),
         Some(&revalidated),
         timestamp,
     )
@@ -160,7 +170,9 @@ pub fn respond(
     id: &str,
     action: &super::AnswerAction,
     timestamp: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<Value, PublishError> {
+    let actor = crate::think_record::Actor::authorize(actor)?;
     let _writer = Writer::acquire(directory).map_err(|error| {
         if error.reason == "session already has a writer" {
             error
@@ -175,13 +187,38 @@ pub fn respond(
     })?;
     let expected = super::value::int(expected);
     super::require(ledger["version"] == expected, "stale publication version")?;
-    let (state, mut reviewed) = super::answers::change(&ledger, id, action)?;
+    let (mut state, mut reviewed) = super::answers::change(&ledger, id, action)?;
+    if let Some(context) = actor.context()
+        && let Some(node) = state["nodes"]
+            .list_mut()
+            .iter_mut()
+            .find(|n| n["id"].is(id))
+        && node["status"].is("settled")
+    {
+        node.set("authority", "delegated".into());
+        node.set(
+            "authority_source",
+            actor
+                .reason("recorded this answer action in Tinkery Shape.")
+                .as_str()
+                .into(),
+        );
+        node["evidence"].list_mut().push(super::value::object(&[
+            (
+                "checked",
+                "Caller-declared authorization, not authenticated identity".into(),
+            ),
+            ("at", timestamp.into()),
+            ("observed", context.details().as_str().into()),
+        ]));
+    }
     let verb = match action {
         super::AnswerAction::Defer { .. } => "deferred",
         super::AnswerAction::Delegate => "delegated",
         super::AnswerAction::Revise(_) => "revised",
     };
-    let reason: Value = format!("The operator {verb} {id} in Tinkery Shape.")
+    let reason: Value = actor
+        .reason(&format!("{verb} {id} in Tinkery Shape."))
         .as_str()
         .into();
     if reviewed.get(id).is_some() {
@@ -342,7 +379,9 @@ pub fn record_teach_back(
     seed: &str,
     record: &super::TeachBackRecord<'_>,
     timestamp: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<u64, PublishError> {
+    let actor = crate::think_record::Actor::authorize(actor)?;
     let _writer = Writer::acquire(directory).map_err(|_| {
         "The session cannot be locked. Reopen it before recording this review again.".to_owned()
     })?;
@@ -366,7 +405,10 @@ pub fn record_teach_back(
         &ledger,
         &state,
         &ledger["version"],
-        &"The operator requested a draft review or teach-back in Tinkery Shape.".into(),
+        &actor
+            .reason("requested a draft review or teach-back in Tinkery Shape.")
+            .as_str()
+            .into(),
         None,
         timestamp,
     )
@@ -413,7 +455,7 @@ pub fn confirm_seed(
     source: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
-    confirm(directory, revision, source, timestamp, false)
+    confirm(directory, revision, source, timestamp, false, None)
 }
 
 /// Confirm after recording a missing teach-back as skipped. A completed comparison, including
@@ -424,7 +466,19 @@ pub fn confirm_with_teach_back(
     source: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
-    confirm(directory, revision, source, timestamp, true)
+    confirm(directory, revision, source, timestamp, true, None)
+}
+
+/// Confirm a seed for the explicitly named agent; permission is checked before any write.
+/// Human confirmations keep their existing receipt format.
+pub fn confirm_as(
+    directory: &Path,
+    revision: &str,
+    source: &str,
+    timestamp: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<Value, String> {
+    confirm(directory, revision, source, timestamp, true, actor)
 }
 
 fn confirm(
@@ -433,21 +487,23 @@ fn confirm(
     source: &str,
     timestamp: &str,
     record_skip: bool,
+    actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<Value, String> {
+    let actor = crate::think_record::Actor::authorize(actor)?;
     super::require(
         super::python::text(&revision.into()),
-        "--revision is required: the label shown to the human",
+        "--revision is required: the displayed label",
     )?;
     super::require(
         super::python::text(&source.into()),
-        "--source is required: quote the human's words that confirmed this revision",
+        "--source is required: quote the words that confirmed this revision",
     )?;
     super::require(!source.contains(['\n', '\r']), "--source must be one line")?;
     let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
     let ledger = load(directory)?;
     let ledger = if record_skip {
         // Refusals precede the skip record: an invalid confirmation must write nothing.
-        super::seed::confirmed(directory, &ledger, revision, source, timestamp)?;
+        super::seed::confirmed_as(directory, &ledger, revision, source, timestamp, actor)?;
         let draft = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
             "The draft could not be read. Reopen Shape before confirming.".to_owned()
         })?;
@@ -457,7 +513,7 @@ fn confirm(
         &ledger,
         &state,
         &ledger["version"],
-        &"The operator confirmed without a completed teach-back.".into(),
+        &actor.reason("confirmed without a completed teach-back.").as_str().into(),
         None,
         timestamp,
     )
@@ -469,7 +525,7 @@ fn confirm(
         ledger
     };
     let (confirmed, record, result) =
-        super::seed::confirmed(directory, &ledger, revision, source, timestamp)?;
+        super::seed::confirmed_as(directory, &ledger, revision, source, timestamp, actor)?;
     let path = directory.join(super::seed::FILE);
     atomic_text(
         &directory.join(super::seed::CONFIRMATION),

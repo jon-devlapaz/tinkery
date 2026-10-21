@@ -574,7 +574,14 @@ mod typed_tests;
 /// Settle the open question `id` with the operator's `words`, exactly as typed, from the version
 /// the operator saw (`expected`). Clears the current question. Returns the new version.
 /// Refuses a question that isn't open or a stale version.
-pub fn answer(session: &Path, expected: u64, id: &str, words: &str) -> Result<u64, Refusal> {
+pub fn answer(
+    session: &Path,
+    expected: u64,
+    id: &str,
+    words: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<u64, Refusal> {
+    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
     let mut ledger = read(session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
@@ -583,13 +590,24 @@ pub fn answer(session: &Path, expected: u64, id: &str, words: &str) -> Result<u6
         .ok_or_else(|| Refusal::Refused(format!("The question {id} is no longer open.")))?;
     node["status"] = "settled".into();
     node["answer"] = words.into();
-    node["authority"] = "user".into();
-    node["authority_source"] = "the operator's own answer, typed in Tinkery Shape".into();
+    node["authority"] = actor.authority().into();
+    node["authority_source"] = actor
+        .reason("answered with these words in Tinkery Shape.")
+        .into();
+    if let Some(context) = actor.context() {
+        let evidence = node["evidence"]
+            .as_array_mut()
+            .ok_or_else(|| Refusal::Refused("Invalid answer evidence.".into()))?;
+        evidence.push(
+            json!({"checked":"Caller-declared authorization, not authenticated identity",
+            "at":publication_time(SystemTime::now())?, "observed":context.details()}),
+        );
+    }
     ledger.state["current_question"] = Value::Null;
     publish(
         session,
         expected,
-        &format!("The operator answered {id} in Tinkery Shape."),
+        &actor.reason(&format!("answered {id} in Tinkery Shape.")),
         &ledger.state,
     )
 }
@@ -601,6 +619,7 @@ pub fn respond(
     expected: u64,
     id: &str,
     action: &ledger::AnswerAction,
+    actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<u64, Refusal> {
     let saved = ledger::respond(
         session,
@@ -608,6 +627,7 @@ pub fn respond(
         id,
         action,
         &publication_time(SystemTime::now())?,
+        actor,
     )
     .map_err(published)?;
     saved["version"]
@@ -675,13 +695,20 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
 
 /// Keep a flagged node's answer unchanged, publishing only the operator's review reason.
 /// The ledger alone validates the target, reason and displayed version; no model runs.
-pub fn keep(session: &Path, expected: u64, id: &str, reason: &str) -> Result<(), Refusal> {
+pub fn keep(
+    session: &Path,
+    expected: u64,
+    id: &str,
+    reason: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<(), Refusal> {
     ledger::revalidate(
         session,
         expected,
         id,
         reason,
         &publication_time(SystemTime::now())?,
+        actor,
     )
     .map_err(published)
 }
@@ -693,7 +720,9 @@ pub fn recommend(
     expected: u64,
     id: &str,
     recommendation: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<u64, Refusal> {
+    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
     let mut ledger = read(session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
@@ -704,7 +733,9 @@ pub fn recommend(
     publish(
         session,
         expected,
-        &format!("The operator asked to see the suggestion for {id} in Tinkery Shape."),
+        &actor.reason(&format!(
+            "asked to see the suggestion for {id} in Tinkery Shape."
+        )),
         &ledger.state,
     )
 }
@@ -712,7 +743,13 @@ pub fn recommend(
 /// The operator objects to assuming `text`, from `expected`: it leaves the ledger's `assumed` list
 /// and becomes an open decision, which blocks drafting until it's answered. Returns the new version.
 /// Refuses an assumption that isn't recorded.
-pub fn object(session: &Path, expected: u64, text: &str) -> Result<u64, Refusal> {
+pub fn object(
+    session: &Path,
+    expected: u64,
+    text: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<u64, Refusal> {
+    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
     let mut ledger = read(session)?;
     let mut assumed = ledger.state["assumed"]
         .as_array()
@@ -743,7 +780,9 @@ pub fn object(session: &Path, expected: u64, text: &str) -> Result<u64, Refusal>
     publish(
         session,
         expected,
-        &format!("The operator objected to an assumption in Tinkery Shape; it is now {id}."),
+        &actor.reason(&format!(
+            "objected to an assumption in Tinkery Shape; it is now {id}."
+        )),
         &ledger.state,
     )
 }
@@ -939,6 +978,7 @@ pub fn teach_back(
     revision: &str,
     seed: &str,
     record: &ledger::TeachBackRecord<'_>,
+    actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<u64, Refusal> {
     ledger::record_teach_back(
         session,
@@ -947,6 +987,7 @@ pub fn teach_back(
         seed,
         record,
         &publication_time(SystemTime::now())?,
+        actor,
     )
     .map_err(published)
 }
@@ -954,17 +995,23 @@ pub fn teach_back(
 /// Confirm seed `revision` through the ledger, with the operator's `words` as its source.
 /// Tinkery refuses a simulated session, a different revision, open decisions and a seed whose
 /// decisions don't match the ledger.
-pub fn confirm_seed(session: &Path, revision: &str, words: &str) -> Result<(), Refusal> {
+pub fn confirm_seed(
+    session: &Path,
+    revision: &str,
+    words: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<(), Refusal> {
     if words.trim().is_empty() || words.contains(['\n', '\r']) {
         return Err(Refusal::Refused(
             "Tinkery needs your words on one line.".into(),
         ));
     }
-    ledger::confirm_with_teach_back(
+    ledger::confirm_as(
         session,
         revision,
         words,
         &publication_time(SystemTime::now())?,
+        actor,
     )
     .map(|_| ())
     .map_err(|reason| Refusal::Refused(format!("Tinkery refused: {reason}")))
@@ -981,21 +1028,23 @@ pub enum Ending {
 
 /// End `session` through the ledger, after which it is read-only. Refuse completing a seed
 /// Tinkery can't verify or a conflicting ended status; completion never needs a viewer.
-pub fn end(session: &Path, ending: Ending) -> Result<(), Refusal> {
+pub fn end(
+    session: &Path,
+    ending: Ending,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<(), Refusal> {
+    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
     let (status, reason) = match ending {
         Ending::Completed => (
             "completed",
-            "The operator ended the session in Tinkery Shape after confirming the seed.",
+            "ended the session in Tinkery Shape after confirming the seed.",
         ),
-        Ending::Stopped => (
-            "stopped",
-            "The operator stopped the interview in Tinkery Shape.",
-        ),
+        Ending::Stopped => ("stopped", "stopped the interview in Tinkery Shape."),
     };
     ledger::end(
         session,
         status,
-        reason,
+        &actor.reason(reason),
         &publication_time(SystemTime::now())?,
     )
     .map(|_| ())

@@ -98,8 +98,8 @@ fn agent_confirmation_round_trips_without_becoming_operator_or_reading_model() {
     assert_eq!(json["turns"][0]["text"], WORDS);
     let history = read(&root, &path, GOAL).unwrap();
     assert_eq!(history.goal, GOAL);
-    assert!(history.details.contains("Agent") && history.details.contains("TEST-agent"));
-    assert!(history.details.contains("authorizing_operator"));
+    assert!(history.details.contains("agent") && history.details.contains("TEST-agent"));
+    assert!(history.details.contains("authorized by operator"));
     assert!(
         history
             .details
@@ -155,7 +155,7 @@ fn old_records_keep_their_existing_readability_and_never_gain_an_operator_identi
             );
         } else {
             let history = history.unwrap();
-            assert!(history.details.contains("Unrecorded"));
+            assert!(history.details.contains("unrecorded"));
             assert!(!history.details.contains("TEST-operator"));
             let expected = if schema == 2 {
                 MadeIn::Unknown

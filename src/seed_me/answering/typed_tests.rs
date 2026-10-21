@@ -173,7 +173,7 @@ fn contradicting_a_fact_flags_it_and_its_settled_support_dependents() {
         root.path(),
     );
     let version = read(&session).unwrap().version();
-    let version = answer(&session, version, "choice", "TEST unchanged choice").unwrap();
+    let version = answer(&session, version, "choice", "TEST unchanged choice", None).unwrap();
     let mut conflict = fact("conflict", "observation");
     conflict.contradicts = Some(json!("read"));
     ask(
@@ -196,6 +196,7 @@ fn contradicting_a_fact_flags_it_and_its_settled_support_dependents() {
             read(&session).unwrap().version(),
             expected,
             "TEST checked the conflict",
+            None,
         )
         .unwrap();
     }
@@ -228,7 +229,7 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     )
     .unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();
-    let error = confirm_seed(&session, &revision, "TEST confirm")
+    let error = confirm_seed(&session, &revision, "TEST confirm", None)
         .unwrap_err()
         .to_string();
     assert!(
@@ -238,14 +239,15 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     assert!(!session.join("seed-confirmation.json").exists());
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
     let version = read(&session).unwrap().version();
-    assert!(keep(&session, version, "goal", " ").is_err());
-    assert!(keep(&session, version - 1, "goal", "TEST reason").is_err());
+    assert!(keep(&session, version, "goal", " ", None).is_err());
+    assert!(keep(&session, version - 1, "goal", "TEST reason", None).is_err());
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
     keep(
         &session,
         version,
         "goal",
         "TEST retain the goal despite this finding",
+        None,
     )
     .unwrap();
     let saved = ledger::load(&session).unwrap();
@@ -265,6 +267,6 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
             .unwrap()
             .is_empty()
     );
-    confirm_seed(&session, &revision, "TEST confirm").unwrap();
-    end(&session, Ending::Completed).unwrap();
+    confirm_seed(&session, &revision, "TEST confirm", None).unwrap();
+    end(&session, Ending::Completed, None).unwrap();
 }

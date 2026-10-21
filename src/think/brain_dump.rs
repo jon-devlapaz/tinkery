@@ -739,18 +739,13 @@ impl BrainDump {
         let voice = self.voice.is_some();
         let record_root = self.handoff.record_root.clone();
         let repo = self.handoff.repo.clone();
-        let declaration = match &self.handoff.confirmation {
-            context @ crate::think_record::GoalConfirmation::Terminal { .. } => {
-                Some(context.clone())
-            }
-            _ => None,
-        };
+        let declaration = self.handoff.confirmation.fresh_declaration();
         Box::new(move || {
             let mut dump = Self::with_mode(host.clone(), real);
             dump.handoff.config = config.as_ref().map(seed_me::Config::fresh);
             dump.handoff.record_root = record_root.clone();
             dump.handoff.repo = repo.clone();
-            dump.handoff.confirmation = declaration.clone().unwrap_or_default();
+            dump.handoff.confirmation = declaration.clone();
             if voice {
                 dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
             }

@@ -52,8 +52,9 @@ use words::Words;
 
 /// The widest Shape's open view gets, so lines stay readable on a wide terminal.
 const WIDTH: u16 = 76;
-/// Why an agent-declared launch only reads: Tinkery records every Shape change as the operator's.
-const HELD: &str = "Delegated shaping isn't supported yet. Shape only reads; Esc goes back.";
+/// Why an agent launch without named authorization only reads.
+const HELD: &str =
+    "Agent operation needs --agent-confirmation FILE. Shape only reads; Esc goes back.";
 /// F3 before the whole seed draft has been on screen.
 const READ_FIRST: &str = "Read to the end first: PgDn scrolls. Nothing was confirmed.";
 /// Refusals about the typed words; changing the words clears them.
@@ -78,7 +79,7 @@ pub struct Shape {
     /// Rows of reading on screen at the last draw, for PgUp/PgDn.
     page: u16,
     agent: Option<Arc<Agent>>,
-    /// An agent launch declaration: Shape only reads.
+    /// An agent launch without named confirmation context: Shape only reads.
     held: bool,
     copy: Option<String>,
 }
@@ -93,6 +94,7 @@ pub enum Leave {
 }
 
 struct Opened {
+    confirmation: Option<crate::think_record::GoalConfirmation>,
     session: PathBuf,
     reading: Reading,
     /// The operator's words being typed: an answer, or the words that confirm a seed.
@@ -214,8 +216,8 @@ impl Shape {
         self
     }
 
-    /// The same Shape under an agent launch declaration: it only reads. Tinkery records every
-    /// Shape change as the operator's, so answering, confirming and ending are held, and say why.
+    /// The same Shape without the named context required for agent operation: it only reads.
+    /// Answering, confirming and ending are held, and explain what is missing.
     pub fn held(mut self, held: bool) -> Self {
         self.held = held;
         if held {
@@ -838,7 +840,7 @@ impl Shape {
         let ends =
             "F6 (seed ready) or F8 (still shaping), pressed twice, ends the session for good.";
         let promise = if self.held {
-            "Shape reads and calls no model. Delegated answers, confirmations and endings aren't supported; Esc goes back.".to_owned()
+            "Shape reads and calls no model. Agent operation needs --agent-confirmation FILE; Esc goes back.".to_owned()
         } else if agent.is_some() {
             format!(
                 "Opening, scrolling and typing write nothing. F2 saves an answer, F11 saves a deferral, or F12 delegates the suggestion, then looks into the next; \
@@ -1361,17 +1363,19 @@ impl Opened {
         let session = self.session.clone();
         let (sender, receiver) = mpsc::channel();
         let work = write.clone();
+        let confirmation = self.confirmation.clone();
         std::thread::spawn(move || {
+            let actor = confirmation.as_ref();
             let result = match (work, expected) {
                 (Write::Keep { id, reason }, Some(expected)) => {
-                    answering::keep(&session, expected, &id, &reason)
+                    answering::keep(&session, expected, &id, &reason, actor)
                 }
-                (Write::End(ending), _) => answering::end(&session, ending),
+                (Write::End(ending), _) => answering::end(&session, ending, actor),
                 (Write::Object(text), Some(expected)) => {
-                    answering::object(&session, expected, &text).map(|_| ())
+                    answering::object(&session, expected, &text, actor).map(|_| ())
                 }
                 (Write::Recommend { id, text }, Some(expected)) => {
-                    answering::recommend(&session, expected, &id, &text).map(|_| ())
+                    answering::recommend(&session, expected, &id, &text, actor).map(|_| ())
                 }
                 (Write::Keep { .. } | Write::Object(_) | Write::Recommend { .. }, None) => Err(
                     Refusal::Refused("Tinkery read no version to change from.".into()),
@@ -1535,6 +1539,7 @@ impl Opened {
 
     /// Read the session off the paint path and, with an agent, find the folder its step reads.
     fn begin(&mut self, agent: Option<Arc<Agent>>) {
+        self.confirmation = agent.as_ref().and_then(|a| a.confirmation.clone());
         let (sender, receiver) = mpsc::channel();
         {
             let session = self.session.clone();
@@ -1558,6 +1563,7 @@ impl Opened {
     fn start(session: &Path) -> Self {
         Self {
             session: session.to_path_buf(),
+            confirmation: None,
             reading: Reading::NotStarted,
             typed: Words::new(""),
             form: None,
@@ -1804,6 +1810,12 @@ fn render_open(
                 },
             };
             let (said, mut input) = standing(&shaping.stage, stand, palette);
+            if let Some(note) = &shaping.intake_note {
+                input
+                    .lines
+                    .retain(|line| !line.to_string().starts_with("Next:"));
+                input.lines.push(Line::styled(note.clone(), palette.muted));
+            }
             let mut reading = top.unwrap_or_default();
             if matches!(shaping.stage, Shaped::Drafted { .. }) {
                 reading.lines.push(Line::default());

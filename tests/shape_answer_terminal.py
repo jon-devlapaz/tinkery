@@ -166,7 +166,7 @@ def files(root):
 
 
 class Run:
-    def __init__(self, cwd, width, height, budget, replies=(), situation=None):
+    def __init__(self, cwd, width, height, budget, replies=(), situation=None, authorization=None, sdlc_root=None):
         self.cwd, self.width = cwd, width
         self.sessions = cwd / 'TEST-sessions'
         self.records = cwd / 'TEST-records'
@@ -179,6 +179,12 @@ class Run:
         self.screen = Screen(width, height)
         args = [str(BINARY), '--home', '--shape-pi', '--model', 'test/model', '--seed-session-root', str(self.sessions), '--record-root', str(self.records),
                 '--link-root', str(cwd / 'TEST-links'), '--pi-command', str(host)]
+        if sdlc_root is not None:
+            args += ['--sdlc-root', str(sdlc_root)]
+        if authorization is not None:
+            auth = cwd / 'TEST-authorization.json'
+            auth.write_text(json.dumps(authorization))
+            args += ['--operator', 'agent', '--agent-confirmation', str(auth)]
         if budget is not None:
             args += ['--shape-budget', str(budget)]
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node',

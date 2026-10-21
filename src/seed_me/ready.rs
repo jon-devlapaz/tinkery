@@ -16,6 +16,8 @@ pub struct ReadySeed {
     pub acceptance: String,
     /// One combined manual command, or no copy without a safely representable named checkout.
     pub commands: Option<String>,
+    /// Why external intake is unavailable for this verified seed.
+    pub intake_note: Option<String>,
 }
 
 /// The existing seed location for a session; resolving and checking it creates nothing.
@@ -84,11 +86,14 @@ fn read_with(
             .ok_or("The verified seed has no goal.")?,
         revision: revision.ok_or("The verified seed has no revision.")?,
         acceptance: acceptance(&seed)?,
-        commands: root.and_then(|root| {
-            let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
-            let run = slug(title.strip_prefix("Seed: ").unwrap_or(title))?;
-            shaping::intake(session, &std::env::current_exe().ok()?, &run, Some(root))
-        }),
+        commands: root
+            .filter(|_| shaped.intake_note.is_none())
+            .and_then(|root| {
+                let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
+                let run = slug(title.strip_prefix("Seed: ").unwrap_or(title))?;
+                shaping::intake(session, &std::env::current_exe().ok()?, &run, Some(root))
+            }),
+        intake_note: shaped.intake_note,
     }))
 }
 
@@ -173,6 +178,72 @@ mod tests {
             fs::write(session.join("seed-contract.md"), "status: draft\n").unwrap();
             assert!(read(&session, Some(&session)).unwrap().is_none());
         }
+    }
+
+    #[test]
+    fn agent_receipts_name_the_actual_actor_and_withhold_usable_external_intake() {
+        let (root, session) = fixture(true);
+        let seed_path = path(&session);
+        let draft = fs::read_to_string(&seed_path)
+            .unwrap()
+            .lines()
+            .filter(|line| !line.starts_with("Confirmed by:"))
+            .map(|line| {
+                if line == "status: confirmed for intake" {
+                    "status: draft"
+                } else {
+                    line
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        fs::write(&seed_path, draft).unwrap();
+        let actor: crate::think_record::GoalConfirmation = serde_json::from_value(serde_json::json!({
+            "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
+            "source":"TEST explicit permission", "class":{"door":"two_way", "door_reason":"TEST reversible",
+            "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
+        })).unwrap();
+        super::super::ledger::confirm_as(
+            &session,
+            "r1",
+            "TEST seed only",
+            "2026-10-21T00:00:00Z",
+            Some(&actor),
+        )
+        .unwrap();
+        let receipt: serde_json::Value =
+            serde_json::from_slice(&fs::read(session.join("seed-confirmation.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            receipt["operator"], "agent",
+            "An agent's receipt must never say human"
+        );
+        assert_eq!(receipt["actor"], serde_json::to_value(&actor).unwrap());
+        // These same paths can produce a human command; absence is solely the actor policy.
+        assert!(
+            shaping::intake(
+                &session,
+                &std::env::current_exe().unwrap(),
+                "test",
+                Some(root.path())
+            )
+            .is_some()
+        );
+        let ready = read(&session, Some(root.path())).unwrap().unwrap();
+        assert!(
+            ready.commands.is_none(),
+            "Agent-confirmed seeds cannot reach human-only intake"
+        );
+        assert!(
+            ready
+                .intake_note
+                .unwrap()
+                .contains("External intake does not support agent confirmations yet.")
+        );
+        let shaped = shaping::read(&session).unwrap();
+        assert!(shaped.intake.is_none());
+        assert!(shaped.intake_note.is_some());
     }
 
     #[test]

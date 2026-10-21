@@ -31,6 +31,7 @@ pub(super) fn run(
         revision,
         seed,
         &TeachBackRecord::Words(words),
+        agent.confirmation.as_ref(),
     )
     .map_err(refused(false))?;
     saved.store(true, Ordering::Relaxed);
@@ -60,6 +61,7 @@ pub(super) fn run(
         revision,
         seed,
         &TeachBackRecord::Compared(&comparison),
+        agent.confirmation.as_ref(),
     )
     .map_err(refused(true))?;
     Ok(Done::Compared)

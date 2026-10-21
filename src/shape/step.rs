@@ -80,6 +80,7 @@ pub struct Agent {
     call: Call,
     budget: Arc<CallBudget>,
     records: Option<PathBuf>,
+    pub(super) confirmation: Option<crate::think_record::GoalConfirmation>,
 }
 
 impl Agent {
@@ -108,7 +109,17 @@ impl Agent {
             },
             budget,
             records,
+            confirmation: None,
         })
+    }
+
+    /// Reuse named caller context for this run; model replies can never supply or replace it.
+    pub fn with_confirmation(
+        mut self,
+        confirmation: Option<crate::think_record::GoalConfirmation>,
+    ) -> Self {
+        self.confirmation = confirmation;
+        self
     }
 
     /// Model calls this run may still make.
@@ -291,6 +302,11 @@ fn run(
     cancelled: &AtomicBool,
     saved: &AtomicBool,
 ) -> Result<Done, Failure> {
+    let actor = agent.confirmation.as_ref();
+    crate::think_record::Actor::authorize(actor).map_err(|reason| Failure {
+        answer_saved: false,
+        why: Why::Refused(reason),
+    })?;
     match work {
         Work::Answer {
             id,
@@ -305,7 +321,7 @@ fn run(
                 });
             }
             let version =
-                answering::answer(session, *expected, id, words).map_err(refused(false))?;
+                answering::answer(session, *expected, id, words, actor).map_err(refused(false))?;
             saved.store(true, Ordering::Relaxed);
             look(session, version, folder, agent, cancelled, true)
         }
@@ -321,8 +337,8 @@ fn run(
                     why: Why::Budget(agent.limit()),
                 });
             }
-            let version =
-                answering::respond(session, *expected, id, action).map_err(refused(false))?;
+            let version = answering::respond(session, *expected, id, action, actor)
+                .map_err(refused(false))?;
             saved.store(true, Ordering::Relaxed);
             look(session, version, folder, agent, cancelled, true)
         }
@@ -331,7 +347,7 @@ fn run(
         }
         Work::TeachBack { .. } => teach_back::run(work, session, agent, cancelled, saved),
         Work::Confirm { revision, words } => {
-            answering::confirm_seed(session, revision, words).map_err(refused(false))?;
+            answering::confirm_seed(session, revision, words, actor).map_err(refused(false))?;
             Ok(Done::Confirmed)
         }
     }
@@ -430,6 +446,7 @@ fn look(
                 &revision,
                 &seed,
                 &crate::seed_me::ledger::TeachBackRecord::Review(&review),
+                agent.confirmation.as_ref(),
             )
             .map_err(refused(answer_saved))?;
             Ok(Done::Drafted)
