@@ -100,6 +100,8 @@ struct Opened {
     typed: Words,
     /// A deferral or revision form; cancelling restores the untouched answer/reason editor.
     form: Option<Form>,
+    /// Optional unsaved teach-back; cancelling restores the confirmation words untouched.
+    teach_back: Option<Words>,
     /// What the last key or step did, when it needs saying, and its own next step if any.
     notice: Option<(String, Option<String>)>,
     running: Option<Running>,
@@ -152,6 +154,7 @@ enum Doing {
     Delegate,
     Revise,
     Look,
+    TeachBack,
     Confirm,
 }
 
@@ -161,6 +164,7 @@ impl Doing {
             Self::Defer => "Your deferral is saved. ",
             Self::Delegate => "Your delegated answer is saved. ",
             Self::Revise => "Your revised answer is saved. ",
+            Self::TeachBack => "Your teach-back is saved. ",
             _ => "Your answer is saved. ",
         }
     }
@@ -263,6 +267,9 @@ impl Shape {
             match (&mut open.choosing, &mut open.form) {
                 (Some(folder), _) => folder.insert(text),
                 (_, Some(form)) => form.words().insert(text),
+                (None, None) if open.teach_back.is_some() => {
+                    open.teach_back.as_mut().unwrap().insert(text)
+                }
                 (None, None) => {
                     let before = open.typed.text().to_owned();
                     open.typed.insert(text);
@@ -326,8 +333,12 @@ impl Shape {
                 .as_ref()
                 .map_or_else(|failure| failure.answer_saved, |_| true)
             {
-                open.typed.clear();
-                open.form = None;
+                if matches!(open.doing, Doing::TeachBack) {
+                    open.teach_back = None;
+                } else {
+                    open.typed.clear();
+                    open.form = None;
+                }
             }
             let asked = match &result {
                 Ok(Done::Asked(asked)) => asked.clone(),
@@ -479,6 +490,21 @@ impl Shape {
                 }
                 return Leave::Stay;
             }
+            if open.teach_back.is_some() && key.code == KeyCode::Esc {
+                open.teach_back = None;
+                open.notice = Some(("Teach-back cancelled. Nothing was saved.".into(), None));
+                return Leave::Stay;
+            }
+            if key.code == KeyCode::F(7)
+                && key.modifiers.is_empty()
+                && self.agent.is_some()
+                && open.teach_back.is_none()
+                && open.offers_teach_back()
+            {
+                open.teach_back = Some(Words::new(""));
+                open.notice = None;
+                return Leave::Stay;
+            }
             if open.objecting {
                 match key.code {
                     KeyCode::Esc => {
@@ -622,6 +648,10 @@ impl Shape {
                     }
                     KeyCode::Esc | KeyCode::F(_) | KeyCode::PageDown | KeyCode::PageUp => {}
                     _ => {
+                        if let Some(words) = &mut open.teach_back {
+                            words.key(key);
+                            return Leave::Stay;
+                        }
                         let before = open.typed.text().to_owned();
                         open.typed.key(key);
                         open.edited(&before);
@@ -694,6 +724,7 @@ impl Shape {
         let agent = self.agent.as_deref();
         let back = match &self.open {
             Some(open) if open.running.is_some() => "Esc stop · F10 menu",
+            Some(open) if open.teach_back.is_some() => "Esc cancel teach-back · F10 menu",
             Some(open) if open.form.is_some() => "Esc cancel form · F10 menu",
             Some(open) if open.so_far_ready() => "Esc back · F5 so far · F10 menu",
             _ => "Esc back · F10 menu",
@@ -710,12 +741,21 @@ impl Shape {
                 );
                 let model = agent.map_or_else(
                     || {
-                        if self.held { HELD } else { "No model is set up, so Shape only reads." }
-                            .into()
+                        if self.held {
+                            HELD
+                        } else {
+                            "No model is set up, so Shape only reads."
+                        }
+                        .into()
                     },
                     |a| {
+                        let step = if open.offers_teach_back() {
+                            "Each F7 teach-back comparison is one call, without repository access."
+                        } else {
+                            "Each F2 step is one call, with read-only tools."
+                        };
                         format!(
-                            "Model calls left this run: {} of {}. Each F2 step is one call, with read-only tools.\n\
+                            "Model calls left this run: {} of {}. {step}\n\
                              Tinkery saves every change; the model never writes the session.",
                             a.remaining(),
                             a.limit()
@@ -746,6 +786,9 @@ impl Shape {
                     _ if open.choosing.is_some() => {
                         "Type the folder the next step should read. Enter adds a line; F4 uses it; Esc keeps the one shown."
                     }
+                    (Some(_), Some(t)) if t.key == KeyCode::F(7) => {
+                        "Say what will and won't be built in your own words. F7 saves and compares (one model call); Esc cancels. Mismatches are guesses and never block F3."
+                    }
                     (Some(_), Some(t)) if t.key == KeyCode::F(6) => {
                         if open.revisable() {
                             "Type why you're keeping this answer. F6 keeps it unchanged with your reason; no model runs. F2 revise opens a replacement answer."
@@ -761,7 +804,12 @@ impl Shape {
                         )
                     }
                     (Some(_), Some(_)) => {
-                        "Read the seed, type your confirming words on one line, then F3 confirms it. Enter shows guidance without changing your words. It is not approval to build."
+                        concat!(
+                            "Read the seed, type your confirming words on one line, then F3 confirms it. ",
+                            "Enter shows guidance without changing your words. It is not approval to build. ",
+                            "F7 teach-back optionally saves your words and compares with the draft (one call). ",
+                            "Mismatches never block F3. Without a completed teach-back, F3 records: Skipped teach-back."
+                        )
                     }
                     _ if open.intake().is_some() => {
                         "c copies the intake command. Replace <run> with your SDLC run. Paste it yourself; copying runs nothing and grants no approval to build."
@@ -877,6 +925,9 @@ impl Shape {
             }
             (Some(open), _) => {
                 let action = match (&self.agent, open.typing(), &open.reading) {
+                    (Some(_), Some(t), _) if t.key == KeyCode::F(7) => {
+                        Some("F7 save + compare".into())
+                    }
                     (Some(_), Some(t), _) if t.key == KeyCode::F(6) => Some(
                         if open.revisable() {
                             "F6 keep with reason   F2 revise"
@@ -929,6 +980,9 @@ impl Shape {
                 if let Some(action) = action {
                     keys.extend(action.split("   ").map(str::to_owned));
                 }
+                if agent && open.offers_teach_back() && open.teach_back.is_none() {
+                    keys.push("F7 teach-back".to_owned());
+                }
                 if open.intake().is_some() {
                     keys.push("c copy intake".to_owned());
                 }
@@ -940,7 +994,10 @@ impl Shape {
                 }
                 keys.extend(
                     open.offers_end()
-                        .filter(|_| !self.held && !(agent && open.offers_answers()))
+                        .filter(|_| {
+                            !self.held
+                                && !(agent && (open.offers_answers() || open.offers_teach_back()))
+                        })
                         .map(|ending| {
                             match ending {
                                 Ending::Completed => "F6 end session",
@@ -949,10 +1006,20 @@ impl Shape {
                             .to_owned()
                         }),
                 );
-                if open.so_far_ready() && !(agent && open.offers_answers()) {
+                if open.so_far_ready()
+                    && !(agent && (open.offers_answers() || open.offers_teach_back()))
+                {
                     keys.push("F5 so far".to_owned());
                 }
-                keys.extend(["esc back".to_owned(), "F10 menu".to_owned()]);
+                keys.extend([
+                    if open.teach_back.is_some() {
+                        "esc cancel"
+                    } else {
+                        "esc back"
+                    }
+                    .to_owned(),
+                    "F10 menu".to_owned(),
+                ]);
                 // Esc and F10 are never cut off: a full bar closes up before it runs out of room.
                 let bar = keys.join("   ");
                 if bar.width() > frame.area().width.saturating_sub(4) as usize {
@@ -1068,6 +1135,12 @@ enum Act {
     },
     /// Look into the next question from `expected`.
     Look(u64),
+    /// Compare typed teach-back with the exact displayed draft.
+    TeachBack {
+        revision: String,
+        expected: u64,
+        seed: String,
+    },
     /// Confirm seed `revision` with the typed words.
     Confirm(String),
 }
@@ -1086,6 +1159,25 @@ impl Opened {
         let Reading::Done(Ok(shaping)) = &self.reading else {
             return None;
         };
+        if self.teach_back.is_some()
+            && let (
+                Shaped::Drafted {
+                    revision: Some(revision),
+                    text: Some(seed),
+                },
+                Some(expected),
+            ) = (&shaping.stage, shaping.version)
+        {
+            return Some(Typing {
+                key: KeyCode::F(7),
+                act: Act::TeachBack {
+                    revision: revision.clone(),
+                    expected,
+                    seed: seed.clone(),
+                },
+                label: "your teach-back",
+            });
+        }
         if let Some(form) = &self.form {
             return Some(Typing {
                 key: form.key(),
@@ -1124,6 +1216,20 @@ impl Opened {
             }),
             _ => None,
         }
+    }
+
+    fn offers_teach_back(&self) -> bool {
+        matches!(
+            &self.reading,
+            Reading::Done(Ok(Shaping {
+                stage: Shaped::Drafted {
+                    revision: Some(_),
+                    text: Some(_)
+                },
+                version: Some(_),
+                ..
+            }))
+        )
     }
 
     fn offers_answers(&self) -> bool {
@@ -1340,19 +1446,29 @@ impl Opened {
     /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget, a folder
     /// not yet known and a seed not yet read to the end before anything is written or called.
     fn act(&mut self, act: Act, agent: &Arc<Agent>) {
-        let words = self.typed.text().to_owned();
+        let words = self
+            .teach_back
+            .as_ref()
+            .unwrap_or(&self.typed)
+            .text()
+            .to_owned();
         let refuse = |said: &str| Some((said.to_owned(), None));
         let folder = match &self.folder {
             Folder::Known(folder) => Some(folder.clone()),
             _ => None,
         };
         self.notice = match &act {
+            Act::TeachBack { .. } if words.trim().is_empty() => {
+                refuse("Type your teach-back first; nothing was saved.")
+            }
             Act::Keep { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[3]),
             Act::Answer { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[0]),
             Act::Confirm(_) if !self.read_end => refuse(READ_FIRST),
             Act::Confirm(_) if words.contains(['\n', '\r']) => refuse(WORD_REFUSALS[1]),
             Act::Confirm(_) if words.trim().is_empty() => refuse(WORD_REFUSALS[2]),
-            Act::Respond { .. } | Act::Answer { .. } | Act::Look(_) if agent.remaining() == 0 => {
+            Act::TeachBack { .. } | Act::Respond { .. } | Act::Answer { .. } | Act::Look(_)
+                if agent.remaining() == 0 =>
+            {
                 said(
                     Err(Failure {
                         answer_saved: false,
@@ -1404,6 +1520,19 @@ impl Opened {
                 },
                 Doing::Answer,
             ),
+            Act::TeachBack {
+                revision,
+                expected,
+                seed,
+            } => (
+                Work::TeachBack {
+                    revision,
+                    expected,
+                    seed,
+                    words,
+                },
+                Doing::TeachBack,
+            ),
             Act::Look(expected) => (Work::Look { expected, folder }, Doing::Look),
             Act::Confirm(revision) => (Work::Confirm { revision, words }, Doing::Confirm),
         };
@@ -1445,6 +1574,7 @@ impl Opened {
             reading: Reading::NotStarted,
             typed: Words::new(""),
             form: None,
+            teach_back: None,
             notice: None,
             running: None,
             doing: Doing::Look,
@@ -1638,6 +1768,10 @@ fn render_open(
                             open.doing.saved()
                         ),
                         (Doing::Look, _) => format!("Looking in {name} for the next question."),
+                        (Doing::TeachBack, false) => "Saving your teach-back.".into(),
+                        (Doing::TeachBack, true) => {
+                            "Teach-back saved. Comparing with the draft.".into()
+                        }
                         (Doing::Confirm, _) => "Confirming the seed with your words.".to_owned(),
                     };
                     Stand {
@@ -1692,6 +1826,22 @@ fn render_open(
             };
             let (said, mut input) = standing(&shaping.stage, stand, palette);
             let mut reading = top.unwrap_or_default();
+            if matches!(shaping.stage, Shaped::Drafted { .. }) {
+                reading.lines.push(Line::default());
+                reading
+                    .lines
+                    .push(Line::styled("Before you confirm", palette.muted));
+                for line in &shaping.teach_back {
+                    reading
+                        .lines
+                        .extend(Text::styled(line.clone(), palette.ink).lines);
+                }
+                for line in &shaping.confirmation {
+                    reading
+                        .lines
+                        .extend(Text::styled(line.clone(), palette.ink).lines);
+                }
+            }
             if let Some(form) = &open.form {
                 reading.lines.extend(said.lines);
                 reading.lines.push(Line::default());
@@ -1734,6 +1884,8 @@ fn render_open(
     let editor = split.map(|_| {
         if let Some(folder) = &mut open.choosing {
             folder
+        } else if let Some(teach_back) = &mut open.teach_back {
+            teach_back
         } else if let Some(form) = &mut open.form {
             form.words()
         } else {
@@ -1863,6 +2015,12 @@ fn asked(ending: Ending) -> (String, Option<String>) {
 }
 
 fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<String>)> {
+    if result == Ok(Done::Compared) {
+        return Some((
+            "Teach-back compared. Mismatches never block F3.".into(),
+            None,
+        ));
+    }
     let Failure { answer_saved, why } = result.err()?;
     let saved = if answer_saved { doing.saved() } else { "" };
     Some(match why {
@@ -1887,7 +2045,14 @@ fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<S
             Some("Next: start Tinkery with --shape-budget CALLS to allow model calls.".into()),
         ),
         Why::Model(error) => (
-            format!("{saved}Looking into the next question failed: {error}"),
+            format!(
+                "{saved}{}: {error}",
+                if matches!(doing, Doing::TeachBack) {
+                    "Comparing your teach-back failed"
+                } else {
+                    "Looking into the next question failed"
+                }
+            ),
             None,
         ),
         Why::Refused(reason) => (format!("{saved}{reason}"), None),
@@ -2075,6 +2240,9 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
                 ));
             }
             Some(match (acts, revision) {
+                (true, _) if words == Some("your teach-back") => {
+                    "Next: F7 saves your words and compares with the draft.".into()
+                }
                 (true, Some(r)) => format!("Next: type your own words, then F3 confirms {r}."),
                 _ => format!("Next: confirm the seed draft in Shape; {CONTINUE}"),
             })

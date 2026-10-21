@@ -68,7 +68,7 @@ or improved outcomes.
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes Seed Me files. |
 | `seed_me/` | Session formats, goal saving and continuation; `answering.rs` adapts Shape actions, typed facts and operator review reasons to the shared ledger without duplicating its fact rules. Goal initialization still uses Seed Me; Shape needs its installed reference only for `contract()` and its helper path only in copied intake commands (shared). |
-| `seed_me/ledger` | Validation, transitions, explicit answer actions and cascading reopen, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
+| `seed_me/ledger` | Validation, transitions, explicit answer actions and cascading reopen, confirmation risks and completion-review coverage, byte-bound teach-back records, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
 | `seed_me/shaping.rs` | Classifying ledger-owned status and review flags for display, with optional unchanged helper-flag intake text; no subprocess or mutation. |
 | `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
 | `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
@@ -138,6 +138,10 @@ Named seed prose fields derive from the ledger's canonical artifact sequence, im
 interface simplicity (2), format changeability (3) and hidden decisions (6): the model
 cannot choose heading order, and the prompt attaches only compatible contract guidance.
 The module map keeps that boundary visible (7).
+Closing risks and completion-review rules remain ledger-owned, as do append-only teach-back
+receipts that do not change decision premises (3, 6). Shape only displays risks and obtains
+explicit keys for capture, comparison and confirmation (2); the map keeps these boundaries
+visible (7). Mismatches never become a confirmation gate.
 No limit is relaxed; the recorded score remains 10/10.
 
 ## Limits enforced by `tests/architecture.rs`

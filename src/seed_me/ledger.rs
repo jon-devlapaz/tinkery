@@ -2,6 +2,12 @@
 //! and derive reviews without changing answers. Seed confirmation binds bytes, decisions and checks;
 //! ending verifies that binding. No operation opens or refreshes a browser viewer.
 
+mod teach_back;
+pub use teach_back::{
+    TEACH_BACK_SKIPPED, TeachBackComparison, TeachBackRecord, completion_report, teach_back_report,
+};
+mod closing;
+pub use closing::{CompletionReview, FailureCase, confirmation_summary};
 mod answers;
 pub use answers::{AnswerAction, can_revise};
 mod checks;
@@ -16,7 +22,8 @@ pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub(crate) use storage::save_draft;
 pub use storage::{
-    PublishError, SaveState, confirm_seed, end, publish, respond, revalidate, set_checks,
+    PublishError, SaveState, confirm_seed, confirm_with_teach_back, end, publish,
+    record_teach_back, respond, revalidate, set_checks,
 };
 mod python;
 mod unicode;
@@ -365,6 +372,19 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
         )?;
         for entry in evidence.items().iter().filter(|v| v.object().is_some()) {
             validate_receipt(entry)?;
+            if teach_back::is_record(entry) {
+                require(
+                    node["id"] == state["origin"],
+                    "Draft review and teach-back records belong only to the confirmed goal.",
+                )?;
+                require(
+                    ["words", "mismatch", "reviewed", "skipped"]
+                        .iter()
+                        .any(|kind| entry["artifact"].is(&format!("tinkery:teach-back/{kind}")))
+                        || entry["artifact"].is("tinkery:review/completed"),
+                    "Unknown draft review or teach-back record kind.",
+                )?;
+            }
         }
         if node["kind"].is("decision") {
             require(
@@ -672,14 +692,19 @@ pub fn descendants(nodes: &Value, starts: &[String]) -> BTreeSet<String> {
     }
 }
 
-/// Legacy classification alone is not new evidence; support order has no evidential meaning.
+/// Legacy classification and interview receipts are not new evidence; support order has no
+/// evidential meaning. Teach-back never changes a goal's premises.
 pub fn evidence_differs(before: &Value, after: &Value) -> bool {
     EVIDENCE
         .iter()
         .filter(|f| !(**f == "claim" && before[f] == Value::Null))
         .any(|f| {
             let view = |node: &Value| {
-                let mut value = node[f].clone();
+                let mut value = if *f == "evidence" {
+                    teach_back::evidence(node)
+                } else {
+                    node[f].clone()
+                };
                 if *f == "supported_by"
                     && let Value::Array(v) = &mut value
                 {
@@ -853,6 +878,18 @@ pub fn transition(
     for node in old.items() {
         let next = find(new, node["id"].string().unwrap());
         require(node["kind"] == next["kind"], "node kind is immutable")?;
+        let records = |n: &Value| {
+            n["evidence"]
+                .items()
+                .iter()
+                .filter(|r| teach_back::is_record(r))
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+        require(
+            records(next).starts_with(&records(node)),
+            "Preserve teach-back words, mismatches and skips unchanged.",
+        )?;
         if node["status"].is("settled") && next["status"].is("unresolved") {
             require(
                 text(&next["reopen_reason"]),
@@ -881,7 +918,12 @@ pub fn transition(
             n["status"].is("settled")
                 && premise.iter().any(|f| {
                     !(**f == *"claim" && n[f] == Value::Null)
-                        && n[f] != find(new, n["id"].string().unwrap())[f]
+                        && if *f == "evidence" {
+                            teach_back::evidence(n)
+                                != teach_back::evidence(find(new, n["id"].string().unwrap()))
+                        } else {
+                            n[f] != find(new, n["id"].string().unwrap())[f]
+                        }
                 })
         })
         .map(|n| n["id"].string().unwrap().to_owned())

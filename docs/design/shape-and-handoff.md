@@ -353,7 +353,7 @@ run stays outside Shape.
   It accepts no words, appears after a read, never during a step; F1 lists it.
 - Say the next step once: omit `Next:` when the key bar names the stage action;
   other states and failure notices keep exactly one.
-- Words boxes use ratatui-textarea, titled `your answer`, `your words` or `Folder:`.
+- Words boxes use ratatui-textarea, titled `your answer`, `your words`, `your teach-back` or `Folder:`.
   Arrows, Home, End, Ctrl+Left and Ctrl+Right move the cursor; Shift selects.
   Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline except at seed confirmation; Ctrl+U undoes
   and Ctrl+R redoes. PgUp and PgDn scroll only the reading, a view less one row. Pasted CR and CRLF
@@ -378,7 +378,24 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
 | Current question | None required | `F12 delegate`: accept the grounded suggestion, then one step |
 | No question or seed | None | `F2 look into the next question`: one step |
 | Draft replacing goal | `your words` | `F3 confirm seed rN`: confirm displayed revision with typed words |
+| Draft replacing goal | `your teach-back` after F7 | `F7 save + compare`: capture words and compare with the draft, one call; Esc restores confirmation words |
 
+- **Before confirmation:** the ledger computes the risk summary above F3, including
+  reversals detected from earlier settled answers, delegated and assumed choices,
+  exact acceptance of suggestions, and accepted-versus-chosen-otherwise counts.
+  Shape displays these words without its own checks or formatter.
+- **Teach-back:** draft-only F7 opens optional words about what will and won't be built.
+  F7 again saves them verbatim, then compares in one call behind F2's shared budget,
+  with no tools or repository access;
+  opening, typing, help and cancelling do not save or call. Confirmation words remain
+  untouched. The latest completed comparison for these draft bytes appears as guesses
+  above the risk summary; mismatches are recorded verbatim and never block F3.
+  Failed comparisons retain captured words. F3 without a completed comparison records
+  `Skipped teach-back.` verbatim, after ordinary confirmation refusals. These append-only
+  confirmed-goal receipts are bound to the revision and SHA-256 of draft bytes;
+  confirmation digests cover them. They retain the existing receipt format and are
+  interview records, not evidence changes or permission.
+  F1 explains F7 only where it applies; draft bars leave F5 and F8 in help to fit 80 columns.
 - **Defer:** F11 opens the reason, then advances to the revisit condition; Tab switches
   between them. The form shows the question's gate: the operator alone decides it can wait.
   F11 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
@@ -407,7 +424,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   Seed Me's editable ledger. Replies require typed `found` entries (see
   [grounding](#grounding-in-the-repository)) plus a next question and suggestion, or seed summary, prose sections
-  and a separate final `checks` field;
+  and separate typed `review` and final `checks` fields;
   anything else is a model error. A question may include optional `prerequisites`, a list
   of existing decision IDs, preserved unchanged (absent means `[]`). Facts belong in `supported_by`,
   not prerequisites. The ledger alone refuses unknown IDs, cycles and invalid lists, saving no
@@ -418,7 +435,7 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
-  Exhaustion refuses answer, defer, delegate and revision before saving anything and explains how to allow calls.
+  Exhaustion refuses answer, defer, delegate, revision and teach-back before saving anything and explains how to allow calls.
 - Tinkery, never the model, publishes answers and questions with the displayed version
   or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
@@ -428,8 +445,9 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   `confirming` as an object: `You are confirming` contains exactly five non-empty
   summary lines, and each model-written prose section has its own string field named
   for the section, without heading syntax. Field order is immaterial. The summary
-  covers goal, what gets built, what does not, accepted-versus-chosen counts, and
-  unknowns plus any reversed decision. Drafting instructions retain names supplied
+  covers goal, what gets built, what does not, the proposed first slice, and unknowns.
+  Counts and reversal indicators belong to the ledger-computed confirmation summary.
+  Drafting instructions retain names supplied
   in the confirmed goal or Think answers, including in the summary and knowledge
   map; a supplied tool name does not settle its executable path or invocation.
   Missing, blank, non-string or foreign fields
@@ -448,6 +466,21 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   recorded checks, decisions, assumptions and findings, in their canonical positions.
   Host-owned headings use LF; prose keeps its line endings. Ledger-owned blocks remain
   verbatim, with no extra wrappers. Findings and question transport are unchanged.
+- **Completion review runs within drafting**, with no extra call. Before producing a seed,
+  the step compares settled decisions for contradictions, separates choices (`decided`)
+  from observed completed work (`done`), and supplies one failure case per exact check
+  statement. A new blocker returns as a question, not a seed. The typed `review` object
+  requires `contradictions`, `decided`, `done` and `failure_cases` (`statement`, `case`).
+  Missing or malformed reviews refuse; the ledger refuses nonempty contradictions,
+  blank review entries and incomplete failure-case coverage before seed writes. This
+  validates transport and coverage, not whether the model found every real conflict.
+  The validated review is preserved verbatim in append-only confirmed-goal receipts
+  (`tinkery:review/completed`), using teach-back's revision and draft SHA-256 binding
+  and recording path. These receipts are interview records, not changed goal evidence.
+  With the risk summary above F3, Shape labels each review line `Drafting step guess`:
+  settled choices, observed done (or `Nothing observed done.`), and one
+  `If <case>, <statement> must fail.` line per failure case. Only the review for these
+  exact draft bytes is shown. No check is run and F2's existing call budget is unchanged.
 - The separate final `checks` field carries every confirmed `Done when` line with
   its qualifiers as records in Seed Me's installed contract, not model-formatted
   criteria. Tinkery's ledger stores those records unchanged and
@@ -487,7 +520,8 @@ With `--shape-pi`, `--model` and `--seed-me`, only these stages accept actions:
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. Budget exhaustion points to
-  `--shape-budget`; a model error or stop offers F2 retry (saved answers stay saved);
+  `--shape-budget`; a model error or stop offers F2 retry, or F7 for teach-back
+  (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line. Esc stops a step; an
   already-started save finishes, then rereads. Stopped model calls still count,
   disclosed in the notice.

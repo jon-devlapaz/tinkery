@@ -1,6 +1,6 @@
 # Shape owns the ledger
 
-**Accepted design; slices 1–6 implemented.** The operator accepted it on 2026-10-19
+**Accepted design; slices 1–7 implemented.** The operator accepted it on 2026-10-19
 ([#269](https://github.com/jon-devlapaz/tinkery/issues/269)). Each slice, Seed Me changes and any
 provider budget remain separate decisions. Read at tinkery `3e167d9`, seed-me `c9d7667`
 and tink-sdlc `1c6ffd5` on 2026-10-19.
@@ -24,11 +24,11 @@ publication protections; shipped rows below now reach more of its rules:
 | Prerequisites, cycles, dependents wait | `validate` (L132) | Shipped: question replies preserve prerequisite decision IDs; the Rust ledger refuses invalid dependencies and holds questions until ready. |
 | Changed evidence or answers flag dependents for review | `review_flags` (L288), `transition` | Shipped: contradictory facts flag review; answer revision reopens settled dependents. |
 | Deferral with reason and revisit condition; delegation only on grounded questions | `validate` | Shipped: explicit operator actions publish through the ledger's typed answer boundary. |
-| Completion review, teach-back, naming the riskiest items at confirmation | `SKILL.md` prose only | Missing. |
+| Completion review, teach-back, naming the riskiest items at confirmation | Rust ledger and typed Shape replies | Shipped: ledger-computed risks, review within drafting, optional budgeted teach-back. |
 
-The remaining inactive protections need later slices to write what triggers them;
-the prose-only rows are still steps a model can skip. This design replaced the former
-rule that Seed Me alone owns the session, ledger and contract
+Completion review and teach-back still contain model judgments, not semantic proofs;
+the ledger enforces their typed records, coverage and explicit actions. This design
+replaced the former rule that Seed Me alone owns the session, ledger and contract
 ([Shape](shape-and-handoff.md#shape)).
 
 ## 1. One owner for the ledger
@@ -90,14 +90,26 @@ resolve a review flag.
 
 The skill's closing steps move into Tinkery, computed where they can be:
 
-- **Confirmation summary (code).** Above F3, name the riskiest items from the ledger:
-  answers reversing an earlier decision, delegated or assumed choices, and choices
-  accepted exactly as suggested. Also count accepted-as-suggested against chosen.
-- **Completion review (one step).** Before drafting, a step reads the settled decisions
-  against each other for contradictions, separates *decided* from *done*, and names one
-  case that must fail each check word. New blockers return as questions.
-- **Teach-back (optional key).** Before F3, the operator may say in their words what
-  will and won't be built; a step lists mismatches with the draft. Skipping is recorded.
+- **Confirmation summary (zero calls).** The ledger computes the words above F3:
+  answers differing from an earlier settled answer, delegated or assumed choices, and
+  exact-byte acceptance of suggestions. Each risky choice appears once, with all its
+  labels. Counts exclude the confirmed goal and facts: accepted as suggested versus
+  chosen otherwise. A changed answer is a reversal indicator, not a semantic judgment.
+- **Completion review (inside drafting, no extra call).** The drafting step checks
+  settled choices for contradictions, separates *decided* from *done*, and names a
+  case that must fail each check statement. New blockers return as questions. The
+  ledger enforces typed review coverage and retains the review as append-only,
+  byte-bound confirmed-goal receipts through teach-back's recording path. Its decided,
+  done and failure-case lines appear with the risk summary as drafting guesses;
+  the ledger does not prove those judgments.
+- **Teach-back (optional F7 on a draft).** The operator may describe what will and
+  won't be built. One explicitly budgeted comparison lists mismatches as guesses,
+  never blocking F3. The comparison has no tools or repository access.
+  Words, mismatches and skips are preserved verbatim in the ledger;
+  no result grants build permission.
+
+[Answering and confirming](shape-and-handoff.md#answering-and-confirming) owns the
+shipped keys, reply schema, receipt format, failure behavior and budget gate.
 
 ## 4. The tink-sdlc intake contract
 
@@ -140,7 +152,7 @@ the session root stays where it is. Proposed slices, each one PR and its own app
    Shape presents its refusals without duplicating the rules.
 6. **Prerequisites** from question replies (implemented; #286). The ledger alone owns
    existence, cycles and ready order; F5 names the earlier answers held questions wait for.
-7. **Confirmation summary, completion review and teach-back** (section 3).
+7. **Confirmation summary, completion review and teach-back** (implemented; #292, section 3).
 8. **Retire Seed Me:** remove `--seed-me`, the `.ci-seed-me` fixture, the continuation
    prompt that names the skill (`src/seed_me/mod.rs:56`) and the pin in tink-sdlc, and move
    sessions to `~/.local/share/tinkery/sessions` once, with no reader for the old root.

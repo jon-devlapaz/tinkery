@@ -49,7 +49,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   allows agent steps. `F2` saves an answer and lets an agent investigate the next with
   read-only tools; `F3` confirms the seed in your words once you've read it to the end.
   Under `--operator agent` Shape only reads. `F5` shows the whole goal and decisions.
-  `F7` objects to a default the step assumed; on a hard-to-undo question, `F9` shows the
+  `F7` objects to an assumed default on a question, or opens optional one-call teach-back
+  on a draft; mismatches don't block `F3`. On a hard-to-undo question, `F9` shows the
   options and suggestion after your instinct. `F6` twice completes a session whose seed is
   ready; `F8` twice stops one still being shaped. Tinkery owns the ledger, seed checks,
   confirmation, verification and ending; no viewer or network read is involved.
