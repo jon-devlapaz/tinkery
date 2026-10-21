@@ -985,16 +985,27 @@ def closing_summary(width, height):
             run.close()
 
 
-def completion_review_display(width, height, done=False):
+def completion_review_display(width, height, done=False, replay_299=False):
     """Drafting review survives saving and appears as guesses above F3, without extra calls."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-review-display-') as directory:
         cwd = Path(directory).resolve()
         session = make(cwd / 'TEST-sessions', question=False)
-        review = completion_review(SEED['checks'])
+        checks = SEED['checks']
+        cases = [('TEST private text appears', checks[0]['statement'])]
+        if replay_299:
+            cases = [
+                ('A saved loan must not disappear after a real close and reopen.',
+                 'The list survives closing and reopening.'),
+                ('Attempting to save a loan with one required field missing must fail or be rejected.',
+                 'The tool records a title, borrower, and date.'),
+            ]
+            checks = [dict(statement=statement, kind='judge', source='TEST issue #299 replay',
+                           how_to_judge='Inspect the fictional loan tool.') for _, statement in cases]
+        review = completion_review(checks)
         review['decided'] = ['TEST café scope.\r\nKeep words.  ']
         review['done'] = ['TEST README observed.\r\nNo checks ran.  '] if done else []
-        review['failure_cases'][0]['case'] = 'TEST private text appears'
-        reply = {**SEED, 'found': [], 'review': review}
+        review['failure_cases'] = [dict(case=case, statement=statement) for case, statement in cases]
+        reply = {**SEED, 'found': [], 'review': review, 'checks': checks}
         run = Run(cwd, width, height, budget=1, replies=[reply])
         try:
             run.open_shape()
@@ -1006,22 +1017,30 @@ def completion_review_display(width, height, done=False):
             receipt = next(r for r in origin['evidence'] if r.get('artifact') == 'tinkery:review/completed')
             assert json.loads(receipt['observed']) == review, receipt
             assert receipt['checked'] == 'Review r1 · ' + hashlib.sha256(seed).hexdigest(), receipt
+            run.read_until('This is not implementation approval.')
             for line in [
                 'Drafting step guess — decided: TEST café scope. Keep words.',
                 ('Drafting step guess — observed done: TEST README observed. No checks ran.' if done
                  else 'Drafting step guess: Nothing observed done.'),
-                'Must fail: TEST private text appears',
-                'Check: Refusals never show private text.',
-            ]:
+            ] + [f'Must fail: {case} Check: {statement}' for case, statement in cases]:
                 run.read_until(line)
-                assert run.flat().index(line) < run.flat().index('F3 confirm seed r1'), run.screen.text()
+                flat = run.flat()
+                assert flat.index(line) < flat.index('F3 confirm seed r1'), run.screen.text()
+                for forbidden in ['Drafting step guess: If ', '., ', '. must fail',
+                                  'Must fail: The list survives closing and reopening.']:
+                    assert forbidden not in flat, run.screen.text()
+                if line.startswith('Must fail:'):
+                    rows = run.screen.text().splitlines()
+                    case_row = next(i for i, row in enumerate(rows) if row.lstrip().startswith('Must fail:'))
+                    check_row = next(i for i, row in enumerate(rows) if row.lstrip().startswith('Check:'))
+                    assert case_row < check_row, run.screen.text()
+                    assert rows[check_row].index('Check:') > rows[case_row].index('Must fail:'), run.screen.text()
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
-            run.read_until('This is not implementation approval.')
             run.type('TEST confirm review')
             run.send(b'\x1b[6~' * 10, 'Accepted as suggested:')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
-            print(f'Shape completion review display {"done" if done else "empty done"} passed at {width}x{height}: 1 stub call')
+            print(f'Shape completion review display {"#299 exact replay" if replay_299 else "done" if done else "empty done"} passed at {width}x{height}: 1 stub call')
         finally:
             run.close()
 
@@ -1282,6 +1301,7 @@ if __name__ == '__main__':
             exit_hint(*size, stage)
         completion_review_display(*size)
         completion_review_display(*size, done=True)
+        completion_review_display(*size, replay_299=True)
         teach_back_retry(*size)
         closing_summary(*size)
         completion_reviews(*size)
