@@ -20,7 +20,7 @@ WORDS = ('TEST city healthcare system: clinics, hospitals, administration, patie
          'providers and budgeting. Keep citywide management rather than one clinic.')
 
 
-def prepare(root, long_question=False):
+def prepare(root, long_question=False, suggestion=False):
     """Write a clearly fake Pi replay, also usable for an isolated visual dogfood."""
     question = ('Which population needs care? ' * 40 + 'Last question words?'
                 if long_question else QUESTION)
@@ -28,6 +28,8 @@ def prepare(root, long_question=False):
                             why='Population needs and limited budgets interact',
                             must=['preserve citywide clinics, hospitals and providers'] * 12),
                  questions=[dict(id='care', text=question)])
+    if suggestion:
+        reply['questions'][0]['suggestion'] = dict(answer='Start with clinics.', reason='Your words include clinics; starting there is a proposal.')
     (root / 'reply.json').write_text(json.dumps(reply))
     program = root / 'TEST-pi'
     program.write_text('''#!/usr/bin/env python3
@@ -43,14 +45,16 @@ print('{"decisions":[]}' if kind == 'decision-review' else (root / 'reply.json')
     return program, question
 
 
-def journey(width, height, long_question=False):
+def journey(width, height, long_question=False, suggestion=False, mono=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-question-') as directory:
         root = Path(directory)
-        program, question = prepare(root, long_question)
+        program, question = prepare(root, long_question, suggestion)
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
         env = subprocess.environment(dict(os.environ, HOME=str(root), TERM='xterm-256color'), home=root)
+        if mono:
+            env['NO_COLOR'] = '1'
         process = subprocess.Popen(
             [str(BINARY), '--operator', 'agent', '--shape-pi', '--model', 'test/replay',
              '--pi-command', str(program), '--seed-session-root', str(root / 'sessions'),
@@ -79,10 +83,20 @@ def journey(width, height, long_question=False):
             wait(lambda s: "One thing I'm not sure about" in s)
             if long_question and height <= 30:
                 assert 'PgUp/PgDn scroll question' in screen.text(), screen.text()
-            else:
+            elif 'PgUp/PgDn scroll question' not in screen.text():
                 assert question in right(), screen.text()
+            if suggestion:
+                os.write(master, b'\x12')  # Ctrl-R copies; no send.
+                wait(lambda s: 'Start with clinics.' in s and 'use and edit' not in s)
+                assert (root / 'calls').read_text() == 'shape\ndecision-review\n'
+                os.write(master, b'\x15')  # Clear the copied draft, not the question.
+                wait(lambda s: 'use and edit' in s)
             os.write(master, b'UNSENT ANSWER')
             wait(lambda s: 'UNSENT ANSWER' in s)
+            if suggestion:
+                os.write(master, b'\x12')
+                wait(lambda s: 'Your draft is kept.' in s)
+                assert 'UNSENT ANSWER' in screen.text()
             seen = right()
             for _ in range(35):
                 os.write(master, b'\x1b[6~')
@@ -94,7 +108,10 @@ def journey(width, height, long_question=False):
                 seen += ' ' + right()
             for words in question.split():
                 assert words in seen, (words, screen.text())
-            assert ('Last question words?' if long_question else 'tradeoffs, or some combination?') in right()
+            assert ('Last question words?' if long_question else 'tradeoffs, or some combination?') in seen
+            if suggestion:
+                assert 'Suggested answer: Start with clinics.' in seen
+                assert 'starting there is a proposal.' in seen
             assert 'UNSENT ANSWER' in screen.text()
             assert 'You are confirming' not in screen.text()
             assert (root / 'calls').read_text() == 'shape\ndecision-review\n'
@@ -105,7 +122,7 @@ def journey(width, height, long_question=False):
             process.wait(timeout=5)
             assert process.returncode == 0
             print(json.dumps(dict(width=width, height=height, provider='fake replay; zero real calls',
-                                  long_question=long_question, journey='F2/question/PgDn/unsent input/exit without save')))
+                                  long_question=long_question, suggestion=suggestion, no_color=mono, journey='F2/question/PgDn/unsent input/exit without save')))
         finally:
             if process.poll() is None:
                 process.kill()
@@ -118,3 +135,7 @@ if __name__ == '__main__':
     for size in [(80, 24), (100, 30), (82, 51)]:
         for long_question in [False, True]:
             journey(*size, long_question)
+
+    for size in [(80, 24), (100, 30), (160, 40)]:
+        for mono in [False, True]:
+            journey(*size, suggestion=True, mono=mono)

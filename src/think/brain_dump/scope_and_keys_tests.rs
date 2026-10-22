@@ -41,6 +41,7 @@ impl BoardHost for Counting {
             },
             questions: if r.settled.is_empty() {
                 vec![Question {
+                    suggestion: None,
                     target: None,
                     id: "books-note".into(),
                     text: "What would you like to remember about each book?".into(),

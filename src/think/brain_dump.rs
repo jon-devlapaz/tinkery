@@ -29,7 +29,9 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 pub mod board;
+mod suggestion;
 use crate::goal::{GoalParts, Part};
+pub use suggestion::Suggestion;
 
 pub use host::BoardHost;
 use host::Simulated;
@@ -973,6 +975,7 @@ impl BrainDump {
                 self.request_leave();
             }
             KeyCode::F(2) => self.submit(),
+            KeyCode::Char('r') if key.modifiers == KeyModifiers::CONTROL => self.use_suggestion(),
             KeyCode::Tab | KeyCode::BackTab
                 if !key
                     .modifiers

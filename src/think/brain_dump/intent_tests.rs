@@ -528,6 +528,7 @@ fn a_skipped_question_without_a_target_keeps_the_goal_open() {
     let mut a = constraints(&["must work offline"], &[]);
     assert!(layout::open_intent(&a).unwrap().starts_with("Nothing"));
     a.conversation.skipped_mut().push(Question {
+        suggestion: None,
         target: None,
         id: "priority".into(),
         text: "Which goal comes first?".into(),

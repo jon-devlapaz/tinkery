@@ -131,6 +131,7 @@ impl BoardHost for Simulated {
                 vec![]
             } else {
                 vec![Question {
+                    suggestion: None,
                     target: None,
                     id: "priority".into(),
                     text: "Simulated: which part matters most to you?".into(),

@@ -79,6 +79,7 @@ or improved outcomes.
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
 | `think/brain_dump/conversation.rs` | Words, extracts, readings, question rules, skips, scope, unresolved review questions and notes, requests and ordered record turns. Fields are private; methods hide these rules. It knows nothing about screens or jobs. |
 | `think/brain_dump/reading.rs` | The model request, prompt, wire reply and lenient decoder, including open choices linked to questions. |
+| `think/brain_dump/suggestion.rs` | Optional proposal decoding and copying into an empty draft; never submission or model context. |
 | `think/brain_dump/review.rs` | The decision review: its prompt, what it sees, and how its decisions join the reading's. |
 | `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
 | `think/brain_dump/host.rs` | Pi shaping then review, or practice simulation. Stateful hosts start separate histories for each Think visit. |
@@ -166,6 +167,10 @@ No diagnostic worsens; no architecture limit or recorded score is loosened.
 Measure's PR reader hides GitHub process limits and cancellation from rendering (3, 6).
 The phase owns selection and evidence semantics behind open/key/poll/render (2); the
 module map records the boundary (7). No phase dependency or architecture limit changes.
+
+Question-bound suggestions keep parsing and copy eligibility behind one small interface
+(diagnostics 2 and 6); the module map records that owner (7). Request serialization excludes
+suggestions while the shared record owns their history event (3). No limit or score changes.
 
 ## Limits enforced by `tests/architecture.rs`
 

@@ -32,9 +32,8 @@ pub struct Conversation {
     last_failure: Option<String>,
     /// What happened, in order: the think record's turns.
     turns: Vec<Turn>,
-    /// The id of the question last recorded as asked, so a question is recorded once per
-    /// time it comes into focus.
-    asked: Option<String>,
+    /// The last displayed question and proposal; changed wording or suggestions get a new record.
+    asked: Option<Question>,
 }
 
 /// A send that has been prepared but not yet committed to the conversation.
@@ -107,13 +106,15 @@ impl Conversation {
     /// Records the question in focus as asked when it is not the one last recorded.
     fn note_focus(&mut self) {
         let focused = self.focused_question().cloned();
-        if focused.as_ref().map(|q| &q.id) == self.asked.as_ref() {
+        if focused == self.asked {
             return;
         }
-        self.asked = focused.as_ref().map(|q| q.id.clone());
+        self.asked = focused.clone();
         let Some(q) = focused else {
             return;
         };
+        let suggestion = q.suggestion.clone();
+        let suggestion_id = q.id.clone();
         let event = match &self.scope_pending {
             Some((source, pending)) if pending.id == q.id => Event::ScopeAsked {
                 id: q.id,
@@ -127,6 +128,13 @@ impl Conversation {
             },
         };
         self.note(event);
+        if let Some(s) = suggestion {
+            self.note(Event::Suggested {
+                id: suggestion_id,
+                answer: s.answer,
+                reason: s.reason,
+            });
+        }
     }
     /// Why the last reading couldn't be applied; cleared once one is.
     pub fn last_failure(&self) -> Option<&str> {
@@ -407,6 +415,7 @@ impl Conversation {
                 .cloned()
                 .or_else(|| {
                     refinement.then(|| Question {
+                        suggestion: None,
                         target: None,
                         id: format!("goal-refinement-{sid}"),
                         text: "What should change about this goal?".into(),
@@ -487,6 +496,7 @@ impl Conversation {
             self.scope_pending = Some((
                 sid,
                 Question {
+                    suggestion: None,
                     target: None,
                     id: format!("scope-addition-{sid}"),
                     text: "Should these added words be part of this goal, or stay separate?".into(),

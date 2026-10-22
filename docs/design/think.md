@@ -60,6 +60,22 @@ judgment, not proof that choices mean the same thing. See [#64 evidence](../../f
 Originals are plain ink. Exact cited spans validate invisibly; uncited words are
 not implicitly rejected.
 
+### Suggested answers
+
+The current question shows one provisional answer and its reason, or says no suggestion
+is available. Shaping and review use original words and submitted answers to propose it;
+insufficient context must yield no proposal. Scope questions use the unavailable state.
+Ctrl-R (use and edit) copies a suggestion into an empty writing box; F2 alone sends it.
+Existing drafts are preserved. Changed questions discard their old suggestion, including
+questions rewritten by board validation. Missing or malformed proposals leave questions usable.
+
+Suggestions are omitted from subsequent request and handoff context. A separate `suggested`
+history event preserves what was shown; only a submitted answer becomes a source. Schema 3
+readers here accept older records; older binaries may refuse the new event rather than guess.
+This stays within the existing two-call ceiling. [#330](https://github.com/jon-devlapaz/tinkery/issues/330)
+holds the research and deferred live comparison; zero-call checks establish mechanics, not
+recommendation quality or saved operator effort.
+
 ### Model calls
 
 Each live send makes at most two calls: shaping, then decision review. While a call

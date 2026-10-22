@@ -199,9 +199,15 @@ impl Board {
                 .iter_mut()
                 .filter(|d| d.covered_by(std::slice::from_ref(&selected)))
             {
+                if d.question.as_deref() != Some(text) {
+                    d.suggestion = None;
+                }
                 d.question = Some(text.into());
             }
             let q = &mut g.questions[0];
+            if q.text != text {
+                q.suggestion = None;
+            }
             q.text = text.into();
             if request.answered.contains(&q.id)
                 || request
