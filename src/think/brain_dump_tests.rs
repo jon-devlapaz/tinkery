@@ -569,7 +569,7 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         for noise in [
             "PROVISIONAL:",
             "Supports:",
-            "Desired experience",
+            "Success criteria",
             "Candidates /",
             "Your f1",
             "Your f2",
@@ -595,14 +595,14 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         a.screen.board_focus = true;
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         let detail = snapshot(w, h, &mut a, false).unwrap();
-        assert!(detail.contains("Desired experience"));
+        assert!(detail.contains("Success criteria"));
         assert!(!detail.contains("PROVISIONAL:"));
         assert!(a.details_text().contains("A dashboard worries me."));
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         assert!(
             !snapshot(w, h, &mut a, true)
                 .unwrap()
-                .contains("Desired experience")
+                .contains("Success criteria")
         );
     }
 }
@@ -632,7 +632,7 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
         assert_eq!(a.screen.board_focus, mode == 1);
         let frame = snapshot(100, 30, &mut a, false).unwrap();
         assert!(!frame.contains("provisional"));
-        assert!(frame.contains("Desired experience"));
+        assert!(frame.contains("Success criteria"));
         a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
         assert!(!a.screen.details);
         assert_eq!(a.input.text, input);

@@ -60,18 +60,18 @@ def journey(width,height):
    assert not requests();send(b'\x1bOQ','Which evidence gets confused?');assert len(requests())==1
    assert requests()[0]['sources'][0]['text']==text
    assert not requests()[0]['fragments'];await_text('Typed evidence');await_text('keep review evidence');assert 'Ctrl-O originals' not in screen.text()
-   send(b'\x04','Desired experience');assert len(requests())==1
+   send(b'\x04','Success criteria');assert len(requests())==1
    send(b'\x04','keep review evidence');assert len(requests())==1
    # Input and F2 submit; the result must not replace text entered during the request.
    answer='A real model capture is different from a stub or a human review.'
    start=time.monotonic();send(answer.encode(),'review.');answer_burst=time.monotonic()-start;assert answer_burst<1.0
    send(b'\x1bOQ','What would make a handover');assert 'Reading updated.' not in screen.text();assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
-   send(b'\x1b[15~','Desired experience');send(b'\x1b[15~','keep review evidence');assert len(requests())==2
+   send(b'\x1b[15~','Success criteria');send(b'\x1b[15~','keep review evidence');assert len(requests())==2
    # A deliberate source selection extracts one card; neither action calls the provider.
    await_text('Typed evidence');os.write(master,b'\x1b[<0;3;5M\x1b[<0;3;5m');time.sleep(.1);notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2
    send(b'\x1b[18~','Typed');send(b'\r','Typed evidence');assert len(requests())==2
    notice(b'\x1b[20~','Copy sent');assert screen.clipboards[-1].startswith('# Tinkery / provisional board');assert text in screen.clipboards[-1] and answer in screen.clipboards[-1]
-   send(b'\x1bOS','Original 1');send(b'\x04','Desired experience');send(b'\x04','keep review evidence');send(b'\x1bOS','Original 1');send(b'\x1b','keep review evidence')
+   send(b'\x1bOS','Original 1');send(b'\x04','Success criteria');send(b'\x04','keep review evidence');send(b'\x1bOS','Original 1');send(b'\x1b','keep review evidence')
    # Character-by-character injection, with 1ms pacing (not a paste event).
    slow=' Streamed letters stay responsive.';start=time.monotonic()
    for c in slow:os.write(master,c.encode());time.sleep(0.001)
