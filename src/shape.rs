@@ -954,7 +954,7 @@ impl Shape {
                             ..
                         }),
                         _,
-                    ) => Some(format!("F3 confirm seed {r}")),
+                    ) if open.read_end.is_some() => Some(format!("F3 confirm seed {r}")),
                     (
                         Some(_),
                         None,
@@ -968,7 +968,18 @@ impl Shape {
                 let mut keys = Vec::new();
                 if overflow {
                     keys.push(
-                        if open.typing().is_some() && agent {
+                        if agent
+                            && open.read_end.is_none()
+                            && matches!(
+                                open.typing(),
+                                Some(Typing {
+                                    act: Act::Confirm(_),
+                                    ..
+                                })
+                            )
+                        {
+                            "pgup/dn read to end"
+                        } else if open.typing().is_some() && agent {
                             "pgup/dn read"
                         } else {
                             "↑↓ scroll"
@@ -1944,7 +1955,7 @@ fn render_open(
     input_area.height = input_height.saturating_sub(before_height + after_height);
     if let Some(editor) = editor {
         editor.render(frame, input_area, palette, open.running.is_some());
-        if label == Some("your words") && editor.text().is_empty() {
+        if label == Some("your words") && editor.text().is_empty() && open.read_end.is_some() {
             frame.render_widget(
                 Paragraph::new("a line saying you confirm, then F3").style(palette.muted),
                 Rect {
@@ -2244,13 +2255,14 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                     palette.ink,
                 ));
             }
-            Some(match (acts, revision) {
+            match (acts, revision) {
                 (true, _) if words == Some("your teach-back") => {
-                    "Next: F7 saves your words and compares with the draft.".into()
+                    Some("Next: F7 saves your words and compares with the draft.".into())
                 }
-                (true, Some(r)) => format!("Next: type your own words, then F3 confirms {r}."),
-                _ => format!("Next: confirm the seed draft in Shape; {CONTINUE}"),
-            })
+                // The key bar owns the next action, including while a refusal is shown.
+                (true, Some(_)) => None,
+                _ => Some(format!("Next: confirm the seed draft in Shape; {CONTINUE}")),
+            }
         }
         Shaped::Ready { revision, ended } => {
             lines.push(Line::styled(

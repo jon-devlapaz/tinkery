@@ -205,7 +205,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 send(b's', expected)
                 keys = {'question': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
                         'p051': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
-                        'drafted': 'F3 confirm seed r1   F7 teach-back   esc back   F10 menu',
+                        'drafted': 'pgup/dn read to end   F7 teach-back   esc back   F10 menu',
                         'ready': 'c copy intake   F6 end session   ' + SHAPE_KEYS,
                         'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
                 if held:

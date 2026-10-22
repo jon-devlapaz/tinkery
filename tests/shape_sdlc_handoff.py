@@ -129,12 +129,12 @@ def shape(root, env):
         send(b'\x1bOQ', 'Imagine this shipped and turned out wrong. What is the most likely reason?')
         send(b'TEST The sounds were missing.', 'TEST The sounds were missing.')
         send(b'\x1bOQ', 'Seed draft r1')
-        wait('F3 confirm seed r1')
+        wait('pgup/dn read to end')
         send(CONFIRMATION.encode(), CONFIRMATION)
         # F3 confirms only a draft read to the end (#250).
         send(b'\x1bOR', "PgDn to 'End of seed' first. Nothing was confirmed.")
         os.write(master, b'\x1b[6~' * 40)
-        wait('Next: type your own words, then F3 confirms r1.')
+        wait('F3 confirm seed r1')
         send(b'\x1bOR', 'Seed ready: you confirmed r1, and it still matches.')
         status = helper.status(session)
         assert status['handoff']['verified'] is True
