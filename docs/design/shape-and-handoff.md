@@ -547,12 +547,15 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   draft revision's last line has been on screen during this Shape visit, F3 says
   `PgDn to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
   `End of seed` marker after the last section clears that. The saved seed is unchanged.
+  Before that marker is reached, the key bar says `pgup/dn read to end` instead of
+  offering F3; the confirmation hint appears on the same frame that reaches the end.
+  Notices keep their own recovery instructions without repeating the key bar's action.
   The exact revision and draft bytes retain that satisfaction through typing, box growth,
   resize and rereads, including teach-back. A new revision or changed bytes require reading again.
   F3 refuses CR or LF with `Put your confirming words on one line; nothing was confirmed.`
   Changing the words clears a refusal about them.
   It retains words and neither writes nor calls. The empty `your words` field shows
-  the muted hint `a line saying you confirm, then F3`; typing hides it. Enter says
+  the muted hint `a line saying you confirm, then F3` once the seed is read; typing hides it. Enter says
   `F3 confirms the seed; Enter does not add a line.` without changing the words.
   Pasted breaks remain intact, but confirmation is one `Confirmed by:` line.
   Tinkery owns validation and confirmation.

@@ -348,7 +348,7 @@ def full_journey(width, height):
             run.read_until('you judge: Inspect refusal output for private text.')
             # Inspect each page: the flag can be above the bottom viewport on either CI platform.
             run.read_until('citation not found: src/main.rs')
-            run.wait('F3 confirm seed r1')
+            run.wait('pgup/dn read to end')
             assert 'status: draft' not in run.screen.text(), run.screen.text()
             ledger = helper.load(session)
             answered = next(n for n in ledger['nodes'] if n['id'] == 'storage')
@@ -393,7 +393,7 @@ def full_journey(width, height):
             run.send(b'\r', 'Next: confirm the seed draft in Shape.')
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from draft wrote or called'
             run.send(b's', 'Seed draft r1')
-            run.wait('F3 confirm seed r1')
+            run.wait('pgup/dn read to end')
             before = files(run.sessions)
             before_all = files(cwd)
             run.type('Yes, I reject r1.')
@@ -1034,7 +1034,7 @@ def completion_review_display(width, height, done=False, replay_299=False):
             ] + [f'Must fail: {case} Check: {statement}' for case, statement in cases]:
                 run.read_until(line)
                 flat = run.flat()
-                assert flat.index(line) < flat.index('F3 confirm seed r1'), run.screen.text()
+                assert flat.index(line) < flat.index('esc back'), run.screen.text()
                 for forbidden in ['Drafting step guess: If ', '., ', '. must fail',
                                   'Must fail: The list survives closing and reopening.']:
                     assert forbidden not in flat, run.screen.text()
@@ -1150,24 +1150,43 @@ def read_end_revision(width, height):
             run.open_shape()
             run.wait('F2 look into the next question')
             run.send(F2, 'Seed draft r1')
-            seed_before = (session / 'seed-contract.md').read_text()
+            run.wait('pgup/dn read to end')
+            assert 'F3' not in run.screen.text(), run.screen.text()
+            seed_before = (session / 'seed-contract.md').read_bytes()
+            before = files(session)
             run.send(F3, "PgDn to 'End of seed' first. Nothing was confirmed.")
-            assert 'End of seed' not in seed_before
+            assert files(session) == before and len(run.calls()) == 1
+            assert b'End of seed' not in seed_before
+            assert 'Next: type your own words' not in run.screen.text()
             run.read_until('TEST-SEED-END')
             run.read_until('End of seed', whole_line=True)
+            assert 'F3 confirm seed r1' in run.screen.text(), run.screen.text()
+            assert 'read to end' not in run.screen.text(), run.screen.text()
             assert sum(line.strip() == 'End of seed' for line in run.screen.text().splitlines()) == 1
-            assert (session / 'seed-contract.md').read_text() == seed_before
+            assert (session / 'seed-contract.md').read_bytes() == seed_before
             # The marker follows the risk summary too; grow the editor without another scroll.
-            words = 'TEST I confirm r1. ' + 'TEST read already. ' * 30
+            words = 'TEST I confirm r1. ' + 'TEST read already. ' * 30 + 'TEST exact end.'
             os.write(run.master, b'\x1b[200~' + words.encode() + b'\x1b[201~')
             run.wait('TEST read already.')
+            # Read satisfaction and typed words survive resizing, even with a taller editor.
+            resized_width, resized_height = (100, 30) if width == 80 else (80, 24)
+            run.width = resized_width
+            run.screen = Screen(resized_width, resized_height)
+            fcntl.ioctl(run.slave, termios.TIOCSWINSZ, struct.pack('HHHH', resized_height, resized_width, 0, 0))
+            run.wait('F3 confirm seed r1')
+            assert files(session) == before and len(run.calls()) == 1
             run.send(F7, 'your teach-back')
             run.send(F7, 'Teach-back compared. Mismatches never block F3.')
+            run.wait('F3 confirm seed r1')
+            assert (session / 'seed-contract.md').read_bytes() == seed_before
             # No page key after typing or the fresh read of the same revision.
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            confirmation = json.loads((session / 'seed-confirmation.json').read_text())
+            assert confirmation['source'] == words
+            assert helper.load(session)['goal'] == GOAL
             assert helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == 2
-            print(f'Shape read-to-end retained through typing, box growth and same-r1 reread at {width}x{height}; 2 stub calls')
+            print(f'Shape reading hint and read-to-end retained through typing, resize and same-r1 reread at {width}x{height}, NO_COLOR={"NO_COLOR" in os.environ}; 2 stub calls')
         finally:
             run.close()
 
@@ -1210,7 +1229,7 @@ def teach_back(width, height, exhausted=False):
                 run.send(b'\x1b', 'Teach-back cancelled.')
             else:
                 run.send(b'\x1b[18;1:2~' + F7, 'Teach-back compared. Mismatches never block F3.')
-                run.wait('F3 confirm seed r1')
+                run.wait('pgup/dn read to end')
                 run.wait('TEST I confirm r1')
                 run.read_until('Teach-back mismatch (guess): TEST sync is outside the draft.')
                 saved = helper.load(session)
@@ -1419,8 +1438,20 @@ if __name__ == '__main__':
             missing_success_before_calls(*size, no_color)
     for size in [(100, 30), (80, 24)]:
         complete_scenario_recovery(*size)
-    for width, height in [(100, 30), (80, 24)]:
-        read_end_revision(width, height)
+    previous_color = os.environ.get('NO_COLOR')
+    try:
+        for width, height in [(100, 30), (80, 24)]:
+            for no_color in [False, True]:
+                if no_color:
+                    os.environ['NO_COLOR'] = '1'
+                else:
+                    os.environ.pop('NO_COLOR', None)
+                read_end_revision(width, height)
+    finally:
+        if previous_color is None:
+            os.environ.pop('NO_COLOR', None)
+        else:
+            os.environ['NO_COLOR'] = previous_color
     for size in [(100, 30), (80, 24)]:
         for stage in ('goal', 'draft', 'ready', 'stale', 'unreadable'):
             exit_hint(*size, stage)

@@ -1193,7 +1193,7 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
                                 .lines()
                                 .any(|l| l.trim_start().starts_with("Check:"))
                         );
-                        assert!(flat.contains("F3 confirm seed r1"), "{rendered}");
+                        assert!(flat.contains("esc back"), "{rendered}");
                         seen[index] = true;
                     }
                 }
@@ -1352,10 +1352,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
             let flat = rendered.split_whitespace().collect::<Vec<_>>().join(" ");
             for (index, line) in expected_review.iter().enumerate() {
                 if let Some(position) = flat.find(line) {
-                    assert!(
-                        position < flat.find("F3 confirm seed r8").unwrap(),
-                        "{rendered}"
-                    );
+                    assert!(position < flat.find("esc back").unwrap(), "{rendered}");
                     seen[index] = true;
                 }
             }
@@ -3209,6 +3206,93 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
 }
 
 #[test]
+fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        for no_color in [false, true] {
+            let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+            let initial = screen(&mut shape, width, height, no_color);
+            let bar = initial.lines().last().unwrap();
+            assert!(bar.contains("pgup/dn read to end"), "{initial}");
+            assert_eq!(initial.matches("pgup/dn read to end").count(), 1);
+            assert!(!initial.contains("F3"), "{initial}");
+            assert!(
+                bar.contains("esc back") && bar.contains("F10 menu"),
+                "{initial}"
+            );
+            assert!(!initial.contains("Next:"), "{initial}");
+            // A refusal must not restore a premature confirmation instruction.
+            for code in [KeyCode::F(3), KeyCode::Enter] {
+                shape.key(key(code));
+                let text = screen(&mut shape, width, height, no_color);
+                assert!(
+                    text.lines().last().unwrap().contains("pgup/dn read to end"),
+                    "{text}"
+                );
+                assert!(!text.contains("Next: type your own words"), "{text}");
+                assert!(
+                    !text.contains("a line saying you confirm, then F3"),
+                    "{text}"
+                );
+                assert!(shape.open.as_ref().unwrap().running.is_none());
+            }
+            shape.paste("TEST exact words café  ");
+            assert_eq!(
+                shape.open.as_ref().unwrap().typed.text(),
+                "TEST exact words café  "
+            );
+            let mut text = String::new();
+            for _ in 0..30 {
+                shape.key(key(KeyCode::PageDown));
+                text = screen(&mut shape, width, height, no_color);
+                if shape.open.as_ref().unwrap().read_end.is_some() {
+                    break;
+                }
+            }
+            // The very first frame that reaches the end offers confirmation.
+            assert!(text.contains("End of seed"), "{text}");
+            assert!(
+                text.lines().last().unwrap().contains("F3 confirm seed r1"),
+                "{text}"
+            );
+            assert!(!text.contains("read to end"), "{text}");
+            shape.key(key(KeyCode::PageUp));
+            shape.paste("more words ".repeat(30).as_str());
+            for (w, h) in [(80, 24), (100, 30)] {
+                let text = screen(&mut shape, w, h, no_color);
+                assert!(
+                    text.lines().last().unwrap().contains("F3 confirm seed r1"),
+                    "{text}"
+                );
+                assert!(!text.contains("read to end"), "{text}");
+                let open = shape.open.as_ref().unwrap();
+                assert_eq!(
+                    open.typed.text(),
+                    format!("TEST exact words café  {}", "more words ".repeat(30))
+                );
+                let Reading::Done(Ok(reading)) = &open.reading else {
+                    panic!()
+                };
+                assert_eq!(reading.goal.as_deref(), Some(GOAL));
+                assert_eq!(reading.stage, long_draft());
+                assert!(open.running.is_none() && open.writing.is_none());
+            }
+            // Empty words gain their instruction on the first end frame too.
+            let mut empty = done(long_draft()).with_agent(Some(agent(0)));
+            empty.scroll = u16::MAX;
+            let text = screen(&mut empty, width, height, no_color);
+            assert!(
+                text.contains("a line saying you confirm, then F3"),
+                "{text}"
+            );
+            assert!(
+                text.lines().last().unwrap().contains("F3 confirm seed r1"),
+                "{text}"
+            );
+        }
+    }
+}
+
+#[test]
 fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
     for (width, height) in [(100, 30), (80, 24)] {
         let mut shape = done(long_draft()).with_agent(Some(agent(0)));
@@ -3245,37 +3329,75 @@ fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
 #[test]
 fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
     for (width, height) in [(80, 24), (100, 30)] {
-        let mut shape = done(long_draft()).with_agent(Some(agent(0)));
-        for _ in 0..30 {
-            shape.key(key(KeyCode::PageDown));
-            screen(&mut shape, width, height, true);
-        }
-        for changed in [false, true] {
-            let open = shape.open.as_mut().unwrap();
-            let Reading::Done(Ok(mut reading)) =
-                std::mem::replace(&mut open.reading, Reading::NotStarted)
-            else {
-                panic!()
-            };
-            if changed {
-                reading.stage = Shaped::Drafted {
-                    revision: Some("r2".into()),
-                    text: Some("status: draft\nrevision: r2\nTEST unread new revision".repeat(80)),
+        for no_color in [false, true] {
+            for change in ["same draft", "changed bytes", "new revision"] {
+                let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+                shape.scroll = u16::MAX;
+                screen(&mut shape, width, height, no_color);
+                let changed = change != "same draft";
+                let open = shape.open.as_mut().unwrap();
+                let Reading::Done(Ok(mut reading)) =
+                    std::mem::replace(&mut open.reading, Reading::NotStarted)
+                else {
+                    panic!()
                 };
+                if let Shaped::Drafted { revision, text } = &mut reading.stage {
+                    if change == "changed bytes" {
+                        text.as_mut()
+                            .unwrap()
+                            .push_str("TEST unread changed bytes, still r1.\n");
+                    } else if change == "new revision" {
+                        *revision = Some("r2".into());
+                        *text = Some(
+                            text.as_ref()
+                                .unwrap()
+                                .replace("revision: r1", "revision: r2"),
+                        );
+                    }
+                }
+                let stage = reading.stage.clone();
+                let (tx, rx) = mpsc::channel();
+                open.reading = Reading::Waiting(rx);
+                tx.send((Ok(reading), None)).unwrap();
+                shape.scroll = 0;
+                shape.tick();
+                assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
+                shape.paste(
+                    "TEST confirmation words that grow the box "
+                        .repeat(15)
+                        .as_str(),
+                );
+                let text = screen(&mut shape, width, height, no_color);
+                assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
+                let bar = text.lines().last().unwrap();
+                assert_eq!(
+                    bar.contains("pgup/dn read to end"),
+                    changed,
+                    "{change}: {text}"
+                );
+                assert_eq!(
+                    bar.contains("F3 confirm seed r1"),
+                    !changed,
+                    "{change}: {text}"
+                );
+                if changed {
+                    shape.key(key(KeyCode::F(3)));
+                    assert!(shape.open.as_ref().unwrap().running.is_none());
+                    assert!(
+                        screen(&mut shape, width, height, no_color)
+                            .contains("PgDn to 'End of seed' first.")
+                    );
+                }
+                let open = shape.open.as_ref().unwrap();
+                assert_eq!(
+                    open.typed.text(),
+                    "TEST confirmation words that grow the box ".repeat(15)
+                );
+                let Reading::Done(Ok(reading)) = &open.reading else {
+                    panic!()
+                };
+                assert_eq!(reading.stage, stage);
             }
-            let (tx, rx) = mpsc::channel();
-            open.reading = Reading::Waiting(rx);
-            tx.send((Ok(reading), None)).unwrap();
-            shape.scroll = 0;
-            shape.tick();
-            assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
-            shape.paste(
-                "TEST confirmation words that grow the box "
-                    .repeat(15)
-                    .as_str(),
-            );
-            screen(&mut shape, width, height, true);
-            assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
         }
     }
 }
