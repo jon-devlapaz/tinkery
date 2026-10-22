@@ -306,11 +306,17 @@ The screen starts with the confirmed goal's first line in ink:
 | Tinkery reads | Shape shows |
 | --- | --- |
 | Current question | Show a muted label, jade question, `What I found:` for only the first supported finding (or legacy question receipt), and italic `Suggestion:`. F5 holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
-| No question or seed | Shape hasn't asked its next question yet |
+| No question or seed | If the saved record explicitly lacks a success criterion: `The saved goal leaves Done when open.` Otherwise: `Shape hasn't asked its next question yet.` |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status`, active or completed | `Seed ready` and revision; `c copy intake` when both paths are usable; completed adds a muted note that nothing can change |
 | Unverifiable confirmation | Tinkery's reason, e.g. changed seed |
 | Practice, stopped, unrecognised | Name that state plainly. |
+
+The missing-success line is read from the saved record before any model call. Missing
+older metadata stays unknown, and an explicit `Done when:` in the saved goal takes
+precedence over an empty legacy outcome field. It changes no goal, question, save
+permission or call policy. The session reader owns this interpretation; rendering
+only chooses the wording (architecture diagnostics 3 and 6).
 
 Ledger review flags precede open questions and older drafts: Shape shows the first
 flagged node as the current question, its unchanged answer and the ledger's reasons.

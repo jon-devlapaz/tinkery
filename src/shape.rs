@@ -1809,7 +1809,7 @@ fn render_open(
                     instinct: open.instinct_first(),
                 },
             };
-            let (said, mut input) = standing(&shaping.stage, stand, palette);
+            let (said, mut input) = standing(shaping, stand, palette);
             if let Some(note) = &shaping.confirmation_note {
                 input.lines.push(Line::styled(note.clone(), palette.muted));
             }
@@ -2097,7 +2097,7 @@ struct Stand<'a> {
 /// At most one Next line: none when the key bar already names the one next action and nothing
 /// was said, and a notice's own next step replaces the stage's. While a step runs, the question and the words
 /// stay, muted, under what the step is doing.
-fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, Text<'static>) {
+fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>, Text<'static>) {
     const CONTINUE: &str = "tend's c copies the prompt to continue.";
     let Stand {
         acts,
@@ -2111,7 +2111,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
     let calm = running.is_some();
     let mut lines = Vec::new();
     let mut flag = None;
-    let next = match stage {
+    let next = match &shaping.stage {
         Shaped::Review {
             title,
             answer,
@@ -2212,7 +2212,11 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
         Shaped::Waiting => {
             if !calm {
                 lines.push(Line::styled(
-                    "Shape hasn't asked its next question yet.",
+                    if shaping.success_open {
+                        "The saved goal leaves Done when open."
+                    } else {
+                        "Shape hasn't asked its next question yet."
+                    },
                     palette.ink,
                 ));
             }
@@ -2308,7 +2312,7 @@ fn standing(stage: &Shaped, stand: Stand, palette: Palette) -> (Text<'static>, T
         let style = if calm { palette.muted } else { palette.ink };
         gap(&mut input);
         input.push(Line::styled(label.to_owned(), style));
-        if acts && !calm && matches!(stage, Shaped::Drafted { .. }) {
+        if acts && !calm && matches!(shaping.stage, Shaped::Drafted { .. }) {
             input.push(Line::default());
             input.push(Line::styled(
                 "Confirming the seed is not approval to build.",

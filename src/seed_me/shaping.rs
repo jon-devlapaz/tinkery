@@ -11,6 +11,8 @@ use std::path::Path;
 pub struct Shaping {
     /// The ledger's confirmed goal, byte for byte; `None` when the session records none.
     pub goal: Option<String>,
+    /// The saved record explicitly lacks a success criterion; unknown older records are not absence.
+    pub success_open: bool,
     /// Where the seed stands.
     pub stage: Shaped,
     /// The ledger version this was read at; a change made from what's shown must name it.
@@ -239,8 +241,19 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             })
         })
         .collect();
+    let success_open = ledger
+        .pointer("/draft/outcome")
+        .and_then(Value::as_str)
+        .is_some_and(|value| value.trim().is_empty())
+        && goal.as_deref().is_some_and(|goal| {
+            !goal.lines().any(|line| {
+                line.strip_prefix("Done when:")
+                    .is_some_and(|value| !value.trim().is_empty())
+            })
+        });
     let shaping = |goal: Option<String>, stage| Shaping {
         goal,
+        success_open,
         stage,
         version,
         decided: decided.clone(),
@@ -481,6 +494,22 @@ mod tests {
 
     fn status(current: Option<&str>, seed: Value, handoff: Value) -> Value {
         json!({"status": "active", "current_question": current, "seed": seed, "handoff": handoff})
+    }
+
+    #[test]
+    fn missing_success_is_known_absence_not_a_guess_about_older_records() {
+        let mut saved = ledger();
+        let waiting = status(None, Value::Null, Value::Null);
+        assert!(!classify(&saved, &waiting).success_open);
+        saved["draft"] = json!({"outcome": null});
+        assert!(!classify(&saved, &waiting).success_open);
+        saved["draft"]["outcome"] = " ".into();
+        assert!(classify(&saved, &waiting).success_open);
+        saved["draft"]["outcome"] = "The complete scenario passes.".into();
+        assert!(!classify(&saved, &waiting).success_open);
+        saved["draft"]["outcome"] = "".into();
+        saved["goal"] = "TEST goal\nDone when: The complete scenario passes.".into();
+        assert!(!classify(&saved, &waiting).success_open);
     }
 
     #[test]

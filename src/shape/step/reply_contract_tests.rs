@@ -263,7 +263,7 @@ fn ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_stric
                 serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap())
                     .unwrap();
             assert_eq!(checks, reply["checks"]);
-            // #314 is still present: successful drafting does not repair the saved outcome.
+            // Drafting never rewrites the saved goal or fills its previously open outcome.
             assert_eq!(state["draft"]["outcome"], "");
             let old: Value = serde_json::from_str(before).unwrap();
             assert_eq!(state["goal"], old["goal"]);
