@@ -333,9 +333,10 @@ root after replacing the visible `<run>` placeholder. If either copy path cannot
 be resolved or represented on one safe line, the verified seed stays readable but
 offers no copy. It uses Tend's OSC 52 route and `Copied.` / `Couldn't
 copy; try again.` feedback, not verified host-clipboard success. Drafts, unverifiable
-seeds and ended sessions offer no intake copy. Agent-confirmed seeds remain readable;
-Shape and Approve withhold external human-only intake and explain why. Copying writes no files, calls no
-model, runs no intake and grants no approval to build; choosing or creating an SDLC
+seeds and stopped sessions offer no intake copy. Verified agent-confirmed seeds offer
+the same copy action with the [attribution and consumer requirement](think.md#confirmation-attribution-185).
+Copying writes no files, calls no model, runs no intake and grants no approval to build;
+choosing or creating an SDLC
 run stays outside Shape.
 
 ### The screen

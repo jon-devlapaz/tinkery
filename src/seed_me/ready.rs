@@ -16,8 +16,8 @@ pub struct ReadySeed {
     pub acceptance: String,
     /// One combined manual command, or no copy without a safely representable named checkout.
     pub commands: Option<String>,
-    /// Why external intake is unavailable for this verified seed.
-    pub intake_note: Option<String>,
+    /// Confirmation attribution and consumer requirements; never implementation permission.
+    pub confirmation_note: Option<String>,
 }
 
 /// The existing seed location for a session; resolving and checking it creates nothing.
@@ -86,14 +86,12 @@ fn read_with(
             .ok_or("The verified seed has no goal.")?,
         revision: revision.ok_or("The verified seed has no revision.")?,
         acceptance: acceptance(&seed)?,
-        commands: root
-            .filter(|_| shaped.intake_note.is_none())
-            .and_then(|root| {
-                let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
-                let run = slug(title.strip_prefix("Seed: ").unwrap_or(title))?;
-                shaping::intake(session, &std::env::current_exe().ok()?, &run, Some(root))
-            }),
-        intake_note: shaped.intake_note,
+        commands: root.and_then(|root| {
+            let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
+            let run = slug(title.strip_prefix("Seed: ").unwrap_or(title))?;
+            shaping::intake(session, &std::env::current_exe().ok()?, &run, Some(root))
+        }),
+        confirmation_note: shaped.confirmation_note,
     }))
 }
 
@@ -181,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn agent_receipts_name_the_actual_actor_and_withhold_usable_external_intake() {
+    fn agent_receipts_name_the_actual_actor_and_offer_manual_external_intake() {
         let (root, session) = fixture(true);
         let seed_path = path(&session);
         let draft = fs::read_to_string(&seed_path)
@@ -220,7 +218,7 @@ mod tests {
             "An agent's receipt must never say human"
         );
         assert_eq!(receipt["actor"], serde_json::to_value(&actor).unwrap());
-        // These same paths can produce a human command; absence is solely the actor policy.
+        // Agent and human receipts use the same formatter and safely representable paths.
         assert!(
             shaping::intake(
                 &session,
@@ -231,19 +229,56 @@ mod tests {
             .is_some()
         );
         let ready = read(&session, Some(root.path())).unwrap().unwrap();
-        assert!(
-            ready.commands.is_none(),
-            "Agent-confirmed seeds cannot reach human-only intake"
+        assert_eq!(
+            ready.commands,
+            shaping::intake(
+                &session,
+                &std::env::current_exe().unwrap(),
+                "test",
+                Some(root.path())
+            )
         );
         assert!(
             ready
-                .intake_note
+                .confirmation_note
                 .unwrap()
-                .contains("External intake does not support agent confirmations yet.")
+                .contains("Agent-confirmed seed. Intake requires tink-sdlc 1.36.0")
         );
         let shaped = shaping::read(&session).unwrap();
-        assert!(shaped.intake.is_none());
-        assert!(shaped.intake_note.is_some());
+        assert!(shaped.intake.is_some());
+        assert!(shaped.confirmation_note.is_some());
+        let before = fs::read(&seed_path).unwrap();
+        for invalid in [
+            serde_json::Value::Null,
+            serde_json::json!({"by": "agent"}),
+            serde_json::json!({ "by": "agent", "agent": "TEST-agent",
+                "authorizing_operator": "TEST-person", "source": "TEST explicit permission",
+                "class": {"door": "one_way", "door_reason": "TEST",
+                    "blast_radius": "small", "blast_radius_reason": "TEST"}}),
+            serde_json::json!({ "by": "agent", "agent": "TEST-agent",
+                "authorizing_operator": "TEST-person", "source": "TEST explicit permission",
+                "class": {"door": "two_way", "door_reason": "TEST",
+                    "blast_radius": "large", "blast_radius_reason": "TEST"}}),
+        ] {
+            let mut changed = receipt.clone();
+            if invalid.is_null() {
+                changed.as_object_mut().unwrap().remove("actor");
+            } else {
+                changed["actor"] = invalid;
+            }
+            fs::write(session.join("seed-confirmation.json"), changed.to_string()).unwrap();
+            assert!(read(&session, Some(root.path())).unwrap().is_none());
+            assert!(shaping::read(&session).unwrap().intake.is_none());
+        }
+        fs::write(session.join("seed-confirmation.json"), receipt.to_string()).unwrap();
+        assert!(
+            read(&session, Some(root.path()))
+                .unwrap()
+                .unwrap()
+                .commands
+                .is_some()
+        );
+        assert_eq!(fs::read(&seed_path).unwrap(), before);
     }
 
     #[test]

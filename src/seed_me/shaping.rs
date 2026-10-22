@@ -21,8 +21,8 @@ pub struct Shaping {
     pub open: Vec<String>,
     /// A one-line, shell-quoted intake command only for a verified seed; never executed.
     pub intake: Option<String>,
-    /// Why a verified seed has no compatible external intake command.
-    pub intake_note: Option<String>,
+    /// Confirmation attribution and consumer requirements for a verified seed; not permission.
+    pub confirmation_note: Option<String>,
     /// Ledger-computed risks and byte-bound drafting guesses, displayed without recomputing them.
     pub confirmation: Vec<String>,
     /// The ledger's latest completed teach-back for the exact draft, with display labels.
@@ -118,7 +118,7 @@ pub enum Shaped {
 pub fn read(session: &Path) -> Result<Shaping, String> {
     let mut shaping =
         read_session(session).map_err(|reason| format!("Tinkery refused: {reason}"))?;
-    if matches!(shaping.stage, Shaped::Ready { .. }) && shaping.intake_note.is_none() {
+    if matches!(shaping.stage, Shaped::Ready { .. }) {
         shaping.intake = std::env::current_exe()
             .ok()
             .and_then(|executable| intake(session, &executable, "<run>", None));
@@ -160,7 +160,7 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
     let mut shaping = classify(&ledger, &status);
     shaping.confirmation = confirmation;
     if matches!(shaping.stage, Shaped::Ready { .. }) && status["handoff"]["operator"] == "agent" {
-        shaping.intake_note = Some("An agent confirmed this seed. External intake does not support agent confirmations yet. Esc goes back.".into());
+        shaping.confirmation_note = Some("Agent-confirmed seed. Intake requires tink-sdlc 1.36.0 or newer; this is not operator confirmation or implementation approval.".into());
     }
     if let Shaped::Drafted { text, revision } = &mut shaping.stage {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();
@@ -246,7 +246,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         decided: decided.clone(),
         open: open_questions(nodes, &status["waiting_on"]),
         intake: None,
-        intake_note: None,
+        confirmation_note: None,
         confirmation: Vec::new(),
         teach_back: Vec::new(),
     };

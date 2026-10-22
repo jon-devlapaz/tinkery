@@ -16,7 +16,7 @@ fn done(stage: Shaped) -> Shape {
         stage,
         version: Some(3),
         intake: None,
-        intake_note: None,
+        confirmation_note: None,
         confirmation: vec![],
         teach_back: vec![],
         open: vec![],
