@@ -904,7 +904,7 @@ pub fn promote(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
 /// Optional `resolves` links retire covered unknowns atomically with this step's findings.
 /// Returns the revision label, from version `expected`.
 /// Refuses a stale version, open decisions, a confirmed seed (never replaced), text that would
-/// change the seed's structure, invalid records and a finding that looks like a secret.
+/// change the seed's structure, invalid records, missing complete success statements and secret-like findings.
 /// IO failures after storing records can leave unconfirmed records, never a ready seed.
 pub fn draft_seed(
     session: &Path,
@@ -958,6 +958,7 @@ pub fn draft_seed(
         None => 1,
     };
     let records = ledger::Value::parse(&checks.to_string()).map_err(not_saved)?;
+    ledger::validate_goal_checks(ledger.goal().unwrap_or(""), &records).map_err(not_saved)?;
     let rendered = ledger::checks_block(&records).map_err(not_saved)?;
     let version = if found.is_empty() && resolves.is_none() {
         expected
