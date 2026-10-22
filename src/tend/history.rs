@@ -127,6 +127,13 @@ impl View {
                 let mut blocks = Vec::new();
                 for turn in history.turns {
                     match turn.event {
+                        Event::Suggested { answer, reason, .. } => {
+                            add(
+                                &mut blocks,
+                                "Tinkery suggested (not an answer)",
+                                format!("{answer}\nWhy: {reason}"),
+                            );
+                        }
                         Event::Words { text, .. } => add(&mut blocks, "Your words", text),
                         Event::Asked { question, .. } | Event::ScopeAsked { question, .. } => {
                             add(&mut blocks, "Question", question)

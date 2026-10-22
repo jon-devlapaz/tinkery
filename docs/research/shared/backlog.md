@@ -141,8 +141,9 @@ consequence prompts and NO_COLOR. Preserve input, navigation and the confirmed g
 
 ### Keep runs and learn from them
 
-The external aggregation tool is retired, not awaiting absorption. Measure reads
-no source; [its contract](../../design/menu.md#measure) owns current behavior.
+The external aggregation tool is retired, not awaiting absorption.
+[Measure's contract](../../design/menu.md#measure) owns its explicit repo PR reads;
+run retention and lessons are separate.
 [R7](../../design/first-release-issues.md#r7) owns Watch.
 
 **Build:** Keep these as separate slices:

@@ -46,11 +46,7 @@ pub const PLACES: [(&str, &str, bool); 7] = [
         "Decide whether the result meets your goal. Not built yet.",
         false,
     ),
-    (
-        "measure",
-        "See recorded work and attention, when available.",
-        true,
-    ),
+    ("measure", "See this repo's pull requests.", true),
 ];
 
 const FIRST_ROW: u16 = 4;
@@ -89,7 +85,7 @@ enum View {
     /// Shape, and the tend it was opened from, restored as it was when Shape is left.
     Shape(Box<Shape>, Option<Box<Tend>>),
     Approve(Box<approve::Approve>),
-    Measure,
+    Measure(Box<measure::Measure>),
     Watch(Box<Watch>),
     Soon(usize),
 }
@@ -205,6 +201,9 @@ impl Home {
     fn tick_at(&mut self, now: Instant) {
         if let View::Watch(watch) = &mut self.view {
             watch.poll();
+        }
+        if let View::Measure(measure) = &mut self.view {
+            measure.poll();
         }
         if !self.discovery.requested() {
             self.request_sessions();
@@ -451,7 +450,7 @@ impl Home {
                 View::Approve(Box::new(approve::Approve::open(self.sdlc_root.clone())))
             }
             4 => View::Watch(Box::new(Watch::open(self.sdlc_root.clone()))),
-            6 => View::Measure,
+            6 => View::Measure(Box::new(measure::Measure::open(self.repo.clone()))),
             other => View::Soon(other),
         };
         self.sync_tend();
@@ -682,9 +681,13 @@ impl Home {
                 }
                 _ => {}
             },
-            View::Measure => {
-                if matches!(key.code, KeyCode::Esc | KeyCode::Char('q')) {
-                    self.help = false;
+            View::Measure(measure) => {
+                if self.help {
+                    if key.code == KeyCode::Char('q') {
+                        self.help = false;
+                        self.view = View::Menu;
+                    }
+                } else if measure.key(key) {
                     self.view = View::Menu;
                 }
             }
@@ -846,7 +849,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Tend(_) => "tinkery › tend".into(),
         View::Shape(..) => "tinkery › shape".into(),
         View::Approve(_) => "tinkery › approve".into(),
-        View::Measure => "tinkery › measure".into(),
+        View::Measure(_) => "tinkery › measure".into(),
         View::Watch(_) => "tinkery › watch".into(),
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
         View::Think(_) => unreachable!(),
@@ -876,6 +879,10 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         view.render(frame, body, palette, home.help);
         return;
     }
+    if let View::Measure(measure) = &mut home.view {
+        measure.render(frame, body, palette, home.help);
+        return;
+    }
     if home.help && !matches!(home.view, View::Menu) {
         if let View::Shape(shape, _) = &mut home.view {
             shape.render_help(frame, body, palette);
@@ -901,8 +908,8 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             frame.render_widget(p.scroll((tend.help_scroll, 0)), body);
             return;
         }
-        // Shown away from the menu (Measure, unbuilt places), where q goes back.
-        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure recorded work and attention are unknown\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        // Unbuilt places use the shared help; q goes back.
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure this repo's pull requests\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -964,7 +971,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         }
         View::Tend(tend) => tend::render(frame, tend, body, palette),
         View::Shape(shape, _) => shape.render(frame, body, palette),
-        View::Measure => measure::render(frame, body, palette),
+        View::Measure(_) => unreachable!(),
         View::Watch(watch) => watch.render(frame, body, palette),
         View::Soon(i) => frame.render_widget(
             Paragraph::new(format!("{}\n\nNot built yet. Esc goes back.", PLACES[*i].1))
@@ -1286,7 +1293,7 @@ mod tests {
             "Start a shaped goal in tink-sdlc.",
             "See the runs in your tink-sdlc checkout, read-only.",
             "Decide whether the result meets your goal. Not built yet.",
-            "See recorded work and attention, when available.",
+            "See this repo's pull requests.",
         ];
         for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             for no_color in [false, true] {

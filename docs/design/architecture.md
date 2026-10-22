@@ -56,7 +56,8 @@ or improved outcomes.
 | `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools, the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |
-| `measure.rs` | The unknown state and return footer; no source reads, writes or provider calls. |
+| `measure.rs` | Recent PR list, details and evidence limits; explicit reads only, no writes or providers. |
+| `measure/read.rs` | Bounded, cancellable `gh` reads scoped to the launch repo; no shell or retries. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
 | `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/linking.rs` | The source and target selection state, link refusals and derived needs wording, independent of garden drawing. |
@@ -76,8 +77,9 @@ or improved outcomes.
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
-| `think/brain_dump/conversation.rs` | Words, extracts, readings, question rules, skips, scope, requests and ordered record turns. Fields are private; methods hide these rules. It knows nothing about screens or jobs. |
+| `think/brain_dump/conversation.rs` | Words, extracts, readings, question rules, skips, scope, unresolved review questions and notes, requests and ordered record turns. Fields are private; methods hide these rules. It knows nothing about screens or jobs. |
 | `think/brain_dump/reading.rs` | The model request, prompt, wire reply and lenient decoder, including open choices linked to questions. |
+| `think/brain_dump/suggestion.rs` | Optional proposal decoding and copying into an empty draft; never submission or model context. |
 | `think/brain_dump/review.rs` | The decision review: its prompt, what it sees, and how its decisions join the reading's. |
 | `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
 | `think/brain_dump/host.rs` | Pi shaping then review, or practice simulation. Stateful hosts start separate histories for each Think visit. |
@@ -119,8 +121,10 @@ Each pass scores 1.25. Structural PRs name the rows they move.
 The remaining debt is `brain_dump.rs`'s narrow interface over substantial routing.
 
 The module map owns these boundaries. Preview and sending share conversation
-staging and one drafting request boundary. Measure renders only unknown; the menu
-owns its navigation and help. Linking, graph geometry and the garden footer stay separate. Think writes shared records; Tend
+staging and one drafting request boundary; submit sends the prepared, measured request
+without reconstructing it. Measure owns its PR list, details and help; the menu owns
+entry and return. Linking, graph geometry and the garden footer stay separate.
+Think writes shared records; Tend
 reads them. Shared `repo.rs` finds the root once.
 Only Tinkery's ledger-backed Shape verification claims seed-ready; file discovery reports
 unchecked declarations.
@@ -160,6 +164,10 @@ Removing Measure's external reader and configuration simplifies interfaces (2),
 removes an external implementation dependency (3) and confines its unknown display
 without reader lifecycle decisions (6). The module map keeps boundaries visible (7).
 No diagnostic worsens; no architecture limit or recorded score is loosened.
+
+Measure's PR reader hides GitHub process limits and cancellation from rendering (3, 6).
+The phase owns selection and evidence semantics behind open/key/poll/render (2); the
+module map records the boundary (7). No phase dependency or architecture limit changes.
 
 ## Limits enforced by `tests/architecture.rs`
 

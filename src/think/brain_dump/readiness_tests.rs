@@ -47,6 +47,81 @@ fn request(a: &BrainDump) -> BoardRequest {
     }
 }
 #[test]
+fn why_and_copy_label_success_criteria_without_claiming_experience_is_missing() {
+    const EXPERIENCE: &str = "the approachable feel of RollerCoaster Tycoon";
+    const ORIGINAL: &str = "A city healthcare game with the approachable feel of RollerCoaster Tycoon.\r\nKeep clinics, hospitals, providers and budgeting.";
+    for criteria in [None, Some("I can allocate funds across providers.")] {
+        let raw = serde_json::json!({"parts": {
+            "who": "I",
+            "outcome": format!("manage citywide healthcare with {EXPERIENCE}"),
+            "why": "Population needs and limited budgets interact",
+            "done_when": criteria
+        }});
+        let mut a = app_with_source(raw, ORIGINAL);
+        a.paste("Unsent café answer");
+        let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
+        let expected = criteria.unwrap_or("Not yet captured");
+        let details = a.details_text();
+        let copied = a.copy_text();
+        assert!(
+            details.contains(&format!("Success criteria\n{expected}")),
+            "{details}"
+        );
+        assert!(
+            copied.contains(&format!("## Success criteria / proposed\n\n{expected}")),
+            "{copied}"
+        );
+        assert!(copied.contains(EXPERIENCE) && copied.contains(ORIGINAL));
+        for text in [&details, &copied] {
+            assert!(!text.contains("Desired experience") && !text.contains("Not supplied"));
+        }
+        a.handle_key(KeyEvent::new(KeyCode::F(5), KeyModifiers::NONE));
+        for (w, h) in [(80, 24), (100, 30), (82, 24)] {
+            for mono in [false, true] {
+                let screen = snapshot(w, h, &mut a, mono).unwrap();
+                let right = super::goal_tests::right_text(&screen, w);
+                assert!(right.contains("Success criteria"), "{screen}");
+                assert!(right.contains(expected), "{screen}");
+                assert!(!right.contains("Not supplied") && !right.contains("Desired experience"));
+            }
+        }
+        assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
+        assert_eq!(a.conversation.board().unwrap().goal(), Some(goal.as_str()));
+        assert_eq!(a.input.text, "Unsent café answer");
+        assert!(a.handoff.job.is_none() && a.saved().is_none() && !a.running());
+    }
+}
+
+#[test]
+fn rejected_summary_labels_raw_success_criteria_without_changing_evidence() {
+    let raw = serde_json::json!({
+        "parts": {"done_when": "Budget consequences are visible."},
+        "outcome": "Legacy freeform outcome, not criteria."
+    })
+    .to_string();
+    let mut decision = checks::Decision::new(
+        "structure",
+        "blocking",
+        "reject",
+        "TEST rejected reply".into(),
+        std::time::Instant::now(),
+    );
+    decision.raw = Some(raw.clone());
+    let history = vec![serde_json::to_string(&decision).unwrap()];
+    let summary = checks::why(&history);
+    assert!(
+        summary.contains("Success criteria (unaccepted)\nBudget consequences are visible."),
+        "{summary}"
+    );
+    assert!(
+        !summary.contains("Desired experience") && !summary.contains("Legacy freeform outcome")
+    );
+    assert!(summary.contains("Rejected attempt — not confirmable"));
+    assert!(summary.contains("this summary is not an accepted board"));
+    assert_eq!(checks::recorded(&history)[0]["raw"], raw);
+}
+
+#[test]
 fn beneficiary_and_labelled_lines_preserve_criteria_and_constraints() {
     assert_eq!(
         parts().compose().unwrap(),
@@ -172,6 +247,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
     a.conversation.set_scope_pending(Some((
         1,
         Question {
+            suggestion: None,
             target: None,
             id: "scope-addition-1".into(),
             text: "Scope?".into(),
@@ -180,6 +256,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
     assert!(!a.goal_ready());
     a.conversation.set_scope_pending(None);
     a.conversation.skipped_mut().push(Question {
+        suggestion: None,
         target: Some(Part::Must),
         id: "skip".into(),
         text: "Keep what?".into(),
@@ -335,6 +412,7 @@ fn delayed_results_use_current_counts_and_skipped_targets() {
     assert!(!a.goal_ready());
     a.conversation.ask_counts_mut().clear();
     a.conversation.skipped_mut().push(Question {
+        suggestion: None,
         target: Some(Part::DoneWhen),
         id: "local-skip".into(),
         text: "Skipped check".into(),
@@ -521,4 +599,38 @@ fn captured_evidence_context_stays_in_originals_and_real_choices_stay_open() {
         }
         assert!(a.handoff.receipt.is_none() && a.handoff.job.is_none());
     }
+}
+
+#[test]
+fn review_and_saved_context_keep_conversations_unresolved_intent() {
+    let mut a = app(serde_json::json!({
+        "parts": {"outcome": "review refusals"},
+        "decisions": [{"part": "must_not", "text": "Private text",
+            "answers": ["omit", "include"], "question": "May private text appear?"}],
+        "unresolved_notes": ["Keep this separate note."],
+        "questions": [{"target": "done_when", "text": "What would show this worked?"}]
+    }));
+    let (questions, notes) = a.conversation.review_context();
+    assert!(!questions.is_empty() && !notes.is_empty());
+    let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
+    a.review_goal();
+    let review = &a.handoff.review.as_ref().unwrap().affirmation;
+    assert_eq!(
+        serde_json::to_value(&review.unresolved).unwrap(),
+        serde_json::to_value(&questions).unwrap()
+    );
+    assert_eq!(review.unresolved_notes, notes);
+    assert_eq!(review.goal, goal);
+    let saved = review.affirmed();
+    let context: serde_json::Value = serde_json::from_str(&saved.context).unwrap();
+    assert_eq!(
+        context["unresolved"],
+        serde_json::to_value(&questions).unwrap()
+    );
+    assert_eq!(
+        context["unresolved_notes"],
+        serde_json::to_value(&notes).unwrap()
+    );
+    assert_eq!(saved.goal, goal);
+    assert_eq!(saved.originals[0].text, "An intact original");
 }

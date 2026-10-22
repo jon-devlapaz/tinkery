@@ -279,6 +279,7 @@ fn aliases_never_undo_skip_or_insert_omega_and_repeats_do_not_toggle() {
     ] {
         let (mut a, fake) = attach(BrainDump::default());
         a.conversation.skipped_mut().push(Question {
+            suggestion: None,
             target: None,
             id: "keep".into(),
             text: "Keep this skipped?".into(),

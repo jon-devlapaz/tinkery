@@ -41,6 +41,7 @@ impl BoardHost for Counting {
             },
             questions: if r.settled.is_empty() {
                 vec![Question {
+                    suggestion: None,
                     target: None,
                     id: "books-note".into(),
                     text: "What would you like to remember about each book?".into(),
@@ -752,6 +753,7 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     );
     let stale_bytes = encoded(&a, &words);
     let final_bytes = a.encoded_bytes().unwrap();
+    let prepared = a.preview_send(&words).unwrap().request;
     assert_eq!(stale_bytes, 32769);
     assert!(final_bytes <= 32768 && final_bytes < stale_bytes);
     assert_eq!(host.calls.requests.lock().unwrap().len(), 2);
@@ -769,6 +771,11 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
         a.notice
     );
     assert_eq!(serde_json::to_vec(&requests[2]).unwrap().len(), final_bytes);
+    assert_eq!(
+        serde_json::to_value(&requests[2]).unwrap(),
+        serde_json::to_value(&prepared).unwrap(),
+        "send the complete prepared request"
+    );
     assert_eq!(
         serde_json::to_vec(&requests[2].sources).unwrap(),
         serde_json::to_vec(a.conversation.sources()).unwrap()
@@ -991,6 +998,11 @@ fn failed_waiting_reply_has_unknown_size_and_the_same_failure_as_submit() {
         assert_eq!(requests.len(), starts + 1, "the same F2 still retries once");
         let sent = requests.last().unwrap();
         assert_eq!(serde_json::to_vec(sent).unwrap().len(), preview.bytes);
+        assert_eq!(
+            serde_json::to_value(sent).unwrap(),
+            serde_json::to_value(&preview.request).unwrap(),
+            "retry with the complete prepared request"
+        );
         assert_eq!(sent.sources[0].text, "original words");
         assert_eq!(sent.sources[1].text, "next answer");
     }

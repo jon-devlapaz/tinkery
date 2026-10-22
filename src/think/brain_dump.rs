@@ -29,7 +29,9 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 pub mod board;
+mod suggestion;
 use crate::goal::{GoalParts, Part};
+pub use suggestion::Suggestion;
 
 pub use host::BoardHost;
 use host::Simulated;
@@ -332,8 +334,8 @@ impl BrainDump {
                 text.push_str(&format!("\nfor the seed: {}\n", g.deferred.join("; ")));
             }
             text.push_str(&format!(
-                "\n## Desired experience / proposed\n\n{}\n\n## Doesn't fit yet\n\n{}\n",
-                agent_text(g.outcome.as_deref().unwrap_or("")),
+                "\n## Success criteria / proposed\n\n{}\n\n## Doesn't fit yet\n\n{}\n",
+                agent_text(g.outcome.as_deref().unwrap_or("Not yet captured")),
                 self.misfit_text()
             ));
             if let Some(q) = self.conversation.focused_question() {
@@ -423,7 +425,7 @@ impl BrainDump {
                 format!("Skipped, not resolved\n{skipped}\n\n")
             }
         );
-        context+&self.conversation.board().map_or_else(|| "No reading yet.".into(), |g| format!("Desired experience\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", agent_text(g.outcome.as_deref().unwrap_or("Not supplied")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
+        context+&self.conversation.board().map_or_else(|| "No reading yet.".into(), |g| format!("Success criteria\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", agent_text(g.outcome.as_deref().unwrap_or("Not yet captured")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
     }
     fn misfit_text(&self) -> String {
         let mut unresolved = self
@@ -548,7 +550,7 @@ impl BrainDump {
         }
         let SendPreview {
             staged,
-            request: refreshed,
+            request,
             bytes: measured,
             context_over,
             ..
@@ -572,7 +574,7 @@ impl BrainDump {
             ),
             std::time::Instant::now(),
         );
-        cap.request_key = checks::request_key(&refreshed);
+        cap.request_key = checks::request_key(&request);
         self.local_checks.push(cap);
         if measured > REQUEST_LIMIT {
             self.refuse(if context_over {
@@ -606,7 +608,6 @@ impl BrainDump {
                 return;
             }
         }
-        let mut request = staged.request;
         if self.conversation.awaiting_scope() {
             self.refuse(
                 "Added words remain unresolved; answer their scope question before reshaping.",
@@ -622,11 +623,6 @@ impl BrainDump {
             if self.conversation.caught_up() {
                 return;
             }
-            self.conversation.refresh(&mut request);
-        }
-        if serde_json::to_vec(&request).map_or(true, |b| b.len() > REQUEST_LIMIT) {
-            self.refuse("Too long to send. Words kept.\nF1 shows how to copy them.");
-            return;
         }
         self.conversation.forget_changes();
         let host = self.host.clone();
@@ -979,6 +975,7 @@ impl BrainDump {
                 self.request_leave();
             }
             KeyCode::F(2) => self.submit(),
+            KeyCode::Char('r') if key.modifiers == KeyModifiers::CONTROL => self.use_suggestion(),
             KeyCode::Tab | KeyCode::BackTab
                 if !key
                     .modifiers

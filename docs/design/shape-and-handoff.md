@@ -133,7 +133,8 @@ views offer only `esc back`; an empty repo view also offers `a toggle goals`.
 ## Think history
 
 Detail's `r history` shows original words, questions, answers, skips, restores and
-the exact confirmed goal in recorded order. A recorded repository adds `Made in`
+the exact confirmed goal in recorded order. Suggestions have their own label, never an answer label.
+A recorded repository adds `Made in`
 and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
 shows the full path, `none` or `not recorded`, plus model information and checks.
 Labels are muted; operator words use ink. Display escapes unsafe terminal controls

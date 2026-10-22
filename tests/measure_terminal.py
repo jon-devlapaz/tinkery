@@ -1,4 +1,4 @@
-"""Measure's unknown state and help in guarded TEST terminals; no external commands."""
+"""Measure outside a repo: navigation and help never run external commands."""
 import fcntl
 import json
 import os
@@ -14,12 +14,12 @@ import time
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
-UNKNOWN = 'Recorded work and attention are unknown.'
+UNKNOWN = 'No launch repository.'
 SIZES = [(80, 24), (100, 30), (160, 40), (320, 40)]
 
 
 class Terminal:
-    def __init__(self, width, height, no_color):
+    def __init__(self, width, height, no_color, gh_script=None):
         self.temporary = tempfile.TemporaryDirectory(prefix='tinkery-TEST-measure-')
         self.root = Path(self.temporary.name).resolve()
         home, binary = (self.root / name for name in ('HOME', 'bin'))
@@ -31,11 +31,16 @@ class Terminal:
             command = binary / name
             command.write_text(f'#!/bin/sh\nprintf "%s\\n" "$0" >> "{self.calls}"\nexit 99\n')
             command.chmod(0o755)
+        if gh_script is not None:
+            (self.root / '.git').mkdir()
+            (binary / 'gh').write_text(gh_script)
         self.before = self.files()
         self.master, self.slave = os.openpty()
         self.resize(width, height)
         env = {'PATH': str(binary), 'TERM': 'xterm-256color',
                'TINKERY_NODE': str(binary / 'node')}
+        if gh_script is not None:
+            env['GH_REPO'] = 'TEST/wrong-repository'
         if no_color:
             env['NO_COLOR'] = '1'
         self.process = subprocess.Popen(
@@ -74,12 +79,18 @@ class Terminal:
         os.write(self.master, key)
         self.wait(lambda: expected in self.screen.text())
 
-    def finish(self, key=b'q'):
+    def finish(self, key=b'q', expected_calls=0):
         os.write(self.master, key)
         self.process.wait(timeout=5)
         assert self.process.returncode == 0
-        assert not self.calls.exists(), 'Measure launched an external command'
-        assert self.files() == self.before, 'Navigation wrote durable data'
+        files = self.files()
+        if expected_calls:
+            calls = files.pop('calls').decode().splitlines()
+            assert len(calls) == expected_calls, calls
+            assert all(json.loads(call)['args'][:2] == ['pr', 'list'] for call in calls)
+        else:
+            assert not self.calls.exists(), 'Measure launched an external command'
+        assert files == self.before, 'Navigation wrote durable data'
         assert not (self.root / 'TEST-sessions').exists()
 
     def close(self):
@@ -101,11 +112,11 @@ def journey(width, height, no_color):
         terminal.send(b'?', 'q goes back to the menu')
         assert 'q quits' not in terminal.screen.text()
         terminal.send(b'?', UNKNOWN)
-        terminal.send(b'\x1bOP', 'Right now')
+        terminal.send(b'\x1bOP', "Measure — this repo's pull requests")
         terminal.send(b'\x1b', UNKNOWN)
         terminal.send(b'\x1b', '1  think')
         terminal.send(b'7', UNKNOWN)
-        terminal.send(b'?', 'Right now')
+        terminal.send(b'?', "Measure — this repo's pull requests")
         terminal.send(b'q', '1  think')
         assert '? help   q quit' in terminal.screen.text()
         terminal.finish()

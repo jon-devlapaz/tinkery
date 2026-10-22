@@ -240,6 +240,7 @@ fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_option
     assert!(g.validate(&r).is_ok());
     r.settled.push(Settled {
         question: Question {
+            suggestion: None,
             target: None,
             id: "already-different".into(),
             text: "Harness or codebase, or both?".into(),
@@ -272,13 +273,14 @@ fn answered_scope_accepts_reading_lengths_and_counts_without_manufactured_option
 fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible() {
     let mut a = board();
     let skipped = Question {
+        suggestion: None,
         target: None,
         id: "skipped-context".into(),
         text: "Which boundaries remain despite skipping this question?".into(),
     };
     a.conversation.skipped_mut().push(skipped.clone());
     amend_board(&mut a, |g| {
-        g.questions.extend((0..5).map(|i|Question{target: None,id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}))
+        g.questions.extend((0..5).map(|i|Question{suggestion: None, target: None,id:format!("long-{i}"),text:"Which consequential design boundary needs independent verification before this goal can become implementation, and how would you recognize a wrong outcome?".into()}))
     });
     a.review_goal();
     snapshot(80, 24, &mut a, false).unwrap();
@@ -323,6 +325,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     a.conversation.sources_mut().push(Source{id:3,text:"judge the final result, with earlier taste checks on UI and consequential design choices.".into(),in_reply_to:None});
     a.conversation.settled_mut().push(Settled {
         question: Question {
+            suggestion: None,
             target: None,
             id: "compounding".into(),
             text: "Harness or codebase, or both?".into(),

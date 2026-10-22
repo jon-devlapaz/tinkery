@@ -18,6 +18,7 @@ fn shown(a: &mut BrainDump, w: u16, h: u16, no_color: bool) -> String {
 fn long_goal() -> BrainDump {
     let mut a = board();
     a.conversation.skipped_mut().extend((0..8).map(|i| Question {
+        suggestion: None,
         target: None,
         id: format!("skipped-{i}"),
         text: format!("Boundary {i}: which consequential design boundary needs independent verification before this goal can become implementation?"),
@@ -53,7 +54,8 @@ fn every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane() {
         .line_count(narrowest);
     assert!(lines <= usize::from(layout::STATUS_ROWS));
     found += 1;
-    assert!(found >= 18, "found only {found} refusals");
+    // Sending uses the preflight refusal; there is no second size-check refusal.
+    assert!(found >= 17, "found only {found} refusals");
 }
 
 #[test]

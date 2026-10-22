@@ -25,7 +25,8 @@ r = json.load(sys.stdin)
 with pathlib.Path('calls.jsonl').open('a') as f: f.write(json.dumps(r)+'\\n')
 if r.get('kind') == 'decision-review':
     print(json.dumps(dict(decisions=[dict(part=d['part'], text=d['text'],
-        answers=d['answers'], question=d.get('question', 'May refusals show private text?'), covers=[i])
+        answers=d['answers'], question=d.get('question', 'May refusals show private text?'),
+        suggestion=dict(answer='Omit private text.', reason='Keep it private.'), covers=[i])
         for i, d in enumerate(r.get('decisions', []))])))
 else:
     marker = r['sources'][0]['text'].splitlines()[0]
@@ -119,6 +120,7 @@ def confirm_goals(root, width, height, no_color):
             record = matches[0]
             assert record['turns'][0]['text'] == original
             assert [turn['answer'] for turn in record['turns'] if turn['kind'] == 'answered'] == [answer]
+            assert [turn['answer'] for turn in record['turns'] if turn['kind'] == 'suggested'] == ['Omit private text.']
             session = Path(record['seed_me_session_path'])
             assert session.is_absolute() and session.parent == sessions.resolve(), record
             ledger = json.loads((session / 'ledger.json').read_text())
@@ -165,6 +167,8 @@ def read_history(terminal, marker, record):
     for text in expected:
         for line in text.splitlines():
             assert line in visible, (line, visible)
+    assert 'Tinkery suggested (not an answer)' in visible
+    assert 'Omit private text.' in visible and 'Why: Keep it private.' in visible
     assert 'May refusals show private text?' in visible
     terminal.send(b'\x1bOP', 'Right now')
     terminal.send(b'h', 'How it works')

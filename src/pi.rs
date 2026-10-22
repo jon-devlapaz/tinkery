@@ -4,13 +4,14 @@
 //! A request runs Pi with no session, extensions, skills or context files, so the model sees only
 //! the prompt, the input and, when a caller asks for them, Pi's read-only tools (`read`, `grep`,
 //! `find`, `ls`): it can read files and runs no commands. Input and output are capped at 32 KiB,
-//! a request stops at its timeout, and nothing retries on its own. Callers get text back, or one
-//! line saying why not. Which phase asks is the caller's business; this module names none.
+//! cancellation, timeout or output overflow stops the owned process group; nothing retries on its own.
+//! Callers get text back, or one line saying why not. Which phase asks is the caller's business; this module names none.
 
 use std::{
     io::{Read, Write},
+    os::unix::process::CommandExt,
     path::PathBuf,
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -232,6 +233,7 @@ impl Call {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
+            .process_group(0)
             .spawn()
             .map_err(|error| format!("Cannot start Pi: {error}"))?;
         let mut stdin = child.stdin.take().unwrap();
@@ -255,16 +257,14 @@ impl Call {
                 None
             };
             if let Some(error) = failure {
-                let _ = child.kill();
-                let _ = child.wait();
+                stop(&mut child);
                 break Err(error);
             }
             match child.try_wait() {
                 Ok(Some(exited)) => status = Some(exited),
                 Ok(None) => {}
                 Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    stop(&mut child);
                     break Err(format!("Cannot wait for Pi: {error}"));
                 }
             }
@@ -316,6 +316,16 @@ impl Call {
         let text = std::str::from_utf8(&output).map_err(|_| "Pi returned invalid UTF-8.")?;
         Ok(text.to_owned())
     }
+}
+
+// Stop descendants even if Pi already exited, then reap the immediate child.
+fn stop(child: &mut Child) {
+    // SAFETY: this group was created for the owned child with process_group(0).
+    unsafe {
+        libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
+    }
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 fn read_pipe(
@@ -372,7 +382,8 @@ mod tests {
     }
 
     #[test]
-    fn inherited_pipes_do_not_extend_timeout_cancel_or_overflow() {
+    fn stopped_requests_kill_descendants_without_extending_the_deadline() {
+        let mut failures = Vec::new();
         for mode in ["timeout", "exited", "cancel", "overflow"] {
             let directory = tempfile::Builder::new()
                 .prefix("tinkery-TEST-pi-")
@@ -383,13 +394,15 @@ mod tests {
                 &program,
                 format!(
                     r#"#!/usr/bin/env python3
-import subprocess, sys, time
-subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(1.3)'])
+import pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'])
+pathlib.Path('TEST-child-pid.tmp').write_text(str(child.pid))
+pathlib.Path('TEST-child-pid.tmp').rename('TEST-child-pid')
 if {mode:?} == 'exited':
     sys.exit(0)
 if {mode:?} == 'overflow':
     print('x' * 40000, flush=True)
-time.sleep(1.3)
+time.sleep(10)
 "#
                 ),
             )
@@ -410,31 +423,69 @@ time.sleep(1.3)
             let cancelled = Arc::new(AtomicBool::new(false));
             let cancel = if mode == "cancel" {
                 let cancelled = cancelled.clone();
+                let ready = directory.path().join("TEST-child-pid");
                 Some(thread::spawn(move || {
-                    thread::sleep(Duration::from_millis(150));
+                    let until = Instant::now() + Duration::from_secs(2);
+                    while !ready.exists() && Instant::now() < until {
+                        thread::sleep(Duration::from_millis(10));
+                    }
                     cancelled.store(true, Ordering::Relaxed);
                 }))
             } else {
                 None
             };
+            let budget = CallBudget::new(1);
             let started = Instant::now();
-            let error = call
-                .complete(None, Request::Shaping, vec![], "TEST".into(), &cancelled)
-                .unwrap_err();
-            assert!(
-                started.elapsed() < Duration::from_millis(650),
-                "{mode}: waited {:?}",
-                started.elapsed()
+            let result = call.complete(
+                Some(&budget),
+                Request::Shaping,
+                vec![],
+                "TEST".into(),
+                &cancelled,
             );
+            let elapsed = started.elapsed();
+            if let Some(cancel) = cancel {
+                cancel.join().unwrap();
+            }
+            let pid: i32 = std::fs::read_to_string(directory.path().join("TEST-child-pid"))
+                .expect("fake Pi started its descendant")
+                .parse()
+                .unwrap();
+            // An orphan may briefly remain a zombie until init reaps it. It cannot run.
+            let running = || {
+                let output = Command::new("ps")
+                    .args(["-o", "stat=", "-p", &pid.to_string()])
+                    .output()
+                    .unwrap();
+                let state = String::from_utf8_lossy(&output.stdout);
+                !state.trim().is_empty() && !state.trim().starts_with('Z')
+            };
+            let until = Instant::now() + Duration::from_secs(1);
+            while running() && Instant::now() < until {
+                thread::sleep(Duration::from_millis(10));
+            }
+            let survived = running();
+            if survived {
+                // SAFETY: this PID belongs to the fake descendant, still alive above.
+                unsafe {
+                    libc::kill(pid, libc::SIGKILL);
+                }
+                failures.push(format!("{mode}: descendant survived"));
+            }
+            assert!(
+                elapsed < Duration::from_millis(650),
+                "{mode}: waited {elapsed:?}"
+            );
+            let error = result.unwrap_err();
             let expected = match mode {
                 "cancel" => "Request cancelled.",
                 "overflow" => "Pi output exceeded 32 KiB.",
                 _ => "Pi timed out",
             };
             assert!(error.starts_with(expected), "{mode}: {error}");
-            if let Some(cancel) = cancel {
-                cancel.join().unwrap();
-            }
+            assert_eq!(budget.used(), 1);
+            assert_eq!(budget.attempts()[0].outcome, "failure");
         }
+        assert!(failures.is_empty(), "{}", failures.join("; "));
     }
 }
