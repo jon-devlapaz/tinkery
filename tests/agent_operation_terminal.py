@@ -133,7 +133,7 @@ def journey(width, height):
             run.type('TEST private text could appear.')
             run.send(F2, 'Keep records local or synced?')
             run.type('Local only.')
-            run.send(F2, 'F3 confirm seed r1')
+            run.send(F2, 'pgup/dn read to end')
             os.write(run.master, b'\x1b[6~' * 20)
             run.type('TEST I confirm r1 for this isolated run.')
             run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
