@@ -61,6 +61,7 @@ fn guess(r: &BoardRequest) -> Guess {
             || r.skipped.iter().any(|q| q.id == "reader")
         {
             vec![Question {
+                suggestion: None,
                 target: None,
                 id: "rss-control".into(),
                 text: "Who controls RSS appearance?".into(),
@@ -68,11 +69,13 @@ fn guess(r: &BoardRequest) -> Guess {
         } else {
             vec![
                 Question {
+                    suggestion: None,
                     target: None,
                     id: "reader".into(),
                     text: "What is Hamster?".into(),
                 },
                 Question {
+                    suggestion: None,
                     target: None,
                     id: "audience".into(),
                     text: "Who needs comfortable reading?".into(),
@@ -1035,6 +1038,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
     g.questions.insert(
         0,
         Question {
+            suggestion: None,
             target: None,
             id: "a-new-id".into(),
             text: "WHAT IS HAMSTER ?".into(),
@@ -1044,6 +1048,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
     assert_eq!(a.conversation.focused_question().unwrap().id, "rss-control");
     let mut g = guess(&r);
     g.questions = vec![Question {
+        suggestion: None,
         target: None,
         id: "reader".into(),
         text: "What is Hamster?".into(),

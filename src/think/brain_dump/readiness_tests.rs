@@ -247,6 +247,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
     a.conversation.set_scope_pending(Some((
         1,
         Question {
+            suggestion: None,
             target: None,
             id: "scope-addition-1".into(),
             text: "Scope?".into(),
@@ -255,6 +256,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
     assert!(!a.goal_ready());
     a.conversation.set_scope_pending(None);
     a.conversation.skipped_mut().push(Question {
+        suggestion: None,
         target: Some(Part::Must),
         id: "skip".into(),
         text: "Keep what?".into(),
@@ -410,6 +412,7 @@ fn delayed_results_use_current_counts_and_skipped_targets() {
     assert!(!a.goal_ready());
     a.conversation.ask_counts_mut().clear();
     a.conversation.skipped_mut().push(Question {
+        suggestion: None,
         target: Some(Part::DoneWhen),
         id: "local-skip".into(),
         text: "Skipped check".into(),

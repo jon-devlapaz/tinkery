@@ -278,12 +278,14 @@ fn review_context_preserves_note_wording_order_and_distinct_decisions() {
     guess.questions[0].text = "May private text appear?".into();
     guess.decisions = vec![
         OpenDecision {
+            suggestion: None,
             part: Part::MustNot,
             text: "Private text".into(),
             answers: vec!["omit".into(), "include".into()],
             question: Some("May private text appear?".into()),
         },
         OpenDecision {
+            suggestion: None,
             part: Part::MustNot,
             text: "Uploads".into(),
             answers: vec!["local".into(), "cloud".into()],
@@ -333,6 +335,7 @@ fn review_context_keeps_scope_restored_and_skipped_questions_in_order() {
         .unwrap();
     c.commit(&addition);
     let question = |id: &str| Question {
+        suggestion: None,
         id: id.into(),
         target: None,
         text: format!("Keep {id}?"),

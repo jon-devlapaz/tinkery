@@ -149,10 +149,19 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         return;
     }
     let question = match app.conversation.focused_question() {
-        Some(q) => ratatui::text::Text::from(vec![
-            ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
-            ratatui::text::Line::styled(q.text.clone(), palette.jade),
-        ]),
+        Some(q) => {
+            let mut lines = vec![
+                ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
+                ratatui::text::Line::styled(q.text.clone(), palette.jade),
+            ];
+            for line in suggestion::description(q).lines() {
+                lines.push(ratatui::text::Line::styled(
+                    line.to_owned(),
+                    palette.muted.add_modifier(ratatui::style::Modifier::ITALIC),
+                ));
+            }
+            ratatui::text::Text::from(lines)
+        }
         None => match (open_intent(app), app.conversation.board()) {
             (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
                 if g.goal().is_none() {
@@ -460,7 +469,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Tab  switch between writing and your original (the original is read-only)\n"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nPgUp/PgDn   scroll the reading and any overflowing question\n{select}Drag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nPgUp/PgDn   scroll the reading and any overflowing question\n{select}Drag across your original to select; Ctrl-C copies\nCtrl-R   use and edit the suggested answer (empty writing box only)\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
@@ -525,6 +534,9 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
             items.push(("F3", "review"));
         }
         if app.conversation.focused_question().is_some() {
+            if app.can_use_suggestion() {
+                items.push(("Ctrl-R", "use and edit"));
+            }
             items.push(("F8", "skip"));
         }
         if app.voice_available() {
