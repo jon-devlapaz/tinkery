@@ -849,7 +849,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Tend(_) => "tinkery › tend".into(),
         View::Shape(..) => "tinkery › shape".into(),
         View::Approve(_) => "tinkery › approve".into(),
-        View::Measure(_) => "tinkery › measure".into(),
+        View::Measure(measure) => measure.title(),
         View::Watch(_) => "tinkery › watch".into(),
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
         View::Think(_) => unreachable!(),

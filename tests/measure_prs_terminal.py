@@ -55,9 +55,9 @@ def journey(width, height, no_color):
         t.send(b'r', 'q goes back to the menu')
         t.send(b'\x1b', 'Nothing has been read yet')
         assert not t.calls.exists(), 'Navigation/help started gh'
-        t.send(b'r', '3 PRs in this read')
+        t.send(b'r', '1–3 of 3 PRs')
         text = t.screen.text()
-        assert 'open' in text and 'merged' in text and 'closed-unmerged' in text, text
+        assert 'open' in text and 'merged' in text and 'closed' in text, text
         call = calls(t)[0]
         assert call['repo'] is None
         assert call['cwd'] == str(t.root)
@@ -67,7 +67,7 @@ def journey(width, height, no_color):
         t.send(b'\r', 'unit: SUCCESS')
         assert 'Reported PR-head checks' in t.screen.text()
         assert 'abc123' in t.screen.text()
-        t.send(b'\x1b', '3 PRs in this read')
+        t.send(b'\x1b', '1–3 of 3 PRs')
         t.send(b'\x1b[B', '> #2')
         t.send(b'\r', 'journey: FAILURE')
         assert '#2 · merged' in t.screen.text()
@@ -77,7 +77,7 @@ def journey(width, height, no_color):
         assert '#3 · closed-unmerged' in t.screen.text()
         t.send(b'\x1b', '> #3')
         assert len(calls(t)) == 1, 'Details started another read'
-        t.send(b'r', '3 PRs in this read')
+        t.send(b'r', '1–3 of 3 PRs')
         t.wait(lambda: len(calls(t)) == 2)
         t.send(b'q', '1  think')
         t.send(b'7', 'Nothing has been read yet')
@@ -92,7 +92,7 @@ def journey(width, height, no_color):
 def cases():
     for payload, mode, expected in [
         ([], 'ok', 'No PRs found in this window'),
-        ([pr(n) for n in range(1, 102)], 'ok', 'Partial results: first 100 PRs'),
+        ([pr(n) for n in range(1, 102)], 'ok', '1–7 of 100 PRs · more on GitHub'),
         ([], 'failure', 'GitHub read failed'),
         ([], 'malformed', 'unreadable PR list'),
         ([], 'oversized', 'incomplete or exceeded 4 MiB'),
@@ -159,8 +159,49 @@ def cases():
     print('8 error, empty, partial, missing-gh, refresh and cancellation journeys passed')
 
 
+def layout_journey(width, height, no_color):
+    title = 'Wrap these exact Unicode words 漢字 e\u0301. ' * 70 + 'LAST-TITLE-WORD'
+    payload = [pr(n, title=title if n == 1 else f'TEST row {n}') for n in range(1, 102)]
+    t = Terminal(width, height, no_color, fake(payload))
+    try:
+        t.send(b'7', 'Nothing has been read yet')
+        t.send(b'r', '1–7 of 100 PRs · more on GitHub')
+        text = t.screen.text()
+        assert 'Pull requests ·' not in text and 'tinkery › measure' not in text
+        assert 'measure ·' in text
+        assert 'GitHub · read at' not in text
+        assert 'TEST row 7' in text and 'TEST row 8' not in text
+        assert 'pg↑↓ title' in text
+        for _ in range(100):
+            os.write(t.master, b'\x1b[6~')
+        t.wait(lambda: 'LAST-TITLE-WORD' in t.screen.text())
+        t.send(b'?', 'GitHub read at:')
+        assert 'Window: updated since' in t.screen.text()
+        t.send(b'\x1b', 'LAST-TITLE-WORD')
+        t.send(b'\x1b[B', '> #2')
+        assert 'pg↑↓ title' not in t.screen.text()
+        t.send(b'\r', '#2 · open')
+        t.send(b'\x1b', '> #2')
+        t.resize(80 if width != 80 else 100, 24)
+        t.wait(lambda: '> #2' in t.screen.text())
+        for _ in range(110):
+            os.write(t.master, b'\x1b[B')
+        t.wait(lambda: '> #100' in t.screen.text())
+        assert '94–100 of 100 PRs · more on GitHub' in t.screen.text()
+        assert len(calls(t)) == 1, 'Layout/navigation performed another read'
+        t.send(b'q', '1  think')
+        t.finish(expected_calls=1)
+        print(json.dumps(dict(journey='quiet list/full selected title/help/resize/all rows',
+                              width=width, height=height, no_color=no_color, gh_calls=1)))
+    finally:
+        t.close()
+
+
 if __name__ == '__main__':
     for dimensions in SIZES:
         for no_color in (False, True):
             journey(*dimensions, no_color)
     cases()
+    for dimensions in SIZES + [(70, 49)]:
+        for no_color in (False, True):
+            layout_journey(*dimensions, no_color)

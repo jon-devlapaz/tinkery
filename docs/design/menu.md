@@ -47,9 +47,13 @@ Navigation, reopening, details, help and resizing start no commands. Only `r` fr
 the list reads or refreshes; held or modified keys cannot repeat a read.
 
 Read all PR states updated since the UTC date 30 days before the request, newest
-updated first. Show the exact date and read time. Number, state (open, merged or
-closed-unmerged) and title identify each row. At most 100 rows are displayed;
-requesting 101 detects truncation and labels the result partial. No stale list or
+updated first. The heading names the phase and repo once; a quiet context line gives
+the visible range and fetched count. Keep at most seven rows around the selection,
+with aligned, muted number/state columns and blank space below. The selected title
+wraps; PgUp/PgDn reveal unusually long titles in a bounded viewport. Other truncated
+titles end in an ellipsis. `closed` means closed without merge. Details and help
+retain the exact window date and read time. At most 100 PRs remain navigable;
+requesting 101 detects truncation, disclosed as “more on GitHub.” No stale list or
 empty-result claim survives a failed refresh. Missing `gh`, access failures and
 malformed output say how to retry; stderr is not displayed.
 
@@ -65,9 +69,12 @@ deadline and bounded output. There are no watchers, provider calls or disk cache
 
 [Terminal tests](../../tests) use fake `gh` in TEST roots at 80×24, 100×30, 160×40
 and 320×40, with and without NO_COLOR. They cover states, details, empty/partial
-results, failures, cancellation and navigation. Reversion probes protect explicit
-reads and partial-result honesty. This narrow slice is
-[#321](https://github.com/jon-devlapaz/tinkery/issues/321); the broader results and
+results, failures, cancellation and navigation. Layout journeys also cover 70×49,
+long Unicode titles, all fetched rows and selection through help/details/resize.
+Reversion probes protect explicit reads, partial-result honesty, bounded list size
+and title wrapping. The PR browser is
+[#321](https://github.com/jon-devlapaz/tinkery/issues/321), with visual refinement in
+[#338](https://github.com/jon-devlapaz/tinkery/issues/338); the broader results and
 effort proposals [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
 [#115](https://github.com/jon-devlapaz/tinkery/issues/115) remain closed, not planned.
 
