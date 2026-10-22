@@ -266,3 +266,111 @@ fn turns_keep_every_question_answer_and_scope_in_the_order_they_happened() {
     );
     assert!(c.turns().windows(2).all(|w| w[0].at <= w[1].at));
 }
+
+#[test]
+fn review_context_preserves_note_wording_order_and_distinct_decisions() {
+    let mut c = asking();
+    let request = c.stage("", false, false, vec![]).unwrap().request;
+    let mut guess = c.board().unwrap().wire();
+    guess.parts.who = None;
+    guess.parts.why = None;
+    guess.questions[0].target = Some(Part::MustNot);
+    guess.questions[0].text = "May private text appear?".into();
+    guess.decisions = vec![
+        OpenDecision {
+            part: Part::MustNot,
+            text: "Private text".into(),
+            answers: vec!["omit".into(), "include".into()],
+            question: Some("May private text appear?".into()),
+        },
+        OpenDecision {
+            part: Part::MustNot,
+            text: "Uploads".into(),
+            answers: vec!["local".into(), "cloud".into()],
+            question: Some("May logs upload?".into()),
+        },
+    ];
+    guess.unresolved_notes = vec![
+        "Keep Café 👩‍💻 exactly.".into(),
+        guess.decisions[0].note(),
+        guess.decisions[1].note(),
+        "Keep this last note.".into(),
+    ];
+    guess.misfits = vec![Anchor {
+        source: 1,
+        quote: "mornings".into(),
+        occurrence: 0,
+    }];
+    c.board = Some(board::Board::verify(guess, &request).unwrap());
+    let before = (serde_json::to_value(&c.sources).unwrap(), c.turns.len());
+    let (questions, notes) = c.review_context();
+    assert_eq!(questions.len(), 1);
+    assert_eq!(questions[0].text, "May private text appear?");
+    assert_eq!(
+        notes,
+        [
+            "Who — still open",
+            "Why — still open",
+            "Done when — still open",
+            "Keep Café 👩‍💻 exactly.",
+            "Open decision: Uploads (local / cloud)",
+            "Keep this last note.",
+            "mornings (original 1)",
+        ]
+    );
+    assert_eq!(c.board().unwrap().decisions.len(), 2);
+    assert_eq!(
+        (serde_json::to_value(&c.sources).unwrap(), c.turns.len()),
+        before
+    );
+}
+
+#[test]
+fn review_context_keeps_scope_restored_and_skipped_questions_in_order() {
+    let mut c = asking();
+    let addition = c
+        .stage("Also keep evenings calm.", true, false, vec![])
+        .unwrap();
+    c.commit(&addition);
+    let question = |id: &str| Question {
+        id: id.into(),
+        target: None,
+        text: format!("Keep {id}?"),
+    };
+    c.restored.push(question("restored"));
+    c.skipped = vec![
+        question("restored"),
+        question("skipped"),
+        question("answered"),
+    ];
+    c.settled.push(Settled {
+        question: question("answered"),
+        source: 1,
+    });
+    let before = (serde_json::to_value(&c.sources).unwrap(), c.turns.len());
+    let (questions, notes) = c.review_context();
+    assert_eq!(
+        questions.iter().map(|q| q.id.as_str()).collect::<Vec<_>>(),
+        ["check-1", "scope-addition-2", "restored", "skipped"]
+    );
+    assert_eq!(
+        questions
+            .iter()
+            .map(|q| q.text.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "Which check 1?",
+            "Should these added words be part of this goal, or stay separate?",
+            "Keep restored?",
+            "Keep skipped?",
+        ]
+    );
+    assert!(
+        notes.is_empty(),
+        "the question already represents Done when"
+    );
+    assert_eq!(
+        (serde_json::to_value(&c.sources).unwrap(), c.turns.len()),
+        before
+    );
+}

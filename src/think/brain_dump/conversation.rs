@@ -245,6 +245,44 @@ impl Conversation {
         unresolved
     }
 
+    /// Unresolved questions and notes for review and saved context, in their display order.
+    /// Linked questions replace only their decision notes; other intent and excerpts stay intact.
+    pub(super) fn review_context(&self) -> (Vec<Question>, Vec<String>) {
+        let unresolved = self.unresolved();
+        let Some(g) = self.board() else {
+            return (unresolved, vec![]);
+        };
+        let missing = self
+            .open_parts()
+            .into_iter()
+            .filter(|p| {
+                !unresolved.iter().any(|q| q.target == Some(*p))
+                    && !g.decisions.iter().any(|d| d.part == *p)
+            })
+            .map(|p| format!("{} — still open", p.label()))
+            .collect::<Vec<_>>();
+        let notes = g
+            .unresolved_notes
+            .iter()
+            .filter(|note| {
+                !g.decisions
+                    .iter()
+                    .any(|d| d.covered_by(&unresolved) && d.note() == **note)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let notes = missing
+            .into_iter()
+            .chain(notes)
+            .chain(
+                g.misfits
+                    .iter()
+                    .map(|s| format!("{} (original {})", s.quote, s.source)),
+            )
+            .collect();
+        (unresolved, notes)
+    }
+
     /// Skip the question in focus. False when there is none.
     pub(super) fn skip_focused(&mut self) -> bool {
         let Some(q) = self.focused_question().cloned() else {

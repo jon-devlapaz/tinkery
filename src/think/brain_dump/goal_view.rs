@@ -237,8 +237,7 @@ impl BrainDump {
             self.refuse("No goal to review yet; parts remain open.");
             return;
         };
-        let open_parts = self.conversation.open_parts();
-        let unresolved = self.conversation.unresolved();
+        let (unresolved, unresolved_notes) = self.conversation.review_context();
         self.screen.original = false;
         self.screen.help = false;
         self.screen.details = false;
@@ -248,24 +247,6 @@ impl BrainDump {
         self.screen.drag_anchor = None;
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
-        let missing = open_parts
-            .into_iter()
-            .filter(|p| {
-                !unresolved.iter().any(|q| q.target == Some(*p))
-                    && !g.decisions.iter().any(|d| d.part == *p)
-            })
-            .map(|p| format!("{} — still open", p.label()))
-            .collect::<Vec<_>>();
-        let notes = g
-            .unresolved_notes
-            .iter()
-            .filter(|note| {
-                !g.decisions
-                    .iter()
-                    .any(|d| d.covered_by(&unresolved) && d.note() == **note)
-            })
-            .cloned()
-            .collect::<Vec<_>>();
         self.handoff.review = Some(Review {
             affirmation: Affirmation {
                 goal,
@@ -278,15 +259,7 @@ impl BrainDump {
                 answered: self.conversation.settled().to_vec(),
                 decisions: g.decisions.clone(),
                 unresolved,
-                unresolved_notes: missing
-                    .into_iter()
-                    .chain(notes)
-                    .chain(
-                        g.misfits
-                            .iter()
-                            .map(|s| format!("{} (original {})", s.quote, s.source)),
-                    )
-                    .collect(),
+                unresolved_notes,
                 confirmation: self.handoff.confirmation.clone(),
             },
             input: String::new(),
