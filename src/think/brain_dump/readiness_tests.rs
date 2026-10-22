@@ -47,6 +47,81 @@ fn request(a: &BrainDump) -> BoardRequest {
     }
 }
 #[test]
+fn why_and_copy_label_success_criteria_without_claiming_experience_is_missing() {
+    const EXPERIENCE: &str = "the approachable feel of RollerCoaster Tycoon";
+    const ORIGINAL: &str = "A city healthcare game with the approachable feel of RollerCoaster Tycoon.\r\nKeep clinics, hospitals, providers and budgeting.";
+    for criteria in [None, Some("I can allocate funds across providers.")] {
+        let raw = serde_json::json!({"parts": {
+            "who": "I",
+            "outcome": format!("manage citywide healthcare with {EXPERIENCE}"),
+            "why": "Population needs and limited budgets interact",
+            "done_when": criteria
+        }});
+        let mut a = app_with_source(raw, ORIGINAL);
+        a.paste("Unsent café answer");
+        let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
+        let expected = criteria.unwrap_or("Not yet captured");
+        let details = a.details_text();
+        let copied = a.copy_text();
+        assert!(
+            details.contains(&format!("Success criteria\n{expected}")),
+            "{details}"
+        );
+        assert!(
+            copied.contains(&format!("## Success criteria / proposed\n\n{expected}")),
+            "{copied}"
+        );
+        assert!(copied.contains(EXPERIENCE) && copied.contains(ORIGINAL));
+        for text in [&details, &copied] {
+            assert!(!text.contains("Desired experience") && !text.contains("Not supplied"));
+        }
+        a.handle_key(KeyEvent::new(KeyCode::F(5), KeyModifiers::NONE));
+        for (w, h) in [(80, 24), (100, 30), (82, 24)] {
+            for mono in [false, true] {
+                let screen = snapshot(w, h, &mut a, mono).unwrap();
+                let right = super::goal_tests::right_text(&screen, w);
+                assert!(right.contains("Success criteria"), "{screen}");
+                assert!(right.contains(expected), "{screen}");
+                assert!(!right.contains("Not supplied") && !right.contains("Desired experience"));
+            }
+        }
+        assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
+        assert_eq!(a.conversation.board().unwrap().goal(), Some(goal.as_str()));
+        assert_eq!(a.input.text, "Unsent café answer");
+        assert!(a.handoff.job.is_none() && a.saved().is_none() && !a.running());
+    }
+}
+
+#[test]
+fn rejected_summary_labels_raw_success_criteria_without_changing_evidence() {
+    let raw = serde_json::json!({
+        "parts": {"done_when": "Budget consequences are visible."},
+        "outcome": "Legacy freeform outcome, not criteria."
+    })
+    .to_string();
+    let mut decision = checks::Decision::new(
+        "structure",
+        "blocking",
+        "reject",
+        "TEST rejected reply".into(),
+        std::time::Instant::now(),
+    );
+    decision.raw = Some(raw.clone());
+    let history = vec![serde_json::to_string(&decision).unwrap()];
+    let summary = checks::why(&history);
+    assert!(
+        summary.contains("Success criteria (unaccepted)\nBudget consequences are visible."),
+        "{summary}"
+    );
+    assert!(
+        !summary.contains("Desired experience") && !summary.contains("Legacy freeform outcome")
+    );
+    assert!(summary.contains("Rejected attempt — not confirmable"));
+    assert!(summary.contains("this summary is not an accepted board"));
+    assert_eq!(checks::recorded(&history)[0]["raw"], raw);
+}
+
+#[test]
 fn beneficiary_and_labelled_lines_preserve_criteria_and_constraints() {
     assert_eq!(
         parts().compose().unwrap(),

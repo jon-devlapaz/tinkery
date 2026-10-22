@@ -210,6 +210,11 @@ Eval record reading and gap flags are separate slices.
 
 ### Reading
 
+Why and the copied provisional board label the Done when part **Success criteria**;
+when absent, they say **Not yet captured**, not that the desired experience was
+unsupplied. Rejected-reply summaries label raw `parts.done_when` as unaccepted
+success criteria; the original diagnostic evidence stays unchanged.
+
 Overflow keeps muted `PgUp/PgDn scroll reading` below the reading. The active
 question grows to fit above the answer while retaining reading and input space.
 If it still overflows, `PgUp/PgDn scroll question` names the same scroll route;

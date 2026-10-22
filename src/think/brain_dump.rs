@@ -332,8 +332,8 @@ impl BrainDump {
                 text.push_str(&format!("\nfor the seed: {}\n", g.deferred.join("; ")));
             }
             text.push_str(&format!(
-                "\n## Desired experience / proposed\n\n{}\n\n## Doesn't fit yet\n\n{}\n",
-                agent_text(g.outcome.as_deref().unwrap_or("")),
+                "\n## Success criteria / proposed\n\n{}\n\n## Doesn't fit yet\n\n{}\n",
+                agent_text(g.outcome.as_deref().unwrap_or("Not yet captured")),
                 self.misfit_text()
             ));
             if let Some(q) = self.conversation.focused_question() {
@@ -423,7 +423,7 @@ impl BrainDump {
                 format!("Skipped, not resolved\n{skipped}\n\n")
             }
         );
-        context+&self.conversation.board().map_or_else(|| "No reading yet.".into(), |g| format!("Desired experience\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", agent_text(g.outcome.as_deref().unwrap_or("Not supplied")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
+        context+&self.conversation.board().map_or_else(|| "No reading yet.".into(), |g| format!("Success criteria\n{}\n\nDoesn’t fit yet\n{}\n\nPossible approaches / not accepted\n{}", agent_text(g.outcome.as_deref().unwrap_or("Not yet captured")), self.misfit_text(), g.alternatives.iter().map(|a| a.text()).collect::<Vec<_>>().join("\n\n")))
     }
     fn misfit_text(&self) -> String {
         let mut unresolved = self

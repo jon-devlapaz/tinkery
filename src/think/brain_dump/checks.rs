@@ -289,7 +289,7 @@ fn attempt_text(g: &serde_json::Value) -> String {
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "{readings}\n\nDesired experience\n{}\n\nPossible approaches (including unsupported fields)\n{options}\n\nQuestions\n{questions}\n\nRaw evidence retains every field; this summary is not an accepted board.",
-        text(g.get("outcome"))
+        "{readings}\n\nSuccess criteria (unaccepted)\n{}\n\nPossible approaches (including unsupported fields)\n{options}\n\nQuestions\n{questions}\n\nRaw evidence retains every field; this summary is not an accepted board.",
+        text(g.get("parts").and_then(|parts| parts.get("done_when")))
     )
 }
