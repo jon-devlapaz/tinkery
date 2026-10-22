@@ -120,8 +120,10 @@ Each pass scores 1.25. Structural PRs name the rows they move.
 The remaining debt is `brain_dump.rs`'s narrow interface over substantial routing.
 
 The module map owns these boundaries. Preview and sending share conversation
-staging and one drafting request boundary. Measure owns its PR list, details and help;
-the menu owns entry and return. Linking, graph geometry and the garden footer stay separate. Think writes shared records; Tend
+staging and one drafting request boundary; submit sends the prepared, measured request
+without reconstructing it. Measure owns its PR list, details and help; the menu owns
+entry and return. Linking, graph geometry and the garden footer stay separate.
+Think writes shared records; Tend
 reads them. Shared `repo.rs` finds the root once.
 Only Tinkery's ledger-backed Shape verification claims seed-ready; file discovery reports
 unchecked declarations.

@@ -548,7 +548,7 @@ impl BrainDump {
         }
         let SendPreview {
             staged,
-            request: refreshed,
+            request,
             bytes: measured,
             context_over,
             ..
@@ -572,7 +572,7 @@ impl BrainDump {
             ),
             std::time::Instant::now(),
         );
-        cap.request_key = checks::request_key(&refreshed);
+        cap.request_key = checks::request_key(&request);
         self.local_checks.push(cap);
         if measured > REQUEST_LIMIT {
             self.refuse(if context_over {
@@ -606,7 +606,6 @@ impl BrainDump {
                 return;
             }
         }
-        let mut request = staged.request;
         if self.conversation.awaiting_scope() {
             self.refuse(
                 "Added words remain unresolved; answer their scope question before reshaping.",
@@ -622,11 +621,6 @@ impl BrainDump {
             if self.conversation.caught_up() {
                 return;
             }
-            self.conversation.refresh(&mut request);
-        }
-        if serde_json::to_vec(&request).map_or(true, |b| b.len() > REQUEST_LIMIT) {
-            self.refuse("Too long to send. Words kept.\nF1 shows how to copy them.");
-            return;
         }
         self.conversation.forget_changes();
         let host = self.host.clone();

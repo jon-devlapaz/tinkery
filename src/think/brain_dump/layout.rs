@@ -148,14 +148,35 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         goal_view::render_goal(frame, app, palette);
         return;
     }
+    let question = match app.conversation.focused_question() {
+        Some(q) => ratatui::text::Text::from(vec![
+            ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
+            ratatui::text::Line::styled(q.text.clone(), palette.jade),
+        ]),
+        None => match (open_intent(app), app.conversation.board()) {
+            (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
+                if g.goal().is_none() {
+                    line
+                } else {
+                    format!("{line} Review when you're ready.")
+                },
+                palette.muted,
+            ),
+            _ => ratatui::text::Text::default(),
+        },
+    };
+    let question = Paragraph::new(question).wrap(Wrap { trim: false });
+    let question_lines = question.line_count(right.width);
+    // Keep ordinary questions in view; larger ones share the reading's scroll route.
+    let question_height = question_lines.clamp(6, usize::from(right.height - 11)) as u16;
     let rows = Layout::vertical([
         Constraint::Min(5),
-        Constraint::Length(6),
+        Constraint::Length(question_height),
         Constraint::Length(4),
         Constraint::Length(2),
     ])
     .split(right);
-    app.screen.agent_area = rows[0];
+    app.screen.agent_area = rows[0].union(rows[1]);
     let failure = app.conversation.last_failure().filter(|_| !app.running());
     let content = if let Some(error) = failure {
         let retained = app
@@ -230,27 +251,37 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             Rect::new(reading.x, reading.bottom(), reading.width, 1),
         );
     }
-    let max = line_count.saturating_sub(usize::from(reading.height)) as u16;
-    app.screen.paper_scroll = app.screen.paper_scroll.min(max);
-    frame.render_widget(p.scroll((app.screen.paper_scroll, 0)), reading);
-    let question = match app.conversation.focused_question() {
-        Some(q) => ratatui::text::Text::from(vec![
-            ratatui::text::Line::styled("One thing I'm not sure about", palette.muted),
-            ratatui::text::Line::styled(q.text.clone(), palette.jade),
-        ]),
-        None => match (open_intent(app), app.conversation.board()) {
-            (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
-                if g.goal().is_none() {
-                    line
-                } else {
-                    format!("{line} Review when you're ready.")
-                },
-                palette.muted,
+    let mut question_area = rows[1];
+    if question_lines > usize::from(question_area.height) {
+        question_area.height -= 1;
+        frame.render_widget(
+            Paragraph::new("PgUp/PgDn scroll question").style(palette.muted),
+            Rect::new(
+                question_area.x,
+                question_area.bottom(),
+                question_area.width,
+                1,
             ),
-            _ => ratatui::text::Text::default(),
-        },
-    };
-    frame.render_widget(Paragraph::new(question).wrap(Wrap { trim: false }), rows[1]);
+        );
+    }
+    let reading_max = line_count.saturating_sub(usize::from(reading.height));
+    let question_max = question_lines.saturating_sub(usize::from(question_area.height));
+    let max = reading_max.max(question_max).min(usize::from(u16::MAX)) as u16;
+    app.screen.paper_scroll = app.screen.paper_scroll.min(max);
+    frame.render_widget(
+        p.scroll((
+            usize::from(app.screen.paper_scroll).min(reading_max) as u16,
+            0,
+        )),
+        reading,
+    );
+    frame.render_widget(
+        question.scroll((
+            usize::from(app.screen.paper_scroll).min(question_max) as u16,
+            0,
+        )),
+        question_area,
+    );
     let input = Block::default()
         .title(if app.add_more {
             "add more"
@@ -429,7 +460,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Tab  switch between writing and your original (the original is read-only)\n"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nPgUp/PgDn   scroll the reading\n{select}Drag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nPgUp/PgDn   scroll the reading and any overflowing question\n{select}Drag across your original to select; Ctrl-C copies\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
