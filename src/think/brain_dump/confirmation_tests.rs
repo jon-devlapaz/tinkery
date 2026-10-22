@@ -180,6 +180,64 @@ fn declared() -> BrainDump {
 }
 
 #[test]
+fn typing_confirmation_keeps_a_fully_read_goal_at_the_end() {
+    for (w, h) in [(94, 51), (80, 24), (100, 30)] {
+        for no_color in [false, true] {
+            let mut context = agent();
+            if let GoalConfirmation::Agent { source, .. } = &mut context {
+                source.push_str(&" TEST permission covers this temporary goal only.".repeat(40));
+            }
+            let mut a = app(serde_json::json!({"parts": parts()}));
+            a.set_goal_confirmation(context.clone()).unwrap();
+            a.review_goal();
+            snapshot(w, h, &mut a, no_color).unwrap();
+            assert!(a.handoff.review.as_ref().unwrap().max > 0);
+            while a.handoff.review.as_ref().unwrap().scroll < a.handoff.review.as_ref().unwrap().max
+            {
+                a.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+            }
+            snapshot(w, h, &mut a, no_color).unwrap();
+            for c in "confirm".chars() {
+                a.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+                snapshot(w, h, &mut a, no_color).unwrap();
+                let review = a.handoff.review.as_ref().unwrap();
+                assert_eq!(review.scroll, review.max, "{w}x{h}: typing moved the end");
+                assert_eq!(review.affirmation.confirmation, context);
+                assert!(a.handoff.job.is_none());
+            }
+            // A shorter wrong-word refusal must not move the end before correction.
+            a.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
+            a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+            a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+            snapshot(w, h, &mut a, no_color).unwrap();
+            assert!(
+                a.notice
+                    .contains("Type confirm, then Enter. Nothing saved.")
+            );
+            assert!(a.handoff.job.is_none());
+            // Even a rejected paste clears the refusal and restores the instruction.
+            a.paste("ignored\npaste");
+            snapshot(w, h, &mut a, no_color).unwrap();
+            let review = a.handoff.review.as_ref().unwrap();
+            assert_eq!(review.input, "confirn");
+            assert_eq!(
+                review.scroll, review.max,
+                "{w}x{h}: refused paste moved the end"
+            );
+            a.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
+            a.handle_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE));
+            snapshot(w, h, &mut a, no_color).unwrap();
+            let review = a.handoff.review.as_ref().unwrap();
+            assert_eq!(
+                review.scroll, review.max,
+                "{w}x{h}: correcting moved the end"
+            );
+            // The terminal journey verifies saving after this redraw; no save starts here.
+        }
+    }
+}
+
+#[test]
 fn unspecified_confirmer_is_not_claimed_as_the_operator() {
     let mut a = app(serde_json::json!({"parts": parts()}));
     a.review_goal();
