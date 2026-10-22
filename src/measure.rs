@@ -15,6 +15,11 @@ use ratatui::{
 };
 use serde::Deserialize;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
+
+const LIST_ROWS: usize = 7;
+const TITLE_ROWS: u16 = 5;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -24,6 +29,13 @@ enum State {
     Closed,
 }
 impl State {
+    fn list_label(&self) -> &'static str {
+        match self {
+            Self::Closed => "closed",
+            _ => self.label(),
+        }
+    }
+
     fn label(&self) -> &'static str {
         match self {
             Self::Open => "open",
@@ -125,6 +137,30 @@ impl Measure {
         }
     }
 
+    /// One phase heading; repository context is not repeated in the list.
+    pub(crate) fn title(&self) -> String {
+        self.repo.as_ref().map_or_else(
+            || "measure".into(),
+            |repo| format!("measure · {}", visible(&repo.name())),
+        )
+    }
+
+    fn provenance(&self) -> String {
+        if self.since.is_empty() {
+            "GitHub has not been read.".into()
+        } else {
+            format!(
+                "Window: updated since {} UTC\nGitHub read at: {}",
+                self.since,
+                if self.report.is_some() {
+                    &self.read_at
+                } else {
+                    "unavailable"
+                }
+            )
+        }
+    }
+
     /// Receive one explicit read; late results cannot reopen an exited view.
     pub(crate) fn poll(&mut self) {
         if let Some(result) = self.read.as_ref().and_then(read::Read::poll) {
@@ -178,9 +214,19 @@ impl Measure {
             KeyCode::Down => {
                 if let Some(report) = &self.report {
                     self.selected = (self.selected + 1).min(report.prs.len().saturating_sub(1));
+                    self.scroll = 0;
                 }
             }
-            KeyCode::Up => self.selected = self.selected.saturating_sub(1),
+            KeyCode::Up => {
+                self.selected = self.selected.saturating_sub(1);
+                self.scroll = 0;
+            }
+            KeyCode::PageDown if !self.detail => {
+                self.scroll = self.scroll.saturating_add(crate::page(TITLE_ROWS))
+            }
+            KeyCode::PageUp if !self.detail => {
+                self.scroll = self.scroll.saturating_sub(crate::page(TITLE_ROWS))
+            }
             _ => {}
         }
         false
@@ -194,8 +240,14 @@ impl Measure {
             "↑↓ scroll   esc list   ? help"
         } else if self.repo.is_none() || self.read.is_some() {
             "esc back   ? help"
+        } else if self
+            .report
+            .as_ref()
+            .is_some_and(|report| !report.prs.is_empty())
+        {
+            "↑↓ move   enter details   r refresh   esc back"
         } else if self.report.is_some() {
-            "↑↓ select   enter details   r refresh GitHub   esc back   ? help"
+            "r refresh   esc back   ? help"
         } else {
             "r read GitHub   esc back   ? help"
         };
@@ -208,21 +260,22 @@ impl Measure {
             Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
         );
         if help {
-            frame.render_widget(Paragraph::new(concat!(
+            frame.render_widget(Paragraph::new(format!("{}\n\n{}", concat!(
                 "Measure — this repo's pull requests\n\n",
                 "r reads GitHub using gh and your login, only from the list.\n",
                 "Opening, moving, details and resizing run no commands.\n",
                 "All states; updated since the UTC date 30 days before the read.\n",
-                "Newest updated first; at most 100 PRs. A capped read says partial.\n",
+                "Newest updated first; at most 100 PRs. More on GitHub means a partial read.\n",
+                "Closed means closed without merge. PgUp/PgDn scroll a long selected title.\n",
                 "Checks are GitHub's reported PR-head checks, not merge checks or acceptance.\n",
                 "No effort, usefulness or productivity is inferred. Nothing is saved.\n\n",
                 "Esc closes help, then details, then returns to the menu.\n",
                 "q goes back to the menu. F10 or Ctrl-C quits Tinkery.\n",
                 "Leaving cancels the read; r retries failures. Reads stop after 30 seconds."
-            )).style(palette.ink).wrap(Wrap { trim: false }), content);
+            ), self.provenance())).style(palette.ink).wrap(Wrap { trim: false }), content);
             return;
         }
-        let Some(repo) = &self.repo else {
+        if self.repo.is_none() {
             frame.render_widget(Paragraph::new("No launch repository.\nStart Tinkery inside a Git repo to read its pull requests.")
                 .style(palette.ink).wrap(Wrap { trim: false }), content);
             return;
@@ -268,6 +321,8 @@ impl Measure {
                 }
                 _ => lines.push("Checks unavailable or not recorded; no pass is inferred.".into()),
             }
+            lines.push(String::new());
+            lines.push(self.provenance());
             let paragraph = Paragraph::new(lines.join("\n"))
                 .style(palette.ink)
                 .wrap(Wrap { trim: false });
@@ -280,67 +335,152 @@ impl Measure {
             frame.render_widget(paragraph.scroll((self.scroll, 0)), content);
             return;
         }
-        let mut lines = vec![Line::from(format!(
-            "Pull requests · {}",
-            visible(&repo.name())
-        ))];
-        if self.since.is_empty() {
-            lines.push(Line::from("Updated in the last 30 days · all states"));
-            lines.push(Line::from(""));
-            lines.push(Line::from(
-                "Read GitHub using gh and your login. Nothing has been read yet.",
-            ));
-        } else {
-            lines.push(Line::from(format!(
-                "Updated since {} UTC · newest updated first",
-                self.since
-            )));
-            if let Some(report) = &self.report {
-                lines.push(Line::styled(
-                    format!("GitHub · read at {}", self.read_at),
-                    palette.muted,
-                ));
-                lines.push(Line::from(if report.partial {
-                    "Partial results: first 100 PRs; more match this window.".to_owned()
-                } else {
-                    format!("{} PRs in this read", report.prs.len())
-                }));
-                lines.push(Line::from(""));
-                let available = content.height.saturating_sub(5).max(1) as usize;
-                let start = self.selected.saturating_sub(available - 1);
-                if report.prs.is_empty() {
-                    lines.push(Line::from("No PRs found in this window."));
-                }
-                for (index, pr) in report.prs.iter().enumerate().skip(start).take(available) {
-                    // State precedes the title so even a narrow terminal retains its meaning.
-                    lines.push(Line::from(Span::styled(
-                        format!(
-                            "{} #{}  {}  {}",
-                            if index == self.selected { ">" } else { " " },
-                            pr.number,
-                            pr.state.label(),
-                            visible(&pr.title)
-                        ),
-                        if index == self.selected {
-                            palette.jade
-                        } else {
-                            palette.ink
-                        },
-                    )));
-                }
-            } else {
-                lines.push(Line::from(""));
-                lines.push(Line::from(self.notice.clone()));
+        if let Some(report) = &self.report {
+            let overflow = render_list(
+                frame,
+                content,
+                report,
+                self.selected,
+                &mut self.scroll,
+                palette,
+            );
+            if overflow {
+                frame.render_widget(
+                    Paragraph::new(format!("{footer}   pg↑↓ title")).style(palette.muted),
+                    Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
+                );
             }
-        }
-        let paragraph = Paragraph::new(lines).style(palette.ink);
-        frame.render_widget(
-            if self.report.is_none() {
-                paragraph.wrap(Wrap { trim: false })
+        } else {
+            let text = if self.since.is_empty() {
+                "Updated in the last 30 days · all states\n\nRead GitHub using gh and your login. Nothing has been read yet."
             } else {
-                paragraph
-            },
-            content,
-        );
+                &self.notice
+            };
+            frame.render_widget(
+                Paragraph::new(text)
+                    .style(palette.ink)
+                    .wrap(Wrap { trim: false }),
+                content,
+            );
+        }
     }
+}
+
+fn clipped(text: &str, width: u16) -> String {
+    if text.width() <= usize::from(width) {
+        return text.into();
+    }
+    if width == 0 {
+        return String::new();
+    }
+    let mut used = 0;
+    let mut result = String::new();
+    for grapheme in text.graphemes(true) {
+        used += grapheme.width();
+        if used >= usize::from(width) {
+            break;
+        }
+        result.push_str(grapheme);
+    }
+    result.push('…');
+    result
+}
+
+fn render_list(
+    frame: &mut Frame,
+    area: Rect,
+    report: &Report,
+    selected: usize,
+    scroll: &mut u16,
+    palette: Palette,
+) -> bool {
+    if report.prs.is_empty() {
+        frame.render_widget(
+            Paragraph::new("Updated in the last 30 days\n\nNo PRs found in this window.")
+                .style(palette.muted),
+            area,
+        );
+        return false;
+    }
+    let count = LIST_ROWS.min(report.prs.len());
+    let start = selected
+        .saturating_sub(count / 2)
+        .min(report.prs.len().saturating_sub(count));
+    let context = format!(
+        "updated in 30 days · {}–{} of {} PRs{}",
+        start + 1,
+        start + count,
+        report.prs.len(),
+        if report.partial {
+            " · more on GitHub"
+        } else {
+            ""
+        }
+    );
+    frame.render_widget(
+        Paragraph::new(context).style(palette.muted),
+        Rect::new(area.x, area.y, area.width, 1),
+    );
+    let number_width = report
+        .prs
+        .iter()
+        .map(|pr| pr.number.to_string().len() + 1)
+        .max()
+        .unwrap_or(1)
+        .max(4);
+    let prefix_width = (number_width + 12) as u16;
+    let title_width = area.width.saturating_sub(prefix_width);
+    let title = Paragraph::new(visible(&report.prs[selected].title)).wrap(Wrap { trim: false });
+    let title_lines = title.line_count(title_width);
+    // A short list, a bounded title viewport and a blank row below them leave space at every size.
+    let title_height = TITLE_ROWS
+        .min(area.height.saturating_sub(count as u16 + 3))
+        .max(1)
+        .min(title_lines.max(1).min(u16::MAX as usize) as u16);
+    let overflow = title_lines > usize::from(title_height);
+    *scroll = (*scroll).min(
+        title_lines
+            .saturating_sub(usize::from(title_height))
+            .min(u16::MAX as usize) as u16,
+    );
+    let mut y = area.y.saturating_add(2);
+    for (index, pr) in report.prs.iter().enumerate().skip(start).take(count) {
+        let chosen = index == selected;
+        let height = if chosen { title_height } else { 1 };
+        let metadata = Line::from(vec![
+            Span::styled(if chosen { "> " } else { "  " }, palette.jade),
+            Span::styled(
+                format!(
+                    "{:<number_width$}  {:<6}  ",
+                    format!("#{}", pr.number),
+                    pr.state.list_label()
+                ),
+                palette.muted,
+            ),
+        ]);
+        frame.render_widget(
+            Paragraph::new(metadata),
+            Rect::new(area.x, y, prefix_width.min(area.width), 1),
+        );
+        let text = visible(&pr.title);
+        let paragraph = if chosen {
+            Paragraph::new(text)
+                .style(palette.ink.bold())
+                .wrap(Wrap { trim: false })
+                .scroll((*scroll, 0))
+        } else {
+            Paragraph::new(clipped(&text, title_width)).style(palette.ink)
+        };
+        frame.render_widget(
+            paragraph,
+            Rect::new(
+                area.x.saturating_add(prefix_width).min(area.right()),
+                y,
+                title_width,
+                height,
+            ),
+        );
+        y = y.saturating_add(height);
+    }
+    overflow
 }

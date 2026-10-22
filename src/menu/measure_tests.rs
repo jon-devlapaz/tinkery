@@ -17,6 +17,19 @@ fn press(home: &mut Home, code: KeyCode) {
 }
 
 #[test]
+fn measure_names_the_repo_once_in_its_heading() {
+    let root = tempfile::tempdir().unwrap();
+    let repo = root.path().join("TEST-measure-header");
+    std::fs::create_dir_all(repo.join(".git")).unwrap();
+    let mut h = home(root.path()).with_repo(crate::repo::Repo::enclosing(&repo));
+    h.open(6);
+    let text = snapshot(80, 24, &mut h, true).unwrap();
+    assert!(text.contains("measure · TEST-measure-header"), "{text}");
+    assert_eq!(text.matches("TEST-measure-header").count(), 1);
+    assert!(!text.contains("tinkery › measure") && !text.contains("Pull requests ·"));
+}
+
+#[test]
 fn measure_opens_unknown_at_supported_sizes_without_creating_records() {
     let root = tempfile::tempdir().unwrap();
     for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
