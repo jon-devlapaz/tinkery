@@ -210,9 +210,13 @@ Eval record reading and gap flags are separate slices.
 
 ### Reading
 
-Overflow keeps muted `PgUp/PgDn scroll reading` below the reading. Keys and the wheel
-reveal all before review; Every key names the keyboard route. Hide the hint when
-content fits, including after resize. Scrolling changes no goal or original text.
+Overflow keeps muted `PgUp/PgDn scroll reading` below the reading. The active
+question grows to fit above the answer while retaining reading and input space.
+If it still overflows, `PgUp/PgDn scroll question` names the same scroll route;
+keys scroll both overflowing regions, and the wheel works over either. Keys and
+the wheel reveal all before review; Every key names the keyboard route. Hide each
+hint when its content fits, including after resize. Scrolling changes no goal,
+original or unsent answer text.
 
 ### Help
 

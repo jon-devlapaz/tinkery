@@ -58,6 +58,114 @@ fn reading_scroll_hint_only_appears_on_overflow_and_clears_after_resize() {
     }
 }
 
+const HEALTHCARE_QUESTION: &str = "What would make this loop satisfying to you: finding a workable balance for different patient populations, understanding consequences across the network, making difficult funding tradeoffs, or some combination?";
+
+#[test]
+fn active_question_is_readable_without_review_and_survives_resize() {
+    for mono in [false, true] {
+        for question in [
+            HEALTHCARE_QUESTION.to_owned(),
+            format!(
+                "{} Last question words?",
+                "Which population needs care? ".repeat(40)
+            ),
+        ] {
+            let mut a = board();
+            super::tests::amend_board(&mut a, |g| {
+                g.parts.must = vec!["preserve citywide care ".repeat(30)];
+                g.questions = vec![Question {
+                    id: "city-care".into(),
+                    target: None,
+                    text: question.clone(),
+                }];
+            });
+            a.paste(&format!("{}Café 東京", "My unsent answer\r\n".repeat(40)));
+            key(&mut a, KeyCode::Left);
+            a.handle_key(KeyEvent::new(KeyCode::Left, KeyModifiers::SHIFT));
+            let input = a.input.text.clone();
+            let selected = a.input.selected_text().map(str::to_owned);
+            let sources = serde_json::to_value(a.conversation.sources()).unwrap();
+            let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
+            for (w, h) in [(80, 24), (100, 30), (82, 51), (160, 60), (80, 24)] {
+                key(&mut a, KeyCode::PageUp);
+                let first = snapshot(w, h, &mut a, mono).unwrap();
+                if question == HEALTHCARE_QUESTION && h >= 30 {
+                    assert!(
+                        right_text(&first, w).contains(HEALTHCARE_QUESTION),
+                        "{first}"
+                    );
+                }
+                if question.len() > 1000 && h <= 30 {
+                    assert!(first.contains("PgUp/PgDn scroll question"), "{first}");
+                }
+                let mut seen = String::new();
+                for _ in 0..30 {
+                    let screen = snapshot(w, h, &mut a, mono).unwrap();
+                    seen.push_str(&right_text(&screen, w));
+                    seen.push(' ');
+                    key(&mut a, KeyCode::PageDown);
+                }
+                for words in question.split_whitespace().collect::<Vec<_>>().windows(3) {
+                    assert!(
+                        seen.contains(&words.join(" ")),
+                        "{w}x{h}: {words:?}\n{seen}"
+                    );
+                }
+                let screen = snapshot(w, h, &mut a, mono).unwrap();
+                assert!(screen.contains("F2 send"));
+                assert_eq!(a.input.text, input);
+                assert_eq!(a.input.selected_text(), selected.as_deref());
+                assert_eq!(
+                    serde_json::to_value(a.conversation.sources()).unwrap(),
+                    sources
+                );
+                assert_eq!(a.conversation.board().unwrap().goal(), Some(goal.as_str()));
+                assert!(a.handoff.review.is_none() && a.handoff.job.is_none());
+                assert!(!a.running() && a.saved().is_none());
+                for _ in 0..30 {
+                    key(&mut a, KeyCode::PageUp);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn wheel_over_question_uses_the_same_overflow_route() {
+    let mut a = board();
+    super::tests::amend_board(&mut a, |g| {
+        g.questions = vec![Question {
+            id: "long-question".into(),
+            target: None,
+            text: format!(
+                "{} Last question words?",
+                "Which population needs care? ".repeat(40)
+            ),
+        }];
+    });
+    let first = snapshot(80, 24, &mut a, false).unwrap();
+    assert!(!first.contains("Last question words?"));
+    let row = a.screen.input_area.y - 2;
+    for _ in 0..40 {
+        a.handle_mouse(
+            MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column: a.screen.agent_area.x,
+                row,
+                modifiers: KeyModifiers::NONE,
+            },
+            Rect::new(0, 0, 80, 24),
+        );
+        snapshot(80, 24, &mut a, false).unwrap();
+    }
+    let last = snapshot(80, 24, &mut a, false).unwrap();
+    assert!(
+        right_text(&last, 80).contains("Last question words?"),
+        "{last}"
+    );
+    assert!(a.handoff.review.is_none() && !a.running());
+}
+
 #[test]
 fn every_key_names_the_existing_reading_scroll_route() {
     let mut a = board();
