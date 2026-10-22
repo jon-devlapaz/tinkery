@@ -1009,7 +1009,7 @@ def completion_review_display(width, height, done=False, replay_299=False):
         review = completion_review(checks)
         review['decided'] = ['TEST café scope.\r\nKeep words.  ']
         review['done'] = ['TEST README observed.\r\nNo checks ran.  '] if done else []
-        review['failure_cases'] = [dict(case=case, statement=statement) for case, statement in cases]
+        review['failure_cases'] = [case for case, _ in cases]
         reply = {**SEED, 'found': [], 'review': review, 'checks': checks}
         run = Run(cwd, width, height, budget=1, replies=[reply])
         try:
@@ -1020,7 +1020,8 @@ def completion_review_display(width, height, done=False, replay_299=False):
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             receipt = next(r for r in origin['evidence'] if r.get('artifact') == 'tinkery:review/completed')
-            assert json.loads(receipt['observed']) == review, receipt
+            expected_review = {**review, 'failure_cases': [dict(case=case, statement=statement) for case, statement in cases]}
+            assert json.loads(receipt['observed']) == expected_review, receipt
             assert receipt['checked'] == 'Review r1 · ' + hashlib.sha256(seed).hexdigest(), receipt
             run.read_until('This is not implementation approval.')
             for line in [
@@ -1092,14 +1093,17 @@ def captured_reply_recovery(width, height):
     """#296: raw historical refusals and an isolated missing source retain answers; F2 recovers."""
     fixtures = REPO / 'tests/fixtures/shape-296'
     cases = [
-        ('missing-source.json', 'probe answers belong to the ledger'),
-        ('call-6.json', 'statement was changed or repeated'),
-        ('call-7.json', 'received 3 for 2 checks'),
-        ('call-8.json', 'received 3 for 4 checks'),
+        ('missing-source.json', 'failure_cases must be a list of strings in check order'),
+        ('call-6.json', 'failure_cases must be a list of strings in check order'),
+        ('call-7.json', 'failure_cases must be a list of strings in check order'),
+        ('call-8.json', 'failure_cases must be a list of strings in check order'),
+        ('probe-only', 'probe answers belong to the ledger'),
         ('source-only', 'Source must name the confirmed goal'),
     ]
     for name, reason in cases:
-        raw = json.loads((fixtures / ('missing-source.json' if name == 'source-only' else name)).read_text())
+        raw = json.loads((fixtures / ('missing-source.json' if name in ('source-only', 'probe-only') else name)).read_text())
+        if name in ('source-only', 'probe-only'):
+            raw['review']['failure_cases'] = [case['case'] for case in raw['review']['failure_cases']]
         if name == 'source-only':
             raw['confirming'] = SEED['confirming']
         with tempfile.TemporaryDirectory(prefix='tinkery-TEST-296-recovery-') as directory:

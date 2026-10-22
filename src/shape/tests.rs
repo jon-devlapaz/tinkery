@@ -857,17 +857,17 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     assert_eq!(ask.found.len(), 1);
     assert_eq!(ask.suggestion, None);
     assert_eq!(
-        decode("{\"next\":\"seed\",\"review\":{\"contradictions\":[],\"decided\":[],\"done\":[],\"failure_cases\":[]},\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[]}").unwrap(),
+        decode("{\"next\":\"seed\",\"review\":{\"contradictions\":[],\"decided\":[],\"done\":[],\"failure_cases\":[\"TEST wrong result must fail\"]},\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[]}").unwrap(),
         Next::Seed {
             confirming: serde_json::json!(" Build it. "),
-            review: serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[]})).unwrap(),
+            review: serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[{"statement":"TEST","case":"TEST wrong result must fail"}]})).unwrap(),
             checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
             found: vec![],
             resolves: None,
         }
     );
     let Next::Seed { found, .. } = decode(
-        r#"{"next":"seed","review":{"contradictions":[],"decided":[],"done":[],"failure_cases":[]},"confirming":"Build it.","checks":[{"statement":"TEST","kind":"judge","source":"TEST"}],"found":[{"id":"read-1","claim":{"type":"observation","scope":"src/lib.rs"},"checked":"src/lib.rs:9","observed":"the palette"}]}"#,
+        r#"{"next":"seed","review":{"contradictions":[],"decided":[],"done":[],"failure_cases":["TEST wrong result must fail"]},"confirming":"Build it.","checks":[{"statement":"TEST","kind":"judge","source":"TEST"}],"found":[{"id":"read-1","claim":{"type":"observation","scope":"src/lib.rs"},"checked":"src/lib.rs:9","observed":"the palette"}]}"#,
     )
     .unwrap() else {
         panic!("not a seed")
@@ -1274,7 +1274,7 @@ pathlib.Path('TEST-missing-rules.json').write_text(json.dumps(missing))
 assert not missing, 'missing check-drafting instructions: ' + str(missing)
 assert request['goal'] == {goal:?}
 assert sys.argv[sys.argv.index('--tools') + 1] == 'read,grep,find,ls'
-print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?}), 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': [{{'statement': c['statement'], 'case': 'TEST wrong result must fail'}} for c in json.loads({checks:?})]}}, 'found': [
+print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?}), 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in json.loads({checks:?})]}}, 'found': [
     {{'id': 'TEST-read-fact', 'claim': {{'type': 'observation', 'scope': 'TEST-read.md:1'}}, 'checked': 'TEST-read.md:1', 'observed': 'TEST observed content'}}]}}))
 "##
         ),
@@ -1624,7 +1624,7 @@ if 'Use provisional when the needed test/assertion or invocation is missing' not
 body = json.loads({template:?})
 body['Suggested first slice'] = 'Proposal only: add the missing behavior, then use the check above.'
 body = {{key: value.replace('no repository facts were recorded.', 'reported reads are listed below.') for key, value in body.items()}}
-print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': [{{'statement': c['statement'], 'case': 'TEST wrong result must fail'}} for c in checks]}}, 'found': [
+print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in checks]}}, 'found': [
     {{'id': 'TEST-read-fact', 'claim': {{'type': 'observation', 'scope': 'README.md:1-3'}}, 'checked': 'README.md:1-3', 'observed': 'documents the focused behavior check'}},
     {{'id': 'TEST-check-fact', 'claim': {{'type': 'observation', 'scope': 'tests/check_value.py:1-4'}}, 'checked': 'tests/check_value.py:1-4', 'observed': 'asserts the new value; current value.txt is old'}}]}}))
 "##)).unwrap();
@@ -1880,7 +1880,7 @@ else:
     body = json.loads({template_json:?})
     recorded = words if words is not None else 'Existing behavior remains unverified; propose checks, not extra requirements.'
     body['Open questions and deferrals'] = 'Recorded disposition: ' + recorded
-    print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': [{{'statement': c['statement'], 'case': 'TEST wrong result must fail'}} for c in json.loads({checks:?})]}}, 'found': []}}))
+    print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in json.loads({checks:?})]}}, 'found': []}}))
 "##)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(
@@ -2008,7 +2008,7 @@ assert 'leave those unknown unless established separately' in prompt
 body = json.loads({template_json:?})
 body['You are confirming'] = {GOAL:?}.split('\n')[0] + '\nWhat gets built: a minimal local tally CLI.\nWhat does not: extra counting modes.\nAccepted unchanged: supplied name tally; no new choices.\nUnknowns: executable invocation remains unknown.'
 body['Knowledge map'] = 'The confirmed goal supplies the tool name tally. Its executable invocation remains unknown.'
-print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': [{{'statement': c['statement'], 'case': 'TEST wrong result must fail'}} for c in json.loads({checks:?})]}}, 'found': []}}))
+print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in json.loads({checks:?})]}}, 'found': []}}))
 "#)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(

@@ -485,9 +485,10 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   in `checks` order (including provisional and judge checks). Tinkery pairs each string
   with the check's exact statement; the model never copies statements. A new blocker
   returns as a question, not a seed. The typed `review` object requires
-  `contradictions`, `decided`, `done` and `failure_cases`. Historical statement/case
-  objects still require exact, unique statement coverage; they are never guessed into
-  positional matches. Missing or malformed reviews refuse; the ledger refuses nonempty
+  `contradictions`, `decided`, `done` and `failure_cases`. Model replies accept only
+  case strings, never statement/case objects. Saved reviews keep their existing paired
+  statement/case records; the ledger's `CompletionReview::validate` remains their strict
+  validation boundary. Missing or malformed reviews refuse; the ledger refuses nonempty
   contradictions, blank review entries and incomplete failure-case coverage before seed writes. This
   validates transport and coverage, not whether the model found every real conflict.
   The validated review is preserved verbatim in append-only confirmed-goal receipts

@@ -109,8 +109,8 @@ The skill's closing steps move into Tinkery, computed where they can be:
 - **Completion review (inside drafting, no extra call).** The drafting step checks
   settled choices for contradictions, separates *decided* from *done*, and names a
   case that must fail each check. The model supplies case strings in check order;
-  Tinkery attaches the exact statements, leaving no wording to copy. Historical named
-  cases retain strict exact-word matching. New blockers return as questions. The
+  Tinkery attaches the exact statements, leaving no wording to copy; named objects
+  are not a model reply format. New blockers return as questions. The
   ledger enforces typed review coverage and retains the review as append-only,
   byte-bound confirmed-goal receipts through teach-back's recording path. Its decided,
   done and failure-case lines appear with the risk summary as drafting guesses;

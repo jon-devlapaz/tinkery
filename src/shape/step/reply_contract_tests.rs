@@ -21,6 +21,17 @@ fn valid_reply() -> Value {
                 json!("TEST wrong output must fail")).collect::<Vec<_>>()}})
 }
 
+fn ordered_reply(raw: &str) -> Value {
+    let mut reply: Value = serde_json::from_str(raw).unwrap();
+    reply["review"]["failure_cases"] = reply["review"]["failure_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|case| case["case"].clone())
+        .collect();
+    reply
+}
+
 fn provider(root: &Path, reply: &str, calls: usize) -> Agent {
     let program = root.join("TEST-pi");
     fs::write(root.join("TEST-reply.json"), reply).unwrap();
@@ -90,7 +101,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
         .session;
     let version = answering::read(&session).unwrap().version();
     let version = answering::probe(&session, version).unwrap().unwrap();
-    let agent = provider(root.path(), MISSING_SOURCE, 2);
+    let agent = provider(root.path(), MISSING_SOURCE, 3);
     let saved = AtomicBool::new(false);
     let error = run(
         &Work::Answer {
@@ -108,7 +119,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     eprintln!("#296 missing-source: {error:?}");
     assert!(error.answer_saved && saved.load(Ordering::Relaxed));
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains("probe answers belong to the ledger"))
+        matches!(error.why, Why::Model(ref reason) if reason.contains("failure_cases must be a list of strings in check order"))
     );
     let captured: Value = serde_json::from_str(MISSING_SOURCE).unwrap();
     let check_error = crate::seed_me::ledger::validate_checks(
@@ -129,7 +140,20 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
             .unwrap()["answer"],
         "TEST keep my exact answer\r\n  "
     );
-    assert_eq!(agent.remaining(), 1, "no automatic retry");
+    assert_eq!(agent.remaining(), 2, "no automatic retry");
+    // With only transport updated, the original prose still hits the existing probe guard.
+    let before = fs::read(session.join("ledger.json")).unwrap();
+    fs::write(
+        root.path().join("TEST-reply.json"),
+        ordered_reply(MISSING_SOURCE).to_string(),
+    )
+    .unwrap();
+    let error = look_again(&session, root.path(), &agent).unwrap_err();
+    assert!(
+        matches!(error.why, Why::Refused(ref reason) if reason.contains("probe answers belong to the ledger"))
+    );
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+    assert_eq!(agent.remaining(), 1);
     assert_recovery(&session, root.path(), &agent);
 }
 
@@ -147,13 +171,8 @@ fn captured_rechecks_refuse_without_changing_saved_answers_then_recover() {
         let agent = provider(root.path(), reply, 2);
         let error = look_again(&session, root.path(), &agent).unwrap_err();
         eprintln!("#296 call-{}: {error:?}", index + 6);
-        let detail = match index {
-            0 => "statement was changed or repeated",
-            1 => "received 3 for 2 checks",
-            _ => "received 3 for 4 checks",
-        };
         assert!(
-            matches!(error.why, Why::Model(ref reason) if reason.contains(detail)),
+            matches!(error.why, Why::Model(ref reason) if reason.contains("failure_cases must be a list of strings in check order")),
             "{error:?}"
         );
         assert_eq!(
@@ -168,6 +187,41 @@ fn captured_rechecks_refuse_without_changing_saved_answers_then_recover() {
 }
 
 #[test]
+fn named_object_review_is_refused_without_writes_and_recovers_with_strings() {
+    let root = tempfile::Builder::new()
+        .prefix("TEST-296-named-refusal-")
+        .tempdir()
+        .unwrap();
+    let session = root.path().join("TEST-session");
+    fs::create_dir(&session).unwrap();
+    let before = include_str!("../../../tests/fixtures/shape-296/ledger.json");
+    fs::write(session.join("ledger.json"), before).unwrap();
+    let mut reply = valid_reply();
+    reply["review"]["failure_cases"] = reply["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|check| json!({"statement":check["statement"], "case":"TEST wrong output must fail"}))
+        .collect();
+    let agent = provider(root.path(), &reply.to_string(), 2);
+    let error = look_again(&session, root.path(), &agent).unwrap_err();
+    assert!(
+        matches!(error.why, Why::Model(ref reason) if
+        reason.contains("failure_cases must be a list of strings in check order")
+        && !reason.contains("invalid type") && !reason.contains("untagged")),
+        "{error:?}"
+    );
+    assert_eq!(
+        fs::read_to_string(session.join("ledger.json")).unwrap(),
+        before
+    );
+    assert!(!session.join("seed-contract.md").exists());
+    assert!(!session.join("seed-checks.json").exists());
+    assert_eq!(agent.remaining(), 1, "no automatic retry");
+    assert_recovery(&session, root.path(), &agent);
+}
+
+#[test]
 fn ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_strict() {
     for (index, raw) in RECHECKS.iter().enumerate() {
         let root = tempfile::Builder::new()
@@ -178,14 +232,8 @@ fn ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_stric
         fs::create_dir(&session).unwrap();
         let before = include_str!("../../../tests/fixtures/shape-296/ledger.json");
         fs::write(session.join("ledger.json"), before).unwrap();
-        let mut reply: Value = serde_json::from_str(raw).unwrap();
-        let cases: Vec<Value> = reply["review"]["failure_cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|f| f["case"].clone())
-            .collect();
-        reply["review"]["failure_cases"] = json!(cases);
+        let reply = ordered_reply(raw);
+        let cases = reply["review"]["failure_cases"].as_array().unwrap();
         let agent = provider(root.path(), &reply.to_string(), 1);
         let result = look_again(&session, root.path(), &agent);
         if index == 0 {
@@ -251,7 +299,7 @@ fn captured_checks_with_valid_prose_refuse_missing_source_without_inventing_it()
     fs::create_dir(&session).unwrap();
     let before = include_str!("../../../tests/fixtures/shape-296/ledger.json");
     fs::write(session.join("ledger.json"), before).unwrap();
-    let mut reply: Value = serde_json::from_str(MISSING_SOURCE).unwrap();
+    let mut reply = ordered_reply(MISSING_SOURCE);
     // Isolate source validation from the independently guarded historical probe prose.
     reply["confirming"] = valid_reply()["confirming"].clone();
     let agent = provider(root.path(), &reply.to_string(), 2);
