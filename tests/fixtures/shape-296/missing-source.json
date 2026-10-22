@@ -1,0 +1,84 @@
+{
+  "next": "seed",
+  "confirming": {
+    "Affected users and systems": "The personal Mac user and the new local book-loan tool. The repository currently contains only README.md; no application, persistence module, or test suite exists.",
+    "Constraints and boundaries": "Build a small single-purpose local tool with a simple local file for persistence. It must record title, borrower, and date; preserve the list across close and reopen; show outstanding books; and mark a book returned. It must not use accounts, cloud sync, reminders, or contact access. The user should operate the tool rather than edit its data file by hand.",
+    "Downstream handoff": "The session folder is the handoff: seed-contract.md with ledger.json, seed-confirmation.json, and seed-checks.json. This is discovery input, not an implementation plan or approval to implement.",
+    "Knowledge map": "What we know, with proof: README.md:1-3 says this is a disposable dogfood scenario and no application exists yet (observed 2026-10-21; re-check if repository contents change). The confirmed goal requires loan fields, persistence, outstanding-list behavior, return marking, and the listed exclusions (observed 2026-10-21; re-check if the goal changes). What we know we don't know: the implementation language, executable path, invocation, storage format, and test structure; the implementation owner should establish these by inspecting the repository and choosing the smallest viable local design. What we have not read: there is no additional repository material beyond README.md. What could surprise us: Probe: What is the most likely reason this shipped wrong? — answer: The list could be lost after closing and reopening, or a returned book could still appear outstanding. — changed: persistence and return-state verification are explicit risks. Probe: What would someone experienced ask? — answer: How is the local data file located, protected from accidental corruption, and kept separate from cloud or contact services? — changed: the first slice must make local-only storage and state transitions inspectable. Where we did not look: runtime tooling, operating-system conventions, and files that do not yet exist. We would be wrong if a close/reopen scenario loses data or a returned loan remains in the outstanding view.",
+    "Open questions and deferrals": "No blocking operator-only decisions remain. Runtime, file format, and test invocation are implementation details not yet established; the implementation owner should choose them within the settled constraints.",
+    "Owners and next steps": "The implementation owner should inspect the repository, select the local runtime and file format, add the smallest tool surface, and add behavior-specific verification. The operator confirms this seed before implementation; confirmation does not authorize implementation by itself.",
+    "Problem statement": "The user forgets which books were lent to friends. The repository is an empty disposable scenario, so the needed local tracker does not yet exist.",
+    "Proposed outcome": "A local Mac tool lets the user record a title, borrower, and date, see books still out, mark one returned, close and reopen, and still see only the unreturned loan.",
+    "Risks and verification": "The main risks are lost persistence, incorrect returned-state filtering, accidental accounts/cloud/contact integration, and a storage format that encourages hand editing. Mitigate with a local file owned by the tool and a behavior-specific two-loan close/reopen regression. Probe: What is the most likely reason this shipped wrong? — answer: The list could be lost after closing and reopening, or a returned book could still appear outstanding. — changed: require persistence and return-state checks. Probe: What would someone experienced ask? — answer: How is the local data file located, protected from accidental corruption, and kept separate from cloud or contact services? — changed: require local-only storage and inspectable state transitions. Where we did not look: runtime tooling, operating-system conventions, and files that do not yet exist.",
+    "Suggested first slice": "Proposal only: establish the repository's runtime and test entry points, then implement one local loan record with title, borrower, date, and file-backed save/load. No exact command is proposed because this repository currently establishes no executable, runtime, script, or test invocation.",
+    "You are confirming": "Goal: I can record books lent to friends, see which books are still out, and mark a book returned, on my Mac.\nWhat gets built: A small single-purpose local tool with a simple local file for recording loans and returns.\nWhat does not: No accounts, cloud sync, reminders, contact access, or hand-editing the data file.\nProposed first slice: Establish the runtime and test entry points, then add one persisted loan record.\nUnknowns: The runtime, executable path, invocation, file format, and test structure are not established."
+  },
+  "review": {
+    "contradictions": [],
+    "decided": [
+      "The confirmed personal Mac book-loan tracking goal and all Must/Must not constraints.",
+      "Use a small single-purpose local tool with a simple local file for persistence.",
+      "The pre-mortem risk is lost data after reopen or a returned book remaining outstanding."
+    ],
+    "done": [],
+    "failure_cases": [
+      {
+        "statement": "I can lend two books, return one, restart, and see only the other still out.",
+        "case": "After restart, the returned book is still listed or the other loan is missing."
+      },
+      {
+        "statement": "The tool records a book title, borrower, and date.",
+        "case": "A loan can be saved without one of those three fields."
+      }
+    ]
+  },
+  "found": [
+    {
+      "id": "read-3",
+      "claim": {
+        "type": "observation",
+        "scope": "the repository contents"
+      },
+      "checked": "README.md:1-3",
+      "observed": "The repository is a disposable dogfood scenario and no application exists yet."
+    },
+    {
+      "id": "inference-3",
+      "claim": {
+        "type": "inference",
+        "scope": "implementation blast radius",
+        "limits": "This does not establish the eventual runtime, files, or invocation."
+      },
+      "checked": "README.md:1-3",
+      "observed": "The implementation must add the product surface, local persistence, and verification surface because no application or tests are present.",
+      "supported_by": [
+        "read-3"
+      ]
+    },
+    {
+      "id": "unknown-2",
+      "claim": {
+        "type": "unknown",
+        "scope": "repository execution details"
+      },
+      "checked": "README.md:1-3",
+      "observed": "This investigation has not established the runtime, executable path, invocation, storage format, or test structure."
+    }
+  ],
+  "checks": [
+    {
+      "statement": "I can lend two books, return one, restart, and see only the other still out.",
+      "kind": "provisional",
+      "expect": "After close and reopen, exactly the unreturned loan remains outstanding.",
+      "cwd": ".",
+      "missing": "A behavior-specific regression test and a repository-supported invocation do not yet exist."
+    },
+    {
+      "statement": "The tool records a book title, borrower, and date.",
+      "kind": "provisional",
+      "expect": "A saved loan contains all three required fields.",
+      "cwd": ".",
+      "missing": "The implementation, test assertion, and repository-supported invocation do not yet exist."
+    }
+  ]
+}

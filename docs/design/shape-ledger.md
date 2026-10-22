@@ -108,7 +108,9 @@ The skill's closing steps move into Tinkery, computed where they can be:
   chosen otherwise. A changed answer is a reversal indicator, not a semantic judgment.
 - **Completion review (inside drafting, no extra call).** The drafting step checks
   settled choices for contradictions, separates *decided* from *done*, and names a
-  case that must fail each check statement. New blockers return as questions. The
+  case that must fail each check. The model supplies case strings in check order;
+  Tinkery attaches the exact statements, leaving no wording to copy. Historical named
+  cases retain strict exact-word matching. New blockers return as questions. The
   ledger enforces typed review coverage and retains the review as append-only,
   byte-bound confirmed-goal receipts through teach-back's recording path. Its decided,
   done and failure-case lines appear with the risk summary as drafting guesses;
@@ -185,6 +187,11 @@ slice 8 moves only their location. Each slice had its own PR and approval:
 - Rows 2 and 3 improve: a step proposes ID links without owning their rules; active findings
   and seed projections consume the ledger's resolution marker, with no answer parser.
   The existing ledger and Shape contracts keep that ownership visible (row 7).
+- #296 improves rows 2, 3 and 6: Shape decodes ordered case strings; the ledger alone
+  pairs them with check statements and owns coverage, without changing saved review
+  records, byte-bound receipts or their readers.
+  The [reply contract](shape-and-handoff.md#answering-and-confirming) keeps that boundary
+  visible (row 7). Missing evidence still refuses; no automatic retry is added.
 - The phase rule holds: the ledger is shared code that names no phase; Think, Tend,
   Shape and Approve use it as they use `seed_me/` today.
 - No limit in `tests/architecture.rs` changes in this document.

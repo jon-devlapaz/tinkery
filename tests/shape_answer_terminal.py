@@ -64,7 +64,7 @@ QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
             'suggestion': 'Local, matching the README.'}
 def completion_review(checks):
     return {'contradictions': [], 'decided': ['TEST agreed scope, not completed work'], 'done': [],
-            'failure_cases': [{'statement': c['statement'], 'case': 'TEST wrong output must fail'} for c in checks]}
+            'failure_cases': ['TEST wrong output must fail' for _ in checks]}
 
 
 def seed_fields(body):
@@ -1088,6 +1088,47 @@ def completion_reviews(width, height):
                 run.close()
 
 
+def captured_reply_recovery(width, height):
+    """#296: raw historical refusals and an isolated missing source retain answers; F2 recovers."""
+    fixtures = REPO / 'tests/fixtures/shape-296'
+    cases = [
+        ('missing-source.json', 'probe answers belong to the ledger'),
+        ('call-6.json', 'statement was changed or repeated'),
+        ('call-7.json', 'received 3 for 2 checks'),
+        ('call-8.json', 'received 3 for 4 checks'),
+        ('source-only', 'Source must name the confirmed goal'),
+    ]
+    for name, reason in cases:
+        raw = json.loads((fixtures / ('missing-source.json' if name == 'source-only' else name)).read_text())
+        if name == 'source-only':
+            raw['confirming'] = SEED['confirming']
+        with tempfile.TemporaryDirectory(prefix='tinkery-TEST-296-recovery-') as directory:
+            cwd = Path(directory).resolve()
+            session = make(cwd / 'TEST-sessions')
+            run = Run(cwd, width, height, budget=2, replies=[raw, {**SEED, 'found': []}])
+            try:
+                run.open_shape()
+                run.wait('Keep records local or synced?')
+                words = 'TEST #296 preserve this answer exactly.'
+                run.type(words)
+                run.send(F2, reason)
+                saved = helper.load(session)
+                answer = next(n for n in saved['nodes'] if n['id'] == 'storage')
+                assert answer['answer'] == words
+                assert saved['current_question'] is None
+                assert len(run.calls()) == 1, 'Refusal retried automatically'
+                assert not (session / 'seed-contract.md').exists()
+                assert not (session / 'seed-checks.json').exists()
+                run.send(F2, 'Seed draft r1')
+                current = helper.load(session)
+                assert next(n for n in current['nodes'] if n['id'] == 'storage') == answer
+                assert current['goal'] == GOAL and len(run.calls()) == 2
+                assert not (session / 'seed-confirmation.json').exists()
+                print(f'Shape #296 {name}: usable refusal, saved answer and F2 recovery passed at {width}x{height}; 2 stub calls')
+            finally:
+                run.close()
+
+
 def read_end_revision(width, height):
     """Reading belongs to draft bytes, not editor size or a same-draft teach-back reread."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-read-end-') as directory:
@@ -1310,6 +1351,7 @@ if __name__ == '__main__':
         teach_back_retry(*size)
         closing_summary(*size)
         completion_reviews(*size)
+        captured_reply_recovery(*size)
         teach_back(*size)
         teach_back(*size, exhausted=True)
         prerequisite_questions(*size)

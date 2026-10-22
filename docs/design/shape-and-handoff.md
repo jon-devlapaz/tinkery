@@ -481,11 +481,14 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   verbatim, with no extra wrappers. Findings and question transport are unchanged.
 - **Completion review runs within drafting**, with no extra call. Before producing a seed,
   the step compares settled decisions for contradictions, separates choices (`decided`)
-  from observed completed work (`done`), and supplies one failure case per exact check
-  statement. A new blocker returns as a question, not a seed. The typed `review` object
-  requires `contradictions`, `decided`, `done` and `failure_cases` (`statement`, `case`).
-  Missing or malformed reviews refuse; the ledger refuses nonempty contradictions,
-  blank review entries and incomplete failure-case coverage before seed writes. This
+  from observed completed work (`done`), and supplies one failure-case string per check,
+  in `checks` order (including provisional and judge checks). Tinkery pairs each string
+  with the check's exact statement; the model never copies statements. A new blocker
+  returns as a question, not a seed. The typed `review` object requires
+  `contradictions`, `decided`, `done` and `failure_cases`. Historical statement/case
+  objects still require exact, unique statement coverage; they are never guessed into
+  positional matches. Missing or malformed reviews refuse; the ledger refuses nonempty
+  contradictions, blank review entries and incomplete failure-case coverage before seed writes. This
   validates transport and coverage, not whether the model found every real conflict.
   The validated review is preserved verbatim in append-only confirmed-goal receipts
   (`tinkery:review/completed`), using teach-back's revision and draft SHA-256 binding
@@ -542,6 +545,9 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   `--shape-budget`; a model error or stop offers F2 retry, or F7 for teach-back
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
+  Review refusals name the mismatched check or case/check counts; a missing check source
+  explains what can establish it without inventing evidence. F2 retries explicitly,
+  retaining saved answers; nothing retries automatically.
   An oversized step sends nothing and keeps the words, asking the operator to start a
   smaller goal with this session as a reference. Esc stops a step; an
   already-started save finishes, then rereads. Stopped model calls still count,
