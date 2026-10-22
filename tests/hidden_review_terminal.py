@@ -25,7 +25,7 @@ def pump(run, seconds=.2):
     assert not run.screen.synchronized
 
 
-def resize_with_input(run, width, height, data=b''):
+def resize_with_input(run, width, height, data=b'', input_first=False):
     # Pause the child so resize and input are both pending before it can handle either.
     pump(run)
     os.kill(run.process.pid, signal.SIGSTOP)
@@ -34,8 +34,10 @@ def resize_with_input(run, width, height, data=b''):
     try:
         run.width = width
         run.screen = Screen(width, height)
+        if data and input_first:
+            os.write(run.master, data)
         fcntl.ioctl(run.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        if data:
+        if data and not input_first:
             os.write(run.master, data)
     finally:
         os.kill(run.process.pid, signal.SIGCONT)
@@ -109,6 +111,39 @@ def journey(width, height, read=False, supported=False):
             run.close()
 
 
+def stale_mouse(input_first):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-resized-mouse-') as directory:
+        run = Run(Path(directory), 100, 30, 0, authorization=ACTOR)
+        try:
+            run.wait('1  think')
+            run.send(b'1', "What's on your mind?")
+            run.type('Refusals feel noisy.')
+            run.send(F2, 'May refusals show private text?')
+            run.type('never')
+            run.send(F2, "Nothing I'm unsure about")
+            run.send(F3, 'type confirm')
+            os.write(run.master, b'confirm')
+            input_is(run, 'confirm')
+            assert run.screen.text().splitlines()[27][50:54] == 'Back'
+            # This old-layout click is outside Back, but lands on Back after resize.
+            click = b'\x1b[<0;41;22M'
+            # Keep queued mouse protection through the 64-event batch boundary too.
+            resize_with_input(run, 80, 24, b'\x01' * 80 + click, input_first=input_first)
+            run.wait('type confirm')
+            input_is(run, 'confirm')
+            assert run.screen.text().splitlines()[21][40:44] == 'Back'
+            no_save(run)
+            # Once the old queue drained, a deliberate click at the new Back works.
+            run.send(click, "Nothing I'm unsure about")
+            assert 'type confirm' not in run.screen.text()
+            no_save(run)
+            assert not run.calls()
+            print(f'resized mouse, input_first={input_first}: stale click ignored across batches; '
+                  'review/input retained; fresh Back click works')
+        finally:
+            run.close()
+
+
 if __name__ == '__main__':
     for size in [(40, 12), (79, 24), (80, 23)]:
         for read in [False, True]:
@@ -116,3 +151,5 @@ if __name__ == '__main__':
     journey(80, 24, read=True, supported=True)
     os.environ['NO_COLOR'] = '1'
     journey(80, 24, read=True, supported=True)
+    for input_first in [False, True]:
+        stale_mouse(input_first)

@@ -117,7 +117,8 @@ is neither seed nor implementation approval.
 Review reserves the confirmation input row and normal instruction height, so typing
 or correcting `confirm` does not move an already-read end. Unread content still prevents saving.
 Below 80×24, the size warning holds review input and scrolling; no new save can start.
-Resize is painted before queued input resumes. Existing input, goal and attribution stay intact;
+Resize is painted before queued keys and paste resume; mouse events from the old layout are ignored.
+Existing input, goal and attribution stay intact;
 a save already started finishes normally, including a requested return to the menu.
 
 ## Confirmation attribution (#185)

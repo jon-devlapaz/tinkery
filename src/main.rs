@@ -414,18 +414,30 @@ impl Intake {
 
 struct InputGuard;
 
-// Input belongs to a painted layout. Keep a consumed event across a resize, never drop it.
+// The renderer may resize before a Resize event or input-size check observes it.
+fn frame_painted(
+    area: ratatui::layout::Rect,
+    previous: &mut Option<ratatui::layout::Rect>,
+    discard_mouse: &mut bool,
+) {
+    if previous.replace(area).is_some_and(|old| old != area) {
+        *discard_mouse = true;
+    }
+}
+
+// Keys and paste survive repaint; mouse coordinates from the old layout do not.
 fn input_for_frame(
     input: Event,
     drawn: ratatui::layout::Rect,
     current: ratatui::layout::Rect,
     pending: &mut Option<Event>,
+    discard_mouse: &mut bool,
 ) -> Option<Event> {
-    if matches!(input, Event::Resize(..)) {
-        return None;
-    }
-    if current != drawn {
-        *pending = Some(input);
+    if matches!(input, Event::Resize(..)) || current != drawn {
+        *discard_mouse = true;
+        if matches!(input, Event::Key(_) | Event::Paste(_)) {
+            *pending = Some(input);
+        }
         return None;
     }
     Some(input)
@@ -461,6 +473,8 @@ fn run_shape(
     )?;
     let mut repaint = full_redraw;
     let mut pending_input = None;
+    let mut discard_mouse = false;
+    let mut previous_area = None;
     while !app.quit() {
         app.tick(&link_root, &shape_agent);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
@@ -487,19 +501,31 @@ fn run_shape(
         })();
         execute!(io::stdout(), EndSynchronizedUpdate)?;
         let drawn_area = drawn?;
+        frame_painted(drawn_area, &mut previous_area, &mut discard_mouse);
         repaint = false;
-        if pending_input.is_some() || event::poll(std::time::Duration::from_millis(100))? {
+        let ready = pending_input.is_some() || event::poll(std::time::Duration::ZERO)?;
+        if !ready {
+            discard_mouse = false;
+        }
+        if ready || event::poll(std::time::Duration::from_millis(100))? {
             for _ in 0..64 {
                 let input = match pending_input.take() {
                     Some(input) => input,
                     None => event::read()?,
                 };
                 let area = terminal.size()?.into();
-                let Some(input) = input_for_frame(input, drawn_area, area, &mut pending_input)
-                else {
+                let Some(input) = input_for_frame(
+                    input,
+                    drawn_area,
+                    area,
+                    &mut pending_input,
+                    &mut discard_mouse,
+                ) else {
                     break;
                 };
                 match input {
+                    // Drain old-layout mouse events, including those queued after Resize.
+                    Event::Mouse(_) if discard_mouse => {}
                     Event::Key(_) if migration.is_some() => {
                         migration = None;
                     }
@@ -516,6 +542,7 @@ fn run_shape(
                     _ => {}
                 }
                 if app.quit() || !event::poll(std::time::Duration::ZERO)? {
+                    discard_mouse = false;
                     break;
                 }
             }
@@ -548,11 +575,21 @@ mod tests {
                 Event::Paste("confirm café 👩‍💻".into()),
             ] {
                 let mut pending = None;
+                let mut discard_mouse = false;
                 // Size changed before any Resize event arrived.
-                assert!(input_for_frame(input.clone(), drawn, current, &mut pending).is_none());
+                assert!(
+                    input_for_frame(
+                        input.clone(),
+                        drawn,
+                        current,
+                        &mut pending,
+                        &mut discard_mouse
+                    )
+                    .is_none()
+                );
                 let retained = pending.take().expect("input lost during resize");
                 assert_eq!(
-                    input_for_frame(retained, current, current, &mut pending),
+                    input_for_frame(retained, current, current, &mut pending, &mut discard_mouse),
                     Some(input)
                 );
                 assert!(pending.is_none());
@@ -564,7 +601,94 @@ mod tests {
     fn resize_requests_a_paint_without_creating_input() {
         let area = ratatui::layout::Rect::new(0, 0, 80, 24);
         let mut pending = None;
-        assert!(input_for_frame(Event::Resize(80, 24), area, area, &mut pending).is_none());
+        let mut discard_mouse = false;
+        assert!(
+            input_for_frame(
+                Event::Resize(80, 24),
+                area,
+                area,
+                &mut pending,
+                &mut discard_mouse
+            )
+            .is_none()
+        );
         assert!(pending.is_none());
+    }
+
+    #[test]
+    fn resize_marks_queued_mouse_coordinates_stale() {
+        use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+        let large = Rect::new(0, 0, 100, 30);
+        let small = Rect::new(0, 0, 80, 24);
+        // Outside Back in the old review, directly on Back in the new review.
+        let click = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 40,
+            row: 21,
+            modifiers: KeyModifiers::NONE,
+        });
+        for resize_first in [false, true] {
+            let mut pending = None;
+            let mut discard_mouse = false;
+            let painted = if resize_first {
+                assert!(
+                    input_for_frame(
+                        Event::Resize(80, 24),
+                        large,
+                        small,
+                        &mut pending,
+                        &mut discard_mouse
+                    )
+                    .is_none()
+                );
+                small
+            } else {
+                large
+            };
+            let delivered = input_for_frame(
+                click.clone(),
+                painted,
+                small,
+                &mut pending,
+                &mut discard_mouse,
+            );
+            assert!(discard_mouse);
+            // The dispatch match ignores mouse while draining the old layout's queue.
+            assert!(delivered.is_none() || matches!(delivered, Some(Event::Mouse(_))));
+            assert!(pending.is_none(), "old-layout click was retained");
+        }
+    }
+
+    #[test]
+    fn automatic_draw_resize_marks_mouse_stale_without_a_resize_event() {
+        let large = Rect::new(0, 0, 100, 30);
+        let small = Rect::new(0, 0, 80, 24);
+        let mut previous = None;
+        let mut discard_mouse = false;
+        frame_painted(large, &mut previous, &mut discard_mouse);
+        assert!(!discard_mouse);
+        frame_painted(small, &mut previous, &mut discard_mouse);
+        // The next input-size check sees equal sizes, so paint must notice the change.
+        let enter = Event::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        let mut pending = None;
+        assert_eq!(
+            input_for_frame(
+                enter.clone(),
+                small,
+                small,
+                &mut pending,
+                &mut discard_mouse
+            ),
+            Some(enter)
+        );
+        assert!(
+            discard_mouse,
+            "auto-resize admitted old-layout mouse coordinates"
+        );
+        frame_painted(small, &mut previous, &mut discard_mouse);
+        assert!(
+            discard_mouse,
+            "a later paint cleared protection before input drained"
+        );
     }
 }
