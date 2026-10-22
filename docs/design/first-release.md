@@ -37,9 +37,11 @@ This trial is not a statistical claim about all work.
 An explicit key starts each seed agent step in Shape. Implementation retains
 the manual handoff. Integrated launching, automatic approval or merge, multi-run
 dashboards and Think conveniences are excluded absent a demonstrated blocker.
-Measure currently reads no source and shows work and attention as unknown.
-Results and effort await separately approved [#155](https://github.com/jon-devlapaz/tinkery/issues/155)
-and [#115](https://github.com/jon-devlapaz/tinkery/issues/115).
+[Measure](menu.md#measure) now lists repo PRs on explicit request; it does not
+measure accepted outcomes or attention. The broader results and effort proposals
+[#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
+[#115](https://github.com/jon-devlapaz/tinkery/issues/115) were closed, not planned,
+on 2026-10-20. The original R9 release gate below remains unfulfilled.
 [Run retention and lessons](../research/shared/backlog.md#keep-runs-and-learn-from-them)
 are separate drafts, not R5 prerequisites.
 The [backlog](../research/shared/backlog.md) is not the release checklist.

@@ -11,7 +11,8 @@ both issues remain `needs-approval`.
 
 [Run retention and lessons](../research/shared/backlog.md#keep-runs-and-learn-from-them)
 remain separate proposals. Seed Me, SDLC and GitHub retain their records and decisions.
-The external aggregation tool is retired; Measure currently reads no source.
+The external aggregation tool is retired; [Measure](menu.md#measure) reads repo PRs
+only on explicit request, without a results or attention metric.
 R5 requires [explicit binding](#goal-to-run-identity-prerequisite), never matching
 titles, seed paths or a manually selected pair.
 

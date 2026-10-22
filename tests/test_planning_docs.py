@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = {
     "## Starting point": "019bbfbc2b2ccc0399342bd55d5b13fe3c71b7f58b1604866dff20b20f7f0cd3",
-    "## Finish line": "45cf34c51c1a3d7bec834bc7d44e7797ea7979dd405f6b4eb16a3344fa780005",
+    "## Finish line": "567bc71d6c78c65e41a2f46011b48db1a74813ba5e0f4127ad8864c81a93a46f",
     "## Milestones and dependencies": "db47e232c84d3b61042d0c7e41437cbe84d8907acab0dc4e9d6279253a772b77",
     "## How to measure the benefit": "02169dfc426f72fb0e25b3a29209ddf5507a5db78f81ba2e532611fec7e19a54"
 }
@@ -16,7 +16,7 @@ PROPOSALS = {
     "### Multiple-choice answers": "93520a3704106c8bbce67477a89e501408435326f5907655b24fa6c19833be4d",
     "### Scratch-space spike — design only": "a15e1bc9afa5bc122563d5528e68ffb588a75a6524d098b4dd1d37f1e6f7619a",
     "### A calm dark theme": "815b024ed6a9264b23cff0f39b798936b10aab5667520f3c8b1e660add88182b",
-    "### Keep runs and learn from them": "17e01c0b79d0febe90f2ad5c469d6a8f108af92349d8a4ddbba3513e8b48ab87"
+    "### Keep runs and learn from them": "1fd917484047626a92eef3881a13eb34201b0e950114c0f3be11dcc5272968b2"
 }
 
 
