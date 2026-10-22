@@ -362,9 +362,10 @@ impl Approve {
                             "Manual handoff · not approval to implement",
                             palette.muted,
                         ));
-                        if let Some(note) = &seed.intake_note {
+                        if let Some(note) = &seed.confirmation_note {
                             lines.push(Line::raw(note.clone()));
-                        } else {
+                        }
+                        if seed.commands.is_some() {
                             lines.push(Line::raw(
                                 "Paste this command to create the titled run and import its checks for definition review. Copying runs nothing."
                             ));
@@ -373,7 +374,7 @@ impl Approve {
                             for line in commands.lines() {
                                 lines.push(Line::raw(line.to_owned()));
                             }
-                        } else if seed.intake_note.is_none() {
+                        } else {
                             lines.push(Line::raw("Cannot copy: name a checkout with --sdlc-root PATH; checkout, seed, title and executable must be safe for one shell line."));
                         }
                     } else {

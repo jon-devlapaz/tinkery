@@ -1,17 +1,20 @@
 """Authorized Think → Shape → Approve, TEST roots and stub replies, never a live provider."""
+import base64
 import copy
 import json
 import os
+import re
+import shlex
 import tempfile
 from pathlib import Path
 import test_launch as subprocess
-from shape_answer_terminal import Run, BINARY, QUESTION, SEED, F2, F3, F10, helper
+from shape_answer_terminal import Run, BINARY, QUESTION, SEED, F2, F3, F10, helper, files
 
 ACTOR = {'by': 'agent', 'agent': 'TEST-Codex', 'authorizing_operator': 'TEST-person',
          'source': 'TEST explicit permission for this disposable Think and Shape run',
          'class': {'door': 'two_way', 'door_reason': 'TEST disposable session, no execution',
                    'blast_radius': 'small', 'blast_radius_reason': 'TEST root only'}}
-NOTE = 'External intake does not support agent confirmations yet.'
+NOTE = 'Agent-confirmed seed. Intake requires tink-sdlc 1.36.0 or newer;'
 
 
 def status(session):
@@ -28,6 +31,19 @@ def journey(width, height):
         script.parent.mkdir(parents=True)
         script.write_text('print(\'{"protocol":"tink-sdlc","api_version":1,"runs":[]}\')\n')
         run = Run(root, width, height, 2, [QUESTION, SEED], authorization=ACTOR, sdlc_root=checkout)
+        output = bytearray()
+        feed = run.screen.feed
+
+        def capture(data):
+            output.extend(data)
+            feed(data)
+
+        run.screen.feed = capture
+
+        def copies():
+            return [base64.b64decode(data).decode() for data in
+                    re.findall(rb'\x1b\]52;[^;]*;([^\x07\x1b]*)(?:\x07|\x1b\\)', output)]
+
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")
@@ -77,17 +93,33 @@ def journey(width, height):
             assert receipt['actor'] == ACTOR
             assert status(session)['handoff']['verified'] is True
             run.read_until(NOTE)
-            assert 'c copy intake' not in run.flat()
+            assert 'c copy intake' in run.flat()
+            before = files(root)
+            run.send(b'c', 'Copied')
+            assert len(copies()) == 1 and '--seed-contract' in copies()[0]
+            assert files(root) == before, 'Shape copy changed files'
             assert ACTOR['agent'] in (session / 'seed-contract.md').read_text()
             assert len(run.calls()) == 2
-            # Approve must disclose the human-only consumer, not a missing-checkout excuse.
+            # Both views disclose agent confirmation; copying never creates a run or approves.
             run.send(F10, '4  approve')
             run.send(b'4', 'Seed 1 of 1')
             run.read_until(NOTE)
-            assert 'c copy' not in run.flat() and 'sdlc.py' not in run.flat()
-            run.send(b'c', NOTE)
+            assert 'c copy command' in run.flat()
+            run.send(b'c', 'Copied.')
+            assert len(copies()) == 2
+            words = shlex.split(copies()[1])
+            assert words[:6] == ['cd', str(checkout), '&&', 'python3',
+                                 '_system/scripts/sdlc.py', 'new'], words
+            assert words[7:12] == ['&&', 'python3', '_system/scripts/sdlc.py',
+                                   'stage', words[6]], words
+            assert words[12:] == ['1', '--seed-contract', str(session / 'seed-contract.md'),
+                                  '--tinkery', str(BINARY)], words
+            assert files(root) == before, 'Approve or copying changed files'
+            assert len(run.calls()) == 2
             # Changed, missing or malformed attribution must not panic or verify.
-            for changed in [None, {}, {'by': 'agent'}, {**ACTOR, 'agent': 'TEST-imposter'}]:
+            for changed in [None, {}, {'by': 'agent'}, {**ACTOR, 'agent': 'TEST-imposter'},
+                            {**ACTOR, 'class': {**ACTOR['class'], 'door': 'one_way'}},
+                            {**ACTOR, 'class': {**ACTOR['class'], 'blast_radius': 'large'}}]:
                 altered = copy.deepcopy(receipt)
                 if changed is None:
                     altered.pop('actor')
@@ -98,7 +130,7 @@ def journey(width, height):
             (session / 'seed-confirmation.json').write_text(json.dumps(receipt))
             assert status(session)['handoff']['verified'] is True
             print(f'Authorized Think → Shape → Approve {width}x{height}: exact goal, named actors, '
-                  '2 stub Shape calls, intake withheld, changed attribution refused')
+                  '2 stub Shape calls, exact intake copied without writes, invalid attribution refused')
         finally:
             run.close()
 

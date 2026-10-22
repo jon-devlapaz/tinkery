@@ -154,7 +154,8 @@ keeps the owners visible (7). No architecture limit or recorded score changes.
 
 Agent-operated Think and Shape resolve typed actors through one shared authorization boundary.
 Persistence reads actor data rather than rewriting human prose; seed verification binds named
-attribution and keeps human-only external intake unavailable. These improve interface simplicity
+attribution. Verified agent receipts now share the manual intake formatter while
+retaining a distinct confirmation notice and consumer requirement (#323). These improve interface simplicity
 (2), changeability (3) and hidden decisions (6); this map and the
 [confirmation contract](think.md#confirmation-attribution-185) keep boundaries visible (7).
 No architecture limit or recorded score changes.

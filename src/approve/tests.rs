@@ -7,7 +7,7 @@ fn seed(goal: &str) -> ReadySeed {
         revision: "r1".into(),
         acceptance: "## Acceptance criteria\n- TEST exact check  \n".into(),
         commands: Some("python3 _system/scripts/sdlc.py new <run>\nTEST intake".into()),
-        intake_note: None,
+        confirmation_note: None,
     }
 }
 
@@ -61,6 +61,40 @@ fn one_seed_at_a_time_and_copy_never_runs_a_command() {
     assert!(!view.key(KeyEvent::from(KeyCode::Esc), &mut help));
     assert!(!help);
     assert!(view.key(KeyEvent::from(KeyCode::Esc), &mut help));
+}
+
+#[test]
+fn agent_confirmation_notice_keeps_copy_and_missing_checkout_guidance() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        let mut view = view();
+        let Some(Ok(found)) = &mut view.found else {
+            panic!()
+        };
+        found.seeds[0].confirmation_note =
+            Some("Agent-confirmed seed. Intake requires tink-sdlc 1.36.0 or newer.".into());
+        let shown = screen(&mut view, width, height, false);
+        assert!(shown.contains("Agent-confirmed seed."));
+        assert!(
+            shown
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .contains("Copying runs nothing.")
+        );
+        assert!(shown.contains("c copy command"));
+        view.key(KeyEvent::from(KeyCode::Char('c')), &mut false);
+        assert_eq!(view.take_copy_request(), view.seeds()[0].commands);
+        let Some(Ok(found)) = &mut view.found else {
+            panic!()
+        };
+        found.seeds[0].commands = None;
+        view.key(KeyEvent::from(KeyCode::End), &mut false);
+        let shown = screen(&mut view, width, height, false);
+        assert!(shown.contains("Agent-confirmed seed."));
+        assert!(shown.contains("Cannot copy:"));
+        view.key(KeyEvent::from(KeyCode::Char('c')), &mut false);
+        assert!(view.take_copy_request().is_none());
+    }
 }
 
 #[test]

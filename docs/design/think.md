@@ -174,9 +174,14 @@ from the same authorized actor as goal and answer attribution. Historical agent 
 stored as `operator: human` remain readable; they are not rewritten. Action attribution
 and seed receipts distinguish the actual confirmer.
 
-External human-only intake cannot consume agent confirmations. Shape and Approve
-keep the verified seed readable but withhold intake commands and explain why.
-This does not authorize implementation or change the consumer's contract.
+Under [#323](https://github.com/jon-devlapaz/tinkery/issues/323), Shape and Approve
+offer manual intake commands for verified, attributed agent confirmations, labeled
+`Agent-confirmed seed`, with a tink-sdlc 1.36.0-or-newer requirement. That consumer
+accepts attributed v3 receipts as agent, never human. Tinkery only prepares and copies
+text: it does not check the installed consumer version, run intake or grant permission.
+Missing or invalid attribution and one-way/large agent receipts remain ineligible.
+The consumer's human-only definition approval and merge gates remain unchanged;
+seed confirmation is neither the operator's confirmation nor implementation approval.
 
 ## Think record
 

@@ -1810,10 +1810,7 @@ fn render_open(
                 },
             };
             let (said, mut input) = standing(&shaping.stage, stand, palette);
-            if let Some(note) = &shaping.intake_note {
-                input
-                    .lines
-                    .retain(|line| !line.to_string().starts_with("Next:"));
+            if let Some(note) = &shaping.confirmation_note {
                 input.lines.push(Line::styled(note.clone(), palette.muted));
             }
             let mut reading = top.unwrap_or_default();
