@@ -168,10 +168,6 @@ Measure's PR reader hides GitHub process limits and cancellation from rendering 
 The phase owns selection and evidence semantics behind open/key/poll/render (2); the
 module map records the boundary (7). No phase dependency or architecture limit changes.
 
-Question-bound suggestions keep parsing and copy eligibility behind one small interface
-(diagnostics 2 and 6); the module map records that owner (7). Request serialization excludes
-suggestions while the shared record owns their history event (3). No limit or score changes.
-
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today |
