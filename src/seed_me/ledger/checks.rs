@@ -42,7 +42,15 @@ pub fn validate_checks(records: &Value) -> Result<()> {
         missing.sort();
         require(
             missing.is_empty(),
-            format!("{prefix} missing fields: {}", missing.join(", ")),
+            format!(
+                "{prefix} missing fields: {}.{}",
+                missing.join(", "),
+                if missing.contains(&"source") {
+                    " Source must name the confirmed goal, a settled answer or examined repository paths and lines; never invent evidence."
+                } else {
+                    " Supply the missing check details before drafting."
+                }
+            ),
         )?;
         let mut extra: Vec<_> = record
             .fields()

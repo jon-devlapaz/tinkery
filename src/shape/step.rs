@@ -26,11 +26,14 @@ use std::{
 
 const PROMPT: &str = include_str!("prompt.txt");
 
+#[cfg(all(test, unix))]
+mod reply_contract_tests;
 #[cfg(test)]
 mod typed_tests;
 #[cfg(test)]
 mod unknown_tests;
 
+mod review_reply;
 mod teach_back;
 
 /// Reply fields decoded here or delegated unchanged to Tinkery's record validator.
@@ -71,7 +74,6 @@ pub(super) const FIELDS: &[&str] = &[
     "decided",
     "done",
     "failure_cases",
-    "case",
     "checks",
     "statement",
     "kind",
@@ -589,9 +591,7 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
             })))
         }
         Some("seed") => Ok(Next::Seed {
-            review: serde_json::from_value(value["review"].clone()).map_err(|_| {
-                "The seed reply needs a typed completion review: contradictions, decided, done and failure_cases. Retry the step.".to_owned()
-            })?,
+            review: review_reply::decode(value["review"].clone(), &value["checks"])?,
             confirming: value.get("confirming").cloned().ok_or_else(||
                 "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
             checks: value["checks"]

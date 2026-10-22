@@ -1,0 +1,102 @@
+{
+  "assumed": [],
+  "created_at": "2026-10-21T23:24:56+00:00",
+  "current_question": null,
+  "draft": {
+    "goal": "A small Python word-counting CLI called tally counts words in explicitly named text files and prints predictable per-file counts, for local users.\nWhy: Keep the scope small and make the behavior easy to test.\nMust: be written in Python.\nMust: count words in explicitly named text files.\nMust: print per-file counts.",
+    "options": [
+      "Minimal command-line interface — benefit: Keeps the scope small and behavior easy to test.; cost: Provides only the explicitly requested counting behavior.; undo cost: Low; additional options can be added later.",
+      "Broader word-counting tool — benefit: Could support more input modes and counting features.; cost: Expands scope and makes behavior less predictable.; undo cost: Higher; removing exposed behavior may affect users or tests."
+    ],
+    "outcome": ""
+  },
+  "frontier": [],
+  "goal": "A small Python word-counting CLI called tally counts words in explicitly named text files and prints predictable per-file counts, for local users.\nWhy: Keep the scope small and make the behavior easy to test.\nMust: be written in Python.\nMust: count words in explicitly named text files.\nMust: print per-file counts.",
+  "nodes": [
+    {
+      "answer": "A small Python word-counting CLI called tally counts words in explicitly named text files and prints predictable per-file counts, for local users.\nWhy: Keep the scope small and make the behavior easy to test.\nMust: be written in Python.\nMust: count words in explicitly named text files.\nMust: print per-file counts.",
+      "authority": "delegated",
+      "authority_source": "Goal confirmed in Tinkery with typed confirm and Enter; caller-declared attribution: agent Pi (TEST recheck operator, via Claude); authorized by operator jondev; source: jondev in the Tinkery project thread, 2026-10-21 23:20Z: \\\"15 more\\\" (#310 live recheck after the code fix, 15 calls for a live recheck, scratch roots only); door: two-way (scratch TEST roots only; nothing is built or merged); blast radius: small (a disposable TEST session about a toy CLI); goal only, not seed or implementation approval.",
+      "delegation": {
+        "agent": "Pi (TEST recheck operator, via Claude)",
+        "authorization_source": "jondev in the Tinkery project thread, 2026-10-21 23:20Z: \"15 more\" (#310 live recheck after the code fix, 15 calls for a live recheck, scratch roots only)",
+        "authorizing_operator": "jondev",
+        "blast_radius": "small",
+        "door": "two-way"
+      },
+      "evidence": [
+        {
+          "at": "2026-10-21T23:24:56+00:00",
+          "checked": "Tinkery original 1",
+          "observed": "I want a small word-counting CLI called tally for this README-only scratch repository. It should be written in Python. It counts words in explicitly named text files and prints predictable per-file counts for local use. Keep the scope small and make the behavior easy to test."
+        },
+        {
+          "at": "2026-10-21T23:24:56+00:00",
+          "checked": "Tinkery answer/question context; questions remain provisional, not settled decisions",
+          "observed": "{\"answered\":[],\"constraints\":{\"must\":[\"be written in Python\",\"count words in explicitly named text files\",\"print per-file counts\"],\"must_not\":[]},\"decisions\":[],\"deferred\":[],\"goal_parts\":{\"done_when\":null,\"must\":[\"be written in Python\",\"count words in explicitly named text files\",\"print per-file counts\"],\"must_not\":[],\"outcome\":\"A small Python word-counting CLI called tally counts words in explicitly named text files and prints predictable per-file counts.\",\"when\":\"for local use\",\"who\":\"local users\",\"why\":\"Keep the scope small and make the behavior easy to test.\"},\"other_goals\":[],\"problem\":\"Keep the scope small and make the behavior easy to test.\",\"success\":null,\"unresolved\":[],\"unresolved_notes\":[\"Done when — still open\"]}"
+        }
+      ],
+      "gate": "Explicit affirmation of the complete displayed goal; not seed or implementation approval",
+      "id": "goal",
+      "kind": "decision",
+      "owner": "Pi (TEST recheck operator, via Claude)",
+      "prerequisites": [],
+      "status": "settled",
+      "history": [],
+      "revision": 0,
+      "premise_version": 2,
+      "reviewed_version": 2
+    },
+    {
+      "answer": "Most likely failure: tally mutates source files or has surprising counting/output behavior. Settled choices: tally is strictly read-only: never modify, create, or delete input files or other repository files at runtime. Use Python 3 standard library only. Accept one or more explicit UTF-8 text file paths; stdin is out of scope. Refuse directories with a plain stderr error. Words are whitespace-separated tokens using str.split(). Print exactly '<count> <path>' per file in argument order, with no total. No arguments or unreadable/invalid UTF-8 files produce a plain stderr error and exit 1; success exits 0. Tests use unittest with temporary files and verify counts, output, errors, and unchanged input bytes. No packaging or recursive traversal.",
+      "authority": "delegated",
+      "authority_source": "The agent answered with these words in Tinkery Shape.; caller-declared agent Pi (TEST recheck operator, via Claude); authorized by operator jondev; source: jondev in the Tinkery project thread, 2026-10-21 23:20Z: \\\"15 more\\\" (#310 live recheck after the code fix, 15 calls for a live recheck, scratch roots only); door: two-way (scratch TEST roots only; nothing is built or merged); blast radius: small (a disposable TEST session about a toy CLI)",
+      "evidence": [
+        {
+          "at": "2026-10-21T23:25:20.262317+00:00",
+          "checked": "Caller-declared authorization, not authenticated identity",
+          "observed": "agent Pi (TEST recheck operator, via Claude); authorized by operator jondev; source: jondev in the Tinkery project thread, 2026-10-21 23:20Z: \\\"15 more\\\" (#310 live recheck after the code fix, 15 calls for a live recheck, scratch roots only); door: two-way (scratch TEST roots only; nothing is built or merged); blast radius: small (a disposable TEST session about a toy CLI)"
+        }
+      ],
+      "gate": "Your own answer to the pre-mortem, or skip it",
+      "id": "probe-pre-mortem",
+      "kind": "decision",
+      "label": "Probe: pre-mortem",
+      "owner": "User",
+      "prerequisites": [],
+      "question": "Imagine this shipped and turned out wrong. What is the most likely reason?",
+      "status": "settled",
+      "history": [
+        {
+          "state": {
+            "evidence": [],
+            "gate": "Your own answer to the pre-mortem, or skip it",
+            "id": "probe-pre-mortem",
+            "kind": "decision",
+            "label": "Probe: pre-mortem",
+            "owner": "User",
+            "prerequisites": [],
+            "question": "Imagine this shipped and turned out wrong. What is the most likely reason?",
+            "status": "unresolved",
+            "revision": 0,
+            "premise_version": 4,
+            "reviewed_version": 4
+          },
+          "superseded_at": "2026-10-21T23:25:20.262329+00:00",
+          "reason": "The agent answered probe-pre-mortem in Tinkery Shape.; caller-declared agent Pi (TEST recheck operator, via Claude); authorized by operator jondev; source: jondev in the Tinkery project thread, 2026-10-21 23:20Z: \\\"15 more\\\" (#310 live recheck after the code fix, 15 calls for a live recheck, scratch roots only); door: two-way (scratch TEST roots only; nothing is built or merged); blast radius: small (a disposable TEST session about a toy CLI)"
+        }
+      ],
+      "revision": 0,
+      "premise_version": 6,
+      "reviewed_version": 6
+    }
+  ],
+  "operator": "agent",
+  "origin": "goal",
+  "revision": 0,
+  "schema_version": 1,
+  "session_id": "session-hdsjLZ",
+  "status": "active",
+  "updated_at": "2026-10-21T23:25:20.262329+00:00",
+  "version": 3
+}

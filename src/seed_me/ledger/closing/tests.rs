@@ -80,6 +80,18 @@ fn completion_review_requires_every_failure_case_and_refuses_blockers() {
     }
 }
 
+#[test]
+fn repeated_check_statements_cannot_hide_a_foreign_failure_case() {
+    let checks =
+        value(r#"[{"statement":"TEST exact words  "},{"statement":"TEST exact words  "}]"#);
+    let mut review = review();
+    review.failure_cases.push(FailureCase {
+        statement: "TEST foreign statement".into(),
+        case: "TEST must not pass".into(),
+    });
+    assert!(review.validate(&checks).is_err());
+}
+
 fn draft() -> (tempfile::TempDir, String) {
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-teach-back-")

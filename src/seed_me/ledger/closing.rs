@@ -27,7 +27,40 @@ pub struct FailureCase {
     pub case: String,
 }
 
+fn case_count(cases: usize, checks: usize) -> Result<(), String> {
+    require(
+        cases == checks,
+        format!(
+            "Completion review needs exactly one failure case per check: received {cases} for {checks} checks. Return the cases in check order."
+        ),
+    )
+}
+
 impl CompletionReview {
+    /// Attach exact check statements to ordered cases, refusing incomplete coverage or missing statements.
+    /// This creates review records, never evidence that a case ran.
+    pub fn pair_cases(cases: Vec<String>, checks: &Value) -> Result<Vec<FailureCase>, String> {
+        let checks = checks.items();
+        case_count(cases.len(), checks.len())?;
+        cases
+            .into_iter()
+            .zip(checks)
+            .enumerate()
+            .map(|(index, (case, check))| {
+                let statement = check["statement"].string().ok_or_else(|| {
+                    format!(
+                        "Check {} needs a statement before its failure case can be paired.",
+                        index + 1
+                    )
+                })?;
+                Ok(FailureCase {
+                    statement: statement.to_owned(),
+                    case,
+                })
+            })
+            .collect()
+    }
+
     /// Refuse blockers, blank review entries or missing, repeated and foreign failure cases.
     /// This checks the review's structure and coverage, not the truth of model judgments.
     pub fn validate(&self, checks: &Value) -> Result<(), String> {
@@ -47,20 +80,32 @@ impl CompletionReview {
             .iter()
             .map(|c| c["statement"].string())
             .collect();
-        require(
-            self.failure_cases.len() == statements.len()
-                && self.failure_cases.iter().all(|f| {
-                    !f.case.trim().is_empty() && statements.contains(&Some(f.statement.as_str()))
-                })
-                && statements.iter().all(|statement| {
-                    self.failure_cases
+        case_count(self.failure_cases.len(), statements.len())?;
+        for (index, failure) in self.failure_cases.iter().enumerate() {
+            require(
+                !failure.case.trim().is_empty(),
+                format!(
+                    "Completion review failure case {} is blank; describe what must not pass the check.",
+                    index + 1
+                ),
+            )?;
+        }
+        for (index, statement) in statements.iter().enumerate() {
+            require(
+                statements.iter().filter(|s| *s == statement).count() == 1
+                    && self
+                        .failure_cases
                         .iter()
                         .filter(|f| Some(f.statement.as_str()) == *statement)
                         .count()
-                        == 1
-                }),
-            "Completion review needs exactly one failure case for each check statement, with its words unchanged.",
-        )
+                        == 1,
+                format!(
+                    "Completion review needs exactly one failure case for check {}. Its statement was changed or repeated; return case strings in check order instead of copying statements.",
+                    index + 1
+                ),
+            )?;
+        }
+        Ok(())
     }
 }
 

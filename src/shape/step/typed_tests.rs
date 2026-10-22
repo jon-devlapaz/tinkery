@@ -179,9 +179,7 @@ fn settled_probe_step() {
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
     let reply = json!({"next":"seed", "confirming":body, "checks":checks, "found":[],
         "review":{"contradictions":[], "decided":[], "done":[],
-        "failure_cases":checks.as_array().unwrap().iter().map(|c| json!({
-            "statement":c["statement"], "case":"TEST wrong output must fail"
-        })).collect::<Vec<_>>()}});
+        "failure_cases":checks.as_array().unwrap().iter().map(|_| json!("TEST wrong output must fail")).collect::<Vec<_>>()}});
     let program = root.path().join("TEST-pi");
     fs::write(&program, format!(r##"#!/usr/bin/env python3
 import json, sys
@@ -345,7 +343,7 @@ fn a_seed_reply_requires_a_typed_completion_review_without_parser_diagnostics() 
             .contains("typed completion review")
     );
     reply["review"] = json!({"contradictions":[], "decided":["TEST choice"], "done":[],
-        "failure_cases":[{"statement":"TEST exact", "case":"TEST wrong result must fail"}]});
+        "failure_cases":["TEST wrong result must fail"]});
     let Next::Seed { review, checks, .. } = decode(&reply.to_string()).unwrap() else {
         panic!()
     };

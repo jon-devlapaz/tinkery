@@ -66,7 +66,7 @@ pub(super) fn resolved_read_only_step(question_first: bool) {
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
     let seed_reply = json!({"next":"seed", "confirming":body, "checks":checks, "found":[],
         "review":{"contradictions":[], "decided":["Strictly read-only: never modify input files."], "done":[],
-        "failure_cases":checks.as_array().unwrap().iter().map(|c| json!({"statement":c["statement"], "case":"TEST wrong output must fail"})).collect::<Vec<_>>()}});
+        "failure_cases":checks.as_array().unwrap().iter().map(|_| json!("TEST wrong output must fail")).collect::<Vec<_>>()}});
     let program = root.path().join("TEST-pi");
     fs::write(&program, format!(r##"#!/usr/bin/env python3
 import json, pathlib, sys, traceback
@@ -192,7 +192,7 @@ fn resolution_reply_field_is_optional_but_never_silently_coerced() {
     for next in ["question", "seed"] {
         let mut reply = json!({"next":next, "question":"TEST next?", "found":[], "confirming":{},
             "checks":[{"statement":"TEST", "kind":"judge", "source":"TEST"}],
-            "review":{"contradictions":[],"decided":[],"done":[],"failure_cases":[]}});
+            "review":{"contradictions":[],"decided":[],"done":[],"failure_cases":["TEST wrong output must fail"]}});
         for links in [
             None,
             Some(Value::Null),
