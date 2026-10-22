@@ -414,6 +414,23 @@ impl Intake {
 
 struct InputGuard;
 
+// Input belongs to a painted layout. Keep a consumed event across a resize, never drop it.
+fn input_for_frame(
+    input: Event,
+    drawn: ratatui::layout::Rect,
+    current: ratatui::layout::Rect,
+    pending: &mut Option<Event>,
+) -> Option<Event> {
+    if matches!(input, Event::Resize(..)) {
+        return None;
+    }
+    if current != drawn {
+        *pending = Some(input);
+        return None;
+    }
+    Some(input)
+}
+
 impl Drop for InputGuard {
     fn drop(&mut self) {
         let _ = execute!(
@@ -443,11 +460,12 @@ fn run_shape(
         Print("\x1b[>1s")
     )?;
     let mut repaint = full_redraw;
+    let mut pending_input = None;
     while !app.quit() {
         app.tick(&link_root, &shape_agent);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
         let drawn = (|| {
-            terminal.draw(|frame| {
+            let drawn = terminal.draw(|frame| {
                 if let Some(notice) = &migration {
                     frame.render_widget(
                         ratatui::widgets::Paragraph::new(format!(
@@ -465,15 +483,23 @@ fn run_shape(
                     }
                 }
             })?;
-            io::Result::Ok(())
+            io::Result::Ok(drawn.area)
         })();
         execute!(io::stdout(), EndSynchronizedUpdate)?;
-        drawn?;
+        let drawn_area = drawn?;
         repaint = false;
-        if event::poll(std::time::Duration::from_millis(100))? {
-            let area = terminal.size()?.into();
+        if pending_input.is_some() || event::poll(std::time::Duration::from_millis(100))? {
             for _ in 0..64 {
-                match event::read()? {
+                let input = match pending_input.take() {
+                    Some(input) => input,
+                    None => event::read()?,
+                };
+                let area = terminal.size()?.into();
+                let Some(input) = input_for_frame(input, drawn_area, area, &mut pending_input)
+                else {
+                    break;
+                };
+                match input {
                     Event::Key(_) if migration.is_some() => {
                         migration = None;
                     }
@@ -504,4 +530,41 @@ fn run_shape(
         Intake::Home(a) => a.finish(),
         Intake::Brain(a) => a.finish_handoff().map(|receipt| receipt.text()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyEvent;
+    use ratatui::layout::Rect;
+
+    #[test]
+    fn resized_input_waits_for_paint_and_is_delivered_once_unchanged() {
+        let large = Rect::new(0, 0, 100, 30);
+        let small = Rect::new(0, 0, 79, 24);
+        for (drawn, current) in [(large, small), (small, large)] {
+            for input in [
+                Event::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)),
+                Event::Paste("confirm café 👩‍💻".into()),
+            ] {
+                let mut pending = None;
+                // Size changed before any Resize event arrived.
+                assert!(input_for_frame(input.clone(), drawn, current, &mut pending).is_none());
+                let retained = pending.take().expect("input lost during resize");
+                assert_eq!(
+                    input_for_frame(retained, current, current, &mut pending),
+                    Some(input)
+                );
+                assert!(pending.is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn resize_requests_a_paint_without_creating_input() {
+        let area = ratatui::layout::Rect::new(0, 0, 80, 24);
+        let mut pending = None;
+        assert!(input_for_frame(Event::Resize(80, 24), area, area, &mut pending).is_none());
+        assert!(pending.is_none());
+    }
 }

@@ -238,6 +238,113 @@ fn typing_confirmation_keeps_a_fully_read_goal_at_the_end() {
 }
 
 #[test]
+fn hidden_review_keeps_input_and_read_progress_without_starting_a_save() {
+    for (w, h) in [(40, 12), (79, 24), (79, 30), (80, 23)] {
+        for read in [false, true] {
+            let mut a = declared();
+            if let GoalConfirmation::Agent { source, .. } = &mut a.handoff.confirmation {
+                source.push_str(&" TEST scoped permission.".repeat(80));
+            }
+            a.review_goal();
+            snapshot(100, 30, &mut a, true).unwrap();
+            if read {
+                while a.handoff.review.as_ref().unwrap().scroll
+                    < a.handoff.review.as_ref().unwrap().max
+                {
+                    a.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+                }
+            }
+            a.paste("confirm");
+            let review = a.handoff.review.as_ref().unwrap();
+            let (scroll, max) = (review.scroll, review.max);
+            let goal = review.affirmation.goal.clone();
+            let actor = review.affirmation.confirmation.clone();
+            let original = a.conversation.sources()[0].text.clone();
+            let back = a.screen.back_button;
+            assert!(
+                snapshot(w, h, &mut a, true)
+                    .unwrap()
+                    .contains("Need 80×24.")
+            );
+            for code in [
+                KeyCode::PageDown,
+                KeyCode::PageUp,
+                KeyCode::Down,
+                KeyCode::Up,
+                KeyCode::Backspace,
+                KeyCode::Char('x'),
+                KeyCode::F(3),
+                KeyCode::Enter,
+            ] {
+                a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+                let review = a.handoff.review.as_ref().unwrap();
+                assert_eq!(
+                    (review.scroll, review.max),
+                    (scroll, max),
+                    "hidden key {code:?} moved review"
+                );
+                assert_eq!(review.input, "confirm", "hidden key {code:?} changed input");
+                assert!(a.handoff.job.is_none());
+            }
+            a.paste("hidden paste");
+            a.handle_mouse(
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: back.x,
+                    row: back.y,
+                    modifiers: KeyModifiers::NONE,
+                },
+                Rect::new(0, 0, w, h),
+            );
+            let review = a.handoff.review.as_ref().unwrap();
+            assert_eq!(review.input, "confirm");
+            assert_eq!(review.affirmation.goal, goal);
+            assert_eq!(review.affirmation.confirmation, actor);
+            assert_eq!(a.conversation.sources()[0].text, original);
+            snapshot(100, 30, &mut a, true).unwrap();
+            let review = a.handoff.review.as_ref().unwrap();
+            assert_eq!((review.scroll, review.max), (scroll, max));
+            if !read {
+                a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+                assert!(a.handoff.job.is_none());
+                assert!(a.notice.starts_with("Read to the end first:"));
+            }
+            snapshot(w, h, &mut a, true).unwrap();
+            a.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
+            assert!(a.screen.help);
+            a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+            assert!(!a.screen.help && a.handoff.review.is_some());
+            a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+            assert!(a.handoff.review.is_none() && a.handoff.job.is_none());
+        }
+    }
+}
+
+#[test]
+fn hidden_review_finishes_an_already_started_save_and_requested_exit() {
+    for leave in [false, true] {
+        let mut a = declared();
+        a.review_goal();
+        snapshot(100, 30, &mut a, true).unwrap();
+        let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        a.handoff.job = Some(rx);
+        snapshot(40, 12, &mut a, true).unwrap();
+        if leave {
+            a.handle_key(KeyEvent::new(KeyCode::F(10), KeyModifiers::NONE));
+            assert!(a.handoff.exit_after && !a.quitting());
+        }
+        let mut receipt = seed_me::Receipt::test("/tmp/tinkery-TEST-completed-save/session".into());
+        receipt.goal = goal.clone();
+        tx.send(Ok(receipt)).unwrap();
+        a.tick();
+        assert_eq!(a.saved().unwrap().goal, goal);
+        assert!(a.handoff.job.is_none() && a.handoff.review.is_none());
+        assert_eq!(a.quitting(), leave);
+    }
+}
+
+#[test]
 fn unspecified_confirmer_is_not_claimed_as_the_operator() {
     let mut a = app(serde_json::json!({"parts": parts()}));
     a.review_goal();
