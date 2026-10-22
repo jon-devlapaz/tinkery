@@ -1,5 +1,11 @@
 # Findings
 
+## Joint Think dogfood review, October 22, 2026
+
+[Start with the durable review index](2026-10-22-think-dogfood.md) for all 31
+observations, shipped fixes, relevant active work and evidence limits. It points
+to the single interaction proposal; that design is awaiting operator approval.
+
 ## Zero-call agent-operator dogfood, October 19, 2026
 
 [Read the report](2026-10-19-zero-call-dogfood.md). It covers commit
