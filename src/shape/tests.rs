@@ -917,6 +917,13 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     let mut reply: serde_json::Value =
         serde_json::from_str(include_str!("../../tests/fixtures/stacker-r1-reply.json")).unwrap();
     reply["confirming"] = prose_reply(reply["confirming"].as_str().unwrap());
+    // The historical reply is reused with this test's goal; retain its explicit criterion too.
+    reply["checks"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "statement":"I see the next question.","kind":"judge","source":"TEST confirmed goal"
+        }));
     assert!(
         answering::draft_seed(
             &receipt.session,
@@ -1844,7 +1851,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
     };
     assert!(!receipt.session.join("seed-contract.md").exists());
     let words_json = serde_json::to_string(&words).unwrap();
-    let checks = include_str!("../../tests/fixtures/shape-checks.json");
+    let checks = r#"[{"statement":"I see the next question.","kind":"judge","source":"TEST confirmed goal"}]"#;
     let program = temp.path().join("TEST-pi");
     fs::write(&program, format!(r##"#!/usr/bin/env python3
 import json, pathlib, sys
@@ -2473,7 +2480,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         &session,
         version,
         &prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt")),
-        &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
+        &serde_json::json!([{"statement":"It ends.","kind":"judge","source":"TEST confirmed goal"}]),
         &[],
         temp.path(),
         None,

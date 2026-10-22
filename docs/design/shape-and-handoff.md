@@ -504,7 +504,14 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   existing call budget is unchanged.
 - The separate final `checks` field carries every confirmed `Done when` line with
   its qualifiers as records in the bundled contract, not model-formatted
-  criteria. Tinkery's ledger stores those records unchanged and
+  criteria. Before publishing a draft, each explicit `Done when:` line and its following
+  bullet lines must each match one complete check statement exactly, without the heading
+  or bullet marker. Splitting a sequence into weaker checks refuses the draft and names
+  the missing statement; supplemental checks remain allowed. Unstructured goals and
+  missing criteria add no requirements. This preserves words, not proof that a command
+  exercises them; test adequacy still needs review. Existing seeds are not rewritten.
+  This keeps the rule at the ledger boundary (architecture diagnostics 3 and 6), without
+  new schema fields, calls or UI states. Tinkery's ledger stores those records unchanged and
   validates required fields, kinds, unknown fields and repository-relative
   `cwd`. Invalid records refuse drafting. There is no Markdown-criteria writing
   path. Existing legacy JSON acceptance sections remain verifiable but cannot be newly confirmed.

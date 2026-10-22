@@ -86,6 +86,41 @@ pub fn validate_checks(records: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Keep each explicit confirmed success line in one whole statement; never infer semantic coverage.
+/// Unstructured goals and missing criteria add no requirements. This does not prove a check works.
+pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
+    validate_checks(records)?;
+    let mut in_done_when = false;
+    for line in goal.lines() {
+        let criterion = if let Some(value) = line.strip_prefix("Done when:") {
+            in_done_when = true;
+            Some(value.trim())
+        } else if in_done_when {
+            match line.strip_prefix("- ") {
+                Some(value) => Some(value.trim()),
+                None => {
+                    in_done_when = false;
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        if let Some(criterion) = criterion.filter(|value| !value.is_empty()) {
+            require(
+                records
+                    .items()
+                    .iter()
+                    .any(|record| record["statement"].string() == Some(criterion)),
+                format!(
+                    "No seed was drafted: keep this complete Done when line unchanged in one check statement: {criterion} Separate checks may supplement it, not replace its sequence or qualifiers."
+                ),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 /// Read strict check records without writing or running any of them.
 pub fn read_checks(directory: &Path) -> Result<Value> {
     let path = directory.join(FILE);

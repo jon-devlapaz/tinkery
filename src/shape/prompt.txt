@@ -52,7 +52,8 @@ When the goal and recorded answers settle what this draft must say, supply confi
 Follow the attached section content guidance; state unknowns plainly, label proposals, and never invent evidence, provenance or completed checks.
 Tinkery owns the artifact layout and recorded blocks; refer to them rather than repeating their content or headings.
 # #183: the #176 rehearsal left Done when as prose, so implementation had to derive its checks afterwards.
-In checks, carry every Done when line from the confirmed goal, with its qualifiers, into a standalone record; never silently drop one.
+# #298: separate persistence and return checks lost the complete lend-return-restart scenario.
+In checks, copy every Done when line (without its heading or bullet marker) unchanged into one record's statement, preserving the full sequence and qualifiers; separate checks may supplement it, not replace it.
 Use exactly the attached Check records schema; Tinkery stores the records and inserts the ledger-rendered card, so never include Acceptance criteria in confirming.
 Copy any already-settled command, expected output and working directory exactly into its record; cwd is relative to the repository root.
 For a code-checkable criterion, propose a concrete command from reading repository tests, scripts or CI; cite the command's source path and lines in source, and label it proposed until the operator confirms the seed.

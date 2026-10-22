@@ -52,7 +52,7 @@ if len(r['sources']) == 1:
 print(json.dumps({'parts': {'who': 'I',
                             'outcome': 'Keep refusals calm' if os.environ.get('TINKERY_TEST_WHEN') else 'keep refusals calm',
                             'when': os.environ.get('TINKERY_TEST_WHEN'), 'why': 'the work is stuck',
-                            'done_when': 'refusals never show private text'},
+                            'done_when': 'Refusals never show private text'},
                   'decisions': choices, 'questions': []}))
 '''
 
@@ -133,7 +133,7 @@ SEED = {'next': 'seed', 'confirming': seed_fields(SEED_BODY),
         'decisions': '- storage [user] MODEL-INVENTED synced (source: the model)'}
 SEED['review'] = completion_review(SEED['checks'])
 GOAL = ('I can see where my seed stands without switching tools.\nWhy: I lose the thread.\n'
-        'Done when: Shape shows the next question.\nMust: Keep my words.\nMust not: Run agents.')
+        'Done when: Refusals never show private text.\nMust: Keep my words.\nMust not: Run agents.')
 
 
 def node(identifier, **fields):
@@ -141,13 +141,13 @@ def node(identifier, **fields):
             'owner': 'TEST operator', 'gate': 'TEST choice', **fields}
 
 
-def make(root, question=True, operator='human'):
+def make(root, question=True, operator='human', goal=GOAL):
     """A session with a confirmed goal and, optionally, one current question."""
     session = helper.create(root, operator)
     old = helper.load(session)
     state = helper.editable(old)
     authority = 'simulated' if operator == 'simulated' else 'user'
-    nodes = [node('goal', status='settled', answer=GOAL, authority=authority,
+    nodes = [node('goal', status='settled', answer=goal, authority=authority,
                   authority_source='TEST fixture, not real approval')]
     if question:
         nodes.append(node('storage', status='unresolved', label='Where records live',
@@ -156,7 +156,7 @@ def make(root, question=True, operator='human'):
     nodes.append(node('probe-pre-mortem', status='settled', answer='TEST pre-mortem answer', authority=authority,
                       authority_source='TEST fixture, not real approval', label='Probe: pre-mortem',
                       question='Imagine this shipped and turned out wrong. What is the most likely reason?'))
-    state.update(goal=GOAL, origin='goal', nodes=nodes, current_question='storage' if question else None)
+    state.update(goal=goal, origin='goal', nodes=nodes, current_question='storage' if question else None)
     helper.publish(session, state, old['version'], 'TEST fixture')
     return session
 
@@ -657,6 +657,7 @@ def case(name, width=100, height=30):
             elif name == 'practice confirmation':
                 run.wait('Seed draft r1')
                 run.type('I confirm r1.')
+                run.read_until('End of seed')
                 before = files(sessions)
                 run.send(F3, 'Tinkery refused: a simulated session cannot be confirmed')
                 assert files(sessions) == before, 'A practice seed was confirmed'
@@ -1003,6 +1004,8 @@ def completion_review_display(width, height, done=False, replay_299=False):
                  'The list survives closing and reopening.'),
                 ('Attempting to save a loan with one required field missing must fail or be rejected.',
                  'The tool records a title, borrower, and date.'),
+                # Retain this replay harness's confirmed criterion alongside the historical cases.
+                ('TEST private text appears', SEED['checks'][0]['statement']),
             ]
             checks = [dict(statement=statement, kind='judge', source='TEST issue #299 replay',
                            how_to_judge='Inspect the fictional loan tool.') for _, statement in cases]
@@ -1343,7 +1346,43 @@ def exit_hint(width, height, stage):
             run.close()
 
 
+def complete_scenario_recovery(width, height):
+    """#298: weakened scenario refuses without writes; an explicit retry retains the whole scenario."""
+    scenario = 'I can lend two books, return one, restart, and see only the other still out.'
+    goal = f'I track loans.\nWhy: I need to know what is out.\nDone when: {scenario}'
+    def check(statement):
+        return dict(statement=statement, kind='provisional', source='TEST confirmed goal',
+                    expect='The complete scenario passes.', cwd='.', missing='No scenario test exists yet.')
+    def reply(checks):
+        return {**SEED, 'found': [], 'checks': checks, 'review': completion_review(checks)}
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-298-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False, goal=goal)
+        split = [check('The list survives closing and reopening.'),
+                 check('Only outstanding books are shown after one return.')]
+        complete = [check(scenario)]
+        run = Run(cwd, width, height, budget=2, replies=[reply(split), reply(complete)])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            before = files(run.sessions)
+            run.send(F2, 'No seed was drafted')
+            assert files(run.sessions) == before
+            assert len(run.calls()) == 1, 'Refusal retried automatically'
+            run.send(F2, 'Seed draft r1')
+            assert helper.read_checks(session) == complete
+            assert helper.load(session)['goal'] == goal
+            assert scenario in (session / 'seed-contract.md').read_text()
+            assert len(run.calls()) == 2
+            assert not (session / 'seed-confirmation.json').exists()
+            print(f'Shape #298 complete scenario: refusal without writes and explicit recovery at {width}x{height}; 2 stub calls')
+        finally:
+            run.close()
+
+
 if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        complete_scenario_recovery(*size)
     for width, height in [(100, 30), (80, 24)]:
         read_end_revision(width, height)
     for size in [(100, 30), (80, 24)]:

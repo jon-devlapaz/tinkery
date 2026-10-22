@@ -235,3 +235,93 @@ fn os_missing_file_diagnostic_is_rust_not_python_oserror() {
     assert!(ours.contains("os error 2"), "{ours}");
     assert_ne!(ours, python.trim());
 }
+
+#[test]
+fn issue_298_split_checks_cannot_replace_the_complete_success_scenario() {
+    let root = temp();
+    let scenario = "I can lend two books, return one, restart, and see only the other still out.";
+    let goal = format!(
+        "I track book loans.\nWhy: I need to know what is out.\nDone when: {scenario}\nMust: Keep existing loans."
+    );
+    let receipt = crate::seed_me::Config::new(Some(root.path().join("TEST-sessions")))
+        .confirm(crate::seed_me::Affirmed {
+            goal: goal.clone(),
+            outcome: scenario.into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    let session = receipt.session;
+    let version = read(&session).unwrap().version();
+    let prose =
+        ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
+    let check = |statement: &str| {
+        json!({"statement":statement,"kind":"provisional",
+        "source":"confirmed goal","expect":"The complete scenario passes.","cwd":".",
+        "missing":"No behavior-specific test exists yet."})
+    };
+    // Captured #298 statements: each can pass while a returned loan reappears after restart.
+    let split = json!([
+        check("The list survives closing and reopening."),
+        check("Only outstanding books are shown after one return.")
+    ]);
+    let before = fs::read(session.join("ledger.json")).unwrap();
+    for weakened in [
+        split,
+        json!([check(
+            "I can lend two books, return one, and see only the other still out."
+        )]),
+        json!([check(
+            "I can lend two books, restart, return one, and see only the other still out."
+        )]),
+        json!([check(
+            "I can lend two books, return one, restart, and see books still out."
+        )]),
+    ] {
+        let error =
+            draft_seed(&session, version, &prose, &weakened, &[], root.path(), None).unwrap_err();
+        assert!(error.to_string().contains(scenario), "{error}");
+        assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+        assert!(!session.join("seed-checks.json").exists());
+        assert!(!session.join("seed-contract.md").exists());
+    }
+
+    let complete = json!([check(scenario)]);
+    draft_seed(&session, version, &prose, &complete, &[], root.path(), None).unwrap();
+    let stored: Value =
+        serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
+    assert_eq!(stored, complete);
+    assert!(
+        fs::read_to_string(session.join("seed-contract.md"))
+            .unwrap()
+            .contains(scenario)
+    );
+    assert_eq!(read(&session).unwrap().goal(), Some(goal.as_str()));
+}
+
+#[test]
+fn success_lines_preserve_unicode_and_bullets_without_inventing_missing_requirements() {
+    let goal = "I keep notes.\nDone when: Café notes survive restart; only mine remain.\n- 空の一覧 stays empty.\nMust: Keep originals.\n- This is a constraint, not another success criterion.";
+    let checks = ledger::Value::from(json!([
+        {"statement":"Café notes survive restart; only mine remain.","kind":"judge","source":"TEST"},
+        {"statement":"空の一覧 stays empty.","kind":"judge","source":"TEST"},
+        {"statement":"Additional regression.","kind":"judge","source":"TEST"}
+    ]));
+    ledger::validate_goal_checks(goal, &checks).unwrap();
+    let only_first = ledger::Value::from(json!([
+        {"statement":"Café notes survive restart; only mine remain.","kind":"judge","source":"TEST"}
+    ]));
+    assert!(
+        ledger::validate_goal_checks(goal, &only_first)
+            .unwrap_err()
+            .contains("空の一覧 stays empty.")
+    );
+    ledger::validate_goal_checks("An older unstructured goal.", &only_first).unwrap();
+    ledger::validate_goal_checks(
+        "I keep notes.\nDone when: \nMust: Keep originals.",
+        &only_first,
+    )
+    .unwrap();
+}
