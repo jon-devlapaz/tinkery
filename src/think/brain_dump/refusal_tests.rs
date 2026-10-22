@@ -53,7 +53,8 @@ fn every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane() {
         .line_count(narrowest);
     assert!(lines <= usize::from(layout::STATUS_ROWS));
     found += 1;
-    assert!(found >= 18, "found only {found} refusals");
+    // Sending uses the preflight refusal; there is no second size-check refusal.
+    assert!(found >= 17, "found only {found} refusals");
 }
 
 #[test]
