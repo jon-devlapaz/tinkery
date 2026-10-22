@@ -56,7 +56,8 @@ or improved outcomes.
 | `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools, the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |
-| `measure.rs` | The unknown state and return footer; no source reads, writes or provider calls. |
+| `measure.rs` | Recent PR list, details and evidence limits; explicit reads only, no writes or providers. |
+| `measure/read.rs` | Bounded, cancellable `gh` reads scoped to the launch repo; no shell or retries. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
 | `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/linking.rs` | The source and target selection state, link refusals and derived needs wording, independent of garden drawing. |
@@ -119,8 +120,8 @@ Each pass scores 1.25. Structural PRs name the rows they move.
 The remaining debt is `brain_dump.rs`'s narrow interface over substantial routing.
 
 The module map owns these boundaries. Preview and sending share conversation
-staging and one drafting request boundary. Measure renders only unknown; the menu
-owns its navigation and help. Linking, graph geometry and the garden footer stay separate. Think writes shared records; Tend
+staging and one drafting request boundary. Measure owns its PR list, details and help;
+the menu owns entry and return. Linking, graph geometry and the garden footer stay separate. Think writes shared records; Tend
 reads them. Shared `repo.rs` finds the root once.
 Only Tinkery's ledger-backed Shape verification claims seed-ready; file discovery reports
 unchecked declarations.
@@ -159,6 +160,10 @@ Removing Measure's external reader and configuration simplifies interfaces (2),
 removes an external implementation dependency (3) and confines its unknown display
 without reader lifecycle decisions (6). The module map keeps boundaries visible (7).
 No diagnostic worsens; no architecture limit or recorded score is loosened.
+
+Measure's PR reader hides GitHub process limits and cancellation from rendering (3, 6).
+The phase owns selection and evidence semantics behind open/key/poll/render (2); the
+module map records the boundary (7). No phase dependency or architecture limit changes.
 
 ## Limits enforced by `tests/architecture.rs`
 

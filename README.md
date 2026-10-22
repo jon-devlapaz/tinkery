@@ -65,7 +65,9 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `status --json` when opened or on `r`, runs waiting on you first. Matched runs show their
   exact saved goal; changed or missing originals stay unknown. It runs only read-only
   status commands and changes no records.
-- **Measure:** says recorded work and attention are unknown; reads no external source.
+- **Measure:** `r` explicitly reads this repo's PRs updated in the last 30 days from
+  GitHub through `gh`. Lists all states; Enter shows dates, author, URL and reported
+  PR-head checks. No metrics or acceptance claims. See [Measure](docs/design/menu.md#measure).
 
 On first default-root launch, old saved sessions move once to Tinkery's sessions folder,
 with a visible notice and no Think-record writes. History matches unique ledger session IDs. Leftover old and new roots
@@ -76,7 +78,8 @@ in Watch, not a guessed match.
 
 ## Where we’re going next
 
-Measure's results and effort sources are not built. See the
+Measure lists PRs, not accepted outcomes or recorded effort. The broader measurement
+proposals are closed, not planned. See the
 [first-release plan](docs/design/first-release.md) and [task index](docs/design/first-release-issues.md). Published tasks are not implementation
 permission; unpublished ideas belong in the [parked backlog](docs/research/shared/backlog.md).
 

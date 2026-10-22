@@ -80,8 +80,9 @@ open decisions and completion evidence.
 <a id="r9"></a>
 ## R9 — Show recorded results and attention in Measure
 
-Published: [#115](https://github.com/jon-devlapaz/tinkery/issues/115) · needs approval. See the issue for scope, dependencies,
-open decisions and completion evidence.
+Closed, not planned: [#115](https://github.com/jon-devlapaz/tinkery/issues/115).
+The narrower [#321](https://github.com/jon-devlapaz/tinkery/issues/321) lists repo PRs;
+it does not fulfill R9's accepted-results or recorded-attention scope.
 
 <a id="r10"></a>
 ## R10 — Prove the complete release on permitted real work

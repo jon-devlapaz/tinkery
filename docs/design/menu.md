@@ -8,7 +8,7 @@
 | 4 | approve | Read verified seeds not yet started and copy one runnable manual intake command ([Approve](approve.md)). |
 | 5 | watch | Read runs with their matched goals in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
 | 6 | taste | Not built. No end-report or review integration exists. |
-| 7 | measure | Recorded work and attention are unknown; no results source or verified metric is built. |
+| 7 | measure | This repo's recent pull requests, read from GitHub only on explicit request; no metrics or acceptance claims. |
 
 Only selection reveals a description; [menu.rs](../../src/menu.rs) owns the copy.
 Name the purpose without borrowing another place's name. [Tend](shape-and-handoff.md)
@@ -41,20 +41,35 @@ Digits or arrows followed by Enter open a place; home `q` quits.
 
 ## Measure
 
-Opening shows `Recorded work and attention are unknown.` above `esc back   ? help`.
-There is no source read, subprocess, provider call, metric or durable write.
-Reopening and resizing start no work. Results and effort sources require separate
-approved work in [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
-[#115](https://github.com/jon-devlapaz/tinkery/issues/115).
+Opening names the launch repo and discloses `r read GitHub`, using `gh` and the
+operator's login. Outside a repo, explain how to launch inside one; results stay unknown.
+Navigation, reopening, details, help and resizing start no commands. Only `r` from
+the list reads or refreshes; held or modified keys cannot repeat a read.
 
-F1 or ? toggles the existing Right now help, which says `q goes back to the menu`.
-Esc closes help, then returns to the menu; q returns from either view with help
-closed. F10 or Ctrl-C quits Tinkery. The retired reader's failure and technical
-detail layers no longer apply.
+Read all PR states updated since the UTC date 30 days before the request, newest
+updated first. Show the exact date and read time. Number, state (open, merged or
+closed-unmerged) and title identify each row. At most 100 rows are displayed;
+requesting 101 detects truncation and labels the result partial. No stale list or
+empty-result claim survives a failed refresh. Missing `gh`, access failures and
+malformed output say how to retry; stderr is not displayed.
 
-[Terminal tests](../../tests) cover unknown, help, reopening, resizing and quit
-routes at 80×24, 100×30, 160×40 and 320×40, with and without NO_COLOR. Command traps
-and a reversion probe protect the no-launch boundary.
+Arrows select, Enter opens in-memory details, and arrows scroll them. Details show
+author, dates, URL and GitHub's reported PR-head checks with the head revision.
+These are not merge-commit checks, acceptance or proof of usefulness; missing checks
+stay unknown. No browser opens, no goal is inferred and no records are written.
+
+F1 or ? toggles Measure help. Esc closes help, then details, then returns to the
+menu; q returns to the menu with help closed. F10 or Ctrl-C quits Tinkery. Leaving
+cancels and reaps the owned process group. One read runs at a time, with a 30-second
+deadline and bounded output. There are no watchers, provider calls or disk caches.
+
+[Terminal tests](../../tests) use fake `gh` in TEST roots at 80×24, 100×30, 160×40
+and 320×40, with and without NO_COLOR. They cover states, details, empty/partial
+results, failures, cancellation and navigation. Reversion probes protect explicit
+reads and partial-result honesty. This narrow slice is
+[#321](https://github.com/jon-devlapaz/tinkery/issues/321); the broader results and
+effort proposals [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
+[#115](https://github.com/jon-devlapaz/tinkery/issues/115) remain closed, not planned.
 
 ## Direction, not built behavior
 

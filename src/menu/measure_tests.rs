@@ -1,4 +1,4 @@
-//! Measure's unknown state, help ownership and quit routes; no external sources.
+//! Measure's no-repo state, help ownership and quit routes; no implicit external reads.
 
 use super::*;
 
@@ -24,10 +24,7 @@ fn measure_opens_unknown_at_supported_sizes_without_creating_records() {
             let mut h = home(root.path());
             for _ in 0..3 {
                 let text = snapshot(width, height, &mut h, no_color).unwrap();
-                assert!(
-                    text.contains("Recorded work and attention are unknown."),
-                    "{text}"
-                );
+                assert!(text.contains("No launch repository."), "{text}");
                 assert!(text.contains("esc back   ? help"), "{text}");
                 assert!(
                     !text.contains("unavailable") && !text.contains("Reading"),
@@ -65,7 +62,7 @@ fn measure_help_closes_and_q_returns_to_a_closed_help_menu() {
     assert!(
         snapshot(80, 24, &mut h, true)
             .unwrap()
-            .contains("Recorded work and attention are unknown.")
+            .contains("No launch repository.")
     );
     press(&mut h, KeyCode::Esc);
     assert!(!h.quit && !h.help && matches!(h.view, View::Menu));
