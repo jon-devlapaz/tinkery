@@ -205,6 +205,33 @@ fn typing_confirmation_keeps_a_fully_read_goal_at_the_end() {
                 assert_eq!(review.affirmation.confirmation, context);
                 assert!(a.handoff.job.is_none());
             }
+            // A shorter wrong-word refusal must not move the end before correction.
+            a.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
+            a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
+            a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+            snapshot(w, h, &mut a, no_color).unwrap();
+            assert!(
+                a.notice
+                    .contains("Type confirm, then Enter. Nothing saved.")
+            );
+            assert!(a.handoff.job.is_none());
+            // Even a rejected paste clears the refusal and restores the instruction.
+            a.paste("ignored\npaste");
+            snapshot(w, h, &mut a, no_color).unwrap();
+            let review = a.handoff.review.as_ref().unwrap();
+            assert_eq!(review.input, "confirn");
+            assert_eq!(
+                review.scroll, review.max,
+                "{w}x{h}: refused paste moved the end"
+            );
+            a.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
+            a.handle_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE));
+            snapshot(w, h, &mut a, no_color).unwrap();
+            let review = a.handoff.review.as_ref().unwrap();
+            assert_eq!(
+                review.scroll, review.max,
+                "{w}x{h}: correcting moved the end"
+            );
             // The terminal journey verifies saving after this redraw; no save starts here.
         }
     }

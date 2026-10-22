@@ -114,8 +114,8 @@ F3 deliberately reviews. Typed `confirm` plus Enter freezes the displayed goal a
 after successful saving, shows the [receipt](shape-and-handoff.md). Missing parts
 and questions may travel to the seed. Readiness is not required to save; saving
 is neither seed nor implementation approval.
-Review reserves the confirmation input row before typing, so entering `confirm`
-does not move the end of an already-read goal. Unread content still prevents saving.
+Review reserves the confirmation input row and normal instruction height, so typing
+or correcting `confirm` does not move an already-read end. Unread content still prevents saving.
 
 ## Confirmation attribution (#185)
 

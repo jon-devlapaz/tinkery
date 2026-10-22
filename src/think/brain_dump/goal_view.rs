@@ -7,7 +7,6 @@ use super::*;
 use crate::goal::confirmed::{SavedGoal, goal_block, render_saved_goal};
 use crate::seed_me::{self, Config, Receipt};
 use crate::think_record as record;
-use ratatui::text::Line;
 use serde_json::json;
 use std::{
     path::{Path, PathBuf},
@@ -456,6 +455,14 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     };
     // One message row group (a refusal, the save in progress, a failed save, else the
     // instruction), the typed word, then Back on a row of its own, so nothing paints over it.
+    let instruction = format!(
+        "type confirm to save{}. You can't edit it after.",
+        if app.handoff.record_root.is_some() {
+            " the goal and its record"
+        } else {
+            ""
+        }
+    );
     let message = if app.screen.refused.is_some() {
         app.notice.clone()
     } else if app.handoff.job.is_some() {
@@ -465,23 +472,17 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     } else if review.affirmation.confirmation.saving_held() {
         DELEGATED_SAVE_HELD.into()
     } else {
-        format!(
-            "type confirm to save{}. You can't edit it after.",
-            if app.handoff.record_root.is_some() {
-                " the goal and its record"
-            } else {
-                ""
-            }
-        )
+        instruction.clone()
     };
     let prompt = format!("{message}\n{}", review.input);
-    // Keep the empty input line: typing must not shrink the review already read.
-    let prompt_rows = Paragraph::new(vec![
-        Line::from(message.as_str()),
-        Line::from(review.input.as_str()),
-    ])
-    .wrap(Wrap { trim: false })
-    .line_count(inner.width) as u16;
+    let line_count = |text: &str| {
+        Paragraph::new(text)
+            .wrap(Wrap { trim: false })
+            .line_count(inner.width)
+    };
+    // Neither an empty input nor a shorter refusal may move an already-read end.
+    let prompt_rows =
+        (line_count(&message).max(line_count(&instruction)) + line_count(&review.input)) as u16;
     let rows =
         Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
     let heading = match &review.affirmation.confirmation {

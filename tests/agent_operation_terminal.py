@@ -24,20 +24,20 @@ def status(session):
         [BINARY, 'seed', 'status', '--json', session], env=subprocess.environment()))
 
 
-def confirmation_after_reading(width, height):
+def confirmation_after_reading(width, height, correct_typo=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-confirm-input-') as directory:
         actor = copy.deepcopy(ACTOR)
         actor['source'] += ' TEST permission covers this temporary goal only.' * 40
         run = Run(Path(directory), width, height, 0, authorization=actor)
 
-        def type_confirmation():
-            os.write(run.master, b'confirm')
+        def type_confirmation(data=b'confirm', word='confirm'):
+            os.write(run.master, data)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 if select.select([run.master], [], [], .02)[0]:
                     run.screen.feed(os.read(run.master, 65536))
                 if not run.screen.synchronized and any(
-                        line.strip() == 'confirm' for line in run.screen.text().splitlines()):
+                        line.strip() == word for line in run.screen.text().splitlines()):
                     return
             raise AssertionError(f'Typed confirmation did not redraw:\n{run.screen.text()}')
 
@@ -58,7 +58,13 @@ def confirmation_after_reading(width, height):
             run.send(b'\x1b', "Nothing I'm unsure about")
             run.send(F3, 'type confirm')
             run.send(b'\x1b[6~' * 200, 'blast radius: small')
-            type_confirmation()
+            if correct_typo:
+                type_confirmation(b'confirn', 'confirn')
+                run.send(b'\r', 'Type confirm, then Enter. Nothing saved.')
+                assert not run.records.exists() and not run.sessions.exists()
+                type_confirmation(b'\x7f\x1b[200~m\x1b[201~')
+            else:
+                type_confirmation()
             assert not run.records.exists() and not run.sessions.exists()
             run.send(b'\r', 'Saved.')
             written = list(run.records.iterdir())
@@ -68,7 +74,7 @@ def confirmation_after_reading(width, height):
             assert record['goal'] == ledger['goal']
             assert record['goal_confirmation'] == actor
             assert len(list(run.sessions.iterdir())) == 1 and not run.calls()
-            print(f'Think confirmation {width}x{height}: unread refused; '
+            print(f'Think confirmation {width}x{height}, typo={correct_typo}: unread refused; '
                   'read then type/redraw/Enter saved exact goal and attribution')
         finally:
             run.close()
@@ -224,8 +230,11 @@ def refused_contexts():
 if __name__ == '__main__':
     refused_contexts()
     confirmation_after_reading(94, 51)
+    confirmation_after_reading(94, 51, correct_typo=True)
     confirmation_after_reading(100, 30)
+    confirmation_after_reading(100, 30, correct_typo=True)
     journey(100, 30)
     os.environ['NO_COLOR'] = '1'
     confirmation_after_reading(80, 24)
+    confirmation_after_reading(80, 24, correct_typo=True)
     journey(80, 24)
