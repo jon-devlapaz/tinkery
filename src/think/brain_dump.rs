@@ -700,8 +700,16 @@ impl BrainDump {
             }
         }
     }
+    // A size warning hides the review: retain its words and read position until it is visible.
+    fn review_below_minimum(&self) -> bool {
+        self.handoff.review.is_some()
+            && (self.screen.area.width < MIN_WIDTH || self.screen.area.height < MIN_HEIGHT)
+    }
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
+        if self.review_below_minimum() {
+            return;
+        }
         self.shaping.encoded_bytes = None;
         self.conversation.forget_changes();
         if !self.screen.help {
@@ -800,6 +808,12 @@ impl BrainDump {
             return;
         }
         if help_view::handle_key(self, key) {
+            return;
+        }
+        if self.review_below_minimum()
+            && !self.screen.leave_prompt
+            && !matches!(key.code, KeyCode::Esc | KeyCode::F(1))
+        {
             return;
         }
         if self.handoff.receipt.is_some() {
@@ -1237,7 +1251,7 @@ impl BrainDump {
         if self.screen.leave_prompt {
             return;
         }
-        if area != self.screen.area {
+        if area != self.screen.area || self.review_below_minimum() {
             return;
         }
         if event.kind == MouseEventKind::Down(MouseButton::Left)
