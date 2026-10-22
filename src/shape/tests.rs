@@ -13,6 +13,7 @@ fn done(stage: Shaped) -> Shape {
     let open = shape.open.as_mut().unwrap();
     open.reading = Reading::Done(Ok(Shaping {
         goal: Some(GOAL.into()),
+        success_open: false,
         stage,
         version: Some(3),
         intake: None,
@@ -3309,5 +3310,36 @@ fn page_keys_move_about_one_screen_of_reading() {
         assert_eq!(shape.scroll, crate::page(shape.page));
         shape.key(key(KeyCode::PageUp));
         assert_eq!(shape.scroll, 0);
+    }
+}
+
+#[test]
+fn issue_314_captured_goal_names_missing_success_before_any_call() {
+    let root = tempfile::Builder::new()
+        .prefix("TEST-314-")
+        .tempdir()
+        .unwrap();
+    let session = root.path().join("TEST-session");
+    std::fs::create_dir(&session).unwrap();
+    let original = include_str!("../../tests/fixtures/shape-296/ledger.json");
+    std::fs::write(session.join("ledger.json"), original).unwrap();
+    let before = std::fs::read(session.join("ledger.json")).unwrap();
+    for (width, height) in [(80, 24), (100, 30)] {
+        for no_color in [false, true] {
+            let host = agent(1);
+            let mut shape = Shape::session(&session).with_agent(Some(host.clone()));
+            shape.open.as_mut().unwrap().reading =
+                Reading::Done(Ok(crate::seed_me::shaping::read(&session).unwrap()));
+            let shown = screen(&mut shape, width, height, no_color);
+            assert!(
+                shown.contains("The saved goal leaves Done when open."),
+                "{shown}"
+            );
+            assert!(shown.contains("F2 look into the next question"), "{shown}");
+            assert_eq!(host.remaining(), 1);
+            assert!(shape.open.as_ref().unwrap().running.is_none());
+            assert_eq!(std::fs::read(session.join("ledger.json")).unwrap(), before);
+            assert!(!session.join("seed-contract.md").exists());
+        }
     }
 }

@@ -1380,7 +1380,43 @@ def complete_scenario_recovery(width, height):
             run.close()
 
 
+def missing_success_before_calls(width, height, no_color):
+    """#314: the captured saved goal names its missing success criterion before any provider call."""
+    previous = os.environ.get('NO_COLOR')
+    if no_color:
+        os.environ['NO_COLOR'] = '1'
+    else:
+        os.environ.pop('NO_COLOR', None)
+    try:
+        with tempfile.TemporaryDirectory(prefix='tinkery-TEST-314-') as directory:
+            cwd = Path(directory).resolve()
+            session = cwd / 'TEST-sessions/TEST-captured'
+            session.mkdir(parents=True)
+            original = (REPO / 'tests/fixtures/shape-296/ledger.json').read_bytes()
+            (session / 'ledger.json').write_bytes(original)
+            run = Run(cwd, width, height, budget=1, replies=[])
+            try:
+                before = files(run.sessions)
+                run.open_shape()
+                run.wait('The saved goal leaves Done when open.')
+                run.wait('F2 look into the next question')
+                run.send(F10, '1  think')
+                assert run.calls() == [], 'Opening or leaving Shape called a provider'
+                assert files(run.sessions) == before, 'Shape changed the saved goal or ledger'
+                print(f'Shape #314 missing Done when named at {width}x{height} NO_COLOR={no_color}; zero calls/writes')
+            finally:
+                run.close()
+    finally:
+        if previous is None:
+            os.environ.pop('NO_COLOR', None)
+        else:
+            os.environ['NO_COLOR'] = previous
+
+
 if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        for no_color in [False, True]:
+            missing_success_before_calls(*size, no_color)
     for size in [(100, 30), (80, 24)]:
         complete_scenario_recovery(*size)
     for width, height in [(100, 30), (80, 24)]:
