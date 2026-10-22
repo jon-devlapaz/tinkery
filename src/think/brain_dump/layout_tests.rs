@@ -74,6 +74,7 @@ fn active_question_is_readable_without_review_and_survives_resize() {
             super::tests::amend_board(&mut a, |g| {
                 g.parts.must = vec!["preserve citywide care ".repeat(30)];
                 g.questions = vec![Question {
+                    suggestion: None,
                     id: "city-care".into(),
                     target: None,
                     text: question.clone(),
@@ -135,6 +136,7 @@ fn wheel_over_question_uses_the_same_overflow_route() {
     let mut a = board();
     super::tests::amend_board(&mut a, |g| {
         g.questions = vec![Question {
+            suggestion: None,
             id: "long-question".into(),
             target: None,
             text: format!(
@@ -532,6 +534,7 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
     // settled answer for this failure-path fixture rather than an unscoped addition.
     super::tests::amend_board(&mut a, |g| {
         g.questions.push(Question {
+            suggestion: None,
             target: None,
             id: "failure-answer".into(),
             text: "What matters?".into(),

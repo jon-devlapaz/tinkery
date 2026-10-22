@@ -247,6 +247,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
     a.conversation.set_scope_pending(Some((
         1,
         Question {
+            suggestion: None,
             target: None,
             id: "scope-addition-1".into(),
             text: "Scope?".into(),
@@ -255,6 +256,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
     assert!(!a.goal_ready());
     a.conversation.set_scope_pending(None);
     a.conversation.skipped_mut().push(Question {
+        suggestion: None,
         target: Some(Part::Must),
         id: "skip".into(),
         text: "Keep what?".into(),
@@ -410,6 +412,7 @@ fn delayed_results_use_current_counts_and_skipped_targets() {
     assert!(!a.goal_ready());
     a.conversation.ask_counts_mut().clear();
     a.conversation.skipped_mut().push(Question {
+        suggestion: None,
         target: Some(Part::DoneWhen),
         id: "local-skip".into(),
         text: "Skipped check".into(),
@@ -596,4 +599,38 @@ fn captured_evidence_context_stays_in_originals_and_real_choices_stay_open() {
         }
         assert!(a.handoff.receipt.is_none() && a.handoff.job.is_none());
     }
+}
+
+#[test]
+fn review_and_saved_context_keep_conversations_unresolved_intent() {
+    let mut a = app(serde_json::json!({
+        "parts": {"outcome": "review refusals"},
+        "decisions": [{"part": "must_not", "text": "Private text",
+            "answers": ["omit", "include"], "question": "May private text appear?"}],
+        "unresolved_notes": ["Keep this separate note."],
+        "questions": [{"target": "done_when", "text": "What would show this worked?"}]
+    }));
+    let (questions, notes) = a.conversation.review_context();
+    assert!(!questions.is_empty() && !notes.is_empty());
+    let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
+    a.review_goal();
+    let review = &a.handoff.review.as_ref().unwrap().affirmation;
+    assert_eq!(
+        serde_json::to_value(&review.unresolved).unwrap(),
+        serde_json::to_value(&questions).unwrap()
+    );
+    assert_eq!(review.unresolved_notes, notes);
+    assert_eq!(review.goal, goal);
+    let saved = review.affirmed();
+    let context: serde_json::Value = serde_json::from_str(&saved.context).unwrap();
+    assert_eq!(
+        context["unresolved"],
+        serde_json::to_value(&questions).unwrap()
+    );
+    assert_eq!(
+        context["unresolved_notes"],
+        serde_json::to_value(&notes).unwrap()
+    );
+    assert_eq!(saved.goal, goal);
+    assert_eq!(saved.originals[0].text, "An intact original");
 }

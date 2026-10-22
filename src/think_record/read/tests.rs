@@ -29,6 +29,11 @@ fn turns() -> Vec<Turn> {
             part: Some(crate::goal::Part::Why),
             question: "Why?".into(),
         },
+        Event::Suggested {
+            id: "q".into(),
+            answer: "TEST proposal".into(),
+            reason: "TEST assumption".into(),
+        },
         Event::Answered {
             id: "q".into(),
             question: "Why?".into(),

@@ -18,6 +18,7 @@ fn shown(a: &mut BrainDump, w: u16, h: u16, no_color: bool) -> String {
 fn long_goal() -> BrainDump {
     let mut a = board();
     a.conversation.skipped_mut().extend((0..8).map(|i| Question {
+        suggestion: None,
         target: None,
         id: format!("skipped-{i}"),
         text: format!("Boundary {i}: which consequential design boundary needs independent verification before this goal can become implementation?"),

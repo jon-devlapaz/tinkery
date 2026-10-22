@@ -22,7 +22,7 @@ Proposed mechanisms remain candidates, not automatically goals; preserve compati
 # all were dropped. Declaring the shape is the only change; no eval was run for it (#89).
 # Decisions are typed because a prompt sentence alone did not make the model ask about them:
 # in the 5-dump pilot of 2026-10-12 (8b9b7d8) it returned open: [] once Done when was filled (#31, 505617f).
-Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_goals (short labels for separate goals), deferred (explicitly deferred items), open (consequentially unclear part names), decisions (open choices only the person can make, each {part, text, answers, optional question} with at least two short answers that would each change that part's line differently; [] only when no plausible answer would change a goal line), questions (at most one {target, text, optional id}), optional supports (source/quote/occurrence objects only; prose belongs in unresolved_notes, never supports), alternatives (possible approaches, each {label, benefit, cost, undo_cost}), misfits or unresolved_notes.
+Return JSON: parts {who, outcome, when, why, done_when, must, must_not}, other_goals (short labels for separate goals), deferred (explicitly deferred items), open (consequentially unclear part names), decisions (open choices only the person can make, each {part, text, answers, optional question, optional suggestion} with at least two short answers that would each change that part's line differently; [] only when no plausible answer would change a goal line), questions (at most one {target, text, optional id, optional suggestion}), optional supports (source/quote/occurrence objects only; prose belongs in unresolved_notes, never supports), alternatives (possible approaches, each {label, benefit, cost, undo_cost}), misfits or unresolved_notes.
 # Intent-first operator dogfood (#264): an unnamed beneficiary erased the headline and forced a
 # choice between compatible beneficiaries; the dump had already chosen a bounded first loop.
 Required parts determine readiness, not a checklist to fill: who names beneficiaries when supplied (I only for the person's own goal); compatible beneficiaries may stay together, never force a choice between them.
@@ -103,3 +103,8 @@ For any claimed source span, use source/quote/occurrence: existing source ID, EX
 Never fabricate a quote.
 Unmarked source is neutral; it need not be assigned a role.
 Do not invent settlement or approval claims.
+
+# Issue #330: zero-call suggestion regressions pin mechanics; live quality evaluation is deferred.
+For each question, supply suggestion {answer, reason} only when the original words and submitted answers support a useful proposal; keep both short and state any assumptions in reason.
+Never invent a personal preference, budget, permission or fact to fill a gap; use suggestion: null when context is insufficient.
+A suggestion is provisional, never an answer, settled choice or permission; never incorporate it into goal parts unless the person submits it.

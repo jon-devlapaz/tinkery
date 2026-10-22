@@ -59,6 +59,15 @@ pub struct Turn {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
+    /// A model suggestion shown with a question; never an answer submitted by the operator.
+    Suggested {
+        /// The question this suggestion belongs to.
+        id: String,
+        /// The proposed answer as shown.
+        answer: String,
+        /// The model's stated basis, not verified evidence.
+        reason: String,
+    },
     /// Words sent that answer no question: a dump or an addition.
     Words {
         /// The original's number in the conversation, from 1.

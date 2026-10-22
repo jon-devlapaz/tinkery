@@ -339,6 +339,7 @@ fn fact_and_owned_history_guards_run_before_question_priority_filtering() {
     )
     .unwrap();
     g.questions = vec![Question {
+        suggestion: None,
         target: Some(Part::Outcome),
         id: "scope-addition-9".into(),
         text: "wrong target history".into(),

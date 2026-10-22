@@ -42,9 +42,9 @@ pub(super) const PARTS: &[&str] = &[
     "must_not",
 ];
 /// The fields of one decision. The decision review adds a question to these.
-pub(super) const DECISION: &[&str] = &["part", "text", "answers", "question"];
+pub(super) const DECISION: &[&str] = &["part", "text", "answers", "question", "suggestion"];
 /// The fields of one question.
-pub(super) const QUESTION: &[&str] = &["id", "text", "target"];
+pub(super) const QUESTION: &[&str] = &["id", "text", "target", "suggestion"];
 /// The fields of one possible approach. Replies have also keyed the label `option` (#89).
 pub(super) const APPROACH: &[&str] = &["label", "benefit", "cost", "undo_cost"];
 /// The fields of a claimed source span.
@@ -121,9 +121,12 @@ pub struct Framing {
     pub supports: Vec<Anchor>,
 }
 /// A question for the person about one part of the goal.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Question {
+    /// A provisional answer, never sent back as operator context until submitted.
+    #[serde(default, skip_serializing, deserialize_with = "suggestion::decode")]
+    pub suggestion: Option<Suggestion>,
     /// The part an answer would change; `None` for a question about scope.
     #[serde(default)]
     pub target: Option<Part>,
@@ -137,6 +140,9 @@ pub struct Question {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct OpenDecision {
+    /// A provisional answer, never sent back as operator context until submitted.
+    #[serde(default, skip_serializing, deserialize_with = "suggestion::decode")]
+    pub suggestion: Option<Suggestion>,
     /// The goal line an answer would change.
     pub part: Part,
     /// What is undecided.
@@ -159,6 +165,7 @@ impl OpenDecision {
     pub(super) fn covered_by(&self, questions: &[Question]) -> bool {
         self.question.as_ref().is_some_and(|text| {
             let linked = Question {
+                suggestion: None,
                 target: Some(self.part),
                 id: String::new(),
                 text: text.clone(),
@@ -505,6 +512,7 @@ fn reviewed(
                 text,
                 answers,
                 question,
+                suggestion: suggestion::read(o.get("suggestion")),
             },
         ));
     }
@@ -557,7 +565,7 @@ fn reviewed(
         // A missing required part is still asked before any review decision.
         let asks = review
             .questions()
-            .map(|(part, text)| serde_json::json!({"target": part, "text": text}));
+            .map(|d| serde_json::json!({"target": d.part, "text": d.question, "suggestion": d.suggestion}));
         if parts.missing().next().is_some() {
             question_values.extend(asks);
         } else {
@@ -565,9 +573,9 @@ fn reviewed(
         }
     }
     question_values.extend(decisions.iter().filter_map(|d| {
-        d.question
-            .as_ref()
-            .map(|text| serde_json::json!({"target": d.part, "text": text}))
+        d.question.as_ref().map(
+            |text| serde_json::json!({"target": d.part, "text": text, "suggestion": d.suggestion}),
+        )
     }));
     for (i, v) in question_values.iter().enumerate() {
         let o = v.as_object();
@@ -616,7 +624,12 @@ fn reviewed(
             ));
             continue;
         }
-        let q = Question { target, id, text };
+        let q = Question {
+            target,
+            id,
+            text,
+            suggestion: suggestion::read(o.and_then(|o| o.get("suggestion"))),
+        };
         if q.id.starts_with("scope-addition-") || q.id.starts_with("goal-refinement-") {
             return Err("Model attempted an application-owned question ID".into());
         }

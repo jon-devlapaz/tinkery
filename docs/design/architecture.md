@@ -77,8 +77,9 @@ or improved outcomes.
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
-| `think/brain_dump/conversation.rs` | Words, extracts, readings, question rules, skips, scope, requests and ordered record turns. Fields are private; methods hide these rules. It knows nothing about screens or jobs. |
+| `think/brain_dump/conversation.rs` | Words, extracts, readings, question rules, skips, scope, unresolved review questions and notes, requests and ordered record turns. Fields are private; methods hide these rules. It knows nothing about screens or jobs. |
 | `think/brain_dump/reading.rs` | The model request, prompt, wire reply and lenient decoder, including open choices linked to questions. |
+| `think/brain_dump/suggestion.rs` | Optional proposal decoding and copying into an empty draft; never submission or model context. |
 | `think/brain_dump/review.rs` | The decision review: its prompt, what it sees, and how its decisions join the reading's. |
 | `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
 | `think/brain_dump/host.rs` | Pi shaping then review, or practice simulation. Stateful hosts start separate histories for each Think visit. |

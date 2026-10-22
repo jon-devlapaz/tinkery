@@ -337,6 +337,7 @@ fn local_history_and_scope_identity_cannot_be_replaced_by_model_output() {
     let mut r = request();
     r.answered.push("done".into());
     r.skipped.push(Question {
+        suggestion: None,
         target: None,
         id: "skipped".into(),
         text: "Leave this aside".into(),

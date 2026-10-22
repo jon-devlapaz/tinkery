@@ -38,7 +38,15 @@ impl PiHost {
 /// Unreadable JSON yields no review; a readable but invalid board is still reviewed.
 /// Contains original words, settled answers, draft parts and shaping decisions, never standing instructions.
 pub fn input(request: &BoardRequest, raw: &str) -> Option<Vec<u8>> {
-    let (draft, decisions) = reading::draft(raw)?;
+    let (draft, mut decisions) = reading::draft(raw)?;
+    if let Some(decisions) = decisions.as_array_mut() {
+        for decision in decisions
+            .iter_mut()
+            .filter_map(serde_json::Value::as_object_mut)
+        {
+            decision.remove("suggestion");
+        }
+    }
     let text_of = |id: usize| {
         request
             .sources
@@ -169,9 +177,10 @@ impl Review {
     }
 
     /// The questions the review asks, most consequential first, with the part each would change.
-    pub(super) fn questions(&self) -> impl Iterator<Item = (Part, &str)> {
+    pub(super) fn questions(&self) -> impl Iterator<Item = &OpenDecision> {
         self.found
             .iter()
-            .filter_map(|f| f.choice.question.as_deref().map(|q| (f.choice.part, q)))
+            .filter(|f| f.choice.question.is_some())
+            .map(|f| &f.choice)
     }
 }
