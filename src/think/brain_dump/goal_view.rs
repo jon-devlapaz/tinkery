@@ -7,6 +7,7 @@ use super::*;
 use crate::goal::confirmed::{SavedGoal, goal_block, render_saved_goal};
 use crate::seed_me::{self, Config, Receipt};
 use crate::think_record as record;
+use ratatui::text::Line;
 use serde_json::json;
 use std::{
     path::{Path, PathBuf},
@@ -474,9 +475,13 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         )
     };
     let prompt = format!("{message}\n{}", review.input);
-    let prompt_rows = Paragraph::new(prompt.as_str())
-        .wrap(Wrap { trim: false })
-        .line_count(inner.width) as u16;
+    // Keep the empty input line: typing must not shrink the review already read.
+    let prompt_rows = Paragraph::new(vec![
+        Line::from(message.as_str()),
+        Line::from(review.input.as_str()),
+    ])
+    .wrap(Wrap { trim: false })
+    .line_count(inner.width) as u16;
     let rows =
         Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
     let heading = match &review.affirmation.confirmation {

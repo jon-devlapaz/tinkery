@@ -4,8 +4,10 @@ import copy
 import json
 import os
 import re
+import select
 import shlex
 import tempfile
+import time
 from pathlib import Path
 import test_launch as subprocess
 from shape_answer_terminal import Run, BINARY, QUESTION, SEED, F2, F3, F10, helper, files
@@ -20,6 +22,56 @@ NOTE = 'Agent-confirmed seed. Intake requires tink-sdlc 1.36.0 or newer;'
 def status(session):
     return json.loads(subprocess.check_output(
         [BINARY, 'seed', 'status', '--json', session], env=subprocess.environment()))
+
+
+def confirmation_after_reading(width, height):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-confirm-input-') as directory:
+        actor = copy.deepcopy(ACTOR)
+        actor['source'] += ' TEST permission covers this temporary goal only.' * 40
+        run = Run(Path(directory), width, height, 0, authorization=actor)
+
+        def type_confirmation():
+            os.write(run.master, b'confirm')
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if select.select([run.master], [], [], .02)[0]:
+                    run.screen.feed(os.read(run.master, 65536))
+                if not run.screen.synchronized and any(
+                        line.strip() == 'confirm' for line in run.screen.text().splitlines()):
+                    return
+            raise AssertionError(f'Typed confirmation did not redraw:\n{run.screen.text()}')
+
+        try:
+            run.wait('1  think')
+            run.send(b'1', "What's on your mind?")
+            run.type('Refusals feel noisy.')
+            run.send(F2, 'May refusals show private text?')
+            run.type('never')
+            run.send(F2, "Nothing I'm unsure about")
+            run.send(F3, 'type confirm')
+            # Typing alone and confirming an unread attribution must write nothing.
+            type_confirmation()
+            assert not run.records.exists() and not run.sessions.exists()
+            run.send(b'\r', 'Read to the end first:')
+            assert not run.records.exists() and not run.sessions.exists()
+            # Reopen with an empty input, read fully, then wait for typing to redraw.
+            run.send(b'\x1b', "Nothing I'm unsure about")
+            run.send(F3, 'type confirm')
+            run.send(b'\x1b[6~' * 200, 'blast radius: small')
+            type_confirmation()
+            assert not run.records.exists() and not run.sessions.exists()
+            run.send(b'\r', 'Saved.')
+            written = list(run.records.iterdir())
+            assert len(written) == 1
+            record = json.loads(written[0].read_text())
+            ledger = helper.load(run.sessions / record['seed_me_session'])
+            assert record['goal'] == ledger['goal']
+            assert record['goal_confirmation'] == actor
+            assert len(list(run.sessions.iterdir())) == 1 and not run.calls()
+            print(f'Think confirmation {width}x{height}: unread refused; '
+                  'read then type/redraw/Enter saved exact goal and attribution')
+        finally:
+            run.close()
 
 
 def journey(width, height):
@@ -171,6 +223,9 @@ def refused_contexts():
 
 if __name__ == '__main__':
     refused_contexts()
+    confirmation_after_reading(94, 51)
+    confirmation_after_reading(100, 30)
     journey(100, 30)
     os.environ['NO_COLOR'] = '1'
+    confirmation_after_reading(80, 24)
     journey(80, 24)
