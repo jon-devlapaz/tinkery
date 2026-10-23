@@ -2,7 +2,11 @@
 //! checkout status and GitHub; only o opens a PR. Copying hands review back externally without
 //! recording a verdict, posting, merging, signing gates or launching an agent.
 
+mod evidence;
+mod links;
 mod read;
+/// Explicit canonical run-ID to PR inputs for this launch, never persisted or inferred.
+pub use links::ResultLinks;
 #[cfg(test)]
 mod tests;
 
@@ -23,6 +27,7 @@ use std::{path::PathBuf, process::Command, time::Instant};
 /// A read-only visit; snapshots and copy requests die when the operator leaves.
 pub(crate) struct Taste {
     root: Option<PathBuf>,
+    links: ResultLinks,
     reading: Option<Read<Vec<ResultRow>>>,
     opening: Option<Read<()>>,
     rows: Vec<ResultRow>,
@@ -38,9 +43,10 @@ pub(crate) struct Taste {
 
 impl Taste {
     /// Open without executing helpers or contacting GitHub. r discloses and starts the read.
-    pub(crate) fn open(root: Option<PathBuf>) -> Self {
+    pub(crate) fn open(root: Option<PathBuf>, links: ResultLinks) -> Self {
         Self {
             root,
+            links,
             reading: None,
             opening: None,
             rows: Vec::new(),
@@ -71,7 +77,8 @@ impl Taste {
         self.notice.clear();
         self.at = None;
         self.scroll = 0;
-        self.reading = Some(Read::task(move |stop| read::collect(&root, stop)));
+        let links = self.links.clone();
+        self.reading = Some(Read::task(move |stop| read::collect(&root, stop, &links)));
     }
 
     /// Land only this visit's explicit read or navigation result; no automatic retries.
@@ -164,7 +171,9 @@ impl Taste {
                         sdlc::execute(&root, command, stop, DEADLINE).map(|_| ())
                     }));
                 } else {
-                    self.notice = "PR link unknown; repair the run handoff and press r.".into();
+                    self.notice =
+                        "PR link unknown; relaunch with one --taste-result RUN_ID=PR_URL input."
+                            .into();
                 }
             }
             KeyCode::Char(action @ ('a' | 'c')) => {
@@ -218,8 +227,8 @@ impl Taste {
             "Right now\nq goes back to the menu · ? closes help\n",
             "r reads again; o opens the PR; a/c copy accept/correct review requests. Esc goes back.\n\n",
             "What Taste reads\nOnly r runs the named checkout's python3 _system/scripts/sdlc.py status --json, then status <run> --json. ",
-            "It reads runs/<run>/handoff.md and uses its one explicit GitHub PR URL with gh pr view --json. This contacts GitHub using your login. ",
-            "Missing or conflicting links stay unknown; no branches or checkouts are discovered.\n\n",
+            "It uses only --taste-result RUN_ID=PR_URL launch inputs with gh pr view --json. This contacts GitHub using your login. ",
+            "Missing or conflicting inputs stay unknown. Handoff prose, slugs and branches never supply PR links; no mapping store is written.\n\n",
             "What evidence means\nThe commit appears once per result. Local passes must match that exact PR head and a current SDLC verification. ",
             "Stale evidence is history. Independent review and human acceptance are separate from checks.\n\n",
             "Hand off deliberately\nCopying records no verdict, signs no gate, posts nothing and merges nothing. ",
@@ -286,7 +295,9 @@ impl Taste {
             lines.push(
                 "Runs python3 _system/scripts/sdlc.py status --json and per-run status.".into(),
             );
-            lines.push("Reads explicit run handoff PR links with gh using your login.".into());
+            lines.push(
+                "Reads only --taste-result RUN_ID=PR_URL inputs with gh using your login.".into(),
+            );
         } else if self.detail {
             if let Some(row) = self.rows.get(self.selected) {
                 lines.extend(result_lines(row).into_iter().skip(2));

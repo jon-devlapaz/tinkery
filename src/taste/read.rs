@@ -1,11 +1,10 @@
-//! Result snapshots from explicitly named run handoffs and API 1 status. PR reads use only those
-//! links; missing identities never borrow a goal or old success. No discovery, writes or decisions.
+//! Result snapshots from deliberate run-ID inputs and API 1 status. No handoff prose, branch or
+//! title supplies a PR; missing identities never borrow a goal or old success. No writes or decisions.
 
+use super::{ResultLinks, evidence, links::canonical_run_id};
 use crate::sdlc::{self, DEADLINE, Goal};
 use serde_json::Value;
 use std::{
-    fs,
-    io::Read as _,
     path::Path,
     process::Command,
     sync::atomic::{AtomicBool, Ordering},
@@ -53,57 +52,6 @@ fn text<'a>(v: &'a Value, key: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("Run report missing {key}; read again after repairing the source."))
 }
 
-fn file(path: &Path) -> Result<String, String> {
-    if !fs::metadata(path).is_ok_and(|m| m.is_file()) {
-        return Err("Run handoff must be a readable regular file.".into());
-    }
-    let f = fs::File::open(path).map_err(|_| {
-        "PR link unavailable: add an explicit PR URL to this run's handoff.md, then press r."
-            .to_owned()
-    })?;
-    let mut bytes = Vec::new();
-    f.take(256 * 1024 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| "Can't read the run handoff.".to_owned())?;
-    if bytes.len() > 256 * 1024 {
-        return Err("Run handoff exceeds 256 KiB.".into());
-    }
-    String::from_utf8(bytes).map_err(|_| "Run handoff isn't UTF-8.".into())
-}
-
-/// Exactly one canonical public GitHub PR link; multiple different links are a conflict.
-fn link(body: &str) -> Result<String, String> {
-    let re =
-        regex::Regex::new(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*")
-            .unwrap();
-    let mut urls = Vec::new();
-    for found in re.find_iter(body) {
-        let tail = &body[found.end()..];
-        if tail
-            .chars()
-            .next()
-            .is_some_and(|c| !c.is_whitespace() && !matches!(c, ')' | '>' | ']' | '"' | '\'' | '`'))
-        {
-            return Err("PR link is not a canonical GitHub pull request URL.".into());
-        }
-        let url = found.as_str().to_owned();
-        if !urls.contains(&url) {
-            urls.push(url);
-        }
-    }
-    match urls.as_slice() {
-        [url] => Ok(url.clone()),
-        [] => Err(
-            "PR link missing: add an explicit PR URL to this run's handoff.md, then press r."
-                .into(),
-        ),
-        _ => Err(
-            "Conflicting PR links in this run's handoff.md; resolve them externally, then press r."
-                .into(),
-        ),
-    }
-}
-
 fn commit(v: &Value) -> Option<&str> {
     v.as_str()
         .filter(|s| s.len() == 40 && s.bytes().all(|b| b.is_ascii_hexdigit()))
@@ -125,7 +73,7 @@ fn gate_words(stage: u64, status: &str) -> String {
     }
 }
 
-fn local(run: &Value, row: &mut ResultRow) -> Result<(), String> {
+fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
     let verification = &run["verification"];
     let receipt_head = commit(&verification["candidate"]["head"]);
     let exact = receipt_head.is_some() && receipt_head == row.head.as_deref();
@@ -188,6 +136,7 @@ fn local(run: &Value, row: &mut ResultRow) -> Result<(), String> {
             None => false,
             Some(v) => v.as_bool().ok_or("Provisional state unreadable.")?,
         };
+        let automatic_evidence = automatic.then(|| evidence::automated(root, &row.slug, run, item));
         let old_pass = status == "passed" || (automatic && verification["result"] == "passed");
         let state = match status {
             _ if pending => "pending (not activated)",
@@ -196,6 +145,9 @@ fn local(run: &Value, row: &mut ResultRow) -> Result<(), String> {
             }
             _ if row.head.is_none() => "pending (result revision unknown)",
             _ if old_pass && (!exact || !current) => "stale",
+            "passed" if automatic_evidence.as_ref().is_some_and(Result::is_err) => {
+                "pending (evidence unavailable)"
+            }
             "passed" if !automatic && recheck => "pass (may need recheck)",
             "passed" => "pass",
             "failed" if exact => "fail",
@@ -210,13 +162,13 @@ fn local(run: &Value, row: &mut ResultRow) -> Result<(), String> {
                 label.clone()
             });
         }
-        let evidence = if automatic {
-            if current && exact {
-                "API 1 verification receipt and its checked log".to_owned()
-            } else if old_pass {
-                "Earlier verification is history, not a matching pass".into()
-            } else {
-                "No matching successful verification receipt".into()
+        let evidence = if let Some(evidence) = automatic_evidence {
+            match evidence {
+                Ok(pointer) if old_pass && (!exact || !current) => {
+                    format!("Earlier verification (history): {pointer}")
+                }
+                Ok(pointer) => pointer,
+                Err(why) => format!("Evidence unresolved: {why}"),
             }
         } else {
             mark["evidence"]
@@ -250,7 +202,7 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
             .to_owned(),
     );
     if pr["url"].as_str() != row.url.as_deref() {
-        return Err("PR identity disagrees with the handoff link.".into());
+        return Err("PR identity disagrees with the explicit input.".into());
     }
     for check in pr["statusCheckRollup"]
         .as_array()
@@ -320,8 +272,12 @@ fn gh(root: &Path, url: &str, stop: &AtomicBool) -> Result<Value, String> {
     serde_json::from_str(&out).map_err(|_| "GitHub report unreadable.".into())
 }
 
-/// Read API 1 plus explicit run-local PR links, serially; cancellation never publishes a late row.
-pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<Vec<ResultRow>, String> {
+/// Read API 1 plus deliberately mapped PRs, serially; cancellation never publishes a late row.
+pub(super) fn collect(
+    root: &Path,
+    stop: &AtomicBool,
+    links: &ResultLinks,
+) -> Result<Vec<ResultRow>, String> {
     if !root.join(sdlc::SCRIPT).is_file() {
         return Err("Named checkout has no tink-sdlc status reader.".into());
     }
@@ -359,7 +315,7 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<Vec<ResultRow>, 
             gates: Vec::new(),
             gaps: Vec::new(),
         };
-        if summary["verification_status"] == "invalid" || row.id.is_empty() {
+        if summary["verification_status"] == "invalid" || !canonical_run_id(&row.id) {
             row.gaps
                 .push("Run identity unavailable; repair the run externally, then press r.".into());
             rows.push(row);
@@ -387,39 +343,24 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<Vec<ResultRow>, 
             .as_str()
             .unwrap_or("unknown seed")
             .into();
-        let path = root.join("runs").join(slug).join("handoff.md");
-        let handoff = path
-            .canonicalize()
-            .ok()
-            .filter(|p| p.starts_with(root.join("runs").join(slug)));
-        let body = handoff
-            .as_deref()
-            .ok_or_else(|| "Run handoff missing or outside this run.".to_owned())
-            .and_then(file);
-        let result = body
-            .as_ref()
-            .map_err(Clone::clone)
-            .and_then(|body| link(body));
+        let result = links.url(&row.id);
         match result {
             Err(why) => row.gaps.push(why),
             Ok(url) => {
                 row.url = Some(url.clone());
                 match gh(&root, &url, stop) {
                     Ok(pr) => {
-                        if pr["url"].as_str() != row.url.as_deref() { return Err("PR identity disagrees with the run handoff; press r after repairing the source.".into()); }
+                        if pr["url"].as_str() != row.url.as_deref() { return Err("PR identity disagrees with the explicit input; check the mapping and press r.".into()); }
                         if !matches!(pr["state"].as_str(), Some("OPEN" | "CLOSED" | "MERGED")) { return Err("Unknown PR state.".into()); }
                         if pr["state"] != "OPEN" { continue; }
                         if let Err(why) = remote(&pr, &mut row) { row.head = None; row.items.clear(); row.gaps.push(why); }
                     }
                     Err(_) => row.gaps.push("Couldn't read GitHub. Check gh authentication/access, then press r; result revision unknown.".into()),
                 }
-                if handoff.as_deref().and_then(|p| file(p).ok()).as_ref() != body.as_ref().ok() {
-                    return Err("Run handoff changed while reading; press r.".into());
-                }
             }
         }
         let supporting_checks = std::mem::take(&mut row.items);
-        local(run, &mut row)?;
+        local(&root, run, &mut row)?;
         row.items.extend(supporting_checks);
         if sdlc::goal(run) != row.goal {
             return Err("Original goal changed while reading; press r.".into());
@@ -436,8 +377,8 @@ mod tests {
 
     fn row() -> ResultRow {
         ResultRow {
-            id: "TEST-id".into(),
-            slug: "TEST-run".into(),
+            id: "00000000-0000-4000-8000-000000000114".into(),
+            slug: "TEST-result".into(),
             goal: Goal::Unknown,
             url: Some("https://github.com/TEST/example/pull/1".into()),
             head: Some("a".repeat(40)),
@@ -449,23 +390,19 @@ mod tests {
     }
 
     fn run() -> Value {
-        json!({"verification_status":"current", "verification": {
-            "result":"passed", "passed":true, "candidate":{"head":"a".repeat(40), "tree":"TEST-tree"}},
-            "gates":[{"stage":3,"status":"stale"}], "errors":[], "checklist":[
-                {"id":"seed-1", "verify":"TEST allocation works", "automatic":true,
-                 "proof":"automated", "status":"passed", "needs_recheck":false,"mark":null},
-                {"id":"seed-2", "verify":"confirm no clinical claims", "automatic":false,
-                 "proof":"attested", "status":"pending", "needs_recheck":false,"mark":null}]})
+        serde_json::from_str::<Value>(include_str!("../../tests/fixtures/taste-api1.json")).unwrap()
+            ["detail"]["run"]
+            .clone()
     }
 
     #[test]
     fn a_new_result_commit_stales_earlier_pass_claims_even_if_source_says_current() {
         let mut current = row();
-        local(&run(), &mut current).unwrap();
+        local(Path::new("/TEST"), &run(), &mut current).unwrap();
         assert_eq!(current.items[0].state, "pass");
         let mut changed = row();
         changed.head = Some("b".repeat(40));
-        local(&run(), &mut changed).unwrap();
+        local(Path::new("/TEST"), &run(), &mut changed).unwrap();
         assert_eq!(changed.items[0].state, "stale");
         assert!(changed.items[0].evidence.contains("history"));
         assert!(changed.gates.contains(&"re-approve the plan".into()));
@@ -477,13 +414,13 @@ mod tests {
     fn absent_identity_is_unknown_not_stale_and_source_staleness_removes_green() {
         let mut unknown = row();
         unknown.head = None;
-        local(&run(), &mut unknown).unwrap();
+        local(Path::new("/TEST"), &run(), &mut unknown).unwrap();
         assert!(unknown.items[0].state.starts_with("pending"));
         let mut source = run();
         source["verification_status"] = json!("stale");
         source["verification"]["passed"] = json!(false);
         let mut old = row();
-        local(&source, &mut old).unwrap();
+        local(Path::new("/TEST"), &source, &mut old).unwrap();
         assert_eq!(old.items[0].state, "stale");
     }
 
@@ -493,11 +430,11 @@ mod tests {
         source["checklist"][0]["status"] = json!("failed");
         source["verification"]["result"] = json!("failed");
         let mut failed = row();
-        local(&source, &mut failed).unwrap();
+        local(Path::new("/TEST"), &source, &mut failed).unwrap();
         assert_eq!(failed.items[0].state, "fail");
         source["checklist"][0]["pending"] = json!(true);
         let mut provisional = row();
-        local(&source, &mut provisional).unwrap();
+        local(Path::new("/TEST"), &source, &mut provisional).unwrap();
         assert!(provisional.items[0].state.starts_with("pending"));
         for head in [Some("a".repeat(40)), None] {
             let mut unknown = run();
@@ -505,7 +442,7 @@ mod tests {
             unknown["checklist"][0]["pending"] = json!(true);
             let mut target = row();
             target.head = head;
-            assert!(local(&unknown, &mut target).is_err());
+            assert!(local(Path::new("/TEST"), &unknown, &mut target).is_err());
         }
         for field in [
             "status",
@@ -520,31 +457,59 @@ mod tests {
                 .as_object_mut()
                 .unwrap()
                 .remove(field);
-            assert!(local(&broken, &mut row()).is_err(), "{field}");
+            assert!(
+                local(Path::new("/TEST"), &broken, &mut row()).is_err(),
+                "{field}"
+            );
         }
     }
 
     #[test]
-    fn explicit_links_only_and_conflicts_are_refused() {
-        let dir = tempfile::Builder::new()
-            .prefix("tinkery-TEST-handoff-")
-            .tempdir()
-            .unwrap();
-        assert!(file(dir.path()).is_err());
-        let path = dir.path().join("handoff.md");
-        fs::write(&path, vec![b'x'; 256 * 1024 + 1]).unwrap();
-        assert!(file(&path).is_err());
-        let url = "https://github.com/TEST/example/pull/1";
-        assert_eq!(link(&format!("PR: [{url}]({url})")).unwrap(), url);
-        for text in [
-            "TEST no result",
-            "https://evil.test/TEST/example/pull/1",
-            "https://github.com/TEST/example/pull/1/merge",
-            "https://github.com/TEST/example/pull/1?unsafe=1",
-        ] {
-            assert!(link(text).is_err(), "{text}");
+    fn api1_passing_condition_carries_usable_evidence_into_tail_and_both_handoffs() {
+        let mut target = row();
+        target.goal = Goal::Matched(" TEST original goal  \nDone when: Allocation works.".into());
+        local(Path::new("/TEST/checkout"), &run(), &mut target).unwrap();
+        assert_eq!(target.items[0].state, "pass");
+        let pointer = "/TEST/checkout/runs/TEST-result/04-test/output/test-log.md";
+        let tail = super::super::result_lines(&target).join("\n");
+        assert!(
+            tail.contains(pointer) && tail.contains("TEST-allocation-check.py"),
+            "{tail}"
+        );
+        for action in ['a', 'c'] {
+            let copy = super::super::handoff(&target, action).unwrap();
+            assert!(copy.contains(pointer), "{copy}");
+            assert!(copy.contains(r#"argv: ["python3","TEST-allocation-check.py"]"#));
+            assert!(copy.contains(r#"cwd: ".""#));
+            assert!(
+                copy.contains("12b88a9685e1e46a893e9a3e59434d88c663774964346f41ccb1289aa3834d4b")
+            );
+            assert!(!copy.contains("TEST-checked-allocation-success"));
         }
-        assert!(link(&format!("{url}\nhttps://github.com/TEST/example/pull/2")).is_err());
+    }
+
+    #[test]
+    fn current_matching_pass_without_safe_actionable_evidence_stays_pending() {
+        for path in [
+            json!(null),
+            json!("/outside/log"),
+            json!("runs/other/04-test/output/test-log.md"),
+        ] {
+            let mut source = run();
+            source["log"]["path"] = path;
+            let mut target = row();
+            local(Path::new("/TEST"), &source, &mut target).unwrap();
+            assert_eq!(target.items[0].state, "pending (evidence unavailable)");
+            assert!(target.items[0].evidence.contains("unresolved"));
+        }
+        let mut source = run();
+        source["checklist"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("check");
+        let mut target = row();
+        local(Path::new("/TEST"), &source, &mut target).unwrap();
+        assert_eq!(target.items[0].state, "pending (evidence unavailable)");
     }
 
     #[test]

@@ -66,8 +66,10 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `status --json` when opened or on `r`, runs waiting on you first. Matched runs show their
   exact saved goal; changed or missing originals stay unknown. It runs only read-only
   status commands and changes no records.
-- **Taste:** menu place 6 uses `--sdlc-root PATH`; `r` explicitly reads runs and their
-  handoff-linked PRs from GitHub. Review the unchanged goal, exact commit, matching
+- **Taste:** menu place 6 uses `--sdlc-root PATH` and repeatable launch-only
+  `--taste-result RUN_ID=PR_URL` inputs (canonical run UUIDv4, full GitHub PR URL).
+  `r` explicitly reads runs and those PRs; handoff prose supplies no links.
+  Review the unchanged goal, exact commit, matching
   check states and plain owed gates. `o` opens the PR; `a`/`c` copy external review
   handoffs, recording no verdict and merging nothing. See [Taste](docs/design/taste.md).
 - **Measure:** `r` explicitly reads this repo's PRs updated in the last 30 days from

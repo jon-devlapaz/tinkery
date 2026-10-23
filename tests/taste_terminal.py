@@ -1,6 +1,5 @@
-"""Taste over synthetic API 1, explicit handoff links and fake gh; no network or providers."""
+"""Taste over synthetic API 1, explicit launch mappings and fake gh; no network or providers."""
 import base64
-import copy
 import fcntl
 import hashlib
 import json
@@ -17,6 +16,8 @@ import test_launch as subprocess
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
+RUN_ID = '00000000-0000-4000-8000-000000000114'
+OTHER_ID = '00000000-0000-4000-8000-000000000115'
 HEAD = 'a' * 40
 NEXT = 'b' * 40
 URL = 'https://github.com/TEST/clinic-tycoon/pull/1'
@@ -48,25 +49,17 @@ def envelope(**value):
 
 
 def fixture(record):
-    row = {'slug': 'TEST-result', 'run_id': '00000000-0000-4000-8000-000000000114',
-           'verification_status': 'current', 'seed_contract': record}
-    item = {'id': 'seed-1', 'verify': 'Allocation works', 'status': 'passed',
-            'automatic': True, 'proof': 'automated', 'needs_recheck': False, 'mark': None}
-    detail = {**row, 'gates': [{'stage': 3, 'status': 'stale'}], 'errors': [],
-              'verification': {'result': 'passed', 'passed': True,
-                               'candidate': {'head': HEAD, 'tree': 'TEST-tree'}},
-              'checklist': [item, {**item, 'id': 'seed-2', 'verify': 'confirm no clinical claims',
-                                  'automatic': False, 'proof': 'attested', 'status': 'pending'}]}
-    pr = {'url': URL, 'headRefOid': HEAD, 'state': 'OPEN', 'statusCheckRollup': [
-        {'__typename': 'CheckRun', 'name': 'TEST CI', 'status': 'COMPLETED', 'conclusion': 'SUCCESS'}]}
-    return {'list': envelope(runs=[row]), 'detail': envelope(run=detail), 'pr': pr}
+    state = json.loads((REPO / 'tests/fixtures/taste-api1.json').read_text())
+    state['list']['runs'][0]['seed_contract'] = record
+    state['detail']['run']['seed_contract'] = record
+    return state
 
 
 def tree(root):
     return {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
 
 
-def journey(width, height, no_color):
+def journey(width, height, no_color, mapping_case='valid'):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-taste-') as directory:
         base = Path(directory).resolve()
         checkout = base / 'TEST-checkout'
@@ -75,7 +68,7 @@ def journey(width, height, no_color):
         (scripts / 'sdlc.py').write_text(FAKE)
         handoff = checkout / 'runs/TEST-result/handoff.md'
         handoff.parent.mkdir(parents=True)
-        handoff.write_text(f'PR: {URL}\n')
+        handoff.write_text(f'Human prose is not a machine interface.\nPR: {URL}\n')
         seed = base / 'TEST-session/seed-contract.md'
         seed.parent.mkdir()
         seed.write_text('TEST seed\n')
@@ -83,6 +76,9 @@ def journey(width, height, no_color):
         record = {'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
                   'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()}
         state = fixture(record)
+        if mapping_case == 'recreated-run':
+            state['list']['runs'][0]['run_id'] = OTHER_ID
+            state['detail']['run']['run_id'] = OTHER_ID
         statefile, log, pid = base / 'state.json', base / 'calls', base / 'pid'
         statefile.write_text(json.dumps(state))
         binary = base / 'bin'
@@ -102,6 +98,13 @@ def journey(width, height, no_color):
             env['NO_COLOR'] = '1'
         args = [str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
                 '--sdlc-root', str(checkout), '--seed-session-root', str(base / 'TEST-sessions')]
+        if mapping_case != 'missing':
+            mapped_id = OTHER_ID if mapping_case == 'other-run' else RUN_ID
+            args += ['--taste-result', f'{mapped_id}={URL}']
+            if mapping_case == 'conflicting':
+                args += ['--taste-result', f'{mapped_id}=https://github.com/TEST/clinic-tycoon/pull/2']
+            else:
+                args += ['--taste-result', f'{mapped_id}={URL}']  # identical declarations agree
         process = subprocess.Popen(args, cwd=base, env=subprocess.environment(env, home=env['HOME']),
                                    stdin=slave, stdout=slave, stderr=slave)
         original = tree(checkout)
@@ -142,6 +145,20 @@ def journey(width, height, no_color):
             assert not calls(), 'help leaked actions'
             send(b'\x1b', 'Press r to read results')
             send(b'r', 'Results waiting on you')
+            if mapping_case != 'valid':
+                assert len(calls()) == 2 and not any('pr' in call for call in calls()), calls()
+                send(b'\r', 'Commit: unknown')
+                assert 'Allocation works: pending' in screen.text(), screen.text()
+                send(b'a', 'Result identity unknown')
+                assert not copied(), 'unmapped or conflicting result was copied'
+                send(b'\x1b', 'Results waiting on you')
+                send(b'\x1b', '1  think')
+                os.write(master, b'q')
+                process.wait(timeout=5)
+                assert process.returncode == 0 and tree(checkout) == original
+                print(json.dumps(dict(journey='Taste mapping refusal', mapping=mapping_case,
+                                      width=width, height=height, no_color=no_color, gh_calls=0)))
+                return
             assert len(calls()) == 3, calls()
             assert all('--web' not in c for c in calls())
             send(b'\r', 'Goal (unchanged)')
@@ -149,21 +166,42 @@ def journey(width, height, no_color):
             assert HEAD in screen.text(), screen.text()
             # Reads and scrolling never launch anything; the whole goal is retained in the copy.
             read_count = len(calls())
-            send(b'\x1b[F', 'API 1 verification receipt')
+            assert 'TEST-checked-allocation-success' not in screen.text(), 'log contents must not be dumped'
+            send(b'\x1b[F', 'Independent review:')
             send(b'a', 'Handoff copied; decide externally.')
             wait(lambda: bool(copied()))
             assert GOAL in copied()[-1] and HEAD in copied()[-1]
+            expected_log = str(checkout / 'runs/TEST-result/04-test/output/test-log.md')
+            assert expected_log in copied()[-1]
+            assert 'argv: ["python3","TEST-allocation-check.py"]' in copied()[-1]
+            assert 'cwd: "."' in copied()[-1]
+            assert state['detail']['run']['verification']['log'] in copied()[-1]
+            assert 'TEST-checked-allocation-success' not in copied()[-1]
             assert 'Acceptance review requested' in copied()[-1]
             assert 're-approve the plan' in copied()[-1] and 'confirm no clinical claims' in copied()[-1]
             assert 'No verdict recorded' in copied()[-1]
             count = len(copied())
             os.write(master, b'c')
             wait(lambda: len(copied()) > count)
-            assert 'Correction requested' in copied()[-1]
+            assert 'Correction requested' in copied()[-1] and expected_log in copied()[-1]
             assert len(calls()) == read_count
             send(b'o', 'PR sent to browser')
             assert calls()[-1] == ['pr', 'view', URL, '--web']
+            # Fully green open PRs still need external human review; never filter them away.
+            state['detail']['run']['gates'][0]['status'] = 'approved'
+            state['detail']['run']['checklist'][1].update(status='passed', mark={'evidence': 'TEST human observation'})
+            update()
+            before_green = len(calls())
+            os.write(master, b'r')
+            wait(lambda: len(calls()) == before_green + 3 and 'Goal (unchanged)' in screen.text()
+                 and 'Reading results' not in screen.text())
+            count = len(copied())
+            os.write(master, b'a')
+            wait(lambda: len(copied()) > count)
+            assert 're-approve the plan' not in copied()[-1]
+            assert 'Allocation works: pass' in copied()[-1] and 'No verdict recorded' in copied()[-1]
             # New commit, still-green old local receipt: the local condition must be stale.
+            state = fixture(record)
             state['pr']['headRefOid'] = NEXT
             state['pr']['statusCheckRollup'] = []
             update()
@@ -171,7 +209,7 @@ def journey(width, height, no_color):
             assert 'Allocation works: stale' in screen.text(), screen.text()
             assert 'Allocation works: pass' not in screen.text()
             assert HEAD not in screen.text(), 'old revision repeated in compact view'
-            send(b'\x1b[F', 'Earlier verification is history')
+            send(b'\x1b[F', 'Independent review:')
             count = len(copied())
             os.write(master, b'c')
             wait(lambda: len(copied()) > count)
@@ -192,19 +230,21 @@ def journey(width, height, no_color):
             send(b'a', 'Goal/run identity unknown')
             assert len(copied()) == count
             seed.write_text('TEST seed\n')
-            # Missing/conflicting handoff and failed remote read remove the result head.
-            for content, expected in [('', 'PR link missing'),
-                                      (f'{URL}\nhttps://github.com/TEST/clinic-tycoon/pull/2\n', 'Conflicting PR links')]:
-                handoff.write_text(content)
-                send(b'r', 'Commit: unknown')
-                send(b'\r', 'Goal (unchanged)')
-                send(b'\x1b[F', expected)
-            handoff.write_text(original['runs/TEST-result/handoff.md'].decode())
+            # Handoff prose is irrelevant, including conflicting links: only launch inputs bind.
+            handoff.write_text(f'{URL}\nhttps://github.com/TEST/decoy/pull/999\n')
+            update()
+            before_prose = len(calls())
+            os.write(master, b'r')
+            wait(lambda: len(calls()) == before_prose + 3 and HEAD in screen.text()
+                 and 'Reading results' not in screen.text())
+            assert calls()[-1][2] == URL, 'handoff prose retargeted the explicit result'
+            handoff.write_bytes(original['runs/TEST-result/handoff.md'])
             state['gh_fail'] = True
             update()
             send(b'r', 'Commit: unknown')
+            send(b'\x1b', 'Results waiting on you')
+            assert "Couldn't read GitHub" in screen.text(), screen.text()
             send(b'\r', 'Goal (unchanged)')
-            send(b'\x1b[F', "Couldn't read GitHub")
             del state['gh_fail']
             update()
             send(b'\x1b', 'Results waiting on you')
@@ -247,3 +287,5 @@ if __name__ == '__main__':
     for dimensions in [(100, 30), (80, 24)]:
         for no_color in (False, True):
             journey(*dimensions, no_color)
+    for case in ['missing', 'conflicting', 'other-run', 'recreated-run']:
+        journey(80, 24, True, case)

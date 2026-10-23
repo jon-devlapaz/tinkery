@@ -93,7 +93,8 @@ or improved outcomes.
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 | `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
 | `sdlc.rs`, `sdlc/run.rs` | Shared read-only API 1 status, exact original-seed matching, cancellable transactions and bounded command ownership; no store, checkout discovery or phase policy. |
-| `taste.rs`, `taste/read.rs` | One result's unchanged goal, revision-bound observations and external copy handoff; explicit run-handoff PR links, read-only status/GitHub reads and deliberate browser navigation, never a verdict or agent launch. |
+| `taste.rs`, `taste/read.rs` | One result's unchanged goal, revision-bound observations and external copy handoff; explicitly mapped PRs, read-only status/GitHub reads and deliberate browser navigation, never a verdict or agent launch. |
+| `taste/links.rs`, `taste/evidence.rs` | Launch-only canonical run-ID/PR inputs with sticky conflict refusal; source-owned log pointers and check methods as evidence references, never prose parsing, a mapping store, log reads or check execution. |
 
 Vendored libraries are path dependencies, not phases: `vendor/pinstar/` owns
 rendering and input primitives and `vendor/graf/` owns graph mechanics. Tend reaches graf
@@ -173,7 +174,10 @@ module map records the boundary (7). No phase dependency or architecture limit c
 Taste keeps revision matching and result selection inside its own phase (6), behind
 open/key/poll/render and copy requests (2). Shared bounded reads hide subprocess lifetime
 without cross-phase dependencies (3); the module map makes the owners visible (7).
-No architecture limit or recorded score changes.
+Explicit typed launch links hide identity validation and conflict policy from the menu
+(2, 6), replacing handoff-prose interpretation rather than adding a store. Evidence
+pointer/method validation stays inside Taste without log reads (3, 6); this map keeps
+both boundaries visible (7). No architecture limit or recorded score changes.
 
 ## Limits enforced by `tests/architecture.rs`
 
