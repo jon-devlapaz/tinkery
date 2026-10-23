@@ -697,6 +697,83 @@ def case(name, width=100, height=30):
             run.close()
 
 
+def supported_question_options(width, height, kind):
+    """#297: scripted questions prove prompt delivery and preservation, not model judgment."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-297-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False)
+        question = {**QUESTION, 'id': 'loan-records', 'label': 'TEST Loan records',
+                    'question': 'How should loans and returns be recorded?',
+                    'found': [], 'suggestion': None, 'options': []}
+        question.pop('supported_by')
+        answer = ('A small single-purpose local tool with a simple local file for persistence. '
+                  'I should use the tool to record loans and returns, without editing the data file by hand.')
+        if kind == 'unknown undo':
+            question.pop('options')
+            question['question'] = 'What access do readers need? Undo costs are unknown.'
+            answer = '  TEST readers use café notes.\r\nKeep the access choice open.  '
+        elif kind == 'hard choice':
+            question.update(question='Keep TEST notes private or publish them publicly?',
+                            suggestion='Keep TEST notes private.', against='TEST public sharing helps readers.',
+                            options=[
+                                {'choice': 'Private', 'tradeoff': 'TEST readers need permission', 'undo': 'cheap'},
+                                {'choice': 'Public', 'tradeoff': 'TEST others can keep copies', 'undo': 'hard'}])
+            question['found'] = [{'id': 'public-copies',
+                                 'claim': {'type': 'observation', 'scope': 'README.md:1'},
+                                 'checked': 'README.md:1',
+                                 'observed': 'TEST public copies cannot be recalled'}]
+            question['supported_by'] = ['public-copies']
+            (cwd / 'README.md').write_text('TEST public copies cannot be recalled.\n')
+            answer = 'TEST keep notes private; do not publish them.'
+        run = Run(cwd, width, height, budget=2, replies=[question, 'FAIL'])
+        try:
+            before = files(run.sessions)
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            assert files(run.sessions) == before and run.calls() == [], 'Opening wrote or called'
+            run.send(F2, question['question'])
+            argv = run.calls()[0]['argv']
+            prompt = argv[argv.index('--system-prompt') + 1]
+            for rule in [
+                    'give exactly two options only for a genuine choice',
+                    'evidence supporting each trade-off and undo cost',
+                    'If properties can coexist or the trade-offs or undo costs are unknown, omit options',
+                    'ask only the unresolved operator decision',
+                    'never invent an alternative or undo cost']:
+                assert rule in prompt, f'Missing #297 prompt rule: {rule}'
+            assert 'With a question, give exactly two real options' not in prompt
+            recorded = next(n for n in helper.load(session)['nodes'] if n['id'] == 'loan-records')
+            if kind == 'hard choice':
+                run.wait("This is hard to undo, so what's your instinct?")
+                for hidden in ('Option A:', 'Suggestion:', 'Against my suggestion:'):
+                    assert hidden not in run.flat(), run.screen.text()
+                assert 'recommendation' not in recorded
+                run.send(F9, 'Here are the options and my suggestion.')
+                run.read_until('Suggestion: Keep TEST notes private.')
+                assert len(run.calls()) == 1, 'Revealing a suggestion called the model'
+            else:
+                assert recorded['question'] == question['question'], recorded
+                assert 'hard to undo' not in run.flat() and 'F9' not in run.flat(), run.screen.text()
+            before = files(run.sessions)
+            run.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'your answer')
+            assert files(run.sessions) == before and len(run.calls()) == 1, 'Typing wrote or called'
+            run.send(F2, 'Your answer is saved. Looking into the next question failed: Pi exited')
+            saved = helper.load(session)
+            answered = next(n for n in saved['nodes'] if n['id'] == 'loan-records')
+            assert answered['answer'] == answer and answered['authority'] == 'user', answered
+            assert len(run.calls()) == 2
+            sent = next(n for n in run.calls()[1]['input']['ledger']['nodes'] if n['id'] == 'loan-records')
+            assert sent['answer'] == answer, sent
+            assert saved['goal'] == GOAL
+            assert not (session / 'seed-contract.md').exists()
+            assert not (session / 'seed-confirmation.json').exists()
+            run.send(F2, "No model calls are left: this run's budget is 2.")
+            assert len(run.calls()) == 2, 'Exhausted budget called the model'
+            print(f'Shape #297 {kind} passed at {width}x{height}: prompt sent, exact answer, 2 stub calls')
+        finally:
+            run.close()
+
+
 def prerequisite_questions(width, height):
     """Prepared A/B ledger: recorded ready questions still precede any model step (#286).
 
@@ -1433,6 +1510,9 @@ def missing_success_before_calls(width, height, no_color):
 
 
 if __name__ == '__main__':
+    for size in [(100, 30), (80, 24)]:
+        for kind in ['compatible properties', 'unknown undo', 'hard choice']:
+            supported_question_options(*size, kind)
     for size in [(100, 30), (80, 24)]:
         for no_color in [False, True]:
             missing_success_before_calls(*size, no_color)

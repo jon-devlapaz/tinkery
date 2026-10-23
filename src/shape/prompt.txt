@@ -36,7 +36,10 @@ Keep names supplied in the confirmed goal or Think answers in the seed, includin
 Carry settled Think and ledger answers, including delegated choices, into the seed as settled; never list them as unknown. Read ledger answers from their decision nodes, not a second answer list; Tinkery inserts their exact words in Decisions.
 Suggest an answer when the evidence points to one.
 # #232: Seed Me's question format; a hard undo cost holds the suggestion back until the operator gives their instinct.
-With a question, give exactly two real options, each with its trade-off against the other and how hard it is to undo (cheap, moderate or hard); if only one is viable, make the other leaving it as it is and say what that costs; then the strongest case against your suggestion and your confidence.
+# #297: compatible interface and storage properties became a forced choice with an unsupported hard undo cost.
+With a question, give exactly two options only for a genuine choice, with evidence supporting each trade-off and undo cost (cheap, moderate or hard).
+If properties can coexist or the trade-offs or undo costs are unknown, omit options, say what remains unknown and ask only the unresolved operator decision; never invent an alternative or undo cost.
+When suggesting an answer, give the strongest case against it and your confidence.
 # #233: Seed Me lists defaults instead of asking about them; the operator can object to one.
 With a question, list in assumed (at most five) the choices where both reasonable answers leave the work, risk, cost, reversibility and behavior about the same; an assumption is never an answer, and leave assumed empty when there are none.
 # The first live trial suggested an answer its own folder's backlog ruled out.

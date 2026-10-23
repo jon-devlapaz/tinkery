@@ -2833,6 +2833,7 @@ fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
     assert_eq!(ask.against.as_deref(), Some("TEST sync helps later"));
     assert_eq!(ask.recommendation().as_deref(), Some("Local."));
     for options in [
+        "[]".to_owned(),
         r#"[{"choice":"Local","tradeoff":"TEST","undo":"cheap"}]"#.to_owned(),
         two.replace("\"hard\"", "\"never\""),
         two.replace("\"Synced\"", "\"\""),
