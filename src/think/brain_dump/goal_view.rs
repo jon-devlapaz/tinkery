@@ -20,9 +20,6 @@ const RECORD_FAILED: &str = "The think record wasn't written; F1 then h shows wh
 const HANDOFF_FAILED: &str = "Handoff not complete:";
 /// What review shows for a save that didn't finish, short enough for the narrowest pane.
 const HANDOFF_FAILED_TEXT: &str = "Handoff not complete. F1 then h shows why; Enter retries.";
-/// A launch declaration alone cannot authorize durable agent work.
-pub(super) const DELEGATED_SAVE_HELD: &str =
-    "Agent saving needs --agent-confirmation FILE. Nothing saved; Esc goes back.";
 
 /// The goal under review and everything think records with it.
 #[derive(Clone)]
@@ -94,7 +91,6 @@ impl BrainDump {
     /// authorization is inferred; invalid or late changes refuse without losing words or review.
     /// Named context is visit-scoped; a terminal launch declaration instead stays frozen across
     /// visits in this session. Neither grants seed confirmation or implementation approval.
-    /// Named agent context must satisfy the scoped delegation rules; launch kind alone cannot save.
     pub fn set_goal_confirmation(
         &mut self,
         confirmation: record::GoalConfirmation,
@@ -124,10 +120,6 @@ impl BrainDump {
             .review
             .as_ref()
             .map_or(&self.handoff.confirmation, |r| &r.affirmation.confirmation)
-    }
-    /// Whether the frozen review lacks the named authority required for agent saving.
-    pub(super) fn delegated_goal_save_held(&self) -> bool {
-        self.handoff.review.is_some() && self.goal_confirmation().saving_held()
     }
     /// Saves confirmed goals under `root` or the checked HOME default,
     /// default. Without this, review explains that saving needs it.
@@ -366,16 +358,10 @@ impl BrainDump {
             KeyCode::Backspace => {
                 review.input.pop();
             }
-            // A held review takes no words: typing confirm couldn't save.
             KeyCode::Char(c)
-                if !key.modifiers.contains(KeyModifiers::CONTROL)
-                    && review.input.len() < 32
-                    && !review.affirmation.confirmation.saving_held() =>
+                if !key.modifiers.contains(KeyModifiers::CONTROL) && review.input.len() < 32 =>
             {
                 review.input.push(c)
-            }
-            KeyCode::Enter if review.affirmation.confirmation.saving_held() => {
-                self.refuse(DELEGATED_SAVE_HELD);
             }
             KeyCode::Enter if review.input == "confirm" && review.scroll >= review.max => {
                 let config = self.handoff.config.clone().unwrap();
@@ -401,10 +387,7 @@ impl BrainDump {
             return true;
         }
         if let Some(review) = self.handoff.review.as_mut() {
-            if text.chars().all(|c| !c.is_control())
-                && review.input.len() + text.len() <= 32
-                && !review.affirmation.confirmation.saving_held()
-            {
+            if text.chars().all(|c| !c.is_control()) && review.input.len() + text.len() <= 32 {
                 review.input.push_str(text);
             }
             return true;
@@ -469,8 +452,6 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         "Saving…".into()
     } else if app.notice.starts_with(HANDOFF_FAILED) {
         HANDOFF_FAILED_TEXT.into()
-    } else if review.affirmation.confirmation.saving_held() {
-        DELEGATED_SAVE_HELD.into()
     } else {
         instruction.clone()
     };

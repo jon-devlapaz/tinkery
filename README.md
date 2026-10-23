@@ -48,8 +48,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   ([terminal setup](docs/terminal-setup.md#launch)), `--shape-budget CALLS` (default zero)
   allows agent steps. `F2` saves an answer and lets an agent investigate the next with
   read-only tools; `F3` confirms the seed in your words once you've read it to the end.
-  Agents can operate Think and Shape with [named confirmation context](docs/design/think.md#confirmation-attribution-185);
-  `--operator agent` alone stays read-only. `F5` shows the whole goal and decisions.
+  Agents operate Think and Shape with `--operator agent`; their saves are
+  [recorded as the agent's](docs/design/think.md#confirmation-attribution-185). `F5` shows the whole goal and decisions.
   `F7` objects to an assumed default on a question, or opens optional one-call teach-back
   on a draft; mismatches don't block `F3`. On a hard-to-undo question, `F9` shows the
   options and suggestion after your instinct. `F6` twice completes a session whose seed is

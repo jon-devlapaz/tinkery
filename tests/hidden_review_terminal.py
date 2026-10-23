@@ -1,5 +1,4 @@
 """Visible review is required for confirmation; real PTY, TEST roots, stub providers."""
-import copy
 import fcntl
 import json
 import os
@@ -10,11 +9,11 @@ import tempfile
 import termios
 import time
 from pathlib import Path
-from agent_operation_terminal import ACTOR
+from agent_operation_terminal import ACTOR, LONG_WHY
 from shape_answer_terminal import Run, F2, F3, helper
 from vt_screen import Screen
 
-GOAL = 'I keep refusals calm.\nWhy: the work is stuck.\nDone when: Refusals never show private text.'
+GOAL = f'I keep refusals calm.\nWhy: {LONG_WHY}.\nDone when: Refusals never show private text.'
 
 
 def pump(run, seconds=.2):
@@ -55,9 +54,8 @@ def input_is(run, word):
 
 def journey(width, height, read=False, supported=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-hidden-review-') as directory:
-        actor = copy.deepcopy(ACTOR)
-        actor['source'] += ' TEST permission covers this temporary goal only.' * 40
-        run = Run(Path(directory), 100, 30, 0, authorization=actor)
+        actor = ACTOR
+        run = Run(Path(directory), 100, 30, 0, agent=True, why=LONG_WHY)
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")
@@ -67,7 +65,7 @@ def journey(width, height, read=False, supported=False):
             run.send(F2, "Nothing I'm unsure about")
             run.send(F3, 'type confirm')
             if read:
-                run.send(b'\x1b[6~' * 200, 'blast radius: small')
+                run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
             word = 'confirm' if read else 'conf'
             os.write(run.master, word.encode())
             input_is(run, word)
@@ -92,7 +90,7 @@ def journey(width, height, read=False, supported=False):
                     no_save(run)
                     input_is(run, 'confirm')
             if supported or not read:
-                run.send(b'\x1b[6~' * 200, 'blast radius: small')
+                run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
                 run.send(b'\r', 'Saved.')
             else:
                 run.wait('Saved.')
@@ -113,7 +111,7 @@ def journey(width, height, read=False, supported=False):
 
 def stale_mouse(input_first):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-resized-mouse-') as directory:
-        run = Run(Path(directory), 100, 30, 0, authorization=ACTOR)
+        run = Run(Path(directory), 100, 30, 0, agent=True)
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")

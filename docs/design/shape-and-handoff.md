@@ -540,8 +540,8 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   unconfirmed records, never a verified handoff.
   These are drafting instructions, not a semantic completeness validator: stubs prove
   transport and preservation, not model quality or operator dogfood.
-- Agent actions require the [named confirmation context](think.md#confirmation-attribution-185).
-  Records name the acting agent and authorizing operator; seed confirmation never claims a human keypress.
+- Agent actions require `--operator agent` and [are recorded as the agent's](think.md#confirmation-attribution-185);
+  seed confirmation never claims a human keypress.
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
   Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, F3 says

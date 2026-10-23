@@ -73,7 +73,7 @@ pub struct Home {
     repo: Option<crate::repo::Repo>,
     shape_agent: Option<Arc<crate::shape::Agent>>,
     sdlc_root: Option<PathBuf>,
-    /// An agent launch without named confirmation context: Shape only reads.
+    /// An agent launch without --shape-pi: Shape only reads.
     shape_held: bool,
     approve_reader: approve::Reader,
 }

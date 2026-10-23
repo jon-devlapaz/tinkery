@@ -250,3 +250,22 @@ fn declared_attribution_display_escapes_controls_without_changing_the_source() {
     assert_eq!(json["agent"], "TEST-agent\u{202e}\x1b");
     assert_eq!(json["source"], "TEST exact\tquote\nsecond line");
 }
+
+#[test]
+fn agent_declaration_alone_writes_as_the_agent_never_the_operator() {
+    let agent = GoalConfirmation::terminal(Some("agent")).unwrap();
+    let actor = agent.actor().unwrap();
+    assert_eq!(actor.session_operator(), "agent");
+    assert_eq!(actor.authority(), "delegated");
+    assert!(actor.reason("answered").starts_with("The agent answered"));
+    assert_eq!(
+        actor.delegation(),
+        Some(serde_json::json!({"agent": "agent"}))
+    );
+    for operator in [Some("human"), None] {
+        let confirmation = GoalConfirmation::terminal(operator).unwrap();
+        let actor = confirmation.actor().unwrap();
+        assert_eq!(actor.session_operator(), "human");
+        assert!(actor.delegation().is_none());
+    }
+}

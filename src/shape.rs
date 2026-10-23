@@ -52,9 +52,8 @@ use words::Words;
 
 /// The widest Shape's open view gets, so lines stay readable on a wide terminal.
 const WIDTH: u16 = 76;
-/// Why an agent launch without named authorization only reads.
-const HELD: &str =
-    "Agent operation needs --agent-confirmation FILE. Shape only reads; Esc goes back.";
+/// Why an agent launch without a drafting model only reads: its answers would have no agent attribution.
+const HELD: &str = "An agent answers Shape with --shape-pi. Shape only reads; Esc goes back.";
 /// F3 before the whole seed draft has been on screen.
 const READ_FIRST: &str = "PgDn to 'End of seed' first. Nothing was confirmed.";
 /// Refusals about the typed words; changing the words clears them.
@@ -79,7 +78,7 @@ pub struct Shape {
     /// Rows of reading on screen at the last draw, for PgUp/PgDn.
     page: u16,
     agent: Option<Arc<Agent>>,
-    /// An agent launch without named confirmation context: Shape only reads.
+    /// An agent launch without --shape-pi: Shape only reads.
     held: bool,
     copy: Option<String>,
 }
@@ -216,7 +215,7 @@ impl Shape {
         self
     }
 
-    /// The same Shape without the named context required for agent operation: it only reads.
+    /// The same Shape for an agent launch without agent attribution for its writes: it only reads.
     /// Answering, confirming and ending are held, and explain what is missing.
     pub fn held(mut self, held: bool) -> Self {
         self.held = held;
@@ -840,7 +839,8 @@ impl Shape {
         let ends =
             "F6 (seed ready) or F8 (still shaping), pressed twice, ends the session for good.";
         let promise = if self.held {
-            "Shape reads and calls no model. Agent operation needs --agent-confirmation FILE; Esc goes back.".to_owned()
+            "Shape reads and calls no model. An agent answers Shape with --shape-pi; Esc goes back."
+                .to_owned()
         } else if agent.is_some() {
             format!(
                 "Opening, scrolling and typing write nothing. F2 saves an answer, F11 saves a deferral, or F12 delegates the suggestion, then looks into the next; \

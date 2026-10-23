@@ -449,21 +449,21 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
                 "delegation is only allowed on a delegated goal origin in a human or agent session",
             )?;
             let delegation = &node["delegation"];
+            let named = [
+                "agent",
+                "authorizing_operator",
+                "authorization_source",
+                "door",
+                "blast_radius",
+            ];
             require(
-                exact(
-                    delegation,
-                    &[
-                        "agent",
-                        "authorizing_operator",
-                        "authorization_source",
-                        "door",
-                        "blast_radius",
-                    ],
-                ) && delegation.fields().iter().all(|(_, v)| text(v)),
-                "delegated origin requires agent, authorizing_operator, authorization_source, door and blast_radius",
+                (exact(delegation, &["agent"]) || exact(delegation, &named))
+                    && delegation.fields().iter().all(|(_, v)| text(v)),
+                "delegated origin requires the agent, plus all named fields when any is given",
             )?;
             require(
-                delegation["door"].is("two-way") && delegation["blast_radius"].is("small"),
+                !delegation.has("door")
+                    || (delegation["door"].is("two-way") && delegation["blast_radius"].is("small")),
                 "delegated origin requires a two-way door and small blast radius",
             )?;
         }
