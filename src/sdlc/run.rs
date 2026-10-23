@@ -37,11 +37,19 @@ impl<T: Send + 'static> Read<T> {
         deadline: Duration,
         prepare: fn(&str) -> Result<T, String>,
     ) -> Self {
+        let root = root.to_path_buf();
+        Self::task(move |stop| run(&root, &args, stop, deadline).and_then(|out| prepare(&out)))
+    }
+
+    /// Own a cancellable read transaction; dropping it waits for its bounded helpers to stop.
+    pub(crate) fn task(
+        work: impl FnOnce(&AtomicBool) -> Result<T, String> + Send + 'static,
+    ) -> Self {
         let cancel = Arc::new(AtomicBool::new(false));
         let (send, result) = mpsc::channel();
-        let (root, stop) = (root.to_path_buf(), cancel.clone());
+        let stop = cancel.clone();
         let worker = thread::spawn(move || {
-            let outcome = run(&root, &args, &stop, deadline).and_then(|out| prepare(&out));
+            let outcome = work(&stop);
             if !stop.load(Ordering::SeqCst) {
                 let _ = send.send(outcome);
             }
@@ -75,15 +83,26 @@ impl<T> Drop for Read<T> {
 }
 
 /// One synchronous bounded status read for an existing worker; cancellation stops its process.
-pub(super) fn run(
+pub(crate) fn run(
     root: &Path,
     args: &[String],
     cancel: &AtomicBool,
     deadline: Duration,
 ) -> Result<String, String> {
-    let mut child = Command::new("python3")
-        .arg(SCRIPT)
-        .args(args)
+    let mut command = Command::new("python3");
+    command.arg(SCRIPT).args(args);
+    execute(root, command, cancel, deadline)
+}
+
+/// Execute one already-constructed read or explicit navigation command without a shell.
+/// Output, cancellation and process lifetime have the same bounds as status reads.
+pub(crate) fn execute(
+    root: &Path,
+    mut command: Command,
+    cancel: &AtomicBool,
+    deadline: Duration,
+) -> Result<String, String> {
+    let mut child = command
         .current_dir(root)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

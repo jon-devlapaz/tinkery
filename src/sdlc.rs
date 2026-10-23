@@ -5,7 +5,7 @@ mod run;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use run::{DEADLINE, Read, SCRIPT};
+pub(crate) use run::{DEADLINE, Read, SCRIPT, execute, run as status};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{

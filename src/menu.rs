@@ -1,7 +1,7 @@
 //! The home menu: the operator's seven places, in pipeline order.
 //!
-//! think · tend · shape · approve · watch · taste · measure. Five are touches, two are views. Only think,
-//! tend, shape, approve, watch and measure are built; the others say so plainly. Nothing here starts or steers an agent.
+//! think · tend · shape · approve · watch · taste · measure. Each place has its own boundary.
+//! Nothing here starts or steers an agent.
 
 use std::{
     path::{Path, PathBuf},
@@ -12,6 +12,7 @@ use std::{
 use crate::{
     Palette, approve, measure, seed_me,
     shape::{Leave, Shape},
+    taste::Taste,
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump, Exit},
     watch::Watch,
@@ -43,8 +44,8 @@ pub const PLACES: [(&str, &str, bool); 7] = [
     ),
     (
         "taste",
-        "Decide whether the result meets your goal. Not built yet.",
-        false,
+        "Review one result against your unchanged goal.",
+        true,
     ),
     ("measure", "See this repo's pull requests.", true),
 ];
@@ -87,6 +88,7 @@ enum View {
     Approve(Box<approve::Approve>),
     Measure(Box<measure::Measure>),
     Watch(Box<Watch>),
+    Taste(Box<Taste>),
     Soon(usize),
 }
 
@@ -130,7 +132,7 @@ impl Home {
         self
     }
 
-    /// The one tink-sdlc checkout watch reads; without it, watch says how to name one.
+    /// The one tink-sdlc checkout the read-only run views use; absent roots explain configuration.
     pub fn with_sdlc_root(mut self, root: Option<PathBuf>) -> Self {
         self.sdlc_root = root;
         self
@@ -204,6 +206,9 @@ impl Home {
         }
         if let View::Measure(measure) = &mut self.view {
             measure.poll();
+        }
+        if let View::Taste(taste) = &mut self.view {
+            taste.poll();
         }
         if !self.discovery.requested() {
             self.request_sessions();
@@ -395,6 +400,7 @@ impl Home {
             View::Tend(tend) => tend.copy.take(),
             View::Shape(shape, _) => shape.take_copy_request(),
             View::Approve(view) => view.take_copy_request(),
+            View::Taste(view) => view.take_copy_request(),
             _ => None,
         }
     }
@@ -405,6 +411,7 @@ impl Home {
             View::Think(dump) => dump.copy_result(sent),
             View::Shape(shape, _) => shape.copy_result(sent),
             View::Approve(view) => view.copy_result(sent),
+            View::Taste(view) => view.copy_result(sent),
             View::Tend(tend) => {
                 tend.notice = if sent {
                     "Copied."
@@ -450,6 +457,7 @@ impl Home {
                 View::Approve(Box::new(approve::Approve::open(self.sdlc_root.clone())))
             }
             4 => View::Watch(Box::new(Watch::open(self.sdlc_root.clone()))),
+            5 => View::Taste(Box::new(Taste::open(self.sdlc_root.clone()))),
             6 => View::Measure(Box::new(measure::Measure::open(self.repo.clone()))),
             other => View::Soon(other),
         };
@@ -589,7 +597,7 @@ impl Home {
             self.shape_key(key);
             return;
         }
-        if matches!(self.view, View::Watch(_)) && key.code == KeyCode::F(10) {
+        if matches!(self.view, View::Watch(_) | View::Taste(_)) && key.code == KeyCode::F(10) {
             if key.modifiers == KeyModifiers::NONE && key.kind == KeyEventKind::Press {
                 self.help = false;
                 self.view = View::Menu;
@@ -700,6 +708,16 @@ impl Home {
                     return;
                 }
                 if watch.key(key) {
+                    self.view = View::Menu;
+                }
+            }
+            View::Taste(taste) => {
+                if self.help {
+                    if key.code == KeyCode::Char('q') {
+                        self.help = false;
+                        self.view = View::Menu;
+                    }
+                } else if taste.key(key) {
                     self.view = View::Menu;
                 }
             }
@@ -851,6 +869,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Approve(_) => "tinkery › approve".into(),
         View::Measure(measure) => measure.title(),
         View::Watch(_) => "tinkery › watch".into(),
+        View::Taste(_) => "tinkery › taste".into(),
         View::Soon(i) => format!("tinkery › {}", PLACES[*i].0),
         View::Think(_) => unreachable!(),
     };
@@ -888,6 +907,15 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             shape.render_help(frame, body, palette);
             return;
         }
+        if let View::Taste(taste) = &home.view {
+            frame.render_widget(
+                Paragraph::new(taste.help_text())
+                    .style(palette.ink)
+                    .wrap(Wrap { trim: false }),
+                body,
+            );
+            return;
+        }
         if let View::Watch(watch) = &home.view {
             frame.render_widget(
                 Paragraph::new(watch.help_text())
@@ -909,7 +937,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             return;
         }
         // Unbuilt places use the shared help; q goes back.
-        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure this repo's pull requests\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste: not built yet\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure this repo's pull requests\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste    results and external review handoffs\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -973,6 +1001,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Shape(shape, _) => shape.render(frame, body, palette),
         View::Measure(_) => unreachable!(),
         View::Watch(watch) => watch.render(frame, body, palette),
+        View::Taste(taste) => taste.render(frame, body, palette),
         View::Soon(i) => frame.render_widget(
             Paragraph::new(format!("{}\n\nNot built yet. Esc goes back.", PLACES[*i].1))
                 .style(palette.muted),
@@ -1292,7 +1321,7 @@ mod tests {
             "Answer Shape's questions and confirm a seed.",
             "Start a shaped goal in tink-sdlc.",
             "See the runs in your tink-sdlc checkout, read-only.",
-            "Decide whether the result meets your goal. Not built yet.",
+            "Review one result against your unchanged goal.",
             "See this repo's pull requests.",
         ];
         for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {

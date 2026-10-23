@@ -24,8 +24,8 @@ work. Measure's former [failure presentation](https://github.com/jon-devlapaz/ti
 and [owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) are retired.
 The module map below describes responsibilities; `MODULES` owns area assignments.
 
-[Shape](shape-and-handoff.md#shape), [Approve](approve.md) and [Watch](watch.md) have separate modules. Taste will
-get its own module when built. There are no dependency exceptions: Think hands
+[Shape](shape-and-handoff.md#shape), [Approve](approve.md), [Watch](watch.md) and
+[Taste](taste.md) have separate modules. There are no dependency exceptions: Think hands
 saved goals to Tend only through `seed_me`. The menu alone connects Shape and Tend.
 
 ## Factory boundaries
@@ -92,7 +92,8 @@ or improved outcomes.
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 | `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
-| `sdlc.rs`, `sdlc/run.rs` | Shared read-only API 1 status, exact original-seed matching and bounded process ownership; no store, checkout discovery or phase policy. |
+| `sdlc.rs`, `sdlc/run.rs` | Shared read-only API 1 status, exact original-seed matching, cancellable transactions and bounded command ownership; no store, checkout discovery or phase policy. |
+| `taste.rs`, `taste/read.rs` | One result's unchanged goal, revision-bound observations and external copy handoff; explicit run-handoff PR links, read-only status/GitHub reads and deliberate browser navigation, never a verdict or agent launch. |
 
 Vendored libraries are path dependencies, not phases: `vendor/pinstar/` owns
 rendering and input primitives and `vendor/graf/` owns graph mechanics. Tend reaches graf
@@ -168,6 +169,11 @@ No diagnostic worsens; no architecture limit or recorded score is loosened.
 Measure's PR reader hides GitHub process limits and cancellation from rendering (3, 6).
 The phase owns selection and evidence semantics behind open/key/poll/render (2); the
 module map records the boundary (7). No phase dependency or architecture limit changes.
+
+Taste keeps revision matching and result selection inside its own phase (6), behind
+open/key/poll/render and copy requests (2). Shared bounded reads hide subprocess lifetime
+without cross-phase dependencies (3); the module map makes the owners visible (7).
+No architecture limit or recorded score changes.
 
 ## Limits enforced by `tests/architecture.rs`
 

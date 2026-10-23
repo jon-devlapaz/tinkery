@@ -7,7 +7,7 @@
 | 3 | shape | Read seed status; with a model and budget, answer and confirm ([Shape](shape-and-handoff.md#shape)). |
 | 4 | approve | Read verified seeds not yet started and copy one runnable manual intake command ([Approve](approve.md)). |
 | 5 | watch | Read runs with their matched goals in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
-| 6 | taste | Not built. No end-report or review integration exists. |
+| 6 | taste | Review an exact result against its unchanged goal; open its PR or copy an external review handoff ([Taste](taste.md)). |
 | 7 | measure | This repo's recent pull requests, read from GitHub only on explicit request; no metrics or acceptance claims. |
 
 Only selection reveals a description; [menu.rs](../../src/menu.rs) owns the copy.
@@ -80,8 +80,8 @@ effort proposals [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
 
 ## Direction, not built behavior
 
-Approve prepares manual intake; Watch shows read-only progress. Future Taste supports
-evidence-based review. Use session, run, ledger and PR artifacts, not harness
+Approve prepares manual intake; Watch shows read-only progress. [Taste](taste.md) supports
+evidence-based review without an in-app verdict. Use session, run, ledger and PR artifacts, not harness
 self-report. Missing sources stay unknown. Add no run-now, skip-review or global
 auto-merge switch. Future launching requires separate seed confirmation and
 externally enforced gates; menu navigation launches no agents.
