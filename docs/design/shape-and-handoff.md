@@ -574,6 +574,11 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 
 ### Options and instinct first
 
+The [drafting prompt](../../src/shape/prompt.txt) offers options only for a genuine choice
+with supported trade-offs and undo costs. Compatible properties or unknown costs use the
+existing question without options; the unresolved operator decision still gets asked.
+These instructions do not validate model judgment; improvement needs a separately budgeted comparison.
+
 A question reply may give exactly two options, each with its trade-off and undo cost (`cheap`,
 `moderate` or `hard`), the strongest case against the suggestion, and a confidence. Anything
 else gives no options. The ledger has no options field, so Tinkery records them as
