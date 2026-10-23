@@ -242,7 +242,7 @@ mod tests {
             ready
                 .confirmation_note
                 .unwrap()
-                .contains("Agent-confirmed seed. Intake requires tink-sdlc 1.36.0")
+                .contains("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0")
         );
         let shaped = shaping::read(&session).unwrap();
         assert!(shaped.intake.is_some());

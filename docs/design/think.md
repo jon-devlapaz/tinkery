@@ -124,19 +124,19 @@ a save already started finishes normally, including a requested return to the me
 ## Confirmation attribution (#185)
 
 The operator accepted option (c) in [#185](https://github.com/jon-devlapaz/tinkery/issues/185#issuecomment-6237481270):
-an agent may confirm only a two-way door with small blast radius. One-way or large
-requires the operator. Record the acting agent, authorizing operator, actual scoped
-authorization source, both classifications and their reasons. Classification is
-eligibility, not new authority; it never replaces the cited operator authorization.
-Goal confirmation, seed confirmation and implementation approval remain separate.
+an agent's confirmation is recorded as the agent's, never the operator's. Under
+[#349](https://github.com/jon-devlapaz/tinkery/issues/349) the launch declaration alone
+attributes an agent's writes; the context file with door and blast-radius claims is gone.
+Tinkery's confirmation never grants implementation permission: tink-sdlc's human-only
+gates and the operator's merge hold that line. Goal confirmation, seed confirmation and
+implementation approval remain separate.
 
-The first slice is a typed Think API, `BrainDump::set_goal_confirmation`, supplied
-before review. Refused updates preserve the current words, review and attribution. It records caller-declared attribution, not authenticated identity.
-Neither keypresses, login names nor the model producing the reading identify the
-confirmer. Without explicit context, identity is `unrecorded`, never operator.
-An explicit operator declaration names the operator and source; an agent declaration
-also names the authorizing operator and must have a two-way/small class with reasons.
-Incomplete or ineligible declarations refuse. Named context freezes with the displayed
+`BrainDump::set_goal_confirmation` supplies caller-declared attribution before review.
+Refused updates preserve the current words, review and attribution. Neither keypresses,
+login names nor the model producing the reading identify the confirmer. Without explicit
+context, identity is `unrecorded`, never operator. API callers may still supply named
+operator or agent context; a named agent needs a two-way/small class with reasons, and
+incomplete or ineligible declarations refuse. Named context freezes with the displayed
 goal, stays outside model requests and never carries into a fresh Think visit.
 Original words and the confirmed goal remain unchanged.
 
@@ -155,39 +155,31 @@ keys. No declaration stays unknown; existing records are not backfilled. Launch
 context cannot be replaced by named attribution through the API once installed. It never enters
 model requests and grants neither seed confirmation nor implementation permission.
 
-**Agent operation:** `--operator agent` alone stays read-only at confirmation.
-`--agent-confirmation FILE` supplies the existing `GoalConfirmation::Agent` JSON:
-`by: "agent"`, `agent`, `authorizing_operator`, `source`, and `class` containing
-`door: "two_way"`, `door_reason`, `blast_radius: "small"`, and `blast_radius_reason`.
-Names, the actual scoped permission source and both reasons must be nonblank.
-Invalid or ineligible context refuses at launch, before writing. These are caller
-declarations, not authentication. The source must cover the goals and Shape actions
-performed in this run; it grants no model budget, private-data access or implementation
-approval. Bare launches explain the missing context and offer no write actions.
+**Agent operation:** `--operator agent` is the whole agent context. Think saves, Shape
+answers and F3 seed confirmation all write as the agent: `operator: agent` ledgers,
+delegated authority, a goal origin delegated to `agent`, and action reasons that begin
+`The agent`. Nothing an agent types becomes a human save. Shape writes need
+`--shape-pi`; without it an agent's Shape only reads, since its writes would carry no
+agent attribution. The declaration grants no model budget, private-data access or
+implementation approval.
 
-The CLI freezes the context for the run. One shared authorization boundary resolves
-a typed actor before goal saving or Shape writes. Tinkery's own Rust ledger saves
-and reads back delegated goal origins; no Seed Me checkout or helper is used.
-Original words and confirmed goals stay unchanged. A fresh Think visit from a
-standalone receipt retains the agent declaration but drops named permission;
-menu-created visits retain the explicit run context. Neither can become a human save.
-Shape records agent answers as delegated and action reasons name the agent and
-authorizing operator. Version-3 seed confirmation receipts contain the same context,
-bound to confirmed seed bytes and checked against the seed's attribution line.
-Missing, malformed or changed attribution refuses verification. Human version-2
-receipts and legacy histories remain valid. New ledgers derive `operator: human|agent`
-from the same authorized actor as goal and answer attribution. Historical agent sessions
-stored as `operator: human` remain readable; they are not rewritten. Action attribution
-and seed receipts distinguish the actual confirmer.
+One shared authorization boundary resolves a typed actor before goal saving or Shape
+writes. Tinkery's own Rust ledger saves and reads back delegated goal origins; no Seed Me
+checkout or helper is used. Version-3 seed confirmation receipts carry the actor (the
+terminal declaration, or named context from older receipts), bound to confirmed seed
+bytes and checked against the seed's attribution line. Missing, malformed or changed
+attribution refuses verification. Human version-2 receipts, named agent receipts and
+legacy histories remain valid. New ledgers derive `operator: human|agent` from the same
+actor as goal and answer attribution. Historical agent sessions stored as
+`operator: human` remain readable; they are not rewritten.
 
-Under [#323](https://github.com/jon-devlapaz/tinkery/issues/323), Shape and Approve
-offer manual intake commands for verified, attributed agent confirmations, labeled
-`Agent-confirmed seed`, with a tink-sdlc 1.36.0-or-newer requirement. That consumer
-accepts attributed v3 receipts as agent, never human. Tinkery only prepares and copies
-text: it does not check the installed consumer version, run intake or grant permission.
-Missing or invalid attribution and one-way/large agent receipts remain ineligible.
-The consumer's human-only definition approval and merge gates remain unchanged;
-seed confirmation is neither the operator's confirmation nor implementation approval.
+Shape and Approve offer manual intake commands for verified agent confirmations, labeled
+`Agent-confirmed seed`, with a tink-sdlc 1.38.0-or-newer requirement (1.36.0 accepts only
+named receipts). That consumer accepts v3 receipts as agent, never human. Tinkery only
+prepares and copies text: it does not check the installed consumer version, run intake or
+grant permission. Missing or invalid attribution remains ineligible. The consumer's
+human-only gates and merge remain unchanged; seed confirmation is neither the operator's
+confirmation nor implementation approval.
 
 ## Think record
 

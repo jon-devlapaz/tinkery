@@ -34,7 +34,7 @@ P051_FINDINGS = [
     'needs behavior-specific assertions, including an observed red or targeted reversion probe.',
 ]
 SHAPE_KEYS = 'F5 so far   esc back   F10 menu'
-HELD = "Agent operation needs --agent-confirmation FILE. Shape only reads; Esc goes back."
+HELD = "An agent answers Shape with --shape-pi. Shape only reads; Esc goes back."
 LIST_KEYS = '↑↓ move   enter open   esc back'
 
 
@@ -109,11 +109,11 @@ def journey(width, height, case, no_color=False, operator='human'):
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}
         if no_color:
             env['NO_COLOR'] = '1'
+        # An agent without a drafting model has no attributed Shape writes, so Shape only reads.
+        drafting = [] if held else ['--shape-pi', '--model', 'test/model', '--pi-command', str(host)]
         process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', operator, '--home',
-            '--shape-pi',
-            '--model', 'test/model', '--seed-session-root', str(sessions),
-            '--record-root', str(cwd / 'TEST-records'), '--link-root', str(cwd / 'TEST-links'),
-            '--pi-command', str(host)], stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(env))
+            *drafting, '--seed-session-root', str(sessions),
+            '--record-root', str(cwd / 'TEST-records'), '--link-root', str(cwd / 'TEST-links')], stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(env))
         screen = Screen(width, height)
         output = bytearray()
 
@@ -306,7 +306,7 @@ def journey(width, height, case, no_color=False, operator='human'):
             assert not (cwd / 'provider-was-run').exists()
             assert not (cwd / 'TEST-records').exists() and not (cwd / 'TEST-links').exists()
             print(f'Shape {case} journey passed at {width}x{height}' + (' NO_COLOR' if no_color else '')
-                  + (' under --operator agent, writes held' if held else ''))
+                  + (' under --operator agent without --shape-pi, writes held' if held else ''))
         finally:
             if process.poll() is None:
                 process.kill()

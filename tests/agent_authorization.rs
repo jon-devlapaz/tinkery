@@ -1,4 +1,4 @@
-//! Every operator-action boundary refuses incomplete agent authority before any file write.
+//! Every operator-action boundary refuses invalid agent context before any file write.
 use tinkery::{
     seed_me::{self, answering, ledger},
     think_record::{BlastRadius, ConfirmationClass, Door, GoalConfirmation},
@@ -19,13 +19,12 @@ fn named() -> GoalConfirmation {
 }
 
 #[test]
-fn every_write_refuses_invalid_or_bare_agent_context_before_touching_disk() {
-    let bare = GoalConfirmation::terminal(Some("agent")).unwrap();
+fn every_write_refuses_invalid_agent_context_before_touching_disk() {
     let mut invalid = named();
     if let GoalConfirmation::Agent { class, .. } = &mut invalid {
         class.door = Door::OneWay;
     }
-    for context in [bare, invalid] {
+    for context in [invalid] {
         let root = tempfile::Builder::new()
             .prefix("tinkery-TEST-authorization-")
             .tempdir()
@@ -46,10 +45,7 @@ fn every_write_refuses_invalid_or_bare_agent_context_before_touching_disk() {
             )
             .err()
             .unwrap();
-        assert!(
-            error.contains("--agent-confirmation") || error.contains("two-way"),
-            "{error}"
-        );
+        assert!(error.contains("two-way"), "{error}");
         let errors = [
             answering::answer(&session, 0, "choice", "TEST answer", Some(&context))
                 .unwrap_err()
@@ -90,10 +86,7 @@ fn every_write_refuses_invalid_or_bare_agent_context_before_touching_disk() {
                 .to_string(),
         ];
         for error in errors {
-            assert!(
-                error.contains("--agent-confirmation") || error.contains("two-way"),
-                "{error}"
-            );
+            assert!(error.contains("two-way"), "{error}");
         }
         assert!(config.recovery_path().is_none());
         assert!(!session.exists());

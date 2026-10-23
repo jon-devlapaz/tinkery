@@ -71,7 +71,7 @@ fn agent_confirmation_notice_keeps_copy_and_missing_checkout_guidance() {
             panic!()
         };
         found.seeds[0].confirmation_note =
-            Some("Agent-confirmed seed. Intake requires tink-sdlc 1.36.0 or newer.".into());
+            Some("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0 or newer.".into());
         let shown = screen(&mut view, width, height, false);
         assert!(shown.contains("Agent-confirmed seed."));
         assert!(

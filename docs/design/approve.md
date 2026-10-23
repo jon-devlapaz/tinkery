@@ -42,12 +42,12 @@ shell quoting; no placeholder needs replacing. Existing run names still refuse c
 Copying runs nothing and grants no approval. Missing checkout, an empty slug or
 unsafe paths leave the verified seed readable with a reason and no copy action.
 Copy uses the existing OSC 52 transport and feedback. For
-[attributed agent-confirmed seeds](think.md#confirmation-attribution-185), show
-`Agent-confirmed seed` and the tink-sdlc 1.36.0-or-newer intake requirement alongside
+[agent-confirmed seeds](think.md#confirmation-attribution-185), show
+`Agent-confirmed seed` and the tink-sdlc 1.38.0-or-newer intake requirement alongside
 the same copy action. This prepares text without checking the consumer version or
 running intake; older consumers may refuse. Agent confirmation is not the operator's
 confirmation, definition approval or implementation permission. Missing or invalid
-agent attribution and one-way/large agent receipts still refuse verification.
+agent attribution still refuses verification.
 
 | Key | Action |
 | --- | --- |

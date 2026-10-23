@@ -60,12 +60,6 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
             a.goal_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
         }
         a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-        if declaration == "declared: agent" {
-            assert!(a.handoff.job.is_none());
-            assert!(a.notice.contains("--agent-confirmation"));
-            assert!(!root.exists());
-            continue;
-        }
         assert!(a.handoff.job.is_some());
         // Inject a successful helper receipt: this tests record plumbing, not helper integration.
         let path = tmp.path().join("TEST-session");
@@ -377,45 +371,24 @@ fn declared_agent_source_never_claims_an_operator_keypress_or_implementation_per
 }
 
 #[test]
-fn bare_agent_declaration_is_held_before_any_save_job() {
-    let tmp = tempfile::tempdir().unwrap();
-    let root = tmp.path().join("TEST-records");
-    let mut a = declared().with_record_root(root.clone());
+fn bare_agent_declaration_saves_as_the_agent() {
+    let mut a = declared();
     a.set_goal_confirmation(GoalConfirmation::terminal(Some("agent")).unwrap())
         .unwrap();
     a.screen.help_all = true;
-    assert!(!layout::help_text(&a).contains("typing confirm saves"));
-    assert!(layout::how_text(&a).contains("--agent-confirmation"));
+    assert!(layout::help_text(&a).contains("typing confirm saves"));
     a.screen.help_all = false;
     a.review_goal();
-    for size in [(80, 24), (100, 30)] {
-        let screen = snapshot(size.0, size.1, &mut a, true).unwrap();
-        let plain = screen.split_whitespace().collect::<Vec<_>>().join(" ");
-        assert!(plain.contains("--agent-confirmation"), "{screen}");
-        assert!(!plain.contains("type confirm"), "{screen}");
-        assert!(layout::help_text(&a).contains("--agent-confirmation"));
-    }
-    a.screen.help_all = true;
-    assert!(!layout::help_text(&a).contains("typing confirm saves"));
-    assert!(layout::how_text(&a).contains("--agent-confirmation"));
-    a.screen.help_all = false;
-    // The held review takes no words, typed or pasted: confirm couldn't save.
+    let saved = a.handoff.review.as_ref().unwrap().affirmation.affirmed();
+    assert!(saved.source.contains("declared: agent"), "{}", saved.source);
+    assert!(!saved.source.contains("declared: human"));
+    let review = a.handoff.review.as_mut().unwrap();
+    review.scroll = review.max;
     for c in "confirm".chars() {
         a.goal_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
     }
-    a.goal_paste("confirm");
-    assert_eq!(a.handoff.review.as_ref().unwrap().input, "");
-    let review = a.handoff.review.as_mut().unwrap();
-    review.scroll = review.max;
-    review.input = "confirm".into();
     a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(a.notice.contains("Nothing saved"), "{}", a.notice);
-    assert!(
-        a.handoff.job.is_none(),
-        "delegation reached the held helper path"
-    );
-    assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
-    assert!(!root.exists());
+    assert!(a.handoff.job.is_some(), "{}", a.notice);
 }
 
 #[test]

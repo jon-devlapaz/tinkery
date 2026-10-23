@@ -61,7 +61,7 @@ pub enum GoalConfirmation {
         /// Both caller-declared risk axes and reasons.
         class: ConfirmationClass,
     },
-    /// An agent acted for a named operator under the cited scoped authorization.
+    /// An agent named with its authorizing operator and cited authorization, as callers and older records supply.
     Agent {
         /// The acting agent's declared name, not the model that produced the reading.
         agent: String,
@@ -79,7 +79,7 @@ pub enum GoalConfirmation {
 pub(crate) enum Actor<'a> {
     /// The existing operator path; no named identity is inferred.
     Operator,
-    /// A named agent and its authorizing operator, with validated scoped context.
+    /// An agent declared at launch, or named in an older record; never the operator.
     Agent(&'a GoalConfirmation),
 }
 
@@ -115,7 +115,7 @@ impl<'a> Actor<'a> {
         }
     }
 
-    /// Existing structured goal-origin delegation; all original context stays in its source.
+    /// Structured goal-origin delegation: the agent, plus any named context the caller supplied.
     pub(crate) fn delegation(self) -> Option<serde_json::Value> {
         match self {
             Self::Agent(GoalConfirmation::Agent {
@@ -127,7 +127,8 @@ impl<'a> Actor<'a> {
                 serde_json::json!({"agent":agent,"authorizing_operator":authorizing_operator,
                     "authorization_source":source,"door":"two-way","blast_radius":"small"}),
             ),
-            _ => None,
+            Self::Agent(_) => Some(serde_json::json!({"agent":"agent"})),
+            Self::Operator => None,
         }
     }
 
@@ -147,8 +148,8 @@ impl Default for GoalConfirmation {
 }
 
 impl GoalConfirmation {
-    /// Records a launch declaration only; an absent declaration stays unknown. This supplies
-    /// neither named identity nor the goal-scoped authorization required for delegated saving.
+    /// Records a launch declaration only; an absent declaration stays unknown. An agent
+    /// declaration makes every write the agent's; it is never verified identity.
     pub fn terminal(operator: Option<&str>) -> Result<Self, String> {
         let declaration = match operator {
             Some("human") => "declared: human",
@@ -167,7 +168,7 @@ impl GoalConfirmation {
         }
     }
 
-    /// Keep launch kind across a fresh visit without carrying goal-scoped named authority.
+    /// Keep launch kind across a fresh visit; named context from older records becomes the plain declaration.
     pub(crate) fn fresh_declaration(&self) -> Self {
         match self {
             Self::Terminal { .. } => self.clone(),
@@ -228,35 +229,14 @@ impl GoalConfirmation {
         Ok(())
     }
 
-    /// Read existing named confirmation context for an explicitly agent-operated run.
-    /// It remains caller-declared: the source must describe the operator's actual permission.
-    pub fn read_agent(path: &std::path::Path) -> Result<Self, String> {
-        let bytes = std::fs::read(path)
-            .map_err(|_| "Cannot read agent confirmation. Check the file and its permissions.")?;
-        let actor: Self = serde_json::from_slice(&bytes).map_err(
-            |_| "Invalid agent confirmation. Supply the named confirmation JSON fields.",
-        )?;
-        if !matches!(actor, Self::Agent { .. }) {
-            return Err(
-                "Agent confirmation must name an agent and the authorizing operator.".into(),
-            );
-        }
-        actor.validate()?;
-        Ok(actor)
-    }
-
-    /// An agent declaration without complete authorization cannot write.
-    pub(crate) fn saving_held(&self) -> bool {
-        self.actor().is_err()
-    }
-
-    /// Resolve write authority before any durable action. A launch kind alone is not permission.
+    /// Resolve who writes before any durable action. An agent declaration writes as the agent,
+    /// never as the operator; no declaration keeps the operator path.
     pub(crate) fn actor(&self) -> Result<Actor<'_>, String> {
         self.validate()?;
         match self {
             Self::Agent { .. } => Ok(Actor::Agent(self)),
             Self::Terminal { declaration, .. } if declaration == "declared: agent" => {
-                Err("Agent operation needs --agent-confirmation FILE.".into())
+                Ok(Actor::Agent(self))
             }
             _ => Ok(Actor::Operator),
         }

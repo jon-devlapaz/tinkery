@@ -162,7 +162,7 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
     let mut shaping = classify(&ledger, &status);
     shaping.confirmation = confirmation;
     if matches!(shaping.stage, Shaped::Ready { .. }) && status["handoff"]["operator"] == "agent" {
-        shaping.confirmation_note = Some("Agent-confirmed seed. Intake requires tink-sdlc 1.36.0 or newer; this is not operator confirmation or implementation approval.".into());
+        shaping.confirmation_note = Some("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0 or newer; this is not operator confirmation or implementation approval.".into());
     }
     if let Shaped::Drafted { text, revision } = &mut shaping.stage {
         *text = std::fs::read_to_string(session.join("seed-contract.md")).ok();

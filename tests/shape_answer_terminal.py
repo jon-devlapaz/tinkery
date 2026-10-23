@@ -51,7 +51,8 @@ if len(r['sources']) == 1:
                     question='May refusals show private text?')]
 print(json.dumps({'parts': {'who': 'I',
                             'outcome': 'Keep refusals calm' if os.environ.get('TINKERY_TEST_WHEN') else 'keep refusals calm',
-                            'when': os.environ.get('TINKERY_TEST_WHEN'), 'why': 'the work is stuck',
+                            'when': os.environ.get('TINKERY_TEST_WHEN'),
+                            'why': os.environ.get('TINKERY_TEST_WHY', 'the work is stuck'),
                             'done_when': 'Refusals never show private text'},
                   'decisions': choices, 'questions': []}))
 '''
@@ -166,7 +167,7 @@ def files(root):
 
 
 class Run:
-    def __init__(self, cwd, width, height, budget, replies=(), situation=None, authorization=None, sdlc_root=None):
+    def __init__(self, cwd, width, height, budget, replies=(), situation=None, agent=False, sdlc_root=None, why=None):
         self.cwd, self.width = cwd, width
         self.sessions = cwd / 'TEST-sessions'
         self.records = cwd / 'TEST-records'
@@ -181,16 +182,16 @@ class Run:
                 '--link-root', str(cwd / 'TEST-links'), '--pi-command', str(host)]
         if sdlc_root is not None:
             args += ['--sdlc-root', str(sdlc_root)]
-        if authorization is not None:
-            auth = cwd / 'TEST-authorization.json'
-            auth.write_text(json.dumps(authorization))
-            args += ['--operator', 'agent', '--agent-confirmation', str(auth)]
+        if agent:
+            args += ['--operator', 'agent']
         if budget is not None:
             args += ['--shape-budget', str(budget)]
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node',
                'TINKERY_TEST_DIR': str(cwd)}
         if situation is not None:
             env['TINKERY_TEST_WHEN'] = situation
+        if why is not None:
+            env['TINKERY_TEST_WHY'] = why
         self.process = subprocess.Popen(args, stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                         cwd=cwd, env=subprocess.environment(env))
 

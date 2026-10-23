@@ -395,8 +395,6 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         }
     } else if app.handoff.job.is_some() {
         "Saving your goal. Wait a moment."
-    } else if app.delegated_goal_save_held() {
-        goal_view::DELEGATED_SAVE_HELD
     } else if app.handoff.review.is_some() && app.records() {
         "Type confirm, then Enter, to save this goal and its think record.\nEsc goes back without saving."
     } else if app.handoff.review.is_some() {
@@ -455,8 +453,6 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     };
     let finish = if !app.can_save() {
         SAVE_NEEDS_REAL
-    } else if app.goal_confirmation().saving_held() {
-        "F3   review the goal; agent saving needs --agent-confirmation FILE"
     } else if app.records() {
         "! F3   review the goal; typing confirm saves it and its think record for good"
     } else {
@@ -482,11 +478,7 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         );
     }
     let diagnostics = app.diagnostics().join("\n\n");
-    let saving = if app.goal_confirmation().saving_held() {
-        goal_view::DELEGATED_SAVE_HELD
-    } else {
-        "Only typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept."
-    };
+    let saving = "Only typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept.";
     format!(
         "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nOther keys\nCtrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why, Ctrl-E extract, Ctrl-X cards, Ctrl-L repaint, Ctrl-PgUp/PgDn switch originals. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {
@@ -508,8 +500,6 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         vec![]
     } else if app.handoff.receipt.is_some() {
         vec![("s", "open in tend"), ("F10", "menu")]
-    } else if app.delegated_goal_save_held() {
-        vec![("esc", "back")]
     } else if app.handoff.review.is_some() {
         let save = if app.records() {
             "save goal and record"
