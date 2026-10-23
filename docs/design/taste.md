@@ -70,7 +70,11 @@ owed manual expectations in their source words, never checklist IDs or seed jarg
 The existing evidence tail and copied request retain each automatic item's API 1
 `run.log.path`, resolved lexically against the named checkout within the selected
 run, its exact checking `argv` and `cwd` (with the API's default `.` labelled when
-omitted), and optional `verification.log` SHA-256. That receipt digest is not a path.
+omitted), and optional `verification.log` SHA-256. Checking directories such as
+`./`, `./src`, `src/` and repeated separators retain their original source spelling;
+only their displayed resolved directory is normalized. Absolute, parent-traversing
+and control-bearing cwd values remain unresolved; stricter log-pointer validation
+is not loosened. That receipt digest is not a path.
 No log is opened or dumped, no argv is executed, and no evidence URL is invented.
 Pointers are source references, not existence claims. Missing/unsafe pointers or
 methods leave matching pass claims pending; older heads/source-stale receipts still

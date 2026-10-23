@@ -76,6 +76,7 @@ def journey(width, height, no_color, mapping_case='valid'):
         record = {'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
                   'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()}
         state = fixture(record)
+        state['detail']['run']['checklist'][0]['check']['cwd'] = './'
         if mapping_case == 'recreated-run':
             state['list']['runs'][0]['run_id'] = OTHER_ID
             state['detail']['run']['run_id'] = OTHER_ID
@@ -174,7 +175,7 @@ def journey(width, height, no_color, mapping_case='valid'):
             expected_log = str(checkout / 'runs/TEST-result/04-test/output/test-log.md')
             assert expected_log in copied()[-1]
             assert 'argv: ["python3","TEST-allocation-check.py"]' in copied()[-1]
-            assert 'cwd: "."' in copied()[-1]
+            assert f'cwd: "./" (resolved {checkout})' in copied()[-1]
             assert state['detail']['run']['verification']['log'] in copied()[-1]
             assert 'TEST-checked-allocation-success' not in copied()[-1]
             assert 'Acceptance review requested' in copied()[-1]

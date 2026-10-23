@@ -4,20 +4,20 @@
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
+fn clean_path(s: &str) -> bool {
+    !s.chars()
+        .any(|c| c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+}
+
 fn resolve(root: &Path, relative: &str) -> Result<PathBuf, String> {
-    let clean = |s: &str| {
-        !s.chars().any(|c| {
-            c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-        })
-    };
-    if !root.is_absolute() || !root.to_str().is_some_and(clean) {
+    if !root.is_absolute() || !root.to_str().is_some_and(clean_path) {
         return Err("Evidence checkout location is unsafe or unavailable.".into());
     }
     if relative == "." {
         return Ok(root.to_path_buf());
     }
     if relative.is_empty()
-        || !clean(relative)
+        || !clean_path(relative)
         || relative.contains(['\\', ':'])
         || relative
             .split('/')
@@ -27,6 +27,26 @@ fn resolve(root: &Path, relative: &str) -> Result<PathBuf, String> {
         return Err("Evidence path must stay within the named checkout.".into());
     }
     Ok(root.join(relative))
+}
+
+fn checking_directory(root: &Path, cwd: &str) -> Result<PathBuf, String> {
+    let mut resolved = resolve(root, ".")?;
+    let drive_prefix = cwd.as_bytes().first().is_some_and(u8::is_ascii_alphabetic)
+        && cwd.as_bytes().get(1) == Some(&b':');
+    if cwd.trim().is_empty()
+        || !clean_path(cwd)
+        || Path::new(cwd).is_absolute()
+        || cwd.contains('\\')
+        || cwd.contains("://")
+        || drive_prefix
+        || cwd.split('/').any(|part| part == "..")
+    {
+        return Err("Checking cwd must be checkout-relative without traversal or controls.".into());
+    }
+    for part in cwd.split('/').filter(|part| !matches!(*part, "" | ".")) {
+        resolved.push(part);
+    }
+    Ok(resolved)
 }
 
 /// Retain the API 1 log pointer, exact check argv/cwd and optional receipt SHA-256. No log text
@@ -59,7 +79,7 @@ pub(super) fn automated(
         None => (".", " (API default)"),
         Some(value) => (value.as_str().ok_or("Checking cwd unavailable.")?, ""),
     };
-    let resolved_cwd = resolve(root, cwd)?;
+    let resolved_cwd = checking_directory(root, cwd)?;
     let digest = match run["verification"].get("log") {
         None | Some(Value::Null) => String::new(),
         Some(value) => {
@@ -184,6 +204,70 @@ mod tests {
                     &run["checklist"][0]
                 )
                 .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn checking_cwd_normalizes_harmless_source_spellings_but_logs_remain_strict() {
+        for (source, expected) in [
+            (".", "/TEST"),
+            ("./", "/TEST"),
+            (".///.", "/TEST"),
+            ("./src", "/TEST/src"),
+            ("src/", "/TEST/src"),
+            ("./src//checks/./", "/TEST/src/checks"),
+            ("src:name/", "/TEST/src:name"),
+        ] {
+            assert_eq!(
+                checking_directory(Path::new("/TEST"), source).unwrap(),
+                Path::new(expected)
+            );
+            let mut run = run();
+            run["checklist"][0]["check"]["cwd"] = json!(source);
+            let evidence = automated(
+                Path::new("/TEST"),
+                "TEST-result",
+                &run,
+                &run["checklist"][0],
+            )
+            .unwrap();
+            assert!(
+                evidence.contains(&format!(
+                    "cwd: {} (resolved {expected})",
+                    serde_json::to_string(source).unwrap()
+                )),
+                "{evidence}"
+            );
+        }
+        for source in [
+            "",
+            " ",
+            "/src",
+            "//src",
+            "../src",
+            "src/../checks",
+            "src//..//checks",
+            "C:/src",
+            "C:src",
+            "src\\checks",
+            "src\n",
+            "src\t",
+            "src\u{202e}",
+        ] {
+            assert!(
+                checking_directory(Path::new("/TEST"), source).is_err(),
+                "{source:?}"
+            );
+        }
+        for source in [
+            "./runs/TEST-result/log",
+            "runs//TEST-result/log",
+            "runs/TEST-result/log/",
+        ] {
+            assert!(
+                resolve(Path::new("/TEST"), source).is_err(),
+                "log validation was loosened: {source}"
             );
         }
     }

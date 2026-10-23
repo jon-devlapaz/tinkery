@@ -489,6 +489,35 @@ mod tests {
     }
 
     #[test]
+    fn source_cwd_spellings_keep_matching_passes_and_survive_both_copied_handoffs() {
+        for (cwd, resolved) in [
+            ("./", "/TEST"),
+            ("./src", "/TEST/src"),
+            ("src/", "/TEST/src"),
+            ("./src//checks/./", "/TEST/src/checks"),
+        ] {
+            let mut source = run();
+            source["checklist"][0]["check"]["cwd"] = json!(cwd);
+            let mut target = row();
+            target.goal = Goal::Matched("TEST unchanged goal".into());
+            local(Path::new("/TEST"), &source, &mut target).unwrap();
+            assert_eq!(
+                target.items[0].state, "pass",
+                "{cwd}: {}",
+                target.items[0].evidence
+            );
+            for action in ['a', 'c'] {
+                let copy = super::super::handoff(&target, action).unwrap();
+                let method = format!(
+                    "cwd: {} (resolved {resolved})",
+                    serde_json::to_string(cwd).unwrap()
+                );
+                assert!(copy.contains(&method), "{copy}");
+            }
+        }
+    }
+
+    #[test]
     fn current_matching_pass_without_safe_actionable_evidence_stays_pending() {
         for path in [
             json!(null),
