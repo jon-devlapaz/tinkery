@@ -1,0 +1,87 @@
+{
+  "list": {
+    "protocol": "tink-sdlc",
+    "api_version": 1,
+    "runs": [
+      {
+        "slug": "TEST-result",
+        "run_id": "00000000-0000-4000-8000-000000000114",
+        "verification_status": "current",
+        "seed_contract": null
+      }
+    ]
+  },
+  "detail": {
+    "protocol": "tink-sdlc",
+    "api_version": 1,
+    "run": {
+      "slug": "TEST-result",
+      "run_id": "00000000-0000-4000-8000-000000000114",
+      "verification_status": "current",
+      "seed_contract": null,
+      "gates": [
+        {
+          "stage": 3,
+          "status": "stale"
+        }
+      ],
+      "errors": [],
+      "verification": {
+        "result": "passed",
+        "passed": true,
+        "candidate": {
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "tree": "TEST-tree"
+        },
+        "log": "12b88a9685e1e46a893e9a3e59434d88c663774964346f41ccb1289aa3834d4b",
+        "error": null
+      },
+      "checklist": [
+        {
+          "id": "seed-1",
+          "verify": "Allocation works",
+          "status": "passed",
+          "automatic": true,
+          "proof": "automated",
+          "needs_recheck": false,
+          "mark": null,
+          "check": {
+            "argv": [
+              "python3",
+              "TEST-allocation-check.py"
+            ],
+            "cwd": ".",
+            "timeout_seconds": 10
+          }
+        },
+        {
+          "id": "seed-2",
+          "verify": "confirm no clinical claims",
+          "status": "pending",
+          "automatic": false,
+          "proof": "attested",
+          "needs_recheck": false,
+          "mark": null
+        }
+      ],
+      "log": {
+        "path": "runs/TEST-result/04-test/output/test-log.md",
+        "text": "TEST-checked-allocation-success: python3 TEST-allocation-check.py exited 0\n",
+        "truncated": false
+      }
+    }
+  },
+  "pr": {
+    "url": "https://github.com/TEST/clinic-tycoon/pull/1",
+    "headRefOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "state": "OPEN",
+    "statusCheckRollup": [
+      {
+        "__typename": "CheckRun",
+        "name": "TEST CI",
+        "status": "COMPLETED",
+        "conclusion": "SUCCESS"
+      }
+    ]
+  }
+}

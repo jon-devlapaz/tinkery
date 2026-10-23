@@ -66,6 +66,12 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `status --json` when opened or on `r`, runs waiting on you first. Matched runs show their
   exact saved goal; changed or missing originals stay unknown. It runs only read-only
   status commands and changes no records.
+- **Taste:** menu place 6 uses `--sdlc-root PATH` and repeatable launch-only
+  `--taste-result RUN_ID=PR_URL` inputs (canonical run UUIDv4, full GitHub PR URL).
+  `r` explicitly reads runs and those PRs; handoff prose supplies no links.
+  Review the unchanged goal, exact commit, matching
+  check states and plain owed gates. `o` opens the PR; `a`/`c` copy external review
+  handoffs, recording no verdict and merging nothing. See [Taste](docs/design/taste.md).
 - **Measure:** `r` explicitly reads this repo's PRs updated in the last 30 days from
   GitHub through `gh`. Lists all states; Enter shows dates, author, URL and reported
   PR-head checks. No metrics or acceptance claims. See [Measure](docs/design/menu.md#measure).
@@ -75,7 +81,7 @@ with a visible notice and no Think-record writes. History matches unique ledger 
 refuse rather than merge; no old-root reader remains. Runs bound to moved seeds show unknown
 in Watch, not a guessed match.
 
-**Taste isn't built.** The complete journey and its benefit remain unproven.
+The complete journey and its benefit remain unproven; passing checks are not acceptance.
 
 ## Where we’re going next
 

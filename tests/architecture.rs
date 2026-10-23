@@ -40,6 +40,7 @@ const MODULES: &[(&str, &str)] = &[
     ("think_record", "shared"),
     ("voice", "shared"),
     ("watch", "watch"),
+    ("taste", "taste"),
 ];
 
 #[test]
