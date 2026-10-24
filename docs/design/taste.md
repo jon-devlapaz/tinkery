@@ -47,16 +47,37 @@ with a reason. No complete empty claim survives a failed read.
 
 ## One result
 
-The list gives each result its goal's first line, PR, commit, individual states and
-owed gates. Enter reveals the whole saved goal, unchanged and untrimmed, including
-its completion conditions and constraints. The shared source/path-and-digest join
-supplies it; changed, moved, missing or unmatchable originals stay unknown. Escape
-unsafe terminal controls only for display, not storage or copying.
+The list gives each result a compact two-line block: a one-row goal preview with
+an explicit ellipsis when needed and muted open/merged/unknown context, then glyphs
+and counts for passed, waiting, stale, failed and unknown observations, plus
+“You owe N” when gates are owed. No check sentences, PR URLs, paths, hashes, run IDs
+or commands appear in the list. Jade marks selection; the goal remains ink.
+Counts are observations, never an aggregate done/approved verdict.
 
-The PR, commit and read time stay fixed while the goal and evidence scroll.
-Show the commit **once per result**, not evidence codes beside every check. Each
-source expectation retains its exact wording, method and pass/fail/pending/stale
-state. A local pass needs both source-current verification and its receipt's exact
+Enter opens headed detail in this order: **Next** (only after `l`), **You owe**,
+**Checks**, **Goal**, **Details**. Blank space separates sections. You owe retains
+the source's plain actions in jade. A human-attestation item already represented
+there is not repeated under Checks; this is an exact-wording presentation rule,
+not a change to owed-source derivation (#356 is separate).
+
+Checks begin with a glyph and plain status: “✓ passed,” “! failed,” “… stale,”
+“… waiting: no record found,” or “? unknown: no CI reported,” with other honest waiting reasons retained. Then the
+**verbatim source wording** wraps with a hanging indent. Check wording is never
+shortened, abbreviated, clipped or given an ellipsis, in any view. Method-owner
+tags move to Evidence rather than being repeated after each check.
+
+The whole saved goal remains unchanged in ink, including completion conditions and
+constraints. Details gives the PR URL, commit, run ID/locator, seed digest and read
+time once, muted, below the goal rather than in a competing fixed header.
+The shared source/path-and-digest join supplies the goal; changed, moved, missing or
+unmatchable originals stay unknown. Escape unsafe controls only for display, not
+storage or copying. The list's goal preview is the only shortened source text.
+
+Only failures use rust, always with `!` and words. Passed states stay ink; waiting,
+stale and unknown cues are muted. Jade is selection or the current owed action,
+never a generic success colour. NO_COLOR retains bold headings/selection, dim
+metadata, underlined bold failure cues, glyphs and explicit status words.
+Each source expectation retains its exact wording, method and observed state. A local pass needs both source-current verification and its receipt's exact
 head matching the displayed PR head. A different head makes prior passes stale even
 if SDLC still reports tree-equivalent verification as current. Missing result
 identity stays pending/unknown. Provisional checks stay pending. Failed matching
@@ -71,7 +92,10 @@ receipt. This is separate from automated proof and operator acceptance.
 
 Owed gates use plain actions: “approve the plan” or “re-approve the plan,” plus
 owed manual expectations in their source words, never checklist IDs or seed jargon.
-The existing evidence tail and copied request retain each automatic item's API 1
+`e` opens a separate Evidence view, one item per block with indentation and blank
+space. It retains full check wording, raw reported states, method owners, human
+marks and source diagnostics. No source fact is deleted. Evidence and the
+unchanged copied request retain each automatic item's API 1
 `run.log.path`, resolved lexically against the named checkout within the selected
 run, its exact checking `argv` and `cwd` (with the API's default `.` labelled when
 omitted), and optional `verification.log` SHA-256. Checking directories such as
@@ -89,8 +113,11 @@ play link is invented.
 
 ## Keys and handoff
 
-- List arrows choose; Enter reviews. In review, arrows, PgUp/PgDn and Home/End
-  scroll the whole goal and evidence. `n`/`p` or Right/Left change result, clamped.
+- List arrows choose; Enter opens detail. `l` from the list opens detail with the
+  explicitly reported acceptance's Next block. In detail, `e` opens Evidence;
+  `e` or Esc there returns to detail. Arrows, PgUp/PgDn and Home/End scroll each
+  complete document. `n`/`p` or Right/Left change result, clamped. Esc from detail
+  returns to the list and discards the ephemeral report, without rereading.
 - `o` alone uses `gh pr view <explicit URL> --web` to open the PR. Navigation records
   nothing and rereads no checks. Browser failure names the retry. Repeated or modified
   action keys never open, reread or copy.
@@ -98,8 +125,8 @@ play link is invented.
   transport, not executable approval commands. Copy feedback claims transport only.
   Each request retains the exact goal, run ID, seed digest, PR and full commit,
   condition evidence, gaps and owed gates. Unknown goal/result identity refuses copy.
-- `?`/F1 help blocks underlying actions. Esc closes help, then review, then returns
-  Home; F10 returns Home. The footer always names the next action and exit.
+- `?`/F1 help blocks underlying actions. Esc closes help, then Evidence, then detail,
+  then returns Home from the list; F10 returns Home. The footer always names the next action and exit.
 
 The copied request asks the external process to recheck current head, inputs and
 receipts, resolve gates, inspect that exact result, and add the operator's requested
@@ -109,16 +136,17 @@ expected-input binding is still not guaranteed; changed material needs rereview.
 
 ## After external acceptance
 
-In review, `l` means “I accepted this exact result externally.” It reports the
+From the list or detail, `l` means “I accepted this exact result externally.” It reports the
 operator's decision for this snapshot only; it neither verifies acceptance nor
 records a verdict. Copying `a`, browser navigation, green checks and merged/closed
 PR states never imply acceptance. Unknown goal, run or result identity refuses the
 report. An explicitly mapped merged result remains available after refresh, but the
 next-step note still requires `l`; refreshing never restores an acceptance report.
 
-The report reveals exactly one italic line: **Guess · Next: …**. It does not wrap
-into a second note row; long wording remains in the editable Think draft. There
-is no second Next instruction in the evidence tail. `?` moves Outcome, Evidence,
+The report reveals one italic **Guess · Next: …** proposal under Next. It appears
+once; long wording wraps rather than shortening any check words it quotes. The
+full wording also remains in the editable Think draft. There is no repeated Next
+instruction in Evidence. `?` moves Outcome, Evidence,
 Learning, Futures and Decision out of the review and into help, once each, without
 repeating the next step. Outcome stays unobserved without real feedback;
 changeability stays unknown without code-level evidence. No model calls, extra
@@ -147,6 +175,7 @@ gate or authorization. The operator still merges externally.
 
 `src/taste/tests.rs` and the reader's unit tests cover exact goal preservation,
 unknown identity, missing/unsafe evidence, strict run-ID/URL inputs, statuses, source staleness,
+compact count summaries, complete source words in headed detail, evidence behind `e`,
 selection identity, clipboard requests, key repeats/modifiers and small-size scrolling.
 The changed-result regression must fail when the exact-head mismatch protection is
 removed, then pass after restoration.
@@ -163,7 +192,7 @@ Next-dump journeys additionally report acceptance, edit and send only with F2,
 correct without acceptance, and handle nothing unmet, at both sizes with and without
 NO_COLOR. Unit regressions distinguish copying from the explicit report, prioritize
 failed/stale evidence, discard stale drafts and keep provenance out of requests.
-They also require a single italic Next row, five rationale labels only in help,
+They also require a single italic Next proposal, five rationale labels only in help,
 unknown/non-stopping absent CI, a stopping failed check and a goal-bound next slice.
 The absent-CI regression must fail when unknown evidence is made to require repair,
 then pass after restoration.
@@ -172,5 +201,21 @@ label and absence of a note, then report acceptance with `l` before the note app
 The merged-result retention regression must fail when the open-only filter returns,
 then pass after restoration. The report-boundary regression must fail with its
 acceptance protection reverted.
+The [quiet-review journeys](../../tests/taste_quiet_terminal.py) check compact lists,
+headed detail and the evidence key, at both sizes and both colour settings. They
+pin both OSC 52 payloads byte-for-byte to the synthetic
+[a61f719 baseline](../../tests/fixtures/taste-handoff-355.json), substituting only the
+TEST root into expected strings. Retained parent binaries additionally compare raw
+copy bytes in the same TEST root; frame equality is deliberately retired for this
+approved layout change.
+[Long-sentence journeys](../../tests/taste_structure_terminal.py) use synthetic
+clinic-planning assumptions, not operator data, and the
+[3118762 transport baseline](../../tests/fixtures/taste-structure-handoff-355.json).
+They recover every source check word through hanging wraps and scrolls, keep owed
+human items out of Checks, and retain all metadata behind `e`. Unit tests check
+actual colour and NO_COLOR cells, glyphs, heading order, and exact reconstruction
+of repeated spaces and Unicode graphemes. The check-word preservation regression
+must fail when truncation returns, then pass after restoration. Next content,
+source reads, copied payloads and owed-source derivation do not change.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.
