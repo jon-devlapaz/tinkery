@@ -925,7 +925,19 @@ fn anchor(
     extras(o, ANCHOR, where_, changes);
     let source = o
         .get("source")
-        .and_then(|s| s.as_u64())
+        .and_then(|s| {
+            s.as_u64().or_else(|| {
+                let text = s.as_str()?;
+                if text.is_empty() || !text.bytes().all(|b| b.is_ascii_digit()) {
+                    return None;
+                }
+                let source = text.parse::<u64>().ok()?;
+                changes.push(format!(
+                    "Accepted decimal-string source reference at {where_}"
+                ));
+                Some(source)
+            })
+        })
         .and_then(|s| usize::try_from(s).ok())
         .ok_or_else(|| format!("Invalid source reference at {where_}"))?;
     let quote = o
