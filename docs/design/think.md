@@ -58,7 +58,10 @@ goals stay aside, not in each other's constraints; deferred items remain seed co
 Constraint-polarity errors remain possible; decision coverage is a model
 judgment, not proof that choices mean the same thing. See [#64 evidence](../../findings/README.md#goal-history-and-review-regression-check-64).
 Originals are plain ink. Exact cited spans validate invisibly; uncited words are
-not implicitly rejected.
+not implicitly rejected. Decimal-string source IDs are decoded as numeric IDs and
+noted in Why; the source must still exist and the quote and occurrence must match
+an exact, grapheme-safe span. No other source-ID coercion or citation inference runs;
+recorded raw replies and operator originals stay unchanged.
 
 ### Suggested answers
 

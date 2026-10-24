@@ -306,7 +306,20 @@ fn claimed_citations_remain_exact_and_grapheme_safe_even_without_parts() {
         serde_json::json!({"source":1,"quote":"invented"}),
         serde_json::json!({"source":1,"quote":"👩"}),
         serde_json::json!({"source":1,"quote":"Exact","occurrence":1}),
-        serde_json::json!({"source":"1","quote":"Exact"}),
+        serde_json::json!({"source":"2","quote":"Exact"}),
+        serde_json::json!({"source":"1","quote":"invented"}),
+        serde_json::json!({"source":"1","quote":"👩"}),
+        serde_json::json!({"source":"1","quote":"Exact","occurrence":1}),
+        serde_json::json!({"source":"1","quote":"Exact","occurrence":"0"}),
+        serde_json::json!({"source":"-1","quote":"Exact"}),
+        serde_json::json!({"source":"+1","quote":"Exact"}),
+        serde_json::json!({"source":" 1","quote":"Exact"}),
+        serde_json::json!({"source":"1.0","quote":"Exact"}),
+        serde_json::json!({"source":"1e0","quote":"Exact"}),
+        serde_json::json!({"source":"","quote":"Exact"}),
+        serde_json::json!({"source":"18446744073709551616","quote":"Exact"}),
+        serde_json::json!({"source":1.0,"quote":"Exact"}),
+        serde_json::json!({"source":true,"quote":"Exact"}),
         serde_json::json!({"quote":"Exact"}),
     ] {
         for raw in [
@@ -332,6 +345,72 @@ fn claimed_citations_remain_exact_and_grapheme_safe_even_without_parts() {
     changed[0].text = changed[0].text.replace("Café", "Cafe");
     assert!(span.range(&changed).is_err());
 }
+#[test]
+fn recorded_360_answer_and_added_dump_repair_decimal_string_source_ids() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/think-source-ref-360.json"
+    ))
+    .unwrap();
+    let originals: Vec<Source> = fixture["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .enumerate()
+        .map(|(i, text)| Source {
+            id: i + 1,
+            text: text.as_str().unwrap().into(),
+            in_reply_to: None,
+        })
+        .collect();
+    for (i, raw) in fixture["replies"].as_array().unwrap().iter().enumerate() {
+        let mut r = request();
+        r.sources = originals[..4 + i].to_vec();
+        let before = serde_json::to_string(&r).unwrap();
+        let raw = raw.as_str().unwrap();
+        let mut changes = vec![];
+        let guess = Guess::decode(raw, &r, &mut changes).unwrap();
+        let board = board::Board::verify(guess, &r).unwrap();
+        let wire = board.wire();
+        let spans = &wire.framings[0].supports;
+        let recorded: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let supports = recorded["supports"].as_array().unwrap();
+        assert_eq!(spans.len(), supports.len());
+        for (span, recorded) in spans.iter().zip(supports) {
+            assert_eq!(
+                span.source.to_string(),
+                recorded["source"].as_str().unwrap()
+            );
+            assert_eq!(span.quote, recorded["quote"].as_str().unwrap());
+        }
+        assert_eq!(
+            changes
+                .iter()
+                .filter(|s| s.contains("decimal-string source reference"))
+                .count(),
+            supports.len()
+        );
+        assert!(board.goal().unwrap().contains("public aggregated data"));
+        assert_eq!(serde_json::to_string(&r).unwrap(), before);
+        assert_eq!(r.sources.last().unwrap().text, originals[3 + i].text);
+    }
+}
+
+#[test]
+fn decimal_string_citations_validate_in_every_anchor_location() {
+    for raw in [
+        serde_json::json!({"supports":[{"source":"1","quote":"Exact"}]}),
+        serde_json::json!({"framings":[{"supports":[{"source":"1","quote":"Exact"}]}]}),
+        serde_json::json!({"misfits":[{"source":"1","quote":"Exact"}]}),
+    ] {
+        let (_, changes) = parsed(&raw.to_string());
+        assert!(
+            changes
+                .iter()
+                .any(|s| s.contains("decimal-string source reference"))
+        );
+    }
+}
+
 #[test]
 fn local_history_and_scope_identity_cannot_be_replaced_by_model_output() {
     let mut r = request();
