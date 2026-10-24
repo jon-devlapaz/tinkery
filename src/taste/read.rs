@@ -10,12 +10,15 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+/// An absent receipt set cannot establish checks or gate obligations at this root.
+pub(super) const MISSING_RECEIPTS: &str = "unknown: receipts not found here";
+
 /// One condition or observation, never an aggregate verdict.
 #[derive(Clone, Debug)]
 pub(super) struct Item {
     /// Exact source expectation or check name.
     pub(super) label: String,
-    /// pass, fail, stale or pending with any honest gap.
+    /// pass, fail, stale, pending or unknown with any honest gap.
     pub(super) state: String,
     /// Evidence owner, not an acceptance claim.
     pub(super) kind: String,
@@ -42,6 +45,8 @@ pub(super) struct ResultRow {
     pub(super) seed: String,
     /// Imported conditions and source observations, separately labelled.
     pub(super) items: Vec<Item>,
+    /// No verification, decisions or human marks were reported at the read root.
+    pub(super) receipts_missing: bool,
     /// Plain actions still owed, including human attestations.
     pub(super) gates: Vec<String>,
     /// Unresolved source problems, not concealed by other successes.
@@ -76,12 +81,32 @@ fn gate_words(stage: u64, status: &str) -> String {
 }
 
 fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
-    let verification = &run["verification"];
+    let verification = run
+        .get("verification")
+        .ok_or("Verification report missing.")?;
+    let gates = run["gates"].as_array().ok_or("Run report missing gates.")?;
+    let checklist = run["checklist"]
+        .as_array()
+        .ok_or("Run report missing completion conditions.")?;
+    let no_decisions = match run.get("decisions") {
+        None => true,
+        Some(value) => value
+            .as_array()
+            .ok_or("Run decisions unreadable.")?
+            .is_empty(),
+    };
+    row.receipts_missing = verification.is_null()
+        && no_decisions
+        && checklist.iter().all(|item| item["mark"].is_null())
+        && gates.iter().all(|gate| gate["status"] == "pending");
+    if row.receipts_missing {
+        row.gaps.push(format!("{MISSING_RECEIPTS}; name the checkout holding this run's receipts with --sdlc-root and read again. No other checkout was searched."));
+    }
     let receipt_head = commit(&verification["candidate"]["head"]);
     let exact = receipt_head.is_some() && receipt_head == row.head.as_deref();
     let current = run["verification_status"] == "current" && verification["passed"] == true;
     let mut all_gates = Vec::new();
-    for gate in run["gates"].as_array().ok_or("Run report missing gates.")? {
+    for gate in gates {
         let status = text(gate, "status")?;
         if !matches!(
             status,
@@ -89,11 +114,14 @@ fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
         ) {
             return Err("Unknown gate status.".into());
         }
-        if status != "approved" {
-            all_gates.push(gate_words(
-                gate["stage"].as_u64().ok_or("Gate stage missing.")?,
-                status,
+        let stage = gate["stage"].as_u64().ok_or("Gate stage missing.")?;
+        if row.receipts_missing {
+            row.gaps.push(format!(
+                "Gate source reported {status}: {}. Obligation {MISSING_RECEIPTS}.",
+                gate_words(stage, status)
             ));
+        } else if status != "approved" {
+            all_gates.push(gate_words(stage, status));
         }
     }
     row.gates = all_gates;
@@ -113,10 +141,7 @@ fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
         row.gaps
             .push("Completion evidence missing: no conditions reported by this run.".into());
     }
-    for item in run["checklist"]
-        .as_array()
-        .ok_or("Run report missing completion conditions.")?
-    {
+    for item in checklist {
         let automatic = item["automatic"].as_bool().ok_or("Check method missing.")?;
         let proof = text(item, "proof")?;
         if proof != if automatic { "automated" } else { "attested" } {
@@ -141,6 +166,7 @@ fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
         let automatic_evidence = automatic.then(|| evidence::automated(root, &row.slug, run, item));
         let old_pass = status == "passed" || (automatic && verification["result"] == "passed");
         let state = match status {
+            _ if row.receipts_missing => MISSING_RECEIPTS,
             _ if pending => "pending (not activated)",
             "passed" if !automatic && mark["evidence"].as_str().is_none() => {
                 "pending (attestation evidence missing)"
@@ -157,7 +183,7 @@ fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
             "pending" | "unknown" => "pending (matching evidence missing)",
             _ => return Err("Unknown completion condition status.".into()),
         };
-        if !automatic && (!pending && status != "passed" || recheck) {
+        if !row.receipts_missing && !automatic && (!pending && status != "passed" || recheck) {
             row.gates.push(if recheck {
                 format!("may need recheck: {label}")
             } else {
@@ -187,7 +213,11 @@ fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
                 "human attestation"
             }
             .into(),
-            evidence,
+            evidence: if row.receipts_missing {
+                format!("Source reported {status}; {evidence}")
+            } else {
+                evidence
+            },
         });
     }
     for error in run["errors"].as_array().ok_or("Run errors missing.")? {
@@ -326,6 +356,7 @@ pub(super) fn collect(
             merged: false,
             seed: String::new(),
             items: Vec::new(),
+            receipts_missing: false,
             gates: Vec::new(),
             gaps: Vec::new(),
         };
@@ -398,6 +429,7 @@ mod tests {
             merged: false,
             seed: "TEST".into(),
             items: vec![],
+            receipts_missing: false,
             gates: vec![],
             gaps: vec![],
         }
@@ -407,6 +439,76 @@ mod tests {
         serde_json::from_str::<Value>(include_str!("../../tests/fixtures/taste-api1.json")).unwrap()
             ["detail"]["run"]
             .clone()
+    }
+
+    fn without_receipts() -> Value {
+        let mut source = run();
+        source["verification"] = Value::Null;
+        source["verification_status"] = json!("blocked");
+        source["decisions"] = json!([]);
+        source["gates"][0]["status"] = json!("pending");
+        for item in source["checklist"].as_array_mut().unwrap() {
+            item["status"] = json!("pending");
+            item["mark"] = Value::Null;
+        }
+        source
+    }
+
+    #[test]
+    fn missing_receipts_are_unknown_never_owed_or_pending() {
+        let mut target = row();
+        target.goal = Goal::Matched("TEST unchanged goal".into());
+        local(Path::new("/TEST/intake"), &without_receipts(), &mut target).unwrap();
+        assert!(target.gates.is_empty());
+        assert!(target.receipts_missing);
+        assert!(
+            target
+                .items
+                .iter()
+                .all(|item| item.state == MISSING_RECEIPTS)
+        );
+        for color in [false, true] {
+            let detail = super::super::view::detail(
+                &target,
+                None,
+                None,
+                96,
+                crate::Palette::new(color),
+                false,
+            )
+            .iter()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+            assert_eq!(detail.matches(MISSING_RECEIPTS).count(), 3, "{detail}");
+            assert!(!detail.contains("waiting") && !detail.contains("No source gate owed"));
+        }
+        for action in ['a', 'c'] {
+            let copy = super::super::handoff(&target, action).unwrap();
+            assert!(copy.contains(&format!("Gates owed: {MISSING_RECEIPTS}")));
+            assert!(!copy.contains("pending (matching evidence missing)"));
+            assert!(copy.contains("TEST unchanged goal"));
+        }
+        let pause = super::super::next::suggest(&target);
+        assert!(pause.lines.join(" ").contains("Decision: proceed"));
+    }
+
+    #[test]
+    fn existing_receipts_keep_source_gate_and_check_derivation() {
+        for evidence in ["verification", "decision", "mark", "gate"] {
+            let mut source = without_receipts();
+            match evidence {
+                "verification" => source["verification"] = run()["verification"].clone(),
+                "decision" => source["decisions"] = json!([{"stage": 3, "decision": "approved"}]),
+                "mark" => source["checklist"][1]["mark"] = json!({"evidence": "TEST observation"}),
+                "gate" => source["gates"][0]["status"] = json!("stale"),
+                _ => unreachable!(),
+            }
+            let mut target = row();
+            local(Path::new("/TEST"), &source, &mut target).unwrap();
+            assert!(!target.receipts_missing, "{evidence}");
+            assert!(!target.gates.is_empty(), "{evidence}");
+        }
     }
 
     #[test]

@@ -460,7 +460,11 @@ fn handoff(row: &ResultRow, action: char) -> Result<String, &'static str> {
             .map(|i| format!("{}: {} ({}, {})", i.label, i.state, i.kind, i.evidence))
             .collect::<Vec<_>>()
             .join("; "),
-        row.gates.join("; "),
+        if row.receipts_missing {
+            read::MISSING_RECEIPTS.into()
+        } else {
+            row.gates.join("; ")
+        },
         row.gaps.join("; ")
     ))
 }

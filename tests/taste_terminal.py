@@ -79,6 +79,18 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
         if next_case == 'merged':
             state['pr']['state'] = 'MERGED'
         state['detail']['run']['checklist'][0]['check']['cwd'] = './'
+        elsewhere = base / 'TEST-build-elsewhere'
+        if next_case == 'receipts elsewhere':
+            elsewhere.mkdir()
+            signed = json.loads(json.dumps(state['detail']['run']))
+            signed['gates'][0]['status'] = 'approved'
+            signed['checklist'][1].update(status='passed', mark={'evidence': 'TEST signed elsewhere'})
+            (elsewhere / 'TEST-receipts.json').write_text(json.dumps(signed))
+            state['detail']['run'].update(verification=None, verification_status='blocked', decisions=[])
+            state['list']['runs'][0]['verification_status'] = 'blocked'
+            state['detail']['run']['gates'][0]['status'] = 'pending'
+            for item in state['detail']['run']['checklist']:
+                item.update(status='pending', mark=None)
         if mapping_case == 'recreated-run':
             state['list']['runs'][0]['run_id'] = OTHER_ID
             state['detail']['run']['run_id'] = OTHER_ID
@@ -111,6 +123,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
         process = subprocess.Popen(args, cwd=base, env=subprocess.environment(env, home=env['HOME']),
                                    stdin=slave, stdout=slave, stderr=slave)
         original = tree(checkout)
+        original_elsewhere = tree(elsewhere)
 
         def wait(predicate, seconds=8):
             deadline = time.monotonic() + seconds
@@ -165,6 +178,33 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 return
             assert len(calls()) == 3, calls()
             assert all('--web' not in c for c in calls())
+            if next_case == 'receipts elsewhere':
+                assert 'You owe' not in screen.text(), screen.text()
+                assert '? 2 unknown' in screen.text(), screen.text()
+                send(b'\r', 'Checks')
+                assert screen.text().count('unknown: receipts not found here') == 3, screen.text()
+                assert 'approve the plan' not in screen.text(), screen.text()
+                assert 'No source gate owed' not in screen.text(), screen.text()
+                for action in [b'a', b'c']:
+                    before = len(copied())
+                    os.write(master, action)
+                    wait(lambda: len(copied()) > before)
+                    payload = copied()[-1]
+                    assert f'Gates owed: unknown: receipts not found here' in payload, payload
+                    for label in ['Allocation works', 'confirm no clinical claims']:
+                        assert f'{label}: unknown: receipts not found here' in payload, payload
+                    assert GOAL in payload and HEAD in payload
+                    assert 'pending (matching evidence missing)' not in payload
+                assert len(calls()) == 3, calls()
+                send(b'\x1b', 'enter review')
+                send(b'\x1b', '1  think')
+                os.write(master, b'q')
+                process.wait(timeout=5)
+                assert process.returncode == 0
+                assert tree(checkout) == original and tree(elsewhere) == original_elsewhere
+                print(json.dumps(dict(journey='Taste receipts elsewhere unknown', width=width,
+                                      height=height, no_color=no_color, provider_calls=0, verdicts=0)))
+                return
             if next_case == 'merged':
                 assert ' · merged' in screen.text(), screen.text()
                 assert 'Guess · Next:' not in screen.text(), 'merge is not acceptance'
@@ -377,7 +417,7 @@ if __name__ == '__main__':
             journey(*dimensions, no_color)
     for dimensions in [(100, 30), (80, 24)]:
         for no_color in (False, True):
-            for next_case in ['accept', 'correct', 'nothing unmet', 'merged', 'absent ci', 'failed']:
+            for next_case in ['accept', 'correct', 'nothing unmet', 'merged', 'absent ci', 'failed', 'receipts elsewhere']:
                 journey(*dimensions, no_color, next_case=next_case)
     for case in ['missing', 'conflicting', 'other-run', 'recreated-run']:
         journey(80, 24, True, case)
