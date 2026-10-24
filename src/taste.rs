@@ -187,9 +187,7 @@ impl Taste {
                             .into();
                 }
             }
-            KeyCode::Char('l')
-                if self.detail && self.reading.is_none() && self.opening.is_none() =>
-            {
+            KeyCode::Char('l') if self.reading.is_none() && self.opening.is_none() => {
                 if let Some(row) = self.rows.get(self.selected) {
                     match handoff(row, 'a') {
                         Ok(_) => {
@@ -272,7 +270,7 @@ impl Taste {
         }
         concat!(
             "Right now\nq goes back to the menu · F10 Home · ? / Esc close help\n",
-            "Enter reviews · arrows/PgUp/PgDn/Home/End scroll · n/p result\n",
+            "Enter shows the whole goal and evidence · n/p result\n",
             "o opens PR · a/c copy accept/correct requests, never decisions\n\n",
             "What Taste reads\nOnly r reads the named checkout's API 1 status and explicit\n",
             "--taste-result PRs with gh, using your login. Missing/conflicting links\n",
@@ -280,7 +278,7 @@ impl Taste {
             "Passes need current, exact-head evidence; review is separate.\n",
             "External handoffs must recheck head, inputs, receipts and owed gates;\n",
             "copying cannot enforce that binding, record verdicts or merge.\n\n",
-            "After external acceptance\nIn review, l reports you accepted this result externally (not verified).\n",
+            "After external acceptance\nl reports you accepted this result externally (not verified).\n",
             "One deterministic guess follows; t opens an unsent Think draft.\n",
             "Only F2 sends. Copying or green checks never imply acceptance.\n",
             "Esc, correction, selection and rereading discard the guess.\n",
@@ -288,7 +286,7 @@ impl Taste {
         ).into()
     }
 
-    /// Paint the in-memory reading only, with a fixed action bar and scrollable whole goal.
+    /// Show a quiet summary; Enter alone reveals the unchanged goal and technical evidence.
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         let footer = Rect::new(
             area.x,
@@ -296,12 +294,14 @@ impl Taste {
             area.width,
             2,
         );
-        let actions = if self.pause.is_some() {
+        let actions = if self.pause.is_some() && !self.detail {
+            "t edit in Think (unsent)  enter details  c copy correct  r reread\nn/p result  ? help  Esc back"
+        } else if self.pause.is_some() {
             "t edit in Think (unsent)  c copy correct  r reread\narrows scroll  Esc back  ? help"
         } else if self.detail {
             "o open PR  a copy accept  c copy correct  l accepted externally\nn/p result  arrows scroll  r reread  ? help  Esc back"
         } else {
-            "o open PR  a copy accept  c copy correct  r reread\nn/p result  enter review  ? help  Esc back"
+            "o open PR  a copy accept  c copy correct  l accepted externally\nn/p result  enter details  r reread  ? help  Esc back"
         };
         frame.render_widget(Paragraph::new(actions).style(palette.muted), footer);
         let mut body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(3));
@@ -329,9 +329,7 @@ impl Taste {
             body.y += height.saturating_add(1);
             body.height = body.height.saturating_sub(height.saturating_add(1));
         }
-        if self.detail
-            && let Some(pause) = &self.pause
-        {
+        if let Some(pause) = &self.pause {
             frame.render_widget(
                 Paragraph::new(safe(&pause.next))
                     .style(palette.ink.add_modifier(ratatui::style::Modifier::ITALIC)),
@@ -382,35 +380,19 @@ impl Taste {
                     selected_line = lines.len();
                 }
                 lines.push(format!(
-                    "{} {}",
+                    "{} {}{}",
                     if i == self.selected { "›" } else { " " },
-                    row.slug
+                    goal(&row.goal).split('\n').next().unwrap_or(""),
+                    if row.merged { " · merged" } else { "" }
                 ));
-                lines.push(goal(&row.goal).split('\n').next().unwrap_or("").into());
-                lines.push(result_name(row));
-                lines.push(format!(
-                    "Commit: {}",
-                    row.head.as_deref().unwrap_or("unknown")
-                ));
-                lines.push(
+                lines.extend(
                     row.items
                         .iter()
-                        .map(|i| format!("{}: {}", i.label, i.state))
-                        .collect::<Vec<_>>()
-                        .join("; "),
+                        .map(|item| format!("{}: {}", item.label, item.state)),
                 );
                 lines.extend(row.gates.iter().map(|g| format!("Owed: {g}")));
-                lines.extend(row.gaps.iter().cloned());
                 lines.push(String::new());
             }
-        }
-        if !self.detail
-            && let Some(at) = self.at
-        {
-            lines.push(format!(
-                "Read {} min ago; a snapshot, not a freshness guarantee.",
-                at.elapsed().as_secs() / 60
-            ));
         }
         if !self.notice.is_empty() {
             lines.push(self.notice.clone());

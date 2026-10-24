@@ -134,6 +134,64 @@ fn repeated_or_modified_keys_never_copy_open_or_read() {
 }
 
 #[test]
+fn main_review_keeps_technical_metadata_only_behind_enter() {
+    for (w, h) in [(100, 30), (80, 24)] {
+        let mut taste = ready();
+        let mut evidence = taste.rows[0].items[0].clone();
+        evidence.evidence = "/TEST/log; argv: TEST-command; receipt TEST-hash".into();
+        taste.rows[0].items = ["pass", "fail", "pending", "stale", "unknown"]
+            .into_iter()
+            .map(|state| Item {
+                label: format!("TEST {state}"),
+                state: state.into(),
+                ..evidence.clone()
+            })
+            .collect();
+        taste.rows[0].gaps = vec!["TEST gap /TEST/source; argv: TEST-gap-command".into()];
+        let detail = result_lines(&taste.rows[0]).join("\n");
+        let copies = ['a', 'c'].map(|action| handoff(&taste.rows[0], action).unwrap());
+        taste.key(KeyEvent::from(KeyCode::Char('l')));
+        assert!(!taste.detail);
+        let main = screen(&mut taste, w, h);
+        assert!(
+            main.contains("TEST café") && main.contains("Guess · Next:"),
+            "{main}"
+        );
+        for state in ["pass", "fail", "pending", "stale", "unknown"] {
+            assert!(main.contains(&format!("TEST {state}: {state}")), "{main}");
+        }
+        assert!(main.contains("Owed: re-approve the plan"), "{main}");
+        for hidden in [
+            "/TEST",
+            "TEST-hash",
+            "TEST-command",
+            "TEST-run",
+            "TEST-gap-command",
+            "github.com",
+            "Commit:",
+            "Why: TEST reason",
+            &"a".repeat(40),
+        ] {
+            assert!(!main.contains(hidden), "{hidden}: {main}");
+            assert!(detail.contains(hidden), "{hidden}: {detail}");
+        }
+        taste.key(KeyEvent::from(KeyCode::Enter));
+        assert!(taste.detail);
+        assert_eq!(result_lines(&taste.rows[0]).join("\n"), detail);
+        let head = screen(&mut taste, w, h);
+        assert_eq!(head.matches("Commit:").count(), 1);
+        assert!(head.contains("Why: TEST reason"));
+        taste.key(KeyEvent::from(KeyCode::End));
+        assert!(screen(&mut taste, w, h).contains("TEST-hash"));
+        for (index, action) in ['a', 'c'].into_iter().enumerate() {
+            taste.key(KeyEvent::from(KeyCode::Char(action)));
+            assert_eq!(taste.take_copy_request().unwrap(), copies[index]);
+        }
+        assert!(taste.reading.is_none() && taste.opening.is_none());
+    }
+}
+
+#[test]
 fn both_sizes_scroll_to_full_evidence_and_keep_navigation() {
     for (w, h) in [(100, 30), (80, 24)] {
         let mut taste = ready();

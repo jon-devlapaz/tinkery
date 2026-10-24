@@ -47,14 +47,20 @@ with a reason. No complete empty claim survives a failed read.
 
 ## One result
 
-The list gives each result its goal's first line, PR, commit, individual states and
-owed gates. Enter reveals the whole saved goal, unchanged and untrimmed, including
-its completion conditions and constraints. The shared source/path-and-digest join
-supplies it; changed, moved, missing or unmatchable originals stay unknown. Escape
-unsafe terminal controls only for display, not storage or copying.
+The main review shows each goal's first line, one state per check, owed gates in
+plain words and the selected result's single Next line after an acceptance report.
+The selected goal carries the navigation marker; merged results still say “merged.”
+Run slugs/IDs, PR URLs, commits, paths, receipt hashes, command lines and source
+diagnostics are not summary decorations. Enter reveals them in the existing detail
+view, along with the whole saved goal, unchanged and untrimmed, including its
+completion conditions and constraints. Operator/source wording is not rewritten to
+hide technical words that are themselves part of the goal or a check's expectation.
+The shared source/path-and-digest join supplies the goal; changed, moved, missing or
+unmatchable originals stay unknown. Escape unsafe terminal controls only for display,
+not storage or copying.
 
-The PR, commit and read time stay fixed while the goal and evidence scroll.
-Show the commit **once per result**, not evidence codes beside every check. Each
+In detail the PR, commit and read time stay fixed while the goal and evidence scroll.
+Show the PR URL and commit **once per result**, not evidence codes beside every check. Each
 source expectation retains its exact wording, method and pass/fail/pending/stale
 state. A local pass needs both source-current verification and its receipt's exact
 head matching the displayed PR head. A different head makes prior passes stale even
@@ -71,7 +77,7 @@ receipt. This is separate from automated proof and operator acceptance.
 
 Owed gates use plain actions: “approve the plan” or “re-approve the plan,” plus
 owed manual expectations in their source words, never checklist IDs or seed jargon.
-The existing evidence tail and copied request retain each automatic item's API 1
+The detail view's existing evidence tail and the unchanged copied request retain each automatic item's API 1
 `run.log.path`, resolved lexically against the named checkout within the selected
 run, its exact checking `argv` and `cwd` (with the API's default `.` labelled when
 omitted), and optional `verification.log` SHA-256. Checking directories such as
@@ -89,8 +95,9 @@ play link is invented.
 
 ## Keys and handoff
 
-- List arrows choose; Enter reviews. In review, arrows, PgUp/PgDn and Home/End
-  scroll the whole goal and evidence. `n`/`p` or Right/Left change result, clamped.
+- Main-review arrows choose; Enter opens detail. In detail, arrows, PgUp/PgDn and
+  Home/End scroll the whole goal and evidence. `n`/`p` or Right/Left change result,
+  clamped. Returning from detail restores the quiet main review without rereading.
 - `o` alone uses `gh pr view <explicit URL> --web` to open the PR. Navigation records
   nothing and rereads no checks. Browser failure names the retry. Repeated or modified
   action keys never open, reread or copy.
@@ -109,7 +116,7 @@ expected-input binding is still not guaranteed; changed material needs rereview.
 
 ## After external acceptance
 
-In review, `l` means “I accepted this exact result externally.” It reports the
+In the main review or detail, `l` means “I accepted this exact result externally.” It reports the
 operator's decision for this snapshot only; it neither verifies acceptance nor
 records a verdict. Copying `a`, browser navigation, green checks and merged/closed
 PR states never imply acceptance. Unknown goal, run or result identity refuses the
@@ -147,6 +154,7 @@ gate or authorization. The operator still merges externally.
 
 `src/taste/tests.rs` and the reader's unit tests cover exact goal preservation,
 unknown identity, missing/unsafe evidence, strict run-ID/URL inputs, statuses, source staleness,
+quiet summaries with every check state, and unchanged technical detail behind Enter,
 selection identity, clipboard requests, key repeats/modifiers and small-size scrolling.
 The changed-result regression must fail when the exact-head mismatch protection is
 removed, then pass after restoration.
@@ -172,5 +180,13 @@ label and absence of a note, then report acceptance with `l` before the note app
 The merged-result retention regression must fail when the open-only filter returns,
 then pass after restoration. The report-boundary regression must fail with its
 acceptance protection reverted.
+The [quiet-review journeys](../../tests/taste_quiet_terminal.py) check metadata stays
+out of the main view and remains reachable through Enter, at both sizes and both
+colour settings. They pin both OSC 52 payloads byte-for-byte to the synthetic
+[a61f719 baseline](../../tests/fixtures/taste-handoff-355.json), substituting only the
+TEST root into expected strings. A retained parent binary can additionally compare
+raw payload bytes and all scrolled detail frames in the same TEST root. The quiet
+summary regression must fail when technical metadata is put back, then pass after
+restoration. No note-content or source-read change belongs to #355.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.

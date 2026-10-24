@@ -321,8 +321,15 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             update()
             send(b'r', 'Commit: unknown')
             send(b'\x1b', 'Results waiting on you')
-            assert "Couldn't read GitHub" in screen.text(), screen.text()
+            assert "Couldn't read GitHub" not in screen.text(), 'source diagnostics leaked out of detail'
             send(b'\r', 'Goal (unchanged)')
+            for _ in range(12):
+                if "Couldn't read GitHub" in screen.text():
+                    break
+                previous = screen.text()
+                os.write(master, b'\x1b[B')
+                wait(lambda: screen.text() != previous)
+            assert "Couldn't read GitHub" in screen.text(), screen.text()
             del state['gh_fail']
             update()
             send(b'\x1b', 'Results waiting on you')
