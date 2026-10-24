@@ -1,0 +1,309 @@
+"""Exact-commit Taste previews: local Git fixture, fake server, stub opener, no providers."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import select
+import shutil
+import socket
+import struct
+import sys
+import tempfile
+import termios
+import time
+import test_launch as subprocess
+from taste_terminal import FAKE, GOAL, REPO, RUN_ID, URL, fixture, tree
+from vt_screen import Screen
+
+SERVER = '''import http.server, json, os, socket, socketserver, subprocess, sys, time
+from pathlib import Path
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])
+record = Path(os.environ['TEST_PREVIEW_STARTED'])
+staged = record.with_suffix('.tmp')
+staged.write_text(json.dumps(dict(pid=os.getpid(), child=child.pid, cwd=os.getcwd(), marker=Path('marker').read_text())))
+staged.replace(record)
+def event(kind):
+    with open(os.environ['TEST_PREVIEW_EVENTS'], 'a') as log:
+        log.write(json.dumps(dict(event=kind, at=time.monotonic())) + '\\n')
+
+def refuse_fqdn(*args, **kwargs):
+    event('unexpected fqdn lookup')
+    raise AssertionError('numeric loopback fixture must not perform reverse DNS')
+
+socket.getfqdn = refuse_fqdn
+
+class LoopbackHTTPServer(http.server.HTTPServer):
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = '127.0.0.1', self.server_address[1]
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        event('request')
+        time.sleep(float(os.environ['TEST_PREVIEW_RESPONSE_DELAY']))
+        try:
+            super().do_GET()
+            event('response')
+        except (BrokenPipeError, ConnectionResetError):
+            event('abandoned')
+
+event('startup')
+time.sleep(.6)
+event('constructing server')
+server = LoopbackHTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
+event('listening')
+server.serve_forever()
+'''
+
+
+def make_stubs_executable(paths):
+    for path in paths:
+        if not path.is_symlink():
+            path.chmod(0o755)
+
+
+def process_state(pid, env):
+    result = subprocess.run(['/bin/ps', '-o', 'stat=', '-p', str(pid)],
+                            env=env, capture_output=True, text=True)
+    if result.returncode == 1 and not result.stdout.strip() and not result.stderr.strip():
+        return None
+    assert result.returncode == 0 and result.stdout.strip(), (pid, result)
+    return result.stdout.strip()[0]
+
+
+def alive(pid, env):
+    return process_state(pid, env) not in (None, 'Z')
+
+
+def verify_portable_helpers():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-preview-portability-') as directory:
+        base = Path(directory)
+        env = subprocess.environment(home=base / 'HOME')
+        target = base / 'TEST-interpreter'
+        target.write_text('TEST symlink target must retain its permissions')
+        target.chmod(0o640)
+        link = base / 'python3'
+        link.symlink_to(target)
+        script = base / 'stub'
+        script.write_text('#!/bin/sh\nexit 0\n')
+        make_stubs_executable([script, link])
+        assert target.stat().st_mode & 0o777 == 0o640, 'chmod followed the interpreter symlink'
+        assert script.stat().st_mode & 0o777 == 0o755
+
+        read_fd, write_fd = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os.close(write_fd)
+            os.read(read_fd, 1)
+            os._exit(0)
+        os.close(read_fd)
+        reaped = False
+        try:
+            assert alive(pid, env), 'live child was not detected'
+            os.close(write_fd)
+            write_fd = None
+            until = time.monotonic() + 5
+            while process_state(pid, env) != 'Z':
+                assert time.monotonic() < until, 'exited child was not detected as a zombie'
+                time.sleep(.01)
+            assert not alive(pid, env), 'zombie was counted as running'
+            waited, status = os.waitpid(pid, 0)
+            reaped = True
+            assert waited == pid and os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+            assert process_state(pid, env) is None, 'waitpid did not remove the child'
+        finally:
+            if write_fd is not None:
+                os.close(write_fd)
+            if not reaped:
+                try:
+                    os.kill(pid, 9)
+                except ProcessLookupError:
+                    pass
+                os.waitpid(pid, 0)
+    print('PASS preview harness: symlink permissions unchanged; ps detects live/zombie/reaped child')
+
+
+def journey(width, height, mono, wrong_head=False, response_delay=0):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-preview-journey-') as directory:
+        base = Path(directory).resolve()
+        env = {**os.environ, 'HOME': str(base / 'HOME'), 'TERM': 'xterm-256color',
+               'TINKERY_NODE': '/tinkery-TEST-no-node'}
+        env.pop('NO_COLOR', None)
+        if mono:
+            env['NO_COLOR'] = '1'
+        env = subprocess.environment(env, home=env['HOME'])
+        repo = base / 'TEST-result-repo'
+        repo.mkdir()
+        git = shutil.which('git')
+
+        def run_git(*args):
+            return subprocess.check_output([git, *args], cwd=repo, env=env).decode().strip()
+
+        run_git('init', '-q')
+        run_git('config', 'user.name', 'TEST')
+        run_git('config', 'user.email', 'TEST@example.invalid')
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', 0))
+            port = sock.getsockname()[1]
+        spec = {'command': f'exec python3 preview.py {port}', 'url': f'http://127.0.0.1:{port}/'}
+        (repo / 'tinkery.preview').write_text(json.dumps(spec) + '\n')
+        (repo / 'preview.py').write_text(SERVER)
+        (repo / 'marker').write_text('exact result')
+        run_git('add', '.')
+        run_git('commit', '-qm', 'TEST exact result')
+        head = run_git('rev-parse', 'HEAD')
+        (repo / 'marker').write_text('wrong result')
+        run_git('commit', '-qam', 'TEST newer result not selected')
+        other = run_git('rev-parse', 'HEAD')
+        checkout = base / 'TEST-status'
+        scripts = checkout / '_system/scripts'
+        scripts.mkdir(parents=True)
+        (scripts / 'sdlc.py').write_text(FAKE)
+        seed = base / 'TEST-seed/seed-contract.md'
+        seed.parent.mkdir()
+        seed.write_text('TEST original')
+        (seed.parent / 'ledger.json').write_text(json.dumps({'schema_version': 1, 'goal': GOAL}))
+        state = fixture({'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
+                         'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()})
+        state['pr']['headRefOid'] = head
+        statefile = base / 'state.json'
+        statefile.write_text(json.dumps(state))
+        helpers = base / 'bin'
+        helpers.mkdir()
+        (helpers / 'python3').symlink_to(sys.executable)
+        (helpers / 'gh').write_text(f'#!{sys.executable}\n' + f'''import json, os, sys
+from pathlib import Path
+if sys.argv[1] == 'api':
+    assert sys.argv[-1].endswith('tinkery.preview?ref={head}')
+    if json.loads(Path(os.environ['TEST_TASTE_STATE']).read_text()).get('no_preview'):
+        print('HTTP 404', file=sys.stderr)
+        sys.exit(1)
+    print({json.dumps(spec)!r})
+    sys.exit(0)
+''' + FAKE)
+        (helpers / 'git').write_text(f'#!{sys.executable}\n' + f'''import os, sys
+args = sys.argv[1:]
+if 'fetch' in args:
+    assert 'credential.helper=!gh auth git-credential' in args
+    assert args[-2] == 'https://github.com/TEST/clinic-tycoon.git'
+    assert args[-1] == {head!r}
+    args[-2:] = [{str(repo)!r}, {other if wrong_head else head!r}]
+os.execv({git!r}, [{git!r}, *args])
+''')
+        opened = base / 'opened'
+        opener = f'#!{sys.executable}\nfrom pathlib import Path\nimport sys\nPath({str(opened)!r}).write_text(sys.argv[1])\n'
+        for name in ['open', 'xdg-open']:
+            (helpers / name).write_text(opener)
+        make_stubs_executable(helpers / name for name in ['gh', 'git', 'open', 'xdg-open'])
+        started = base / 'started'
+        env.update(PATH=f'{helpers}:/usr/bin:/bin', TEST_TASTE_STATE=str(statefile),
+                   TEST_TASTE_CALLS=str(base / 'calls'), TEST_TASTE_PID=str(base / 'pid'),
+                   TEST_PREVIEW_STARTED=str(started), TEST_PREVIEW_EVENTS=str(base / 'http-events'),
+                   TEST_PREVIEW_RESPONSE_DELAY=str(response_delay))
+        master, slave = os.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
+        screen = Screen(width, height)
+        process = subprocess.Popen([str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
+                                    '--sdlc-root', str(checkout), '--seed-session-root', str(base / 'TEST-sessions'),
+                                    '--taste-result', f'{RUN_ID}={URL}'], cwd=base, env=env,
+                                   stdin=slave, stdout=slave, stderr=slave)
+        original = tree(checkout)
+        repo_original = tree(repo)
+
+        def wait(predicate, seconds=10):
+            until = time.monotonic() + seconds
+            while time.monotonic() < until:
+                if select.select([master], [], [], .02)[0]:
+                    screen.feed(os.read(master, 65536))
+                if predicate() and not screen.synchronized:
+                    return
+                assert process.poll() is None, screen.text()
+            events = base / 'http-events'
+            raise AssertionError(screen.text() + '\nHTTP fixture events:\n' +
+                                 (events.read_text() if events.exists() else 'not started'))
+
+        def send(key, expected):
+            os.write(master, key)
+            wait(lambda: expected in screen.text())
+
+        def stopped(record):
+            wait(lambda: process_state(record['pid'], env) is None and not alive(record['child'], env))
+            assert not Path(record['cwd']).exists(), 'temporary checkout survived cancellation'
+
+        try:
+            wait(lambda: '1  think' in screen.text())
+            send(b'6', 'Press r to read results')
+            assert not started.exists() and not opened.exists()
+            send(b'r', '›  TEST café')
+            send(b'\r', 'v run')
+            text = screen.text().replace('\n', '').replace(' ', '')
+            assert head in text and spec['command'].replace(' ', '') in text, screen.text()
+            assert not started.exists() and not opened.exists(), 'read/navigation executed command'
+            send(b'?', 'What Taste reads')
+            os.write(master, b'v')
+            time.sleep(.1)
+            assert not started.exists(), 'help leaked preview execution'
+            os.write(master, b'\x1b')
+            wait(lambda: 'What Taste reads' not in screen.text() and 'v run "' in screen.text())
+            os.write(master, b'v')
+            if wrong_head:
+                wait(lambda: 'Checkout commit disagrees' in screen.text())
+                assert not started.exists() and not opened.exists(), 'wrong commit executed'
+                send(b'\x1b', 'Preview stopped and reaped')
+            else:
+                wait(started.exists)
+                record = json.loads(started.read_text())
+                assert alive(record['pid'], env) and alive(record['child'], env), 'preview group was not running'
+                assert record['marker'] == 'exact result'
+                assert record['cwd'] != str(repo) and record['cwd'] != str(checkout)
+                assert not opened.exists(), 'opened browser before URL answered'
+                wait(lambda: opened.exists() and 'sent http' in screen.text(), seconds=35)  # 30 s readiness + opener/paint slack
+                assert opened.read_text() == spec['url']
+                send(b'\x1b', 'Preview stopped and reaped')
+                stopped(record)
+                started.unlink()
+                opened.unlink()
+                os.write(master, b'v')
+                wait(started.exists)
+                record = json.loads(started.read_text())
+                assert alive(record['pid'], env) and alive(record['child'], env), 'preview group was not running'
+                send(b'\x1b[21~', '1  think')  # F10 leaves and stops, including startup.
+                stopped(record)
+                send(b'6', 'Press r to read results')
+                state['no_preview'] = True
+                statefile.write_text(json.dumps(state))
+                send(b'r', '›  TEST café')
+                send(b'\r', 'Checks')
+                send(b'v', 'No preview declared')
+                assert 'tinkery.preview' in screen.text() and 'command' in screen.text(), screen.text()
+                assert not opened.exists(), 'undeclared preview opened a browser'
+            assert tree(checkout) == original and tree(repo) == repo_original
+            events = base / 'http-events'
+            http_events = [json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
+            print(json.dumps(dict(journey='Taste exact-head preview' if not wrong_head else 'Taste wrong-head refusal',
+                                  width=width, height=height, no_color=mono, provider_calls=0,
+                                  opener='stub', response_delay=response_delay,
+                                  http_requests=sum(e['event'] == 'request' for e in http_events),
+                                  esc_reaped=not wrong_head, leave_reaped=not wrong_head)))
+        finally:
+            if process.poll() is None:
+                os.write(master, b'\x1b[21~')
+                wait(lambda: '1  think' in screen.text())
+                os.write(master, b'q')
+                until = time.monotonic() + 5
+                while process.poll() is None and time.monotonic() < until:
+                    if select.select([master], [], [], .02)[0]:
+                        os.read(master, 65536)
+                process.wait(timeout=1)
+            os.close(master)
+            os.close(slave)
+
+
+if __name__ == '__main__':
+    verify_portable_helpers()
+    for width, height in [(100, 30), (80, 24)]:
+        for mono in [False, True]:
+            journey(width, height, mono)
+            journey(width, height, mono, wrong_head=True)
+    journey(100, 30, False, response_delay=.25)

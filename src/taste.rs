@@ -1,10 +1,11 @@
-//! Taste reviews one exact result against its unchanged saved goal. Only explicit refresh reads
-//! checkout status and GitHub; only o opens a PR. Copying hands review back externally without
-//! recording a verdict, posting, merging, signing gates or launching an agent.
+//! Taste reviews one exact result against its unchanged saved goal. Explicit refresh reads
+//! checkout status and GitHub metadata; o opens a PR and v runs a declared exact-head preview. Copying hands
+//! review back externally without recording a verdict, posting, merging, signing gates or agents.
 
 mod evidence;
 mod links;
 mod next;
+mod preview;
 mod read;
 mod view;
 /// Explicit canonical run-ID to PR inputs for this launch, never persisted or inferred.
@@ -26,12 +27,13 @@ use ratatui::{
 use read::ResultRow;
 use std::{path::PathBuf, process::Command, time::Instant};
 
-/// A read-only visit; snapshots and copy requests die when the operator leaves.
+/// One result visit; snapshots, copy requests and any explicit preview die on leaving.
 pub(crate) struct Taste {
     root: Option<PathBuf>,
     links: ResultLinks,
     reading: Option<Read<Vec<ResultRow>>>,
     opening: Option<Read<()>>,
+    preview: Option<preview::Preview>,
     rows: Vec<ResultRow>,
     selected: usize,
     selection: Option<(String, Option<String>)>,
@@ -54,6 +56,7 @@ impl Taste {
             links,
             reading: None,
             opening: None,
+            preview: None,
             rows: Vec::new(),
             selected: 0,
             selection: None,
@@ -70,6 +73,7 @@ impl Taste {
     }
 
     fn refresh(&mut self) {
+        self.preview = None;
         if self.reading.is_some() || self.opening.is_some() {
             return;
         }
@@ -143,12 +147,61 @@ impl Taste {
         if key.kind == KeyEventKind::Repeat
             && matches!(
                 key.code,
-                KeyCode::Char('r' | 'o' | 'a' | 'c' | 'l' | 't' | 'e') | KeyCode::Enter
+                KeyCode::Char('r' | 'o' | 'a' | 'c' | 'l' | 't' | 'e' | 'v') | KeyCode::Enter
+            )
+        {
+            return false;
+        }
+        if self.preview.is_some()
+            && !matches!(
+                key.code,
+                KeyCode::Esc
+                    | KeyCode::Char('q' | 'r' | 'n' | 'p')
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::PageUp
+                    | KeyCode::PageDown
+                    | KeyCode::Home
+                    | KeyCode::End
+                    | KeyCode::Char('j' | 'k')
             )
         {
             return false;
         }
         match key.code {
+            KeyCode::Esc if self.preview.is_some() => {
+                self.preview = None;
+                self.notice = "Preview stopped and reaped.".into();
+            }
+            KeyCode::Char('v') if !self.detail || self.evidence => {
+                self.detail = true;
+                self.evidence = false;
+                self.scroll = 0;
+            }
+            KeyCode::Char('v') if self.preview.is_none() => {
+                if let Some(row) = self.rows.get(self.selected) {
+                    match (&row.preview, &row.url, &row.head) {
+                        (Ok(spec), Some(url), Some(head)) => {
+                            self.preview = Some(preview::Preview::start(
+                                url.clone(),
+                                head.clone(),
+                                spec.clone(),
+                            ));
+                            self.notice.clear();
+                            self.scroll = 0;
+                        }
+                        (Err(_), _, _) => {
+                            self.detail = true;
+                            self.evidence = false;
+                            self.scroll = usize::MAX;
+                            self.notice.clear();
+                        }
+                        _ => self.notice = "Result identity unknown; press r.".into(),
+                    }
+                }
+            }
             KeyCode::Esc if self.evidence => {
                 self.evidence = false;
                 self.scroll = 0;
@@ -238,6 +291,7 @@ impl Taste {
     }
 
     fn select(&mut self, next: bool) {
+        self.preview = None;
         if self.rows.is_empty() {
             return;
         }
@@ -287,10 +341,12 @@ impl Taste {
         concat!(
             "Right now\nq goes back to the menu · F10 Home · ? / Esc close help\n",
             "Enter reviews · e opens evidence · n/p result\n",
-            "o opens PR · a/c copy accept/correct requests, never decisions\n\n",
+            "o opens PR · v runs declared preview at the exact commit; Esc stops/reaps\n",
+            "a/c copy accept/correct requests, never decisions\n\n",
             "What Taste reads\nOnly r reads the named checkout's API 1 status and explicit\n",
             "--taste-result PRs with gh, using your login. Missing/conflicting links\n",
-            "stay unknown; prose supplies none. No writes, polling or agent launch.\n",
+            "stay unknown; prose supplies none. Reading writes nothing and launches no agents.\n",
+            "r also reads tinkery.preview from the result repo at its exact commit.\n",
             "Passes need current, exact-head evidence; review is separate.\n",
             "External handoffs must recheck head, inputs, receipts and owed gates;\n",
             "copying cannot enforce that binding, record verdicts or merge.\n\n",
@@ -310,14 +366,16 @@ impl Taste {
             area.width,
             2,
         );
-        let actions = if self.evidence {
+        let actions = if self.preview.is_some() {
+            "Preview · Esc stops and returns · F10 Home\narrows/PgUp/PgDn scroll  ? help"
+        } else if self.evidence {
             "e review  a/c copy  arrows/PgUp/PgDn scroll\nHome/End  ? help  Esc back"
         } else if self.detail && self.pause.is_some() {
             "t edit in Think (unsent)  e evidence  a/c copy\narrows/PgUp/PgDn scroll  ? help  Esc list"
         } else if self.detail {
-            "l accepted externally  e evidence  a/c copy  o open PR\narrows/PgUp/PgDn scroll  n/p result  r reread  ? help  Esc list"
+            "v view it  l accepted externally  e evidence  a/c copy  o open PR\narrows/PgUp/PgDn scroll  n/p result  r reread  ? help  Esc list"
         } else {
-            "arrows move  enter review  l accepted externally\na/c copy  o open PR  r reread  ? help  Esc back"
+            "arrows move  enter review  v view it  l accepted externally\na/c copy  o open PR  r reread  ? help  Esc back"
         };
         frame.render_widget(Paragraph::new(actions).style(palette.muted), footer);
         let body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(3));
@@ -338,6 +396,9 @@ impl Taste {
                     "Reads only --taste-result RUN_ID=PR_URL inputs with gh using your login.",
                 ),
             ]
+        } else if let Some(preview) = &self.preview {
+            let row = &self.rows[self.selected];
+            view::running_preview(row, &preview.status(), body.width, palette)
         } else if self.detail {
             self.rows.get(self.selected).map_or_else(Vec::new, |row| {
                 view::detail(

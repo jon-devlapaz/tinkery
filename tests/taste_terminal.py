@@ -25,6 +25,11 @@ GOAL = (' TEST café  \nWhy: Explore trade-offs.\n'
         'Done when: Allocation works; assumptions are inspectable.\nMust not: Claim clinical validation.  ')
 FAKE = '''import json, os, sys, time
 from pathlib import Path
+if len(sys.argv) > 1 and sys.argv[1] == 'api':
+    with open(os.environ['TEST_TASTE_CALLS'] + '.preview', 'a') as log:
+        log.write(json.dumps(sys.argv[1:]) + '\\n')
+    print('HTTP 404', file=sys.stderr)
+    sys.exit(1)
 with open(os.environ['TEST_TASTE_CALLS'], 'a') as log:
     log.write(json.dumps(sys.argv[1:]) + '\\n')
 Path(os.environ['TEST_TASTE_PID']).write_text(str(os.getpid()))

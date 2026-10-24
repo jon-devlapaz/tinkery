@@ -31,7 +31,7 @@ Missing/conflicting inputs retain an unknown-result row and ask for corrected la
 inputs. Neither a slug, branch, title, handoff file nor another run's mapping can
 supply the link; recreating a slug with a new run ID cannot inherit the old PR.
 
-Only `r` reads GitHub, via `gh pr view <explicit URL> --json` using the operator's
+Only `r` reads result metadata from GitHub, via `gh pr view <explicit URL> --json` using the operator's
 login. Read the current head, state and PR-head checks. Explicitly mapped open and
 merged PRs stay listed, including green PRs with no source gates owed: checks never
 remove the need for human review. Merged results are marked “merged” in the list
@@ -119,8 +119,47 @@ Pointers are source references, not existence claims. Missing/unsafe pointers or
 methods leave matching pass claims pending; older heads/source-stale receipts still
 stay stale. Human marks retain their own evidence separately.
 There is no aggregate done/approved status. Read time means a snapshot, not an
-unchanged-since guarantee. No preview URL contract exists in these sources, so no
-play link is invented.
+unchanged-since guarantee. Preview commands and URLs come only from the explicit repo declaration below,
+never these receipt sources or package scripts.
+
+## Local preview
+
+At the result's exact PR head, the repository may declare a root `tinkery.preview`
+file: one JSON object on one line, with exactly `command` and `url`:
+
+```json
+{"command":"npm ci --ignore-scripts && npm run dev -- --port 5173 --strictPort","url":"http://127.0.0.1:5173/"}
+```
+
+The command is a trusted shell line, not sandboxed code. Declare installation/setup
+explicitly if needed; Tinkery never guesses from package.json. Only HTTP URLs on
+literal 127.0.0.1 with an explicit nonzero port are supported. No public URLs,
+redirect following, deployment, agents or model calls. The command must bind locally;
+the URL restriction is not a network sandbox for arbitrary repo code.
+
+The explicit `r` read also reads that file through `gh api` at the displayed head.
+404 means “No preview declared” with the format above; authentication, invalid files
+and other failures remain read refusals, not invented absence. Detail shows the exact
+command, full commit and URL before execution; Details does not repeat that commit.
+Missing-declaration guidance appears once, without a duplicate notice. List `v` opens detail, just like Enter;
+detail `v` runs the disclosed command. Reading, navigation, help and copying never
+execute it; repeated or modified v is ignored.
+
+Execution fetches that exact head into a temporary Git checkout, checks HEAD and
+rechecks the declaration against the snapshot, then runs with temporary HOME and
+XDG roots. Private-repository fetches use gh's credential helper, without changing
+operator Git configuration. No operator working tree is used. An already-listening port refuses the
+launch. The first successful local HTTP response triggers the default browser opener;
+readiness has a 30-second deadline. Each HTTP attempt retains one connection for up
+to two seconds within that deadline, accumulating a complete status line bounded to
+1 KiB. Short socket timeouts poll cancellation; they do not abandon a slow or
+fragmented response. Output is discarded, not retained as evidence.
+The view says the URL answered and was sent to the browser, not that the operator
+saw it or accepted it. Process exit, checkout, readiness and opener failures say what
+failed and how to retry. Esc stops the owned process group and reaps its direct child
+before returning; leaving Taste, switching results or rereading does the same.
+Temporary checkout and HOME are removed after the process stops. This is a preview,
+not an acceptance record or implementation permission.
 
 ## Keys and handoff
 
@@ -129,6 +168,7 @@ play link is invented.
   `e` or Esc there returns to detail. Arrows, PgUp/PgDn and Home/End scroll each
   complete document. `n`/`p` or Right/Left change result, clamped. Esc from detail
   returns to the list and discards the ephemeral report, without rereading.
+- `v` in detail runs the explicitly declared local preview above; Esc stops and reaps it.
 - `o` alone uses `gh pr view <explicit URL> --web` to open the PR. Navigation records
   nothing and rereads no checks. Browser failure names the retry. Repeated or modified
   action keys never open, reread or copy.
@@ -233,5 +273,16 @@ and read the receipt-free intake report, at both sizes and both colour settings.
 They require unknown local checks and gates in detail and both copied requests,
 no owed count, no extra reads, and byte-identical source trees. The missing-receipt
 unit regression must fail when the protection is reverted, then pass after restoration.
+[Preview journeys](../../tests/taste_preview_terminal.py) use a real temporary Git
+fixture, fake HTTP server and stub opener at both sizes and both colour settings.
+They prove no execution on read/navigation/help, exact-head checkout (not newer HEAD),
+readiness before opening, Esc and leaving stopping the process group, checkout cleanup,
+and plain declaration guidance when absent. A single-threaded server delayed by
+250 ms per response exercises readiness under load, with the journey waiting for
+the product's 30-second deadline plus opener/paint slack. Product regressions cover
+delayed and fragmented status lines, cancellation, the overall deadline and valid
+2xx parsing. The delayed/fragmented regressions must fail with the original probe,
+then pass after restoration. Wrong-head refusal must fail when its
+checkout identity protection is reverted, then pass after restoration.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.
