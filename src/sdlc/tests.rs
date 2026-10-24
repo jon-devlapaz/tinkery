@@ -136,6 +136,28 @@ fn a_failed_reader_start_says_what_to_check_without_os_internals() {
 }
 
 #[test]
+fn other_commands_name_themselves_when_they_fail_never_python_or_status() {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-command-")
+        .tempdir()
+        .unwrap();
+    let missing = std::process::Command::new("tinkery-TEST-missing-gh");
+    let why = run::execute(root.path(), missing, &AtomicBool::new(false), DEADLINE).unwrap_err();
+    assert_eq!(
+        why,
+        "Couldn't start tinkery-TEST-missing-gh. Check that it is installed and on PATH."
+    );
+    let mut failing = std::process::Command::new("sh");
+    failing.args(["-c", "echo 'fatal: TEST remote ref' >&2; exit 3"]);
+    let why = run::execute(root.path(), failing, &AtomicBool::new(false), DEADLINE).unwrap_err();
+    assert!(
+        why.starts_with("sh exited with") && why.ends_with("fatal: TEST remote ref"),
+        "{why}"
+    );
+    assert!(!why.contains("Python"), "{why}");
+}
+
+#[test]
 fn unreadable_runs_refuse_all_start_classification() {
     let (root, _source, run) = fixture();
     let scripts = root.path().join("_system/scripts");

@@ -28,7 +28,9 @@ if ! command -v rustup >/dev/null; then
 fi
 rustup toolchain install stable --profile minimal --component clippy --component rustfmt
 
-if ! command -v node >/dev/null; then
+# Voice needs Node 22+; an older node on PATH is shadowed by a local Node 24, never changed.
+node_major=$(node --version 2>/dev/null | sed -n 's/^v\([0-9][0-9]*\)\..*/\1/p' || true)
+if ! command -v node >/dev/null || { [[ -n $node_major ]] && (( node_major < 22 )); }; then
   case $(uname -m) in
     x86_64) arch=x64;;
     aarch64|arm64) arch=arm64;;

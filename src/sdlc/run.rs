@@ -95,13 +95,17 @@ pub(crate) fn run(
 }
 
 /// Execute one already-constructed read or explicit navigation command without a shell.
-/// Output, cancellation and process lifetime have the same bounds as status reads.
+/// Output, cancellation and process lifetime have the same bounds as status reads; failures
+/// name the command that failed, so a `gh` or `git` failure never blames Python or tink-sdlc.
 pub(crate) fn execute(
     root: &Path,
     mut command: Command,
     cancel: &AtomicBool,
     deadline: Duration,
 ) -> Result<String, String> {
+    let program = command.get_program().to_string_lossy().into_owned();
+    let status_read = program == "python3";
+    let name = if status_read { "status" } else { &program };
     let mut child = command
         .current_dir(root)
         .stdin(Stdio::null())
@@ -109,7 +113,11 @@ pub(crate) fn execute(
         .stderr(Stdio::piped())
         .process_group(0)
         .spawn()
-        .map_err(|_| "Couldn't start reading runs. Check that Python 3 is installed and the tink-sdlc checkout is accessible, then reopen this view to read again.".to_owned())?;
+        .map_err(|_| if status_read {
+            "Couldn't start reading runs. Check that Python 3 is installed and the tink-sdlc checkout is accessible, then reopen this view to read again.".to_owned()
+        } else {
+            format!("Couldn't start {name}. Check that it is installed and on PATH.")
+        })?;
     let drain = |pipe: Box<dyn std::io::Read + Send>, limit: u64| {
         thread::spawn(move || {
             let mut bytes = Vec::new();
@@ -128,7 +136,7 @@ pub(crate) fn execute(
         if Instant::now() >= until {
             stop(&mut child);
             return Err(format!(
-                "status took longer than {} s and was stopped.",
+                "{name} took longer than {} s and was stopped.",
                 deadline.as_secs()
             ));
         }
@@ -137,17 +145,21 @@ pub(crate) fn execute(
             Ok(_) => thread::sleep(Duration::from_millis(10)),
             Err(_) => {
                 stop(&mut child);
-                return Err("Couldn't finish reading runs. Reopen this view to read again.".into());
+                return Err(if status_read {
+                    "Couldn't finish reading runs. Reopen this view to read again.".into()
+                } else {
+                    format!("Couldn't finish {name}. Reopen this view to try again.")
+                });
             }
         }
     };
     let (out_ok, out) = out.join().unwrap_or((false, Vec::new()));
     let (_, err) = err.join().unwrap_or((false, Vec::new()));
     if !out_ok {
-        return Err("status printed more than 4 MiB; nothing is shown.".into());
+        return Err(format!("{name} printed more than 4 MiB; nothing is shown."));
     }
     let out =
-        String::from_utf8(out).map_err(|_| "status printed text that isn't UTF-8.".to_string())?;
+        String::from_utf8(out).map_err(|_| format!("{name} printed text that isn't UTF-8."))?;
     if status.success() {
         return Ok(out);
     }
@@ -163,7 +175,7 @@ pub(crate) fn execute(
                 .map(|line| line.trim().to_owned())
         })
         .unwrap_or_else(|| "no details".into());
-    Err(format!("status exited with {status}: {message}"))
+    Err(format!("{name} exited with {status}: {message}"))
 }
 
 /// Kill the owned process group, then reap the child; never leave a status command running.

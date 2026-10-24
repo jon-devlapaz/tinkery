@@ -47,6 +47,15 @@ fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+// Shape starts Pi in another folder, and a relative program path follows the child's folder.
+// Bare names stay bare so PATH still finds them.
+fn launch_relative(program: PathBuf) -> io::Result<PathBuf> {
+    if program.is_relative() && program.components().count() > 1 {
+        return Ok(std::env::current_dir()?.join(program));
+    }
+    Ok(program)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut no_color = std::env::var_os("NO_COLOR").is_some();
     let mut snapshot = false;
@@ -119,9 +128,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .ok_or("--shape-budget needs a number of model calls")?;
             }
             "--pi-command" => {
-                pi_command = Some(PathBuf::from(
+                pi_command = Some(launch_relative(PathBuf::from(
                     args.next().ok_or("--pi-command needs an executable path")?,
-                ))
+                ))?)
             }
             "--help" | "-h" => {
                 println!(
@@ -575,6 +584,24 @@ mod tests {
                 assert!(pending.is_none());
             }
         }
+    }
+
+    #[test]
+    fn relative_pi_paths_keep_meaning_when_shape_starts_pi_elsewhere() {
+        let launch = std::env::current_dir().unwrap();
+        assert_eq!(
+            launch_relative("./TEST-bin/pi".into()).unwrap(),
+            launch.join("./TEST-bin/pi")
+        );
+        assert_eq!(
+            launch_relative("TEST-bin/pi".into()).unwrap(),
+            launch.join("TEST-bin/pi")
+        );
+        assert_eq!(launch_relative("pi".into()).unwrap(), PathBuf::from("pi"));
+        assert_eq!(
+            launch_relative("/TEST/pi".into()).unwrap(),
+            PathBuf::from("/TEST/pi")
+        );
     }
 
     #[test]
