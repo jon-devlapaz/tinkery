@@ -56,6 +56,24 @@ class CloudSetupTests(unittest.TestCase):
         self.assertEqual((sentinel / 'keep').read_text(), 'TEST unchanged')
         self.assertNotIn('git', (self.root / 'trace').read_text().splitlines())
 
+    def fake(self, name, body):
+        path = self.root / 'bin' / name
+        path.write_text('#!/bin/bash\n' + body + '\n')
+        path.chmod(0o755)
+
+    def test_node_older_than_22_gets_a_local_node_and_newer_is_kept(self):
+        self.fake('uname', '[[ $1 == -m ]] && echo x86_64 || echo "$FAKE_OS"')
+        self.fake('curl', 'echo "curl $*" >> "$TRACE"; out=${@: -1}; '
+                  'case $out in *SHASUMS256.txt) echo "TEST  node-v24.1.0-linux-x64.tar.xz" > "$out";; '
+                  '*) : > "$out";; esac')
+        for version, installs in (('v20.11.0', True), ('v22.0.0', False)):
+            self.fake('node', f'echo node >> "$TRACE"; echo {version}')
+            (self.root / 'trace').unlink(missing_ok=True)
+            result = self.run_setup()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            fetched = 'nodejs.org' in (self.root / 'trace').read_text()
+            self.assertEqual(fetched, installs, version)
+
 
 if __name__ == '__main__':
     unittest.main()
