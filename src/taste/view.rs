@@ -236,6 +236,28 @@ fn check(lines: &mut Vec<Line<'static>>, item: &Item, width: u16, p: Palette) {
     );
 }
 
+/// Complete preview disclosure and lifecycle status remain scrollable, even for long shell lines.
+pub(super) fn running_preview(
+    row: &ResultRow,
+    status: &str,
+    width: u16,
+    p: Palette,
+) -> Vec<Line<'static>> {
+    let mut lines = Vec::new();
+    if let Ok(spec) = &row.preview {
+        block(
+            &mut lines,
+            Span::raw(""),
+            &spec.disclosure(row.head.as_deref().unwrap_or("unknown")),
+            width,
+            p.muted,
+        );
+    }
+    lines.push(Line::default());
+    block(&mut lines, Span::raw(""), status, width, p.ink);
+    lines
+}
+
 /// All source wording remains reachable; evidence is a separate deliberate view, never a read.
 pub(super) fn detail(
     row: &ResultRow,
@@ -277,6 +299,15 @@ pub(super) fn detail(
         }
         return lines;
     }
+    if let Ok(spec) = &row.preview {
+        block(
+            &mut lines,
+            Span::raw(""),
+            &spec.disclosure(row.head.as_deref().unwrap_or("unknown")),
+            width,
+            p.muted,
+        );
+    }
     if let Some(pause) = pause {
         heading(&mut lines, "Next", p.ink);
         let guess = p.ink.add_modifier(Modifier::ITALIC);
@@ -310,13 +341,12 @@ pub(super) fn detail(
     heading(&mut lines, "Goal", p.ink);
     block(&mut lines, Span::raw("  "), goal(&row.goal), width, p.ink);
     heading(&mut lines, "Details", p.ink);
-    for text in [
+    let mut details = vec![
         format!(
             "PR: {}{}",
             row.url.as_deref().unwrap_or("unknown"),
             if row.merged { " · merged" } else { "" }
         ),
-        format!("Commit: {}", row.head.as_deref().unwrap_or("unknown")),
         format!("Run ID: {}", row.id),
         format!("Run: {}", row.slug),
         format!("Seed digest: {}", row.seed),
@@ -324,8 +354,18 @@ pub(super) fn detail(
             "Read {} min ago (snapshot)",
             at.map_or(0, |at| at.elapsed().as_secs() / 60)
         ),
-    ] {
+    ];
+    if row.preview.is_err() {
+        details.insert(
+            1,
+            format!("Commit: {}", row.head.as_deref().unwrap_or("unknown")),
+        );
+    }
+    for text in details {
         block(&mut lines, Span::raw("  "), &text, width, p.muted);
+    }
+    if let Err(why) = &row.preview {
+        block(&mut lines, Span::raw("  "), why, width, p.muted);
     }
     if !row.gaps.is_empty() {
         lines.push(Line::styled(
@@ -347,13 +387,36 @@ mod tests {
             id: "TEST-run-id".into(), slug: "TEST-run".into(),
             goal: Goal::Matched(format!("{}\nWhy: TEST reason.\nDone when: TEST result.", "TEST café 👩‍💻 goal ".repeat(12))),
             url: Some("https://github.com/TEST/example/pull/1".into()), head: Some("a".repeat(40)),
-            merged: true, receipts_missing: false, seed: "TEST-seed".into(), gates: vec![human.into()], gaps: vec![],
+            merged: true, preview: Err("No preview declared".into()), receipts_missing: false, seed: "TEST-seed".into(), gates: vec![human.into()], gaps: vec![],
             items: vec![
                 Item { label: "Every original check word stays intact while this long sentence wraps with a hanging indent and no abbreviation.".into(),
                     state: "fail".into(), kind: "automated".into(), evidence: "/TEST/log; argv: [TEST]".into() },
                 Item { label: human.into(), state: "pending (matching evidence missing)".into(),
                     kind: "human attestation".into(), evidence: "No operator evidence recorded".into() },
             ],
+        }
+    }
+
+    #[test]
+    fn long_preview_disclosure_and_failure_are_complete_wrapped_rows() {
+        let mut row = row();
+        row.preview = Ok(serde_json::from_value(serde_json::json!({
+            "command": "echo TEST; ".repeat(300),
+            "url": "http://127.0.0.1:5173/"
+        }))
+        .unwrap());
+        let status = "Preview stopped: TEST failure. Esc returns; v retries.";
+        for width in [76, 96] {
+            let lines = running_preview(&row, status, width, Palette::new(true));
+            assert!(lines.iter().all(|line| line.width() <= width as usize));
+            let complete = lines.iter().map(Line::to_string).collect::<String>();
+            let expected = row
+                .preview
+                .as_ref()
+                .unwrap()
+                .disclosure(row.head.as_deref().unwrap())
+                .replace('\n', "");
+            assert_eq!(complete, format!("{expected}{status}"));
         }
     }
 

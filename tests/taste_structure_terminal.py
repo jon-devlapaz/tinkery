@@ -23,4 +23,4 @@ if __name__ == '__main__':
                     (REPO / 'target/TEST-taste-structure-after-review-355.txt').write_text(result['main'])
                 print(json.dumps(dict(journey='structured Taste/long verbatim checks/evidence/identical copies',
                                       width=width, height=height, no_color=mono,
-                                      parent_comparison=bool(before), provider_calls=0, source_reads=3)))
+                                      parent_comparison=bool(before), provider_calls=0, source_reads=3, preview_reads=1)))

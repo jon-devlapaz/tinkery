@@ -94,6 +94,7 @@ or improved outcomes.
 | `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
 | `sdlc.rs`, `sdlc/run.rs` | Shared read-only API 1 status, exact original-seed matching, cancellable transactions and bounded command ownership; no store, checkout discovery or phase policy. |
 | `taste.rs`, `taste/read.rs` | One result's unchanged goal, revision-bound observations and external copy handoff; explicitly mapped PRs, read-only status/GitHub reads and deliberate browser navigation, never a verdict or agent launch. |
+| `taste/preview.rs` | Exact-head repo preview declarations, local HTTP readiness and explicitly launched temporary checkout/process ownership; no inferred commands, public URLs, agent or verdict. |
 | `taste/next.rs` | Deterministic post-acceptance pause and next-dump proposal from snapshot evidence; no model, verdict, structural diagnosis or permission. The menu alone passes its unsent draft to Think. |
 | `taste/view.rs` | Count-only result blocks, palette-bound headings and statuses, verbatim hanging check wraps and separately requested evidence; no source reads, gate derivation or copy formatting. |
 | `taste/links.rs`, `taste/evidence.rs` | Launch-only canonical run-ID/PR inputs with sticky conflict refusal; source-owned log pointers and check methods as evidence references, never prose parsing, a mapping store, log reads or check execution. |
@@ -186,6 +187,10 @@ shared draft provenance, with no phase-to-phase dependency (2, 3). Conversation
 keeps proposals separate from submitted sources and model context (6); the module
 map and phase designs show these boundaries (7). No architecture limit or recorded
 score changes. Snapshot-only evidence cannot justify a structural consolidation.
+
+Taste's preview keeps declaration format, exact-checkout binding and process lifetime
+behind one phase-local boundary (3, 6). Detail discloses execution before its deliberate
+key; the map names the owner (7). No phase dependency, score or limit changes.
 
 ## Limits enforced by `tests/architecture.rs`
 

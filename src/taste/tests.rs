@@ -12,6 +12,7 @@ fn row() -> ResultRow {
         url: Some("https://github.com/TEST/example/pull/1".into()),
         head: Some("a".repeat(40)),
         merged: false,
+        preview: Err("No preview declared".into()),
         receipts_missing: false,
         seed: "TEST-digest".into(),
         items: vec![Item {
@@ -49,6 +50,28 @@ fn screen(taste: &mut Taste, width: u16, height: u16) -> String {
         .map(|row| row.iter().map(|c| c.symbol()).collect::<String>())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+#[test]
+fn preview_disclosure_says_each_fact_once_without_running_on_navigation() {
+    for (width, height) in [(100, 30), (80, 24)] {
+        let mut taste = ready();
+        taste.rows[0].preview = Ok(serde_json::from_value(serde_json::json!({
+            "command": "TEST preview",
+            "url": "http://127.0.0.1:5173/"
+        }))
+        .unwrap());
+        taste.key(KeyEvent::from(KeyCode::Enter));
+        let detail = result_lines(&taste.rows[0]).join("\n");
+        assert_eq!(detail.matches(&"a".repeat(40)).count(), 1);
+        assert!(taste.preview.is_none(), "navigation ran the command");
+        taste.rows[0].preview =
+            Err("No preview declared. Add tinkery.preview with command and url.".into());
+        taste.key(KeyEvent::from(KeyCode::Char('v')));
+        let shown = screen(&mut taste, width, height);
+        assert_eq!(shown.matches("No preview declared").count(), 1, "{shown}");
+        assert!(shown.contains("tinkery.preview") && taste.preview.is_none());
+    }
 }
 
 #[test]
@@ -109,7 +132,7 @@ fn unknown_goal_or_result_refuses_copy_and_navigation_starts_nothing() {
 fn repeated_or_modified_keys_never_copy_open_or_read() {
     let mut taste = ready();
     taste.detail = true;
-    for code in ['a', 'c', 'r', 'o', 'l', 't', 'e'] {
+    for code in ['a', 'c', 'r', 'o', 'l', 't', 'e', 'v'] {
         let mut key = KeyEvent::from(KeyCode::Char(code));
         key.kind = KeyEventKind::Repeat;
         taste.key(key);

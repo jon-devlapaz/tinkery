@@ -41,6 +41,8 @@ pub(super) struct ResultRow {
     pub(super) head: Option<String>,
     /// GitHub explicitly reported a merged PR; never an acceptance claim.
     pub(super) merged: bool,
+    /// Exact-head declaration, or an honest absence/read refusal.
+    pub(super) preview: Result<super::preview::Spec, String>,
     /// Snapshot identity of the imported seed, not approval.
     pub(super) seed: String,
     /// Imported conditions and source observations, separately labelled.
@@ -354,6 +356,7 @@ pub(super) fn collect(
             url: None,
             head: None,
             merged: false,
+            preview: Err("Preview identity unknown; press r.".into()),
             seed: String::new(),
             items: Vec::new(),
             receipts_missing: false,
@@ -403,6 +406,9 @@ pub(super) fn collect(
                 }
             }
         }
+        if let (Some(url), Some(head)) = (&row.url, &row.head) {
+            row.preview = super::preview::declaration(&root, url, head, stop);
+        }
         let supporting_checks = std::mem::take(&mut row.items);
         local(&root, run, &mut row)?;
         row.items.extend(supporting_checks);
@@ -427,6 +433,7 @@ mod tests {
             url: Some("https://github.com/TEST/example/pull/1".into()),
             head: Some("a".repeat(40)),
             merged: false,
+            preview: Err("No preview declared".into()),
             seed: "TEST".into(),
             items: vec![],
             receipts_missing: false,
