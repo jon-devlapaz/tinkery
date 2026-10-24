@@ -147,14 +147,15 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             time.sleep(.1)
             assert not calls(), 'help leaked actions'
             send(b'\x1b', 'Press r to read results')
-            send(b'r', 'Results waiting on you')
+            send(b'r', '›  TEST café')
             if mapping_case != 'valid':
                 assert len(calls()) == 2 and not any('pr' in call for call in calls()), calls()
-                send(b'\r', 'Commit: unknown')
-                assert 'Allocation works: pending' in screen.text(), screen.text()
+                send(b'\r', 'Checks')
+                assert 'waiting: revision unknown  Allocation works' in screen.text(), screen.text()
+                send(b'\x1b[F', 'Commit: unknown')
                 send(b'a', 'Result identity unknown')
                 assert not copied(), 'unmapped or conflicting result was copied'
-                send(b'\x1b', 'Results waiting on you')
+                send(b'\x1b', 'enter review')
                 send(b'\x1b', '1  think')
                 os.write(master, b'q')
                 process.wait(timeout=5)
@@ -168,16 +169,18 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 assert ' · merged' in screen.text(), screen.text()
                 assert 'Guess · Next:' not in screen.text(), 'merge is not acceptance'
                 os.write(master, b't')
-            send(b'\r', 'Goal (unchanged)')
+            send(b'\r', 'Checks')
+            assert 'Guess · Next:' not in screen.text(), 'review is not acceptance'
+            assert 'TEST café' in screen.text(), screen.text()
+            send(b'\x1b[F', HEAD)
             if next_case == 'merged':
                 assert ' · merged' in screen.text(), screen.text()
-                assert 'Guess · Next:' not in screen.text(), 'review is not acceptance'
-            assert 'TEST café' in screen.text(), screen.text()
             assert HEAD in screen.text(), screen.text()
             # Reads and scrolling never launch anything; the whole goal is retained in the copy.
             read_count = len(calls())
             assert 'TEST-checked-allocation-success' not in screen.text(), 'log contents must not be dumped'
-            send(b'\x1b[F', 'Independent review:')
+            send(b'e', 'Evidence')
+            send(b'\x1b[F', 'run API')
             send(b'a', 'Handoff copied; decide externally.')
             wait(lambda: bool(copied()))
             assert GOAL in copied()[-1] and HEAD in copied()[-1]
@@ -198,6 +201,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             send(b'o', 'PR sent to browser')
             assert calls()[-1] == ['pr', 'view', URL, '--web']
             if next_case:
+                send(b'e', 'e evidence')
                 assert 'Guess · Next:' not in screen.text(), 'copy/open is not acceptance'
                 if next_case in ['nothing unmet', 'absent ci', 'failed']:
                     state['detail']['run']['gates'][0]['status'] = 'approved'
@@ -213,12 +217,12 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                     before = len(calls())
                     os.write(master, b'r')
                     wait(lambda: len(calls()) == before + 3 and 'Reading results' not in screen.text())
-                send(b'\x1b[H', 'Goal (unchanged)')
+                send(b'\x1b[H', 'Checks')
                 before = len(calls())
                 send(b'?', 'After external acceptance')
-                os.write(master, b'lt')
+                os.write(master, b'lte')
                 time.sleep(.1)
-                send(b'\x1b', 'Goal (unchanged)')
+                send(b'\x1b', 'Checks')
                 assert 'Guess · Next:' not in screen.text(), 'help leaked acceptance'
                 send(b'l', 'Guess · Next:')
                 assert screen.text().count('Next:') == 1, screen.text()
@@ -271,7 +275,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             update()
             before_green = len(calls())
             os.write(master, b'r')
-            wait(lambda: len(calls()) == before_green + 3 and 'Goal (unchanged)' in screen.text()
+            wait(lambda: len(calls()) == before_green + 3 and 'Checks' in screen.text()
                  and 'Reading results' not in screen.text())
             count = len(copied())
             os.write(master, b'a')
@@ -283,11 +287,12 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             state['pr']['headRefOid'] = NEXT
             state['pr']['statusCheckRollup'] = []
             update()
-            send(b'r', NEXT)
-            assert 'Allocation works: stale' in screen.text(), screen.text()
-            assert 'Allocation works: pass' not in screen.text()
-            assert HEAD not in screen.text(), 'old revision repeated in compact view'
-            send(b'\x1b[F', 'Independent review:')
+            send(b'r', '… stale  Allocation works')
+            assert '✓ passed  Allocation works' not in screen.text()
+            send(b'\x1b[F', NEXT)
+            assert HEAD not in screen.text(), 'old revision repeated in detail'
+            send(b'e', 'Evidence')
+            send(b'\x1b[F', 'run API')
             count = len(copied())
             os.write(master, b'c')
             wait(lambda: len(copied()) > count)
@@ -299,8 +304,8 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             state['detail']['run']['verification_status'] = 'failed'
             state['detail']['run']['checklist'][0]['status'] = 'failed'
             update()
-            send(b'r', 'Allocation works: fail')
-            assert 'pending' in screen.text()
+            send(b'r', '! failed  Allocation works')
+            assert 'waiting' in screen.text()
             # Unknown original refuses copying, without falling back to the old goal.
             seed.write_text('TEST changed original\n')
             send(b'r', 'Goal unknown')
@@ -313,26 +318,24 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             update()
             before_prose = len(calls())
             os.write(master, b'r')
-            wait(lambda: len(calls()) == before_prose + 3 and HEAD in screen.text()
+            wait(lambda: len(calls()) == before_prose + 3 and 'Checks' in screen.text()
                  and 'Reading results' not in screen.text())
+            send(b'\x1b[F', HEAD)
             assert calls()[-1][2] == URL, 'handoff prose retargeted the explicit result'
             handoff.write_bytes(original['runs/TEST-result/handoff.md'])
             state['gh_fail'] = True
             update()
-            send(b'r', 'Commit: unknown')
-            send(b'\x1b', 'Results waiting on you')
+            send(b'r', 'waiting: revision unknown')
+            send(b'\x1b[F', 'Commit: unknown')
+            send(b'\x1b', 'enter review')
             assert "Couldn't read GitHub" not in screen.text(), 'source diagnostics leaked out of detail'
-            send(b'\r', 'Goal (unchanged)')
-            for _ in range(12):
-                if "Couldn't read GitHub" in screen.text():
-                    break
-                previous = screen.text()
-                os.write(master, b'\x1b[B')
-                wait(lambda: screen.text() != previous)
-            assert "Couldn't read GitHub" in screen.text(), screen.text()
+            send(b'\r', 'Checks')
+            send(b'e', 'Evidence')
+            send(b'\x1b[F', "Couldn't read GitHub")
             del state['gh_fail']
             update()
-            send(b'\x1b', 'Results waiting on you')
+            send(b'\x1b', 'e evidence')
+            send(b'\x1b', 'enter review')
             send(b'\x1b', '1  think')
             before_reopen = len(calls())
             send(b'6', 'Press r to read results')

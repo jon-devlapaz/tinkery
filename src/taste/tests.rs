@@ -56,7 +56,10 @@ fn exact_goal_survives_display_and_both_handoffs_without_a_verdict() {
     let Goal::Matched(goal) = &row.goal else {
         panic!()
     };
-    assert!(result_lines(&row).join("\n").contains(goal));
+    let visible = result_lines(&row).join("\n");
+    for line in goal.split('\n') {
+        assert!(visible.contains(line));
+    }
     for action in ['a', 'c'] {
         let copy = handoff(&row, action).unwrap();
         assert!(copy.contains(goal) && copy.contains(&"a".repeat(40)));
@@ -105,14 +108,14 @@ fn unknown_goal_or_result_refuses_copy_and_navigation_starts_nothing() {
 fn repeated_or_modified_keys_never_copy_open_or_read() {
     let mut taste = ready();
     taste.detail = true;
-    for code in ['a', 'c', 'r', 'o', 'l', 't'] {
+    for code in ['a', 'c', 'r', 'o', 'l', 't', 'e'] {
         let mut key = KeyEvent::from(KeyCode::Char(code));
         key.kind = KeyEventKind::Repeat;
         taste.key(key);
         key.kind = KeyEventKind::Press;
         key.modifiers = KeyModifiers::ALT;
         taste.key(key);
-        assert!(taste.pause.is_none() && taste.take_draft().is_none());
+        assert!(taste.pause.is_none() && taste.take_draft().is_none() && !taste.evidence);
         assert!(
             taste.reading.is_none()
                 && taste.opening.is_none()
@@ -131,10 +134,16 @@ fn repeated_or_modified_keys_never_copy_open_or_read() {
     assert!(taste.notice.contains("No verdict recorded"));
     taste.copy_result(false);
     assert!(taste.notice.contains("Clipboard unavailable"));
+    taste.rows.clear();
+    taste.key(KeyEvent::from(KeyCode::Char('e')));
+    assert!(
+        !taste.evidence,
+        "a refresh with no current result cannot queue an evidence view"
+    );
 }
 
 #[test]
-fn main_review_keeps_technical_metadata_only_behind_enter() {
+fn list_uses_counts_and_detail_keeps_every_source_word_with_evidence_behind_e() {
     for (w, h) in [(100, 30), (80, 24)] {
         let mut taste = ready();
         let mut evidence = taste.rows[0].items[0].clone();
@@ -142,51 +151,75 @@ fn main_review_keeps_technical_metadata_only_behind_enter() {
         taste.rows[0].items = ["pass", "fail", "pending", "stale", "unknown"]
             .into_iter()
             .map(|state| Item {
-                label: format!("TEST {state}"),
+                label: format!("TEST exact {state} wording"),
                 state: state.into(),
                 ..evidence.clone()
             })
             .collect();
         taste.rows[0].gaps = vec!["TEST gap /TEST/source; argv: TEST-gap-command".into()];
-        let detail = result_lines(&taste.rows[0]).join("\n");
+        let full = result_lines(&taste.rows[0]).join("\n");
         let copies = ['a', 'c'].map(|action| handoff(&taste.rows[0], action).unwrap());
-        taste.key(KeyEvent::from(KeyCode::Char('l')));
-        assert!(!taste.detail);
-        let main = screen(&mut taste, w, h);
-        assert!(
-            main.contains("TEST café") && main.contains("Guess · Next:"),
-            "{main}"
-        );
-        for state in ["pass", "fail", "pending", "stale", "unknown"] {
-            assert!(main.contains(&format!("TEST {state}: {state}")), "{main}");
+        let list = screen(&mut taste, w, h);
+        for visible in [
+            "TEST café",
+            "✓ 1 passed",
+            "! 1 failed",
+            "… 1 waiting",
+            "… 1 stale",
+            "? 1 unknown",
+            "You owe 2",
+        ] {
+            assert!(list.contains(visible), "{visible}: {list}");
         }
-        assert!(main.contains("Owed: re-approve the plan"), "{main}");
         for hidden in [
             "/TEST",
             "TEST-hash",
             "TEST-command",
             "TEST-run",
-            "TEST-gap-command",
+            "TEST exact",
             "github.com",
             "Commit:",
             "Why: TEST reason",
-            &"a".repeat(40),
         ] {
-            assert!(!main.contains(hidden), "{hidden}: {main}");
-            assert!(detail.contains(hidden), "{hidden}: {detail}");
+            assert!(!list.contains(hidden), "{hidden}: {list}");
+            assert!(full.contains(hidden), "{hidden}: {full}");
         }
         taste.key(KeyEvent::from(KeyCode::Enter));
-        assert!(taste.detail);
-        assert_eq!(result_lines(&taste.rows[0]).join("\n"), detail);
-        let head = screen(&mut taste, w, h);
-        assert_eq!(head.matches("Commit:").count(), 1);
-        assert!(head.contains("Why: TEST reason"));
+        assert!(taste.detail && !taste.evidence);
+        let document = view::detail(
+            &taste.rows[0],
+            None,
+            taste.at,
+            u16::MAX,
+            Palette::new(true),
+            false,
+        )
+        .into_iter()
+        .map(|line| line.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+        for heading in ["You owe", "Checks", "Goal", "Details"] {
+            assert!(document.contains(heading));
+        }
+        for item in &taste.rows[0].items {
+            assert!(document.contains(&item.label));
+        }
+        assert!(!document.contains("/TEST/log") && !document.contains("argv:"));
+        assert!(document.contains("waiting: not finished"));
+        taste.key(KeyEvent::from(KeyCode::Char('l')));
+        assert!(screen(&mut taste, w, h).contains("Guess · Next:"));
+        taste.key(KeyEvent::from(KeyCode::Char('e')));
+        assert!(taste.evidence);
         taste.key(KeyEvent::from(KeyCode::End));
-        assert!(screen(&mut taste, w, h).contains("TEST-hash"));
+        assert!(screen(&mut taste, w, h).contains("TEST-gap-command"));
         for (index, action) in ['a', 'c'].into_iter().enumerate() {
             taste.key(KeyEvent::from(KeyCode::Char(action)));
             assert_eq!(taste.take_copy_request().unwrap(), copies[index]);
         }
+        taste.key(KeyEvent::from(KeyCode::Esc));
+        assert!(taste.detail && !taste.evidence);
+        taste.key(KeyEvent::from(KeyCode::Esc));
+        assert!(!taste.detail);
         assert!(taste.reading.is_none() && taste.opening.is_none());
     }
 }
@@ -199,16 +232,17 @@ fn both_sizes_scroll_to_full_evidence_and_keep_navigation() {
             format!("{} TEST-LAST-EVIDENCE", "TEST evidence ".repeat(500));
         taste.key(KeyEvent::from(KeyCode::Enter));
         let first = screen(&mut taste, w, h);
-        assert!(first.contains("TEST café") && first.contains("copy correct"));
+        assert!(first.contains("TEST café") && first.contains("e evidence"));
         assert!(!first.contains("TEST-LAST-EVIDENCE"));
+        taste.key(KeyEvent::from(KeyCode::Char('e')));
         taste.key(KeyEvent::from(KeyCode::End));
         let tail = screen(&mut taste, w, h);
         assert!(tail.contains("TEST-LAST-EVIDENCE"));
-        assert!(
-            tail.contains(&"a".repeat(40)),
-            "result identity scrolled away: {tail}"
-        );
-        assert_eq!(tail.matches("Commit:").count(), 1);
+        taste.key(KeyEvent::from(KeyCode::Esc));
+        taste.key(KeyEvent::from(KeyCode::End));
+        let identity = screen(&mut taste, w, h);
+        assert!(identity.contains(&"a".repeat(40)), "{identity}");
+        assert_eq!(identity.matches("Commit:").count(), 1);
         taste.key(KeyEvent::from(KeyCode::Home));
         assert!(screen(&mut taste, w, h).contains("TEST café"));
         taste.key(KeyEvent::from(KeyCode::Esc));
@@ -315,6 +349,7 @@ fn merged_result_is_labelled_but_needs_explicit_acceptance_before_the_note() {
         assert!(list.contains(" · merged"), "{list}");
         assert!(taste.pause.is_none() && taste.take_draft().is_none());
         taste.key(KeyEvent::from(KeyCode::Enter));
+        taste.key(KeyEvent::from(KeyCode::End));
         let detail = screen(&mut taste, w, h);
         assert!(
             detail.contains(" · merged") && !detail.contains("Guess · Next:"),
@@ -413,6 +448,31 @@ fn next_line_stays_single_and_italic_in_both_palettes() {
             );
         }
     }
+}
+
+#[test]
+fn hanging_check_words_and_final_metadata_remain_reachable_past_u16_rows() {
+    let mut taste = ready();
+    taste.detail = true;
+    taste.rows[0].items[0].state = "pending (failure revision unknown or different)".into();
+    taste.rows[0].items[0].label = format!("{}TEST-LAST-CHECK-WORD", "word ".repeat(500_000));
+    let rows = view::detail(
+        &taste.rows[0],
+        None,
+        taste.at,
+        80,
+        Palette::new(true),
+        false,
+    );
+    assert!(rows.len() > u16::MAX as usize);
+    taste.key(KeyEvent::from(KeyCode::End));
+    let tail = screen(&mut taste, 80, 24);
+    assert!(taste.scroll > u16::MAX as usize);
+    assert!(tail.contains("TEST-LAST-CHECK-WORD"), "{tail}");
+    assert!(
+        tail.contains("Commit:") && tail.contains("Run ID:"),
+        "{tail}"
+    );
 }
 
 #[test]

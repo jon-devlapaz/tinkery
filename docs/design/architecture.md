@@ -95,6 +95,7 @@ or improved outcomes.
 | `sdlc.rs`, `sdlc/run.rs` | Shared read-only API 1 status, exact original-seed matching, cancellable transactions and bounded command ownership; no store, checkout discovery or phase policy. |
 | `taste.rs`, `taste/read.rs` | One result's unchanged goal, revision-bound observations and external copy handoff; explicitly mapped PRs, read-only status/GitHub reads and deliberate browser navigation, never a verdict or agent launch. |
 | `taste/next.rs` | Deterministic post-acceptance pause and next-dump proposal from snapshot evidence; no model, verdict, structural diagnosis or permission. The menu alone passes its unsent draft to Think. |
+| `taste/view.rs` | Count-only result blocks, palette-bound headings and statuses, verbatim hanging check wraps and separately requested evidence; no source reads, gate derivation or copy formatting. |
 | `taste/links.rs`, `taste/evidence.rs` | Launch-only canonical run-ID/PR inputs with sticky conflict refusal; source-owned log pointers and check methods as evidence references, never prose parsing, a mapping store, log reads or check execution. |
 
 Vendored libraries are path dependencies, not phases: `vendor/pinstar/` owns

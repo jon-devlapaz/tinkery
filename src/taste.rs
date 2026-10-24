@@ -6,6 +6,7 @@ mod evidence;
 mod links;
 mod next;
 mod read;
+mod view;
 /// Explicit canonical run-ID to PR inputs for this launch, never persisted or inferred.
 pub use links::ResultLinks;
 #[cfg(test)]
@@ -35,8 +36,9 @@ pub(crate) struct Taste {
     selected: usize,
     selection: Option<(String, Option<String>)>,
     detail: bool,
-    scroll: u16,
-    page: u16,
+    evidence: bool,
+    scroll: usize,
+    page: usize,
     at: Option<Instant>,
     notice: String,
     copy: Option<String>,
@@ -56,6 +58,7 @@ impl Taste {
             selected: 0,
             selection: None,
             detail: false,
+            evidence: false,
             scroll: 0,
             page: 1,
             at: None,
@@ -78,6 +81,7 @@ impl Taste {
             .get(self.selected)
             .map(|r| (r.id.clone(), r.url.clone()));
         self.rows.clear();
+        self.evidence = false;
         self.pause = None;
         self.draft = None;
         self.copy = None;
@@ -114,6 +118,7 @@ impl Taste {
                 }
                 Err(why) => {
                     self.detail = false;
+                    self.evidence = false;
                     self.notice = format!("Couldn't read results: {why}");
                 }
             }
@@ -138,24 +143,31 @@ impl Taste {
         if key.kind == KeyEventKind::Repeat
             && matches!(
                 key.code,
-                KeyCode::Char('r' | 'o' | 'a' | 'c' | 'l' | 't') | KeyCode::Enter
+                KeyCode::Char('r' | 'o' | 'a' | 'c' | 'l' | 't' | 'e') | KeyCode::Enter
             )
         {
             return false;
         }
         match key.code {
-            KeyCode::Esc if self.pause.is_some() => {
-                self.pause = None;
+            KeyCode::Esc if self.evidence => {
+                self.evidence = false;
                 self.scroll = 0;
             }
             KeyCode::Esc if self.detail => {
                 self.detail = false;
+                self.pause = None;
+                self.draft = None;
                 self.scroll = 0;
             }
             KeyCode::Esc | KeyCode::Char('q') => return true,
             KeyCode::Char('r') => self.refresh(),
             KeyCode::Enter if !self.rows.is_empty() => {
                 self.detail = true;
+                self.evidence = false;
+                self.scroll = 0;
+            }
+            KeyCode::Char('e') if self.detail && self.rows.get(self.selected).is_some() => {
+                self.evidence = !self.evidence;
                 self.scroll = 0;
             }
             KeyCode::Down | KeyCode::Char('j') if self.detail => {
@@ -167,7 +179,7 @@ impl Taste {
             KeyCode::PageDown if self.detail => self.scroll = self.scroll.saturating_add(self.page),
             KeyCode::PageUp if self.detail => self.scroll = self.scroll.saturating_sub(self.page),
             KeyCode::Home => self.scroll = 0,
-            KeyCode::End if self.detail => self.scroll = u16::MAX,
+            KeyCode::End if self.detail => self.scroll = usize::MAX,
             KeyCode::Down | KeyCode::Char('j' | 'n') | KeyCode::Right => self.select(true),
             KeyCode::Up | KeyCode::Char('k' | 'p') | KeyCode::Left => self.select(false),
             KeyCode::Char('o') if self.reading.is_none() && self.opening.is_none() => {
@@ -192,6 +204,8 @@ impl Taste {
                     match handoff(row, 'a') {
                         Ok(_) => {
                             self.pause = Some(next::suggest(row));
+                            self.detail = true;
+                            self.evidence = false;
                             self.scroll = 0;
                             self.copy = None;
                             self.notice.clear();
@@ -235,6 +249,7 @@ impl Taste {
         self.scroll = 0;
         self.notice.clear();
         self.copy = None;
+        self.evidence = false;
         self.pause = None;
         self.draft = None;
     }
@@ -264,13 +279,14 @@ impl Taste {
         if let Some(pause) = &self.pause {
             return format!(
                 "Right now\nq goes back to the menu · ? / Esc close help\n\
-                 t edits the unsent draft in Think; only F2 sends.\n\n{}",
+                 t edits the unsent draft in Think; only F2 sends.\n\
+                 e opens evidence after closing help; check words stay intact.\n\n{}",
                 pause.lines.join("\n")
             );
         }
         concat!(
             "Right now\nq goes back to the menu · F10 Home · ? / Esc close help\n",
-            "Enter shows the whole goal and evidence · n/p result\n",
+            "Enter reviews · e opens evidence · n/p result\n",
             "o opens PR · a/c copy accept/correct requests, never decisions\n\n",
             "What Taste reads\nOnly r reads the named checkout's API 1 status and explicit\n",
             "--taste-result PRs with gh, using your login. Missing/conflicting links\n",
@@ -286,7 +302,7 @@ impl Taste {
         ).into()
     }
 
-    /// Show a quiet summary; Enter alone reveals the unchanged goal and technical evidence.
+    /// Paint only the in-memory list, headed detail, or deliberately opened evidence.
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         let footer = Rect::new(
             area.x,
@@ -294,50 +310,75 @@ impl Taste {
             area.width,
             2,
         );
-        let actions = if self.pause.is_some() && !self.detail {
-            "t edit in Think (unsent)  enter details  c copy correct  r reread\nn/p result  ? help  Esc back"
-        } else if self.pause.is_some() {
-            "t edit in Think (unsent)  c copy correct  r reread\narrows scroll  Esc back  ? help"
+        let actions = if self.evidence {
+            "e review  a/c copy  arrows/PgUp/PgDn scroll\nHome/End  ? help  Esc back"
+        } else if self.detail && self.pause.is_some() {
+            "t edit in Think (unsent)  e evidence  a/c copy\narrows/PgUp/PgDn scroll  ? help  Esc list"
         } else if self.detail {
-            "o open PR  a copy accept  c copy correct  l accepted externally\nn/p result  arrows scroll  r reread  ? help  Esc back"
+            "l accepted externally  e evidence  a/c copy  o open PR\narrows/PgUp/PgDn scroll  n/p result  r reread  ? help  Esc list"
         } else {
-            "o open PR  a copy accept  c copy correct  l accepted externally\nn/p result  enter details  r reread  ? help  Esc back"
+            "arrows move  enter review  l accepted externally\na/c copy  o open PR  r reread  ? help  Esc back"
         };
         frame.render_widget(Paragraph::new(actions).style(palette.muted), footer);
-        let mut body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(3));
-        if self.detail
-            && let Some(row) = self.rows.get(self.selected)
-        {
-            let header = Paragraph::new(Text::from(vec![
-                Line::raw(safe(&result_name(row))),
-                Line::raw(format!(
-                    "Commit: {}",
-                    row.head.as_deref().unwrap_or("unknown")
-                )),
-                Line::styled(
-                    format!(
-                        "Read {} min ago (snapshot)",
-                        self.at.map_or(0, |at| at.elapsed().as_secs() / 60)
-                    ),
-                    palette.muted,
+        let body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(3));
+        let lines = if self.root.is_none() {
+            vec![
+                Line::raw("Start Tinkery with --sdlc-root PATH to choose its run checkout."),
+                Line::raw("Nothing is discovered or run without that choice."),
+            ]
+        } else if self.reading.is_some() {
+            vec![Line::raw(
+                "Reading results from the named checkout and GitHub…",
+            )]
+        } else if self.at.is_none() && self.notice.is_empty() {
+            vec![
+                Line::raw("Press r to read results from the named checkout and GitHub."),
+                Line::raw("Runs python3 _system/scripts/sdlc.py status --json and per-run status."),
+                Line::raw(
+                    "Reads only --taste-result RUN_ID=PR_URL inputs with gh using your login.",
                 ),
-            ]))
-            .style(palette.ink)
-            .wrap(Wrap { trim: false });
-            let height = (header.line_count(body.width) as u16).min(body.height.saturating_sub(1));
-            frame.render_widget(header, Rect::new(body.x, body.y, body.width, height));
-            body.y += height.saturating_add(1);
-            body.height = body.height.saturating_sub(height.saturating_add(1));
+            ]
+        } else if self.detail {
+            self.rows.get(self.selected).map_or_else(Vec::new, |row| {
+                view::detail(
+                    row,
+                    self.pause.as_ref(),
+                    self.at,
+                    body.width,
+                    palette,
+                    self.evidence,
+                )
+            })
+        } else if self.at.is_some() && self.rows.is_empty() {
+            vec![Line::raw(
+                "No open or merged results in this reading. See Watch for runs; r reads again.",
+            )]
+        } else {
+            view::list(&self.rows, self.selected, body.width, palette)
+        };
+        let paragraph = Paragraph::new(Text::from(lines.clone())).wrap(Wrap { trim: false });
+        self.page = usize::from(crate::page(body.height));
+        let max = paragraph
+            .line_count(body.width)
+            .saturating_sub(body.height as usize);
+        if self.detail {
+            self.scroll = self.scroll.min(max);
+        } else {
+            let before = (self.selected * 3).min(lines.len());
+            self.scroll = Paragraph::new(Text::from(lines[..before].to_vec()))
+                .wrap(Wrap { trim: false })
+                .line_count(body.width)
+                .saturating_sub(body.height.saturating_sub(3) as usize)
+                .min(max);
         }
-        if let Some(pause) = &self.pause {
-            frame.render_widget(
-                Paragraph::new(safe(&pause.next))
-                    .style(palette.ink.add_modifier(ratatui::style::Modifier::ITALIC)),
-                Rect::new(body.x, body.y, body.width, body.height.min(1)),
-            );
-            body.y += 2;
-            body.height = body.height.saturating_sub(2);
-        }
+        let visible = Paragraph::new(Text::from(
+            lines
+                .into_iter()
+                .skip(self.scroll)
+                .take(body.height as usize)
+                .collect::<Vec<_>>(),
+        ));
+        frame.render_widget(visible.style(palette.ink).wrap(Wrap { trim: false }), body);
         if !self.notice.is_empty() {
             frame.render_widget(
                 Paragraph::new(safe(&self.notice)).style(palette.muted),
@@ -349,74 +390,6 @@ impl Taste {
                 ),
             );
         }
-        let mut lines = Vec::new();
-        let mut selected_line = 0;
-        if self.root.is_none() {
-            lines.push("Start Tinkery with --sdlc-root PATH to choose its run checkout.".into());
-            lines.push("Nothing is discovered or run without that choice.".into());
-        } else if self.reading.is_some() {
-            lines.push("Reading results from the named checkout and GitHub…".into());
-        } else if self.at.is_none() && self.notice.is_empty() {
-            lines.push("Press r to read results from the named checkout and GitHub.".into());
-            lines.push(
-                "Runs python3 _system/scripts/sdlc.py status --json and per-run status.".into(),
-            );
-            lines.push(
-                "Reads only --taste-result RUN_ID=PR_URL inputs with gh using your login.".into(),
-            );
-        } else if self.detail {
-            if let Some(row) = self.rows.get(self.selected) {
-                lines.extend(result_lines(row).into_iter().skip(2));
-            }
-        } else if self.at.is_some() && self.rows.is_empty() {
-            lines.push(
-                "No open or merged results in this reading. See Watch for runs; r reads again."
-                    .into(),
-            );
-        } else {
-            lines.push("Results waiting on you".into());
-            for (i, row) in self.rows.iter().enumerate() {
-                if i == self.selected {
-                    selected_line = lines.len();
-                }
-                lines.push(format!(
-                    "{} {}{}",
-                    if i == self.selected { "›" } else { " " },
-                    goal(&row.goal).split('\n').next().unwrap_or(""),
-                    if row.merged { " · merged" } else { "" }
-                ));
-                lines.extend(
-                    row.items
-                        .iter()
-                        .map(|item| format!("{}: {}", item.label, item.state)),
-                );
-                lines.extend(row.gates.iter().map(|g| format!("Owed: {g}")));
-                lines.push(String::new());
-            }
-        }
-        if !self.notice.is_empty() {
-            lines.push(self.notice.clone());
-        }
-        let styled: Vec<_> = lines
-            .iter()
-            .map(|line| Line::styled(safe(line), palette.ink))
-            .collect();
-        let paragraph = Paragraph::new(Text::from(styled.clone())).wrap(Wrap { trim: false });
-        self.page = body.height.max(1);
-        let max = paragraph
-            .line_count(body.width)
-            .saturating_sub(body.height as usize)
-            .min(u16::MAX as usize) as u16;
-        if self.detail {
-            self.scroll = self.scroll.min(max);
-        } else {
-            self.scroll = Paragraph::new(Text::from(styled[..selected_line].to_vec()))
-                .wrap(Wrap { trim: false })
-                .line_count(body.width)
-                .saturating_sub(body.height.saturating_sub(3) as usize)
-                .min(max as usize) as u16;
-        }
-        frame.render_widget(paragraph.scroll((self.scroll, 0)), body);
     }
 }
 
@@ -440,44 +413,20 @@ fn safe(text: &str) -> String {
         .collect()
 }
 
-fn result_name(row: &ResultRow) -> String {
-    format!(
-        "{}{}",
-        row.url.as_deref().unwrap_or("Result unknown"),
-        if row.merged { " · merged" } else { "" }
-    )
-}
-
+#[cfg(test)]
 fn result_lines(row: &ResultRow) -> Vec<String> {
-    let mut lines = vec![
-        result_name(row),
-        format!("Commit: {}", row.head.as_deref().unwrap_or("unknown")),
-        "Goal (unchanged)".into(),
-    ];
-    lines.extend(goal(&row.goal).split('\n').map(str::to_owned));
-    lines.push(String::new());
-    lines.push("Conditions and checks".into());
-    lines.extend(
-        row.items
-            .iter()
-            .map(|i| format!("{}: {} ({})", i.label, i.state, i.kind)),
-    );
-    lines.push("Gates owed".into());
-    if row.gates.is_empty() {
-        lines.push("No source gate owed; acceptance is still external.".into());
-    } else {
-        lines.extend(row.gates.iter().cloned());
-    }
-    lines.extend(row.gaps.iter().map(|s| format!("Unresolved: {s}")));
-    lines.push(String::new());
-    lines.push(format!("Run: {} ({})", row.slug, row.id));
-    lines.push("Evidence (not an operator verdict)".into());
-    lines.extend(
-        row.items
-            .iter()
-            .map(|i| format!("{}: {}", i.label, i.evidence)),
-    );
-    lines
+    view::detail(row, None, None, u16::MAX, Palette::new(true), false)
+        .into_iter()
+        .chain(view::detail(
+            row,
+            None,
+            None,
+            u16::MAX,
+            Palette::new(true),
+            true,
+        ))
+        .map(|line| line.to_string())
+        .collect()
 }
 
 fn handoff(row: &ResultRow, action: char) -> Result<String, &'static str> {
