@@ -44,10 +44,11 @@ jobs:
   check:
     needs: scope
     if: needs.scope.outputs.docs_only != 'true'
+    # Pull requests gate on Ubuntu; pushes to main add macOS and the slow journeys.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +62,7 @@ jobs:
       - name: Full guarded zero-call verification
         env:
           TINKERY_TEST_SDLC_REF: 4b6415a9aa8548f6486c97e5b60d4fea0d0662a0
+          TINKERY_TEST_TIER: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
         run: python3 scripts/full-check.py
   cold-clone:
     needs: scope
@@ -76,6 +78,7 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
           HEAD_REF: ${{ github.head_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TINKERY_TEST_TIER: pr
         shell: bash
         run: |
           set -euo pipefail

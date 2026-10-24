@@ -216,6 +216,13 @@ class WorkflowGateTests(unittest.TestCase):
         self.assertEqual(self.workflow.count("needs.scope.outputs.docs_only != 'true'"), 2)
         self.assertIn("github.event.pull_request.base.sha || github.event.before", self.workflow)
 
+    def test_pull_requests_use_ubuntu_and_the_pr_tier_while_main_runs_everything(self):
+        check = self.workflow.split("\n  check:\n", 1)[1].split("\n  cold-clone:\n", 1)[0]
+        self.assertIn("""fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' """
+                      """|| '["ubuntu-latest", "macos-latest"]')""", check)
+        self.assertIn("TINKERY_TEST_TIER: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}", check)
+        self.assertNotIn("TINKERY_TEST_TIER", self.workflow.split("\n  docs:\n", 1)[0])
+
     def test_valid_docs_and_full_routes_pass(self):
         for changes in [{}, {"EVENT": "push"},
                         {"DOCS_ONLY": "false", "DOCS_RESULT": "skipped",

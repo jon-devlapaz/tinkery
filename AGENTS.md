@@ -67,7 +67,7 @@ It prints the verification exports and can be rerun safely. It downloads only
 prerequisite packages, not providers, microphones, native voice engines or speech models.
 Apt may need root or sudo.
 
-CI uses stable Rust on Ubuntu and macOS; use that updated stable for Clippy.
+CI uses stable Rust: Ubuntu on pull requests, Ubuntu and macOS on `main`; use that updated stable for Clippy.
 Never alter operator toolchains without approval. On macOS, provision Rust, Python 3
 and Node separately (bootstrap refuses macOS). No external skill checkout or other
 developer's files are needed.
@@ -78,7 +78,9 @@ Run `python3 scripts/full-check.py` from the repository root after setup. Its sh
 launch guard gives the exact block below a temporary TEST HOME; do not run binary
 verification against the operator's HOME. Cold-clone CI runs the block when setup may change. [CI routing](scripts/ci-scope.py) and its
 [regressions](tests/test_ci_scope.py) define prose-only exceptions and fail-closed gates;
-code changes require the full block.
+code changes require the full block. [The Python runner](scripts/python-tests.py) runs files
+in parallel; with `TINKERY_TEST_TIER=pr`, as on pull requests, it skips only the slow journeys it
+lists, which still run on every push to `main`.
 
 Node is only for `voice/*.test.mjs`. Keep the invalid `TINKERY_NODE` for voice PTYs;
 Python journeys use the real binary, stub providers and temporary roots.
@@ -95,11 +97,7 @@ cargo +stable run --locked -- --operator agent --home --snapshot
 cargo +stable run --locked -- --operator agent --snapshot --no-color
 cargo +stable test --workspace --locked
 node --test voice/*.test.mjs
-for t in tests/*.py; do
-  case "$t" in tests/vt_screen.py) continue;; esac
-  echo "== $t"
-  python3 "$t"
-done
+python3 scripts/python-tests.py
 cargo +stable fmt --all -- --check
 cargo +stable clippy --workspace --all-targets --locked -- -D warnings
 ```
