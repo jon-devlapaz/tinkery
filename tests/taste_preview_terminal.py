@@ -28,15 +28,71 @@ http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), http.server.SimpleHTTPRe
 '''
 
 
-def alive(pid):
-    status = Path(f'/proc/{pid}/stat')
-    if status.exists() and status.read_text().split()[2] == 'Z':
-        return False
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
+def make_stubs_executable(paths):
+    for path in paths:
+        if not path.is_symlink():
+            path.chmod(0o755)
+
+
+def process_state(pid, env):
+    result = subprocess.run(['/bin/ps', '-o', 'stat=', '-p', str(pid)],
+                            env=env, capture_output=True, text=True)
+    if result.returncode == 1 and not result.stdout.strip() and not result.stderr.strip():
+        return None
+    assert result.returncode == 0 and result.stdout.strip(), (pid, result)
+    return result.stdout.strip()[0]
+
+
+def alive(pid, env):
+    return process_state(pid, env) not in (None, 'Z')
+
+
+def verify_portable_helpers():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-preview-portability-') as directory:
+        base = Path(directory)
+        env = subprocess.environment(home=base / 'HOME')
+        target = base / 'TEST-interpreter'
+        target.write_text('TEST symlink target must retain its permissions')
+        target.chmod(0o640)
+        link = base / 'python3'
+        link.symlink_to(target)
+        script = base / 'stub'
+        script.write_text('#!/bin/sh\nexit 0\n')
+        make_stubs_executable([script, link])
+        assert target.stat().st_mode & 0o777 == 0o640, 'chmod followed the interpreter symlink'
+        assert script.stat().st_mode & 0o777 == 0o755
+
+        read_fd, write_fd = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os.close(write_fd)
+            os.read(read_fd, 1)
+            os._exit(0)
+        os.close(read_fd)
+        reaped = False
+        try:
+            assert alive(pid, env), 'live child was not detected'
+            os.close(write_fd)
+            write_fd = None
+            until = time.monotonic() + 5
+            while process_state(pid, env) != 'Z':
+                assert time.monotonic() < until, 'exited child was not detected as a zombie'
+                time.sleep(.01)
+            assert not alive(pid, env), 'zombie was counted as running'
+            waited, status = os.waitpid(pid, 0)
+            reaped = True
+            assert waited == pid and os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+            assert process_state(pid, env) is None, 'waitpid did not remove the child'
+        finally:
+            if write_fd is not None:
+                os.close(write_fd)
+            if not reaped:
+                try:
+                    os.kill(pid, 9)
+                except ProcessLookupError:
+                    pass
+                os.waitpid(pid, 0)
+    print('PASS preview harness: symlink permissions unchanged; ps detects live/zombie/reaped child')
 
 
 def journey(width, height, mono, wrong_head=False):
@@ -110,8 +166,7 @@ os.execv({git!r}, [{git!r}, *args])
         opener = f'#!{sys.executable}\nfrom pathlib import Path\nimport sys\nPath({str(opened)!r}).write_text(sys.argv[1])\n'
         for name in ['open', 'xdg-open']:
             (helpers / name).write_text(opener)
-        for path in helpers.iterdir():
-            path.chmod(0o755)
+        make_stubs_executable(helpers / name for name in ['gh', 'git', 'open', 'xdg-open'])
         started = base / 'started'
         env.update(PATH=f'{helpers}:/usr/bin:/bin', TEST_TASTE_STATE=str(statefile),
                    TEST_TASTE_CALLS=str(base / 'calls'), TEST_TASTE_PID=str(base / 'pid'),
@@ -141,7 +196,7 @@ os.execv({git!r}, [{git!r}, *args])
             wait(lambda: expected in screen.text())
 
         def stopped(record):
-            wait(lambda: not alive(record['pid']) and not alive(record['child']))
+            wait(lambda: process_state(record['pid'], env) is None and not alive(record['child'], env))
             assert not Path(record['cwd']).exists(), 'temporary checkout survived cancellation'
 
         try:
@@ -167,6 +222,7 @@ os.execv({git!r}, [{git!r}, *args])
             else:
                 wait(started.exists)
                 record = json.loads(started.read_text())
+                assert alive(record['pid'], env) and alive(record['child'], env), 'preview group was not running'
                 assert record['marker'] == 'exact result'
                 assert record['cwd'] != str(repo) and record['cwd'] != str(checkout)
                 assert not opened.exists(), 'opened browser before URL answered'
@@ -179,6 +235,7 @@ os.execv({git!r}, [{git!r}, *args])
                 os.write(master, b'v')
                 wait(started.exists)
                 record = json.loads(started.read_text())
+                assert alive(record['pid'], env) and alive(record['child'], env), 'preview group was not running'
                 send(b'\x1b[21~', '1  think')  # F10 leaves and stops, including startup.
                 stopped(record)
                 send(b'6', 'Press r to read results')
@@ -208,6 +265,7 @@ os.execv({git!r}, [{git!r}, *args])
 
 
 if __name__ == '__main__':
+    verify_portable_helpers()
     for width, height in [(100, 30), (80, 24)]:
         for mono in [False, True]:
             journey(width, height, mono)
