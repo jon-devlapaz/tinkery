@@ -52,6 +52,9 @@ fn status(item: &Item) -> String {
         State::Unknown if item.state == "unknown (none reported)" => {
             "? unknown: no CI reported".into()
         }
+        State::Unknown if item.state == super::read::MISSING_RECEIPTS => {
+            format!("? {}", super::read::MISSING_RECEIPTS)
+        }
         State::Unknown => "? unknown".into(),
         State::Waiting => format!(
             "… waiting: {}",
@@ -286,7 +289,15 @@ pub(super) fn detail(
         );
     }
     heading(&mut lines, "You owe", p.jade);
-    if row.gates.is_empty() {
+    if row.receipts_missing {
+        block(
+            &mut lines,
+            Span::raw("  "),
+            super::read::MISSING_RECEIPTS,
+            width,
+            p.muted,
+        );
+    } else if row.gates.is_empty() {
         lines.push(Line::styled("  No source gate owed.", p.muted));
     }
     for gate in &row.gates {
@@ -336,7 +347,7 @@ mod tests {
             id: "TEST-run-id".into(), slug: "TEST-run".into(),
             goal: Goal::Matched(format!("{}\nWhy: TEST reason.\nDone when: TEST result.", "TEST café 👩‍💻 goal ".repeat(12))),
             url: Some("https://github.com/TEST/example/pull/1".into()), head: Some("a".repeat(40)),
-            merged: true, seed: "TEST-seed".into(), gates: vec![human.into()], gaps: vec![],
+            merged: true, receipts_missing: false, seed: "TEST-seed".into(), gates: vec![human.into()], gaps: vec![],
             items: vec![
                 Item { label: "Every original check word stays intact while this long sentence wraps with a hanging indent and no abbreviation.".into(),
                     state: "fail".into(), kind: "automated".into(), evidence: "/TEST/log; argv: [TEST]".into() },

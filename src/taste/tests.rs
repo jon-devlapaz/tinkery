@@ -12,6 +12,7 @@ fn row() -> ResultRow {
         url: Some("https://github.com/TEST/example/pull/1".into()),
         head: Some("a".repeat(40)),
         merged: false,
+        receipts_missing: false,
         seed: "TEST-digest".into(),
         items: vec![Item {
             label: "TEST check".into(),

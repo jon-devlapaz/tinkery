@@ -58,7 +58,7 @@ Enter opens headed detail in this order: **Next** (only after `l`), **You owe**,
 **Checks**, **Goal**, **Details**. Blank space separates sections. You owe retains
 the source's plain actions in jade. A human-attestation item already represented
 there is not repeated under Checks; this is an exact-wording presentation rule,
-not a change to owed-source derivation (#356 is separate).
+not a change to owed-source derivation.
 
 Checks begin with a glyph and plain status: “✓ passed,” “! failed,” “… stale,”
 “… waiting: no record found,” or “? unknown: no CI reported,” with other honest waiting reasons retained. Then the
@@ -89,6 +89,17 @@ means **unknown**, not failure or a repair instruction. Missing, skipped, neutra
 or unfamiliar outcomes are not passes. Independent review remains pending for
 external inspection because API 1 supplies no revision-bound independent review
 receipt. This is separate from automated proof and operator acceptance.
+
+When the run report has no verification receipt, no decisions, no human marks and
+only default pending gates, its local checks and gate obligations say
+**unknown: receipts not found here**, never owed, pending or waiting. This cannot
+distinguish a never-verified run from receipts left in another checkout. The list
+counts these checks as unknown, not as obligations; detail and both copied requests
+retain the unknown gate state. Raw source defaults remain in Evidence, not claims
+that the operator owes another signature. No other checkout is searched. Relaunch
+with `--sdlc-root` naming the receipt-holding checkout and read again; per-run roots
+are not supported. Runs reporting receipt evidence retain normal derivation.
+GitHub observations and independent review remain separate from these local gaps.
 
 Owed gates use plain actions: “approve the plan” or “re-approve the plan,” plus
 owed manual expectations in their source words, never checklist IDs or seed jargon.
@@ -217,5 +228,10 @@ actual colour and NO_COLOR cells, glyphs, heading order, and exact reconstructio
 of repeated spaces and Unicode graphemes. The check-word preservation regression
 must fail when truncation returns, then pass after restoration. Next content,
 source reads, copied payloads and owed-source derivation do not change.
+Missing-receipt journeys place synthetic signed receipts in another TEST checkout
+and read the receipt-free intake report, at both sizes and both colour settings.
+They require unknown local checks and gates in detail and both copied requests,
+no owed count, no extra reads, and byte-identical source trees. The missing-receipt
+unit regression must fail when the protection is reverted, then pass after restoration.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.
