@@ -420,8 +420,9 @@ if __name__ == '__main__':
     for dimensions in [(100, 30), (80, 24)]:
         for no_color in (False, True):
             journey(*dimensions, no_color)
-    for dimensions in [(100, 30), (80, 24)]:
-        for no_color in (False, True):
+    # Both palettes of the next line are covered in src/taste/tests.rs.
+    for dimensions in [(80, 24)]:
+        for no_color in (False,):
             for next_case in ['accept', 'correct', 'nothing unmet', 'merged', 'absent ci', 'failed', 'receipts elsewhere']:
                 journey(*dimensions, no_color, next_case=next_case)
     for case in ['missing', 'conflicting', 'other-run', 'recreated-run']:

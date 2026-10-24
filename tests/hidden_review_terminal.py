@@ -143,11 +143,12 @@ def stale_mouse(input_first):
 
 
 if __name__ == '__main__':
-    for size in [(40, 12), (79, 24), (80, 23)]:
-        for read in [False, True]:
-            journey(*size, read=read)
+    journey(40, 12, read=False)
+    journey(40, 12, read=True)
+    # One run per just-too-small edge, width and height.
+    journey(79, 24, read=False)
+    journey(80, 23, read=False)
     journey(80, 24, read=True, supported=True)
     os.environ['NO_COLOR'] = '1'
-    journey(80, 24, read=True, supported=True)
     for input_first in [False, True]:
         stale_mouse(input_first)

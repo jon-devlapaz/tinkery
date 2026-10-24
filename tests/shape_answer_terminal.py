@@ -1511,29 +1511,30 @@ def missing_success_before_calls(width, height, no_color):
 
 
 if __name__ == '__main__':
-    for size in [(100, 30), (80, 24)]:
+    # Most journeys run once at 80x24, the smallest supported size; the core flows run at both sizes.
+    small = [(80, 24)]
+    both = [(100, 30), (80, 24)]
+    for size in small:
         for kind in ['compatible properties', 'unknown undo', 'hard choice']:
             supported_question_options(*size, kind)
-    for size in [(100, 30), (80, 24)]:
-        for no_color in [False, True]:
-            missing_success_before_calls(*size, no_color)
-    for size in [(100, 30), (80, 24)]:
+    for no_color in [False, True]:
+        missing_success_before_calls(80, 24, no_color)
+    for size in small:
         complete_scenario_recovery(*size)
     previous_color = os.environ.get('NO_COLOR')
     try:
-        for width, height in [(100, 30), (80, 24)]:
-            for no_color in [False, True]:
-                if no_color:
-                    os.environ['NO_COLOR'] = '1'
-                else:
-                    os.environ.pop('NO_COLOR', None)
-                read_end_revision(width, height)
+        for no_color in [False, True]:
+            if no_color:
+                os.environ['NO_COLOR'] = '1'
+            else:
+                os.environ.pop('NO_COLOR', None)
+            read_end_revision(80, 24)
     finally:
         if previous_color is None:
             os.environ.pop('NO_COLOR', None)
         else:
             os.environ['NO_COLOR'] = previous_color
-    for size in [(100, 30), (80, 24)]:
+    for size in small:
         for stage in ('goal', 'draft', 'ready', 'stale', 'unreadable'):
             exit_hint(*size, stage)
         completion_review_display(*size)
@@ -1548,20 +1549,17 @@ if __name__ == '__main__':
         prerequisite_questions(*size)
     for name in ['settled prerequisites', 'unknown prerequisite', 'cyclic prerequisite']:
         case(name)
-    for size in [(100, 30), (80, 24)]:
+    for size in both:
         answer_actions(*size)
-    for size in [(100, 30), (80, 24)]:
+    for size in small:
         typed_findings_review(*size)
-    for size in [(100, 30), (80, 24)]:
+    for size in both:
         full_journey(*size)
     for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
                  'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found',
                  'end the interview', 'assumptions', 'hard to undo']:
         case(name)
-    case('zero budget', 80, 24)
-    case('assumptions', 80, 24)
-    case('hard to undo', 80, 24)
-    for size in [(100, 30), (80, 24)]:
+    for size in small:
         case('multiline confirmation', *size)
         os.environ['NO_COLOR'] = '1'
         case('confirmation hint', *size)

@@ -210,5 +210,6 @@ def journey(width, height):
             os.close(master); os.close(slave)
 
 
-for size in [(80, 24), (100, 30), (160, 40), (320, 40)]:
+# Selection logic is covered in selection_tests.rs; real bytes need only the two smallest sizes.
+for size in [(80, 24), (100, 30)]:
     journey(*size)
