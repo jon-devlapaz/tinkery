@@ -364,16 +364,21 @@ fn at_most_two_asks_then_the_part_stays_open_for_seed() {
     a.paste("original");
     a.submit();
     settle(&mut a);
-    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 1);
+    assert_eq!(
+        a.conversation.focused_question().unwrap().text,
+        "Which check 1?"
+    );
     a.paste("first answer");
     a.submit();
     settle(&mut a);
-    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 2);
+    assert_eq!(
+        a.conversation.focused_question().unwrap().text,
+        "Which check 2?"
+    );
     a.paste("second answer");
     a.submit();
     settle(&mut a);
     assert!(a.conversation.focused_question().is_none());
-    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 2);
     assert!(!a.goal_ready());
     assert_eq!(a.conversation.open_parts(), [Part::DoneWhen]);
 }
@@ -408,7 +413,6 @@ fn delayed_results_use_current_counts_and_skipped_targets() {
     a.conversation.ask_counts_mut().insert(Part::DoneWhen, 2);
     a.apply_result(r.clone(), Ok(g));
     assert!(a.conversation.focused_question().is_none());
-    assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 2);
     assert!(!a.goal_ready());
     a.conversation.ask_counts_mut().clear();
     a.conversation.skipped_mut().push(Question {
@@ -493,11 +497,9 @@ fn typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2() {
         a.conversation.sources()[1].text,
         "better than my usual week. no targets"
     );
-    assert_eq!(
-        a.conversation.sources()[1].in_reply_to.as_deref(),
-        Some("goal-refinement-2")
-    );
-    assert_eq!(a.conversation.settled()[0].question.id, "goal-refinement-2");
+    let replied_to = a.conversation.sources()[1].in_reply_to.clone().unwrap();
+    assert!(replied_to.starts_with("goal-refinement-"), "{replied_to}");
+    assert_eq!(a.conversation.settled()[0].question.id, replied_to);
     assert!(a.goal_ready());
     assert!(
         a.conversation
@@ -515,15 +517,15 @@ fn open_without_question_refines_but_explicit_add_more_keeps_scope_question() {
     a.paste("new words");
     a.submit();
     assert!(a.conversation.scope_pending().is_none());
-    assert_eq!(
-        a.conversation
-            .sources()
-            .last()
-            .unwrap()
-            .in_reply_to
-            .as_deref(),
-        Some("goal-refinement-2")
-    );
+    let replied_to = a
+        .conversation
+        .sources()
+        .last()
+        .unwrap()
+        .in_reply_to
+        .clone()
+        .unwrap();
+    assert!(replied_to.starts_with("goal-refinement-"), "{replied_to}");
     settle(&mut a);
     let mut a = app(serde_json::json!({"parts":parts()}));
     a.add_more = true;

@@ -213,6 +213,21 @@ fn empty_technical_sections_leave_one_blank_row_before_last_result() {
     assert!(text.contains("Mac F-keys may need fn.\n\nLast result"));
 }
 
+/// Where `needle` first appears on screen, so styles are checked by what a cell says.
+fn find_on_screen(buffer: &ratatui::buffer::Buffer, needle: &str) -> (u16, u16) {
+    let want: Vec<String> = needle.chars().map(String::from).collect();
+    (0..buffer.area.height)
+        .find_map(|y| {
+            let row: Vec<&str> = (0..buffer.area.width)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect();
+            row.windows(want.len())
+                .position(|w| w.iter().zip(&want).all(|(a, b)| a == b))
+                .map(|x| (x as u16, y))
+        })
+        .unwrap_or_else(|| panic!("{needle:?} is not on screen"))
+}
+
 #[test]
 fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
     use ratatui::style::{Color, Modifier};
@@ -226,24 +241,37 @@ fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
             .draw(|frame| render(frame, &mut app, palette))
             .unwrap();
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(52, 3)].symbol(), "R");
-        assert_eq!(buffer[(52, 3)].fg, palette.jade.fg.unwrap_or(Color::Reset));
-        assert!(buffer[(52, 3)].modifier.contains(Modifier::BOLD));
-        assert!(!buffer[(52, 3)].modifier.contains(Modifier::DIM));
-        assert_eq!(buffer[(52, 6)].symbol(), "F");
-        assert_eq!(buffer[(52, 6)].fg, palette.ink.fg.unwrap_or(Color::Reset));
-        assert!(buffer[(52, 6)].modifier.contains(Modifier::BOLD));
-        assert_eq!(buffer[(64, 6)].fg, palette.muted.fg.unwrap_or(Color::Reset));
-        assert!(!buffer[(64, 6)].modifier.contains(Modifier::BOLD));
-        assert_eq!(buffer[(50, 6)].fg, palette.muted.fg.unwrap_or(Color::Reset));
-        for y in [4, 9, 13, 15] {
-            for x in 52..96 {
-                assert_eq!(buffer[(x, y)].symbol(), " ");
+        let title = find_on_screen(buffer, "Right now");
+        assert_eq!(buffer[title].fg, palette.jade.fg.unwrap_or(Color::Reset));
+        assert!(buffer[title].modifier.contains(Modifier::BOLD));
+        assert!(!buffer[title].modifier.contains(Modifier::DIM));
+        let sends = find_on_screen(buffer, "F2          sends");
+        assert_eq!(buffer[sends].fg, palette.ink.fg.unwrap_or(Color::Reset));
+        assert!(buffer[sends].modifier.contains(Modifier::BOLD));
+        let verb = find_on_screen(buffer, "sends");
+        assert_eq!(buffer[verb].fg, palette.muted.fg.unwrap_or(Color::Reset));
+        assert!(!buffer[verb].modifier.contains(Modifier::BOLD));
+        let border = (title.0 - 2, sends.1);
+        assert_eq!(buffer[border].symbol(), "│");
+        assert_eq!(buffer[border].fg, palette.muted.fg.unwrap_or(Color::Reset));
+        // Quiet spacing: a blank row opens the panel, separates the sections and closes
+        // it, and the panel is followed by another blank row.
+        let bottom = find_on_screen(buffer, "└");
+        let blank_above = |text: &str| find_on_screen(buffer, text).1 - 1;
+        let blank_below = |text: &str| find_on_screen(buffer, text).1 + 1;
+        for y in [
+            blank_above("Type your answer."),
+            blank_above("F1          Every key"),
+            blank_below("Esc         Close help"),
+            bottom.1 + 1,
+        ] {
+            for x in sends.0..96 {
+                assert_eq!(buffer[(x, y)].symbol(), " ", "row {y} col {x}");
             }
         }
         if mono {
-            for y in 3..15 {
-                for x in 50..98 {
+            for y in title.1..=bottom.1 {
+                for x in title.0 - 2..98 {
                     assert_eq!(buffer[(x, y)].fg, Color::Reset);
                     assert_eq!(buffer[(x, y)].bg, Color::Reset);
                 }
@@ -255,9 +283,9 @@ fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
             .draw(|frame| render(frame, &mut empty, palette))
             .unwrap();
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(63, 5)].symbol(), "F");
-        assert_eq!(buffer[(63, 5)].fg, palette.ink.fg.unwrap_or(Color::Reset));
-        assert!(buffer[(63, 5)].modifier.contains(Modifier::BOLD));
+        let every = find_on_screen(buffer, "F1          Every key");
+        assert_eq!(buffer[every].fg, palette.ink.fg.unwrap_or(Color::Reset));
+        assert!(buffer[every].modifier.contains(Modifier::BOLD));
         assert_eq!(
             layout::help_text(&empty).lines().nth(1),
             Some("Type, then F2 sends it.")

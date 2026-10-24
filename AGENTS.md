@@ -26,6 +26,8 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   Pi Voice or the operator's Seed Me checkout.
 - Read relevant tests and design before implementation; update changed decisions.
   Add regressions, prove important protections fail when reverted, then restore them.
+  Tests assert what users observe through public interfaces; never add test-only access
+  to private state. Drive Think through its input, not `Conversation`'s capped test accessors.
   Backlog proposals confer neither shipped behavior nor build permission.
 - For agent-facing docs, use `writing-for-agents`: one rule per authoritative home,
   task detail behind pointers.

@@ -425,7 +425,6 @@ fn done_when_after_skip_or_two_asks_is_named_missing_and_reviewable() {
         capped.submit();
         settle(&mut capped);
     }
-    assert_eq!(capped.conversation.ask_counts()[&Part::DoneWhen], 2);
     for (a, open) in [
         (&mut skipped, "Done when — Which check 1?"),
         (&mut capped, "Done when — still open"),

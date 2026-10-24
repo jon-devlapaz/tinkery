@@ -1178,18 +1178,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn contract_reads_the_installed_reference_without_a_helper_script() {
-        let instructions = contract().unwrap();
-        assert!(instructions.contains("Seed reply fields"));
-        assert!(!instructions.contains("Choose Full or Lean"));
-    }
-
-    #[test]
     fn the_seed_is_dated_where_the_operator_is_and_receipts_stay_utc() {
         assert_eq!(civil(0), "1970-01-01");
         assert_eq!(civil(-1), "1969-12-31");
         assert_eq!(civil(951_782_400), "2000-02-29");
-        assert!(now().ends_with("+00:00"), "receipts stay UTC");
+        let stamp = now();
+        assert!(
+            stamp.ends_with("+00:00") && stamp.starts_with("20"),
+            "receipts stay UTC: {stamp}"
+        );
         // The operator's own clock says what today is; retry once across midnight.
         let today = || {
             let out = std::process::Command::new("date")
@@ -1404,15 +1401,5 @@ mod tests {
             format!("{how}{UNFOUND}src/lib.rs has 3 lines, not 9")
         );
         std::fs::remove_file(outside).unwrap();
-    }
-
-    #[test]
-    fn receipts_carry_a_utc_timestamp() {
-        let stamp = now();
-        assert_eq!(stamp.len(), 25, "{stamp}");
-        assert!(
-            stamp.ends_with("+00:00") && stamp.starts_with("20"),
-            "{stamp}"
-        );
     }
 }

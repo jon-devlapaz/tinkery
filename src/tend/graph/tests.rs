@@ -110,7 +110,6 @@ fn identical_inputs_draw_identical_buffers_and_selection_has_colour_independent_
             }
         }
         assert!(!text(&first).contains("Why:"));
-        assert!(!a.graph.state.as_ref().unwrap().read().physics_worker_active);
     }
 }
 
@@ -299,79 +298,64 @@ fn crowded_views_preserve_selected_identity_and_never_overlap_labels() {
 
 #[test]
 fn static_graph_never_starts_a_physics_worker() {
+    // Nothing moves on its own: repainting without input leaves every cell as it was.
     let (_tmp, mut tend) = fixture(7);
-    paint(&mut tend, true);
+    let first = paint(&mut tend, true);
     for key in ['+', '-', 'H', 'J', 'K', 'L'] {
         tend.adjust_view(key);
-        paint(&mut tend, true);
-        let state = tend.graph.state.as_ref().unwrap().read();
-        assert!(!state.physics_worker_active);
-        assert!(state.is_settled);
-        assert_eq!(state.alpha, 0.0);
+        let after_key = paint(&mut tend, true);
+        for _ in 0..3 {
+            assert_eq!(after_key, paint(&mut tend, true), "drifted after {key}");
+        }
     }
+    // The view keys above cancel out; the graph returns to where it began.
+    assert_eq!(first, paint(&mut tend, true));
     tend.links = Ok(tend.needs.toggle("id-0", "id-1").unwrap());
-    paint(&mut tend, true);
-    assert!(
-        !tend
-            .graph
-            .state
-            .as_ref()
-            .unwrap()
-            .read()
-            .physics_worker_active
-    );
+    let linked = paint(&mut tend, true);
+    for _ in 0..3 {
+        assert_eq!(linked, paint(&mut tend, true));
+    }
 }
 
 #[test]
 fn duplicate_titles_resolve_edges_by_exact_identity_and_ended_missing_ambiguous_needs_draw_none() {
-    let (_tmp, mut tend) = fixture(5);
-    let mut sessions = tend.sessions.clone();
-    sessions[1].goal = "Same title".into();
-    sessions[2].goal = "Same title".into();
-    sessions[3].stage = Stage::Ended;
-    sessions[4].id = Some("id-2".into());
-    tend.needs.toggle("id-0", "id-1").unwrap();
-    tend.needs.toggle("id-0", "id-3").unwrap();
-    tend.needs.toggle("id-0", "missing").unwrap();
-    tend.needs.toggle("id-0", "id-2").unwrap();
-    tend.apply(
-        &Ok(Found {
-            sessions,
-            unreadable: 0,
-            failures: Vec::new(),
-        }),
-        true,
-        2,
-    );
-    paint(&mut tend, false);
-    let guard = tend.graph.state.as_ref().unwrap().read();
-    let graph = guard.simulation.get_graph();
-    assert_eq!(graph.node_count(), 4);
-    assert_eq!(graph.edge_count(), 1);
-    let edge = graph.edge_indices().next().unwrap();
-    let (a, b) = graph.edge_endpoints(edge).unwrap();
-    assert_eq!(graph[a].data.id, identity(&tend.sessions[0]));
-    assert_eq!(graph[b].data.id, identity(&tend.sessions[1]));
-    let cache = guard.render_cache.lock();
-    assert_eq!(cache.edges.len(), 1);
-    let line = &cache.edges[0];
-    assert_eq!(
-        (line.x1, line.y1),
-        (
-            f64::from(graph[a].location.x),
-            f64::from(graph[a].location.y)
-        )
-    );
-    assert_eq!(
-        (line.x2, line.y2),
-        (
-            f64::from(graph[b].location.x),
-            f64::from(graph[b].location.y)
-        )
-    );
-    assert_eq!(line.color, Palette::new(false).muted.fg.unwrap());
-    assert!(cache.nodes.iter().all(|n| !n.filled));
-    assert!(tend.selected_line(96, None).1.contains("2 needs not found"));
+    let painted = |needs: &[(&str, &str)]| {
+        let (_tmp, mut tend) = fixture(5);
+        let mut sessions = tend.sessions.clone();
+        sessions[1].goal = "Same title".into();
+        sessions[2].goal = "Same title".into();
+        sessions[3].stage = Stage::Ended;
+        sessions[4].id = Some("id-2".into());
+        for (from, to) in needs {
+            tend.needs.toggle(from, to).unwrap();
+        }
+        tend.apply(
+            &Ok(Found {
+                sessions,
+                unreadable: 0,
+                failures: Vec::new(),
+            }),
+            true,
+            2,
+        );
+        // Only the graph rows: the detail line below names the needs and differs by design.
+        let buffer = paint(&mut tend, false);
+        let graph_rows = buffer.content[..100 * 25].to_vec();
+        let selected = tend.selected_line(96, None).1;
+        (graph_rows, selected)
+    };
+    let (none, _) = painted(&[]);
+    let (exact_only, _) = painted(&[("id-0", "id-1")]);
+    let (all, selected) = painted(&[
+        ("id-0", "id-1"),
+        ("id-0", "id-3"),
+        ("id-0", "missing"),
+        ("id-0", "id-2"),
+    ]);
+    // The one exact, active need is drawn; the ended, missing and ambiguous ones add nothing.
+    assert_ne!(none, exact_only);
+    assert_eq!(exact_only, all);
+    assert!(selected.contains("2 needs not found"));
 }
 
 #[test]
@@ -440,13 +424,12 @@ fn dragging_moves_ring_empty_drag_pans_scroll_zooms_and_unchanged_refresh_preser
     assert_ne!(before, paint(&mut tend, true));
     let moved = point(&tend, 0);
     assert!(moved.0.abs_diff(at.0 + 5) <= 1 && moved.1.abs_diff(at.1 + 2) <= 1);
-    let shared = tend.graph.state.as_ref().unwrap().clone();
-    let zoom = shared.read().viewport.zoom;
+    let dragged = paint(&mut tend, true);
     pointer(&mut tend, MouseEventKind::ScrollUp, moved, now);
-    assert!(shared.read().viewport.zoom > zoom);
+    let zoomed = paint(&mut tend, true);
+    assert_ne!(dragged, zoomed);
     pointer(&mut tend, MouseEventKind::ScrollDown, moved, now);
-    assert!((shared.read().viewport.zoom - zoom).abs() < 1e-12);
-    let center = shared.read().viewport.center_x;
+    assert_eq!(dragged, paint(&mut tend, true));
     pointer(
         &mut tend,
         MouseEventKind::Down(MouseButton::Left),
@@ -465,8 +448,8 @@ fn dragging_moves_ring_empty_drag_pans_scroll_zooms_and_unchanged_refresh_preser
         (8, 4),
         now,
     );
-    assert_ne!(shared.read().viewport.center_x, center);
     let before = paint(&mut tend, true);
+    assert_ne!(dragged, before);
     let mut sessions = tend.sessions.clone();
     sessions.reverse();
     tend.apply(
@@ -479,7 +462,6 @@ fn dragging_moves_ring_empty_drag_pans_scroll_zooms_and_unchanged_refresh_preser
         2,
     );
     assert_eq!(before, paint(&mut tend, true));
-    assert!(Arc::ptr_eq(&shared, tend.graph.state.as_ref().unwrap()));
     assert!(!tend.detail);
 }
 
@@ -509,18 +491,10 @@ fn selection_follows_offscreen_goal_without_resetting_zoom_and_link_relayout_kee
 #[test]
 fn all_goals_are_kept_beyond_grafs_default_cap() {
     let (_tmp, mut tend) = fixture(501);
-    tend.sync_graph(body());
-    assert_eq!(
-        tend.graph
-            .state
-            .as_ref()
-            .unwrap()
-            .read()
-            .simulation
-            .get_graph()
-            .node_count(),
-        501
-    );
+    paint(&mut tend, true);
+    tend.selected = 500;
+    let buffer = paint(&mut tend, true);
+    assert!(text(&buffer).contains("› Goal 500"));
 }
 
 #[test]

@@ -225,15 +225,21 @@ fn an_unknown_save_asks_the_operator_to_look() {
 }
 
 #[test]
-fn os_missing_file_diagnostic_is_rust_not_python_oserror() {
+fn a_session_without_a_ledger_is_refused_in_plain_words() {
     let root = temp();
-    let ours = ledger::load(root.path()).unwrap_err();
-    let output = Command::new("python3").args(["-c", "import pathlib,sys\ntry: pathlib.Path(sys.argv[1]).read_text()\nexcept OSError as e: print(str(e))"])
-        .arg(root.path().join("ledger.json")).output().unwrap();
-    let python = String::from_utf8(output.stdout).unwrap();
-    assert!(python.starts_with("[Errno 2]"), "{python}");
-    assert!(ours.contains("os error 2"), "{ours}");
-    assert_ne!(ours, python.trim());
+    let error = respond(
+        root.path(),
+        1,
+        "choice",
+        &ledger::AnswerAction::Delegate,
+        None,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("could not be read"), "{error}");
+    for technical in ["os error", "No such file", "[Errno", "ledger.json"] {
+        assert!(!error.contains(technical), "{error}");
+    }
 }
 
 #[test]

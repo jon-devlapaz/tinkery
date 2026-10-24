@@ -1252,17 +1252,53 @@ mod tests {
                 .draw(|frame| render(frame, &mut h, palette))
                 .unwrap();
             let buffer = terminal.backend().buffer();
-            assert_eq!(buffer[(62, 3)].symbol(), "H");
-            assert_eq!(buffer[(62, 3)].fg, palette.jade.fg.unwrap_or(Color::Reset));
-            assert!(buffer[(62, 3)].modifier.contains(Modifier::BOLD));
-            for (x, y) in [(62, 5), (62, 7), (62, 8), (62, 9), (62, 11), (62, 14)] {
-                assert_eq!(buffer[(x, y)].fg, palette.ink.fg.unwrap_or(Color::Reset));
-                assert!(buffer[(x, y)].modifier.contains(Modifier::BOLD));
+            let find = |needle: &str| -> (u16, u16) {
+                let want: Vec<String> = needle.chars().map(String::from).collect();
+                (0..buffer.area.height)
+                    .find_map(|y| {
+                        let row: Vec<&str> = (0..buffer.area.width)
+                            .map(|x| buffer[(x, y)].symbol())
+                            .collect();
+                        row.windows(want.len())
+                            .position(|w| w.iter().zip(&want).all(|(a, b)| a == b))
+                            .map(|x| (x as u16, y))
+                    })
+                    .unwrap_or_else(|| panic!("{needle:?} is not on screen"))
+            };
+            let title = find("Help");
+            assert_eq!(buffer[title].fg, palette.jade.fg.unwrap_or(Color::Reset));
+            assert!(buffer[title].modifier.contains(Modifier::BOLD));
+            for key in [
+                "Move around",
+                "↑ ↓     Choose",
+                "Enter   Open it",
+                "1–7     Open",
+                "q       Quit",
+                "Esc     Close help",
+            ] {
+                let at = find(key);
+                assert_eq!(
+                    buffer[at].fg,
+                    palette.ink.fg.unwrap_or(Color::Reset),
+                    "{key}"
+                );
+                assert!(buffer[at].modifier.contains(Modifier::BOLD), "{key}");
             }
-            for (x, y) in [(70, 7), (70, 8), (70, 9), (70, 11), (70, 14), (60, 6)] {
-                assert_eq!(buffer[(x, y)].fg, palette.muted.fg.unwrap_or(Color::Reset));
-                assert!(!buffer[(x, y)].modifier.contains(Modifier::BOLD));
-                assert_eq!(buffer[(x, y)].modifier.contains(Modifier::DIM), no_color);
+            let border = find("Move around");
+            let mut quiet = vec![(border.0 - 2, border.1)];
+            for label in [
+                "Choose a place",
+                "Open it",
+                "Open directly",
+                "Quit Tinkery",
+                "Close help",
+            ] {
+                quiet.push(find(label));
+            }
+            for at in quiet {
+                assert_eq!(buffer[at].fg, palette.muted.fg.unwrap_or(Color::Reset));
+                assert!(!buffer[at].modifier.contains(Modifier::BOLD));
+                assert_eq!(buffer[at].modifier.contains(Modifier::DIM), no_color);
             }
         }
     }

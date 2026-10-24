@@ -419,8 +419,8 @@ fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
             .draw(|f| render(f, &mut a, Palette::new(true)))
             .unwrap();
         let b = terminal.backend().buffer();
-        assert_eq!(b[(2, 28)].symbol(), "A");
-        assert!(b[(2, 28)].modifier.contains(ratatui::style::Modifier::DIM));
+        let notice = find_on_screen(b, "Action required.");
+        assert!(b[notice].modifier.contains(ratatui::style::Modifier::DIM));
         assert_eq!(a.voice.as_ref().unwrap().failure().unwrap().kind, kind);
         assert_eq!(a.input.text, "typed");
         assert!(a.conversation.sources().is_empty());
@@ -682,8 +682,8 @@ fn first_use_key_bar_and_muted_prompt_preserve_input_and_require_explicit_yes() 
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
         terminal.draw(|f| render(f, &mut a, palette)).unwrap();
-        let cell = &terminal.backend().buffer()[(2, 28)];
-        assert_eq!(cell.symbol(), "V");
+        let buffer = terminal.backend().buffer();
+        let cell = &buffer[find_on_screen(buffer, "Voice needs a one-time local install")];
         if no_color {
             assert!(cell.modifier.contains(ratatui::style::Modifier::DIM));
         } else {
@@ -750,8 +750,11 @@ fn decline_is_consumed_without_typing_or_repeated_prompt_and_plain_messages_are_
         terminal
             .draw(|f| render(f, &mut a, Palette::new(true)))
             .unwrap();
+        let buffer = terminal.backend().buffer();
+        let shown: String = message.chars().take(20).collect();
+        let notice = find_on_screen(buffer, &shown);
         assert!(
-            terminal.backend().buffer()[(2, 28)]
+            buffer[notice]
                 .modifier
                 .contains(ratatui::style::Modifier::DIM)
         );
@@ -844,4 +847,19 @@ fn a_voice_result_during_a_drag_ends_the_drag_and_release_cannot_replace_text() 
         key(&mut a, KeyCode::Char('x'));
         assert_eq!(a.input.text, format!("a{spoken}xbc."), "{spoken}");
     }
+}
+
+/// Where `needle` first appears on screen, so styles are checked by what a cell says.
+fn find_on_screen(buffer: &ratatui::buffer::Buffer, needle: &str) -> (u16, u16) {
+    let want: Vec<String> = needle.chars().map(String::from).collect();
+    (0..buffer.area.height)
+        .find_map(|y| {
+            let row: Vec<&str> = (0..buffer.area.width)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect();
+            row.windows(want.len())
+                .position(|w| w.iter().zip(&want).all(|(a, b)| a == b))
+                .map(|x| (x as u16, y))
+        })
+        .unwrap_or_else(|| panic!("{needle:?} is not on screen"))
 }
