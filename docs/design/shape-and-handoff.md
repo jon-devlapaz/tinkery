@@ -453,7 +453,10 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   becoming current; the ledger selects the next ready decision. Once its prerequisites settle,
   the held question is promoted before any model call. No reply can settle, skip or reorder
   earlier decisions. `src/shape/prompt.txt` has one rule per line.
-  It finds the blast radius and the ways to meet the goal before choosing to ask or draft;
+  The decoder tolerates redundant closing braces only after one complete JSON object;
+  it never reconstructs missing fields or chooses between multiple objects. Invalid
+  JSON, a missing question and an unsupported reply kind have specific reasons.
+  The step finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
 - `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
   Exhaustion refuses answer, defer, delegate, revision and teach-back before saving anything and explains how to allow calls.
@@ -499,6 +502,10 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   validation boundary. Missing or malformed reviews refuse; the ledger refuses nonempty
   contradictions, blank review entries and incomplete failure-case coverage before seed writes. This
   validates transport and coverage, not whether the model found every real conflict.
+  The prompt finalizes checks before cases and shows two cases for a provisional and
+  a judge check. Count mismatches still refuse: Tinkery never duplicates, drops or
+  invents cases to make coverage fit. The recorded clinic replies in #361 retain
+  their four-for-two and one-for-two refusals; only their unambiguous framing is repaired.
   The validated review is preserved verbatim in append-only confirmed-goal receipts
   (`tinkery:review/completed`), using teach-back's revision and draft SHA-256 binding
   and recording path. These receipts are interview records, not changed goal evidence.
