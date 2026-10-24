@@ -16,7 +16,7 @@ import test_launch as subprocess
 from taste_terminal import FAKE, GOAL, REPO, RUN_ID, URL, fixture, tree
 from vt_screen import Screen
 
-SERVER = '''import http.server, json, os, subprocess, sys, time
+SERVER = '''import http.server, json, os, socket, socketserver, subprocess, sys, time
 from pathlib import Path
 child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])
 record = Path(os.environ['TEST_PREVIEW_STARTED'])
@@ -26,6 +26,17 @@ staged.replace(record)
 def event(kind):
     with open(os.environ['TEST_PREVIEW_EVENTS'], 'a') as log:
         log.write(json.dumps(dict(event=kind, at=time.monotonic())) + '\\n')
+
+def refuse_fqdn(*args, **kwargs):
+    event('unexpected fqdn lookup')
+    raise AssertionError('numeric loopback fixture must not perform reverse DNS')
+
+socket.getfqdn = refuse_fqdn
+
+class LoopbackHTTPServer(http.server.HTTPServer):
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = '127.0.0.1', self.server_address[1]
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -40,7 +51,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 event('startup')
 time.sleep(.6)
 event('constructing server')
-server = http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
+server = LoopbackHTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
 event('listening')
 server.serve_forever()
 '''
