@@ -93,6 +93,10 @@ without quitting Tinkery. Scrolling launches nothing.
 Unit tests in `src/watch/tests.rs` cover the ordering (a waiting run never sorts below a quiet
 one), interface and state refusals, detail counts, the deadline, leaving mid-read (the process
 is gone afterwards) and that opening and reading again leave the checkout byte-identical.
+The fake reader atomically publishes its PID only after writing it; file creation alone is not
+readiness. A regression holds the write open to prove cancellation cannot observe an empty PID.
+This keeps process-lifetime mechanics behind the shared reader (architecture diagnostics 3 and 6);
+no production interface or cancellation policy changes.
 [The terminal journey](../../tests/watch_terminal.py) drives the real binary over a fake
 `sdlc.py` at 100x30, 80x24 and with NO_COLOR, including owed-attestation ordering after successful
 verification, every verification state, scrolling to long evidence/error tails, and

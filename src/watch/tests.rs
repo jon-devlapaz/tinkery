@@ -21,7 +21,7 @@ fn checkout(body: &str, delay: f64) -> tempfile::TempDir {
     fs::write(
         dir.path().join(SCRIPT),
         format!(
-            "import sys, time\nfrom pathlib import Path\nPath('{pid}').write_text(str(__import__('os').getpid()))\ntime.sleep({delay})\nimport json\nvalue=json.loads({body:?})\nif len(sys.argv)==4 and 'runs' in value:\n    row=next(r for r in value['runs'] if r['slug']==sys.argv[2])\n    value={{'protocol':'tink-sdlc','api_version':1,'run':{{**row,'gates':[],'checklist':[],'errors':[]}}}}\nprint(json.dumps(value))\n",
+            "import sys, time\nfrom pathlib import Path\npid = Path('{pid}')\npid.with_suffix('.tmp').write_text(str(__import__('os').getpid()))\npid.with_suffix('.tmp').replace(pid)\ntime.sleep({delay})\nimport json\nvalue=json.loads({body:?})\nif len(sys.argv)==4 and 'runs' in value:\n    row=next(r for r in value['runs'] if r['slug']==sys.argv[2])\n    value={{'protocol':'tink-sdlc','api_version':1,'run':{{**row,'gates':[],'checklist':[],'errors':[]}}}}\nprint(json.dumps(value))\n",
             pid = dir.path().join("TEST-pid").display()
         ),
     )
@@ -243,6 +243,47 @@ fn a_slow_read_is_stopped_at_its_deadline() {
         _ => panic!("expected a timeout"),
     }
     assert!(!alive(dir.path()), "the timed-out process still runs");
+}
+
+#[test]
+fn checkout_publishes_readiness_only_after_the_pid_is_written() {
+    let dir = checkout(&envelope(""), 30.0);
+    let script = dir.path().join(SCRIPT);
+    let body = fs::read_to_string(&script).unwrap();
+    // Hold write_text after file creation, before its contents are written: the old readiness race.
+    let pause = r#"from pathlib import Path
+import time
+original_write = Path.write_text
+def paused_write(path, text):
+    if path.name.startswith('TEST-pid'):
+        with path.open('w') as stream:
+            original_write(Path('TEST-writing'), 'ready')
+            while not Path('TEST-release').exists():
+                time.sleep(0.005)
+            stream.write(text)
+        return len(text)
+    return original_write(path, text)
+Path.write_text = paused_write
+"#;
+    fs::write(&script, format!("{pause}{body}")).unwrap();
+    let watch = Watch::open(Some(dir.path().to_path_buf()));
+    let until = Instant::now() + Duration::from_secs(5);
+    while !dir.path().join("TEST-writing").exists() {
+        assert!(Instant::now() < until, "PID write never started");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(
+        !dir.path().join("TEST-pid").exists(),
+        "readiness was published before the PID was written"
+    );
+    fs::write(dir.path().join("TEST-release"), "continue").unwrap();
+    while !dir.path().join("TEST-pid").exists() {
+        assert!(Instant::now() < until, "PID was never published");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(alive(dir.path()));
+    drop(watch);
+    assert!(!alive(dir.path()), "leaving left the read running");
 }
 
 #[test]
