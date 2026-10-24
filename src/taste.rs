@@ -262,7 +262,14 @@ impl Taste {
     }
 
     /// Source and authority explanation; the menu blocks all actions under help.
-    pub(crate) fn help_text(&self) -> &'static str {
+    pub(crate) fn help_text(&self) -> String {
+        if let Some(pause) = &self.pause {
+            return format!(
+                "Right now\nq goes back to the menu · ? / Esc close help\n\
+                 t edits the unsent draft in Think; only F2 sends.\n\n{}",
+                pause.lines.join("\n")
+            );
+        }
         concat!(
             "Right now\nq goes back to the menu · F10 Home · ? / Esc close help\n",
             "Enter reviews · arrows/PgUp/PgDn/Home/End scroll · n/p result\n",
@@ -278,7 +285,7 @@ impl Taste {
             "Only F2 sends. Copying or green checks never imply acceptance.\n",
             "Esc, correction, selection and rereading discard the guess.\n",
             "No verdict, gate or permission is recorded; you merge externally."
-        )
+        ).into()
     }
 
     /// Paint the in-memory reading only, with a fixed action bar and scrollable whole goal.
@@ -321,6 +328,17 @@ impl Taste {
             frame.render_widget(header, Rect::new(body.x, body.y, body.width, height));
             body.y += height.saturating_add(1);
             body.height = body.height.saturating_sub(height.saturating_add(1));
+        }
+        if self.detail
+            && let Some(pause) = &self.pause
+        {
+            frame.render_widget(
+                Paragraph::new(safe(&pause.next))
+                    .style(palette.ink.add_modifier(ratatui::style::Modifier::ITALIC)),
+                Rect::new(body.x, body.y, body.width, body.height.min(1)),
+            );
+            body.y += 2;
+            body.height = body.height.saturating_sub(2);
         }
         if !self.notice.is_empty() {
             frame.render_widget(
@@ -397,30 +415,9 @@ impl Taste {
         if !self.notice.is_empty() {
             lines.push(self.notice.clone());
         }
-        let guess_lines = if self.detail {
-            if let Some(pause) = &self.pause {
-                let count = pause.lines.len();
-                lines.splice(0..0, pause.lines.clone());
-                count
-            } else {
-                0
-            }
-        } else {
-            0
-        };
         let styled: Vec<_> = lines
             .iter()
-            .enumerate()
-            .map(|(index, line)| {
-                Line::styled(
-                    safe(line),
-                    if index < guess_lines {
-                        palette.ink.add_modifier(ratatui::style::Modifier::ITALIC)
-                    } else {
-                        palette.ink
-                    },
-                )
-            })
+            .map(|line| Line::styled(safe(line), palette.ink))
             .collect();
         let paragraph = Paragraph::new(Text::from(styled.clone())).wrap(Wrap { trim: false });
         self.page = body.height.max(1);
@@ -490,7 +487,6 @@ fn result_lines(row: &ResultRow) -> Vec<String> {
         lines.extend(row.gates.iter().cloned());
     }
     lines.extend(row.gaps.iter().map(|s| format!("Unresolved: {s}")));
-    lines.push("Next: inspect the PR, then copy a review handoff to decide externally.".into());
     lines.push(String::new());
     lines.push(format!("Run: {} ({})", row.slug, row.id));
     lines.push("Evidence (not an operator verdict)".into());

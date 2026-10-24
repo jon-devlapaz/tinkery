@@ -166,12 +166,12 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             assert all('--web' not in c for c in calls())
             if next_case == 'merged':
                 assert ' · merged' in screen.text(), screen.text()
-                assert "Tinkery's guess" not in screen.text(), 'merge is not acceptance'
+                assert 'Guess · Next:' not in screen.text(), 'merge is not acceptance'
                 os.write(master, b't')
             send(b'\r', 'Goal (unchanged)')
             if next_case == 'merged':
                 assert ' · merged' in screen.text(), screen.text()
-                assert "Tinkery's guess" not in screen.text(), 'review is not acceptance'
+                assert 'Guess · Next:' not in screen.text(), 'review is not acceptance'
             assert 'TEST café' in screen.text(), screen.text()
             assert HEAD in screen.text(), screen.text()
             # Reads and scrolling never launch anything; the whole goal is retained in the copy.
@@ -198,11 +198,17 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             send(b'o', 'PR sent to browser')
             assert calls()[-1] == ['pr', 'view', URL, '--web']
             if next_case:
-                assert "Tinkery's guess" not in screen.text(), 'copy/open is not acceptance'
-                if next_case == 'nothing unmet':
+                assert 'Guess · Next:' not in screen.text(), 'copy/open is not acceptance'
+                if next_case in ['nothing unmet', 'absent ci', 'failed']:
                     state['detail']['run']['gates'][0]['status'] = 'approved'
                     state['detail']['run']['checklist'][1].update(
                         status='passed', needs_recheck=False, mark={'evidence': 'TEST observation'})
+                    if next_case == 'absent ci':
+                        state['pr']['statusCheckRollup'] = []
+                    if next_case == 'failed':
+                        state['detail']['run']['checklist'][0]['status'] = 'failed'
+                        state['detail']['run']['verification_status'] = 'failed'
+                        state['detail']['run']['verification'].update(result='failed', passed=False)
                     update()
                     before = len(calls())
                     os.write(master, b'r')
@@ -213,9 +219,23 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 os.write(master, b'lt')
                 time.sleep(.1)
                 send(b'\x1b', 'Goal (unchanged)')
-                assert "Tinkery's guess" not in screen.text(), 'help leaked acceptance'
-                send(b'l', "Tinkery's guess")
-                assert 'Outcome: unobserved' in screen.text()
+                assert 'Guess · Next:' not in screen.text(), 'help leaked acceptance'
+                send(b'l', 'Guess · Next:')
+                assert screen.text().count('Next:') == 1, screen.text()
+                for label in ['Outcome:', 'Evidence: snapshot', 'Learning:', 'Futures:', 'Decision:']:
+                    assert label not in screen.text(), screen.text()
+                if next_case in ['nothing unmet', 'absent ci']:
+                    assert 'Observe “TEST café”' in screen.text(), screen.text()
+                elif next_case == 'failed':
+                    assert 'Resolve Allocation works' in screen.text(), screen.text()
+                else:
+                    assert 'confirm no clinical claims' in screen.text(), screen.text()
+                send(b'?', 'Outcome: unobserved')
+                expected_decision = 'proceed' if next_case in ['nothing unmet', 'absent ci'] else 'stop and repair'
+                assert f'Decision: {expected_decision}' in screen.text(), screen.text()
+                assert 'Next:' not in screen.text(), 'help repeats the next step'
+                assert 'Evidence:' in screen.text() and 'Futures:' in screen.text()
+                send(b'\x1b', 'Guess · Next:')
                 assert len(calls()) == before
                 send(b't', "Tinkery's guess · edit freely")
                 assert 'F2 sends' in screen.text()
@@ -224,9 +244,9 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 if next_case == 'correct':
                     os.write(master, b'\x01')  # Ctrl-A: replace draft, not an original
                     send(b'\x1b[200~TEST operator correction\x1b[201~', 'TEST operator correction')
-                elif next_case == 'nothing unmet':
+                elif next_case in ['nothing unmet', 'absent ci']:
                     os.write(master, b'\x1b[1;5H')  # Ctrl-Home reveals beginning of long draft
-                    wait(lambda: 'Observe the accepted behavior' in screen.text())
+                    wait(lambda: 'Observe “TEST café”' in screen.text())
                 os.write(master, b'\x1bOQ')  # F2: practice host, zero provider calls
                 wait(lambda: 'Simulated' in screen.text())
                 if next_case == 'correct':
@@ -347,7 +367,7 @@ if __name__ == '__main__':
             journey(*dimensions, no_color)
     for dimensions in [(100, 30), (80, 24)]:
         for no_color in (False, True):
-            for next_case in ['accept', 'correct', 'nothing unmet', 'merged']:
+            for next_case in ['accept', 'correct', 'nothing unmet', 'merged', 'absent ci', 'failed']:
                 journey(*dimensions, no_color, next_case=next_case)
     for case in ['missing', 'conflicting', 'other-run', 'recreated-run']:
         journey(80, 24, True, case)

@@ -247,7 +247,7 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
     {
         row.items.push(Item {
             label: "PR checks".into(),
-            state: "pending (none reported)".into(),
+            state: "unknown (none reported)".into(),
             kind: "GitHub".into(),
             evidence: "No PR-head checks reported".into(),
         });
@@ -581,6 +581,12 @@ mod tests {
         assert!(row.items[0].state.starts_with("pending"));
         assert_eq!(row.items[1].label, "Independent review");
         assert!(row.items[1].state.starts_with("pending"));
+        let mut absent = pr.clone();
+        absent["statusCheckRollup"] = json!([]);
+        let mut no_checks = row.clone();
+        no_checks.items.clear();
+        remote(&absent, &mut no_checks).unwrap();
+        assert_eq!(no_checks.items[0].state, "unknown (none reported)");
         let mut conflict = pr;
         conflict["url"] = json!("https://github.com/TEST/example/pull/2");
         assert!(remote(&conflict, &mut row).is_err());

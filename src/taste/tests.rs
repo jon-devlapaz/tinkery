@@ -211,13 +211,34 @@ fn next_dump_requires_explicit_external_acceptance_not_copy_or_green() {
     for (w, h) in [(100, 30), (80, 24)] {
         let shown = screen(&mut taste, w, h);
         assert!(
-            shown.contains("Tinkery's guess") && shown.contains("Outcome: unobserved"),
+            shown.contains("Guess · Next: Resolve TEST check."),
             "{shown}"
         );
+        assert_eq!(shown.matches("Next:").count(), 1, "{shown}");
+        for label in [
+            "Outcome:",
+            "Evidence: snapshot",
+            "Learning:",
+            "Futures:",
+            "Decision:",
+        ] {
+            assert!(!shown.contains(label), "{shown}");
+        }
+        let help = taste.help_text();
+        for label in [
+            "Outcome:",
+            "Evidence:",
+            "Learning:",
+            "Futures:",
+            "Decision:",
+        ] {
+            assert_eq!(help.matches(label).count(), 1, "{help}");
+        }
+        assert!(!help.contains("Next:"));
     }
     taste.key(KeyEvent::from(KeyCode::Char('t')));
     let draft = taste.take_draft().unwrap();
-    assert!(draft.text.contains("owed action: re-approve the plan"));
+    assert!(draft.text.contains("Resolve TEST check"));
     assert!(draft.text.ends_with(&original));
     assert!(draft.provenance.contains(&"a".repeat(40)));
     taste.key(KeyEvent::from(KeyCode::Char('c')));
@@ -238,13 +259,13 @@ fn merged_result_is_labelled_but_needs_explicit_acceptance_before_the_note() {
         taste.key(KeyEvent::from(KeyCode::Enter));
         let detail = screen(&mut taste, w, h);
         assert!(
-            detail.contains(" · merged") && !detail.contains("Tinkery's guess"),
+            detail.contains(" · merged") && !detail.contains("Guess · Next:"),
             "{detail}"
         );
         taste.key(KeyEvent::from(KeyCode::Char('t')));
         assert!(taste.take_draft().is_none());
         taste.key(KeyEvent::from(KeyCode::Char('l')));
-        assert!(screen(&mut taste, w, h).contains("Tinkery's guess"));
+        assert!(screen(&mut taste, w, h).contains("Guess · Next:"));
         assert!(taste.reading.is_none() && taste.opening.is_none());
     }
 }
@@ -252,18 +273,88 @@ fn merged_result_is_labelled_but_needs_explicit_acceptance_before_the_note() {
 #[test]
 fn pause_prefers_failed_or_stale_checks_and_invents_no_next_feature() {
     let mut r = row();
+    r.gates.clear();
     for state in ["fail", "stale"] {
         r.items[0].state = state.into();
         let pause = next::suggest(&r);
-        assert!(pause.draft.text.contains(&format!("TEST check: {state}")));
+        assert!(pause.next.contains("Resolve TEST check"));
         assert!(pause.lines.join(" ").contains("Decision: stop and repair"));
     }
     r.items[0].state = "pass".into();
     r.gates.clear();
     let pause = next::suggest(&r);
     assert!(pause.lines.join(" ").contains("Decision: proceed"));
-    assert!(pause.draft.text.contains("Observe the accepted behavior"));
+    assert!(pause.next.contains("Observe “TEST café”"));
+    assert!(pause.next.contains("choose the next slice from this goal"));
     assert!(!pause.draft.text.contains("Add a feature"));
+    r.items[0].state = "pending".into();
+    let pending = next::suggest(&r);
+    assert_eq!(pending.next, "Guess · Next: Check TEST check.");
+    assert!(pending.lines.join(" ").contains("Decision: proceed"));
+}
+
+#[test]
+fn absent_ci_is_unknown_and_never_stop_when_source_checks_pass_and_nothing_is_owed() {
+    let mut r = row();
+    r.items[0].state = "pass".into();
+    r.gates.clear();
+    r.items.push(Item {
+        label: "PR checks".into(),
+        state: "unknown (none reported)".into(),
+        kind: "GitHub".into(),
+        evidence: "No PR-head checks reported".into(),
+    });
+    let pause = next::suggest(&r);
+    assert!(!pause.lines.join(" ").contains("stop and repair"));
+    assert!(pause.lines.join(" ").contains("Decision: proceed"));
+    assert!(pause.next.starts_with("Guess · Next: Observe “TEST café”"));
+    assert!(!pause.next.contains("PR checks"));
+    assert!(pause.draft.text.ends_with(goal(&r.goal)));
+    r.gaps.push("Source evidence unknown".into());
+    assert!(
+        !next::suggest(&r)
+            .lines
+            .join(" ")
+            .contains("stop and repair")
+    );
+}
+
+#[test]
+fn next_line_stays_single_and_italic_in_both_palettes() {
+    for (w, h) in [(100, 30), (80, 24)] {
+        for mono in [false, true] {
+            let mut taste = ready();
+            taste.detail = true;
+            taste.rows[0].items[0].label = "TEST long completion condition ".repeat(50);
+            taste.key(KeyEvent::from(KeyCode::Char('l')));
+            let mut terminal =
+                ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+            terminal
+                .draw(|f| taste.render(f, f.area(), Palette::new(mono)))
+                .unwrap();
+            let rows = terminal
+                .backend()
+                .buffer()
+                .content()
+                .chunks(w as usize)
+                .collect::<Vec<_>>();
+            let next_rows = rows
+                .iter()
+                .filter(|row| {
+                    row.iter()
+                        .map(|c| c.symbol())
+                        .collect::<String>()
+                        .contains("Guess · Next:")
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(next_rows.len(), 1);
+            assert!(
+                next_rows[0][0]
+                    .modifier
+                    .contains(ratatui::style::Modifier::ITALIC)
+            );
+        }
+    }
 }
 
 #[test]

@@ -63,7 +63,8 @@ identity stays pending/unknown. Provisional checks stay pending. Failed matching
 observations say fail; absent evidence never passes. Passed human items with a
 source `needs_recheck` retain “may need recheck,” not an invented invalidation.
 
-GitHub checks concern the PR head, not the merge commit. Missing, skipped, neutral
+GitHub checks concern the PR head, not the merge commit. No reported PR checks
+means **unknown**, not failure or a repair instruction. Missing, skipped, neutral
 or unfamiliar outcomes are not passes. Independent review remains pending for
 external inspection because API 1 supplies no revision-bound independent review
 receipt. This is separate from automated proof and operator acceptance.
@@ -115,16 +116,23 @@ PR states never imply acceptance. Unknown goal, run or result identity refuses t
 report. An explicitly mapped merged result remains available after refresh, but the
 next-step note still requires `l`; refreshing never restores an acceptance report.
 
-The report reveals one italic block labelled **Tinkery's guess**, with Outcome,
-Evidence, Learning, Futures, Decision and Next. Outcome stays unobserved without
-real feedback; changeability stays unknown without code-level evidence. No model
-calls, extra reads, numerical score or structural obstacle is invented. Failed or
-stale checks win, then source gaps, owed actions and other unmet conditions, in
-source order. These recommend stop and repair before stacking features. The API's
-unavailable independent-review receipt remains an evidence limit, not a fabricated
-unmet completion condition. With nothing unmet, proceed means observe the accepted
-behavior, not invent a new feature. Consolidation and re-scoping require evidence
-these sources do not supply, so neither is guessed from check counts.
+The report reveals exactly one italic line: **Guess · Next: …**. It does not wrap
+into a second note row; long wording remains in the editable Think draft. There
+is no second Next instruction in the evidence tail. `?` moves Outcome, Evidence,
+Learning, Futures and Decision out of the review and into help, once each, without
+repeating the next step. Outcome stays unobserved without real feedback;
+changeability stays unknown without code-level evidence. No model calls, extra
+reads, numerical score or structural obstacle is invented.
+
+Stop and repair applies only to failed/stale checks or owed gates. Unknown checks,
+source gaps and absent GitHub CI are not failures and do not independently require
+repair. Next draws first from unmet source completion conditions (failed/stale
+conditions first), then other failed/stale checks or owed actions. When source
+checks pass and nothing is owed, it suggests observing the accepted behavior and
+choosing the next slice in the goal's own words, not inventing a feature. Missing
+CI and the API's unavailable independent-review receipt remain evidence limits,
+never fabricated unmet completion conditions. Consolidation and re-scoping require
+evidence these sources do not supply, so neither is guessed from check counts.
 
 `t` opens the single Next suggestion in a fresh Think visit as an editable, unsent
 draft. It names the behavior/uncertainty, unchanged boundaries and a disproof check,
@@ -155,6 +163,10 @@ Next-dump journeys additionally report acceptance, edit and send only with F2,
 correct without acceptance, and handle nothing unmet, at both sizes with and without
 NO_COLOR. Unit regressions distinguish copying from the explicit report, prioritize
 failed/stale evidence, discard stale drafts and keep provenance out of requests.
+They also require a single italic Next row, five rationale labels only in help,
+unknown/non-stopping absent CI, a stopping failed check and a goal-bound next slice.
+The absent-CI regression must fail when unknown evidence is made to require repair,
+then pass after restoration.
 Merged-result journeys additionally read an explicitly mapped merged PR, verify its
 label and absence of a note, then report acceptance with `l` before the note appears.
 The merged-result retention regression must fail when the open-only filter returns,

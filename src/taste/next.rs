@@ -1,10 +1,11 @@
-//! One deterministic pause after an explicit report of external acceptance. Evidence gaps
-//! outrank new features; no feedback, structural obstacle or permission is invented.
+//! One next step after a report of external acceptance. Missing evidence stays unknown;
+//! only failed/stale checks or owed gates call for repair. No feature or permission is invented.
 
 use super::{read::ResultRow, safe};
 use crate::think_record::DraftSuggestion;
 
 pub(super) struct Pause {
+    pub(super) next: String,
     pub(super) lines: Vec<String>,
     pub(super) draft: DraftSuggestion,
 }
@@ -14,56 +15,46 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
         .items
         .iter()
         .find(|i| i.state == "fail" || i.state == "stale");
-    // Acceptance is external; API 1's permanently unavailable independent-review receipt
-    // is an evidence limit, not an invented remaining completion condition.
-    let unmet = row
+    let unmet: Vec<_> = row
         .items
         .iter()
-        .find(|i| i.state != "pass" && i.kind != "review, not acceptance");
-    let (decision, target, check) = if let Some(item) = failed {
+        .filter(|i| {
+            matches!(i.kind.as_str(), "automated" | "human attestation") && i.state != "pass"
+        })
+        .collect();
+    let repair = failed.is_some() || !row.gates.is_empty();
+    let decision = if repair { "stop and repair" } else { "proceed" };
+    let condition = unmet
+        .iter()
+        .copied()
+        .find(|i| i.state == "fail" || i.state == "stale")
+        .or_else(|| unmet.first().copied())
+        .or(failed);
+    let (target, check) = if let Some(item) = condition {
         (
-            "stop and repair",
-            format!("Resolve {}: {}", safe(&item.label), safe(&item.state)),
             format!(
-                "Rerun its check against the current PR head: {}",
-                safe(&item.evidence)
+                "{} {}",
+                if repair { "Resolve" } else { "Check" },
+                safe(&item.label)
             ),
-        )
-    } else if let Some(gap) = row.gaps.first() {
-        (
-            "stop and repair",
-            format!("Resolve the source gap: {}", safe(gap)),
-            "Read the repaired source and verify its exact result identity.".into(),
+            "Check this completion condition against the accepted behavior and current result."
+                .to_owned(),
         )
     } else if let Some(gate) = row.gates.first() {
         (
-            "stop and repair",
             format!("Resolve the owed action: {}", safe(gate)),
             "Obtain the required external decision; a draft cannot grant permission.".into(),
         )
-    } else if let Some(item) = unmet {
-        (
-            "stop and repair",
-            format!(
-                "Establish matching evidence for {}: {}",
-                safe(&item.label),
-                safe(&item.state)
-            ),
-            format!(
-                "Inspect the exact result externally: {}",
-                safe(&item.evidence)
-            ),
-        )
     } else {
+        let goal = super::goal(&row.goal).lines().next().unwrap_or("").trim();
         (
-            "proceed",
-            "Observe the accepted behavior before choosing another feature".into(),
-            "Ask the operator to try the accepted behavior and report a counterexample.".into(),
+            format!("Observe “{}”; choose the next slice from this goal", safe(goal)),
+            "Try the accepted behavior against the goal's completion conditions and report a counterexample.".into(),
         )
     };
     let mut text = format!(
         "{target}.\nUncertainty: does the accepted result satisfy the unchanged goal?\n\
-         Keep the confirmed goal and its constraints unchanged; do not start another feature or bypass gates.\n\
+         Keep the confirmed goal and its constraints unchanged; do not invent another feature or bypass gates.\n\
          Disprove this slice: {check}"
     );
     if let crate::sdlc::Goal::Matched(goal) = &row.goal {
@@ -86,17 +77,17 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
         row.gaps.join("; ")
     );
     Pause {
+        next: format!("Guess · Next: {target}."),
         lines: vec![
-            "Tinkery's guess · accepted externally (your report, not verified)".into(),
             "Outcome: unobserved; acceptance alone is not user feedback.".into(),
-            "Evidence: snapshot only; independent review and user outcomes remain unverified."
+            "Evidence: snapshot only; absent GitHub checks and missing receipts stay unknown."
                 .into(),
-            format!("Learning: {target}."),
-            "Futures: unknown; these sources show no code-level changeability evidence.".into(),
-            format!("Decision: {decision}; resolve uncertainty before stacking features."),
-            format!("Next: {target}. Keep the goal unchanged. Check: {check}"),
-            "t use and edit in Think · nothing sent until F2".into(),
-            String::new(),
+            format!(
+                "Learning: {} unmet source completion conditions.",
+                unmet.len()
+            ),
+            "Futures: unknown; no code-level changeability evidence is supplied.".into(),
+            format!("Decision: {decision}; only failed/stale checks or owed gates require repair."),
         ],
         draft: DraftSuggestion { text, provenance },
     }
