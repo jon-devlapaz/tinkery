@@ -317,6 +317,193 @@ fn captured_checks_with_valid_prose_refuse_missing_source_without_inventing_it()
     assert_recovery(&session, root.path(), &agent);
 }
 
+/// Recorded 2026-10-23 clinic replies are unchanged, including call 19's extra closing brace.
+#[test]
+fn recorded_361_refusals_name_unsafe_coverage_and_preserve_saved_answers() {
+    for (raw, counts) in [
+        (
+            include_str!("../../../tests/fixtures/shape-361/call-19.json"),
+            "received 4 for 2 checks",
+        ),
+        (
+            include_str!("../../../tests/fixtures/shape-361/call-20.json"),
+            "received 1 for 2 checks",
+        ),
+    ] {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-361-refusal-")
+            .tempdir()
+            .unwrap();
+        let session = Config::new(Some(root.path().join("TEST-sessions")))
+            .confirm(Affirmed {
+                goal: "TEST clinic game".into(),
+                outcome: String::new(),
+                options: vec![],
+                originals: vec![],
+                context: "{}".into(),
+                source: "TEST fixture".into(),
+            })
+            .unwrap()
+            .session;
+        let version = answering::read(&session).unwrap().version();
+        let version = answering::probe(&session, version).unwrap().unwrap();
+        let agent = provider(root.path(), raw, 1);
+        let words = "TEST preserve my answer café\r\n  ";
+        let saved = AtomicBool::new(false);
+        let error = run(
+            &Work::Answer {
+                id: answering::PROBE.0.into(),
+                words: words.into(),
+                expected: version,
+                folder: root.path().into(),
+            },
+            &session,
+            &agent,
+            &AtomicBool::new(false),
+            &saved,
+        )
+        .unwrap_err();
+        assert!(
+            matches!(error.why, Why::Model(ref reason) if reason.contains(counts)),
+            "{error:?}"
+        );
+        assert!(error.answer_saved && saved.load(Ordering::Relaxed));
+        let ledger: Value =
+            serde_json::from_str(&answering::read(&session).unwrap().context()).unwrap();
+        assert_eq!(ledger["goal"], "TEST clinic game");
+        assert_eq!(
+            ledger["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|node| node["id"] == answering::PROBE.0)
+                .unwrap()["answer"],
+            words
+        );
+        assert!(!session.join("seed-contract.md").exists());
+        assert!(!session.join("seed-checks.json").exists());
+        assert!(!session.join("seed-confirmation.json").exists());
+        assert_eq!(
+            fs::read_to_string(root.path().join("TEST-reply.json")).unwrap(),
+            raw
+        );
+        assert_eq!(agent.remaining(), 0, "one call, never an automatic retry");
+    }
+}
+
+#[test]
+fn recoverable_361_extra_closing_brace_drafts_in_one_call_without_rewriting_content() {
+    let root = tempfile::Builder::new()
+        .prefix("TEST-361-repair-")
+        .tempdir()
+        .unwrap();
+    let session = root.path().join("TEST-session");
+    fs::create_dir(&session).unwrap();
+    let before = include_str!("../../../tests/fixtures/shape-296/ledger.json");
+    fs::write(session.join("ledger.json"), before).unwrap();
+    // Synthetic coverage-correct control: the recorded cases cannot safely be paired or filled in.
+    let reply = valid_reply();
+    let raw = format!("{reply}}}");
+    let agent = provider(root.path(), &raw, 1);
+    assert_eq!(look_again(&session, root.path(), &agent), Ok(Done::Drafted));
+    let after: Value =
+        serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap();
+    let before: Value = serde_json::from_str(before).unwrap();
+    assert_eq!(after["goal"], before["goal"]);
+    for node in before["nodes"].as_array().unwrap() {
+        assert_eq!(
+            after["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == node["id"])
+                .unwrap()["answer"],
+            node["answer"]
+        );
+    }
+    let checks: Value =
+        serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
+    assert_eq!(checks, reply["checks"]);
+    assert_eq!(
+        fs::read_to_string(root.path().join("TEST-reply.json")).unwrap(),
+        raw
+    );
+    assert!(!session.join("seed-confirmation.json").exists());
+    assert_eq!(agent.remaining(), 0);
+}
+
+#[test]
+fn reply_framing_repairs_only_complete_objects_and_names_remaining_errors() {
+    let question = json!({"next":"question", "question":"TEST braces } { and escaped quote \" stay intact?", "found":[]});
+    for raw in [
+        format!("{question}}}"),
+        format!("preface\n```json\n{question}}}\n```\nafterword"),
+    ] {
+        let Next::Question(ask) = decode(&raw).unwrap() else {
+            panic!()
+        };
+        assert_eq!(ask.question, question["question"].as_str().unwrap());
+    }
+    for (raw, reason) in [
+        ("no JSON", "no JSON object"),
+        (
+            "{\"next\":\"question\"",
+            "ended before its JSON object was complete",
+        ),
+        ("{\"next\":}", "invalid JSON"),
+        (
+            "stray } before {",
+            "ended before its JSON object was complete",
+        ),
+        (
+            "{\"next\":\"confirm\"}",
+            "field next must be question or seed",
+        ),
+        (
+            "{\"next\":\"question\",\"found\":[]}",
+            "field question must contain non-empty words",
+        ),
+    ] {
+        assert!(decode(raw).unwrap_err().contains(reason), "{raw}");
+    }
+    for raw in [
+        format!("{question}{question}"),
+        format!("{question}{{}}"),
+        format!("{question}{{"),
+        format!("{question},}}"),
+        format!("{question}]}}"),
+        format!("{question}unexpected}}"),
+    ] {
+        assert!(
+            decode(&raw)
+                .unwrap_err()
+                .contains("extra content after its JSON object"),
+            "{raw}"
+        );
+    }
+}
+
+#[test]
+fn prompt_361_example_pairs_provisional_and_judge_checks_without_inventing_coverage() {
+    let prompt = prompt();
+    assert!(prompt.contains("two checks need two case strings"));
+    assert!(prompt.contains("one complete JSON object with no extra closing brace"));
+    let example = PROMPT
+        .lines()
+        .find(|line| line.starts_with("{\"next\":\"seed\""))
+        .unwrap();
+    assert!(prompt.contains(example));
+    let Next::Seed { review, checks, .. } = decode(example).unwrap() else {
+        panic!()
+    };
+    assert_eq!(checks.as_array().unwrap().len(), 2);
+    assert_eq!(checks[0]["kind"], "provisional");
+    assert_eq!(checks[1]["kind"], "judge");
+    let checks = crate::seed_me::ledger::Value::from(checks);
+    crate::seed_me::ledger::validate_checks(&checks).unwrap();
+    review.validate(&checks).unwrap();
+}
+
 #[test]
 fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
     assert!(prompt().contains("one string per check in checks order"));

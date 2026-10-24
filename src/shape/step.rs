@@ -79,6 +79,9 @@ pub(super) const FIELDS: &[&str] = &[
     "kind",
     "source",
     "how_to_judge",
+    "expect",
+    "cwd",
+    "missing",
 ];
 
 /// How Shape reaches a model: Pi with an explicit model and read-only tools, a call budget shared
@@ -539,12 +542,31 @@ pub(super) enum Next {
 }
 
 /// The model's reply as one JSON object (surrounding prose or a code fence is tolerated).
-/// Refuses anything else, including a reply that asks to confirm: only the operator confirms.
+/// Tolerates redundant closing braces after one complete object, never missing content or a
+/// second object. Refuses a reply that asks to confirm: only the operator confirms.
 pub(super) fn decode(reply: &str) -> Result<Next, String> {
-    let unusable = || "The model's reply wasn't a question or a seed draft.".to_owned();
-    let (start, end) = (reply.find('{').ok_or_else(unusable)?, reply.rfind('}'));
-    let value: Value =
-        serde_json::from_str(&reply[start..=end.ok_or_else(unusable)?]).map_err(|_| unusable())?;
+    let start = reply.find('{').ok_or_else(|| {
+        "The reply contains no JSON object. Return one question or seed draft.".to_owned()
+    })?;
+    let end = reply[start..]
+        .rfind('}')
+        .map_or(reply.len(), |i| start + i + 1);
+    let object = &reply[start..end];
+    let mut stream = serde_json::Deserializer::from_str(object).into_iter::<Value>();
+    let value = stream.next().expect("Object starts with an opening brace").map_err(|error| {
+        if error.is_eof() {
+            "The reply ended before its JSON object was complete. No question or seed draft was applied.".to_owned()
+        } else {
+            format!("The reply has invalid JSON at line {}, column {}. Return one question or seed draft.", error.line(), error.column())
+        }
+    })?;
+    if !object[stream.byte_offset()..]
+        .chars()
+        .all(|c| c == '}' || c.is_whitespace())
+        || reply[end..].contains('{')
+    {
+        return Err("The reply contains extra content after its JSON object. Return only one question or seed draft.".into());
+    }
     let text = |key: &str| {
         value[key]
             .as_str()
@@ -553,14 +575,19 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
             .map(str::to_owned)
     };
     if !matches!(value["next"].as_str(), Some("question" | "seed")) {
-        return Err(unusable());
+        return Err(
+            "Reply field next must be question or seed; a model reply cannot confirm a seed."
+                .into(),
+        );
     }
     let found: Vec<Found> = serde_json::from_value(value["found"].clone()).map_err(|_| {
         "The model's findings are incomplete or use an unsupported format. Each finding needs an id, a typed claim, checked and observed. Retry the step.".to_owned()
     })?;
     match value["next"].as_str() {
         Some("question") => {
-            let question = text("question").ok_or_else(unusable)?;
+            let question = text("question").ok_or_else(|| {
+                "Question reply field question must contain non-empty words.".to_owned()
+            })?;
             Ok(Next::Question(Box::new(Ask {
                 id: text("id").unwrap_or_else(|| "question".into()),
                 label: text("label").unwrap_or_else(|| question.clone()),
@@ -602,6 +629,6 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
             found,
             resolves: value.get("resolves").cloned(),
         }),
-        _ => Err(unusable()),
+        _ => unreachable!("Reply kind checked above"),
     }
 }
