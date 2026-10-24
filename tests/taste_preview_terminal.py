@@ -23,8 +23,26 @@ record = Path(os.environ['TEST_PREVIEW_STARTED'])
 staged = record.with_suffix('.tmp')
 staged.write_text(json.dumps(dict(pid=os.getpid(), child=child.pid, cwd=os.getcwd(), marker=Path('marker').read_text())))
 staged.replace(record)
+def event(kind):
+    with open(os.environ['TEST_PREVIEW_EVENTS'], 'a') as log:
+        log.write(json.dumps(dict(event=kind, at=time.monotonic())) + '\\n')
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        event('request')
+        time.sleep(float(os.environ['TEST_PREVIEW_RESPONSE_DELAY']))
+        try:
+            super().do_GET()
+            event('response')
+        except (BrokenPipeError, ConnectionResetError):
+            event('abandoned')
+
+event('startup')
 time.sleep(.6)
-http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), http.server.SimpleHTTPRequestHandler).serve_forever()
+event('constructing server')
+server = http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), Handler)
+event('listening')
+server.serve_forever()
 '''
 
 
@@ -95,7 +113,7 @@ def verify_portable_helpers():
     print('PASS preview harness: symlink permissions unchanged; ps detects live/zombie/reaped child')
 
 
-def journey(width, height, mono, wrong_head=False):
+def journey(width, height, mono, wrong_head=False, response_delay=0):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-preview-journey-') as directory:
         base = Path(directory).resolve()
         env = {**os.environ, 'HOME': str(base / 'HOME'), 'TERM': 'xterm-256color',
@@ -170,7 +188,8 @@ os.execv({git!r}, [{git!r}, *args])
         started = base / 'started'
         env.update(PATH=f'{helpers}:/usr/bin:/bin', TEST_TASTE_STATE=str(statefile),
                    TEST_TASTE_CALLS=str(base / 'calls'), TEST_TASTE_PID=str(base / 'pid'),
-                   TEST_PREVIEW_STARTED=str(started))
+                   TEST_PREVIEW_STARTED=str(started), TEST_PREVIEW_EVENTS=str(base / 'http-events'),
+                   TEST_PREVIEW_RESPONSE_DELAY=str(response_delay))
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
@@ -189,7 +208,9 @@ os.execv({git!r}, [{git!r}, *args])
                 if predicate() and not screen.synchronized:
                     return
                 assert process.poll() is None, screen.text()
-            raise AssertionError(screen.text())
+            events = base / 'http-events'
+            raise AssertionError(screen.text() + '\nHTTP fixture events:\n' +
+                                 (events.read_text() if events.exists() else 'not started'))
 
         def send(key, expected):
             os.write(master, key)
@@ -226,7 +247,7 @@ os.execv({git!r}, [{git!r}, *args])
                 assert record['marker'] == 'exact result'
                 assert record['cwd'] != str(repo) and record['cwd'] != str(checkout)
                 assert not opened.exists(), 'opened browser before URL answered'
-                wait(lambda: opened.exists() and 'sent http' in screen.text())
+                wait(lambda: opened.exists() and 'sent http' in screen.text(), seconds=35)  # 30 s readiness + opener/paint slack
                 assert opened.read_text() == spec['url']
                 send(b'\x1b', 'Preview stopped and reaped')
                 stopped(record)
@@ -247,9 +268,13 @@ os.execv({git!r}, [{git!r}, *args])
                 assert 'tinkery.preview' in screen.text() and 'command' in screen.text(), screen.text()
                 assert not opened.exists(), 'undeclared preview opened a browser'
             assert tree(checkout) == original and tree(repo) == repo_original
+            events = base / 'http-events'
+            http_events = [json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
             print(json.dumps(dict(journey='Taste exact-head preview' if not wrong_head else 'Taste wrong-head refusal',
                                   width=width, height=height, no_color=mono, provider_calls=0,
-                                  opener='stub', esc_reaped=not wrong_head, leave_reaped=not wrong_head)))
+                                  opener='stub', response_delay=response_delay,
+                                  http_requests=sum(e['event'] == 'request' for e in http_events),
+                                  esc_reaped=not wrong_head, leave_reaped=not wrong_head)))
         finally:
             if process.poll() is None:
                 os.write(master, b'\x1b[21~')
@@ -270,3 +295,4 @@ if __name__ == '__main__':
         for mono in [False, True]:
             journey(width, height, mono)
             journey(width, height, mono, wrong_head=True)
+    journey(100, 30, False, response_delay=.25)

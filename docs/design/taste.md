@@ -150,7 +150,10 @@ rechecks the declaration against the snapshot, then runs with temporary HOME and
 XDG roots. Private-repository fetches use gh's credential helper, without changing
 operator Git configuration. No operator working tree is used. An already-listening port refuses the
 launch. The first successful local HTTP response triggers the default browser opener;
-readiness has a 30-second deadline. Output is discarded, not retained as evidence.
+readiness has a 30-second deadline. Each HTTP attempt retains one connection for up
+to two seconds within that deadline, accumulating a complete status line bounded to
+1 KiB. Short socket timeouts poll cancellation; they do not abandon a slow or
+fragmented response. Output is discarded, not retained as evidence.
 The view says the URL answered and was sent to the browser, not that the operator
 saw it or accepted it. Process exit, checkout, readiness and opener failures say what
 failed and how to retry. Esc stops the owned process group and reaps its direct child
@@ -274,7 +277,12 @@ unit regression must fail when the protection is reverted, then pass after resto
 fixture, fake HTTP server and stub opener at both sizes and both colour settings.
 They prove no execution on read/navigation/help, exact-head checkout (not newer HEAD),
 readiness before opening, Esc and leaving stopping the process group, checkout cleanup,
-and plain declaration guidance when absent. Wrong-head refusal must fail when its
+and plain declaration guidance when absent. A single-threaded server delayed by
+250 ms per response exercises readiness under load, with the journey waiting for
+the product's 30-second deadline plus opener/paint slack. Product regressions cover
+delayed and fragmented status lines, cancellation, the overall deadline and valid
+2xx parsing. The delayed/fragmented regressions must fail with the original probe,
+then pass after restoration. Wrong-head refusal must fail when its
 checkout identity protection is reverted, then pass after restoration.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.

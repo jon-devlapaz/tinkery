@@ -235,7 +235,7 @@ fn run(
                 "Declared command exited ({status}); check it externally."
             ));
         }
-        if answers(address, path) {
+        if answers(address, path, stop, until) {
             break;
         }
         if Instant::now() >= until {
@@ -267,28 +267,213 @@ fn run(
     Ok(())
 }
 
-fn answers(address: SocketAddr, path: &str) -> bool {
-    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(100)) else {
+// Keep one slow response alive across short cancellation polls instead of abandoning it.
+fn answers(address: SocketAddr, path: &str, stop: &AtomicBool, deadline: Instant) -> bool {
+    let until = deadline.min(Instant::now() + Duration::from_secs(2));
+    let Some(left) = until.checked_duration_since(Instant::now()) else {
         return false;
     };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(100)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(100)));
+    if stop.load(Ordering::SeqCst) || left.is_zero() {
+        return false;
+    }
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, left.min(Duration::from_millis(500)))
+    else {
+        return false;
+    };
+    let poll = Duration::from_millis(100);
+    let left = until.saturating_duration_since(Instant::now());
+    if left.is_zero() || stream.set_write_timeout(Some(left.min(poll))).is_err() {
+        return false;
+    }
     if write!(stream, "GET {path} HTTP/1.0\r\nHost: {address}\r\n\r\n").is_err() {
         return false;
     }
-    let mut response = [0; 64];
-    let n = stream.read(&mut response).unwrap_or(0);
-    let line = String::from_utf8_lossy(&response[..n]);
-    line.starts_with("HTTP/1.")
-        && line
-            .split_whitespace()
-            .nth(1)
-            .is_some_and(|s| s.starts_with('2'))
+    let mut response = Vec::new();
+    let mut bytes = [0; 128];
+    while !stop.load(Ordering::SeqCst) && response.len() < 1024 {
+        let left = until.saturating_duration_since(Instant::now());
+        if left.is_zero() || stream.set_read_timeout(Some(left.min(poll))).is_err() {
+            return false;
+        }
+        let capacity = bytes.len().min(1024 - response.len());
+        match stream.read(&mut bytes[..capacity]) {
+            Ok(0) => return false,
+            Ok(n) => {
+                response.extend_from_slice(&bytes[..n]);
+                if let Some(end) = response.iter().position(|b| *b == b'\n') {
+                    return Instant::now() < until
+                        && !stop.load(Ordering::SeqCst)
+                        && successful_status(&response[..=end]);
+                }
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::TimedOut
+                        | std::io::ErrorKind::WouldBlock
+                        | std::io::ErrorKind::Interrupted
+                ) => {}
+            Err(_) => return false,
+        }
+    }
+    false
+}
+
+fn successful_status(line: &[u8]) -> bool {
+    let Some(line) = line.strip_suffix(b"\r\n") else {
+        return false;
+    };
+    let Ok(line) = std::str::from_utf8(line) else {
+        return false;
+    };
+    let mut words = line.split_ascii_whitespace();
+    matches!(words.next(), Some("HTTP/1.0" | "HTTP/1.1"))
+        && words.next().is_some_and(|status| {
+            status.len() == 3
+                && status.starts_with('2')
+                && status.bytes().all(|b| b.is_ascii_digit())
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpListener;
+
+    fn probe(address: SocketAddr) -> bool {
+        answers(
+            address,
+            "/",
+            &AtomicBool::new(false),
+            Instant::now() + DEADLINE,
+        )
+    }
+
+    fn receive_request(listener: TcpListener) -> Option<TcpStream> {
+        listener.set_nonblocking(true).unwrap();
+        let until = Instant::now() + Duration::from_secs(3);
+        let (mut stream, _) = loop {
+            match listener.accept() {
+                Ok(connection) => break connection,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if Instant::now() >= until {
+                        return None;
+                    }
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("test server couldn't accept: {error}"),
+            }
+        };
+        stream.set_nonblocking(false).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let _ = stream.read(&mut [0; 2048]);
+        Some(stream)
+    }
+
+    fn response(chunks: Vec<(u64, &'static [u8])>) -> (SocketAddr, thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let Some(mut stream) = receive_request(listener) else {
+                return;
+            };
+            for (delay, bytes) in chunks {
+                thread::sleep(Duration::from_millis(delay));
+                if stream.write_all(bytes).is_err() {
+                    break;
+                }
+            }
+        });
+        (address, worker)
+    }
+
+    #[test]
+    fn readiness_accepts_a_loaded_servers_delayed_status() {
+        let (address, server) = response(vec![(250, b"HTTP/1.0 200 OK\r\n\r\n")]);
+        let answered = probe(address);
+        server.join().unwrap();
+        assert!(answered, "a healthy server taking 250 ms was abandoned");
+    }
+
+    #[test]
+    fn readiness_accepts_a_status_line_fragmented_across_read_timeouts() {
+        let (address, server) = response(vec![
+            (0, b"H"),
+            (125, b"TTP/1.1 "),
+            (125, b"20"),
+            (125, b"0 OK\r\n\r\n"),
+        ]);
+        let answered = probe(address);
+        server.join().unwrap();
+        assert!(
+            answered,
+            "a partial TCP read was mistaken for a complete HTTP status"
+        );
+    }
+
+    #[test]
+    fn readiness_never_accepts_a_success_after_the_overall_deadline() {
+        let (address, server) = response(vec![(250, b"HTTP/1.0 200 OK\r\n\r\n")]);
+        let answered = answers(
+            address,
+            "/",
+            &AtomicBool::new(false),
+            Instant::now() + Duration::from_millis(50),
+        );
+        server.join().unwrap();
+        assert!(
+            !answered,
+            "the overall deadline was replaced by a fresh attempt budget"
+        );
+    }
+
+    #[test]
+    fn readiness_cancels_an_inflight_silent_response_without_waiting_for_the_attempt_budget() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (request, requested) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel();
+        let server = thread::spawn(move || {
+            let Some(_stream) = receive_request(listener) else {
+                return;
+            };
+            request.send(()).unwrap();
+            let _ = released.recv_timeout(Duration::from_secs(3));
+        });
+        let stop = Arc::new(AtomicBool::new(false));
+        let cancelled = stop.clone();
+        let (send, result) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            send.send(answers(address, "/", &cancelled, Instant::now() + DEADLINE))
+                .unwrap();
+        });
+        requested.recv_timeout(Duration::from_secs(3)).unwrap();
+        stop.store(true, Ordering::SeqCst);
+        let outcome = result.recv_timeout(Duration::from_secs(1));
+        let _ = release.send(());
+        worker.join().unwrap();
+        server.join().unwrap();
+        assert!(!outcome.expect("cancellation waited for the two-second attempt budget"));
+    }
+
+    #[test]
+    fn readiness_requires_a_complete_valid_success_status() {
+        for line in [b"HTTP/1.0 200 OK\r\n".as_slice(), b"HTTP/1.1 299 Ready\r\n"] {
+            assert!(successful_status(line));
+        }
+        for line in [
+            b"HTTP/1.1 200".as_slice(),
+            b"HTTP/1.1 2000 Bad\r\n",
+            b"HTTP/1.1 503 Unavailable\r\n",
+            b"HTTP/1.9 200 Bad\r\n",
+            b"not HTTP 200\r\n",
+        ] {
+            assert!(!successful_status(line), "{line:?}");
+        }
+    }
+
     #[test]
     fn declarations_refuse_public_or_ambiguous_urls_and_empty_commands() {
         for url in [
