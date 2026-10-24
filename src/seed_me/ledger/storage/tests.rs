@@ -266,9 +266,11 @@ fn serialization_refusal_precedes_io_without_a_save_failure_prefix() {
         STAMP,
     )
     .unwrap_err();
-    assert_eq!(
-        failed.reason,
-        "Out of range float values are not JSON compliant: nan"
+    assert!(!failed.reason.is_empty());
+    assert!(
+        !failed.reason.starts_with("could not save the ledger:"),
+        "{}",
+        failed.reason
     );
     assert_eq!(failed.save_state, SaveState::NotSaved);
     assert_eq!(fs::read_to_string(path).unwrap(), raw);

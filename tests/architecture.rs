@@ -3,7 +3,7 @@
 //! Each limit records today's truth and may only get stricter. A check fails when the code gets
 //! worse than its limit, and also when it gets better, so the limit is lowered in the same PR and
 //! the gain can't quietly slip back. Test code is not checked: anything behind `#[cfg(test)]` is
-//! skipped.
+//! skipped, except the count of tests that reach into Think's private conversation state.
 
 use std::{
     fs,
@@ -21,6 +21,22 @@ const BRAIN_DUMP_PUB_FIELDS: usize = 0;
 /// live in their own files; what remains is help and display text.
 const LONG_LINES: usize = 8;
 const LONG_LINE: usize = 200;
+/// Most calls to the test-only accessors on Think's `Conversation`. Tests that poke private state
+/// break on refactors that keep behavior; new tests drive Think through its real input instead.
+const CONVERSATION_TEST_ACCESS: usize = 77;
+const CONVERSATION_TEST_ACCESSORS: &[&str] = &[
+    "sources_mut",
+    "fragments_mut",
+    "settled_mut",
+    "set_last_failure",
+    "set_changed_lines",
+    "set_board",
+    "set_applied",
+    "skipped_mut",
+    "set_scope_pending",
+    "ask_counts_mut",
+    "ask_counts",
+];
 
 /// Every top-level module and its area. Each phase has its own module; the menu (which also lists
 /// the unbuilt places) is the only one that knows every phase; `shared` is code any phase may use.
@@ -201,6 +217,31 @@ fn long_lines_do_not_grow() {
         ),
         found.len(),
         LONG_LINES,
+    );
+}
+
+#[test]
+fn tests_reach_into_conversation_state_less_over_time() {
+    let mut found = 0;
+    let mut stack = vec![root().join("src")];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                let text = fs::read_to_string(&path).unwrap();
+                found += CONVERSATION_TEST_ACCESSORS
+                    .iter()
+                    .map(|name| text.matches(&format!(".{name}(")).count())
+                    .sum::<usize>();
+            }
+        }
+    }
+    at_limit(
+        "calls to Conversation's test-only accessors",
+        found,
+        CONVERSATION_TEST_ACCESS,
     );
 }
 

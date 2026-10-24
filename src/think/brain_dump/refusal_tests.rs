@@ -29,33 +29,40 @@ fn long_goal() -> BrainDump {
 #[test]
 fn every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane() {
     let narrowest = MIN_WIDTH - MIN_WIDTH * 48 / 100 - 4;
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/think");
-    let mut found = 0;
-    for path in ["brain_dump.rs", "brain_dump/goal_view.rs"] {
-        let text = std::fs::read_to_string(dir.join(path)).unwrap();
-        for call in text.split("refuse(").skip(1) {
-            let Some(literal) = call.trim_start().strip_prefix('"') else {
-                continue; // a reason built at run time
-            };
-            let literal = literal.split('"').next().unwrap().replace("\\'", "'");
-            let lines = Paragraph::new(literal.as_str())
-                .wrap(Wrap { trim: false })
-                .line_count(narrowest);
-            assert!(
-                lines <= usize::from(layout::STATUS_ROWS),
-                "{literal:?} takes {lines} rows at {narrowest} columns"
-            );
-            found += 1;
-        }
+    // The fixed refusals a key can produce. A new fixed refusal belongs in this list.
+    let fixed = [
+        "Stop or cancel voice before reviewing a goal.",
+        layout::SAVE_NEEDS_REAL,
+        "Still thinking; review once the reading is back.",
+        "Send (F2) or clear your unsent words, then review.",
+        "A reply is waiting; F2 applies it, then review.",
+        "The reading is behind your words; F2 retries, then review.",
+        "No reading to review yet; F2 sends your words.",
+        "No goal to review yet; parts remain open.",
+        "Read to the end first: PgDn scrolls. Then type confirm and Enter.",
+        "Type confirm, then Enter. Nothing saved.",
+        layout::LIMIT_TEXT,
+        "Still thinking; new typing is kept for your next submit.",
+        "Answer the added-words scope question first; your draft stays local.",
+        "Earlier words are too long.\nWords kept. F1: copy elsewhere.",
+        "Too long to send. Words kept.\nCtrl-A/C copy; replace, F2.",
+        "Added words remain unresolved; answer their scope question before reshaping.",
+        layout::EMPTY_SEND_TEXT,
+        "Copy exceeds 128 KiB; not sent.",
+        "No extracted cards. Select source text, then Ctrl-E.",
+        "That question has since been answered; it wasn't reopened.",
+        "No details before a submit; no request sent.",
+        layout::SCOPE_REFUSAL,
+    ];
+    for refusal in fixed {
+        let lines = Paragraph::new(refusal)
+            .wrap(Wrap { trim: false })
+            .line_count(narrowest);
+        assert!(
+            lines <= usize::from(layout::STATUS_ROWS),
+            "{refusal:?} takes {lines} rows at {narrowest} columns"
+        );
     }
-    // Shared preflight now returns this fixed refusal instead of calling refuse directly.
-    let lines = Paragraph::new(layout::SCOPE_REFUSAL)
-        .wrap(Wrap { trim: false })
-        .line_count(narrowest);
-    assert!(lines <= usize::from(layout::STATUS_ROWS));
-    found += 1;
-    // Sending uses the preflight refusal; there is no second size-check refusal.
-    assert!(found >= 17, "found only {found} refusals");
 }
 
 #[test]

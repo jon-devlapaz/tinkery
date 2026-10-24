@@ -260,8 +260,8 @@ def unavailable(kind, template):
 
 
 if __name__ == '__main__':
-    for size in SIZES:
-        for no_color in [False, True]:
-            template = journey(*size, no_color)
+    # Long-history wrapping and resize are covered in src/tend/history/tests.rs.
+    for size, no_color in [((100, 30), False), ((80, 24), False), ((80, 24), True)]:
+        template = journey(*size, no_color)
     for kind in ['missing', 'legacy', 'corrupt', 'duplicate']:
         unavailable(kind, template)

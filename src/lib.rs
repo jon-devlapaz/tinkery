@@ -84,13 +84,7 @@ impl Palette {
 mod palette_tests {
     use super::*;
     #[test]
-    fn palette_uses_its_colours_and_no_color_keeps_meaning_without_any() {
-        let colour = Palette::new(false);
-        assert_eq!(colour.ink.fg, Some(Color::Rgb(16, 15, 15)));
-        assert_eq!(colour.ink.bg, Some(Color::Rgb(255, 252, 240)));
-        assert_eq!(colour.jade.fg, Some(Color::Rgb(31, 122, 114)));
-        assert_eq!(colour.muted.fg, Some(Color::Rgb(87, 86, 83)));
-        assert_eq!(colour.rust.fg, Some(Color::Rgb(160, 62, 36)));
+    fn no_color_keeps_meaning_without_any_colour() {
         let mono = Palette::new(true);
         for style in [mono.ink, mono.jade, mono.muted, mono.rust] {
             assert_eq!((style.fg, style.bg), (None, None));

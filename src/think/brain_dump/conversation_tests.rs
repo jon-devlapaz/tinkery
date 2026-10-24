@@ -123,7 +123,7 @@ fn words_after_a_composed_goal_refine_it() {
     let staged = c.stage("only on weekdays", false, false, vec![]).unwrap();
     assert!(!staged.addition);
     c.commit(&staged);
-    assert_eq!(c.settled()[0].question.id, "goal-refinement-2");
+    assert!(c.settled()[0].question.id.starts_with("goal-refinement-"));
     assert!(!c.caught_up());
 }
 

@@ -770,16 +770,32 @@ fn approaches_keyed_option_are_kept_through_review_and_saving() {
 
 #[test]
 fn the_review_joins_as_typed_decisions_without_knowing_the_readings_keys() {
-    // Design score row 3: the review used to write its decisions and questions into the raw
-    // reading by top-level key (#89). It now decodes only its own reply.
-    let source = include_str!("review.rs");
-    let code = source.split("#[cfg(test)]").next().unwrap();
-    for key in [
-        "\"parts\"",
-        "\"questions\"",
-        "\"alternatives\"",
-        "obj.insert",
-    ] {
-        assert!(!code.contains(key), "review.rs names the reading's {key}");
-    }
+    // Design score row 3: the review contributes only its own decisions (#89). Reading keys
+    // inside a review reply change nothing about the reading it joins.
+    let full = r#"{"parts":{"who":"I","outcome":"have a clean workspace","why":"I lost work","done_when":"merged branches are gone"},"open":["must"],"questions":[{"target":"must","text":"Anything that must stay?"}]}"#;
+    let decision = r#"{"part":"must_not","text":"Worktrees that still hold work","answers":["leave them","rescue then remove"],"question":"Should worktrees that still hold work be left alone?"}"#;
+    let plain = format!(r#"{{"decisions":[{decision}]}}"#);
+    let noisy = format!(
+        r#"{{"parts":{{"who":"HIJACKED"}},"alternatives":[{{"label":"HIJACKED","benefit":"x","cost":"y","undo_cost":"z"}}],"questions":[{{"target":"who","text":"HIJACKED?"}}],"decisions":[{decision}]}}"#
+    );
+    let clean = reviewed(full, &plain, &mut vec![]).unwrap();
+    let with_noise = reviewed(full, &noisy, &mut vec![]).unwrap();
+    assert_eq!(with_noise.parts.compose(), clean.parts.compose());
+    assert_eq!(with_noise.open, clean.open);
+    assert_eq!(with_noise.alternatives.len(), clean.alternatives.len());
+    let questions = |b: &board::Board| {
+        b.questions
+            .iter()
+            .map(|q| q.text.clone())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(questions(&with_noise), questions(&clean));
+    assert_eq!(with_noise.unresolved_notes, clean.unresolved_notes);
+    assert!(
+        !with_noise
+            .parts
+            .compose()
+            .unwrap_or_default()
+            .contains("HIJACKED")
+    );
 }
