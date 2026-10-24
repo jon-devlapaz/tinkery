@@ -86,7 +86,12 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             area.width - 8
         };
         frame.render_widget(
-            Paragraph::new("What's on your mind?").style(palette.muted),
+            Paragraph::new(if app.conversation.has_draft_suggestion() {
+                "Tinkery's guess · edit freely · F2 sends"
+            } else {
+                "What's on your mind?"
+            })
+            .style(palette.muted),
             Rect::new(4, 5, width, 1),
         );
         app.screen.input_area = Rect::new(4, 8, width, area.height - 12);

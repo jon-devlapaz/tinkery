@@ -94,6 +94,7 @@ or improved outcomes.
 | `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
 | `sdlc.rs`, `sdlc/run.rs` | Shared read-only API 1 status, exact original-seed matching, cancellable transactions and bounded command ownership; no store, checkout discovery or phase policy. |
 | `taste.rs`, `taste/read.rs` | One result's unchanged goal, revision-bound observations and external copy handoff; explicitly mapped PRs, read-only status/GitHub reads and deliberate browser navigation, never a verdict or agent launch. |
+| `taste/next.rs` | Deterministic post-acceptance pause and next-dump proposal from snapshot evidence; no model, verdict, structural diagnosis or permission. The menu alone passes its unsent draft to Think. |
 | `taste/links.rs`, `taste/evidence.rs` | Launch-only canonical run-ID/PR inputs with sticky conflict refusal; source-owned log pointers and check methods as evidence references, never prose parsing, a mapping store, log reads or check execution. |
 
 Vendored libraries are path dependencies, not phases: `vendor/pinstar/` owns
@@ -178,6 +179,12 @@ Explicit typed launch links hide identity validation and conflict policy from th
 (2, 6), replacing handoff-prose interpretation rather than adding a store. Evidence
 pointer/method validation stays inside Taste without log reads (3, 6); this map keeps
 both boundaries visible (7). No architecture limit or recorded score changes.
+
+Taste's next-dump policy stays phase-local (6); the menu connects phases through
+shared draft provenance, with no phase-to-phase dependency (2, 3). Conversation
+keeps proposals separate from submitted sources and model context (6); the module
+map and phase designs show these boundaries (7). No architecture limit or recorded
+score changes. Snapshot-only evidence cannot justify a structural consolidation.
 
 ## Limits enforced by `tests/architecture.rs`
 

@@ -11,7 +11,9 @@
 | 7 | measure | This repo's recent pull requests, read from GitHub only on explicit request; no metrics or acceptance claims. |
 
 Only selection reveals a description; [menu.rs](../../src/menu.rs) owns the copy.
-Name the purpose without borrowing another place's name. [Tend](shape-and-handoff.md)
+Name the purpose without borrowing another place's name. Taste can explicitly open
+one [unsent next-dump draft](taste.md#after-external-acceptance) in a fresh Think
+visit; the menu alone connects those phases, and starts no request. [Tend](shape-and-handoff.md)
 owns the garden and handoff. Unbuilt places authorize nothing. Goal confirmation,
 intake approval and implementation permission remain separate.
 

@@ -127,6 +127,11 @@ impl View {
                 let mut blocks = Vec::new();
                 for turn in history.turns {
                     match turn.event {
+                        Event::DraftSuggested { text, provenance } => add(
+                            &mut blocks,
+                            "Tinkery's draft guess (not submitted words)",
+                            format!("{text}\nSource: {provenance}"),
+                        ),
                         Event::Suggested { answer, reason, .. } => {
                             add(
                                 &mut blocks,

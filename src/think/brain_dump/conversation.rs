@@ -93,9 +93,22 @@ impl Conversation {
         self.changed_lines = None;
     }
     /// Every turn so far, in the order it happened: words, questions asked, answers, skips,
-    /// restores and scope. Kept for the think record; no rule here reads it.
+    /// restores, scope and separate proposals. Kept for the record, never model context.
     pub fn turns(&self) -> &[Turn] {
         &self.turns
+    }
+    pub(super) fn offer_draft(&mut self, draft: crate::think_record::DraftSuggestion) {
+        self.note(Event::DraftSuggested {
+            text: draft.text,
+            provenance: draft.provenance,
+        });
+    }
+    pub(super) fn has_draft_suggestion(&self) -> bool {
+        self.sources.is_empty()
+            && self
+                .turns
+                .iter()
+                .any(|t| matches!(t.event, Event::DraftSuggested { .. }))
     }
     fn note(&mut self, event: Event) {
         self.turns.push(Turn {

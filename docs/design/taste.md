@@ -3,6 +3,7 @@
 Taste reviews one exact result against its unchanged saved goal. It never records a
 verdict, posts a review, merges, signs a gate or launches an agent. Acceptance and
 correction remain deliberate external decisions, not interpretations of green checks.
+An explicit report of external acceptance can reveal an ephemeral next-dump guess.
 
 ## Sources and selection
 
@@ -31,9 +32,11 @@ inputs. Neither a slug, branch, title, handoff file nor another run's mapping ca
 supply the link; recreating a slug with a new run ID cannot inherit the old PR.
 
 Only `r` reads GitHub, via `gh pr view <explicit URL> --json` using the operator's
-login. Read the current head, state and PR-head checks. Only open PRs are waiting
-results, including green PRs with no source gates owed: checks never remove the need
-for human review. Closed/merged observations are not acceptance. Source gaps stay visible.
+login. Read the current head, state and PR-head checks. Explicitly mapped open and
+merged PRs stay listed, including green PRs with no source gates owed: checks never
+remove the need for human review. Merged results are marked “merged” in the list
+and review; neither merge state nor green checks imply acceptance. Closed-unmerged
+PRs stay hidden. Source gaps stay visible.
 Each bounded helper has a 30-second deadline and 4 MiB output limit; helpers run
 serially off paint/input. Leaving cancels and reaps the owned process group; late
 results cannot reopen a view. Refresh removes old rows and copy requests first.
@@ -60,7 +63,8 @@ identity stays pending/unknown. Provisional checks stay pending. Failed matching
 observations say fail; absent evidence never passes. Passed human items with a
 source `needs_recheck` retain “may need recheck,” not an invented invalidation.
 
-GitHub checks concern the PR head, not the merge commit. Missing, skipped, neutral
+GitHub checks concern the PR head, not the merge commit. No reported PR checks
+means **unknown**, not failure or a repair instruction. Missing, skipped, neutral
 or unfamiliar outcomes are not passes. Independent review remains pending for
 external inspection because API 1 supplies no revision-bound independent review
 receipt. This is separate from automated proof and operator acceptance.
@@ -103,6 +107,42 @@ changes there before recording any decision. Copy remains available with failed 
 missing checks but carries those gaps; it cannot approve around them. External
 expected-input binding is still not guaranteed; changed material needs rereview.
 
+## After external acceptance
+
+In review, `l` means “I accepted this exact result externally.” It reports the
+operator's decision for this snapshot only; it neither verifies acceptance nor
+records a verdict. Copying `a`, browser navigation, green checks and merged/closed
+PR states never imply acceptance. Unknown goal, run or result identity refuses the
+report. An explicitly mapped merged result remains available after refresh, but the
+next-step note still requires `l`; refreshing never restores an acceptance report.
+
+The report reveals exactly one italic line: **Guess · Next: …**. It does not wrap
+into a second note row; long wording remains in the editable Think draft. There
+is no second Next instruction in the evidence tail. `?` moves Outcome, Evidence,
+Learning, Futures and Decision out of the review and into help, once each, without
+repeating the next step. Outcome stays unobserved without real feedback;
+changeability stays unknown without code-level evidence. No model calls, extra
+reads, numerical score or structural obstacle is invented.
+
+Stop and repair applies only to failed/stale checks or owed gates. Unknown checks,
+source gaps and absent GitHub CI are not failures and do not independently require
+repair. Next draws first from unmet source completion conditions (failed/stale
+conditions first), then other failed/stale checks or owed actions. When source
+checks pass and nothing is owed, it suggests observing the accepted behavior and
+choosing the next slice in the goal's own words, not inventing a feature. Missing
+CI and the API's unavailable independent-review receipt remain evidence limits,
+never fabricated unmet completion conditions. Consolidation and re-scoping require
+evidence these sources do not supply, so neither is guessed from check counts.
+
+`t` opens the single Next suggestion in a fresh Think visit as an editable, unsent
+draft. It names the behavior/uncertainty, unchanged boundaries and a disproof check,
+including the exact original goal as labelled context. No host, source, save or run
+starts from opening it. Only F2 submits the edited text through Think's usual budget
+and preflight boundary. [Think](think.md#taste-drafts) owns separate provenance and
+submitted-word attribution. Esc dismisses the guess; correction, result selection,
+rereading and leaving discard it. Neither the suggestion nor the report is a new
+gate or authorization. The operator still merges externally.
+
 ## Verification
 
 `src/taste/tests.rs` and the reader's unit tests cover exact goal preservation,
@@ -119,5 +159,18 @@ missing/conflicting/wrong-run/recreated-run inputs, ignored handoff prose, usabl
 log pointers/methods in both clipboard requests, remote failure, exit/return and cancellation. The checkout stays byte-identical;
 no providers, verdicts or real browser launches run. The [API-shaped fixture](../../tests/fixtures/taste-api1.json)
 preserves the reviewer's log/method/digest example without a private seed locator.
+Next-dump journeys additionally report acceptance, edit and send only with F2,
+correct without acceptance, and handle nothing unmet, at both sizes with and without
+NO_COLOR. Unit regressions distinguish copying from the explicit report, prioritize
+failed/stale evidence, discard stale drafts and keep provenance out of requests.
+They also require a single italic Next row, five rationale labels only in help,
+unknown/non-stopping absent CI, a stopping failed check and a goal-bound next slice.
+The absent-CI regression must fail when unknown evidence is made to require repair,
+then pass after restoration.
+Merged-result journeys additionally read an explicitly mapped merged PR, verify its
+label and absence of a note, then report acceptance with `l` before the note appears.
+The merged-result retention regression must fail when the open-only filter returns,
+then pass after restoration. The report-boundary regression must fail with its
+acceptance protection reverted.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.

@@ -61,6 +61,10 @@ fn turns() -> Vec<Turn> {
             source: 4,
             answer: "yes".into(),
         },
+        Event::DraftSuggested {
+            text: "  TEST deterministic proposal\r\n".into(),
+            provenance: "TEST run / PR / head; external acceptance unverified".into(),
+        },
     ]
     .into_iter()
     .enumerate()

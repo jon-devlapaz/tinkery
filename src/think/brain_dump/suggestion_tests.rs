@@ -232,3 +232,33 @@ fn review_input_excludes_unaccepted_suggestions_but_keeps_choices() {
     assert!(value["decisions"][0].get("suggestion").is_none());
     assert!(!String::from_utf8(input).unwrap().contains("PROPOSAL ONLY"));
 }
+
+#[test]
+fn next_dump_draft_is_unsent_and_edited_words_have_separate_provenance() {
+    let mut a = BrainDump::default();
+    a.offer_draft(crate::think_record::DraftSuggestion {
+        text: "TEST proposal".into(),
+        provenance: "TEST provenance not model context".into(),
+    });
+    for (w, h) in [(80, 24), (100, 30)] {
+        for mono in [false, true] {
+            let shown = snapshot(w, h, &mut a, mono).unwrap();
+            assert!(shown.contains("Tinkery's guess"));
+        }
+    }
+    a.tick();
+    assert!(!a.running() && a.conversation.sources().is_empty());
+    assert!(a.saved().is_none());
+    a.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+    a.paste("  TEST my correction\r\n");
+    assert_eq!(a.input.text, "  TEST my correction\r\n");
+    a.handle_key(KeyEvent::from(KeyCode::F(2)));
+    assert_eq!(a.conversation.sources()[0].text, "  TEST my correction\r\n");
+    assert!(matches!(&a.conversation.turns()[0].event,
+        Event::DraftSuggested { text, provenance } if text == "TEST proposal" && provenance.contains("TEST provenance")));
+    assert!(matches!(&a.conversation.turns()[1].event,
+        Event::Words { text, .. } if text == "  TEST my correction\r\n"));
+    let request = a.shaping.request.as_ref().unwrap();
+    let wire = serde_json::to_string(request).unwrap();
+    assert!(!wire.contains("TEST proposal") && !wire.contains("TEST provenance"));
+}

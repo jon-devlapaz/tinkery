@@ -36,6 +36,8 @@ pub(super) struct ResultRow {
     pub(super) url: Option<String>,
     /// Current PR head from GitHub; absent means unknown.
     pub(super) head: Option<String>,
+    /// GitHub explicitly reported a merged PR; never an acceptance claim.
+    pub(super) merged: bool,
     /// Snapshot identity of the imported seed, not approval.
     pub(super) seed: String,
     /// Imported conditions and source observations, separately labelled.
@@ -245,7 +247,7 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
     {
         row.items.push(Item {
             label: "PR checks".into(),
-            state: "pending (none reported)".into(),
+            state: "unknown (none reported)".into(),
             kind: "GitHub".into(),
             evidence: "No PR-head checks reported".into(),
         });
@@ -257,6 +259,17 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
         evidence: "No revision-bound independent review receipt is supplied by the run API".into(),
     });
     Ok(())
+}
+
+fn listed(pr: &Value, row: &mut ResultRow) -> Result<bool, String> {
+    match pr["state"].as_str() {
+        Some("OPEN" | "MERGED") => {
+            row.merged = pr["state"] == "MERGED";
+            Ok(true)
+        }
+        Some("CLOSED") => Ok(false),
+        _ => Err("Unknown PR state.".into()),
+    }
 }
 
 fn gh(root: &Path, url: &str, stop: &AtomicBool) -> Result<Value, String> {
@@ -310,6 +323,7 @@ pub(super) fn collect(
             goal: Goal::Unknown,
             url: None,
             head: None,
+            merged: false,
             seed: String::new(),
             items: Vec::new(),
             gates: Vec::new(),
@@ -351,8 +365,7 @@ pub(super) fn collect(
                 match gh(&root, &url, stop) {
                     Ok(pr) => {
                         if pr["url"].as_str() != row.url.as_deref() { return Err("PR identity disagrees with the explicit input; check the mapping and press r.".into()); }
-                        if !matches!(pr["state"].as_str(), Some("OPEN" | "CLOSED" | "MERGED")) { return Err("Unknown PR state.".into()); }
-                        if pr["state"] != "OPEN" { continue; }
+                        if !listed(&pr, &mut row)? { continue; }
                         if let Err(why) = remote(&pr, &mut row) { row.head = None; row.items.clear(); row.gaps.push(why); }
                     }
                     Err(_) => row.gaps.push("Couldn't read GitHub. Check gh authentication/access, then press r; result revision unknown.".into()),
@@ -382,6 +395,7 @@ mod tests {
             goal: Goal::Unknown,
             url: Some("https://github.com/TEST/example/pull/1".into()),
             head: Some("a".repeat(40)),
+            merged: false,
             seed: "TEST".into(),
             items: vec![],
             gates: vec![],
@@ -542,6 +556,23 @@ mod tests {
     }
 
     #[test]
+    fn explicitly_mapped_merged_results_stay_listed_but_closed_results_do_not() {
+        for (state, visible, merged) in [
+            ("OPEN", true, false),
+            ("MERGED", true, true),
+            ("CLOSED", false, false),
+        ] {
+            let mut target = row();
+            assert_eq!(
+                listed(&json!({"state": state}), &mut target).unwrap(),
+                visible
+            );
+            assert_eq!(target.merged, merged);
+        }
+        assert!(listed(&json!({"state": "ACCEPTED"}), &mut row()).is_err());
+    }
+
+    #[test]
     fn remote_checks_are_separate_and_neutral_is_not_pass() {
         let mut row = row();
         let pr = json!({"url":row.url,"headRefOid":"a".repeat(40),"statusCheckRollup":[
@@ -550,6 +581,12 @@ mod tests {
         assert!(row.items[0].state.starts_with("pending"));
         assert_eq!(row.items[1].label, "Independent review");
         assert!(row.items[1].state.starts_with("pending"));
+        let mut absent = pr.clone();
+        absent["statusCheckRollup"] = json!([]);
+        let mut no_checks = row.clone();
+        no_checks.items.clear();
+        remote(&absent, &mut no_checks).unwrap();
+        assert_eq!(no_checks.items[0].state, "unknown (none reported)");
         let mut conflict = pr;
         conflict["url"] = json!("https://github.com/TEST/example/pull/2");
         assert!(remote(&conflict, &mut row).is_err());
