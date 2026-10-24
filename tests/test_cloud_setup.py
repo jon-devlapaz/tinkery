@@ -27,6 +27,9 @@ class CloudSetupTests(unittest.TestCase):
             commands[command] = f'echo {command} >> "$TRACE"'
         for command in ('git', 'wget', 'apt-get', 'sudo'):
             commands[command] = f'echo {command} >> "$TRACE"; exit 97'
+        # Setup pipes the checksum line into sha256sum; a fake that exits unread races the writer
+        # into SIGPIPE (exit 141) under pipefail, so it drains its input like the real one.
+        commands['sha256sum'] = 'cat >/dev/null; echo sha256sum >> "$TRACE"'
         for name, body in commands.items():
             path = binary / name
             path.write_text('#!/bin/bash\n' + body + '\n')
