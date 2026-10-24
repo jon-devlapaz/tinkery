@@ -52,8 +52,13 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
             "Try the accepted behavior against the goal's completion conditions and report a counterexample.".into(),
         )
     };
+    let stop = if target.trim_end().ends_with(['.', '?', '!', '…']) {
+        ""
+    } else {
+        "."
+    };
     let mut text = format!(
-        "{target}.\nUncertainty: does the accepted result satisfy the unchanged goal?\n\
+        "{target}{stop}\nUncertainty: does the accepted result satisfy the unchanged goal?\n\
          Keep the confirmed goal and its constraints unchanged; do not invent another feature or bypass gates.\n\
          Disprove this slice: {check}"
     );
@@ -77,7 +82,7 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
         row.gaps.join("; ")
     );
     Pause {
-        next: format!("Guess · Next: {target}."),
+        next: format!("Guess · Next: {target}{stop}"),
         lines: vec![
             "Outcome: unobserved; acceptance alone is not user feedback.".into(),
             "Evidence: snapshot only; absent GitHub checks and missing receipts stay unknown."

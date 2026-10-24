@@ -388,6 +388,44 @@ fn merged_result_is_labelled_but_needs_explicit_acceptance_before_the_note() {
 }
 
 #[test]
+fn next_suggestion_preserves_source_punctuation_without_adding_another_stop() {
+    for (label, sentence) in [
+        ("TEST check", "TEST check."),
+        ("TEST check.", "TEST check."),
+        ("TEST check?", "TEST check?"),
+        ("TEST check!", "TEST check!"),
+        ("TEST check…", "TEST check…"),
+    ] {
+        let mut r = row();
+        r.gates.clear();
+        r.items[0].label = label.into();
+        for (state, verb) in [("stale", "Resolve"), ("pending", "Check")] {
+            r.items[0].state = state.into();
+            let pause = next::suggest(&r);
+            assert_eq!(pause.next, format!("Guess · Next: {verb} {sentence}"));
+            assert_eq!(
+                pause.draft.text.lines().next().unwrap(),
+                format!("{verb} {sentence}")
+            );
+            assert_eq!(r.items[0].label, label);
+            assert!(pause.draft.text.ends_with(goal(&r.goal)));
+        }
+        r.items[0].state = "pass".into();
+        r.gates.push(label.into());
+        let pause = next::suggest(&r);
+        assert_eq!(
+            pause.next,
+            format!("Guess · Next: Resolve the owed action: {sentence}")
+        );
+        assert_eq!(
+            pause.draft.text.lines().next().unwrap(),
+            format!("Resolve the owed action: {sentence}")
+        );
+        assert_eq!(r.gates[0], label);
+    }
+}
+
+#[test]
 fn pause_prefers_failed_or_stale_checks_and_invents_no_next_feature() {
     let mut r = row();
     r.gates.clear();
