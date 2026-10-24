@@ -76,6 +76,24 @@ This stays within the existing two-call ceiling. [#330](https://github.com/jon-d
 holds the research and deferred live comparison; zero-call checks establish mechanics, not
 recommendation quality or saved operator effort.
 
+### Taste drafts
+
+[Taste](taste.md#after-external-acceptance) may offer a next dump after an explicit
+report of external acceptance. The menu opens a fresh Think visit with that draft,
+never submits it. Before F2 it stays italic and labelled “Tinkery's guess”; edits
+remain unsent. The usual editing, copying, leaving and preflight rules apply.
+F2 commits exactly the submitted text as the sender's words; the launch declaration
+still owns confirmation attribution. Merely opening or abandoning the draft writes
+nothing and calls no provider.
+
+A separate `draft_suggested` in-memory turn retains the exact offered text and
+run/seed/PR/head provenance, including its deterministic basis and unverified
+acceptance-report limit. It never enters model context; only submitted words do.
+On later typed confirmation the ordinary schema-3 record retains both events.
+Existing records remain readable; older readers may refuse the new event rather
+than mistake a proposal for original words. Tend history labels the offered draft
+separately. The prior goal remains unchanged; no suggestion confirms a goal or seed.
+
 ### Model calls
 
 Each live send makes at most two calls: shaping, then decision review. While a call

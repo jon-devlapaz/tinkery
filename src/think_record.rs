@@ -55,10 +55,26 @@ pub struct Turn {
     pub event: Event,
 }
 
+/// An offered draft and its separate source attribution, never submitted words or model context.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub(crate) struct DraftSuggestion {
+    /// Exact suggestion offered before editing.
+    pub(crate) text: String,
+    /// Snapshot relationship and deterministic basis, not an acceptance receipt.
+    pub(crate) provenance: String,
+}
+
 /// What happened in one turn. Words and answers carry the person's text verbatim.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
+    /// A deterministic next-dump proposal; separate from any subsequently submitted words.
+    DraftSuggested {
+        /// Exact proposed draft before operator edits.
+        text: String,
+        /// Source snapshot and basis, not an operator verdict or model context.
+        provenance: String,
+    },
     /// A model suggestion shown with a question; never an answer submitted by the operator.
     Suggested {
         /// The question this suggestion belongs to.

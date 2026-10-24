@@ -4,6 +4,7 @@
 
 mod evidence;
 mod links;
+mod next;
 mod read;
 /// Explicit canonical run-ID to PR inputs for this launch, never persisted or inferred.
 pub use links::ResultLinks;
@@ -39,6 +40,8 @@ pub(crate) struct Taste {
     at: Option<Instant>,
     notice: String,
     copy: Option<String>,
+    pause: Option<next::Pause>,
+    draft: Option<crate::think_record::DraftSuggestion>,
 }
 
 impl Taste {
@@ -58,6 +61,8 @@ impl Taste {
             at: None,
             notice: String::new(),
             copy: None,
+            pause: None,
+            draft: None,
         }
     }
 
@@ -73,6 +78,8 @@ impl Taste {
             .get(self.selected)
             .map(|r| (r.id.clone(), r.url.clone()));
         self.rows.clear();
+        self.pause = None;
+        self.draft = None;
         self.copy = None;
         self.notice.clear();
         self.at = None;
@@ -131,12 +138,16 @@ impl Taste {
         if key.kind == KeyEventKind::Repeat
             && matches!(
                 key.code,
-                KeyCode::Char('r' | 'o' | 'a' | 'c') | KeyCode::Enter
+                KeyCode::Char('r' | 'o' | 'a' | 'c' | 'l' | 't') | KeyCode::Enter
             )
         {
             return false;
         }
         match key.code {
+            KeyCode::Esc if self.pause.is_some() => {
+                self.pause = None;
+                self.scroll = 0;
+            }
             KeyCode::Esc if self.detail => {
                 self.detail = false;
                 self.scroll = 0;
@@ -176,7 +187,29 @@ impl Taste {
                             .into();
                 }
             }
+            KeyCode::Char('l')
+                if self.detail && self.reading.is_none() && self.opening.is_none() =>
+            {
+                if let Some(row) = self.rows.get(self.selected) {
+                    match handoff(row, 'a') {
+                        Ok(_) => {
+                            self.pause = Some(next::suggest(row));
+                            self.scroll = 0;
+                            self.copy = None;
+                            self.notice.clear();
+                        }
+                        Err(why) => self.notice = why.into(),
+                    }
+                }
+            }
+            KeyCode::Char('t') => {
+                if let Some(pause) = &self.pause {
+                    self.draft = Some(pause.draft.clone());
+                }
+            }
             KeyCode::Char(action @ ('a' | 'c')) => {
+                self.pause = None;
+                self.draft = None;
                 match self
                     .rows
                     .get(self.selected)
@@ -204,6 +237,13 @@ impl Taste {
         self.scroll = 0;
         self.notice.clear();
         self.copy = None;
+        self.pause = None;
+        self.draft = None;
+    }
+
+    /// Take the deliberately requested unsent draft; neither copying nor acceptance opens Think.
+    pub(crate) fn take_draft(&mut self) -> Option<crate::think_record::DraftSuggestion> {
+        self.draft.take()
     }
 
     /// Take a clipboard request once; never writes a review record.
@@ -224,17 +264,20 @@ impl Taste {
     /// Source and authority explanation; the menu blocks all actions under help.
     pub(crate) fn help_text(&self) -> &'static str {
         concat!(
-            "Right now\nq goes back to the menu · ? closes help\n",
-            "r reads again; o opens the PR; a/c copy accept/correct review requests. Esc goes back.\n\n",
-            "What Taste reads\nOnly r runs the named checkout's python3 _system/scripts/sdlc.py status --json, then status <run> --json. ",
-            "It uses only --taste-result RUN_ID=PR_URL launch inputs with gh pr view --json. This contacts GitHub using your login. ",
-            "Missing or conflicting inputs stay unknown. Handoff prose, slugs and branches never supply PR links; no mapping store is written.\n\n",
-            "What evidence means\nThe commit appears once per result. Local passes must match that exact PR head and a current SDLC verification. ",
-            "Stale evidence is history. Independent review and human acceptance are separate from checks.\n\n",
-            "Hand off deliberately\nCopying records no verdict, signs no gate, posts nothing and merges nothing. ",
-            "The handoff asks the external reviewer to recheck current head, inputs and receipts and resolve owed gates before deciding. ",
-            "It cannot guarantee external expected-input binding. Navigation launches no agent.\n\n",
-            "Read more\nEnter reviews the whole unchanged goal; arrows, PgUp/PgDn and Home/End scroll. n/p change result. F10 returns Home."
+            "Right now\nq goes back to the menu · F10 Home · ? / Esc close help\n",
+            "Enter reviews · arrows/PgUp/PgDn/Home/End scroll · n/p result\n",
+            "o opens PR · a/c copy accept/correct requests, never decisions\n\n",
+            "What Taste reads\nOnly r reads the named checkout's API 1 status and explicit\n",
+            "--taste-result PRs with gh, using your login. Missing/conflicting links\n",
+            "stay unknown; prose supplies none. No writes, polling or agent launch.\n",
+            "Passes need current, exact-head evidence; review is separate.\n",
+            "External handoffs must recheck head, inputs, receipts and owed gates;\n",
+            "copying cannot enforce that binding, record verdicts or merge.\n\n",
+            "After external acceptance\nIn review, l reports you accepted this result externally (not verified).\n",
+            "One deterministic guess follows; t opens an unsent Think draft.\n",
+            "Only F2 sends. Copying or green checks never imply acceptance.\n",
+            "Esc, correction, selection and rereading discard the guess.\n",
+            "No verdict, gate or permission is recorded; you merge externally."
         )
     }
 
@@ -246,7 +289,14 @@ impl Taste {
             area.width,
             2,
         );
-        frame.render_widget(Paragraph::new("o open PR  a copy accept  c copy correct  r reread\nn/p result  arrows scroll  enter review  ? help  Esc back").style(palette.muted), footer);
+        let actions = if self.pause.is_some() {
+            "t edit in Think (unsent)  c copy correct  r reread\narrows scroll  Esc back  ? help"
+        } else if self.detail {
+            "o open PR  a copy accept  c copy correct  l accepted externally\nn/p result  arrows scroll  r reread  ? help  Esc back"
+        } else {
+            "o open PR  a copy accept  c copy correct  r reread\nn/p result  enter review  ? help  Esc back"
+        };
+        frame.render_widget(Paragraph::new(actions).style(palette.muted), footer);
         let mut body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(3));
         if self.detail
             && let Some(row) = self.rows.get(self.selected)
@@ -345,9 +395,30 @@ impl Taste {
         if !self.notice.is_empty() {
             lines.push(self.notice.clone());
         }
+        let guess_lines = if self.detail {
+            if let Some(pause) = &self.pause {
+                let count = pause.lines.len();
+                lines.splice(0..0, pause.lines.clone());
+                count
+            } else {
+                0
+            }
+        } else {
+            0
+        };
         let styled: Vec<_> = lines
             .iter()
-            .map(|line| Line::styled(safe(line), palette.ink))
+            .enumerate()
+            .map(|(index, line)| {
+                Line::styled(
+                    safe(line),
+                    if index < guess_lines {
+                        palette.ink.add_modifier(ratatui::style::Modifier::ITALIC)
+                    } else {
+                        palette.ink
+                    },
+                )
+            })
             .collect();
         let paragraph = Paragraph::new(Text::from(styled.clone())).wrap(Wrap { trim: false });
         self.page = body.height.max(1);

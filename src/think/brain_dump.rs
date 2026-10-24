@@ -222,6 +222,17 @@ impl BrainDump {
             exit: Exit::Stay,
         }
     }
+    /// Populate a fresh unsent draft and retain its separate provenance, never as a source.
+    /// Menu supplies a new visit; subsequent edits are submitted only by the normal F2 path.
+    pub(crate) fn offer_draft(&mut self, draft: crate::think_record::DraftSuggestion) {
+        assert!(self.conversation.is_empty() && self.input.text.is_empty());
+        if self.input.insert(&draft.text).is_err() {
+            self.refuse(layout::LIMIT_TEXT);
+            return;
+        }
+        self.conversation.offer_draft(draft);
+        self.notice = "Tinkery's guess · edit freely; F2 sends your words. Nothing saved.".into();
+    }
     /// What think asks of whoever opened it, read after each tick.
     pub fn exit(&self) -> &Exit {
         &self.exit
@@ -1576,7 +1587,11 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         .take(usize::from(app.screen.input_area.height))
         .collect();
     frame.render_widget(
-        Paragraph::new(text).style(palette.ink),
+        Paragraph::new(text).style(if app.conversation.has_draft_suggestion() {
+            palette.ink.add_modifier(ratatui::style::Modifier::ITALIC)
+        } else {
+            palette.ink
+        }),
         app.screen.input_area,
     );
     if let Some((start, end)) = app.input.selection()

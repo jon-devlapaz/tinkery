@@ -3,6 +3,7 @@
 Taste reviews one exact result against its unchanged saved goal. It never records a
 verdict, posts a review, merges, signs a gate or launches an agent. Acceptance and
 correction remain deliberate external decisions, not interpretations of green checks.
+An explicit report of external acceptance can reveal an ephemeral next-dump guess.
 
 ## Sources and selection
 
@@ -103,6 +104,35 @@ changes there before recording any decision. Copy remains available with failed 
 missing checks but carries those gaps; it cannot approve around them. External
 expected-input binding is still not guaranteed; changed material needs rereview.
 
+## After external acceptance
+
+In review, `l` means “I accepted this exact result externally.” It reports the
+operator's decision for this snapshot only; it neither verifies acceptance nor
+records a verdict. Copying `a`, browser navigation, green checks and merged/closed
+PR states never imply acceptance. Unknown goal, run or result identity refuses the
+report. Report before leaving the snapshot: refreshed merged results are not waiting
+results and are not resurrected as accepted ones.
+
+The report reveals one italic block labelled **Tinkery's guess**, with Outcome,
+Evidence, Learning, Futures, Decision and Next. Outcome stays unobserved without
+real feedback; changeability stays unknown without code-level evidence. No model
+calls, extra reads, numerical score or structural obstacle is invented. Failed or
+stale checks win, then source gaps, owed actions and other unmet conditions, in
+source order. These recommend stop and repair before stacking features. The API's
+unavailable independent-review receipt remains an evidence limit, not a fabricated
+unmet completion condition. With nothing unmet, proceed means observe the accepted
+behavior, not invent a new feature. Consolidation and re-scoping require evidence
+these sources do not supply, so neither is guessed from check counts.
+
+`t` opens the single Next suggestion in a fresh Think visit as an editable, unsent
+draft. It names the behavior/uncertainty, unchanged boundaries and a disproof check,
+including the exact original goal as labelled context. No host, source, save or run
+starts from opening it. Only F2 submits the edited text through Think's usual budget
+and preflight boundary. [Think](think.md#taste-drafts) owns separate provenance and
+submitted-word attribution. Esc dismisses the guess; correction, result selection,
+rereading and leaving discard it. Neither the suggestion nor the report is a new
+gate or authorization. The operator still merges externally.
+
 ## Verification
 
 `src/taste/tests.rs` and the reader's unit tests cover exact goal preservation,
@@ -119,5 +149,10 @@ missing/conflicting/wrong-run/recreated-run inputs, ignored handoff prose, usabl
 log pointers/methods in both clipboard requests, remote failure, exit/return and cancellation. The checkout stays byte-identical;
 no providers, verdicts or real browser launches run. The [API-shaped fixture](../../tests/fixtures/taste-api1.json)
 preserves the reviewer's log/method/digest example without a private seed locator.
+Next-dump journeys additionally report acceptance, edit and send only with F2,
+correct without acceptance, and handle nothing unmet, at both sizes with and without
+NO_COLOR. Unit regressions distinguish copying from the explicit report, prioritize
+failed/stale evidence, discard stale drafts and keep provenance out of requests.
+The report-boundary regression must fail with its acceptance protection reverted.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.

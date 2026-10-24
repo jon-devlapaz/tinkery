@@ -103,13 +103,15 @@ fn unknown_goal_or_result_refuses_copy_and_navigation_starts_nothing() {
 #[test]
 fn repeated_or_modified_keys_never_copy_open_or_read() {
     let mut taste = ready();
-    for code in ['a', 'c', 'r', 'o'] {
+    taste.detail = true;
+    for code in ['a', 'c', 'r', 'o', 'l', 't'] {
         let mut key = KeyEvent::from(KeyCode::Char(code));
         key.kind = KeyEventKind::Repeat;
         taste.key(key);
         key.kind = KeyEventKind::Press;
         key.modifiers = KeyModifiers::ALT;
         taste.key(key);
+        assert!(taste.pause.is_none() && taste.take_draft().is_none());
         assert!(
             taste.reading.is_none()
                 && taste.opening.is_none()
@@ -190,4 +192,65 @@ fn settle(taste: &mut Taste) {
 fn unsafe_terminal_controls_are_only_escaped_for_display() {
     assert_eq!(safe("TEST\x1b[31m\u{202e}"), "TEST\\u{1b}[31m\\u{202e}");
     assert_eq!(safe(" TEST café  "), " TEST café  ");
+}
+
+#[test]
+fn next_dump_requires_explicit_external_acceptance_not_copy_or_green() {
+    let mut taste = ready();
+    taste.key(KeyEvent::from(KeyCode::Enter));
+    for action in ['t', 'a', 'c'] {
+        taste.key(KeyEvent::from(KeyCode::Char(action)));
+        assert!(taste.pause.is_none() && taste.take_draft().is_none());
+    }
+    let original = goal(&taste.rows[0].goal).to_owned();
+    taste.key(KeyEvent::from(KeyCode::Char('l')));
+    assert!(taste.pause.is_some());
+    assert!(taste.reading.is_none() && taste.opening.is_none());
+    assert_eq!(goal(&taste.rows[0].goal), original);
+    for (w, h) in [(100, 30), (80, 24)] {
+        let shown = screen(&mut taste, w, h);
+        assert!(
+            shown.contains("Tinkery's guess") && shown.contains("Outcome: unobserved"),
+            "{shown}"
+        );
+    }
+    taste.key(KeyEvent::from(KeyCode::Char('t')));
+    let draft = taste.take_draft().unwrap();
+    assert!(draft.text.contains("owed action: re-approve the plan"));
+    assert!(draft.text.ends_with(&original));
+    assert!(draft.provenance.contains(&"a".repeat(40)));
+    taste.key(KeyEvent::from(KeyCode::Char('c')));
+    assert!(taste.pause.is_none() && taste.take_draft().is_none());
+    taste.rows[0].goal = Goal::Unknown;
+    taste.key(KeyEvent::from(KeyCode::Char('l')));
+    assert!(taste.pause.is_none());
+}
+
+#[test]
+fn pause_prefers_failed_or_stale_checks_and_invents_no_next_feature() {
+    let mut r = row();
+    for state in ["fail", "stale"] {
+        r.items[0].state = state.into();
+        let pause = next::suggest(&r);
+        assert!(pause.draft.text.contains(&format!("TEST check: {state}")));
+        assert!(pause.lines.join(" ").contains("Decision: stop and repair"));
+    }
+    r.items[0].state = "pass".into();
+    r.gates.clear();
+    let pause = next::suggest(&r);
+    assert!(pause.lines.join(" ").contains("Decision: proceed"));
+    assert!(pause.draft.text.contains("Observe the accepted behavior"));
+    assert!(!pause.draft.text.contains("Add a feature"));
+}
+
+#[test]
+fn pause_and_draft_do_not_survive_selection_or_refresh() {
+    let mut taste = ready();
+    taste.detail = true;
+    taste.key(KeyEvent::from(KeyCode::Char('l')));
+    taste.key(KeyEvent::from(KeyCode::Char('n')));
+    assert!(taste.pause.is_none());
+    taste.key(KeyEvent::from(KeyCode::Char('l')));
+    taste.refresh();
+    assert!(taste.pause.is_none() && taste.take_draft().is_none());
 }

@@ -731,6 +731,11 @@ impl Home {
                     }
                 } else if taste.key(key) {
                     self.view = View::Menu;
+                } else if let Some(draft) = taste.take_draft() {
+                    let mut dump = (self.make_dump)().with_key_bar(self.key_bar);
+                    dump.offer_draft(draft);
+                    self.selected = 0;
+                    self.view = View::Think(Box::new(dump));
                 }
             }
             View::Soon(_) => {

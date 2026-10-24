@@ -59,7 +59,7 @@ def tree(root):
     return {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
 
 
-def journey(width, height, no_color, mapping_case='valid'):
+def journey(width, height, no_color, mapping_case='valid', next_case=None):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-taste-') as directory:
         base = Path(directory).resolve()
         checkout = base / 'TEST-checkout'
@@ -188,6 +188,54 @@ def journey(width, height, no_color, mapping_case='valid'):
             assert len(calls()) == read_count
             send(b'o', 'PR sent to browser')
             assert calls()[-1] == ['pr', 'view', URL, '--web']
+            if next_case:
+                assert "Tinkery's guess" not in screen.text(), 'copy/open is not acceptance'
+                if next_case == 'nothing unmet':
+                    state['detail']['run']['gates'][0]['status'] = 'approved'
+                    state['detail']['run']['checklist'][1].update(
+                        status='passed', needs_recheck=False, mark={'evidence': 'TEST observation'})
+                    update()
+                    before = len(calls())
+                    os.write(master, b'r')
+                    wait(lambda: len(calls()) == before + 3 and 'Reading results' not in screen.text())
+                send(b'\x1b[H', 'Goal (unchanged)')
+                before = len(calls())
+                send(b'?', 'After external acceptance')
+                os.write(master, b'lt')
+                time.sleep(.1)
+                send(b'\x1b', 'Goal (unchanged)')
+                assert "Tinkery's guess" not in screen.text(), 'help leaked acceptance'
+                send(b'l', "Tinkery's guess")
+                assert 'Outcome: unobserved' in screen.text()
+                assert len(calls()) == before
+                send(b't', "Tinkery's guess · edit freely")
+                assert 'F2 sends' in screen.text()
+                assert not (base / 'TEST-sessions').exists()
+                assert len(calls()) == before
+                if next_case == 'correct':
+                    os.write(master, b'\x01')  # Ctrl-A: replace draft, not an original
+                    send(b'\x1b[200~TEST operator correction\x1b[201~', 'TEST operator correction')
+                elif next_case == 'nothing unmet':
+                    os.write(master, b'\x1b[1;5H')  # Ctrl-Home reveals beginning of long draft
+                    wait(lambda: 'Observe the accepted behavior' in screen.text())
+                os.write(master, b'\x1bOQ')  # F2: practice host, zero provider calls
+                wait(lambda: 'Simulated' in screen.text())
+                if next_case == 'correct':
+                    assert 'TEST operator correction' in screen.text()
+                assert len(calls()) == before
+                assert tree(checkout) == original, 'next draft changed original goal or checkout'
+                assert not (base / 'TEST-sessions').exists()
+                send(b'\x1b[21~', 'Back to menu and lose this draft?')  # F10 loss guard
+                send(b'y', '1  think')
+                os.write(master, b'q')
+                process.wait(timeout=5)
+                assert process.returncode == 0
+                assert not (base / 'TEST-sessions').exists()
+                # The practice visit is deliberately abandoned; no durable record.
+                print(json.dumps(dict(journey='Taste next dump', case=next_case,
+                                      width=width, height=height, no_color=no_color,
+                                      provider_calls=0, sends='F2 only', verdicts=0)))
+                return
             # Fully green open PRs still need external human review; never filter them away.
             state['detail']['run']['gates'][0]['status'] = 'approved'
             state['detail']['run']['checklist'][1].update(status='passed', mark={'evidence': 'TEST human observation'})
@@ -288,5 +336,9 @@ if __name__ == '__main__':
     for dimensions in [(100, 30), (80, 24)]:
         for no_color in (False, True):
             journey(*dimensions, no_color)
+    for dimensions in [(100, 30), (80, 24)]:
+        for no_color in (False, True):
+            for next_case in ['accept', 'correct', 'nothing unmet']:
+                journey(*dimensions, no_color, next_case=next_case)
     for case in ['missing', 'conflicting', 'other-run', 'recreated-run']:
         journey(80, 24, True, case)
