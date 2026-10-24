@@ -302,7 +302,7 @@ impl Taste {
             && let Some(row) = self.rows.get(self.selected)
         {
             let header = Paragraph::new(Text::from(vec![
-                Line::raw(safe(row.url.as_deref().unwrap_or("Result unknown"))),
+                Line::raw(safe(&result_name(row))),
                 Line::raw(format!(
                     "Commit: {}",
                     row.head.as_deref().unwrap_or("unknown")
@@ -353,8 +353,10 @@ impl Taste {
                 lines.extend(result_lines(row).into_iter().skip(2));
             }
         } else if self.at.is_some() && self.rows.is_empty() {
-            lines
-                .push("No open results in this reading. See Watch for runs; r reads again.".into());
+            lines.push(
+                "No open or merged results in this reading. See Watch for runs; r reads again."
+                    .into(),
+            );
         } else {
             lines.push("Results waiting on you".into());
             for (i, row) in self.rows.iter().enumerate() {
@@ -367,7 +369,7 @@ impl Taste {
                     row.slug
                 ));
                 lines.push(goal(&row.goal).split('\n').next().unwrap_or("").into());
-                lines.push(row.url.clone().unwrap_or_else(|| "Result unknown".into()));
+                lines.push(result_name(row));
                 lines.push(format!(
                     "Commit: {}",
                     row.head.as_deref().unwrap_or("unknown")
@@ -459,9 +461,17 @@ fn safe(text: &str) -> String {
         .collect()
 }
 
+fn result_name(row: &ResultRow) -> String {
+    format!(
+        "{}{}",
+        row.url.as_deref().unwrap_or("Result unknown"),
+        if row.merged { " · merged" } else { "" }
+    )
+}
+
 fn result_lines(row: &ResultRow) -> Vec<String> {
     let mut lines = vec![
-        row.url.clone().unwrap_or_else(|| "Result unknown".into()),
+        result_name(row),
         format!("Commit: {}", row.head.as_deref().unwrap_or("unknown")),
         "Goal (unchanged)".into(),
     ];

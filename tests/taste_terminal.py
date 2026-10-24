@@ -76,6 +76,8 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
         record = {'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
                   'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()}
         state = fixture(record)
+        if next_case == 'merged':
+            state['pr']['state'] = 'MERGED'
         state['detail']['run']['checklist'][0]['check']['cwd'] = './'
         if mapping_case == 'recreated-run':
             state['list']['runs'][0]['run_id'] = OTHER_ID
@@ -162,7 +164,14 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 return
             assert len(calls()) == 3, calls()
             assert all('--web' not in c for c in calls())
+            if next_case == 'merged':
+                assert ' · merged' in screen.text(), screen.text()
+                assert "Tinkery's guess" not in screen.text(), 'merge is not acceptance'
+                os.write(master, b't')
             send(b'\r', 'Goal (unchanged)')
+            if next_case == 'merged':
+                assert ' · merged' in screen.text(), screen.text()
+                assert "Tinkery's guess" not in screen.text(), 'review is not acceptance'
             assert 'TEST café' in screen.text(), screen.text()
             assert HEAD in screen.text(), screen.text()
             # Reads and scrolling never launch anything; the whole goal is retained in the copy.
@@ -338,7 +347,7 @@ if __name__ == '__main__':
             journey(*dimensions, no_color)
     for dimensions in [(100, 30), (80, 24)]:
         for no_color in (False, True):
-            for next_case in ['accept', 'correct', 'nothing unmet']:
+            for next_case in ['accept', 'correct', 'nothing unmet', 'merged']:
                 journey(*dimensions, no_color, next_case=next_case)
     for case in ['missing', 'conflicting', 'other-run', 'recreated-run']:
         journey(80, 24, True, case)

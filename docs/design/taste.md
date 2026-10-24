@@ -32,9 +32,11 @@ inputs. Neither a slug, branch, title, handoff file nor another run's mapping ca
 supply the link; recreating a slug with a new run ID cannot inherit the old PR.
 
 Only `r` reads GitHub, via `gh pr view <explicit URL> --json` using the operator's
-login. Read the current head, state and PR-head checks. Only open PRs are waiting
-results, including green PRs with no source gates owed: checks never remove the need
-for human review. Closed/merged observations are not acceptance. Source gaps stay visible.
+login. Read the current head, state and PR-head checks. Explicitly mapped open and
+merged PRs stay listed, including green PRs with no source gates owed: checks never
+remove the need for human review. Merged results are marked “merged” in the list
+and review; neither merge state nor green checks imply acceptance. Closed-unmerged
+PRs stay hidden. Source gaps stay visible.
 Each bounded helper has a 30-second deadline and 4 MiB output limit; helpers run
 serially off paint/input. Leaving cancels and reaps the owned process group; late
 results cannot reopen a view. Refresh removes old rows and copy requests first.
@@ -110,8 +112,8 @@ In review, `l` means “I accepted this exact result externally.” It reports t
 operator's decision for this snapshot only; it neither verifies acceptance nor
 records a verdict. Copying `a`, browser navigation, green checks and merged/closed
 PR states never imply acceptance. Unknown goal, run or result identity refuses the
-report. Report before leaving the snapshot: refreshed merged results are not waiting
-results and are not resurrected as accepted ones.
+report. An explicitly mapped merged result remains available after refresh, but the
+next-step note still requires `l`; refreshing never restores an acceptance report.
 
 The report reveals one italic block labelled **Tinkery's guess**, with Outcome,
 Evidence, Learning, Futures, Decision and Next. Outcome stays unobserved without
@@ -153,6 +155,10 @@ Next-dump journeys additionally report acceptance, edit and send only with F2,
 correct without acceptance, and handle nothing unmet, at both sizes with and without
 NO_COLOR. Unit regressions distinguish copying from the explicit report, prioritize
 failed/stale evidence, discard stale drafts and keep provenance out of requests.
-The report-boundary regression must fail with its acceptance protection reverted.
+Merged-result journeys additionally read an explicitly mapped merged PR, verify its
+label and absence of a note, then report acceptance with `l` before the note appears.
+The merged-result retention regression must fail when the open-only filter returns,
+then pass after restoration. The report-boundary regression must fail with its
+acceptance protection reverted.
 These prove mechanics, not operator
 dogfood or improved attention; #109's comparison method remains separate.

@@ -11,6 +11,7 @@ fn row() -> ResultRow {
         ),
         url: Some("https://github.com/TEST/example/pull/1".into()),
         head: Some("a".repeat(40)),
+        merged: false,
         seed: "TEST-digest".into(),
         items: vec![Item {
             label: "TEST check".into(),
@@ -224,6 +225,28 @@ fn next_dump_requires_explicit_external_acceptance_not_copy_or_green() {
     taste.rows[0].goal = Goal::Unknown;
     taste.key(KeyEvent::from(KeyCode::Char('l')));
     assert!(taste.pause.is_none());
+}
+
+#[test]
+fn merged_result_is_labelled_but_needs_explicit_acceptance_before_the_note() {
+    for (w, h) in [(100, 30), (80, 24)] {
+        let mut taste = ready();
+        taste.rows[0].merged = true;
+        let list = screen(&mut taste, w, h);
+        assert!(list.contains(" · merged"), "{list}");
+        assert!(taste.pause.is_none() && taste.take_draft().is_none());
+        taste.key(KeyEvent::from(KeyCode::Enter));
+        let detail = screen(&mut taste, w, h);
+        assert!(
+            detail.contains(" · merged") && !detail.contains("Tinkery's guess"),
+            "{detail}"
+        );
+        taste.key(KeyEvent::from(KeyCode::Char('t')));
+        assert!(taste.take_draft().is_none());
+        taste.key(KeyEvent::from(KeyCode::Char('l')));
+        assert!(screen(&mut taste, w, h).contains("Tinkery's guess"));
+        assert!(taste.reading.is_none() && taste.opening.is_none());
+    }
 }
 
 #[test]
