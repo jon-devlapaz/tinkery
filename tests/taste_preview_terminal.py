@@ -13,7 +13,7 @@ import tempfile
 import termios
 import time
 import test_launch as subprocess
-from taste_terminal import FAKE, GOAL, REPO, RUN_ID, URL, fixture, tree
+from taste_terminal import FAKE, REPO, RUN_ID, URL, confirmed_seed, fixture, tree
 from vt_screen import Screen
 
 SERVER = '''import http.server, json, os, socket, socketserver, subprocess, sys, time
@@ -160,10 +160,7 @@ def journey(width, height, mono, wrong_head=False, response_delay=0):
         scripts = checkout / '_system/scripts'
         scripts.mkdir(parents=True)
         (scripts / 'sdlc.py').write_text(FAKE)
-        seed = base / 'TEST-seed/seed-contract.md'
-        seed.parent.mkdir()
-        seed.write_text('TEST original')
-        (seed.parent / 'ledger.json').write_text(json.dumps({'schema_version': 1, 'goal': GOAL}))
+        seed = confirmed_seed(base)
         state = fixture({'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
                          'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()})
         state['pr']['headRefOid'] = head

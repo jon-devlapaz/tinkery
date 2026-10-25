@@ -104,7 +104,7 @@ pub(crate) fn seeds(root: &Path, cancel: &AtomicBool) -> Result<Vec<Seed>, Strin
 /// A run's seed evidence distinguishes known absence from an unreadable or unmatched original.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Goal {
-    /// The seed matches, with the exact saved goal.
+    /// The seed matches and its confirmation verifies, with the exact saved goal.
     Matched(String),
     /// The run explicitly records that no confirmed seed was used.
     NoSeed,
@@ -112,8 +112,8 @@ pub(crate) enum Goal {
     Unknown,
 }
 
-/// Read the exact saved goal only for a still-matching seed, on a worker. An explicit null
-/// record means no seed; missing records or unreadable, moved or edited originals stay unknown.
+/// Read the exact goal only for a still-matching, verified seed, on a worker. An explicit null
+/// record means no seed; missing, changed or unverified original session files stay unknown.
 pub(crate) fn goal(run: &Value) -> Goal {
     let seed = match Seed::parse(run) {
         Ok(Some(seed)) => seed,

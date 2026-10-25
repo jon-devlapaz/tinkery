@@ -234,7 +234,10 @@ Approve and Watch share a read-only seed-to-run join, not a binding store. API 1
 `seed_contract.source` must equal the seed's canonical path and `sha256` must
 match its current bytes. Names, slugs and goal text never establish a connection.
 Edited originals are unknown, not started; moved or missing originals cannot lend
-a goal to a run. A match supplies the session's exact saved goal (article 3);
+a goal to a run. Before a match supplies the session's exact saved goal (article 3),
+the shared seed verifier must also confirm that the ledger decisions and seed still
+match their confirmation receipt. The seed and ledger must remain byte-identical
+through that read; missing or invalid confirmation keeps the goal unknown.
 [Watch](watch.md#reading) owns its compact list and full-detail presentation.
 An explicit null record means no confirmed seed was used, distinct from an
 unmatchable or malformed record (article 7). This is a read-time snapshot, not

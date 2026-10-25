@@ -13,7 +13,7 @@ import tempfile
 import termios
 import time
 import test_launch as subprocess
-from taste_terminal import FAKE, GOAL, HEAD, REPO, RUN_ID, URL, fixture, tree
+from taste_terminal import FAKE, GOAL, HEAD, REPO, RUN_ID, URL, confirmed_seed, fixture, tree
 from vt_screen import Screen
 
 GOLDEN = REPO / 'tests/fixtures/taste-handoff-355.json'
@@ -38,11 +38,8 @@ def run(base, width, height, mono, binary, legacy=False, long_checks=False):
     scripts = checkout / '_system/scripts'
     scripts.mkdir(parents=True, exist_ok=True)
     (scripts / 'sdlc.py').write_text(FAKE)
-    seed = base / 'TEST-session/seed-contract.md'
-    seed.parent.mkdir(exist_ok=True)
-    seed.write_text('TEST seed\n')
     goal = LONG_GOAL if long_checks else GOAL
-    (seed.parent / 'ledger.json').write_text(json.dumps({'schema_version': 1, 'goal': goal}))
+    seed = confirmed_seed(base, goal)
     record = {'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
               'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()}
     state = fixture(record)
@@ -204,7 +201,8 @@ def run(base, width, height, mono, binary, legacy=False, long_checks=False):
         assert (tree(checkout), tree(seed.parent)) == original
         assert len(log.read_text().splitlines()) == 3, 'navigation/copying performed another read or browser action'
         assert not (base / 'TEST-sessions').exists()
-        return {'copies': copies, 'main': main, 'detail': detail, 'list': listing}
+        return {'copies': copies, 'main': main, 'detail': detail, 'list': listing,
+                'seed_digest': record['sha256']}
     finally:
         if process.poll() is None:
             process.kill()
@@ -220,7 +218,8 @@ if __name__ == '__main__':
             result = run(base, 100, 30, False,
                          REPO / 'target/TEST-taste-structure-before-355', legacy=True, long_checks=True)
             (REPO / 'tests/fixtures/taste-structure-handoff-355.json').write_text(json.dumps(
-                {key: value.decode().replace(str(base), '{ROOT}') for key, value in result['copies'].items()},
+                {key: value.decode().replace(str(base), '{ROOT}').replace(result['seed_digest'], '{SEED_DIGEST}')
+                 for key, value in result['copies'].items()},
                 ensure_ascii=False, indent=2) + '\n')
             (REPO / 'target/TEST-taste-structure-before-list-355.txt').write_text(result['list'])
             (REPO / 'target/TEST-taste-structure-before-review-355.txt').write_text(result['main'])
@@ -228,7 +227,7 @@ if __name__ == '__main__':
         with tempfile.TemporaryDirectory(prefix='tinkery-TEST-quiet-355-') as directory:
             base = Path(directory).resolve()
             result = run(base, 100, 30, False, REPO / 'target/TEST-taste-before-355', legacy=True)
-            GOLDEN.write_text(json.dumps({k: v.decode().replace(str(base), '{ROOT}')
+            GOLDEN.write_text(json.dumps({k: v.decode().replace(str(base), '{ROOT}').replace(result['seed_digest'], '{SEED_DIGEST}')
                                           for k, v in result['copies'].items()}, ensure_ascii=False, indent=2) + '\n')
             (REPO / 'target/TEST-taste-before-355.txt').write_text(result['main'])
     else:
@@ -240,7 +239,8 @@ if __name__ == '__main__':
                     before = run(base, width, height, mono, Path(baseline), legacy=True) if baseline else None
                     result = run(base, width, height, mono, REPO / 'target/debug/tinkery')
                     for action, expected in json.loads(GOLDEN.read_text()).items():
-                        assert result['copies'][action] == expected.replace('{ROOT}', str(base)).encode(), action
+                        assert result['copies'][action] == expected.replace('{ROOT}', str(base)).replace(
+                            '{SEED_DIGEST}', result['seed_digest']).encode(), action
                     if before:
                         assert result['copies'] == before['copies'], 'parent/new payload bytes changed'
                         # Layout changes deliberately; source wording and actual copy bytes do not.
