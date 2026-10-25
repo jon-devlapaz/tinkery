@@ -43,6 +43,12 @@ def calls(terminal):
     return [json.loads(line) for line in terminal.calls.read_text().splitlines()]
 
 
+def wait_for_call(terminal):
+    """Wait for the first complete fake-gh record, then parse it strictly."""
+    terminal.wait(lambda: terminal.calls.exists() and terminal.calls.read_bytes().endswith(b'\n'))
+    return calls(terminal)[0]
+
+
 def journey(width, height, no_color):
     payload = [pr(1, checks=[{'name': 'unit', 'conclusion': 'SUCCESS'}]),
                pr(2, 'MERGED', checks=[{'name': 'journey', 'conclusion': 'FAILURE'}]),
@@ -116,8 +122,7 @@ def cases():
     try:
         t.send(b'7', 'Nothing has been read yet')
         t.send(b'r', 'Reading GitHub')
-        t.wait(lambda: t.calls.exists())
-        pid = calls(t)[0]['pid']
+        pid = wait_for_call(t)['pid']
         t.resize(100, 30)
         t.wait(lambda: 'Reading GitHub' in t.screen.text())
         t.send(b'?', 'q goes back to the menu')
