@@ -5,9 +5,13 @@ from pathlib import Path
 import test_launch as subprocess
 
 REPO = Path(__file__).resolve().parents[1]
-subprocess.run(['cargo', '+stable', 'build', '--locked', '--example', 'seed_fixture'],
-               cwd=REPO, check=True, stdout=subprocess.DEVNULL, env=subprocess.environment())
 BINARY = REPO / 'target/debug/examples/seed_fixture'
+# The parallel runner owns preparation; standalone journeys still prepare themselves.
+if os.environ.get('TINKERY_TEST_SEED_FIXTURE') != str(BINARY):
+    subprocess.run(['cargo', '+stable', 'build', '--locked', '--example', 'seed_fixture'],
+                   cwd=REPO, check=True, stdout=subprocess.DEVNULL, env=subprocess.environment())
+elif not BINARY.is_file():
+    raise FileNotFoundError(f'Prepared TEST seed fixture is missing: {BINARY}')
 
 
 def call(op, path='', value=None, **fields):
