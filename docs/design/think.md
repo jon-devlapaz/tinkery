@@ -338,8 +338,9 @@ sentinels: bytes survive sending and copying, never execute on display.
   Last result retains the reason. Review messages grow, leaving Back its own row.
 - Idle Esc and F10 guard unsaved work. `--home` returns to the menu; standalone
   exits before saving, opens the menu after saving. Esc first cancels voice or the
-  reading, closes overlays, leaves review, clears original selection or focus,
-  or declines the loss prompt.
+  reading, closes overlays, or leaves review. In the original, Esc clears a
+  selection first; with no selection it returns to writing, preserving the draft.
+  The next Esc asks before discarding; Esc at that prompt declines.
 - F4 originals and F5 why stay help-only. [Local voice](voice.md) inserts editable
   words, never sends. Answering keeps the original dump visible.
 

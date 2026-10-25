@@ -122,7 +122,9 @@ impl BrainDump {
             return false;
         }
         if key.code == KeyCode::Esc {
-            self.screen.selection = None;
+            if !self.screen.selection.take().is_some_and(|(a, b)| a != b) {
+                self.focus_writing();
+            }
             self.screen.drag_anchor = None;
             return true;
         }

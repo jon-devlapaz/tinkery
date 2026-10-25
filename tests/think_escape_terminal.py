@@ -13,6 +13,9 @@ import time
 from vt_screen import Screen
 
 BINARY = Path(__file__).resolve().parents[1] / 'target/debug/tinkery'
+ORIGINAL = 'TEST original café 👩‍💻\r\nKeep these exact words.'
+DRAFT = 'TEST unsent answer 中\r\nStill local.'
+LOSS = 'Back to menu and lose this draft? y / n'
 
 
 def journey(width, height):
@@ -22,10 +25,16 @@ def journey(width, height):
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
         process = subprocess.Popen(
-            [str(BINARY), '--home'],
+            [str(BINARY), '--operator', 'agent', '--home'],
             stdin=slave, stdout=slave, stderr=slave, cwd=root,
-            env=subprocess.environment({**os.environ, 'HOME': str(root), 'TERM': 'xterm-256color'}, home=({**os.environ, 'HOME': str(root), 'TERM': 'xterm-256color'})['HOME']),
+            env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color'}, home=root),
         )
+
+        def pump(seconds=.2):
+            deadline = time.monotonic() + seconds
+            while time.monotonic() < deadline:
+                if select.select([master], [], [], .02)[0]:
+                    screen.feed(os.read(master, 65536))
 
         def wait(check):
             deadline = time.monotonic() + 6
@@ -42,6 +51,19 @@ def journey(width, height):
             os.write(master, keys)
             wait(lambda s: text in s)
 
+        def copy(expected):
+            before = len(screen.clipboards)
+            os.write(master, b'\x03')
+            wait(lambda _: len(screen.clipboards) > before)
+            assert screen.clipboards[before:] == [expected], screen.clipboards
+
+        def escape_without_leaving():
+            before = list(screen.clipboards)
+            os.write(master, b'\x1b')
+            pump()
+            assert LOSS not in screen.text() and process.poll() is None, screen.text()
+            assert screen.clipboards == before, 'Escape copied text'
+
         try:
             wait(lambda s: '1  think' in s)
             send(b'1', "What's on your mind?")
@@ -56,6 +78,44 @@ def journey(width, height):
             send(b'y', '1  think')
             send(b'1', "What's on your mind?")
             assert 'Keep my words.' not in screen.text(), 'New visit retained discarded words'
+            send(b'\x1b[200~' + ORIGINAL.encode() + b'\x1b[201~', 'Keep these exact words.')
+            send(b'\x1bOQ', 'which part matters')
+            send(b'\x1b[200~' + DRAFT.encode() + b'\x1b[201~', 'Still local.')
+            os.write(master, b'\t\x01')
+            copy(ORIGINAL)
+            escape_without_leaving()
+            before = list(screen.clipboards)
+            os.write(master, b'\x03')
+            pump()
+            assert screen.clipboards == before, 'Escape left a stale selection'
+            os.write(master, b'\x01')
+            copy(ORIGINAL)  # First Escape cleared the selection but kept original focus.
+            escape_without_leaving()
+            escape_without_leaving()
+            os.write(master, b'\x01')
+            copy(DRAFT)  # Next Escape returned to writing without losing unsent bytes.
+            send(b'\x1b', LOSS)
+            os.write(master, b'\x1b')
+            wait(lambda s: LOSS not in s)
+            copy(DRAFT)
+            # With no original selection, one Escape returns directly to writing.
+            os.write(master, b'\t')
+            pump()
+            escape_without_leaving()
+            os.write(master, b'\x01')
+            copy(DRAFT)
+            send(b'\x1b', LOSS)
+            os.write(master, b'n')
+            wait(lambda s: LOSS not in s)
+            copy(DRAFT)
+            os.write(master, b'\t\x01')
+            copy(ORIGINAL)
+            escape_without_leaving()
+            escape_without_leaving()
+            send(b'\x1b', LOSS)
+            send(b'y', '1  think')
+            send(b'1', "What's on your mind?")
+            assert 'Still local.' not in screen.text() and 'TEST original' not in screen.text()
             send(b'\x1b', '1  think')
             os.write(master, b'q')
             process.wait(timeout=5)
@@ -63,7 +123,8 @@ def journey(width, height):
             assert not (root / '.local/share/tinkery/sessions').exists(), 'Escape saved a goal'
             assert not (root / '.local/share/tinkery/think').exists(), 'Escape wrote a record'
             print(json.dumps(dict(width=width, height=height, provider='none',
-                                  journey='home/think/Escape/reopen/unsaved guard/decline/discard/reopen')))
+                                  journey='original selection/clear/writing/guard/cancel/discard/reopen',
+                                  original_bytes=len(ORIGINAL.encode()), draft_bytes=len(DRAFT.encode()))))
         finally:
             if process.poll() is None:
                 process.kill()
