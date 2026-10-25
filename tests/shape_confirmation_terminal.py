@@ -17,8 +17,9 @@ def journey(width, height, changed):
             run.open_shape()
             run.wait('Seed draft r1')
             run.read_until('End of seed', whole_line=True)
-            words = 'TEST confirm only what I read'
-            run.type(words)
+            words = ('  TEST confirm only what I read  ' if width == 80
+                     else '\u2003\tTEST confirm only what I read\u00a0')
+            run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', words)
             path = session / 'seed-contract.md'
             if changed == 'seed':
                 path.write_text(path.read_text().replace('TEST draft.', 'TEST unseen replacement.'))
@@ -43,6 +44,9 @@ def journey(width, height, changed):
             assert helper.status(session)['handoff']['verified']
             receipt = json.loads((session / 'seed-confirmation.json').read_text())
             assert receipt['source'] == words
+            note = next(line for line in path.read_text().split('\n') if line.startswith('Confirmed by:'))
+            assert receipt['schema_version'] == 3 and receipt['operator'] == 'agent'
+            assert note.startswith(f'Confirmed by: "{words}; caller-declared declared: agent;'), repr(note)
             assert run.calls() == [], 'Confirmation or a refusal called a model'
             print(f'Shape displayed confirmation passed at {width}x{height}: '
                   f'{changed or "unchanged"}, exact words retained, zero calls')
