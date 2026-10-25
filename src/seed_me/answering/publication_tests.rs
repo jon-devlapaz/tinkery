@@ -308,6 +308,37 @@ fn issue_298_split_checks_cannot_replace_the_complete_success_scenario() {
 }
 
 #[test]
+fn a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words() {
+    // #381: the clinic-tycoon slice 3 goal, and the statement Shape's model returned three times.
+    let goal = "Strategically run and improve several clinics over time, balancing staffing, budget, and MAP/MAP Basic coverage.\nWhy: Make the experience closer to a game than a dashboard.\nDone when: Several clinics can be managed and improved over time; Staffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.";
+    let check = |statement: &str| {
+        ledger::Value::from(json!([{"statement": statement, "kind": "judge", "source": "TEST"}]))
+    };
+    ledger::validate_goal_checks(
+        goal,
+        &check("Several clinics can be managed and improved over time.\nStaffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs."),
+    )
+    .unwrap();
+    for weaker in [
+        "Several clinics can be managed and improved over time.",
+        "Staffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.\nSeveral clinics can be managed and improved over time.",
+        "Several clinics can be managed over time.\nStaffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.",
+    ] {
+        assert!(
+            ledger::validate_goal_checks(goal, &check(weaker))
+                .unwrap_err()
+                .contains("keep this complete Done when line unchanged"),
+            "{weaker}"
+        );
+    }
+    let split = ledger::Value::from(json!([
+        {"statement": "Several clinics can be managed and improved over time.", "kind": "judge", "source": "TEST"},
+        {"statement": "Staffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.", "kind": "judge", "source": "TEST"}
+    ]));
+    assert!(ledger::validate_goal_checks(goal, &split).is_err());
+}
+
+#[test]
 fn success_lines_preserve_unicode_and_bullets_without_inventing_missing_requirements() {
     let goal = "I keep notes.\nDone when: Café notes survive restart; only mine remain.\n- 空の一覧 stays empty.\nMust: Keep originals.\n- This is a constraint, not another success criterion.";
     let checks = ledger::Value::from(json!([
