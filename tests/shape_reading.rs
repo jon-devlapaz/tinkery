@@ -1,4 +1,4 @@
-//! Large Shape reading uses public input, rendered text and real TEST ledger files.
+//! Shape reading limits use public input, rendered text and real TEST ledger files.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend, layout::Rect};
@@ -106,7 +106,8 @@ fn opened(session: &Path) -> Shape {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         shape.tick();
-        if screen(&mut shape, 80, 24, 20).contains("Seed draft r1") {
+        let shown = screen(&mut shape, 80, 24, 20);
+        if shown.contains("Seed draft r1") || shown.contains("Too long to show") {
             break;
         }
         assert!(Instant::now() < deadline, "TEST seed never loaded");
@@ -116,56 +117,67 @@ fn opened(session: &Path) -> Shape {
 }
 
 #[test]
-fn large_seeds_refuse_early_confirmation_and_reach_the_actual_end() {
-    for body in ["TEST row\n".repeat(65_536), "word ".repeat(1_000_000)] {
-        let (_root, session) = fixture("TEST exact goal", &(body + "\nTEST last 中 e\u{301} 👩‍💻"));
+fn oversized_readings_are_refused_and_f3_changes_nothing() {
+    for source in ["seed", "review", "so far"] {
+        let goal = if source == "so far" {
+            "g".repeat(60_000)
+        } else {
+            "TEST goal".into()
+        };
+        let body = "x".repeat(if source == "seed" { 60_000 } else { 30_000 });
+        let (_root, session) = fixture(&goal, &body);
+        if source == "review" {
+            let seed = fs::read_to_string(session.join("seed-contract.md")).unwrap();
+            let version = ledger::load(&session).unwrap()["version"]
+                .to_json()
+                .unwrap()
+                .as_u64()
+                .unwrap();
+            let review = ledger::CompletionReview {
+                contradictions: vec![],
+                decided: vec!["r".repeat(30_000)],
+                done: vec![],
+                failure_cases: vec![ledger::FailureCase {
+                    statement: "TEST keeps originals".into(),
+                    case: "TEST changed originals".into(),
+                }],
+            };
+            ledger::record_teach_back(
+                &session,
+                version,
+                "r1",
+                &seed,
+                &ledger::TeachBackRecord::Review(&review),
+                STAMP,
+                None,
+            )
+            .unwrap();
+        }
         let before = files(&session);
         let mut shape = opened(&session);
-        shape.paste("TEST confirm the displayed large seed");
-        for _ in 0..10 {
-            key(&mut shape, KeyCode::PageDown);
+        shape.paste("TEST confirm only a readable seed");
+        if source == "so far" {
+            key(&mut shape, KeyCode::F(5));
         }
-        let shown = screen(&mut shape, 80, 24, 20);
-        assert!(!shown.contains("End of seed"), "{shown}");
-        key(&mut shape, KeyCode::F(3));
-        assert!(screen(&mut shape, 80, 24, 20).contains("Nothing was confirmed"));
-        assert_eq!(files(&session), before);
-        for _ in 0..100_000 {
+        for _ in 0..4_000 {
             key(&mut shape, KeyCode::PageDown);
         }
         let shown = screen(&mut shape, 80, 24, 20);
         assert!(
-            shown.contains("TEST seed final tail")
-                && shown.contains("End of seed")
-                && shown.contains("F3 confirm seed r1"),
+            shown.contains("Too long to show. Nothing was confirmed or changed."),
+            "{source}: {shown}"
+        );
+        assert!(
+            !shown.contains("End of seed") && !shown.contains("F3 confirm"),
             "{shown}"
         );
-        // Resize, go back and return through public keys; the already-read revision stays read.
-        key(&mut shape, KeyCode::PageUp);
-        screen(&mut shape, 100, 30, 26);
-        for _ in 0..20 {
-            key(&mut shape, KeyCode::PageDown);
-        }
-        assert!(screen(&mut shape, 100, 30, 26).contains("End of seed"));
-        assert_eq!(files(&session), before);
         key(&mut shape, KeyCode::F(3));
-        let deadline = Instant::now() + Duration::from_secs(10);
-        loop {
+        assert!(!screen(&mut shape, 80, 24, 20).contains("esc stop"));
+        for _ in 0..10 {
             shape.tick();
-            if ledger::status(&session).unwrap()["handoff"]["verified"]
-                .to_json()
-                .unwrap()
-                == true
-            {
-                break;
-            }
-            assert!(
-                Instant::now() < deadline,
-                "large displayed seed was not confirmed: {}",
-                screen(&mut shape, 100, 30, 26)
-            );
-            thread::sleep(Duration::from_millis(5));
         }
+        assert_eq!(files(&session), before);
+        assert!(!session.join("seed-confirmation.json").exists());
     }
 }
 
@@ -191,33 +203,4 @@ fn a_zero_height_reading_never_authorizes_confirmation() {
     }
     assert_eq!(files(&session), before);
     assert!(!session.join("seed-confirmation.json").exists());
-}
-
-#[test]
-fn so_far_reaches_large_originals_and_keeps_close_visible() {
-    let goal = format!(
-        "TEST goal\n{}TEST original tail 中",
-        "TEST original row\n".repeat(65_536)
-    );
-    let (_root, session) = fixture(&goal, "TEST seed");
-    let before = files(&session);
-    let mut shape = opened(&session);
-    key(&mut shape, KeyCode::F(5));
-    screen(&mut shape, 80, 24, 20);
-    for _ in 0..100_000 {
-        key(&mut shape, KeyCode::PageDown);
-    }
-    let shown = screen(&mut shape, 80, 24, 20);
-    assert!(
-        shown.contains("TEST original tail 中") && shown.contains("F5 close"),
-        "{shown}"
-    );
-    key(&mut shape, KeyCode::PageUp);
-    screen(&mut shape, 100, 30, 26);
-    for _ in 0..20 {
-        key(&mut shape, KeyCode::PageDown);
-    }
-    assert!(screen(&mut shape, 100, 30, 26).contains("TEST original tail 中"));
-    key(&mut shape, KeyCode::Esc);
-    assert_eq!(files(&session), before);
 }

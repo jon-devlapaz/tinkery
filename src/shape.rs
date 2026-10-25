@@ -21,7 +21,6 @@ pub use step::Agent;
 
 mod discovery_help;
 mod forms;
-mod reading;
 mod step;
 mod words;
 
@@ -75,7 +74,7 @@ pub struct Shape {
     help_scroll: u16,
     selected: usize,
     open: Option<Opened>,
-    scroll: usize,
+    scroll: u16,
     /// Rows of reading on screen at the last draw, for PgUp/PgDn.
     page: u16,
     agent: Option<Arc<Agent>>,
@@ -115,7 +114,7 @@ struct Opened {
     /// A folder being typed after `F4`, until F4 uses it or Esc keeps the one shown.
     choosing: Option<Words>,
     /// The "So far" page's scroll while `F5` shows it.
-    so_far: Option<usize>,
+    so_far: Option<u16>,
     /// An ending asked for once, waiting for the same key again or Esc.
     asking: Option<Ending>,
     /// What the step that asked the current question assumed instead of asking; shown with
@@ -445,7 +444,7 @@ impl Shape {
         {
             return Leave::Stay;
         }
-        let page = usize::from(crate::page(self.page));
+        let page = crate::page(self.page);
         if let Some(open) = &mut self.open {
             if let Some(scroll) = &mut open.so_far {
                 match key.code {
@@ -1647,11 +1646,36 @@ impl Opened {
     }
 }
 
+/// Refuses an oversized reading before wrapping; source bytes stay untouched.
+fn reading_fits(frame: &mut Frame, texts: &[&Text<'_>], area: Rect, palette: Palette) -> bool {
+    let bytes: usize = texts
+        .iter()
+        .flat_map(|text| &text.lines)
+        .map(|line| {
+            1 + line
+                .spans
+                .iter()
+                .map(|span| span.content.len())
+                .sum::<usize>()
+        })
+        .sum();
+    if bytes < 60_000 {
+        return true;
+    }
+    frame.render_widget(
+        Paragraph::new("Too long to show. Nothing was confirmed or changed. Esc goes back.")
+            .style(palette.ink)
+            .wrap(Wrap { trim: false }),
+        area,
+    );
+    false
+}
+
 /// "So far": the confirmed goal, settled decisions, open questions and current findings.
 /// Only the operator's own answers are marked as theirs. It scrolls when it doesn't fit.
 fn render_so_far(
     frame: &mut Frame,
-    scroll: &mut usize,
+    scroll: &mut u16,
     shaping: &Shaping,
     area: Rect,
     palette: Palette,
@@ -1710,13 +1734,17 @@ fn render_so_far(
             lines.push(Line::default());
         }
     }
-    let page = reading::Reading::new(Text::from(lines), area.width);
+    let text = Text::from(lines);
+    if !reading_fits(frame, &[&text], area, palette) {
+        return;
+    }
+    let page = Paragraph::new(text).wrap(Wrap { trim: false });
     // How to close stays on the page's last row, even when the rest scrolls.
-    let rows = page.rows();
+    let rows = page.line_count(area.width) as u16;
     let height = area.height.saturating_sub(2);
-    *scroll = (*scroll).min(rows.saturating_sub(usize::from(height)));
-    page.render(frame, Rect { height, ..area }, *scroll);
-    let close = if rows > usize::from(height) {
+    *scroll = (*scroll).min(rows.saturating_sub(height));
+    frame.render_widget(page.scroll((*scroll, 0)), Rect { height, ..area });
+    let close = if rows > height {
         "↑↓ scroll · F5 close"
     } else {
         "F5 close"
@@ -1724,10 +1752,7 @@ fn render_so_far(
     frame.render_widget(
         Paragraph::new(close).style(palette.ink),
         Rect {
-            y: area
-                .y
-                .saturating_add(rows.min(usize::from(height)) as u16)
-                .saturating_add(1),
+            y: area.y + rows.min(height) + 1,
             height: 1,
             ..area
         }
@@ -1742,7 +1767,7 @@ fn render_so_far(
 /// Draws the open session; returns whether the reading overflows and how many of its rows show.
 fn render_open(
     frame: &mut Frame,
-    scroll: &mut usize,
+    scroll: &mut u16,
     open: &mut Opened,
     agent: bool,
     held: bool,
@@ -1923,6 +1948,15 @@ fn render_open(
             (reading, input)
         }
     };
+    if !reading_fits(frame, &[&reading, &input], area, palette) {
+        open.read_end = None;
+        return (false, 1);
+    }
+    let rows = |text: &Text<'static>| {
+        Paragraph::new(text.clone())
+            .wrap(Wrap { trim: false })
+            .line_count(area.width) as u16
+    };
     let label = if open.choosing.is_some() {
         Some("Folder:")
     } else {
@@ -1947,26 +1981,20 @@ fn render_open(
             &mut open.typed
         }
     });
-    let reading = reading::Reading::new(reading, area.width);
-    let before = reading::Reading::new(before, area.width);
-    let after = reading::Reading::new(after, area.width);
-    let editor_rows = editor
-        .as_ref()
-        .map_or(0, |words| usize::from(words.rows(area.width)));
-    let (read_rows, before_rows, after_rows) = (reading.rows(), before.rows(), after.rows());
+    let editor_rows = editor.as_ref().map_or(0, |words| words.rows(area.width));
+    let (read_rows, before_rows, after_rows) = (rows(&reading), rows(&before), rows(&after));
     let input_rows = before_rows
         .saturating_add(editor_rows)
         .saturating_add(after_rows);
-    let gap = usize::from(read_rows > 0 && input_rows > 0);
-    let available = usize::from(area.height);
+    let gap = u16::from(read_rows > 0 && input_rows > 0);
     // Reserve at least half the body for a long reading. The editor scrolls to its caret;
     // labels and consequences stay outside that viewport, even while a step is running.
     let input_height =
         input_rows
-            .min(available.saturating_sub(
-                gap + read_rows.min(available / 2).max(usize::from(read_rows > 0)),
+            .min(area.height.saturating_sub(
+                gap + read_rows.min(area.height / 2).max(u16::from(read_rows > 0)),
             ));
-    let height = read_rows.min(available.saturating_sub(input_height + gap));
+    let height = read_rows.min(area.height.saturating_sub(input_height + gap));
     *scroll = (*scroll).min(read_rows.saturating_sub(height));
     if height > 0
         && open.read_end.is_none()
@@ -1985,33 +2013,30 @@ fn render_open(
     {
         open.notice = None;
     }
-    reading.render(
-        frame,
-        Rect {
-            height: height as u16,
-            ..area
-        },
-        *scroll,
+    frame.render_widget(
+        Paragraph::new(reading)
+            .wrap(Wrap { trim: false })
+            .scroll((*scroll, 0)),
+        Rect { height, ..area },
     );
     let mut input_area = Rect {
-        y: area.y.saturating_add((height + gap) as u16),
-        height: input_height as u16,
+        y: area.y + height + gap,
+        height: input_height,
         ..area
     }
     .intersection(area);
-    let after_height = after_rows.min(input_height.saturating_sub(usize::from(editor.is_some())));
+    let after_height = after_rows.min(input_height.saturating_sub(u16::from(editor.is_some())));
     let before_height =
-        before_rows.min(input_height.saturating_sub(after_height + usize::from(editor.is_some())));
-    before.render(
-        frame,
+        before_rows.min(input_height.saturating_sub(after_height + u16::from(editor.is_some())));
+    frame.render_widget(
+        Paragraph::new(before).wrap(Wrap { trim: false }),
         Rect {
-            height: before_height as u16,
+            height: before_height,
             ..input_area
         },
-        0,
     );
-    input_area.y += before_height as u16;
-    input_area.height = input_height.saturating_sub(before_height + after_height) as u16;
+    input_area.y += before_height;
+    input_area.height = input_height.saturating_sub(before_height + after_height);
     if let Some(editor) = editor {
         editor.render(frame, input_area, palette, open.running.is_some());
         if label == Some("your words") && editor.text().is_empty() && open.read_end.is_some() {
@@ -2025,9 +2050,14 @@ fn render_open(
         }
     }
     input_area.y += input_area.height;
-    input_area.height = after_height as u16;
-    after.render(frame, input_area, after_rows.saturating_sub(after_height));
-    (read_rows > height, height as u16)
+    input_area.height = after_height;
+    frame.render_widget(
+        Paragraph::new(after)
+            .wrap(Wrap { trim: false })
+            .scroll((after_rows.saturating_sub(after_height), 0)),
+        input_area,
+    );
+    (read_rows > height, height)
 }
 
 /// The seed draft for reading: a muted `Seed draft rN` header in place of the file's `status:`

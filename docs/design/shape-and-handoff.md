@@ -360,8 +360,8 @@ run stays outside Shape.
   wide. The goal headline or draft, then stage, precedes words, notices and `Next:`.
   Overflow scrolls while the words box and cursor, or running status, stay visible,
   occupying at most half the body. Cursor following survives long or wrapped
-  words and resize. The seed and F5 remain readable beyond 65,535 wrapped rows,
-  including one long source line. An empty reading viewport cannot mark a draft read.
+  words and resize. Readings (seed plus review or feedback, and F5) must stay under 60,000 bytes; otherwise Shape refuses without confirming or changing anything.
+  An empty reading viewport cannot mark a draft read.
   Only overflow offers `pgup/dn read` while editing or `↑↓ scroll`
   otherwise; overflowing questions shorten the save key to `F2 save + look`.
   Seed `Nothing found` stays beside words. Crowded bars reduce gaps to two spaces,

@@ -2445,7 +2445,7 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
             shape.key(key(KeyCode::PageDown));
             assert_eq!(
                 shape.scroll,
-                usize::from(crate::page(shape.page)),
+                crate::page(shape.page),
                 "PgDn did not scroll the reading a page"
             );
             let shown = screen(&mut shape, width, height, no_color);
@@ -3316,7 +3316,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             }
             // Empty words gain their instruction on the first end frame too.
             let mut empty = done(long_draft()).with_agent(Some(agent(0)));
-            empty.scroll = usize::MAX;
+            empty.scroll = u16::MAX;
             let text = screen(&mut empty, width, height, no_color);
             assert!(
                 text.contains("a line saying you confirm, then F3"),
@@ -3370,7 +3370,7 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
         for no_color in [false, true] {
             for change in ["same draft", "changed bytes", "new revision"] {
                 let mut shape = done(long_draft()).with_agent(Some(agent(0)));
-                shape.scroll = usize::MAX;
+                shape.scroll = u16::MAX;
                 screen(&mut shape, width, height, no_color);
                 let changed = change != "same draft";
                 let open = shape.open.as_mut().unwrap();
@@ -3467,7 +3467,7 @@ fn page_keys_move_about_one_screen_of_reading() {
         screen(&mut shape, width, height, true);
         assert!(shape.page > 5, "{width}x{height}: {} rows", shape.page);
         shape.key(key(KeyCode::PageDown));
-        assert_eq!(shape.scroll, usize::from(crate::page(shape.page)));
+        assert_eq!(shape.scroll, crate::page(shape.page));
         shape.key(key(KeyCode::PageUp));
         assert_eq!(shape.scroll, 0);
     }
