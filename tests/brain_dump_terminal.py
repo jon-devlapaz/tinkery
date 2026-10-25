@@ -25,7 +25,7 @@ def journey(width,height):
  with tempfile.TemporaryDirectory(prefix='tinkery-brain-pty-') as directory:
   cwd=Path(directory);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',height,width,0,0));original=termios.tcgetattr(slave);screen=Screen(width,height);out=bytearray()
-  process=subprocess.Popen([str(BINARY),'--shape-pi','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
+  process=subprocess.Popen([str(BINARY),'--shape-pi', '--shape-budget', '64','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_text(text,timeout=5):
    deadline=time.monotonic()+timeout
    while time.monotonic()<deadline:

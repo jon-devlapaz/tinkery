@@ -37,7 +37,7 @@ def journey(width, height, criteria, no_color):
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
         env = subprocess.environment(dict(os.environ, HOME=str(root), TERM='xterm-256color'), home=root)
-        args = [str(BINARY), '--operator', 'agent', '--shape-pi', '--model', 'test/replay',
+        args = [str(BINARY), '--operator', 'agent', '--shape-pi', '--shape-budget', '64', '--model', 'test/replay',
                 '--pi-command', str(program), '--seed-session-root', str(root / 'sessions'),
                 '--record-root', str(root / 'records'), '--link-root', str(root / 'links')]
         process = subprocess.Popen(args + (['--no-color'] if no_color else []),

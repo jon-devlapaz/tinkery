@@ -3,7 +3,7 @@
 //! A request runs Pi with no tools, session, extensions or context files, so the model sees
 //! only the prompt and the words sent. The process boundary (caps, timeout, cancellation) and the
 //! call budget are shared in [`crate::pi`]; this module adds think's instructions and settings.
-//! An evaluation can give Pi a [`CallBudget`]; then no request starts once its limit is reached.
+//! The app and evaluations attach a [`CallBudget`]; no request starts once its limit is reached.
 //! Bundled guidance is verbatim from Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66,
 //! between its title and Size gate; no installed skill is read.
 
@@ -101,7 +101,7 @@ impl PiHost {
     }
 
     /// Counts every request against `budget`, refusing any past its limit before Pi starts.
-    /// Without one, as in the app, requests are unlimited.
+    /// Callers must supply the authorized allowance; the app defaults it to zero.
     pub fn with_budget(mut self, budget: Arc<CallBudget>) -> Self {
         self.budget = Some(budget);
         self

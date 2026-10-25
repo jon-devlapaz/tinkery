@@ -56,7 +56,7 @@ def journey(width, height, long_question=False, suggestion=False, mono=False):
         if mono:
             env['NO_COLOR'] = '1'
         process = subprocess.Popen(
-            [str(BINARY), '--operator', 'agent', '--shape-pi', '--model', 'test/replay',
+            [str(BINARY), '--operator', 'agent', '--shape-pi', '--shape-budget', '64', '--model', 'test/replay',
              '--pi-command', str(program), '--seed-session-root', str(root / 'sessions'),
              '--record-root', str(root / 'records'), '--link-root', str(root / 'links')],
             stdin=slave, stdout=slave, stderr=slave, cwd=root, env=env,

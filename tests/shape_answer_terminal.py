@@ -269,7 +269,7 @@ class Run:
 def full_journey(width, height):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-shape-answer-') as directory:
         cwd = Path(directory).resolve()
-        run = Run(cwd, width, height, budget=2, replies=[QUESTION, SEED])
+        run = Run(cwd, width, height, budget=6, replies=[QUESTION, SEED])
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")
@@ -308,7 +308,7 @@ def full_journey(width, height):
             run.send(b'\x1bOS', 'The step reads files in TEST-targetfolder.')
             # Opening, scrolling and help write nothing and call no model.
             run.send(b'\x1b[B', 'F2 look into the next question')
-            run.send(F1, 'Model calls left this run: 2 of 2.')
+            run.send(F1, 'Model calls left this run: 2 of 6.')
             run.send(b'\x1b', 'F2 look into the next question')
             assert files(run.sessions) == before and run.calls() == [], 'Shape wrote or called before F2'
             # Seed Me's pre-mortem comes first, in the operator's words, before any finding (#234).
@@ -341,7 +341,7 @@ def full_journey(width, height):
             answer = 'Local? Yes, Keep it local.\nOnly on this machine.\rTEST CR\r\nTEST CRLF'
             # Kitty repeat events must not act, even with nonempty edited words.
             run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Type your answer. Enter adds a line.')
-            run.wait('Model calls left this run: 1 of 2.')
+            run.wait('Model calls left this run: 1 of 6.')
             run.send(b'\x1b', 'TEST CRLF')
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 1, 'Typing, paste, editing or held F2 wrote or called'
             if width == 100:
@@ -1390,7 +1390,7 @@ def exit_hint(width, height, stage):
         situation = 'For the first slice' if stage == 'goal' else 'for the first slice'
         headline = ('Keep refusals calm, for me' + ('. ' if stage == 'goal' else ', ')
                     + situation + '.')
-        run = Run(cwd, width, height, budget=1, replies=[{**SEED, 'found': []}], situation=situation)
+        run = Run(cwd, width, height, budget=5, replies=[{**SEED, 'found': []}], situation=situation)
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")

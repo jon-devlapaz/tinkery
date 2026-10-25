@@ -97,7 +97,7 @@ def confirm_goals(root, width, height, no_color):
     host = root / 'pi'
     host.write_text(HOST)
     host.chmod(0o755)
-    terminal = Terminal(root, width, height, ['--home', '--shape-pi', '--model', 'test/model',
+    terminal = Terminal(root, width, height, ['--home', '--shape-pi', '--shape-budget', '64', '--model', 'test/model',
         '--pi-command', host, '--seed-session-root', sessions,
         '--record-root', records, *(['--no-color'] if no_color else [])])
     saved = {}

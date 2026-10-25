@@ -89,7 +89,8 @@ Each shaping call, decision review, failure and retry counts before Pi starts;
 at the limit, the next request is refused unstarted, including a send's review.
 A cancelled request counts only if Pi had started. A separate goal in the same
 run shares the budget, and a run never reuses an output directory, so nothing
-resets it. Without a budget, as in the app, requests are unlimited.
+resets it. The app likewise attaches a shared launch budget; see
+[terminal setup](../terminal-setup.md#launch) for its units and default.
 
 The report adds the Pi command, model, thinking level and prompt fingerprint, and
 counts real calls. Provider charges are reported as unknown. Recognition and the

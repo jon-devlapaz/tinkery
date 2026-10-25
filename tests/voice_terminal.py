@@ -63,7 +63,7 @@ def journey(width, height, no_color):
             env['NO_COLOR'] = '1'
         else:
             env.pop('NO_COLOR', None)
-        process = subprocess.Popen([str(ROOT / 'target/debug/tinkery'), '--shape-pi', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model',
+        process = subprocess.Popen([str(ROOT / 'target/debug/tinkery'), '--shape-pi', '--shape-budget', '64', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model',
                                     '--pi-command', str(cwd / 'pi')],
                                    stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(env))
 

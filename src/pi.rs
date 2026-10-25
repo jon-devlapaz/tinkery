@@ -51,7 +51,7 @@ pub struct Attempt {
     pub error: Option<String>,
 }
 
-/// A hard limit on provider requests, shared by every host that holds it. A request is counted
+/// A hard limit on Pi requests, shared by every host that holds it. A request is counted
 /// before anything starts, whatever happens after; once the limit is reached the next request is
 /// refused unstarted. The count never resets, so a new session on the same budget can't spend
 /// it twice.

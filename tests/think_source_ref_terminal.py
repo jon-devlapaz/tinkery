@@ -47,7 +47,7 @@ def journey(width, height):
         screen = Screen(width, height)
         env = subprocess.environment(dict(os.environ, HOME=str(root), TERM='xterm-256color'), home=root)
         process = subprocess.Popen(
-            [str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--shape-pi',
+            [str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--shape-pi', '--shape-budget', '64',
              '--model', 'test/recorded-360', '--pi-command', str(program),
              '--seed-session-root', str(root / 'sessions'), '--record-root', str(root / 'records'),
              '--link-root', str(root / 'links')],

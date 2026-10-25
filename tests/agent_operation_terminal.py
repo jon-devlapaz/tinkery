@@ -27,7 +27,7 @@ def status(session):
 def confirmation_after_reading(width, height, correct_typo=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-confirm-input-') as directory:
         actor = ACTOR
-        run = Run(Path(directory), width, height, 0, agent=True, why=LONG_WHY)
+        run = Run(Path(directory), width, height, 4, agent=True, why=LONG_WHY)
 
         def type_confirmation(data=b'confirm', word='confirm'):
             os.write(run.master, data)
@@ -87,7 +87,7 @@ def journey(width, height):
         script = checkout / '_system/scripts/sdlc.py'
         script.parent.mkdir(parents=True)
         script.write_text('print(\'{"protocol":"tink-sdlc","api_version":1,"runs":[]}\')\n')
-        run = Run(root, width, height, 2, [QUESTION, SEED], agent=True, sdlc_root=checkout)
+        run = Run(root, width, height, 6, [QUESTION, SEED], agent=True, sdlc_root=checkout)
         output = bytearray()
         feed = run.screen.feed
 
