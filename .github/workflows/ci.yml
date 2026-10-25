@@ -61,7 +61,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Full guarded zero-call verification
         env:
-          TINKERY_TEST_SDLC_REF: 4b6415a9aa8548f6486c97e5b60d4fea0d0662a0
+          TINKERY_TEST_SDLC_REF: 6eee1f1d3f2035983c01b3c61b51f0afb5dccf19
           TINKERY_TEST_TIER: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
         run: python3 scripts/full-check.py
   cold-clone:

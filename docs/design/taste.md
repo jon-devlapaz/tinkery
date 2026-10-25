@@ -128,14 +128,15 @@ At the result's exact PR head, the repository may declare a root `tinkery.previe
 file: one JSON object on one line, with exactly `command` and `url`:
 
 ```json
-{"command":"npm ci --ignore-scripts && npm run dev -- --port 5173 --strictPort","url":"http://127.0.0.1:5173/"}
+{"command":"npm ci --ignore-scripts && npm run dev -- --host 127.0.0.1 --port 5173 --strictPort","url":"http://127.0.0.1:5173/"}
 ```
 
 The command is a trusted shell line, not sandboxed code. Declare installation/setup
 explicitly if needed; Tinkery never guesses from package.json. Only HTTP URLs on
 literal 127.0.0.1 with an explicit nonzero port are supported. No public URLs,
-redirect following, deployment, agents or model calls. The command must bind locally;
-the URL restriction is not a network sandbox for arbitrary repo code.
+redirect following, deployment, agents or model calls. The command must listen on
+127.0.0.1: on macOS a dev server bound to `localhost` may listen only on ::1 and never
+answer. The URL restriction is not a network sandbox for arbitrary repo code.
 
 The explicit `r` read also reads that file through `gh api` at the displayed head.
 404 means “No preview declared” with the format above; authentication, invalid files

@@ -33,6 +33,10 @@ for arguments, error in [
     (['--taste-result', 'TEST-run=https://github.com/TEST/example/pull/1'], b'canonical lowercase UUIDv4'),
     (['--taste-result', '00000000-0000-4000-8000-000000000114=TEST/example#1'], b'full canonical'),
     (['--shape-pi', '--model', 'bare'], b'explicit --model provider/model-id'),
+    # Think alone has no Watch, Approve or Taste, so their inputs are refused, not ignored.
+    (['--snapshot', '--sdlc-root', 'TEST-sdlc'], b'require --home'),
+    (['--snapshot', '--taste-result', '00000000-0000-4000-8000-000000000114=https://github.com/TEST/example/pull/1'],
+     b'require --home'),
 ]:
     result = subprocess.run([str(BINARY), *arguments], env=ENV, capture_output=True)
     assert result.returncode != 0 and error in result.stderr, (arguments, result.stderr)

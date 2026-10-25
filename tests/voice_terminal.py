@@ -173,6 +173,64 @@ def journey(width, height, no_color):
             os.close(slave)
 
 
+def retry_after_missing_node():
+    """A Node that wasn't found at launch is looked for again when the voice key reloads voice."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-voice-retry-') as directory:
+        cwd = Path(directory)
+        # Missing on the first look, as before an install or behind a slow login shell.
+        node = NODE.replace("if sys.argv[1:]==['--version']:\n",
+                            "if sys.argv[1:]==['--version'] and not Path('node-found.txt').exists():\n"
+                            " Path('node-found.txt').write_text('');sys.exit(1)\n"
+                            "if sys.argv[1:]==['--version']:\n", 1)
+        assert node != NODE
+        (cwd / 'node').write_text(node)
+        (cwd / 'node').chmod(0o755)
+        (cwd / 'python3').symlink_to(sys.executable)
+        master, slave = os.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 100, 0, 0))
+        screen = Screen(100, 30)
+        env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': str(cwd / 'node'), 'PATH': str(cwd),
+               'SHELL': '/bin/false', 'TINKERY_VOICE_FAKE_PCM': '', 'TINKERY_VOICE_SMOKE_WAV': ''}
+        process = subprocess.Popen([str(ROOT / 'target/debug/tinkery')], stdin=slave, stdout=slave,
+                                   stderr=slave, cwd=cwd, env=subprocess.environment(env))
+
+        def text(needle, timeout=5):
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline and process.poll() is None:
+                if select.select([master], [], [], .02)[0]:
+                    screen.feed(os.read(master, 65536))
+                if needle in screen.text() and not screen.synchronized:
+                    return
+            raise AssertionError(f'{needle}:\n{screen.text()}')
+
+        def appears(path):
+            deadline = time.monotonic() + 5
+            while not (cwd / path).exists():
+                assert time.monotonic() < deadline, f'{path} never appeared'
+                time.sleep(.02)
+
+        try:
+            text(VOICE_KEY + ' speak')
+            # The launch looked once and failed; the voice key reloads voice and looks again.
+            os.write(master, b'\x1b[17~')
+            text('Voice needs Node 22 or later')
+            os.write(master, b'\x1b[17~')
+            appears('node-ready.txt')
+            settle = time.monotonic() + .2
+            while time.monotonic() < settle:
+                text(VOICE_KEY + ' speak')
+            os.write(master, b'\x1b[17~')
+            text('ghost words')
+            print(json.dumps(dict(journey='missing Node found on reload', pi_calls=0, microphone=False)))
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            os.close(master)
+            os.close(slave)
+
+
 for no_color in [False, True]:
     for size in [(80, 24), (100, 30), (160, 40), (320, 40)]:
         journey(*size, no_color)
+retry_after_missing_node()

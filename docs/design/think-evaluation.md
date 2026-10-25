@@ -4,9 +4,7 @@ One runner, `think_eval`, replays supplied words through think. By default the
 replies are scripted: that checks repeatable mechanics and cannot measure model
 quality or human recognition. [Live runs](#live-runs) send the same words to Pi,
 only with operator data, a written permission and a positive call limit. Neither
-mode adds a prompt or changes production interaction. The historical
-`live_brain_dump_check` example still requires separate data-use and call-budget
-authorization and remains outside the zero-call suite.
+mode adds a prompt or changes production interaction.
 
 Run from the checkout being evaluated, rebuilding the example:
 

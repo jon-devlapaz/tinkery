@@ -249,9 +249,9 @@ the session's files. There is no checkout discovery, source mutation or new stor
 Goal and seed confirmation, SDLC definition approval and implementation permission
 are separate decisions. External tink-sdlc intake preserves the confirmed seed and
 imports its acceptance checks as locked definitions, reported separately from
-worker-written supporting checks. Editing or dropping an imported check stales the
-definition gate. Settled commands must succeed; prose `expect:` also needs operator
-attestation. Provisional checks stay pending until activated with prerequisite
+worker-written supporting checks. Editing or dropping an imported check is a departure:
+it stales the definition gate until a human, never an agent, accepts it. Settled commands
+must succeed; their `expect:` is context, not an owed mark. Provisional checks stay pending until activated with prerequisite
 evidence and renewed definition approval; `you judge:` stays manual.
 
 Locked checks protect the agreement but don't prove the checks are strong.

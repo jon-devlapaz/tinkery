@@ -134,8 +134,8 @@ Think's working-draft guidance and the artifact reference are bundled verbatim f
 Seed Me `c9d766760dbeac0c05c92108165f9e968bec0a66`; no runtime reads an installed skill.
 
 [tink-sdlc #90](https://github.com/jon-devlapaz/tink-sdlc/issues/90) shipped in PR #91,
-scaffold 1.34.0, pinned in CI and the handoff journey at
-`4b6415a9aa8548f6486c97e5b60d4fea0d0662a0`. Copied intake commands use
+scaffold 1.34.0. CI and the handoff journey pin current main (1.41.0) at
+`6eee1f1d3f2035983c01b3c61b51f0afb5dccf19`. Copied intake commands use
 `--tinkery PATH`; the old helper flag is refused by that consumer.
 The session folder's files keep
 their names (`seed-contract.md`, `ledger.json`, `seed-checks.json`,
