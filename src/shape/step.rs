@@ -36,6 +36,54 @@ mod unknown_tests;
 mod review_reply;
 mod teach_back;
 
+/// One bounded host diagnostic for an explicit retry against the same saved context.
+/// It is neither an operator answer nor ledger evidence, and is never persisted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RetryFeedback {
+    session: PathBuf,
+    version: u64,
+    folder: PathBuf,
+    reason: String,
+    truncated: bool,
+}
+
+impl RetryFeedback {
+    const LIMIT: usize = 2048;
+
+    /// Whether this rejection still belongs to the session version and folder being read.
+    pub(super) fn applies(&self, session: &Path, version: u64, folder: &Path) -> bool {
+        self.session == session && self.version == version && self.folder == folder
+    }
+
+    fn new(session: &Path, version: u64, folder: &Path, reason: &str) -> Option<Self> {
+        let line = reason
+            .lines()
+            .next()
+            .filter(|line| !line.trim().is_empty())?;
+        let truncated = line.len() > Self::LIMIT || reason.lines().nth(1).is_some();
+        let mut reason = line.to_owned();
+        if reason.len() > Self::LIMIT {
+            let mut end = Self::LIMIT - '…'.len_utf8();
+            while !reason.is_char_boundary(end) {
+                end -= 1;
+            }
+            reason.truncate(end);
+            reason.push('…');
+        }
+        Some(Self {
+            session: session.into(),
+            version,
+            folder: folder.into(),
+            reason,
+            truncated,
+        })
+    }
+
+    fn input(&self) -> Value {
+        json!({"reason": self.reason, "truncated": self.truncated})
+    }
+}
+
 /// Reply fields decoded here or delegated unchanged to Tinkery's record validator.
 /// The prompt's examples name the same fields.
 #[cfg(test)]
@@ -179,7 +227,11 @@ pub(super) enum Work {
         folder: PathBuf,
     },
     /// Look into the next question (or the seed) from version `expected`, reading `folder`.
-    Look { expected: u64, folder: PathBuf },
+    Look {
+        expected: u64,
+        folder: PathBuf,
+        feedback: Option<RetryFeedback>,
+    },
     /// Compare the operator's teach-back with the exact displayed draft, using one budgeted call.
     TeachBack {
         revision: String,
@@ -223,6 +275,24 @@ pub(super) struct Asked {
 pub(super) struct Failure {
     pub(super) answer_saved: bool,
     pub(super) why: Why,
+    pub(super) feedback: Option<Box<RetryFeedback>>,
+}
+
+impl Failure {
+    fn rejected(
+        mut self,
+        session: &Path,
+        version: u64,
+        folder: &Path,
+        cancelled: &AtomicBool,
+    ) -> Self {
+        if !cancelled.load(Ordering::Relaxed)
+            && let Why::Model(reason) | Why::Refused(reason) = &self.why
+        {
+            self.feedback = RetryFeedback::new(session, version, folder, reason).map(Box::new);
+        }
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -279,11 +349,19 @@ impl Running {
     /// The result, once it lands. Never blocks.
     pub(super) fn poll(&self) -> Option<Result<Done, Failure>> {
         match self.result.try_recv() {
-            Ok(result) => Some(result),
+            Ok(mut result) => {
+                if self.cancelled.load(Ordering::Relaxed)
+                    && let Err(failure) = &mut result
+                {
+                    failure.feedback = None;
+                }
+                Some(result)
+            }
             Err(mpsc::TryRecvError::Empty) => None,
             Err(mpsc::TryRecvError::Disconnected) => Some(Err(Failure {
                 answer_saved: false,
                 why: Why::Model("The step stopped unexpectedly.".into()),
+                feedback: None,
             })),
         }
     }
@@ -303,6 +381,7 @@ impl Drop for Running {
 fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
     move |refusal| Failure {
         answer_saved,
+        feedback: None,
         why: match refusal {
             Refusal::Stale => Why::Stale,
             Refusal::Refused(reason) => Why::Refused(reason),
@@ -321,6 +400,7 @@ fn run(
     crate::think_record::Actor::authorize(actor).map_err(|reason| Failure {
         answer_saved: false,
         why: Why::Refused(reason),
+        feedback: None,
     })?;
     match work {
         Work::Answer {
@@ -333,12 +413,13 @@ fn run(
                 return Err(Failure {
                     answer_saved: false,
                     why: Why::Budget(agent.limit()),
+                    feedback: None,
                 });
             }
             let version =
                 answering::answer(session, *expected, id, words, actor).map_err(refused(false))?;
             saved.store(true, Ordering::Relaxed);
-            look(session, version, folder, agent, cancelled, true)
+            look(session, version, folder, agent, cancelled, true, None)
         }
         Work::Respond {
             id,
@@ -350,16 +431,27 @@ fn run(
                 return Err(Failure {
                     answer_saved: false,
                     why: Why::Budget(agent.limit()),
+                    feedback: None,
                 });
             }
             let version = answering::respond(session, *expected, id, action, actor)
                 .map_err(refused(false))?;
             saved.store(true, Ordering::Relaxed);
-            look(session, version, folder, agent, cancelled, true)
+            look(session, version, folder, agent, cancelled, true, None)
         }
-        Work::Look { expected, folder } => {
-            look(session, *expected, folder, agent, cancelled, false)
-        }
+        Work::Look {
+            expected,
+            folder,
+            feedback,
+        } => look(
+            session,
+            *expected,
+            folder,
+            agent,
+            cancelled,
+            false,
+            feedback.as_ref(),
+        ),
         Work::TeachBack { .. } => teach_back::run(work, session, agent, cancelled, saved),
         Work::Confirm {
             revision,
@@ -381,8 +473,14 @@ fn look(
     agent: &Agent,
     cancelled: &AtomicBool,
     answer_saved: bool,
+    feedback: Option<&RetryFeedback>,
 ) -> Result<Done, Failure> {
-    let fail = |why| Failure { answer_saved, why };
+    let fail = |why| Failure {
+        answer_saved,
+        why,
+        feedback: None,
+    };
+    let rejected = |failure: Failure| failure.rejected(session, expected, folder, cancelled);
     let ledger = answering::read(session).map_err(refused(answer_saved))?;
     if ledger.version() != expected {
         return Err(fail(Why::Stale));
@@ -406,7 +504,10 @@ fn look(
     }
     let goal = ledger.goal().unwrap_or("").to_owned();
     let settled = think(agent.records.as_deref(), session, &goal);
-    let input = input(&ledger, settled);
+    let mut input = input(&ledger, settled);
+    if let Some(feedback) = feedback.filter(|f| f.applies(session, expected, folder)) {
+        input["previous_refusal"] = feedback.input();
+    }
     let call = Call {
         folder: Some(folder.to_path_buf()),
         ..agent.call.clone()
@@ -428,7 +529,7 @@ fn look(
                 fail(Why::Model(error))
             }
         })?;
-    match decode(&reply).map_err(|e| fail(Why::Model(e)))? {
+    match decode(&reply).map_err(|e| rejected(fail(Why::Model(e))))? {
         Next::Question(ask) => {
             answering::ask(session, expected, &ask, folder).map_err(refused(answer_saved))?;
             Ok(Done::Asked(Asked {
@@ -446,7 +547,10 @@ fn look(
             let records = crate::seed_me::ledger::Value::from(checks.clone());
             review
                 .validate(&records)
-                .map_err(|why| fail(Why::Model(why)))?;
+                .map_err(|why| rejected(fail(Why::Model(why))))?;
+            // Only pure reply checks become retry feedback; storage failures never do.
+            crate::seed_me::ledger::validate_goal_checks(&goal, &records)
+                .map_err(|why| rejected(fail(Why::Refused(format!("Tinkery refused: {why}")))))?;
             let revision = answering::draft_seed(
                 session,
                 expected,

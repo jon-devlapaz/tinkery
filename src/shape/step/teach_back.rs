@@ -23,6 +23,7 @@ pub(super) fn run(
         return Err(Failure {
             answer_saved: false,
             why: Why::Budget(agent.limit()),
+            feedback: None,
         });
     }
     let version = answering::teach_back(
@@ -37,6 +38,7 @@ pub(super) fn run(
     saved.store(true, Ordering::Relaxed);
     let fail = |why| Failure {
         answer_saved: true,
+        feedback: None,
         why,
     };
     let input = json!({"kind":"teach-back", "draft":seed, "operator_words":words});

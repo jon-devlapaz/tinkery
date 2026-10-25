@@ -1318,6 +1318,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     );
     let running = step::Running::start(
         step::Work::Look {
+            feedback: None,
             expected: version,
             folder: temp.path().into(),
         },
@@ -1668,6 +1669,7 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'review
     let version = answered_probe(&receipt.session);
     let running = step::Running::start(
         step::Work::Look {
+            feedback: None,
             expected: version,
             folder: temp.path().into(),
         },
@@ -1931,6 +1933,7 @@ else:
             folder: temp.path().into(),
         },
         None => step::Work::Look {
+            feedback: None,
             expected: version,
             folder: temp.path().into(),
         },
@@ -2053,6 +2056,7 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({che
     );
     let running = step::Running::start(
         step::Work::Look {
+            feedback: None,
             expected: version,
             folder: temp.path().into(),
         },
@@ -3112,6 +3116,7 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
     let version = answering::read(&session).unwrap().version();
     let running = step::Running::start(
         step::Work::Look {
+            feedback: None,
             expected: version,
             folder: temp.path().into(),
         },
@@ -3497,4 +3502,111 @@ fn issue_314_captured_goal_names_missing_success_before_any_call() {
             assert!(!session.join("seed-contract.md").exists());
         }
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn stopping_after_a_reply_arrives_discards_its_retry_feedback() {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config, answering},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-400-stop-")
+        .tempdir()
+        .unwrap();
+    let session = Config::new(Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: GOAL.into(),
+            outcome: "TEST next question".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap()
+        .session;
+    answered_probe(&session);
+    let before = fs::read(session.join("ledger.json")).unwrap();
+    let program = temp.path().join("TEST-pi");
+    fs::write(
+        &program,
+        r#"#!/usr/bin/env python3
+import json, pathlib, sys
+request = json.load(sys.stdin)
+with pathlib.Path('TEST-calls.jsonl').open('a') as output:
+    output.write(json.dumps(request) + '\n')
+print('TEST deliberately invalid reply')
+"#,
+    )
+    .unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let budget = CallBudget::new(2);
+    let agent = Agent::new(
+        program,
+        "test/stub".into(),
+        String::new(),
+        Some(temp.path().into()),
+        budget.clone(),
+        None,
+    )
+    .unwrap();
+    let mut shape = Shape::session(&session).with_agent(Some(Arc::new(agent)));
+    let ready = |shape: &mut Shape| {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            shape.tick();
+            let shown = screen(shape, 100, 30, true);
+            if shown.contains("F2 look into the next question") {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "Shape did not offer an explicit retry: {shown}"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+    ready(&mut shape);
+    shape.key(key(KeyCode::F(2)));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !budget
+        .attempts()
+        .iter()
+        .any(|attempt| attempt.outcome == "reply")
+    {
+        assert!(Instant::now() < deadline, "Stub did not return its reply");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    // Simulate the terminal not ticking while the completed rejection waits for consumption.
+    std::thread::sleep(Duration::from_millis(300));
+    shape.key(key(KeyCode::Esc));
+    ready(&mut shape);
+    shape.key(key(KeyCode::F(2)));
+    ready(&mut shape);
+    let calls = fs::read_to_string(temp.path().join("TEST-calls.jsonl")).unwrap();
+    let calls: Vec<serde_json::Value> = calls
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(
+        calls.len(),
+        2,
+        "Only the two explicit F2 keys may call the stub"
+    );
+    assert!(
+        calls
+            .iter()
+            .all(|call| call.get("previous_refusal").is_none()),
+        "A stopped reply reached the next step: {calls:?}"
+    );
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+    assert_eq!(answering::read(&session).unwrap().goal(), Some(GOAL));
+    assert!(!session.join("seed-contract.md").exists());
 }
