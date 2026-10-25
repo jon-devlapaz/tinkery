@@ -234,18 +234,21 @@ Approve and Watch share a read-only seed-to-run join, not a binding store. API 1
 `seed_contract.source` must equal the seed's canonical path and `sha256` must
 match its current bytes. Names, slugs and goal text never establish a connection.
 Edited originals are unknown, not started; moved or missing originals cannot lend
-a goal to a run. Before a match supplies the session's exact saved goal (article 3),
+a goal to a run. Before a match supplies the session's exact saved goal
+([Intent](../yohaku.md#1-intent-remains-sovereign)),
 the shared seed verifier must also confirm that the ledger decisions and seed still
 match their confirmation receipt. The seed and ledger must remain byte-identical
 through that read; missing or invalid confirmation keeps the goal unknown.
 [Watch](watch.md#reading) owns its compact list and full-detail presentation.
 An explicit null record means no confirmed seed was used, distinct from an
-unmatchable or malformed record (article 7). This is a read-time snapshot, not
+unmatchable or malformed record ([Evidence](../yohaku.md#3-claims-stop-where-evidence-stops)).
+This is a read-time snapshot, not
 permission or a live freshness claim.
 
 Only an explicitly named `--sdlc-root` is read. Missing configuration, unreadable
 runs or absent/unsupported seed records mean Approve cannot tell which seeds have
-started and hides none (article 7). A readable null record establishes no join.
+started and hides none ([Evidence](../yohaku.md#3-claims-stop-where-evidence-stops)).
+A readable null record establishes no join.
 The shared `sdlc` boundary owns status reads and matching; `seed_me` alone reads
 the session's files. There is no checkout discovery, source mutation or new store.
 

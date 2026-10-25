@@ -66,7 +66,9 @@ They stay in the "Not adopted" table until a revisit condition holds.
 
 ## 2. What Shape writes
 
-Each item is an operator key that says what it does (articles 4 and 5); the model still
+Each item is an operator key that says what it does
+([Authority](../yohaku.md#2-action-stays-within-explicit-authority) and
+[Composition](../yohaku.md#4-make-room-for-informed-judgment)); the model still
 only investigates and drafts, and nothing it replies can confirm, settle a decision or
 resolve a review flag.
 
