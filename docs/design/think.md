@@ -20,8 +20,8 @@ ambition. Ask only when the answer matters to the next useful step; remaining
 unknowns may travel to the seed. Recording observations or declining to define a
 goal does not manufacture a goal or another question. Originals remain intact.
 Decisions contain a part, text, at least two answers and an optional question link.
-Ignore invalid parts or answer counts. Open decisions block
-“Nothing I'm unsure about” and travel to review and the seed. Review shows a linked
+Ignore invalid parts or answer counts. Open decisions keep readiness pending
+and travel to review and the seed. Review shows a linked
 question once; otherwise it shows an Open decision note. Alternatives survive
 handoff even when a question replaces the note.
 
@@ -121,9 +121,16 @@ With no focused question (none left, skipped or a part asked twice), show one mu
 | State | Line |
 | --- | --- |
 | No composed goal | No goal yet. |
-| Ready | Nothing I'm unsure about. Review when you're ready. |
+| Ready | Ready for your review. |
 | Required part missing | Still missing: Done when. Review when you're ready. (Name the first missing part: who, outcome, why, done when.) |
 | Required parts present, other intent open | Some parts remain open for the seed. Review when you're ready. |
+
+Ready describes the recorded parts and open questions, not complete coverage of the
+person's intent. The [#401 replay](../../tests/fixtures/think-delivery-401-notes.md)
+preserves a reading that moved explicit delivery constraints from the main goal to
+“also in your dump,” and the correction that restored them to the goal. It checks
+review and recovery mechanics, not model quality;
+[#401](https://github.com/jon-devlapaz/tinkery/issues/401) retains that evaluation work.
 
 Without a composed goal, omit the review invitation. F1 uses the same first sentence
 and offers F3 only with a saveable goal. In practice or without a sessions folder, help says

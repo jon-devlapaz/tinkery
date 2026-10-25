@@ -46,7 +46,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
             run.type('Refusals feel noisy.')
             run.send(F2, 'May refusals show private text?')
             run.type('never')
-            run.send(F2, "Nothing I'm unsure about")
+            run.send(F2, "Ready for your review")
             run.send(F3, 'type confirm')
             # Typing alone and confirming an unread attribution must write nothing.
             type_confirmation()
@@ -54,7 +54,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
             run.send(b'\r', 'Read to the end first:')
             assert not run.records.exists() and not run.sessions.exists()
             # Reopen with an empty input, read fully, then wait for typing to redraw.
-            run.send(b'\x1b', "Nothing I'm unsure about")
+            run.send(b'\x1b', "Ready for your review")
             run.send(F3, 'type confirm')
             run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
             if correct_typo:
@@ -108,7 +108,7 @@ def journey(width, height):
             run.type('Refusals feel noisy.')
             run.send(F2, 'May refusals show private text?')
             run.type('never')
-            run.send(F2, "Nothing I'm unsure about")
+            run.send(F2, "Ready for your review")
             run.send(F3, 'You are confirming')
             run.send(b'confirm\r', 'Saved.')
             record = json.loads(next(run.records.iterdir()).read_text())

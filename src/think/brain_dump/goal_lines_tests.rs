@@ -376,7 +376,7 @@ fn open_notes_cannot_contradict_ready_and_self_labels_never_render() {
     );
     assert!(!a.goal_ready());
     let reading = snapshot(160, 40, &mut a, false).unwrap();
-    assert!(!reading.contains("Nothing I'm unsure about"));
+    assert!(!reading.contains("Ready for your review"));
     assert!(reading.contains("Some parts remain open"));
     assert!(reading.contains("anything to add or change?"));
     a.review_goal();

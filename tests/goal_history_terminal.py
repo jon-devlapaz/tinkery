@@ -52,7 +52,7 @@ def journey(w,h,home):
    if home:send(b'1',"What's on your mind?")
    else:drain(lambda s:"What's on your mind?" in s)
    send(b'ALPHA','ALPHA');send(b'\x1bOQ','May refusals show private text?')
-   send(b'omit','omit');send(b'\x1bOQ',"Nothing I'm unsure about")
+   send(b'omit','omit');send(b'\x1bOQ',"Ready for your review")
    confirm()
    alpha_file=next(records.iterdir());alpha_bytes=alpha_file.read_bytes();alpha=json.loads(alpha_bytes)
    assert sum(c['check']=='structure-spans-history' for c in alpha['checks'])==2,alpha['checks']

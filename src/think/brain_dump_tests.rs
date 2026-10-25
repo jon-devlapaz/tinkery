@@ -1058,7 +1058,7 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("Nothing I'm unsure about")
+            .contains("Ready for your review")
     );
     assert_eq!(a.conversation.settled().len(), 1);
     assert_eq!(a.conversation.sources()[1].text, "both");

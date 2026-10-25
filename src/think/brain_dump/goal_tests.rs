@@ -198,7 +198,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     a.handoff.config = Some(seed_me::Config::new(Some(file)));
     amend_board(&mut a, |g| g.questions.clear());
     let text = snapshot(100, 30, &mut a, false).unwrap();
-    assert!(text.contains("Nothing I'm unsure about."));
+    assert!(text.contains("Ready for your review."));
     assert!(text.contains("F3 review"));
     assert!(a.handoff.receipt.is_none());
     a.review_goal();

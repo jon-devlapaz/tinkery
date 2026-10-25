@@ -384,15 +384,15 @@ fn review_lists_and_saves(a: &mut BrainDump, open: &[&str]) {
     assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
 }
 #[test]
-fn ready_says_nothing_unsure() {
+fn ready_invites_review_without_claiming_complete_intent() {
     let mut a = constraints(&["must work offline"], &[]);
     assert!(a.goal_ready());
     for screen in screens(&mut a) {
-        assert!(screen.contains("Nothing I'm unsure about. Review when you're ready."));
+        assert!(screen.contains("Ready for your review."));
         assert!(!screen.contains("Still missing") && !screen.contains("remain open"));
     }
     a.screen.help = true;
-    assert!(layout::help_text(&a).contains("Nothing I'm unsure about.\nF3 reviews the goal."));
+    assert!(layout::help_text(&a).contains("Ready for your review.\nF3 reviews the goal."));
 }
 #[test]
 fn skipped_why_names_only_the_missing_part() {
@@ -404,7 +404,7 @@ fn skipped_why_names_only_the_missing_part() {
             screen.contains("Still missing: Why. Review when you're ready."),
             "{screen}"
         );
-        assert!(!screen.contains("Nothing I'm unsure") && !screen.contains("remain open"));
+        assert!(!screen.contains("Ready for your review") && !screen.contains("remain open"));
     }
     assert!(
         layout::help_text(&a).starts_with("Right now\nStill missing: Why.\nF3 reviews the goal.")
@@ -435,7 +435,7 @@ fn done_when_after_skip_or_two_asks_is_named_missing_and_reviewable() {
                 screen.contains("Still missing: Done when. Review when you're ready."),
                 "{screen}"
             );
-            assert!(!screen.contains("Nothing I'm unsure") && !screen.contains("remain open"));
+            assert!(!screen.contains("Ready for your review") && !screen.contains("remain open"));
         }
         review_lists_and_saves(a, &[open]);
     }
@@ -453,7 +453,7 @@ fn present_but_open_and_deferred_context_is_not_called_missing() {
             screen.contains("Some parts remain open for the seed. Review when you're ready."),
             "{screen}"
         );
-        assert!(!screen.contains("Still missing") && !screen.contains("Nothing I'm unsure"));
+        assert!(!screen.contains("Still missing") && !screen.contains("Ready for your review"));
     }
     let paper = a.copy_text();
     assert!(paper.contains("for the seed: editing can wait"));
@@ -509,7 +509,7 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
     settle(&mut a);
     assert_ne!(a.conversation.applied(), a.conversation.sources().len());
     for screen in screens(&mut a) {
-        assert!(!screen.contains("Nothing I'm unsure"), "{screen}");
+        assert!(!screen.contains("Ready for your review"), "{screen}");
         assert!(
             screen.contains("Some parts remain open for the seed."),
             "{screen}"
@@ -518,14 +518,18 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
     assert!(
         !layout::open_intent(&a)
             .unwrap()
-            .contains("Nothing I'm unsure")
+            .contains("Ready for your review")
     );
     assert_eq!(a.conversation.sources()[1].text, "also sync over wifi only");
 }
 #[test]
 fn a_skipped_question_without_a_target_keeps_the_goal_open() {
     let mut a = constraints(&["must work offline"], &[]);
-    assert!(layout::open_intent(&a).unwrap().starts_with("Nothing"));
+    assert!(
+        layout::open_intent(&a)
+            .unwrap()
+            .starts_with("Ready for your review")
+    );
     a.conversation.skipped_mut().push(Question {
         suggestion: None,
         target: None,
@@ -537,7 +541,7 @@ fn a_skipped_question_without_a_target_keeps_the_goal_open() {
             screen.contains("Some parts remain open for the seed."),
             "{screen}"
         );
-        assert!(!screen.contains("Nothing I'm unsure"));
+        assert!(!screen.contains("Ready for your review"));
     }
     review_lists_and_saves(&mut a, &["Which goal comes first?"]);
 }

@@ -294,7 +294,7 @@ fn malformed_json_fails_but_empty_partial_parts_display_without_fabrication() {
         app.conversation.set_board(Some(b));
         for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             let screen = snapshot(w, h, &mut app, false).unwrap();
-            assert!(!screen.contains("Nothing I'm unsure about"));
+            assert!(!screen.contains("Ready for your review"));
             assert!(!screen.contains("Do not infer this old goal"));
         }
     }

@@ -57,7 +57,8 @@ def journey(width, height, criteria, no_color):
         try:
             wait(lambda s: "What's on your mind?" in s)
             os.write(master, b'\x1b[200~' + WORDS.encode() + b'\x1b[201~\x1bOQ')
-            wait(lambda s: "Review when you're ready." in ' '.join(s.split()))
+            wait(lambda s: ("Ready for your review." if criteria else "Still missing: Done when.")
+                 in ' '.join(s.split()))
             os.write(master, b'UNSENT ANSWER\x1b[15~')
             wait(lambda s: 'Success criteria' in s and 'F2 send' in s)
             right = ' '.join(' '.join(line[width * 48 // 100 + 2:]

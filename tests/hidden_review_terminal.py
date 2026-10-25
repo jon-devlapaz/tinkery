@@ -62,7 +62,7 @@ def journey(width, height, read=False, supported=False):
             run.type('Refusals feel noisy.')
             run.send(F2, 'May refusals show private text?')
             run.type('never')
-            run.send(F2, "Nothing I'm unsure about")
+            run.send(F2, "Ready for your review")
             run.send(F3, 'type confirm')
             if read:
                 run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
@@ -118,7 +118,7 @@ def stale_mouse(input_first):
             run.type('Refusals feel noisy.')
             run.send(F2, 'May refusals show private text?')
             run.type('never')
-            run.send(F2, "Nothing I'm unsure about")
+            run.send(F2, "Ready for your review")
             run.send(F3, 'type confirm')
             os.write(run.master, b'confirm')
             input_is(run, 'confirm')
@@ -132,7 +132,7 @@ def stale_mouse(input_first):
             assert run.screen.text().splitlines()[21][40:44] == 'Back'
             no_save(run)
             # Once the old queue drained, a deliberate click at the new Back works.
-            run.send(click, "Nothing I'm unsure about")
+            run.send(click, "Ready for your review")
             assert 'type confirm' not in run.screen.text()
             no_save(run)
             assert not run.calls()
