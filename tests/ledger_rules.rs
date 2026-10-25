@@ -124,6 +124,87 @@ fn receipt_times_are_strict_and_secrets_are_refused() {
     );
 }
 
+fn receipt(text: &str) -> Value {
+    serde_json::json!({"checked":"TEST file:1", "observed":text, "at":STAMP}).into()
+}
+
+#[test]
+fn secret_receipts_keep_normalization_whitespace_and_overlapping_token_boundaries() {
+    for text in [
+        "TEST -----BEGIN RSA PRIVATE KEY-----",
+        "TEST AKIAABCDEFGHIJKLMNOP",
+        "TEST ghp_abcdefghijklmnopqrst",
+        "TEST sk-abcdefghijklmnopqrst",
+        "TEST xoxb-abcdefghij",
+        "TEST https://name:fixture@host/",
+        "TEST password=fixture",
+        "TEST api_key\u{1c}=\u{85}fixture",
+        "TEST bearer\u{a0}abcdefghijklmnop",
+        "TEST aKİaABCDEFGHIJKLMNOP",
+        "TEST ſK-abcdefghijklmnopqrst",
+        // A rejected candidate must not consume the separator before a valid one.
+        "TEST xAKIAABCDEFGHIJKLMNOP-AKIAABCDEFGHIJKLMNOP",
+        "TEST AKIAABCDEFGHIJKLMNOPx-AKIAABCDEFGHIJKLMNOP",
+        "TEST xghp_abcdefghijklmnopqrst-ghp_abcdefghijklmnopqrst",
+        // These characters are not alphanumeric or underscore, though regex \\w includes them.
+        "TEST \u{301}AKIAABCDEFGHIJKLMNOP\u{301}",
+        "TEST \u{200c}AKIAABCDEFGHIJKLMNOP\u{200c}",
+        "TEST ‿AKIAABCDEFGHIJKLMNOP‿",
+    ] {
+        assert!(
+            ledger::validate_receipt(&receipt(text))
+                .unwrap_err()
+                .contains("secret"),
+            "accepted {text:?}"
+        );
+    }
+    for text in [
+        "TEST xAKIAABCDEFGHIJKLMNOP",
+        "TEST AKIAABCDEFGHIJKLMNOPx",
+        "TEST _AKIAABCDEFGHIJKLMNOP_",
+        "TEST éAKIAABCDEFGHIJKLMNOP",
+        "TEST AKIAABCDEFGHIJKLMNOP中",
+        "TEST ²AKIAABCDEFGHIJKLMNOP",
+        "TEST \u{345}AKIAABCDEFGHIJKLMNOP",
+        // Newer Unicode letters recognized by Rust may be absent from regex's tables.
+        "TEST \u{88f}AKIAABCDEFGHIJKLMNOP",
+        "TEST AKIAABCDEFGHIJKLMNOP\u{c5c}",
+        "TEST \u{a7ce}AKIAABCDEFGHIJKLMNOP",
+        "TEST AKIAABCDEFGHIJKLMNOP\u{10940}",
+        "TEST xghp_abcdefghijklmnopqrst",
+        "TEST xsk-abcdefghijklmnopqrst",
+        "TEST xxoxb-abcdefghij",
+        "TEST xpassword=fixture",
+        "TEST xbearer abcdefghijklmnop",
+        "TEST password=short",
+        "TEST ghp_short",
+        "TEST ordinary text",
+    ] {
+        ledger::validate_receipt(&receipt(text))
+            .unwrap_or_else(|reason| panic!("refused {text:?}: {reason}"));
+    }
+}
+
+#[test]
+fn long_ordinary_and_rejected_candidate_receipts_finish_promptly() {
+    // Warm the compiled patterns before measuring. A wide deadline allows slow CI;
+    // the old repeated suffix searches exceed it even for modest receipt sizes.
+    ledger::validate_receipt(&receipt("TEST warm-up")).unwrap();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        for size in [4_096, 8_192, 32_768, 131_072] {
+            for phrase in ["TEST ordinary text ", "xsk-abcdefghijklmnopqrst-"] {
+                let text = phrase.repeat(size / phrase.len());
+                ledger::validate_receipt(&receipt(&text)).unwrap();
+            }
+        }
+        let _ = sender.send(());
+    });
+    receiver
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("receipt screening stalled on ordinary text or rejected token candidates");
+}
+
 #[test]
 fn bundled_guidance_keeps_the_pinned_source_bytes() {
     use sha2::{Digest, Sha256};
