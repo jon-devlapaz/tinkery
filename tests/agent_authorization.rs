@@ -78,9 +78,16 @@ fn every_write_refuses_invalid_agent_context_before_touching_disk() {
             )
             .unwrap_err()
             .to_string(),
-            answering::confirm_seed(&session, "r1", "TEST confirming words", Some(&context))
-                .unwrap_err()
-                .to_string(),
+            answering::confirm_seed(
+                &session,
+                0,
+                "r1",
+                "TEST draft",
+                "TEST confirming words",
+                Some(&context),
+            )
+            .unwrap_err()
+            .to_string(),
             answering::end(&session, answering::Ending::Stopped, Some(&context))
                 .unwrap_err()
                 .to_string(),

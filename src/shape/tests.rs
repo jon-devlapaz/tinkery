@@ -1066,7 +1066,11 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     );
     answering::confirm_seed(
         &receipt.session,
+        crate::seed_me::answering::read(&receipt.session)
+            .unwrap()
+            .version(),
         "r2",
+        &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
         "TEST fixture confirmation only",
         None,
     )
@@ -1540,7 +1544,17 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
         answering::read(&receipt.session).unwrap().goal(),
         Some(goal)
     );
-    answering::confirm_seed(&receipt.session, "r9", "TEST yes to this seed only", None).unwrap();
+    answering::confirm_seed(
+        &receipt.session,
+        crate::seed_me::answering::read(&receipt.session)
+            .unwrap()
+            .version(),
+        "r9",
+        &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
+        "TEST yes to this seed only",
+        None,
+    )
+    .unwrap();
     assert!(matches!(
         shaping::read(&receipt.session).unwrap().stage,
         Shaped::Ready { .. }
@@ -1694,7 +1708,11 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'review
     assert!(!temp.path().join("TEST-future-check").exists());
     answering::confirm_seed(
         &receipt.session,
+        crate::seed_me::answering::read(&receipt.session)
+            .unwrap()
+            .version(),
         "r1",
+        &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
         "TEST yes to proposed checks, not implementation",
         None,
     )
@@ -2484,7 +2502,15 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         None,
     )
     .unwrap();
-    answering::confirm_seed(&session, &revision, "TEST yes to this seed only", None).unwrap();
+    answering::confirm_seed(
+        &session,
+        crate::seed_me::answering::read(&session).unwrap().version(),
+        &revision,
+        &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
+        "TEST yes to this seed only",
+        None,
+    )
+    .unwrap();
     // Completion needs no viewer record.
     assert!(!session.join("viewer.json").exists());
     answering::end(&session, Ending::Completed, None).unwrap();

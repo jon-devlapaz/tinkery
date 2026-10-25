@@ -158,7 +158,15 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
         None,
     )
     .unwrap();
-    confirm_seed(&session, &revision, "TEST yes to this seed only", None).unwrap();
+    confirm_seed(
+        &session,
+        crate::seed_me::answering::read(&session).unwrap().version(),
+        &revision,
+        &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
+        "TEST yes to this seed only",
+        None,
+    )
+    .unwrap();
     assert!(matches!(
         super::super::shaping::read(&session).unwrap().stage,
         super::super::shaping::Shaped::Ready { ended: false, .. }

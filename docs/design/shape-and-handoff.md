@@ -552,7 +552,9 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 - Agent actions require `--operator agent` and [are recorded as the agent's](think.md#confirmation-attribution-185);
   seed confirmation never claims a human keypress.
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
-  Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
+  Under its writer lock, the ledger rechecks the exact displayed draft bytes and ledger version
+  before recording anything. A change keeps the typed words, refreshes the reading and requires
+  confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, F3 says
   `PgDn to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
   `End of seed` marker after the last section clears that. The saved seed is unchanged.

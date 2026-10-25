@@ -641,7 +641,7 @@ impl Shape {
                         open.act(typing.act, agent);
                         return Leave::Stay;
                     }
-                    KeyCode::Enter if matches!(typing.act, Act::Confirm(_)) => {
+                    KeyCode::Enter if matches!(typing.act, Act::Confirm { .. }) => {
                         open.notice = Some((
                             "F3 confirms the seed; Enter does not add a line.".into(),
                             None,
@@ -950,7 +950,7 @@ impl Shape {
                     (
                         Some(_),
                         Some(Typing {
-                            act: Act::Confirm(r),
+                            act: Act::Confirm { revision: r, .. },
                             ..
                         }),
                         _,
@@ -973,7 +973,7 @@ impl Shape {
                             && matches!(
                                 open.typing(),
                                 Some(Typing {
-                                    act: Act::Confirm(_),
+                                    act: Act::Confirm { .. },
                                     ..
                                 })
                             )
@@ -1152,7 +1152,11 @@ enum Act {
         seed: String,
     },
     /// Confirm seed `revision` with the typed words.
-    Confirm(String),
+    Confirm {
+        revision: String,
+        expected: u64,
+        seed: String,
+    },
 }
 
 /// The words box an open stage offers, and the key that acts on them.
@@ -1216,12 +1220,16 @@ impl Opened {
             (
                 Shaped::Drafted {
                     revision: Some(revision),
-                    ..
+                    text: Some(seed),
                 },
-                _,
+                Some(expected),
             ) => Some(Typing {
                 key: KeyCode::F(3),
-                act: Act::Confirm(revision.clone()),
+                act: Act::Confirm {
+                    revision: revision.clone(),
+                    expected,
+                    seed: seed.clone(),
+                },
                 label: "your words",
             }),
             _ => None,
@@ -1471,9 +1479,9 @@ impl Opened {
             }
             Act::Keep { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[3]),
             Act::Answer { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[0]),
-            Act::Confirm(_) if self.read_end.is_none() => refuse(READ_FIRST),
-            Act::Confirm(_) if words.contains(['\n', '\r']) => refuse(WORD_REFUSALS[1]),
-            Act::Confirm(_) if words.trim().is_empty() => refuse(WORD_REFUSALS[2]),
+            Act::Confirm { .. } if self.read_end.is_none() => refuse(READ_FIRST),
+            Act::Confirm { .. } if words.contains(['\n', '\r']) => refuse(WORD_REFUSALS[1]),
+            Act::Confirm { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[2]),
             Act::TeachBack { .. } | Act::Respond { .. } | Act::Answer { .. } | Act::Look(_)
                 if agent.remaining() == 0 =>
             {
@@ -1542,7 +1550,19 @@ impl Opened {
                 Doing::TeachBack,
             ),
             Act::Look(expected) => (Work::Look { expected, folder }, Doing::Look),
-            Act::Confirm(revision) => (Work::Confirm { revision, words }, Doing::Confirm),
+            Act::Confirm {
+                revision,
+                expected,
+                seed,
+            } => (
+                Work::Confirm {
+                    revision,
+                    words,
+                    expected,
+                    seed,
+                },
+                Doing::Confirm,
+            ),
         };
         self.doing = doing;
         self.running = Some(Running::start(work, self.session.clone(), agent.clone()));

@@ -464,7 +464,7 @@ pub fn confirm_seed(
     source: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
-    confirm(directory, revision, source, timestamp, false, None)
+    confirm(directory, revision, source, timestamp, false, None, None)
 }
 
 /// Confirm after recording a missing teach-back as skipped. A completed comparison, including
@@ -475,7 +475,7 @@ pub fn confirm_with_teach_back(
     source: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
-    confirm(directory, revision, source, timestamp, true, None)
+    confirm(directory, revision, source, timestamp, true, None, None)
 }
 
 /// Confirm a seed for the explicitly named agent; permission is checked before any write.
@@ -487,7 +487,29 @@ pub fn confirm_as(
     timestamp: &str,
     actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<Value, String> {
-    confirm(directory, revision, source, timestamp, true, actor)
+    confirm(directory, revision, source, timestamp, true, actor, None)
+}
+
+/// Confirm the exact displayed draft and ledger version under the session writer lock.
+/// Stale inputs refuse before recording a teach-back skip or confirmation.
+pub fn confirm_displayed_as(
+    directory: &Path,
+    expected: u64,
+    revision: &str,
+    seed: &str,
+    source: &str,
+    timestamp: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<Value, String> {
+    confirm(
+        directory,
+        revision,
+        source,
+        timestamp,
+        true,
+        actor,
+        Some((expected, seed)),
+    )
 }
 
 fn confirm(
@@ -497,6 +519,7 @@ fn confirm(
     timestamp: &str,
     record_skip: bool,
     actor: Option<&crate::think_record::GoalConfirmation>,
+    displayed: Option<(u64, &str)>,
 ) -> Result<Value, String> {
     let actor = crate::think_record::Actor::authorize(actor)?;
     super::require(
@@ -510,6 +533,19 @@ fn confirm(
     super::require(!source.contains(['\n', '\r']), "--source must be one line")?;
     let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
     let ledger = load(directory)?;
+    if let Some((expected, seed)) = displayed {
+        super::require(
+            ledger["version"] == super::value::int(expected),
+            "stale publication version",
+        )?;
+        let current = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
+            "The draft could not be read. Reopen Shape before confirming.".to_owned()
+        })?;
+        super::require(
+            current == seed,
+            "The draft changed. Read it again before confirming.",
+        )?;
+    }
     let ledger = if record_skip {
         // Refusals precede the skip record: an invalid confirmation must write nothing.
         super::seed::confirmed_as(directory, &ledger, revision, source, timestamp, actor)?;
