@@ -1,8 +1,7 @@
 # First-release tasks
 
-R1–R11 and I1/I2 are stable local labels, not GitHub issue numbers. R1–R3 and R11
-are done; the remaining tasks below are published and `needs-approval`.
-GitHub owns their scope, completion checks and blocking links.
+R1–R11 and I1/I2 are stable local labels, not GitHub issue numbers.
+The linked issues own scope, status, approval, completion checks and blocking links.
 This page is an index, not a second task specification.
 
 Publication does not accept the revised R2/binding design or authorize
@@ -29,8 +28,8 @@ behavior was tested. Authorization given for #58 carries into none of these task
 **Done:** [#63](https://github.com/jon-devlapaz/tinkery/issues/63), merged in
 [PR #65](https://github.com/jon-devlapaz/tinkery/pull/65). The
 [revised design](job-records.md) proposes Tinkery-owned shared reading and an
-explicit goal-to-run binding. The survey is complete; design acceptance and
-verified identity prerequisites still precede separately approved R5 work.
+explicit goal-to-run binding. That design remains unaccepted; the
+[R5 prerequisites](#r5-identity) record the replacement of its proposed binding.
 
 <a id="r3"></a>
 ## R3 — Add an explicitly budgeted live evaluation mode
@@ -42,7 +41,7 @@ verified identity prerequisites still precede separately approved R5 work.
 <a id="r4"></a>
 ## R4 — Record the current goal quality and human effort
 
-Published: [#109](https://github.com/jon-devlapaz/tinkery/issues/109) · M1 · needs approval. The issue owns baseline scope,
+[#109](https://github.com/jon-devlapaz/tinkery/issues/109) · M1. The issue owns baseline scope,
 operator participation, separate data/budget gates and completion evidence.
 The plan and results are recorded in the [baseline](../research/shared/baseline.md).
 
@@ -62,19 +61,19 @@ open decisions and completion evidence.
 <a id="r6"></a>
 ## R6 — Show the exact decision in Approve
 
-Published: [#112](https://github.com/jon-devlapaz/tinkery/issues/112) · approved 2026-10-19. See the issue for scope, dependencies,
+[#112](https://github.com/jon-devlapaz/tinkery/issues/112). See the issue for scope, dependencies,
 open decisions and completion evidence.
 
 <a id="r7"></a>
 ## R7 — Follow one external job in Watch
 
-Published: [#113](https://github.com/jon-devlapaz/tinkery/issues/113) · approved 2026-10-19. See the issue for scope, dependencies,
+[#113](https://github.com/jon-devlapaz/tinkery/issues/113). See the issue for scope, dependencies,
 open decisions and completion evidence.
 
 <a id="r8"></a>
 ## R8 — Judge a result against the goal in Taste
 
-Published: [#114](https://github.com/jon-devlapaz/tinkery/issues/114) · needs approval. See the issue for scope, dependencies,
+[#114](https://github.com/jon-devlapaz/tinkery/issues/114). See the issue for scope, dependencies,
 open decisions and completion evidence.
 
 <a id="r9"></a>
@@ -87,7 +86,7 @@ it does not fulfill R9's accepted-results or recorded-attention scope.
 <a id="r10"></a>
 ## R10 — Prove the complete release on permitted real work
 
-Published: [#116](https://github.com/jon-devlapaz/tinkery/issues/116) · needs approval. See the issue for scope, dependencies,
+[#116](https://github.com/jon-devlapaz/tinkery/issues/116). See the issue for scope, dependencies,
 open decisions and completion evidence.
 
 <a id="r11"></a>
