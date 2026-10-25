@@ -26,8 +26,8 @@ from vt_screen import Screen
 from shape_answer_terminal import completion_review, seed_fields
 
 REPO = Path(__file__).resolve().parents[1]
-# Tinkery-owned intake (tink-sdlc #90 / PR #91, scaffold 1.34.0).
-SDLC_REF = '4b6415a9aa8548f6486c97e5b60d4fea0d0662a0'
+# Current tink-sdlc main (scaffold 1.41.0): Tinkery-owned intake (#91), human-reviewed departures (#99).
+SDLC_REF = '6eee1f1d3f2035983c01b3c61b51f0afb5dccf19'
 assert os.environ.get('TINKERY_TEST_SDLC_REF', SDLC_REF) == SDLC_REF
 import session_fixture as helper
 CONFIRMATION = 'TEST confirmation of r1 only; not operator approval or permission to build.'
@@ -358,24 +358,26 @@ def handoff(root, env, session):
             definition_path.write_text(json.dumps(changed))
             assert 'Stage 3: stale' in sdlc('status', 'test-handoff').stdout
             assert sdlc('verify', 'test-handoff', expected=None).returncode != 0
-            assert sdlc('decide', 'test-handoff', '3', 'approved', '--reviewer', 'TEST fixture',
+            # A departure from the confirmed seed is a human-only decision: an agent can't accept it.
+            status = sdlc('status', 'test-handoff').stdout
+            assert ('cmd changed' if mutation == 'edit' else 'seed-1 removed') in status, status
+            assert sdlc('decide', 'test-handoff', '3', 'approved', '--reviewer', 'Agent TEST worker',
                         '--source', 'TEST only', '--reason', 'TEST', expected=None).returncode != 0
+            assert 'Stage 3: stale' in sdlc('status', 'test-handoff').stdout
         finally:
             definition_path.write_bytes(definitions)
-    print('Locked seed edit/drop: stale gate; verify and reapproval refused')
+    print('Locked seed edit/drop: stale gate shows the departure; verify and agent reapproval refused')
 
     # No test fixture attestation may be mistaken for a real person's judgment.
     assert sdlc('mark', 'test-handoff', 'seed-3', 'passed', '--evidence', 'TEST worker guess',
                 expected=None).returncode != 0
     accepted = project / 'TEST-accepted'
     accepted.touch()
-    # Command success is insufficient for prose expect: or you judge:.
-    missing_attestations = sdlc('verify', 'test-handoff', expected=None)
-    assert missing_attestations.returncode != 0, missing_attestations.stdout
-    assert 'seed-1-expect' in missing_attestations.stderr and 'seed-3' in missing_attestations.stderr
-    attest('seed-1-expect')
+    # Command success settles a cmd: check; its expect: is context, never an owed mark.
+    # A you judge: check still needs a human mark.
     missing_judgment = sdlc('verify', 'test-handoff', expected=None)
-    assert missing_judgment.returncode != 0 and 'seed-3' in missing_judgment.stderr
+    assert missing_judgment.returncode != 0, missing_judgment.stdout
+    assert 'seed-3' in missing_judgment.stderr and 'seed-1-expect' not in missing_judgment.stderr
     attest('seed-3')
     accepted.unlink()
     receipt = run / '04-test/output/verification.json'
@@ -418,8 +420,7 @@ def handoff(root, env, session):
     proof = json.loads(receipt.read_text())
     assert proof['result'] == 'passed', proof
     assert proof['checklist_items'] == {'worker': 'proven'}, proof
-    assert proof['seed_checks'] == {'seed-1': 'proven', 'seed-1-expect': 'attested',
-                                    'seed-2': 'pending', 'seed-3': 'attested'}, proof
+    assert proof['seed_checks'] == {'seed-1': 'proven', 'seed-2': 'pending', 'seed-3': 'attested'}, proof
     assert 'Verification: current' in sdlc('status', 'test-handoff').stdout
     assert {name: (session / name).read_bytes() for name in confirmed} == confirmed
     print('Settled seed PASS completes verify; provisional remains pending; manual judgments are TEST attestations')
