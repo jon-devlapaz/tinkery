@@ -59,6 +59,10 @@ The module promises what the helper promises today:
 - **The seed:** check records, the canonical heading sequence, the Decisions and Assumed
   blocks rendered from the ledger, confirmation and its record, verification, and ending.
 - **Writes:** one writer lock per session, atomic renames.
+- **Receipt screening:** secret-shaped text is refused with the existing Unicode
+  normalization and Rust character boundaries, even when regex's Unicode tables differ.
+  Screening makes one search per pattern, so
+  ordinary long receipts do not require rescanning every remaining suffix.
 
 Dropped with the skill: the browser viewer (Tend's garden and Shape's F5 already show
 the ledger), the Lean path, simulated operators and `--no-viewer`.
