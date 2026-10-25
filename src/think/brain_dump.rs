@@ -1142,8 +1142,7 @@ impl BrainDump {
         self.screen.details = was_modal || !self.screen.details;
         self.screen.paper_scroll = 0;
     }
-    /// Tab / Shift-Tab: the one route between writing and the left original.
-    /// Either key toggles, so the way back is always the same key. Needs a source.
+    /// Tab / Shift-Tab toggle between writing and the left original. Needs a source.
     fn toggle_original_focus(&mut self) {
         if self.screen.board_focus {
             self.focus_writing();
