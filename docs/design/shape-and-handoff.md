@@ -717,10 +717,14 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
   the ledger's canonical Decisions block also omits resolved unknowns. Collapse internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
-- A finding citing `PATH:LINE` or `PATH:FIRST-LAST` that the folder lacks (missing, outside
-  it, or too few lines) is flagged, not refused: its check ends `; citation not found: WHY`,
+- File citations use `PATH:LINE` or `PATH:FIRST-LAST`, with `-`, `–` or `—` and optional
+  spaces around the dash. Commas can add ranges for the same file (`PATH:1–3, 7–9`)
+  or another file citation. Check every range, not a valid prefix of a malformed token.
+  Invalid, zero, reversed or overflowing bounds, missing/outside/unreadable files and
+  too few lines are flagged, not refused: the check ends `; citation not found: WHY`,
   questions show `(citation not found: WHY)` and the seed groups it under that check.
-  This proves the lines exist, not what they say.
+  Flagged receipts establish no Grounded in path. Plain prose establishes no citation;
+  receipt words stay unchanged. Valid bounds prove line existence, not what the lines say.
 - Questions or seeds with no findings display `Nothing found: this question records nothing
   checked in the repository.` (seed wording for seeds), flagged rather than refused.
 
