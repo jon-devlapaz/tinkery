@@ -560,6 +560,8 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 - Agent actions require `--operator agent` and [are recorded as the agent's](think.md#confirmation-attribution-185);
   seed confirmation never claims a human keypress.
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
+  The receipt and its `Confirmed by:` line retain those words exactly, including surrounding
+  whitespace. Existing receipts keep the words they recorded; reads never rewrite them.
   Under its writer lock, the ledger rechecks the exact displayed draft bytes and ledger version
   before recording anything. A change keeps the typed words, refreshes the reading and requires
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the

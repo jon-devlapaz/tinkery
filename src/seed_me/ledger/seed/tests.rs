@@ -13,6 +13,139 @@ fn fixture() -> tempfile::TempDir {
     fixtures::confirmed(root.path(), "TEST original goal", "r1");
     root
 }
+
+fn draft() -> tempfile::TempDir {
+    let root = fixture();
+    let path = root.path().join(FILE);
+    let text = fs::read_to_string(&path)
+        .unwrap()
+        .replace(CONFIRMED, DRAFT)
+        .split_inclusive('\n')
+        .filter(|line| !line.starts_with("Confirmed by:"))
+        .collect::<String>();
+    fs::write(path, text).unwrap();
+    fs::remove_file(root.path().join(CONFIRMATION)).unwrap();
+    root
+}
+
+fn terminal_agent() -> crate::think_record::GoalConfirmation {
+    serde_json::from_value(serde_json::json!({
+        "by": "terminal", "declaration": "declared: agent",
+        "action": "typed confirm at this terminal", "identity": "declaration is not verified identity"
+    }))
+    .unwrap()
+}
+
+fn saved_files(directory: &Path) -> std::collections::BTreeMap<std::ffi::OsString, Vec<u8>> {
+    fs::read_dir(directory)
+        .unwrap()
+        .map(|entry| {
+            let entry = entry.unwrap();
+            (entry.file_name(), fs::read(entry.path()).unwrap())
+        })
+        .collect()
+}
+
+#[test]
+fn confirmation_keeps_source_whitespace_for_people_and_agents() {
+    let agent = terminal_agent();
+    for actor in [None, Some(&agent)] {
+        for source in ["  TEST source café  ", "\u{2003}\tTEST source 中\u{a0}"] {
+            let root = draft();
+            ledger::confirm_as(root.path(), "r1", source, STAMP, actor).unwrap();
+            let receipt =
+                Value::parse(&fs::read_to_string(root.path().join(CONFIRMATION)).unwrap()).unwrap();
+            assert_eq!(receipt["source"].string(), Some(source));
+            let (schema, operator, attribution) = if actor.is_some() {
+                (
+                    3,
+                    "agent",
+                    "; caller-declared declared: agent; typed confirm at this terminal; declaration is not verified identity",
+                )
+            } else {
+                (2, "human", "")
+            };
+            assert_eq!(receipt["schema_version"], int(schema));
+            assert!(receipt["operator"].is(operator));
+            let note = format!(
+                "Confirmed by: \"{source}{attribution}\" (revision r1, 2026-10-19). Not approved for implementation."
+            );
+            assert!(
+                fs::read_to_string(root.path().join(FILE))
+                    .unwrap()
+                    .split('\n')
+                    .any(|line| line == note)
+            );
+            let before = saved_files(root.path());
+            assert!(ledger::status(root.path()).unwrap()["handoff"]["verified"].truth());
+            assert_eq!(
+                saved_files(root.path()),
+                before,
+                "verification rewrote a receipt"
+            );
+        }
+    }
+}
+
+#[test]
+fn confirmation_still_refuses_blank_and_multiline_sources_without_writes() {
+    let agent = terminal_agent();
+    for actor in [None, Some(&agent)] {
+        for source in ["", " \t\u{2003}\u{a0}", "TEST\nwords", "TEST\rwords"] {
+            let root = draft();
+            let before = saved_files(root.path());
+            let error = ledger::confirm_as(root.path(), "r1", source, STAMP, actor).unwrap_err();
+            assert!(
+                error.contains(if source.contains(['\n', '\r']) {
+                    "--source must be one line"
+                } else {
+                    "--source is required"
+                }),
+                "{error}"
+            );
+            assert_eq!(saved_files(root.path()), before);
+        }
+    }
+}
+
+#[test]
+fn historical_trimmed_confirmation_notes_and_receipts_still_verify_unchanged() {
+    let agent = terminal_agent();
+    for actor in [None, Some(&agent)] {
+        let root = draft();
+        ledger::confirm_as(root.path(), "r1", "TEST confirmation only", STAMP, actor).unwrap();
+        let mut receipt =
+            Value::parse(&fs::read_to_string(root.path().join(CONFIRMATION)).unwrap()).unwrap();
+        // Freeze the old source/note pair explicitly. Historical writers discarded
+        // surrounding whitespace before storing both fields; reads cannot recover it.
+        let legacy_note = if actor.is_some() {
+            "Confirmed by: \"TEST confirmation only; caller-declared declared: agent; typed confirm at this terminal; declaration is not verified identity\" (revision r1, 2026-10-19). Not approved for implementation."
+        } else {
+            "Confirmed by: \"TEST confirmation only\" (revision r1, 2026-10-19). Not approved for implementation."
+        };
+        let seed = fs::read_to_string(root.path().join(FILE)).unwrap();
+        let legacy_seed = seed
+            .split_inclusive('\n')
+            .map(|line| {
+                if line.starts_with("Confirmed by:") {
+                    format!("{legacy_note}\n")
+                } else {
+                    line.into()
+                }
+            })
+            .collect::<String>();
+        receipt.set("source", "TEST confirmation only".into());
+        receipt.set(
+            "seed_sha256",
+            sha256(legacy_seed.as_bytes()).as_str().into(),
+        );
+        fs::write(root.path().join(FILE), legacy_seed).unwrap();
+        fs::write(root.path().join(CONFIRMATION), receipt.pretty().unwrap()).unwrap();
+        let before = saved_files(root.path());
+        assert!(ledger::status(root.path()).unwrap()["handoff"]["verified"].truth());
+        assert_eq!(saved_files(root.path()), before);
+    }
+}
 fn assert_blocked(directory: &Path, expected: &str) {
     let before = fs::read(directory.join("ledger.json")).unwrap();
     let result = verify_handoff(directory, &load(directory).unwrap()).unwrap();

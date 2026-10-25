@@ -544,7 +544,7 @@ pub(super) fn confirmed_as(
         ("session_id", ledger["session_id"].clone()),
         ("operator", actor.session_operator().into()),
         ("revision", label.as_str().into()),
-        ("source", source.trim_matches(whitespace).into()),
+        ("source", source.into()),
         ("confirmed_at", timestamp.into()),
         ("seed_sha256", digest.as_str().into()),
         (
@@ -585,7 +585,7 @@ fn confirmation_note(
     });
     Ok(format!(
         "Confirmed by: \"{}{attribution}\" (revision {label}, {date}). Not approved for implementation.",
-        source.trim_matches(whitespace)
+        source
     ))
 }
 
