@@ -43,9 +43,9 @@ def selected(tier):
                   key=lambda p: p.name not in POST_MERGE | SLOW_PR)
 
 
-def run(path):
+def run(path, env):
     start = time.monotonic()
-    result = test_launch.run([sys.executable, str(path)], cwd=ROOT, env=dict(os.environ),
+    result = test_launch.run([sys.executable, str(path)], cwd=ROOT, env=env,
                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     return path, result.returncode, time.monotonic() - start, result.stdout.decode(errors='replace')
 
@@ -53,14 +53,18 @@ def run(path):
 def main():
     tier = os.environ.get('TINKERY_TEST_TIER', 'full')
     files = selected(tier)
-    # Build once so parallel files do not all wait on the same cargo lock.
-    test_launch.run(['cargo', '+stable', 'build', '--locked', '--quiet'], cwd=ROOT,
-                    env=dict(os.environ), check=True)
+    # Prepare both executables before workers can use them; even fresh Cargo builds
+    # replace the example executable on macOS.
+    env = dict(os.environ)
+    test_launch.run(['cargo', '+stable', 'build', '--locked', '--quiet',
+                     '--bin', 'tinkery', '--example', 'seed_fixture'], cwd=ROOT,
+                    env=env, check=True)
+    env['TINKERY_TEST_SEED_FIXTURE'] = str(ROOT / 'target/debug/examples/seed_fixture')
     workers = int(os.environ.get('TINKERY_TEST_JOBS') or min(8, os.cpu_count() or 2))
     print(f'Python tests: tier {tier}, {len(files)} files, {workers} workers', flush=True)
     failed = []
     with ThreadPoolExecutor(workers) as pool:
-        for path, code, seconds, output in pool.map(run, files):
+        for path, code, seconds, output in pool.map(lambda path: run(path, env), files):
             name = path.relative_to(ROOT)
             print(f'== {name} {"ok" if code == 0 else f"FAILED ({code})"} {seconds:.1f}s', flush=True)
             if code:
