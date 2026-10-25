@@ -419,6 +419,7 @@ fn a_failed_save_says_so_whole_above_back_and_retries() {
             assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
             key(&mut a, KeyCode::Enter);
             assert!(a.handoff.job.is_some(), "{w}x{h}: Enter retries");
+            super::tests::settle(&mut a);
             let mut receipt = seed_me::Receipt::test("/tmp/TEST-retry/session".into());
             receipt.goal = goal.clone();
             let (tx, rx) = std::sync::mpsc::channel();

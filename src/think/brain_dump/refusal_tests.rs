@@ -154,7 +154,11 @@ fn an_unread_review_says_to_scroll_on_enter_and_confirms_only_from_the_end() {
     for (w, h) in SIZES {
         for no_color in [false, true] {
             const WHY: &str = "Read to the end first: PgDn scrolls. Then type confirm and Enter.";
-            let mut a = long_goal();
+            let tmp = tempfile::Builder::new()
+                .prefix("tinkery-TEST-review-refusal-")
+                .tempdir()
+                .unwrap();
+            let mut a = long_goal().with_sessions(Some(tmp.path().join("TEST-sessions")));
             a.review_goal();
             snapshot(w, h, &mut a, no_color).unwrap();
             assert!(
@@ -198,7 +202,13 @@ fn an_unread_review_says_to_scroll_on_enter_and_confirms_only_from_the_end() {
                 a.handoff.job.is_some(),
                 "{w}x{h}: confirm works from the end"
             );
-            a.handoff.job = None;
+            super::tests::settle(&mut a);
+            let receipt = a.saved().expect("the fully read TEST goal was saved");
+            assert!(
+                receipt
+                    .session
+                    .starts_with(tmp.path().canonicalize().unwrap())
+            );
         }
     }
 }
