@@ -17,7 +17,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-const DECLARE: &str = "No preview declared. Add tinkery.preview: {\"command\":\"npm run dev\",\"url\":\"http://127.0.0.1:5173/\"}";
+const DECLARE: &str = "No preview declared. Add tinkery.preview: {\"command\":\"npm run dev -- --host 127.0.0.1 --port 5173 --strictPort\",\"url\":\"http://127.0.0.1:5173/\"}";
 
 /// A declared shell line and loopback-only HTTP address from the exact result commit.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -239,7 +239,10 @@ fn run(
             break;
         }
         if Instant::now() >= until {
-            return Err("Local URL did not answer within 30 seconds.".into());
+            return Err(format!(
+                "{} did not answer within 30 seconds. The command must listen on 127.0.0.1; a server on localhost may listen only on ::1.",
+                spec.url
+            ));
         }
         thread::sleep(Duration::from_millis(50));
     }

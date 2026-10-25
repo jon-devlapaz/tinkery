@@ -277,6 +277,8 @@ os.execv({git!r}, [{git!r}, *args])
                 send(b'\r', 'Checks')
                 send(b'v', 'No preview declared')
                 assert 'tinkery.preview' in screen.text() and 'command' in screen.text(), screen.text()
+                # The suggested declaration binds the probed address, not localhost (often ::1 only).
+                assert '--host 127.0.0.1' in ' '.join(screen.text().split()), screen.text()
                 assert not opened.exists(), 'undeclared preview opened a browser'
             assert tree(checkout) == original and tree(repo) == repo_original
             events = base / 'http-events'
