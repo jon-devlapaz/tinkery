@@ -26,7 +26,9 @@ r = json.load(sys.stdin)
 home = pathlib.Path(os.environ['TINKERY_TEST_DIR'])
 if 'ledger' in r or r.get('kind') == 'teach-back':
     with (home / 'shape-calls.jsonl').open('a') as f:
-        f.write(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'input': r}) + '\n')
+        guard = sys.argv[sys.argv.index('--extension') + 1] if '--extension' in sys.argv else None
+        guard = guard and pathlib.Path(guard).read_text()
+        f.write(json.dumps({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'input': r, 'guard': guard}) + '\n')
     replies = home / 'shape-replies.json'
     queue = json.loads(replies.read_text())
     reply = queue.pop(0)
@@ -324,6 +326,7 @@ def full_journey(width, height):
             assert len(calls) == 1, calls
             argv = calls[0]['argv']
             assert argv[argv.index('--tools') + 1] == 'read,grep,find,ls' and '--no-tools' not in argv, argv
+            assert calls[0]['guard'] == (REPO / 'pi/folder.mjs').read_text(), 'Pi must load the folder guard'
             assert calls[0]['input']['answered_in_think'] == [
                 {'question': 'May refusals show private text?', 'answer': 'never'}], calls[0]['input']
             assert calls[0]['cwd'] == str(target), calls[0]['cwd']
@@ -1315,6 +1318,7 @@ def teach_back(width, height, exhausted=False):
                 assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == [words, mismatch, 'Teach-back compared.']
                 assert len(run.calls()) == 2
                 assert '--no-tools' in run.calls()[1]['argv'] and '--tools' not in run.calls()[1]['argv']
+                assert run.calls()[1]['guard'] is None, run.calls()[1]
                 assert run.calls()[0]['cwd'] == str(target), run.calls()
                 assert run.calls()[1]['cwd'] == str(cwd), run.calls()
                 assert run.calls()[1]['input'] == {'kind': 'teach-back',
