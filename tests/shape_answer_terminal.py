@@ -169,7 +169,7 @@ def files(root):
 
 
 class Run:
-    def __init__(self, cwd, width, height, budget, replies=(), situation=None, agent=False, sdlc_root=None, why=None):
+    def __init__(self, cwd, width, height, budget, replies=(), situation=None, agent=False, sdlc_root=None, why=None, shape_setup=True):
         self.cwd, self.width = cwd, width
         self.sessions = cwd / 'TEST-sessions'
         self.records = cwd / 'TEST-records'
@@ -180,8 +180,10 @@ class Run:
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         self.screen = Screen(width, height)
-        args = [str(BINARY), '--home', '--shape-pi', '--model', 'test/model', '--seed-session-root', str(self.sessions), '--record-root', str(self.records),
-                '--link-root', str(cwd / 'TEST-links'), '--pi-command', str(host)]
+        args = [str(BINARY), '--home', '--seed-session-root', str(self.sessions), '--record-root', str(self.records),
+                '--link-root', str(cwd / 'TEST-links')]
+        if shape_setup:
+            args += ['--shape-pi', '--model', 'test/model', '--pi-command', str(host)]
         if sdlc_root is not None:
             args += ['--sdlc-root', str(sdlc_root)]
         if agent:
@@ -217,14 +219,15 @@ class Run:
         os.write(self.master, data)
         self.wait(text)
 
-    def read_until(self, text, timeout=20, *, whole_line=False):
+    def read_until(self, text, timeout=20, *, whole_line=False, wrapped_path=False):
         """Read each rendered page; reaching the bottom can hide an earlier wrapped warning."""
         deadline = time.monotonic() + timeout
-        want = ' '.join(text.split())
+        normalize = (lambda value: ''.join(value.split())) if wrapped_path else (lambda value: ' '.join(value.split()))
+        want = normalize(text)
         def shown():
             if whole_line:
                 return any(line.strip() == text for line in self.screen.text().splitlines())
-            return want in self.flat()
+            return want in normalize(self.screen.text())
         for _ in range(80):
             if shown() and not self.screen.synchronized:
                 return

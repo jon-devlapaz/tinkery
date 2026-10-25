@@ -243,7 +243,10 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
         text.contains("Current question: review flagged answer"),
         "{text}"
     );
-    assert!(text.contains("Next: review this flagged answer;"), "{text}");
+    assert!(
+        text.contains("Next: reopen this goal with Shape set up; F1 shows how."),
+        "{text}"
+    );
     assert!(!text.contains("F6 keep"), "{text}");
     let mut writable = done(stage).with_agent(Some(agent(0)));
     let text = screen(&mut writable, 80, 24, true);
@@ -804,7 +807,10 @@ fn without_an_agent_shape_only_reads_and_letters_scroll() {
     shape.key(key(KeyCode::F(2)));
     assert!(shape.open.as_ref().unwrap().running.is_none());
     let text = screen(&mut shape, 100, 30, true);
-    assert!(text.contains("tend's c copies the prompt"), "{text}");
+    assert!(
+        text.contains("reopen this goal with Shape set up; F1 shows how."),
+        "{text}"
+    );
 }
 
 #[test]

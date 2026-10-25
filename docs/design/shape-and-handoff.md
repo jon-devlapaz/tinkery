@@ -282,7 +282,6 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
   [the accepted design](shape-ledger.md) records the completed migration. Draft instructions
   and the seed-contract reference are bundled, with their pinned source recorded in code.
 - Each agent step needs an explicitly labelled key and budget (default zero).
-  Manual continuation remains available.
 - Shape never reasks settled Think intent or ledger answers, including delegated pre-mortem
   choices, or changes the confirmed goal. Seed drafting treats these choices as settled, not unknown.
 - Failed reads, unknown stages and stale confirmations get honest reasons and one
@@ -290,7 +289,7 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
 
 ### Reading where a seed stands
 
-Tend detail offers `s shape` beside copying on goal-saved, seed-drafted and
+Tend detail offers `s shape` on goal-saved, seed-drafted and
 seed-needs-checking stages; Esc returns there. Menu place 3 lists only goal-saved
 or seed-drafted sessions. Enter opens one; Esc returns to the list. Held `s` or Enter
 opens nothing.
@@ -330,7 +329,10 @@ flagged node as the current question, its unchanged answer and the ledger's reas
 `F2 revise` opens replacement words only for an operator-answered decision; see
 [answering](#answering-and-confirming). Each remaining flag holds confirmation and completion.
 Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
-the next Shape setup or confirmation action; with a model, the key bar names the action.
+F1 for setup: quit, restart at the menu with a model and a chosen call limit (default zero),
+retain any explicit session root, then reopen the same goal through Tend.
+Unverifiable or unknown seeds point to inspecting the session files at the path in F1.
+With a model, the key bar names the available action.
 Ledger refusals say `Tinkery refused` with the first reason line; other failures
 are explicit, with reasons and paths in F1. Reads stay off paint paths.
 Opening, reading and scrolling write or copy nothing, call no model and leave prompts

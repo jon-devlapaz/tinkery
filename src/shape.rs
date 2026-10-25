@@ -849,7 +849,10 @@ impl Shape {
         } else {
             format!(
                 "Shape reads and calls no model. Only {ends} \
-                 To answer here, start Tinkery with a model and budget; tend's c copies a prompt to continue elsewhere."
+                 To set up Shape, press F10 then q to quit. Restart Tinkery with --home, --shape-pi, \
+                 --model PROVIDER/MODEL and --shape-budget CALLS. Choose the call limit; the default is zero. \
+                 Keep the same --seed-session-root if you supplied one. \
+                 Open Tend (2), select this saved goal, press Enter, then s to reopen Shape."
             )
         };
         let editing = if self.takes_text() {
@@ -2129,7 +2132,8 @@ struct Stand<'a> {
 /// was said, and a notice's own next step replaces the stage's. While a step runs, the question and the words
 /// stay, muted, under what the step is doing.
 fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>, Text<'static>) {
-    const CONTINUE: &str = "tend's c copies the prompt to continue.";
+    const SETUP: &str = "Next: reopen this goal with Shape set up; F1 shows how.";
+    const INSPECT: &str = "Next: check this session's files; F1 shows the path.";
     let Stand {
         acts,
         reads,
@@ -2168,7 +2172,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             Some(if acts {
                 "Next: type why, then F6 keeps the answer unchanged with your reason.".into()
             } else {
-                format!("Next: review this flagged answer; {CONTINUE}")
+                SETUP.into()
             })
         }
         Shaped::Question {
@@ -2237,7 +2241,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             Some(if acts {
                 "Next: type your answer, then F2 saves it and looks into the next question.".into()
             } else {
-                format!("Next: answer this question; {CONTINUE}")
+                SETUP.into()
             })
         }
         Shaped::Waiting => {
@@ -2254,7 +2258,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             Some(if acts {
                 "Next: F2 looks into the next question.".into()
             } else {
-                format!("Next: shape it into a seed; {CONTINUE}")
+                SETUP.into()
             })
         }
         Shaped::Drafted { revision, text } => {
@@ -2281,7 +2285,8 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 }
                 // The key bar owns the next action, including while a refusal is shown.
                 (true, Some(_)) => None,
-                _ => Some(format!("Next: confirm the seed draft in Shape; {CONTINUE}")),
+                (false, Some(_)) => Some(SETUP.into()),
+                _ => Some(INSPECT.into()),
             }
         }
         Shaped::Ready { revision, ended } => {
@@ -2305,7 +2310,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 format!("The seed says it's confirmed, but Tinkery can't verify it: {reason}."),
                 palette.ink,
             ));
-            Some(format!("Next: confirm the current revision; {CONTINUE}"))
+            Some(INSPECT.into())
         }
         Shaped::Practice => {
             lines.push(Line::styled(
@@ -2326,7 +2331,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 format!("Shape can't tell where this seed stands. {what}"),
                 palette.ink,
             ));
-            Some(format!("Next: continue shaping; {CONTINUE}"))
+            Some(INSPECT.into())
         }
     };
     let gap = |lines: &mut Vec<Line<'static>>| {

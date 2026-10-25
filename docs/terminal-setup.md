@@ -92,9 +92,9 @@ those clicks, **Ctrl-A** selects all cards instead.
 
 ## Clipboard (OSC 52)
 
-Copying (F9 in think, `c` on the receipt and in tend detail) sends text through the OSC 52
+Copying (F9 in think, `c` in Approve or on a verified Shape seed) sends text through the OSC 52
 escape. Tinkery cannot confirm the host clipboard changed. F9 says so ("Copy sent;
-host may require clipboard permission"); the receipt and tend detail just say "Copied."
+host may require clipboard permission"); Approve and Shape just say "Copied."
 once the escape is written. Either way, both the terminal and any multiplexer must
 allow clipboard writes. Test by pasting into a scratch editor.
 Tinkery never reads the clipboard or changes host permissions. In think, a copy
