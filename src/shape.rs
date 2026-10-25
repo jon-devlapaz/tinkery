@@ -45,7 +45,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, mpsc},
 };
-use step::{Done, Failure, Running, Why, Work};
+use step::{Done, Failure, RetryFeedback, Running, Why, Work};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 use words::Words;
@@ -104,6 +104,8 @@ struct Opened {
     teach_back: Option<Words>,
     /// What the last key or step did, when it needs saying, and its own next step if any.
     notice: Option<(String, Option<String>)>,
+    /// The last rejected reply's diagnostic, only for a matching explicit retry in this visit.
+    feedback: Option<RetryFeedback>,
     running: Option<Running>,
     /// What the running step was asked to do.
     doing: Doing,
@@ -347,6 +349,10 @@ impl Shape {
             open.assumed = asked.assumed;
             open.withheld = asked.withheld;
             open.revealed = false;
+            open.feedback = result
+                .as_ref()
+                .err()
+                .and_then(|failure| failure.feedback.as_deref().cloned());
             open.notice = said(result, open.doing);
             open.reading = Reading::NotStarted;
         }
@@ -411,9 +417,17 @@ impl Shape {
                     if let (Folder::Unknown, Some(folder)) = (&open.folder, folder) {
                         open.folder = Folder::Known(folder);
                     }
+                    if !matches!((&open.reading, &open.folder),
+                        (Reading::Done(Ok(Shaping { stage: Shaped::Waiting, version: Some(version), .. })),
+                            Folder::Known(folder)) if open.feedback.as_ref().is_some_and(|feedback|
+                                feedback.applies(&open.session, *version, folder)))
+                    {
+                        open.feedback = None;
+                    }
                 }
                 Err(mpsc::TryRecvError::Empty) => {}
                 Err(mpsc::TryRecvError::Disconnected) => {
+                    open.feedback = None;
                     open.reading = Reading::Done(Err("The read stopped unexpectedly.".into()))
                 }
             }
@@ -1426,6 +1440,9 @@ impl Opened {
         };
         match folder(typed).or_else(|| folder(typed.trim())) {
             Some(folder) => {
+                if !matches!(&self.folder, Folder::Known(previous) if previous == &folder) {
+                    self.feedback = None;
+                }
                 self.folder = Folder::Known(folder);
                 None
             }
@@ -1492,6 +1509,7 @@ impl Opened {
                     Err(Failure {
                         answer_saved: false,
                         why: Why::Budget(agent.limit()),
+                        feedback: None,
                     }),
                     Doing::Answer,
                 )
@@ -1505,6 +1523,7 @@ impl Opened {
             return;
         };
         let folder = folder.unwrap_or_default();
+        let feedback = self.feedback.take();
         let (work, doing) = match act {
             Act::Respond {
                 id,
@@ -1552,7 +1571,14 @@ impl Opened {
                 },
                 Doing::TeachBack,
             ),
-            Act::Look(expected) => (Work::Look { expected, folder }, Doing::Look),
+            Act::Look(expected) => (
+                Work::Look {
+                    expected,
+                    feedback: feedback.filter(|f| f.applies(&self.session, expected, &folder)),
+                    folder,
+                },
+                Doing::Look,
+            ),
             Act::Confirm {
                 revision,
                 expected,
@@ -1603,6 +1629,7 @@ impl Opened {
             form: None,
             teach_back: None,
             notice: None,
+            feedback: None,
             running: None,
             doing: Doing::Look,
             folder: Folder::Unknown,
@@ -2056,7 +2083,9 @@ fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<S
             None,
         ));
     }
-    let Failure { answer_saved, why } = result.err()?;
+    let Failure {
+        answer_saved, why, ..
+    } = result.err()?;
     let saved = if answer_saved { doing.saved() } else { "" };
     Some(match why {
         Why::Stale if answer_saved => (

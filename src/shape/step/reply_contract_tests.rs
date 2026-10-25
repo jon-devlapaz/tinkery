@@ -51,6 +51,7 @@ fn provider(root: &Path, reply: &str, calls: usize) -> Agent {
 fn look_again(session: &Path, root: &Path, agent: &Agent) -> Result<Done, Failure> {
     run(
         &Work::Look {
+            feedback: None,
             expected: answering::read(session).unwrap().version(),
             folder: root.into(),
         },
@@ -141,7 +142,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
         "TEST keep my exact answer\r\n  "
     );
     assert_eq!(agent.remaining(), 2, "no automatic retry");
-    // With only transport updated, the original prose still hits the existing probe guard.
+    // With transport updated, pure check validation reports the missing source first.
     let before = fs::read(session.join("ledger.json")).unwrap();
     fs::write(
         root.path().join("TEST-reply.json"),
@@ -150,7 +151,22 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     .unwrap();
     let error = look_again(&session, root.path(), &agent).unwrap_err();
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains("probe answers belong to the ledger"))
+        matches!(error.why, Why::Refused(ref reason) if reason.contains("check 1 missing fields: source"))
+    );
+    // The same captured prose remains forbidden once check records are supplied.
+    let reply = ordered_reply(MISSING_SOURCE);
+    let prose_error = answering::draft_seed(
+        &session,
+        answering::read(&session).unwrap().version(),
+        &reply["confirming"],
+        &valid_reply()["checks"],
+        &[],
+        root.path(),
+        None,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(prose_error, Refusal::Refused(ref reason) if reason.contains("probe answers belong to the ledger"))
     );
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
     assert_eq!(agent.remaining(), 1);

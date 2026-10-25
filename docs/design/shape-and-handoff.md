@@ -585,7 +585,14 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
   Review refusals name the mismatched check or case/check counts; a missing check source
   explains what can establish it without inventing evidence. F2 retries explicitly,
-  retaining saved answers; nothing retries automatically.
+  retaining saved answers; nothing retries automatically. During the same opened visit,
+  the next explicit F2 retry receives the last reply-decoding, review or acceptance-check
+  rejection as `previous_refusal`, separate from the goal, answers and findings. Only the
+  first diagnostic line is kept, at most 2,048 UTF-8 bytes, with truncation disclosed.
+  The diagnostic is not saved. It must match the session, ledger version and working
+  folder; a changed context, successful step, stop or transport/storage failure clears it.
+  Storage failures never become model feedback. These checks prove transport and
+  preservation, not that a model will correct its next draft.
   An oversized step sends nothing and keeps the words, asking the operator to start a
   smaller goal with this session as a reference. Esc stops a step; an
   already-started save finishes, then rereads. Stopped model calls still count,

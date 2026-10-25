@@ -211,6 +211,7 @@ print(json.dumps(reply))
     .unwrap();
     let result = run(
         &Work::Look {
+            feedback: None,
             expected: version,
             folder: root.path().into(),
         },
@@ -272,7 +273,8 @@ fn zero_budget_refuses_revision_before_reading_or_publishing() {
         run(&work, root.path(), &agent, &AtomicBool::new(false), &saved),
         Err(Failure {
             answer_saved: false,
-            why: Why::Budget(0)
+            why: Why::Budget(0),
+            feedback: None,
         })
     );
     assert!(!saved.load(Ordering::Relaxed));
@@ -310,7 +312,8 @@ fn teach_back_zero_budget_refuses_before_capture_or_any_read() {
         run(&work, root.path(), &agent, &AtomicBool::new(false), &saved),
         Err(Failure {
             answer_saved: false,
-            why: Why::Budget(0)
+            why: Why::Budget(0),
+            feedback: None,
         })
     );
     assert!(!saved.load(Ordering::Relaxed));

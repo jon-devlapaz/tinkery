@@ -1193,6 +1193,9 @@ def captured_reply_recovery(width, height):
             raw['review']['failure_cases'] = [case['case'] for case in raw['review']['failure_cases']]
         if name == 'source-only':
             raw['confirming'] = SEED['confirming']
+        elif name == 'probe-only':
+            # Isolate the captured prose now that pure check validation runs first.
+            raw['checks'], raw['review'] = SEED['checks'], SEED['review']
         with tempfile.TemporaryDirectory(prefix='tinkery-TEST-296-recovery-') as directory:
             cwd = Path(directory).resolve()
             session = make(cwd / 'TEST-sessions')
