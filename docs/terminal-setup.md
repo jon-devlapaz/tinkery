@@ -123,7 +123,7 @@ the seed-contract reference are bundled; no external skill checkout is needed:
 
 ```sh
 trial_root=$(mktemp -d /tmp/tinkery-TEST-trial-XXXXXX) &&
-cargo +stable run --locked -- --shape-pi \
+cargo +stable run --locked -- --shape-pi --shape-budget 0 \
   --model provider/model-id \
   --seed-session-root "$trial_root/sessions" \
   --record-root "$trial_root/think" \
@@ -132,7 +132,7 @@ cargo +stable run --locked -- --shape-pi \
 
 For an agent trial, add `--operator agent`; everything it saves is
 [recorded as the agent's](design/think.md#confirmation-attribution-185).
-Use TEST roots and a separately approved model budget.
+Use TEST roots. Replace the zero above only with a separately approved allowance.
 
 All three overrides keep the trial isolated: sessions,
 [think records](design/think.md#think-record), and Tend's needs links stay outside
@@ -151,9 +151,12 @@ operator-authorized edit must remove that line after this change merges.
 
 `--thinking` sets Pi's reasoning level (default `low`).
 
-Shape makes no model call unless you add `--shape-budget CALLS`; each `F2` agent step is one
-call, through Pi with read-only tools in the folder Shape shows (`F4` picks another), until the
-budget is spent. Pi's tools cannot read outside that folder, even through symlinks. The budget counts steps; one step may make several provider requests.
+Think and Shape share `--shape-budget CALLS` for the whole launch; the default is zero.
+Each Think shaping request, decision review, and Shape agent step uses one slot before
+Pi starts, including failures. Opening another goal does not reset it. Shape uses
+read-only tools in the displayed folder (`F4` picks another); paths outside it refuse.
+This allowance counts Pi requests, not cost or tool-driven provider turns: a Shape
+step may make several provider requests. Authorize that work and its spending separately.
 
 A send makes at most two provider calls: one shaping call and one decision review,
 both before the reading is shown, with no automatic retry. Some sends make none, such as a new dump that first asks how its words fit.

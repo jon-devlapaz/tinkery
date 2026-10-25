@@ -127,7 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 shape_budget = args
                     .next()
                     .and_then(|calls| calls.parse::<usize>().ok())
-                    .ok_or("--shape-budget needs a number of model calls")?;
+                    .ok_or("--shape-budget needs a number of Pi requests")?;
             }
             "--pi-command" => {
                 pi_command = Some(launch_relative(PathBuf::from(
@@ -136,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Model calls Shape may make this run (default: 0, none)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--taste-result RUN_ID=PR_URL  Explicit canonical run UUIDv4 and full GitHub PR URL; repeatable, launch-only\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F1 shows what you can do now; F1 twice shows every key.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Pi requests shared by Think and Shape this run (default: 0, none)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--taste-result RUN_ID=PR_URL  Explicit canonical run UUIDv4 and full GitHub PR URL; repeatable, launch-only\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }
@@ -163,6 +163,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if shape_pi {
         record_root.as_ref().map_err(Clone::clone)?;
     }
+    let call_budget = tinkery::pi::CallBudget::new(shape_budget);
     let host = if shape_pi {
         Some(Arc::new(
             PiHost::new(
@@ -171,7 +172,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .clone()
                     .ok_or("--shape-pi requires an explicit --model provider/model-id")?,
             )?
-            .with_thinking(thinking.as_deref().unwrap_or("low"))?,
+            .with_thinking(thinking.as_deref().unwrap_or("low"))?
+            .with_budget(call_budget.clone()),
         ))
     } else {
         None
@@ -210,7 +212,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 repo.as_ref()
                     .map(|r| r.root().to_path_buf())
                     .or_else(|| std::env::current_dir().ok()),
-                tinkery::pi::CallBudget::new(shape_budget),
+                call_budget,
                 record_root.clone().ok(),
             )?
             .with_confirmation(Some(confirmation.clone())),

@@ -39,7 +39,7 @@ def journey(width, height, no_color):
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         screen = Screen(width, height)
         process = subprocess.Popen(
-            [str(BINARY), '--shape-pi', '--model', 'test/model', '--pi-command', str(host), '--record-root', str(cwd / 'TEST-records'),
+            [str(BINARY), '--shape-pi', '--shape-budget', '64', '--model', 'test/model', '--pi-command', str(host), '--record-root', str(cwd / 'TEST-records'),
              '--seed-session-root', str(cwd / 'TEST-sessions')],
             stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(environment))
 

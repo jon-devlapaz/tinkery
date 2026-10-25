@@ -32,7 +32,7 @@ def journey(w,h,home):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-goal-history-') as directory:
   cwd=Path(directory);root=cwd/'TEST-sessions';records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));screen=Screen(w,h)
-  p=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi','--model','test/model','--pi-command',str(host),'--seed-session-root',str(root),'--record-root',str(records)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
+  p=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi', '--shape-budget', '64','--model','test/model','--pi-command',str(host),'--seed-session-root',str(root),'--record-root',str(records)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def drain(until,timeout=20):
    end=time.monotonic()+timeout
    while time.monotonic()<end:

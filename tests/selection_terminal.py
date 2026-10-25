@@ -34,7 +34,7 @@ def journey(width, height):
         screen = Screen(width, height)
         terminal_output = bytearray()
         process = subprocess.Popen(
-            [str(BINARY), '--shape-pi', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model', '--pi-command', str(host)],
+            [str(BINARY), '--shape-pi', '--shape-budget', '64', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model', '--pi-command', str(host)],
             stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color', 'HOME': str(cwd / 'TEST-home'), 'TINKERY_NODE': '/tinkery-TEST-no-node'}))
 
         def pump(seconds=0.05):

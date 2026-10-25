@@ -55,7 +55,7 @@ def input_is(run, word):
 def journey(width, height, read=False, supported=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-hidden-review-') as directory:
         actor = ACTOR
-        run = Run(Path(directory), 100, 30, 0, agent=True, why=LONG_WHY)
+        run = Run(Path(directory), 100, 30, 4, agent=True, why=LONG_WHY)
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")
@@ -111,7 +111,7 @@ def journey(width, height, read=False, supported=False):
 
 def stale_mouse(input_first):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-resized-mouse-') as directory:
-        run = Run(Path(directory), 100, 30, 0, agent=True)
+        run = Run(Path(directory), 100, 30, 4, agent=True)
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")
