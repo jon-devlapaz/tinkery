@@ -232,9 +232,16 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     )
     .unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();
-    let error = confirm_seed(&session, &revision, "TEST confirm", None)
-        .unwrap_err()
-        .to_string();
+    let error = confirm_seed(
+        &session,
+        crate::seed_me::answering::read(&session).unwrap().version(),
+        &revision,
+        &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
+        "TEST confirm",
+        None,
+    )
+    .unwrap_err()
+    .to_string();
     assert!(
         error.contains("nodes flagged for review remain: goal"),
         "{error}"
@@ -270,6 +277,14 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
             .unwrap()
             .is_empty()
     );
-    confirm_seed(&session, &revision, "TEST confirm", None).unwrap();
+    confirm_seed(
+        &session,
+        crate::seed_me::answering::read(&session).unwrap().version(),
+        &revision,
+        &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
+        "TEST confirm",
+        None,
+    )
+    .unwrap();
     end(&session, Ending::Completed, None).unwrap();
 }

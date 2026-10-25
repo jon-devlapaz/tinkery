@@ -1033,12 +1033,13 @@ pub fn teach_back(
     .map_err(published)
 }
 
-/// Confirm seed `revision` through the ledger, with the operator's `words` as its source.
-/// Tinkery refuses a simulated session, a different revision, open decisions and a seed whose
-/// decisions don't match the ledger.
+/// Confirm only the displayed seed bytes and ledger version, with the operator's words as source.
+/// Stale inputs, practice sessions, open decisions and mismatched decisions refuse before saving.
 pub fn confirm_seed(
     session: &Path,
+    expected: u64,
     revision: &str,
+    seed: &str,
     words: &str,
     actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<(), Refusal> {
@@ -1047,15 +1048,17 @@ pub fn confirm_seed(
             "Tinkery needs your words on one line.".into(),
         ));
     }
-    ledger::confirm_as(
+    ledger::confirm_displayed_as(
         session,
+        expected,
         revision,
+        seed,
         words,
         &publication_time(SystemTime::now())?,
         actor,
     )
     .map(|_| ())
-    .map_err(|reason| Refusal::Refused(format!("Tinkery refused: {reason}")))
+    .map_err(not_saved)
 }
 
 /// How the operator ends a session: the ledger's two end statuses. Either is for good.

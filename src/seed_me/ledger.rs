@@ -24,8 +24,9 @@ pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub use storage::{
-    PublishError, SaveState, confirm_as, confirm_seed, confirm_with_teach_back, end, initialize,
-    publish, record_teach_back, respond, revalidate, set_checks,
+    PublishError, SaveState, confirm_as, confirm_displayed_as, confirm_seed,
+    confirm_with_teach_back, end, initialize, publish, record_teach_back, respond, revalidate,
+    set_checks,
 };
 pub(crate) use storage::{initialize_for, save_draft};
 mod python;

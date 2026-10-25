@@ -187,8 +187,13 @@ pub(super) enum Work {
         expected: u64,
         seed: String,
     },
-    /// Confirm seed `revision` with the operator's own words.
-    Confirm { revision: String, words: String },
+    /// Confirm only the draft bytes and ledger version the operator read.
+    Confirm {
+        revision: String,
+        words: String,
+        expected: u64,
+        seed: String,
+    },
 }
 
 /// What a finished step did.
@@ -356,8 +361,14 @@ fn run(
             look(session, *expected, folder, agent, cancelled, false)
         }
         Work::TeachBack { .. } => teach_back::run(work, session, agent, cancelled, saved),
-        Work::Confirm { revision, words } => {
-            answering::confirm_seed(session, revision, words, actor).map_err(refused(false))?;
+        Work::Confirm {
+            revision,
+            words,
+            expected,
+            seed,
+        } => {
+            answering::confirm_seed(session, *expected, revision, seed, words, actor)
+                .map_err(refused(false))?;
             Ok(Done::Confirmed)
         }
     }
