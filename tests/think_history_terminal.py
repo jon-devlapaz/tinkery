@@ -111,7 +111,7 @@ def confirm_goals(root, width, height, no_color):
             terminal.send(b'\x1b[200~' + original.encode() + b'\x1b[201~', 'original 36:')
             terminal.send(b'\x1bOQ', 'May refusals show private text?')
             terminal.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'gardez les mots exacts.')
-            terminal.send(b'\x1bOQ', "Nothing I'm unsure about")
+            terminal.send(b'\x1bOQ', "Ready for your review")
             terminal.send(b'\x1bOR', 'type confirm')
             terminal.send(b'confirm\r', 'Saved.')
             matches = [json.loads(path.read_text()) for path in records.glob('*.json')

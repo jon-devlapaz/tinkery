@@ -226,7 +226,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
         assert_eq!(
             snapshot(160, 40, &mut partial, false)
                 .unwrap()
-                .contains("Nothing I'm unsure about"),
+                .contains("Ready for your review"),
             !Part::REQUIRED.contains(&p)
         );
         let mut vague = app(serde_json::json!({"parts":parts(),"open":[p]}));

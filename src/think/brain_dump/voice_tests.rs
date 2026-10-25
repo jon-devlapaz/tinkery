@@ -766,7 +766,7 @@ fn recording_does_not_change_what_the_goal_line_says_is_open() {
         &["must work offline"],
         &[],
     ));
-    let ready = "Nothing I'm unsure about. Review when you're ready.";
+    let ready = "Ready for your review.";
     let right = |a: &mut BrainDump| {
         super::goal_tests::right_text(&snapshot(100, 30, a, false).unwrap(), 100)
     };
@@ -778,7 +778,7 @@ fn recording_does_not_change_what_the_goal_line_says_is_open() {
     assert!(screen.contains(ready), "{screen}");
     assert!(!screen.contains("remain open"));
     a.screen.help = true;
-    assert!(layout::help_text(&a).contains("Nothing I'm unsure about."));
+    assert!(layout::help_text(&a).contains("Ready for your review."));
 }
 
 #[test]

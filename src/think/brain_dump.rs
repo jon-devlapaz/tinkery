@@ -278,7 +278,8 @@ impl BrainDump {
             palette.ink
         }
     }
-    /// Nothing is left to ask and nothing is in flight or unsent: "Nothing I'm unsure about."
+    /// The recorded parts leave no open question, and nothing is in flight or unsent.
+    /// This does not establish that the reading captured every requirement.
     /// Ready is not required to save, and saving still needs confirmation.
     pub fn goal_ready(&self) -> bool {
         self.input.text.is_empty() && self.goal_ready_without_local_text()

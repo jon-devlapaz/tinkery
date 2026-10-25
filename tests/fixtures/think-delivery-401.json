@@ -1,0 +1,129 @@
+{
+  "provenance": {
+    "kind": "recorded_decoded_candidates",
+    "source": "room-to-choose/docs/trial-evidence/think-record.json",
+    "sha256": "a28cf57c55406048bfb6a4b7a876c4d7d0d85dcd44661d29d067c9182254ec90",
+    "description": "Agent-operated Tinkery trial, October 25, 2026. Exact submitted words and decoded candidates; not raw model replies. Scripted replay proves mechanics, not model quality."
+  },
+  "words": "Operator's original request, quoted verbatim:\nI want you to use tinkery to build an amazing app that solves a problem. you can get insight from social-media and websites. thats it. this will also serve as a dogfood oppurtunity to find issues to determine and carve out the happy path of tinkery. \n\ndoes that make sense to you?\n\nOperator's authorization, quoted verbatim:\nyes, $20 is fine. go ahead and find a real problem, use tinkery to build the app, and keep track of the issues you run into along the way.\n\nAgent's chosen product under that delegation:\nBuild Room to Choose, a polished private apartment shortlist and tour notebook for renters comparing several places they have already found. Public renter discussions repeatedly describe scattered listing links, forgotten tour impressions, and extra fees missing from advertised rents. The research and sources are in docs/research.md. This evidence supports a problem, not demand for this exact app.\n\nI want a renter to add places quickly, separate monthly extras from one-time fees and refundable deposits, see a known monthly subtotal with unknown costs visibly unresolved, keep tour dates/likes/concerns/questions, compare two or three places, favorite finalists and archive rejected places with their reasons. Keep the first version browser-local, with backup export/import and a printable comparison. Include a clearly labeled fictional sample hunt. No accounts, scraping, live collaboration, maps, AI recommendations, or financial/legal advice.\n\nDone when the working app lets us enter three fictional places, see that the cheapest advertised rent is not necessarily the smallest known monthly subtotal, spot an unknown parking fee, compare tour notes, keep two finalists, reload without losing data, and export/restore the same hunt. It should work on phone and desktop, with clear accessible controls. Automated tests and an agent walkthrough prove mechanics; the operator still judges usefulness and polish. Use Tinkery's actual workflow and record failures/manual handoffs honestly. Preserve the operator's words, use isolated TEST roots, and stay within the authorized $20 model budget.\n",
+  "correction": "This same app goal must also include these delivery constraints: build through Tinkery’s actual workflow; record failures and manual handoffs as part of the dogfood trial; preserve the operator’s original words verbatim; keep Tinkery sessions in isolated TEST roots and app/SDLC work in its own checkout without changing operator sessions or tool configuration. These are requirements for how this app is delivered, alongside the $20 model budget. Keep all current app behavior and exclusions unchanged.",
+  "readings": [
+    {
+      "alternatives": [
+        {
+          "benefit": "Brings costs, unresolved fees, and tour notes into one comparison.",
+          "cost": "Excludes accounts and live collaboration in the first version.",
+          "label": "Room to Choose: browser-local shortlist and tour notebook",
+          "undo_cost": "PROVISIONAL assumption: changing the product direction would require revisiting the proposed scope and checks."
+        }
+      ],
+      "decisions": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": [],
+          "text": "Keep an apartment shortlist and tour notebook that makes known monthly costs, unknown costs, tour impressions, and finalists easy to compare, for Renters comparing several places they have already found.\nWhy: Listing links are scattered, tour impressions get forgotten, and advertised rents can leave out extra fees.\nDone when: Enter three fictional places and see that the cheapest advertised rent is not necessarily the smallest known monthly subtotal; Spot an unknown parking fee and compare tour notes; Keep two finalists and reload without losing data; Export and restore the same hunt; Work on phone and desktop with clear accessible controls; Automated tests and an agent walkthrough prove mechanics; the operator judges usefulness and polish.\nMust: Let renters add places quickly.\nMust: Separate monthly extras from one-time fees and refundable deposits.\nMust: Show a known monthly subtotal with unknown costs visibly unresolved.\nMust: Keep tour dates, likes, concerns, and questions.\nMust: Compare two or three places.\nMust: Favorite finalists.\nMust: Archive rejected places with their reasons.\nMust: Keep the first version browser-local.\nMust: Include backup export/import.\nMust: Include a printable comparison.\nMust: Include a clearly labeled fictional sample hunt.\nMust: Stay within the authorized $20 model budget.\nMust not: Include accounts in the first version.\nMust not: Include scraping in the first version.\nMust not: Include live collaboration in the first version.\nMust not: Include maps in the first version.\nMust not: Include AI recommendations in the first version.\nMust not: Provide financial/legal advice."
+        }
+      ],
+      "misfits": [],
+      "open": [],
+      "other_goals": [
+        "Dogfood Tinkery's actual workflow, honestly record failures and manual handoffs, and carve out its happy path while preserving the operator's words and using isolated TEST roots."
+      ],
+      "outcome": "Enter three fictional places and see that the cheapest advertised rent is not necessarily the smallest known monthly subtotal.\nSpot an unknown parking fee and compare tour notes.\nKeep two finalists and reload without losing data.\nExport and restore the same hunt.\nWork on phone and desktop with clear accessible controls.\nAutomated tests and an agent walkthrough prove mechanics; the operator judges usefulness and polish.",
+      "parts": {
+        "done_when": "Enter three fictional places and see that the cheapest advertised rent is not necessarily the smallest known monthly subtotal.\nSpot an unknown parking fee and compare tour notes.\nKeep two finalists and reload without losing data.\nExport and restore the same hunt.\nWork on phone and desktop with clear accessible controls.\nAutomated tests and an agent walkthrough prove mechanics; the operator judges usefulness and polish.",
+        "must": [
+          "Let renters add places quickly.",
+          "Separate monthly extras from one-time fees and refundable deposits.",
+          "Show a known monthly subtotal with unknown costs visibly unresolved.",
+          "Keep tour dates, likes, concerns, and questions.",
+          "Compare two or three places.",
+          "Favorite finalists.",
+          "Archive rejected places with their reasons.",
+          "Keep the first version browser-local.",
+          "Include backup export/import.",
+          "Include a printable comparison.",
+          "Include a clearly labeled fictional sample hunt.",
+          "Stay within the authorized $20 model budget."
+        ],
+        "must_not": [
+          "Include accounts in the first version.",
+          "Include scraping in the first version.",
+          "Include live collaboration in the first version.",
+          "Include maps in the first version.",
+          "Include AI recommendations in the first version.",
+          "Provide financial/legal advice."
+        ],
+        "outcome": "Keep an apartment shortlist and tour notebook that makes known monthly costs, unknown costs, tour impressions, and finalists easy to compare.",
+        "when": null,
+        "who": "Renters comparing several places they have already found",
+        "why": "Listing links are scattered, tour impressions get forgotten, and advertised rents can leave out extra fees."
+      },
+      "questions": [],
+      "uncertain": false,
+      "unresolved_notes": []
+    },
+    {
+      "alternatives": [
+        {
+          "benefit": "Brings costs, unresolved fees, and tour notes into one comparison.",
+          "cost": "Excludes accounts and live collaboration in the first version.",
+          "label": "Browser-local shortlist and tour notebook",
+          "undo_cost": "PROVISIONAL assumption: changing direction would require revisiting the app scope and checks."
+        }
+      ],
+      "decisions": [],
+      "deferred": [],
+      "framings": [
+        {
+          "supports": [],
+          "text": "Keep an apartment shortlist and tour notebook that makes known monthly costs, unknown costs, tour impressions, and finalists easy to compare, for Renters comparing several places they have already found.\nWhy: Listing links are scattered, tour impressions get forgotten, and advertised rents can leave out extra fees.\nDone when: Enter three fictional places and see that the cheapest advertised rent is not necessarily the smallest known monthly subtotal; Spot an unknown parking fee and compare tour notes; Keep two finalists and reload without losing data; Export and restore the same hunt; Work on phone and desktop with clear accessible controls; Automated tests and an agent walkthrough prove mechanics; the operator still judges usefulness and polish.\nMust: Let renters add places quickly.\nMust: Separate monthly extras from one-time fees and refundable deposits.\nMust: Show a known monthly subtotal with unknown costs visibly unresolved.\nMust: Keep tour dates, likes, concerns, and questions.\nMust: Compare two or three places.\nMust: Favorite finalists.\nMust: Archive rejected places with their reasons.\nMust: Keep the first version browser-local.\nMust: Include backup export/import.\nMust: Include a printable comparison.\nMust: Include a clearly labeled fictional sample hunt.\nMust: Stay within the authorized $20 model budget.\nMust: Build through Tinkery’s actual workflow.\nMust: Record failures and manual handoffs honestly as part of the dogfood trial.\nMust: Preserve the operator’s original words verbatim.\nMust: Keep Tinkery sessions in isolated TEST roots.\nMust: Keep app/SDLC work in its own checkout.\nMust not: Include accounts in the first version.\nMust not: Include scraping in the first version.\nMust not: Include live collaboration in the first version.\nMust not: Include maps in the first version.\nMust not: Include AI recommendations in the first version.\nMust not: Provide financial/legal advice.\nMust not: Change operator sessions.\nMust not: Change tool configuration."
+        }
+      ],
+      "misfits": [],
+      "open": [],
+      "other_goals": [],
+      "outcome": "Enter three fictional places and see that the cheapest advertised rent is not necessarily the smallest known monthly subtotal.\nSpot an unknown parking fee and compare tour notes.\nKeep two finalists and reload without losing data.\nExport and restore the same hunt.\nWork on phone and desktop with clear accessible controls.\nAutomated tests and an agent walkthrough prove mechanics; the operator still judges usefulness and polish.",
+      "parts": {
+        "done_when": "Enter three fictional places and see that the cheapest advertised rent is not necessarily the smallest known monthly subtotal.\nSpot an unknown parking fee and compare tour notes.\nKeep two finalists and reload without losing data.\nExport and restore the same hunt.\nWork on phone and desktop with clear accessible controls.\nAutomated tests and an agent walkthrough prove mechanics; the operator still judges usefulness and polish.",
+        "must": [
+          "Let renters add places quickly.",
+          "Separate monthly extras from one-time fees and refundable deposits.",
+          "Show a known monthly subtotal with unknown costs visibly unresolved.",
+          "Keep tour dates, likes, concerns, and questions.",
+          "Compare two or three places.",
+          "Favorite finalists.",
+          "Archive rejected places with their reasons.",
+          "Keep the first version browser-local.",
+          "Include backup export/import.",
+          "Include a printable comparison.",
+          "Include a clearly labeled fictional sample hunt.",
+          "Stay within the authorized $20 model budget.",
+          "Build through Tinkery’s actual workflow.",
+          "Record failures and manual handoffs honestly as part of the dogfood trial.",
+          "Preserve the operator’s original words verbatim.",
+          "Keep Tinkery sessions in isolated TEST roots.",
+          "Keep app/SDLC work in its own checkout."
+        ],
+        "must_not": [
+          "Include accounts in the first version.",
+          "Include scraping in the first version.",
+          "Include live collaboration in the first version.",
+          "Include maps in the first version.",
+          "Include AI recommendations in the first version.",
+          "Provide financial/legal advice.",
+          "Change operator sessions.",
+          "Change tool configuration."
+        ],
+        "outcome": "Keep an apartment shortlist and tour notebook that makes known monthly costs, unknown costs, tour impressions, and finalists easy to compare.",
+        "when": null,
+        "who": "Renters comparing several places they have already found",
+        "why": "Listing links are scattered, tour impressions get forgotten, and advertised rents can leave out extra fees."
+      },
+      "questions": [],
+      "uncertain": false,
+      "unresolved_notes": []
+    }
+  ]
+}

@@ -12,6 +12,8 @@ pub(super) const SCOPE_REFUSAL: &str =
     "Answer the skipped scope question first: Ctrl-Z brings it back.";
 /// Empty sends need one next step, without a permanent warning on the blank screen.
 pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then F2 sends it.";
+/// A review invitation, not a claim that the reading captured every requirement.
+const READY_FOR_REVIEW: &str = "Ready for your review.";
 /// Notices that report a finished action and stay on the status row until replaced. Other
 /// notices that are not refusals live only under How it works, Last result.
 const RECEIPTS: [&str; 5] = [
@@ -169,7 +171,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
         None => match (open_intent(app), app.conversation.board()) {
             (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
-                if g.goal().is_none() {
+                if g.goal().is_none() || line == READY_FOR_REVIEW {
                     line
                 } else {
                     format!("{line} Review when you're ready.")
@@ -367,7 +369,7 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
         && g.misfits.is_empty()
         && app.conversation.scope_pending().is_none()
     {
-        "Nothing I'm unsure about.".into()
+        READY_FOR_REVIEW.into()
     } else {
         "Some parts remain open for the seed.".into()
     })
