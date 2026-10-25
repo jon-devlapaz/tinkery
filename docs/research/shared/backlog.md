@@ -34,7 +34,7 @@ do not approve any proposal.
 The [single interaction proposal](../think/interaction-proposal.md) is awaiting
 operator approval; merging its documentation does not accept a new interaction.
 Read the [dogfood index](../../../findings/2026-10-22-think-dogfood.md) first for
-all observations, shipped fixes, active #330 work and evidence limits.
+observations, linked issues and evidence limits at the recorded revision.
 
 ### Loose ends
 

@@ -89,12 +89,12 @@ The journey waits for every branch, not milestone order.
 
 ## What agents can start next
 
-Choose an explicitly approved [task](first-release-issues.md). Finishing one or
-its dependencies does not authorize the next.
+Choose an explicitly approved [task](first-release-issues.md), checking its issue
+for current status and dependencies. Finishing one or its dependencies does not authorize the next.
 
-#112 and #113 are approved. #258 needs approval and waits on them and
-[tink-sdlc#68](https://github.com/jon-devlapaz/tink-sdlc/issues/68). These slices
-need no model calls. R4 separately
+[The Approve/Watch join](https://github.com/jon-devlapaz/tinkery/issues/258) records
+its [upstream dependency](https://github.com/jon-devlapaz/tink-sdlc/issues/68).
+These slices need no model calls. R4 separately
 requires supplied examples, data permission, a provider and model budget, and human
 participation. Only the operator judges meaning and usefulness.
 
