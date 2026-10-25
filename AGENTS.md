@@ -84,7 +84,7 @@ code changes require the full block. [The Python runner](scripts/python-tests.py
 in parallel; with `TINKERY_TEST_TIER=pr`, as on pull requests, it skips only the slow journeys it
 lists, which still run on every push to `main`.
 
-Node is only for `voice/*.test.mjs`. Keep the invalid `TINKERY_NODE` for voice PTYs;
+Node is only for `voice/*.test.mjs` and `pi/*.test.mjs`. Keep the invalid `TINKERY_NODE` for voice PTYs;
 Python journeys use the real binary, stub providers and temporary roots.
 
 <!-- full-check:start -->
@@ -98,7 +98,7 @@ cargo +stable build --locked
 cargo +stable run --locked -- --operator agent --home --snapshot
 cargo +stable run --locked -- --operator agent --snapshot --no-color
 cargo +stable test --workspace --locked
-node --test voice/*.test.mjs
+node --test voice/*.test.mjs pi/*.test.mjs
 python3 scripts/python-tests.py
 cargo +stable fmt --all -- --check
 cargo +stable clippy --workspace --all-targets --locked -- -D warnings

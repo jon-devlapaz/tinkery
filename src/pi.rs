@@ -3,7 +3,8 @@
 //!
 //! A request runs Pi with no session, extensions, skills or context files, so the model sees only
 //! the prompt, the input and, when a caller asks for them, Pi's read-only tools (`read`, `grep`,
-//! `find`, `ls`): it can read files and runs no commands. Input and output are capped at 32 KiB,
+//! `find`, `ls`): it can read files inside the folder Pi starts in, never outside it, and runs no
+//! commands. Input and output are capped at 32 KiB,
 //! cancellation, timeout or output overflow stops the owned process group; nothing retries on its own.
 //! Callers get text back, or one line saying why not. Which phase asks is the caller's business; this module names none.
 
@@ -21,6 +22,8 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+
+const FOLDER_GUARD: &str = include_str!("../pi/folder.mjs");
 
 /// Maximum encoded request, instructions or reply bytes accepted by the Pi boundary.
 pub const LIMIT: usize = 32 * 1024;
@@ -130,7 +133,7 @@ pub struct Call {
     pub thinking: String,
     /// `true` gives the model Pi's read-only tools; `false` gives it none.
     pub read_only_tools: bool,
-    /// The folder Pi starts in, which is what its tools can read from; `None` keeps Tinkery's.
+    /// The folder Pi starts in, the only one its tools can read; `None` keeps Tinkery's.
     pub folder: Option<PathBuf>,
     /// The request stops after this long.
     pub timeout: Duration,
@@ -202,8 +205,18 @@ impl Call {
     ) -> Result<String, String> {
         let mut command = Command::new(&self.program);
         command.args(["--print", "--no-session"]);
+        // Held until Pi exits: the extension that keeps every tool call inside the folder.
+        let mut _folder_guard = None;
         if self.read_only_tools {
-            command.args(["--tools", "read,grep,find,ls"]);
+            let guard = tempfile::Builder::new()
+                .prefix("tinkery-pi-folder-")
+                .suffix(".mjs")
+                .tempfile()
+                .and_then(|mut file| file.write_all(FOLDER_GUARD.as_bytes()).map(|()| file))
+                .map_err(|error| format!("Cannot prepare Pi's folder guard: {error}"))?;
+            command.args(["--tools", "read,grep,find,ls", "--extension"]);
+            command.arg(guard.path());
+            _folder_guard = Some(guard);
         } else {
             command.arg("--no-tools");
         }

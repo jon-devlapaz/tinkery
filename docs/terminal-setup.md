@@ -153,7 +153,7 @@ operator-authorized edit must remove that line after this change merges.
 
 Shape makes no model call unless you add `--shape-budget CALLS`; each `F2` agent step is one
 call, through Pi with read-only tools in the folder Shape shows (`F4` picks another), until the
-budget is spent. The budget counts steps; one step may make several provider requests.
+budget is spent. Pi's tools cannot read outside that folder, even through symlinks. The budget counts steps; one step may make several provider requests.
 
 A send makes at most two provider calls: one shaping call and one decision review,
 both before the reading is shown, with no automatic retry. Some sends make none, such as a new dump that first asks how its words fit.
