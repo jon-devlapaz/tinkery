@@ -1,6 +1,46 @@
 use super::*;
 use serde_json::json;
 
+mod descendant {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/command_descendant.rs"
+    ));
+}
+
+#[test]
+fn successful_commands_stop_descendants_and_preserve_results() {
+    completed_command(0);
+}
+
+#[test]
+fn failed_commands_stop_descendants_and_preserve_results() {
+    completed_command(7);
+}
+
+fn completed_command(exit: u8) {
+    let fixture = descendant::Fixture::new(exit);
+    let result = run::execute(
+        fixture.root(),
+        std::process::Command::new(fixture.program()),
+        &AtomicBool::new(false),
+        std::time::Duration::from_secs(10),
+    );
+    fixture.assert_stopped();
+    assert!(fixture.input().is_empty(), "status reads receive no input");
+    if exit == 0 {
+        assert_eq!(result.unwrap(), " TEST reply café  \n");
+    } else {
+        let error = result.unwrap_err();
+        assert!(
+            error.starts_with(&fixture.program().to_string_lossy().to_string()),
+            "{error}"
+        );
+        assert!(error.contains("exit status: 7"), "{error}");
+        assert!(error.ends_with("TEST command failed"), "{error}");
+    }
+}
+
 fn fixture() -> (tempfile::TempDir, PathBuf, Value) {
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-join-")

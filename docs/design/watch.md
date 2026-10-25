@@ -23,7 +23,9 @@ unchanged state makes no new demand on the operator's attention.
 
 Each read runs off the paint path with a 30-second deadline, at most 4 MiB of output and its
 own process group. Leaving Watch, or closing a run's detail, stops and reaps the read; a late
-result is never shown. A refused read shows tink-sdlc's own `error.message`.
+result is never shown. Normal success and failure also stop remaining children in that group
+before returning the result. Descendants that detach into another group are outside this ownership.
+A refused read shows tink-sdlc's own `error.message`.
 
 The shared `sdlc` boundary owns the bounded status process and envelope validation;
 Watch owns attention and presentation. Parsing and original-seed reads run on the
