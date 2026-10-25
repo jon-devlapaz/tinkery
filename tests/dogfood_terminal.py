@@ -47,7 +47,9 @@ def journey(w,h):
    send(b'\x1b[15~','Why');send(b'\x1b','What would you want')
    send(b'\x1bOS','Original 1 / dump');send(b'\x1b','What would you want')
    assert 'F10 menu' in screen.text().splitlines()[-1]
-   send(b'\x1bOP','Right now');os.write(master,b'b');send(b'\x1b','I think you mean')
+   send(b'\x1bOP','Right now');os.write(master,b'b');os.write(master,b'\x1b')
+   # The reading is visible behind help; wait for Escape to close help before another key.
+   await_condition(lambda s:'Right now' not in s and 'I think you mean' in s)
    assert 'F10 menu' not in screen.text().splitlines()[-1]
    send(b'\x1b[1;2Q','add more')
    send(b'\x1b[200~Also fix a welcome-email typo.\x1b[201~','welcome-email typo')
