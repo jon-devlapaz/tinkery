@@ -26,7 +26,10 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
         "just works with the right mechanics as the game has."
     );
     for declaration in ["declared: human", "declared: agent", "not declared"] {
-        let tmp = tempfile::tempdir().unwrap();
+        let tmp = tempfile::Builder::new()
+            .prefix("tinkery-TEST-confirmation-")
+            .tempdir()
+            .unwrap();
         let root = tmp.path().join("TEST-records");
         let candidate = fixture["checks"].as_array().unwrap().last().unwrap()["candidate"].clone();
         let replay = super::readiness_tests::app_with_source(
@@ -34,7 +37,7 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
             fixture["turns"][0]["text"].as_str().unwrap(),
         );
         let mut a = BrainDump::with_host(Arc::new(Simulated))
-            .with_sessions(None)
+            .with_sessions(Some(tmp.path().join("TEST-sessions")))
             .with_record_root(root.clone());
         a.paste(fixture["turns"][0]["text"].as_str().unwrap());
         a.submit();
@@ -61,23 +64,15 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
         }
         a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
         assert!(a.handoff.job.is_some());
-        // Inject a successful helper receipt: this tests record plumbing, not helper integration.
-        let path = tmp.path().join("TEST-session");
-        std::fs::create_dir_all(&path).unwrap();
-        std::fs::write(
-            path.join("ledger.json"),
-            serde_json::json!({
-                "schema_version": 1, "session_id": "TEST-stacker", "goal": goal
-            })
-            .to_string(),
-        )
-        .unwrap();
-        let mut receipt = seed_me::Receipt::test(path);
-        receipt.goal = goal.clone();
-        let (tx, rx) = std::sync::mpsc::channel();
-        a.handoff.job = Some(rx);
-        tx.send(Ok(receipt)).unwrap();
-        a.goal_tick();
+        // Keep the temporary destination alive until the real save has finished.
+        super::tests::settle(&mut a);
+        let receipt = a.saved().expect("confirmed TEST goal was saved");
+        assert_eq!(receipt.goal, goal);
+        assert!(
+            receipt
+                .session
+                .starts_with(tmp.path().canonicalize().unwrap())
+        );
         let file = std::fs::read_dir(root)
             .unwrap()
             .next()
@@ -372,7 +367,11 @@ fn declared_agent_source_never_claims_an_operator_keypress_or_implementation_per
 
 #[test]
 fn bare_agent_declaration_saves_as_the_agent() {
-    let mut a = declared();
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-agent-confirmation-")
+        .tempdir()
+        .unwrap();
+    let mut a = declared().with_sessions(Some(tmp.path().join("TEST-sessions")));
     a.set_goal_confirmation(GoalConfirmation::terminal(Some("agent")).unwrap())
         .unwrap();
     a.screen.help_all = true;
@@ -389,6 +388,17 @@ fn bare_agent_declaration_saves_as_the_agent() {
     }
     a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     assert!(a.handoff.job.is_some(), "{}", a.notice);
+    super::tests::settle(&mut a);
+    let receipt = a.saved().expect("confirmed TEST goal was saved");
+    assert!(
+        receipt
+            .session
+            .starts_with(tmp.path().canonicalize().unwrap())
+    );
+    let ledger: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(receipt.session.join("ledger.json")).unwrap())
+            .unwrap();
+    assert_eq!(ledger["operator"], "agent");
 }
 
 #[test]
