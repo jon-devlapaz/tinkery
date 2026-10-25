@@ -4,8 +4,9 @@
 //! A request runs Pi with no session, extensions, skills or context files, so the model sees only
 //! the prompt, the input and, when a caller asks for them, Pi's read-only tools (`read`, `grep`,
 //! `find`, `ls`): it can read files inside the folder Pi starts in, never outside it, and runs no
-//! commands. Input and output are capped at 32 KiB,
-//! cancellation, timeout or output overflow stops the owned process group; nothing retries on its own.
+//! commands. Input and output are capped at 32 KiB. Every completed or cancelled request stops its
+//! process group and reaps the direct child; descendants that leave that group are outside this
+//! ownership. Nothing retries on its own.
 //! Callers get text back, or one line saying why not. Which phase asks is the caller's business; this module names none.
 
 use std::{
@@ -270,14 +271,12 @@ impl Call {
                 None
             };
             if let Some(error) = failure {
-                stop(&mut child);
                 break Err(error);
             }
             match child.try_wait() {
                 Ok(Some(exited)) => status = Some(exited),
                 Ok(None) => {}
                 Err(error) => {
-                    stop(&mut child);
                     break Err(format!("Cannot wait for Pi: {error}"));
                 }
             }
@@ -290,6 +289,7 @@ impl Call {
             }
             thread::sleep(Duration::from_millis(20));
         };
+        stop(&mut child);
         // Unfinished pipe workers must not extend a failed call's deadline.
         let status = result?;
         let input_result = writer.join().map_err(|_| "Pi input writer failed.")?;
@@ -363,6 +363,63 @@ fn read_pipe(
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    mod descendant {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/command_descendant.rs"
+        ));
+    }
+
+    #[test]
+    fn successful_requests_stop_descendants_and_preserve_results_and_budget() {
+        completed_request(0);
+    }
+
+    #[test]
+    fn failed_requests_stop_descendants_and_preserve_results_and_budget() {
+        completed_request(7);
+    }
+
+    fn completed_request(exit: u8) {
+        let fixture = descendant::Fixture::new(exit);
+        let call = Call {
+            program: fixture.program(),
+            model: "TEST/fake".into(),
+            thinking: String::new(),
+            read_only_tools: false,
+            folder: Some(fixture.root().into()),
+            timeout: Duration::from_secs(10),
+        };
+        let budget = CallBudget::new(1);
+        let result = call.complete(
+            Some(&budget),
+            Request::Shaping,
+            b" TEST exact input\n ".to_vec(),
+            "TEST instructions".into(),
+            &AtomicBool::new(false),
+        );
+        fixture.assert_stopped();
+        assert_eq!(fixture.input(), b" TEST exact input\n ");
+        assert_eq!(budget.used(), 1);
+        assert_eq!(budget.remaining(), 0);
+        if exit == 0 {
+            assert_eq!(result.unwrap(), " TEST reply café  \n");
+            assert_eq!(budget.attempts()[0].outcome, "reply");
+        } else {
+            let error = result.unwrap_err();
+            assert!(
+                error.starts_with("Pi exited with exit status: 7"),
+                "{error}"
+            );
+            assert!(
+                error.ends_with("check the configured model and authentication."),
+                "{error}"
+            );
+            assert_eq!(budget.attempts()[0].outcome, "failure");
+            assert_eq!(budget.attempts()[0].error.as_deref(), Some(error.as_str()));
+        }
+    }
 
     #[test]
     fn oversized_input_keeps_words_and_offers_a_next_step_before_spending_budget() {

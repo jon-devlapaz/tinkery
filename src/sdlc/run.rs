@@ -1,5 +1,6 @@
 //! One bounded `sdlc.py status` read off the paint path. It promises a deadline, bounded output and
-//! that dropping the read stops and reaps the whole process group; a late result is never delivered.
+//! that every completed or cancelled read stops its process group and reaps the direct child.
+//! Descendants that leave that group are outside this ownership; a late result is never delivered.
 
 use std::{
     io::Read as _,
@@ -128,24 +129,21 @@ pub(crate) fn execute(
     let out = drain(Box::new(child.stdout.take().unwrap()), STDOUT_LIMIT);
     let err = drain(Box::new(child.stderr.take().unwrap()), STDERR_LIMIT);
     let until = Instant::now() + deadline;
-    let status = loop {
+    let result = loop {
         if cancel.load(Ordering::SeqCst) {
-            stop(&mut child);
-            return Err("Stopped.".into());
+            break Err("Stopped.".into());
         }
         if Instant::now() >= until {
-            stop(&mut child);
-            return Err(format!(
+            break Err(format!(
                 "{name} took longer than {} s and was stopped.",
                 deadline.as_secs()
             ));
         }
         match child.try_wait() {
-            Ok(Some(status)) if out.is_finished() && err.is_finished() => break status,
+            Ok(Some(status)) if out.is_finished() && err.is_finished() => break Ok(status),
             Ok(_) => thread::sleep(Duration::from_millis(10)),
             Err(_) => {
-                stop(&mut child);
-                return Err(if status_read {
+                break Err(if status_read {
                     "Couldn't finish reading runs. Reopen this view to read again.".into()
                 } else {
                     format!("Couldn't finish {name}. Reopen this view to try again.")
@@ -153,6 +151,8 @@ pub(crate) fn execute(
             }
         }
     };
+    stop(&mut child);
+    let status = result?;
     let (out_ok, out) = out.join().unwrap_or((false, Vec::new()));
     let (_, err) = err.join().unwrap_or((false, Vec::new()));
     if !out_ok {
