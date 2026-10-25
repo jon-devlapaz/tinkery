@@ -58,7 +58,7 @@ or improved outcomes.
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |
 | `measure.rs` | Recent PR list, details and evidence limits; explicit reads only, no writes or providers. |
 | `measure/read.rs` | Bounded, cancellable `gh` reads scoped to the launch repo; no shell or retries. |
-| `tend/mod.rs` | The saved-goal garden's discovery states, selection, detail and copying the continuation prompt again. |
+| `tend/mod.rs` | The saved-goal garden's discovery states, selection and detail, with navigation to Shape and saved Think history. |
 | `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/linking.rs` | The source and target selection state, link refusals and derived needs wording, independent of garden drawing. |
 | `tend/garden.rs` | The graph's framing: selected-line needs, read notes and explicit refusals. |
