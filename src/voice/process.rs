@@ -22,7 +22,7 @@ const SETUP: &str = include_str!("../../voice/setup.mjs");
 struct Node {
     executable: PathBuf,
 }
-static NODE: OnceLock<Result<Node, Failure>> = OnceLock::new();
+static NODE: OnceLock<Node> = OnceLock::new();
 
 /// The real [`VoiceHost`]: the embedded Node helper, run and read on its own thread so think
 /// never waits on it. Without Node 22 or later, voice says how to point it at one instead.
@@ -217,7 +217,7 @@ fn default_node(stop: &AtomicBool) -> Result<Node, Failure> {
 }
 fn discover(stop: &AtomicBool) -> Result<Node, Failure> {
     if let Some(cached) = NODE.get() {
-        return cached.clone();
+        return Ok(cached.clone());
     }
     let result = (|| {
         if let Some(path) = std::env::var_os("TINKERY_NODE") {
@@ -229,8 +229,12 @@ fn discover(stop: &AtomicBool) -> Result<Node, Failure> {
             default_node(stop)
         }
     })();
-    if !stop.load(Ordering::SeqCst) {
-        let _ = NODE.set(result.clone());
+    // Only a found Node is kept: a slow login shell or a Node installed later can still be found
+    // when the voice key reloads voice.
+    if let Ok(node) = &result
+        && !stop.load(Ordering::SeqCst)
+    {
+        let _ = NODE.set(node.clone());
     }
     result
 }
