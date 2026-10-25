@@ -25,24 +25,16 @@ pub(crate) fn path(session: &Path) -> std::path::PathBuf {
     session.join("seed-contract.md")
 }
 
-/// Read the exact saved goal beside an original seed, never a placeholder or a run's copy.
-/// The caller must establish the seed's identity separately; this does not verify confirmation.
+/// Read the exact goal bound to a verified seed, refusing changed or unconfirmed session files.
+/// The caller must separately establish that these seed bytes belong to its run.
 pub(crate) fn goal(seed: &Path) -> Result<String, String> {
-    super::migration::refuse_old_root(seed)?;
-    let ledger = seed
-        .parent()
-        .ok_or("The seed has no session folder.")?
-        .join("ledger.json");
-    let bytes = fs::read(&ledger).map_err(|e| e.to_string())?;
-    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-    if value["schema_version"].as_u64() != Some(1) {
-        return Err("The saved goal format isn't supported.".into());
+    let session = seed.parent().ok_or("The seed has no session folder.")?;
+    if path(session) != seed {
+        return Err("The source is not this session's seed.".into());
     }
-    value["goal"]
-        .as_str()
-        .filter(|goal| !goal.trim().is_empty())
-        .map(str::to_owned)
-        .ok_or("The seed has no saved goal.".into())
+    read(session, None)?
+        .map(|ready| ready.goal)
+        .ok_or("The original seed's confirmation cannot be verified.".into())
 }
 
 /// Read a confirmed seed without mutation. `None` means not verified ready; errors mean unavailable.
@@ -283,16 +275,18 @@ mod tests {
 
     #[test]
     fn a_changed_source_is_refused_instead_of_displaying_unverified_bytes() {
-        let (_root, session) = fixture(true);
-        assert!(
-            read_with(&session, Some(&session), || {
-                let shaped = shaping::read(&session)?;
-                fs::write(session.join("seed-contract.md"), "TEST changed").unwrap();
-                Ok(shaped)
-            })
-            .unwrap_err()
-            .contains("changed while being read")
-        );
+        for file in ["seed-contract.md", "ledger.json"] {
+            let (_root, session) = fixture(true);
+            assert!(
+                read_with(&session, Some(&session), || {
+                    let shaped = shaping::read(&session)?;
+                    fs::write(session.join(file), "TEST changed").unwrap();
+                    Ok(shaped)
+                })
+                .unwrap_err()
+                .contains("changed while being read")
+            );
+        }
     }
 
     #[test]

@@ -13,6 +13,7 @@ import termios
 import time
 
 from vt_screen import Screen
+from shape_terminal import make as make_session, seed as make_seed
 
 REPO = Path(__file__).resolve().parents[1]
 FAKE = '''import json, os, sys, time
@@ -196,29 +197,44 @@ def journey(width, height, no_color, configured=True):
                 assert 'Checklist:' not in screen.text() and 'Stage' not in screen.text(), screen.text()
                 send(b'r', 'Needs you')
                 assert calls()[read_count:] == ['status --json'], 'older refresh tried the unsupported detail read'
-                # Only the source path AND the recorded bytes lend a goal to a run.
-                seed = base / 'TEST-session/seed-contract.md'
-                seed.parent.mkdir()
-                seed.write_bytes(b'TEST confirmed original seed\n')
+                # Only a matching source with verified confirmation lends its goal to a run.
                 goal = ' TEST café  \nTEST exact goal tail  '
-                (seed.parent / 'ledger.json').write_text(json.dumps({'schema_version': 1, 'goal': goal}))
+                session = make_session(base / 'TEST-original-sessions', 'ready', goal=goal, question=False)
+                make_seed(session, confirm=True)
+                seed = session / 'seed-contract.md'
                 original = seed.read_bytes()
+                ledger = session / 'ledger.json'
+                original_ledger = ledger.read_bytes()
+                receipt = session / 'seed-confirmation.json'
+                original_receipt = receipt.read_bytes()
                 record = {'path': 'runs/unrelated/seed-contract.md', 'source': str(seed.resolve()),
                           'sha256': hashlib.sha256(original).hexdigest()}
-                for seed_case in ('matched', 'no-seed', 'edited', 'moved', 'missing'):
+                for seed_case in ('matched', 'no-seed', 'edited', 'moved', 'missing',
+                                  'changed-goal', 'changed-goal-and-origin', 'missing-confirmation'):
                     seed.write_bytes(original)
+                    ledger.write_bytes(original_ledger)
+                    receipt.write_bytes(original_receipt)
                     if seed_case == 'edited':
                         seed.write_bytes(original + b'TEST edited\n')
                     elif seed_case == 'moved':
                         seed.rename(base / 'TEST-moved-seed.md')
                     elif seed_case == 'missing':
                         seed.unlink()
+                    elif seed_case in ('changed-goal', 'changed-goal-and-origin'):
+                        changed = json.loads(original_ledger)
+                        changed['goal'] = 'TEST changed goal must never become the original'
+                        if seed_case == 'changed-goal-and-origin':
+                            changed['nodes'][0]['answer'] = changed['goal']
+                        ledger.write_text(json.dumps(changed))
+                    elif seed_case == 'missing-confirmation':
+                        receipt.unlink()
                     row = {**run('TEST-unrelated-slug', 'blocked'),
                            'seed_contract': None if seed_case == 'no-seed' else record,
                            'next_action': f'TEST next for {seed_case} seed case'}
                     set_state(list=envelope(runs=[row]))
                     send(b'r', row['next_action'])
                     text = screen.text()
+                    assert 'TEST changed goal' not in text, text
                     unknown = "Goal unknown: the original seed changed or can't be found."
                     absent = 'No confirmed seed was recorded for this run.'
                     if seed_case == 'matched':
@@ -231,11 +247,14 @@ def journey(width, height, no_color, configured=True):
                     send(b'\r', 'Stage 3 gate: pending')
                     expected = {'matched': 'TEST exact goal tail', 'no-seed': absent}.get(seed_case, unknown)
                     assert expected in screen.text(), screen.text()
+                    assert 'TEST changed goal' not in screen.text(), screen.text()
                     assert ('TEST exact goal tail' in screen.text()) == (seed_case == 'matched')
                     assert not any(word in screen.text() for word in ('seed_contract', 'sha256', 'API'))
                     send(b'\x1b', 'Needs you')
                 # A matched quiet run stays exactly one row, immediately followed by its neighbour.
                 seed.write_bytes(original)
+                ledger.write_bytes(original_ledger)
+                receipt.write_bytes(original_receipt)
                 quiet = {**run('TEST-quiet-seeded', 'current'), 'seed_contract': record}
                 set_state(list=envelope(runs=[quiet, run('TEST-quiet-unseeded', 'current')]))
                 send(b'r', 'TEST-quiet-unseeded')

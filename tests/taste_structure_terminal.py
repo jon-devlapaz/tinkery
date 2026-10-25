@@ -15,7 +15,8 @@ if __name__ == '__main__':
                 before = run(base, width, height, mono, Path(baseline), legacy=True, long_checks=True) if baseline else None
                 result = run(base, width, height, mono, REPO / 'target/debug/tinkery', long_checks=True)
                 for action, expected in golden.items():
-                    assert result['copies'][action] == expected.replace('{ROOT}', str(base)).encode(), action
+                    assert result['copies'][action] == expected.replace('{ROOT}', str(base)).replace(
+                        '{SEED_DIGEST}', result['seed_digest']).encode(), action
                 if before:
                     assert result['copies'] == before['copies'], 'long-check parent/new copy bytes changed'
                 if (width, height, mono) == (100, 30, False):

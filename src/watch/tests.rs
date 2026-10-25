@@ -532,13 +532,8 @@ fn all_three_goal_states_are_distinct_in_list_and_detail() {
         .tempdir()
         .unwrap();
     let seed = root.path().canonicalize().unwrap().join("seed-contract.md");
-    fs::write(&seed, "TEST original seed\n").unwrap();
     let exact = " TEST café  \nTEST full goal tail  ";
-    fs::write(
-        root.path().join("ledger.json"),
-        serde_json::json!({"schema_version":1,"goal":exact}).to_string(),
-    )
-    .unwrap();
+    crate::seed_me::ledger::fixtures::confirmed(root.path(), exact, "r1");
     let record = serde_json::json!({"source":seed, "path":"runs/TEST/seed-contract.md",
         "sha256":format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(fs::read(&seed).unwrap()))});
     for (record, expected) in [

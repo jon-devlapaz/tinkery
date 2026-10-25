@@ -12,15 +12,11 @@ fn fixture() -> (tempfile::TempDir, PathBuf, Value) {
         .unwrap()
         .join("session/seed-contract.md");
     fs::create_dir(source.parent().unwrap()).unwrap();
-    fs::write(&source, b"TEST confirmed seed\n").unwrap();
-    fs::write(
-        source.parent().unwrap().join("ledger.json"),
-        json!({
-            "schema_version":1, "goal":" TEST café\nexact goal  "
-        })
-        .to_string(),
-    )
-    .unwrap();
+    crate::seed_me::ledger::fixtures::confirmed(
+        source.parent().unwrap(),
+        " TEST café\nexact goal  ",
+        "r1",
+    );
     let run = json!({"slug":"unrelated-name", "seed_contract":{
         "path":"runs/other/seed-contract.md", "source":source,
         "sha256": format!("{:x}", Sha256::digest(fs::read(&source).unwrap()))
@@ -29,7 +25,7 @@ fn fixture() -> (tempfile::TempDir, PathBuf, Value) {
 }
 
 #[test]
-fn canonical_source_and_current_bytes_alone_join_the_exact_goal() {
+fn canonical_source_and_verified_current_bytes_join_the_exact_goal() {
     let (_root, source, run) = fixture();
     let seed = Seed::parse(&run).unwrap().unwrap();
     assert!(started(&[seed], &source).unwrap());
@@ -47,6 +43,64 @@ fn canonical_source_and_current_bytes_alone_join_the_exact_goal() {
         Goal::Unknown,
         "a noncanonical record never joins"
     );
+}
+
+#[test]
+fn unchanged_seed_bytes_cannot_lend_a_changed_ledger_goal() {
+    let (_root, source, run) = fixture();
+    let ledger_path = source.parent().unwrap().join("ledger.json");
+    let original = fs::read(&ledger_path).unwrap();
+    let seed = Seed::parse(&run).unwrap().unwrap();
+    for matching_origin in [false, true] {
+        let mut ledger: Value = serde_json::from_slice(&original).unwrap();
+        ledger["goal"] = "TEST changed goal".into();
+        if matching_origin {
+            ledger["nodes"][0]["answer"] = ledger["goal"].clone();
+        }
+        fs::write(&ledger_path, ledger.to_string()).unwrap();
+        assert!(
+            seed.matches(&source).unwrap(),
+            "the seed bytes stayed intact"
+        );
+        assert_eq!(
+            goal(&run),
+            Goal::Unknown,
+            "an edited goal was called original"
+        );
+    }
+    fs::write(ledger_path, original).unwrap();
+    assert_eq!(goal(&run), Goal::Matched(" TEST café\nexact goal  ".into()));
+}
+
+#[test]
+fn missing_or_changed_confirmation_cannot_lend_a_goal() {
+    let (_root, source, run) = fixture();
+    let receipt = source.parent().unwrap().join("seed-confirmation.json");
+    let original = fs::read(&receipt).unwrap();
+    let mut changed: Value = serde_json::from_slice(&original).unwrap();
+    changed["decisions_sha256"] = "0".repeat(64).into();
+    fs::write(&receipt, changed.to_string()).unwrap();
+    assert_eq!(goal(&run), Goal::Unknown);
+    fs::remove_file(&receipt).unwrap();
+    assert_eq!(goal(&run), Goal::Unknown);
+    fs::write(receipt, original).unwrap();
+    assert_eq!(goal(&run), Goal::Matched(" TEST café\nexact goal  ".into()));
+}
+
+#[test]
+fn another_file_beside_a_verified_seed_cannot_lend_its_goal() {
+    let (_root, source, mut run) = fixture();
+    let unrelated = source.with_file_name("unrelated.md");
+    fs::copy(&source, &unrelated).unwrap();
+    run["seed_contract"]["source"] = unrelated.to_string_lossy().into_owned().into();
+    assert!(
+        Seed::parse(&run)
+            .unwrap()
+            .unwrap()
+            .matches(&unrelated)
+            .unwrap()
+    );
+    assert_eq!(goal(&run), Goal::Unknown);
 }
 
 #[test]

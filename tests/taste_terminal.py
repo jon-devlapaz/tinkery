@@ -13,6 +13,7 @@ import tempfile
 import termios
 import time
 import test_launch as subprocess
+from shape_terminal import make as make_session, seed as make_seed
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
@@ -64,6 +65,13 @@ def tree(root):
     return {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
 
 
+def confirmed_seed(base, goal=GOAL):
+    """Bind the literal TEST goal to real ledger confirmation, without provider calls."""
+    session = make_session(base / 'TEST-original-sessions', 'ready', goal=goal, question=False)
+    make_seed(session, confirm=True)
+    return session / 'seed-contract.md'
+
+
 def journey(width, height, no_color, mapping_case='valid', next_case=None):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-taste-') as directory:
         base = Path(directory).resolve()
@@ -74,10 +82,8 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
         handoff = checkout / 'runs/TEST-result/handoff.md'
         handoff.parent.mkdir(parents=True)
         handoff.write_text(f'Human prose is not a machine interface.\nPR: {URL}\n')
-        seed = base / 'TEST-session/seed-contract.md'
-        seed.parent.mkdir()
-        seed.write_text('TEST seed\n')
-        (seed.parent / 'ledger.json').write_text(json.dumps({'schema_version': 1, 'goal': GOAL}))
+        seed = confirmed_seed(base)
+        original_seed = seed.read_bytes()
         record = {'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
                   'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()}
         state = fixture(record)
@@ -357,7 +363,29 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             count = len(copied())
             send(b'a', 'Goal/run identity unknown')
             assert len(copied()) == count
-            seed.write_text('TEST seed\n')
+            seed.write_bytes(original_seed)
+            # The same seed bytes cannot authorize a replacement goal or missing receipt.
+            ledger = seed.parent / 'ledger.json'
+            original_ledger = ledger.read_bytes()
+            changed = json.loads(original_ledger)
+            changed['goal'] = 'TEST changed goal must never become the original'
+            changed['nodes'][0]['answer'] = changed['goal']
+            receipt = seed.parent / 'seed-confirmation.json'
+            original_receipt = receipt.read_bytes()
+            for source_case in ('changed-goal', 'missing-confirmation'):
+                send(b'r', 'TEST café')
+                if source_case == 'changed-goal':
+                    ledger.write_text(json.dumps(changed))
+                else:
+                    receipt.unlink()
+                send(b'r', 'Goal unknown')
+                assert 'TEST changed goal' not in screen.text()
+                count = len(copied())
+                for action in (b'a', b'c'):
+                    send(action, 'Goal/run identity unknown')
+                    assert len(copied()) == count
+                ledger.write_bytes(original_ledger)
+                receipt.write_bytes(original_receipt)
             # Handoff prose is irrelevant, including conflicting links: only launch inputs bind.
             handoff.write_text(f'{URL}\nhttps://github.com/TEST/decoy/pull/999\n')
             update()
