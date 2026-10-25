@@ -20,7 +20,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod citations;
 mod seed_reply;
+
+use citations::unfound;
 
 const SEED: &str = "seed-contract.md";
 
@@ -347,37 +350,6 @@ fn checked_in(found: &Found, folder: &Path) -> String {
 /// Separates how a finding was checked from why its citation wasn't found in the folder.
 pub const UNFOUND: &str = "; citation not found: ";
 
-/// Why a `path:line` or `path:first-last` cited in `checked` isn't in `folder`: the file is missing
-/// or outside it, or has fewer lines. Only checks that the lines exist, not what they say; text
-/// without such a citation is not judged.
-fn unfound(checked: &str, folder: &Path) -> Option<String> {
-    let root = folder.canonicalize().ok()?;
-    citations(checked).find_map(|cite| {
-        let path = &cite[1];
-        let last = cite.get(3).unwrap_or(cite.get(2)?).as_str();
-        let (first, last): (u64, u64) = (cite[2].parse().ok()?, last.parse().ok()?);
-        let Ok(file) = root.join(path).canonicalize() else {
-            return Some(format!("{path} isn't in the folder"));
-        };
-        if !file.starts_with(&root) {
-            return Some(format!("{path} is outside the folder"));
-        }
-        let bytes = std::fs::read(&file).ok()?;
-        let lines = bytes.split(|b| *b == b'\n').count() as u64 - u64::from(bytes.ends_with(b"\n"));
-        (first == 0 || first.max(last) > lines)
-            .then(|| format!("{path} has {lines} lines, not {}", first.max(last)))
-    })
-}
-
-/// Recorded file-and-line citations; prose alone never establishes a read path.
-fn citations(checked: &str) -> impl Iterator<Item = regex::Captures<'_>> {
-    static CITE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"(?:^|[\s,(\[`])([\w./-]*\w\.\w+):(\d+)(?:-(\d+))?")
-            .expect("the citation pattern compiles")
-    });
-    CITE.captures_iter(checked)
-}
-
 /// Append proposed facts without guessing types, repairing references or duplicating ledger rules.
 fn facts(state: &mut Value, found: &[Found], folder: &Path) {
     let at = now();
@@ -410,10 +382,7 @@ fn today(found: &[Receipt]) -> String {
     for receipt in found {
         let reads = receipt.check.starts_with("read-only file tools in ")
             && !receipt.check.contains(UNFOUND);
-        let cited: Vec<_> = citations(&receipt.checked)
-            .map(|cite| cite[1].to_owned())
-            .collect();
-        if reads && !cited.is_empty() {
+        if reads && let Some(cited) = citations::paths(&receipt.checked) {
             paths.extend(cited);
         } else {
             unattributed = true;
@@ -589,6 +558,8 @@ fn publication_time(time: SystemTime) -> Result<String, Refusal> {
 
 #[cfg(test)]
 mod answer_actions_tests;
+#[cfg(test)]
+mod citation_tests;
 #[cfg(test)]
 mod prerequisite_tests;
 #[cfg(test)]
