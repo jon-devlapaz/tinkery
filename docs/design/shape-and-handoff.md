@@ -519,7 +519,9 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   its qualifiers as records in the bundled contract, not model-formatted
   criteria. Before publishing a draft, each explicit `Done when:` line and its following
   bullet lines must each match one complete check statement exactly, without the heading
-  or bullet marker. Splitting a sequence into weaker checks refuses the draft and names
+  or bullet marker. A statement that keeps a line's words in the clause form the goal
+  block joined with `; ` matches too, once composed the same way; reworded, reordered or
+  dropped clauses do not (#381). Splitting a sequence into weaker checks refuses the draft and names
   the missing statement; supplemental checks remain allowed. Unstructured goals and
   missing criteria add no requirements. This preserves words, not proof that a command
   exercises them; test adequacy still needs review. Existing seeds are not rewritten.

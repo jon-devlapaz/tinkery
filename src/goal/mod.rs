@@ -209,6 +209,19 @@ fn prose(text: &str) -> String {
         .collect::<Vec<_>>()
         .join("; ")
 }
+fn finish(s: String) -> String {
+    if s.ends_with(['.', '!', '?']) {
+        s
+    } else {
+        s + "."
+    }
+}
+/// Text as the goal block would show it after a `Done when:` label: the same words, with
+/// clauses joined and finished as composition does. Equal results mean the same words in
+/// the same order, never similar meaning.
+pub fn composed_line(text: &str) -> String {
+    finish(prose(text))
+}
 /// Explicit leading negative syntax, matched case-insensitively; see goal-block.md.
 const NEGATIVE: [&str; 4] = ["must not", "do not", "don't", "don\u{2019}t"];
 /// Words after a negative prefix that make the clause something other than an exclusion.
@@ -403,13 +416,6 @@ impl GoalParts {
     /// The whole goal block as people see and save it: the goal line, then Why, Done when,
     /// and one line per distinct constraint. `None` when there is nothing to show yet.
     pub fn compose(&self) -> Option<String> {
-        let finish = |s: String| {
-            if s.ends_with(['.', '!', '?']) {
-                s
-            } else {
-                s + "."
-            }
-        };
         let mut lines = vec![];
         if let Some(goal) = self.goal_line() {
             lines.push(finish(goal));

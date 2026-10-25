@@ -87,6 +87,7 @@ pub fn validate_checks(records: &Value) -> Result<()> {
 }
 
 /// Keep each explicit confirmed success line in one whole statement; never infer semantic coverage.
+/// A statement may keep the line's words in the clause form the goal block joined.
 /// Unstructured goals and missing criteria add no requirements. This does not prove a check works.
 pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
     validate_checks(records)?;
@@ -108,10 +109,11 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
         };
         if let Some(criterion) = criterion.filter(|value| !value.is_empty()) {
             require(
-                records
-                    .items()
-                    .iter()
-                    .any(|record| record["statement"].string() == Some(criterion)),
+                records.items().iter().any(|record| {
+                    record["statement"].string().is_some_and(|statement| {
+                        statement == criterion || crate::goal::composed_line(statement) == criterion
+                    })
+                }),
                 format!(
                     "No seed was drafted: keep this complete Done when line unchanged in one check statement: {criterion} Separate checks may supplement it, not replace its sequence or qualifiers."
                 ),
