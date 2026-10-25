@@ -72,6 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut operator = None;
     let mut sdlc_root = None;
     let mut taste_results = tinkery::taste::ResultLinks::default();
+    let mut home_inputs = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -95,6 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--taste-result" => {
                 taste_results.add(&args.next().ok_or("--taste-result needs RUN_ID=PR_URL")?)?;
+                home_inputs = true;
             }
             "--full-redraw" => full_redraw = true,
             "--shape-pi" => shape_pi = true,
@@ -147,6 +149,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err(
             "--model, --thinking, --pi-command and --shape-budget require --shape-pi".into(),
         );
+    }
+    // Watch, Approve and Taste live in the home menu; Think alone would ignore their inputs.
+    if !home_menu && (home_inputs || sdlc_root.is_some()) {
+        return Err("--sdlc-root and --taste-result require --home".into());
     }
     let confirmation = tinkery::think_record::GoalConfirmation::terminal(operator.as_deref())?;
     let record_root = match record_root {
