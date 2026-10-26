@@ -190,6 +190,11 @@ impl Agent {
         self.budget.limit()
     }
 
+    /// The allowance sentence Think shows too, so both phases count the same way.
+    pub fn left(&self) -> String {
+        self.budget.left()
+    }
+
     /// The folder a step for `session` reads unless the operator picks another: where Think
     /// recorded `goal` was made, else the folder this agent was given, else where Tinkery started.
     /// Reads Think's records; blocks, so run it off the paint path.

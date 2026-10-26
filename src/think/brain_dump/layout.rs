@@ -201,8 +201,12 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             .and_then(|g| g.goal())
             .map(agent_text)
             .unwrap_or_default();
+        let left = app
+            .host
+            .calls_left()
+            .map_or_else(String::new, |left| format!(" {left}"));
         format!(
-            "Reading failed: {error}\n\nOriginals retained. Retry, inspect Why, or add clarification.\n\n{retained}"
+            "Reading failed: {error}{left}\n\nOriginals retained. Retry, inspect Why, or add clarification.\n\n{retained}"
         )
     } else if app.conversation.board().is_some() {
         String::new()
@@ -446,7 +450,11 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Type your answer.\nF2 sends · F8 skips."
     };
     if !app.screen.help_all {
-        return format!("Right now\n{now}\n\nF1 every key · Esc close");
+        let left = app
+            .host
+            .calls_left()
+            .map_or_else(String::new, |left| format!("\n{left}"));
+        return format!("Right now\n{now}{left}\n\nF1 every key · Esc close");
     }
     let send = if app.real {
         "! F2   send (your words go to the model; small cost)"

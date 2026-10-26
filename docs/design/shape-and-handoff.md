@@ -583,7 +583,9 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   Pasted breaks remain intact, but confirmation is one `Confirmed by:` line.
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
-- Failures name what happened and one `Next:`. Budget exhaustion points to
+- Failures name what happened and one `Next:`. A model failure, refusal or stop also
+  says `Model calls left this run: N of M.`, Think's wording, so a retry is chosen knowing
+  its cost (#435). Budget exhaustion points to
   `--shape-budget`; a model error or stop offers F2 retry, or F7 for teach-back
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.

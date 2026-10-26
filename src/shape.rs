@@ -353,7 +353,7 @@ impl Shape {
                 .as_ref()
                 .err()
                 .and_then(|failure| failure.feedback.as_deref().cloned());
-            open.notice = said(result, open.doing);
+            open.notice = said(result, open.doing, self.agent.as_deref().map(Agent::left));
             open.reading = Reading::NotStarted;
         }
         if let Some(open) = &mut self.open
@@ -767,10 +767,9 @@ impl Shape {
                             "Each F2 step is one call, with read-only tools."
                         };
                         format!(
-                            "Model calls left this run: {} of {}. {step}\n\
+                            "{} {step}\n\
                              Tinkery saves every change; the model never writes the session.",
-                            a.remaining(),
-                            a.limit()
+                            a.left()
                         )
                     },
                 );
@@ -1512,6 +1511,7 @@ impl Opened {
                         feedback: None,
                     }),
                     Doing::Answer,
+                    None,
                 )
             }
             Act::Respond { .. } | Act::Answer { .. } | Act::Look(_) if folder.is_none() => {
@@ -2110,7 +2110,12 @@ fn asked(ending: Ending) -> (String, Option<String>) {
     }
 }
 
-fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<String>)> {
+/// `left` is the allowance, added where the operator decides whether to retry (#435).
+fn said(
+    result: Result<Done, Failure>,
+    doing: Doing,
+    left: Option<String>,
+) -> Option<(String, Option<String>)> {
     if result == Ok(Done::Compared) {
         return Some((
             "Teach-back compared. Mismatches never block F3.".into(),
@@ -2121,6 +2126,7 @@ fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<S
         answer_saved, why, ..
     } = result.err()?;
     let saved = if answer_saved { doing.saved() } else { "" };
+    let left = left.map_or_else(String::new, |left| format!(" {left}"));
     Some(match why {
         Why::Stale if answer_saved => (
             format!(
@@ -2144,7 +2150,7 @@ fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<S
         ),
         Why::Model(error) => (
             format!(
-                "{saved}{}: {error}",
+                "{saved}{}: {error}{left}",
                 if matches!(doing, Doing::TeachBack) {
                     "Comparing your teach-back failed"
                 } else {
@@ -2153,10 +2159,10 @@ fn said(result: Result<Done, Failure>, doing: Doing) -> Option<(String, Option<S
             ),
             None,
         ),
-        Why::Refused(reason) => (format!("{saved}{reason}"), None),
+        Why::Refused(reason) => (format!("{saved}{reason}{left}"), None),
         Why::Stopped => (
             format!(
-                "{saved}Stopped before the next step finished. The model call it started still counts against this run's budget."
+                "{saved}Stopped before the next step finished. The model call it started still counts against this run's budget.{left}"
             ),
             None,
         ),
