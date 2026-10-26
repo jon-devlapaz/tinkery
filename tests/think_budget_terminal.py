@@ -51,11 +51,22 @@ def journey(limit, home, width, height):
             terminal.send(b'\x1bOQ', "Reading failed: Call limit" if not limit else 'Which TEST reason?')
             assert len(calls()) == (limit or 0), calls()
             assert 'TEST budget words' in terminal.screen.text()
+            # #435: the allowance is shown where a retry is decided, and in Right now help.
+            left = f'Model calls left this run: 0 of {limit or 0}.'
+
+            def shows(text):
+                return terminal.wait(lambda screen: text in ' '.join(screen.split()))
+            if not limit:
+                shows(left)
+            terminal.send(b'\x1bOP', 'Right now')
+            shows(left)
+            terminal.send(b'\x1b', 'TEST budget words')
 
             # Another submission cannot borrow a fresh allowance.
             terminal.send(b'TEST another answer', 'TEST another answer')
             terminal.send(b'\x1bOQ', "Reading failed: Call limit")
             assert len(calls()) == (limit or 0), calls()
+            shows(left)
 
             if home:
                 terminal.send(b'\x1b[21~', 'lose this draft?')

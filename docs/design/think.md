@@ -106,7 +106,8 @@ is in flight, the initial reading or refinement status says `Thinking… (call 1
 to 2)`, then `Reviewing decisions… (call 2 of up to 2)`. These name phases, not a
 claim that both calls ran; unreadable shaping skips review. Practice claims no
 model calls. Scope questions may use none. No calls follow display, and nothing
-retries automatically.
+retries automatically. With a model, Right now help and a failed reading say
+`Model calls left this run: N of M.`, the launch allowance Shape shares (#435).
 Practice and verification use fakes; [historical evals](#decision-review-evidence-34)
 promise no general quality.
 

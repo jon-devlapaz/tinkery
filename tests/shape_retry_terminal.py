@@ -83,6 +83,9 @@ def retry_journey(width, height, case):
         run = Run(root, width, height, budget=budget, replies=queue, agent=True)
         try:
             saved = reject(run, session, bounded=case == 'bounded')
+            if case != 'bounded':
+                # #435: the refusal says what a retry has left, without opening help.
+                run.wait(f'Model calls left this run: {budget - 1} of {budget}.')
             # Looking at recovery information, then closing it, neither writes nor calls.
             run.send(F1, 'Model calls left this run:')
             run.send(F1, 'Next: F2 looks into the next question.')

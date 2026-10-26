@@ -20,6 +20,11 @@ pub trait BoardHost: Send + Sync {
     fn new_session(&self) -> Option<Arc<dyn BoardHost>> {
         None
     }
+    /// The launch allowance still left, in the words Shape uses; none for a host that makes no
+    /// counted calls. Reading it never starts work.
+    fn calls_left(&self) -> Option<String> {
+        None
+    }
     /// The host's own log lines for F5 "why"; none by default.
     fn diagnostics(&self) -> Vec<String> {
         Vec::new()
@@ -35,6 +40,9 @@ impl BoardHost for PiHost {
     }
     fn new_session(&self) -> Option<Arc<dyn BoardHost>> {
         Some(Arc::new(PiHost::new_session(self)))
+    }
+    fn calls_left(&self) -> Option<String> {
+        self.budget().map(crate::pi::CallBudget::left)
     }
     fn origin(&self) -> record::Origin {
         record::Origin {

@@ -107,6 +107,10 @@ impl PiHost {
         self
     }
 
+    pub(super) fn budget(&self) -> Option<&CallBudget> {
+        self.budget.as_deref()
+    }
+
     /// Leaves the thinking level to Pi's own default.
     pub fn with_default_thinking(mut self) -> Self {
         self.thinking.clear();

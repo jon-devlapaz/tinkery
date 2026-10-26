@@ -89,6 +89,14 @@ impl CallBudget {
     pub fn remaining(&self) -> usize {
         self.limit.saturating_sub(self.used())
     }
+    /// The allowance in the words both phases show: requests left out of the limit.
+    pub fn left(&self) -> String {
+        format!(
+            "Model calls left this run: {} of {}.",
+            self.remaining(),
+            self.limit
+        )
+    }
     /// Counts one `kind` request, or refuses it when the limit is reached. Returns the slot that
     /// [`CallBudget::finish`] fills in.
     pub fn reserve(&self, kind: Request) -> Result<usize, String> {
