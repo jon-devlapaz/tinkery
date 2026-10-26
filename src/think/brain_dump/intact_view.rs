@@ -234,31 +234,17 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
         area.width,
         area.height.saturating_sub(u16::from(clipped)),
     );
-    if clipped {
-        frame.render_widget(
-            Paragraph::new(
-                if app.screen.source_scroll
-                    >= wrapped
-                        .lines
-                        .len()
-                        .saturating_sub(usize::from(inner.height))
-                {
-                    "↑ more"
-                } else if app.screen.source_scroll > 0 {
-                    "↕ more"
-                } else {
-                    "↓ more"
-                },
-            )
-            .style(palette.muted),
-            Rect::new(area.x, area.bottom() - 1, area.width, 1),
-        );
-    }
     app.screen.source_area = inner;
     let max = wrapped
         .lines
         .len()
         .saturating_sub(usize::from(inner.height));
+    if clipped && let Some(cue) = crate::more_cue(app.screen.source_scroll, max) {
+        frame.render_widget(
+            Paragraph::new(cue).style(palette.muted),
+            Rect::new(area.x, area.bottom() - 1, area.width, 1),
+        );
+    }
     app.screen.source_scroll = app.screen.source_scroll.min(max);
     frame.render_widget(
         Paragraph::new(

@@ -276,9 +276,10 @@ impl Approve {
     }
 
     /// Draw one seed's unchanged goal, acceptance section and manual commands; keep navigation
-    /// visible while long words, paths and errors wrap and scroll. Painting never reads sources.
+    /// visible while long words, paths and errors wrap and scroll, and say which way hidden rows
+    /// lie. Painting never reads sources.
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette, help: bool) {
-        let body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
+        let mut body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
         self.page = body.height;
         let mut lines = Vec::new();
         let mut keys = "↑↓ scroll   esc back   ? help";
@@ -403,12 +404,20 @@ impl Approve {
         let paragraph = Paragraph::new(Text::from(lines))
             .wrap(Wrap { trim: false })
             .style(palette.ink);
-        *position = (*position).min(
-            paragraph
-                .line_count(body.width)
-                .saturating_sub(body.height as usize)
-                .min(u16::MAX as usize) as u16,
-        );
+        let rows = paragraph.line_count(body.width);
+        // A clipped view gives its last row to the cue, so nothing hidden passes for the end.
+        if rows > body.height as usize && body.height > 1 {
+            body.height -= 1;
+            self.page = body.height;
+        }
+        let hidden = rows.saturating_sub(body.height as usize);
+        *position = (*position).min(hidden.min(u16::MAX as usize) as u16);
+        if let Some(cue) = crate::more_cue(*position as usize, hidden) {
+            frame.render_widget(
+                Paragraph::new(cue).style(palette.muted),
+                Rect::new(body.x, body.bottom(), body.width, 1),
+            );
+        }
         frame.render_widget(paragraph.scroll((*position, 0)), body);
         frame.render_widget(
             Paragraph::new(self.notice).style(palette.muted),

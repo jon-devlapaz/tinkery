@@ -58,7 +58,9 @@ agent attribution still refuses verification.
 | Esc | Close help or return to the menu. |
 | F10 | Return to the menu. |
 
-The footer always retains navigation. Empty state points to Shape or Watch.
+The footer always retains navigation. When the reading doesn't fit, its last row says
+`↓ more`, `↕ more` or `↑ more`, so the command below the goal is never mistaken for absent.
+Empty state points to Shape or Watch.
 [SDLC handoff](shape-and-handoff.md#sdlc-handoff) owns the exact join: matching
 started seeds are hidden. Changed or unavailable originals get an unknown-start
 notice and a Shape recovery step, not a waiting claim. Without `--sdlc-root`, or
