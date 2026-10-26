@@ -2,9 +2,8 @@
 
 Historical inspection evidence for [#63](https://github.com/jon-devlapaz/tinkery/issues/63)
 at the pinned revisions below, not fresh capability verification or implementation
-permission. Read the [unaccepted design proposal](../../design/job-records.md)
-for binding, reader and approval-handoff requirements; none is implemented by
-this documentation split.
+permission. The [retained binding proposal](job-records-proposal.md) is historical
+and superseded by [#258](https://github.com/jon-devlapaz/tinkery/issues/258).
 
 ## What was inspected
 

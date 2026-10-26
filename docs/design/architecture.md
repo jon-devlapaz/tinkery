@@ -15,14 +15,10 @@ Each built [place](menu.md) is a **phase**, with its own compartment:
 Each top-level module belongs to one area, listed in `MODULES` in the check. A new module must be listed
 there, so a new phase can't count as shared code by default.
 
-Published task specifications live in GitHub Issues. The
-[parked backlog](../research/shared/backlog.md) is the single home for unpublished
-ideas; the area entry points below contain navigation only.
-
-Use the [Think backlog](../research/shared/backlog.md#think) for unpublished Think
-work. Measure's former [failure presentation](https://github.com/jon-devlapaz/tinkery/issues/119)
-and [owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) are retired.
-The module map below describes responsibilities; `MODULES` owns area assignments.
+Published task scope and status live in GitHub Issues. Measure's former
+[failure presentation](https://github.com/jon-devlapaz/tinkery/issues/119) and
+[owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) are retired.
+`MODULES` owns area assignments; the map below describes responsibilities.
 
 [Shape](shape-and-handoff.md#shape), [Approve](approve.md), [Watch](watch.md) and
 [Taste](taste.md) have separate modules. There are no dependency exceptions: Think hands
@@ -42,8 +38,7 @@ selection establishes neither open-weight compatibility nor comparative quality.
 [Think records](think.md#think-record) retain confirmed-session evidence, not
 unconfirmed sessions or complete factory telemetry. The read-only
 [seed-to-run join](shape-and-handoff.md#sdlc-handoff) uses SDLC's source-owned record;
-the broader [binding-store proposal](job-records.md#goal-to-run-identity-prerequisite)
-is not implemented.
+the earlier Tinkery binding proposal was replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258).
 [Release evidence](first-release.md) is required before claiming a complete factory
 or improved outcomes.
 
@@ -125,72 +120,8 @@ Each pass scores 1.25. Structural PRs name the rows they move.
 **Recorded score: 10/10** (2026-10-12, after #39). This is not a fresh measurement.
 The remaining debt is `brain_dump.rs`'s narrow interface over substantial routing.
 
-The module map owns these boundaries. Preview and sending share conversation
-staging and one drafting request boundary; submit sends the prepared, measured request
-without reconstructing it. Measure owns its PR list, details and help; the menu owns
-entry and return. Linking, graph geometry and the garden footer stay separate.
-Think writes shared records; Tend
-reads them. Shared `repo.rs` finds the root once.
-Only Tinkery's ledger-backed Shape verification claims seed-ready; file discovery reports
-unchecked declarations.
-
-The shared SDLC read and seed identity improve diagnostics 3 and 6: both phases
-use one source-owned join without knowing each other. The module map improves
-boundary visibility (7). Seed checks, confirmation and ending now hide behind typed ledger calls,
-extending diagnostics 3 and 6 without changing phase callers; the map keeps diagnostic 7 current.
-Named seed prose fields derive from the ledger's canonical artifact sequence, improving
-interface simplicity (2), format changeability (3) and hidden decisions (6): the model
-cannot choose heading order, and the prompt attaches only compatible contract guidance.
-The module map keeps that boundary visible (7).
-Closing risks and completion-review rules remain ledger-owned, as do append-only teach-back
-receipts that do not change decision premises (3, 6). Shape only displays risks and obtains
-explicit keys for capture, comparison and confirmation (2); the map keeps these boundaries
-visible (7). Mismatches never become a confirmation gate.
-Retiring skill parameters simplifies interfaces (2); bundled guidance and Rust initialization
-remove an external implementation dependency (3). Ledger saving, byte-preserving migration and unique-ID history attribution
-hide their decisions behind shared boundaries (6); the module map records the owners (7).
-No limit is relaxed; the recorded score remains 10/10.
-
-First-run friction fixes keep probe-answer provenance at the seed prose boundary,
-revision-bound reading in Shape, title slugs and combined shell commands behind the
-shared handoff formatter, and older-run presentation in Watch. These improve interface
-simplicity (2), changeability without caller churn (3) and hidden decisions (6); the map
-keeps the owners visible (7). No architecture limit or recorded score changes.
-
-Agent-operated Think and Shape resolve typed actors through one shared authorization boundary.
-Persistence reads actor data rather than rewriting human prose; seed verification binds named
-attribution. Verified agent receipts now share the manual intake formatter while
-retaining a distinct confirmation notice and consumer requirement (#323). These improve interface simplicity
-(2), changeability (3) and hidden decisions (6); this map and the
-[confirmation contract](think.md#confirmation-attribution-185) keep boundaries visible (7).
-No architecture limit or recorded score changes.
-
-Removing Measure's external reader and configuration simplifies interfaces (2),
-removes an external implementation dependency (3) and confines its unknown display
-without reader lifecycle decisions (6). The module map keeps boundaries visible (7).
-No diagnostic worsens; no architecture limit or recorded score is loosened.
-
-Measure's PR reader hides GitHub process limits and cancellation from rendering (3, 6).
-The phase owns selection and evidence semantics behind open/key/poll/render (2); the
-module map records the boundary (7). No phase dependency or architecture limit changes.
-
-Taste keeps revision matching and result selection inside its own phase (6), behind
-open/key/poll/render and copy requests (2). Shared bounded reads hide subprocess lifetime
-without cross-phase dependencies (3); the module map makes the owners visible (7).
-Explicit typed launch links hide identity validation and conflict policy from the menu
-(2, 6), replacing handoff-prose interpretation rather than adding a store. Evidence
-pointer/method validation stays inside Taste without log reads (3, 6); this map keeps
-both boundaries visible (7). No architecture limit or recorded score changes.
-
-Taste's next-dump policy stays phase-local (6); the menu connects phases through
-shared draft provenance, with no phase-to-phase dependency (2, 3). Conversation
-keeps proposals separate from submitted sources and model context (6); the module
-map and phase designs show these boundaries (7). No architecture limit or recorded
-score changes. Snapshot-only evidence cannot justify a structural consolidation.
-
-Taste's preview keeps declaration format, exact-checkout binding and process lifetime
-behind one phase-local boundary (3, 6). Detail discloses execution before its deliberate
-key; the map names the owner (7). No phase dependency, score or limit changes.
+The module map and phase contracts own current boundaries; this score is a dated
+assessment, not proof of current quality.
 
 The light/dark switch keeps theme colours, the switch key and its header place behind the
 shared palette (6). Screens still receive one `Palette`, so no caller changed its colour code (3);

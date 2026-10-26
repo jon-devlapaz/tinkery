@@ -48,11 +48,11 @@ filled, non-open parts are dropped. A missing unrelated field does not replace a
 valid question. Failed or unreadable review leaves shaping intact.
 
 Stop when the target and irreversible boundaries are settled. Ask no already-covered
-edge cases or implementation questions. Answers belong only to their part.
-The [early-stop gap](#open-work-only) remains. Notes hold open intent, not evidence
-or status disclaimers. Evidence authorship, test history and unreproduced failures
-stay in originals, not invented requirements. Explicit requirements and undecided
-success checks or permissions still belong in goals or questions.
+edge cases or implementation questions. Answers belong only to their part. Notes
+hold open intent, not evidence or status disclaimers. Evidence authorship, test
+history and unreproduced failures stay in originals, not invented requirements.
+Explicit requirements and undecided success checks or permissions still belong in
+goals or questions.
 
 Answers and added dumps remain separate exact sources. Sending refines even a ready
 reading, never starts another dump. Skips persist; Ctrl-Z restores them. Separate
@@ -351,11 +351,12 @@ sentinels: bytes survive sending and copying, never execute on display.
 - F4 originals and F5 why stay help-only. [Local voice](voice.md) inserts editable
   words, never sends. Answering keeps the original dump visible.
 
-## Open work only
+## Published proposals
 
-[Backlog](../research/shared/backlog.md#think) owns proposals, including
-[“Like X” early stop](../research/shared/backlog.md#like-x-early-stop). Help-only
-extracted cards are not the proposed scratch space.
+Published proposal scope and current permission live in the linked GitHub issues:
+[multiple-choice answer research](https://github.com/jon-devlapaz/tinkery/issues/426)
+and [evidence on demand](https://github.com/jon-devlapaz/tinkery/issues/428).
+Neither issue authorizes implementation.
 
 ## Decision-review evidence (#34)
 

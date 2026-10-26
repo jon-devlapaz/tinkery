@@ -1,13 +1,11 @@
-# Think interaction proposal — awaiting operator approval
+# Think interaction proposal — historical, not accepted
 
-**Design only.** This is the single proposed interaction for the
-[October 22 dogfood review](../../../findings/2026-10-22-think-dogfood.md).
-[#339](https://github.com/jon-devlapaz/tinkery/issues/339) authorizes consolidation
-and documentation publication, not application implementation. The later operator
-instruction permits verified current WIP, including documentation, to merge under
-the master supervisor; that does not accept this proposed interaction. The
-[backlog entry](../shared/backlog.md#think-interaction-review) points here instead
-of carrying another specification.
+**Historical design proposal** from the
+[October 22 dogfood review](../../../findings/2026-10-22-think-dogfood.md), retained
+with its evidence and audit. It is not current guidance, accepted design or
+implementation permission. The #427 audit, merged in
+[#429](https://github.com/jon-devlapaz/tinkery/pull/429), recommends keeping shipped
+behavior unless a concrete user-visible gap is observed.
 
 [Yohaku](../../yohaku.md) governs this proposal. The shipped
 [Think interaction](../../design/think.md#interaction-contracts),
@@ -212,6 +210,5 @@ Required evidence for that later scope:
   success threshold before #330/model-quality evaluation; previous trial accounting
   does not authorize it. Fakes do not prove effort reduction or intent fidelity.
 
-For #427: **reconcile this proposal with shipped behavior; no application changes or
-new provider calls.** D7 records resolved ownership. This audit does not accept D1–D6
-or authorize an interaction feature.
+The #427 audit is complete. D1–D6 remain unaccepted; this record does not authorize
+an interaction feature or new provider calls.

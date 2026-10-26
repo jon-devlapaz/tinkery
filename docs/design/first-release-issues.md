@@ -4,9 +4,8 @@ R1–R11 and I1/I2 are stable local labels, not GitHub issue numbers.
 The linked issues own scope, status, approval, completion checks and blocking links.
 This page is an index, not a second task specification.
 
-Publication does not accept the revised R2/binding design or authorize
-implementation, data use, provider spending or merge. Unpublished optional ideas
-have one home in the [parked backlog](../research/shared/backlog.md).
+Publication does not accept a design or authorize implementation, data use,
+provider spending or merge. The issue-board guide owns proposal intake.
 
 ## Rules shared by every draft
 
@@ -26,10 +25,8 @@ behavior was tested. Authorization given for #58 carries into none of these task
 ## R2 — Map one job through the existing tools
 
 **Done:** [#63](https://github.com/jon-devlapaz/tinkery/issues/63), merged in
-[PR #65](https://github.com/jon-devlapaz/tinkery/pull/65). The
-[revised design](job-records.md) proposes Tinkery-owned shared reading and an
-explicit goal-to-run binding. That design remains unaccepted; the
-[R5 prerequisites](#r5-identity) record the replacement of its proposed binding.
+[PR #65](https://github.com/jon-devlapaz/tinkery/pull/65). Its historical
+Tinkery-owned binding proposal was superseded by [#258](https://github.com/jon-devlapaz/tinkery/issues/258).
 
 <a id="r3"></a>
 ## R3 — Add an explicitly budgeted live evaluation mode

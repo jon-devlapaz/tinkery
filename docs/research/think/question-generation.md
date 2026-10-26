@@ -26,8 +26,6 @@ they didn't cover.
 | Splitting "is the request unclear?" from "is the step hard?" raised clarification F1 by 36-73%. | [Uncertainty Decomposition](https://arxiv.org/html/2606.19559v1) | Already done: decisions are separate from notes. |
 | Batched multiple-choice questions (about 36 per session) raised prompt completeness; only 4 participants. | [PAWNI](https://arxiv.org/html/2608.01366) | Too weak to change one-question-at-a-time. |
 
-## Backlog
-
-Two proposals from this research live in the
-[parked backlog](../shared/backlog.md#loose-ends): generic fallback questions and
-contradicting answers.
+The comparisons above record the October 13 inspection, not a fresh check of current
+behavior. The generic-fallback and contradicting-answer proposals are retired;
+these findings remain historical evidence, not implementation guidance or permission.

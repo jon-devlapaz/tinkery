@@ -31,7 +31,7 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   Add regressions, prove important protections fail when reverted, then restore them.
   Tests assert what users observe through public interfaces; never add test-only access
   to private state. Drive Think through its input, not `Conversation`'s capped test accessors.
-  Backlog proposals confer neither shipped behavior nor build permission.
+  Unowned ideas confer neither shipped behavior nor build permission.
 - For agent-facing docs, use `writing-for-agents`: one rule per authoritative home,
   task detail behind pointers.
   Preserve safeguards and runnable commands; brevity is not permission to weaken them.
@@ -45,19 +45,9 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
 
 ## Layout and design entry points
 
-Read only the task's design; [architecture](docs/design/architecture.md#modules-today)
-maps modules to responsibilities.
-
-| Work | Read first |
-| --- | --- |
-| CLI, rendering, graph, input | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md), [Graf API](vendor/graf/API.md) |
-| Module boundaries | [architecture](docs/design/architecture.md) |
-| Menu, discovery, Measure | [menu](docs/design/menu.md) |
-| Think | [think](docs/design/think.md) |
-| Think evaluations | [think evaluation](docs/design/think-evaluation.md) |
-| Goal composition, validation and rendering | [goal block](docs/design/goal-block.md) |
-| Saving, Tend, Shape, continuation | [tend and handoff](docs/design/shape-and-handoff.md) |
-| Voice/setup | [voice](docs/design/voice.md) |
+Read only the relevant task contract from the
+[documentation index](docs/README.md). The [architecture map](docs/design/architecture.md#modules-today)
+shows module responsibilities.
 
 ## Cold setup
 
@@ -114,10 +104,8 @@ cues. [Terminal setup](docs/terminal-setup.md#launch) has isolated real-drafting
 
 ## Work intake
 
-[Issues-board](.agents/skills/issues-board/SKILL.md) owns filing, triage, board operations
-and parallel-work rules. Concrete tasks live in issues; unpublished proposals in the
-[parked backlog](docs/research/shared/backlog.md), grouped by
-[area](docs/design/architecture.md#phases-and-the-dependency-rule).
+[Issues-board](.agents/skills/issues-board/SKILL.md) owns filing, triage, board operations,
+parallel-work rules and proposal intake.
 
 Unapproved work stays `needs-approval`. `approved` records scoped operator permission,
 never grants it; material scope changes return to `needs-approval`. Publication, design

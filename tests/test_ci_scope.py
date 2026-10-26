@@ -55,7 +55,8 @@ class ScopeTests(unittest.TestCase):
         return self.commit()
 
     def test_constitution_design_and_research_prose_is_lightweight(self):
-        names = ["docs/yohaku.md", "docs/design/menu.md", "docs/research/shared/backlog.md"]
+        names = ["docs/yohaku.md", "docs/design/menu.md",
+                 "docs/research/shared/job-records-proposal.md"]
         base = self.rebase_with(names)
         for name in names:
             with self.subTest(path=name):

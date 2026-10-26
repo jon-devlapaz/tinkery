@@ -73,9 +73,9 @@ Ask if they are still tied.
 1. Name the Tinkery place or release work served; otherwise don't file. Search all seven
    repos for open duplicates: `gh search issues --owner jon-devlapaz --state open "<key words>"`.
    Extend an existing issue rather than duplicate it.
-2. File where code changes; keep unready ideas in the [parked backlog](../../../docs/research/shared/backlog.md).
-   Review proposals before publication; replace published local specs with issue links,
-   preserving design contracts and historical findings.
+2. File where code changes. Keep published proposal scope in its issue; do not maintain
+   unowned ideas as repository guidance. Replace published local specs with short issue
+   links, preserving current contracts and dated evidence.
 3. Use [Bounded task headings](../../../.github/ISSUE_TEMPLATE/task.yml) in every repo;
    outside tinkery start with `Serves Tinkery: <place or release work>`.
 4. Show the draft; publish only on the operator's word. Publication is not approval.

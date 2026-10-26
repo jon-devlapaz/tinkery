@@ -92,8 +92,8 @@ The complete journey and its benefit remain unproven; passing checks are not acc
 
 Measure lists PRs, not accepted outcomes or recorded effort. The broader measurement
 proposals are closed, not planned. See the
-[first-release plan](docs/design/first-release.md) and [task index](docs/design/first-release-issues.md). Published tasks are not implementation
-permission; unpublished ideas belong in the [parked backlog](docs/research/shared/backlog.md).
+[first-release plan](docs/design/first-release.md) and [task index](docs/design/first-release-issues.md).
+Published issues own proposal scope; publication is not implementation permission.
 
 ## What success means
 
@@ -122,8 +122,9 @@ explicitly authorized budget; provider charges may apply. `--help` lists options
 
 ## Read next
 
+- [Documentation index](docs/README.md): find the governing rules, task contracts,
+  setup, proposals and recorded evidence.
 - [Constitution](docs/yohaku.md): governing principles.
 - [Working guide](AGENTS.md): macOS setup, verification and contribution rules.
-- [Design](docs/design/principles.md): decisions and marked proposals.
 
 GPL-3.0-only; see [LICENSE](LICENSE).
