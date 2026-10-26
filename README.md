@@ -78,6 +78,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 - **Measure:** `r` explicitly reads this repo's PRs updated in the last 30 days from
   GitHub through `gh`. Lists all states; Enter shows dates, author, URL and reported
   PR-head checks. No metrics or acceptance claims. See [Measure](docs/design/menu.md#measure).
+- **Light or dark:** Ctrl-T or the `dark` label beside `?` switches every screen to warm
+  charcoal until you quit; each launch starts light. See [principles](docs/design/principles.md#visual-meaning).
 
 On first default-root launch, old saved sessions move once to Tinkery's sessions folder,
 with a visible notice and no Think-record writes. History matches unique ledger session IDs. Leftover old and new roots

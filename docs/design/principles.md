@@ -15,8 +15,11 @@ amends it. These notes explain design application, not a second constitution.
 ## Visual meaning
 
 Use the constitution's [colour roles](../yohaku.md#colour-has-one-job-each),
-including its non-colour cues. The shipped paper palette is light;
-[dark mode](../research/shared/backlog.md#a-calm-dark-theme) is not built.
+including its non-colour cues. Every launch starts on light paper. Ctrl-T, or a click
+on the muted `dark`/`light` label beside `?`, switches every screen at once to warm
+charcoal (never pure black) and back. Roles keep their jobs and at least 4.5:1 contrast.
+The choice lasts until Tinkery exits: nothing reads the system appearance or saves it.
+Ctrl-T never types. Without colour the label is hidden and nothing changes.
 After an answer, changed goal lines stay in full ink and unchanged lines rest
 muted; the distinction clears on typing or sending. No extra banner or model call.
 

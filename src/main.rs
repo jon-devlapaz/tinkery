@@ -16,7 +16,7 @@ use crossterm::{
     terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate},
 };
 use tinkery::{
-    Palette,
+    Palette, ThemeSwitch,
     menu::{self, Home},
     think::{
         brain_dump::{self, BrainDump, Exit},
@@ -472,6 +472,7 @@ fn run_shape(
     let mut pending_input = None;
     let mut discard_mouse = false;
     let mut previous_area = None;
+    let mut theme = ThemeSwitch::new(no_color);
     while !app.quit() {
         app.tick(&link_root, &shape_agent);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
@@ -486,7 +487,7 @@ fn run_shape(
                         frame.area(),
                     );
                 } else {
-                    app.render(frame, Palette::new(no_color));
+                    app.render(frame, theme.palette());
                 }
                 if repaint || full_redraw {
                     for cell in &mut frame.buffer_mut().content {
@@ -533,6 +534,8 @@ fn run_shape(
                     {
                         repaint = true
                     }
+                    Event::Key(key) if theme.key(key) => {}
+                    Event::Mouse(event) if theme.click(event, area) => {}
                     Event::Key(key) => app.handle_key(key),
                     Event::Paste(text) => app.paste(&text),
                     Event::Mouse(event) => app.handle_mouse(event, area),

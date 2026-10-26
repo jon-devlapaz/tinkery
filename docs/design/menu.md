@@ -26,7 +26,7 @@ Digits and aliases still work without bar clutter. Open places and help hide thi
 Help overlays the upper-right (38×13), leaving choices and descriptions visible at
 all supported sizes. It has a thin muted border, jade title, bold ink headings and
 keys, and muted action labels. A blank row follows the title. Key and action columns
-align, with `Esc Close help` separate below. There is no ambiguous Leave heading,
+align, with `Esc Close help` separate below; with colour, `Ctrl-T Dark or light` sits under `q`. There is no ambiguous Leave heading,
 new colour or background. NO_COLOR keeps the hierarchy. Help blocks underlying
 digits, Enter, movement and row clicks; paste still does nothing. Esc closes help;
 ?, F1 or the corner click toggles it. q, Ctrl-C and F10 retain quit routes.
