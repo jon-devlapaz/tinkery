@@ -469,14 +469,16 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
                 "delegated origin requires a two-way door and small blast radius",
             )?;
         }
+        // #432: a retry must hear which node broke an evidence rule, not just the rule.
+        let named = |e: String| format!("node {}: {e}", node["id"].string().unwrap_or_default());
         if node.has("claim") {
-            validate_claim(node)?;
+            validate_claim(node).map_err(named)?;
         }
         if node.has("resolved_by") {
             unknowns::validate_resolution(node, nodes)?;
         }
         if node.has("supported_by") {
-            validate_support(node, nodes)?;
+            validate_support(node, nodes).map_err(named)?;
         }
         if node.has("rationale") {
             validate_rationale(node)?;

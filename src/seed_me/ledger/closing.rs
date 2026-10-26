@@ -31,7 +31,14 @@ fn case_count(cases: usize, checks: usize) -> Result<(), String> {
     require(
         cases == checks,
         format!(
-            "Completion review needs exactly one failure case per check: received {cases} for {checks} checks. Return the cases in check order."
+            "Completion review needs exactly one failure case per check: received {cases} for {checks} check{}. Return the cases in check order{}",
+            if checks == 1 { "" } else { "s" },
+            // #432: replies listed one case per failure mode, not per check, even after feedback.
+            if cases > checks {
+                "; put every failure mode of one check in its one string."
+            } else {
+                "."
+            }
         ),
     )
 }
