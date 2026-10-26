@@ -472,7 +472,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Tab  switch between writing and your original (the original is read-only)\n"
     };
     format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nPgUp/PgDn   scroll the reading and any overflowing question\n{select}Drag across your original to select; Ctrl-C copies\nCtrl-R   use and edit the suggested answer (empty writing box only)\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (dark)\n!         loses something or can't be undone\nb         turns the key bar on or off"
+        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nPgUp/PgDn   scroll the reading and any overflowing question\n{select}Drag across your original to select; Ctrl-C copies\nCtrl-R   use and edit the suggested answer (empty writing box only)\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (upright)\n!         loses something or can't be undone\nb         turns the key bar on or off\nCtrl-T    dark or light colours until you quit (none without colour)"
     )
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
@@ -574,6 +574,7 @@ pub(super) fn render_header(frame: &mut Frame, palette: Palette) {
         Paragraph::new("tinkery").style(palette.muted),
         Rect::new(2, 1, 7, 1).intersection(area),
     );
+    crate::render_theme_switch(frame, palette);
     frame.render_widget(
         Paragraph::new("?").style(palette.muted),
         Rect::new(area.width.saturating_sub(3), 1, 1, 1).intersection(area),

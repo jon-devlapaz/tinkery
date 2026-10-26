@@ -131,21 +131,6 @@ is neither built nor measured.
 
 ## Shared
 
-### A calm dark theme
-
-**Build:** Propose a restrained dark palette for operator review. Follow macOS
-appearance changes automatically and use an honest fallback elsewhere; unavailable
-appearance stays unknown. Jade means location, rust means consequence, and NO_COLOR works.
-
-**Acceptance:** Review light and dark mockups. Measure text contrast of at least
-4.5:1 between foreground and background, including muted, jade and rust text.
-Use fake appearance-switching tests, snapshots and PTYs for selection,
-consequence prompts and NO_COLOR. Preserve input, navigation and the confirmed goal.
-
-**Read:** [safeguards](#shared-safeguards), [principles](../../design/principles.md), [think](../../design/think.md), [menu](../../design/menu.md).
-
-**Don't:** Use generic black, category colours, settings mazes or break NO_COLOR.
-
 ### Choose the build harness
 
 Parked from [#423](https://github.com/jon-devlapaz/tinkery/issues/423) on 2026-10-26.

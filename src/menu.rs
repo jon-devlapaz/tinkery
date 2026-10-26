@@ -896,8 +896,14 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
     }
     frame.render_widget(
         Paragraph::new(Line::from(title)),
-        Rect::new(2, 1, area.width.saturating_sub(6), 1),
+        Rect::new(
+            2,
+            1,
+            crate::header_end(area, palette, area.width.saturating_sub(4)).saturating_sub(2),
+            1,
+        ),
     );
+    crate::render_theme_switch(frame, palette);
     if area.width >= 4 {
         frame.render_widget(
             Paragraph::new("?").style(palette.muted),
@@ -1056,7 +1062,11 @@ fn render_menu_help(frame: &mut Frame, palette: Palette) {
         action("1–7", "Open directly"),
         Line::default(),
         action("q", "Quit Tinkery"),
-        Line::default(),
+        if palette.theme.is_some() {
+            action("Ctrl-T", "Dark or light")
+        } else {
+            Line::default()
+        },
         Line::default(),
         action("Esc", "Close help"),
     ];

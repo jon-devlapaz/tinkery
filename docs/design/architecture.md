@@ -52,7 +52,7 @@ or improved outcomes.
 | Module | Owns |
 | --- | --- |
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
-| `lib.rs` | The palette (one job per colour) and the minimum terminal size. |
+| `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch and the minimum terminal size. |
 | `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs)), the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |
@@ -191,6 +191,11 @@ score changes. Snapshot-only evidence cannot justify a structural consolidation.
 Taste's preview keeps declaration format, exact-checkout binding and process lifetime
 behind one phase-local boundary (3, 6). Detail discloses execution before its deliberate
 key; the map names the owner (7). No phase dependency, score or limit changes.
+
+The light/dark switch keeps theme colours, the switch key and its header place behind the
+shared palette (6). Screens still receive one `Palette`, so no caller changed its colour code (3);
+the terminal loop alone holds the choice (2). This map names the owner (7). No phase dependency,
+architecture limit or recorded score changes.
 
 ## Limits enforced by `tests/architecture.rs`
 
