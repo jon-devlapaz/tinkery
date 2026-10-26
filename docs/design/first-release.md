@@ -42,9 +42,6 @@ measure accepted outcomes or attention. The broader results and effort proposals
 [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
 [#115](https://github.com/jon-devlapaz/tinkery/issues/115) were closed, not planned,
 on 2026-10-20. The original R9 release gate below remains unfulfilled.
-[Run retention and lessons](../research/shared/backlog.md#keep-runs-and-learn-from-them)
-are separate drafts, not R5 prerequisites.
-The [backlog](../research/shared/backlog.md) is not the release checklist.
 
 ## Milestones and dependencies
 

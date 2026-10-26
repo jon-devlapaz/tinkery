@@ -21,20 +21,30 @@ to the smallest relevant reference.
 Read only the relevant sections. For a change, the applicable contract and
 current shipped behavior outrank proposals, snapshots and old issue status.
 
-## Proposals and recorded evidence
+## Published proposals
 
-These pages are not shipped contracts or permission to implement:
+Issues own proposal scope and status. Publication is not design acceptance,
+implementation permission, data permission or budget.
 
 | Material | Status and use |
 | --- | --- |
-| [Parked ideas](research/shared/backlog.md) | Unpublished proposals; not permission or a release checklist |
-| [Think interaction proposal](research/think/interaction-proposal.md) | Design awaiting operator approval |
-| [One job through existing records](design/job-records.md) | Revised binding proposal, not accepted or implemented; its survey is historical |
-| [Job-record source survey](research/shared/job-record-survey.md) | Source evidence at pinned revisions; refresh before relying on capability claims |
+| [Saved model setup](https://github.com/jon-devlapaz/tinkery/issues/422) | Issue owns scope and permission |
+| [Session-only dark theme](https://github.com/jon-devlapaz/tinkery/issues/424) | Authoritative scope for dark-theme work |
+| [Think multiple-choice research](https://github.com/jon-devlapaz/tinkery/issues/426) | Open; needs approval |
+| [Think evidence on demand](https://github.com/jon-devlapaz/tinkery/issues/428) | Open; needs approval |
+
+## Recorded evidence and retired proposals
+
+These dated records are not current behavior or permission to implement:
+
+| Material | Status and use |
+| --- | --- |
+| [Think interaction proposal](research/think/interaction-proposal.md) | Dated mockup and audit; unresolved redesign is not accepted. See [#427](https://github.com/jon-devlapaz/tinkery/issues/427) for its disposition |
+| [Superseded job-record proposal](research/shared/job-records-proposal.md) | Historical design replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258) |
+| [Job-record source survey](research/shared/job-record-survey.md) | Evidence at pinned revisions; refresh before relying on capability claims |
 | [Question-generation research](research/think/question-generation.md) | Research comparison, not a shipped behavior specification |
 | [Human baseline](research/shared/baseline.md) | A recorded evaluation plan and partial results, not a code-quality score |
 | [Dogfood findings](../findings/README.md) | Historical observations and evidence; not a general outcome claim |
 
-Check the governing [constitution](yohaku.md), current [shipped behavior](../README.md),
-and linked issue before acting on any proposal. Published work, design acceptance,
-implementation permission, data use and budget are separate decisions.
+For shipped behavior, use the relevant contract above. For proposals, use the linked
+issue. For historical claims, use the dated evidence and its stated limits.

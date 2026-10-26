@@ -31,7 +31,7 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   Add regressions, prove important protections fail when reverted, then restore them.
   Tests assert what users observe through public interfaces; never add test-only access
   to private state. Drive Think through its input, not `Conversation`'s capped test accessors.
-  Backlog proposals confer neither shipped behavior nor build permission.
+  Unowned ideas confer neither shipped behavior nor build permission.
 - For agent-facing docs, use `writing-for-agents`: one rule per authoritative home,
   task detail behind pointers.
   Preserve safeguards and runnable commands; brevity is not permission to weaken them.
@@ -104,10 +104,8 @@ cues. [Terminal setup](docs/terminal-setup.md#launch) has isolated real-drafting
 
 ## Work intake
 
-[Issues-board](.agents/skills/issues-board/SKILL.md) owns filing, triage, board operations
-and parallel-work rules. Concrete tasks live in issues; unpublished proposals in the
-[parked backlog](docs/research/shared/backlog.md), grouped by
-[area](docs/design/architecture.md#phases-and-the-dependency-rule).
+[Issues-board](.agents/skills/issues-board/SKILL.md) owns filing, triage, board operations,
+parallel-work rules and proposal intake.
 
 Unapproved work stays `needs-approval`. `approved` records scoped operator permission,
 never grants it; material scope changes return to `needs-approval`. Publication, design

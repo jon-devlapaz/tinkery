@@ -1,11 +1,11 @@
 # Think dogfood review index — October 22, 2026
 
-**Start here.** This is the durable index for this joint dogfood session, not a second
-backlog or a claim that all findings are bugs. The [interaction proposal](../docs/research/think/interaction-proposal.md)
-is the single proposed design for operator review. [#339](https://github.com/jon-devlapaz/tinkery/issues/339)
-authorizes documentation consolidation only, not a new interaction implementation.
-The later operator instruction permits verified current WIP to merge; merging these
-documents does not accept the proposed interaction.
+**Start here.** This is the durable index for this joint dogfood session, not a work
+board or a claim that all findings are bugs. The [dated interaction proposal](../docs/research/think/interaction-proposal.md)
+and its audit are retained as research, not current guidance. The audit was published
+under [#427](https://github.com/jon-devlapaz/tinkery/issues/427) and merged in
+[#429](https://github.com/jon-devlapaz/tinkery/pull/429); unresolved redesign choices
+remain unaccepted.
 
 ## Authority and review status
 
@@ -14,16 +14,11 @@ documents does not accept the proposed interaction.
 | Safeguards | [Yohaku](../docs/yohaku.md); unchanged by this review. |
 | Shipped behavior | [Think](../docs/design/think.md), [goal block](../docs/design/goal-block.md), and merged PRs below. |
 | Published task scope and live status | Linked GitHub issues/PRs; this index is a dated snapshot. |
-| Proposed interaction and unresolved decisions | [One proposal](../docs/research/think/interaction-proposal.md); not accepted and not build permission. |
-| Other unpublished work | [Parked backlog](../docs/research/shared/backlog.md#think); do not create a parallel specification here. |
+| Dated interaction proposal and audit | [Historical proposal](../docs/research/think/interaction-proposal.md); #427 records the audit outcome. |
 
-New interaction implementation is paused in this thread. The operator subsequently
-directed all verified current WIP to finish and merge under **Codex chat Evaluate
-Think design and quality**, the master supervisor. **Codex chat Research drafted-goal
-answer hints** owns #330/#332 and is finishing the approved Ctrl-R slice. This
-review neither blocks nor expands that existing approval. Other phases' work stays
-with its owners. This session owns #339 documentation only; a future ghost-text/Tab
-or layout slice still needs explicit design and implementation approval.
+This is a dated snapshot, not a live work board. See current Think behavior in the
+[design contract](../docs/design/think.md) and verify issue scope and permission
+before acting.
 
 ## Shipped fixes
 

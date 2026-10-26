@@ -1,6 +1,6 @@
 # Synthetic job records
 
-Companion to [the design](../../../docs/design/job-records.md). Every name, word,
+Companion to the [historical proposal](../../../docs/research/shared/job-records-proposal.md). Every name, word,
 approval, check and result here is test data. Never execute the fake PR URL or
 treat `operator: human`, `authority: user` or `decision: approved` as human action.
 The temporary helpers accepted those fields; that does not authenticate them.

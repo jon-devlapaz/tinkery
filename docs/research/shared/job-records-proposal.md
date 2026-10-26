@@ -1,32 +1,28 @@
-# One job through the existing records
+# Historical proposal: one job through the existing records
 
-This follows [#63's survey](../research/shared/job-record-survey.md) and [yohaku](../yohaku.md).
-For the shipped, narrower read-only seed join, use [SDLC handoff](shape-and-handoff.md#sdlc-handoff).
-It replaces the proposed Tinkery binding store for Approve and Watch; it does not implement R5/R6 below.
+This superseded proposal is retained for its dated design history, not as current
+guidance or implementation permission. Its binding approach was replaced by
+[#258](https://github.com/jon-devlapaz/tinkery/issues/258). The survey remains
+[historical evidence](job-record-survey.md); current behavior is in the
+[SDLC handoff contract](../../design/shape-and-handoff.md#sdlc-handoff).
 
-**Revised design proposal; not accepted or implemented.** Authorization covered
-design, not the binding writer or R5. I2 [#110](https://github.com/jon-devlapaz/tinkery/issues/110)
-and R5 [#111](https://github.com/jon-devlapaz/tinkery/issues/111) are published;
-both issues remain `needs-approval`.
-
-[Run retention and lessons](../research/shared/backlog.md#keep-runs-and-learn-from-them)
-remain separate proposals. Seed Me, SDLC and GitHub retain their records and decisions.
-The external aggregation tool is retired; [Measure](menu.md#measure) reads repo PRs
+Seed Me, SDLC and GitHub retain their records and decisions.
+The external aggregation tool is retired; [Measure](../../design/menu.md#measure) reads repo PRs
 only on explicit request, without a results or attention metric.
 R5 requires [explicit binding](#goal-to-run-identity-prerequisite), never matching
 titles, seed paths or a manually selected pair.
 
 ## What was inspected
 
-See [historical source evidence](../research/shared/job-record-survey.md#what-was-inspected).
+See [historical source evidence](job-record-survey.md#what-was-inspected).
 
 ## Record owners and limits
 
-See [historical source evidence](../research/shared/job-record-survey.md#record-owners-and-limits).
+See [historical source evidence](job-record-survey.md#record-owners-and-limits).
 
 ## Trace one synthetic job
 
-See [historical source evidence](../research/shared/job-record-survey.md#trace-one-synthetic-job).
+See [historical source evidence](job-record-survey.md#trace-one-synthetic-job).
 
 ## Goal-to-run identity prerequisite
 
@@ -134,7 +130,7 @@ done or safe-to-resume flag is justified.
 
 ## Attention and cost
 
-See [historical source evidence](../research/shared/job-record-survey.md#attention-and-cost).
+See [historical source evidence](job-record-survey.md#attention-and-cost).
 
 ## Proposed R5: one explicit read
 
@@ -196,7 +192,7 @@ or unresolved links return to the external owner with a reason.
 
 ## Evidence and checks
 
-[Fixture notes](../../tests/fixtures/job-records/README.md) distinguish source-shaped
+[Fixture notes](../../../tests/fixtures/job-records/README.md) distinguish source-shaped
 records from proposed display expectations. Fixtures cover current, missing,
 unreadable, outdated, failed, interrupted and conflicting states, but no implemented
 binding. They establish consistency, not production reading or outcomes.

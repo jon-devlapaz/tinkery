@@ -154,18 +154,22 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("never a decision", prose(skill))
         self.assertIn("**Move each correction left.**", prose("docs/yohaku.md"))
 
-    def test_backlog_forwarders_are_retired_without_losing_permissions(self):
-        for area in ("think", "menu", "measure"):
-            self.assertFalse((REPO / f"docs/research/{area}/backlog.md").exists())
-        shared = prose("docs/research/shared/backlog.md")
-        self.assertIn("Neither authorizes a backend migration.", shared)
-        self.assertIn("https://github.com/jon-devlapaz/tinkery/issues/118", shared)
-        architecture = list(relative_links("docs/design/architecture.md"))
-        self.assertIn(("../research/shared/backlog.md#think",
-                       "docs/research/shared/backlog.md", "think"), architecture)
-        source = prose("docs/design/architecture.md")
-        for issue in (119, 120):
-            self.assertIn(f"https://github.com/jon-devlapaz/tinkery/issues/{issue}", source)
+    def test_published_proposals_link_to_issue_authority_and_keep_permission_gates(self):
+        index = prose("docs/README.md")
+        for issue in (422, 424, 426, 428):
+            self.assertIn(f"https://github.com/jon-devlapaz/tinkery/issues/{issue}", index)
+        self.assertIn("Authoritative scope for dark-theme work", index)
+        self.assertIn("Open; needs approval", index)
+        self.assertIn("Neither issue authorizes implementation.",
+                      prose("docs/design/think.md"))
+        self.assertIn("Publication is not design acceptance", index)
+        self.assertIn("`approved` records scoped operator permission",
+                      prose("AGENTS.md"))
+        for path in ("AGENTS.md", "README.md", "docs/README.md",
+                     ".agents/skills/issues-board/SKILL.md", "docs/design/architecture.md",
+                     "docs/design/think.md", "docs/design/principles.md",
+                     "docs/terminal-setup.md"):
+            self.assertNotIn("backlog.md", prose(path), path)
 
     def test_think_history_has_one_home_and_compatible_anchors(self):
         historical = (REPO / "findings/README.md").read_text()

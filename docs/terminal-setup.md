@@ -104,7 +104,9 @@ over 128 KiB is refused, never truncated.
 
 Tinkery uses colour for meaning (see the colour table in [the constitution](yohaku.md))
 but never only colour. Set `NO_COLOR=1` or pass `--no-color` and the same meanings
-carry through bold, dim and underline. The palette is light; dark mode is not built.
+carry through bold, dim and underline. The palette is light; the
+[session-only dark-theme issue](https://github.com/jon-devlapaz/tinkery/issues/424)
+owns any change.
 
 ## Launch
 

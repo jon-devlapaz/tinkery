@@ -4,7 +4,7 @@
 
 [Start with the durable review index](2026-10-22-think-dogfood.md) for all 31
 observations, shipped fixes, relevant active work and evidence limits. It points
-to the single interaction proposal; that design is awaiting operator approval.
+to a dated interaction proposal and audit, retained as historical research.
 
 ## Zero-call agent-operator dogfood, October 19, 2026
 

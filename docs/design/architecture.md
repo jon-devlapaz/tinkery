@@ -15,14 +15,10 @@ Each built [place](menu.md) is a **phase**, with its own compartment:
 Each top-level module belongs to one area, listed in `MODULES` in the check. A new module must be listed
 there, so a new phase can't count as shared code by default.
 
-Published task specifications live in GitHub Issues. The
-[parked backlog](../research/shared/backlog.md) is the single home for unpublished
-ideas; the area entry points below contain navigation only.
-
-Use the [Think backlog](../research/shared/backlog.md#think) for unpublished Think
-work. Measure's former [failure presentation](https://github.com/jon-devlapaz/tinkery/issues/119)
-and [owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) are retired.
-The module map below describes responsibilities; `MODULES` owns area assignments.
+Published task scope and status live in GitHub Issues. Measure's former
+[failure presentation](https://github.com/jon-devlapaz/tinkery/issues/119) and
+[owned reader](https://github.com/jon-devlapaz/tinkery/issues/120) are retired.
+`MODULES` owns area assignments; the map below describes responsibilities.
 
 [Shape](shape-and-handoff.md#shape), [Approve](approve.md), [Watch](watch.md) and
 [Taste](taste.md) have separate modules. There are no dependency exceptions: Think hands
@@ -42,8 +38,7 @@ selection establishes neither open-weight compatibility nor comparative quality.
 [Think records](think.md#think-record) retain confirmed-session evidence, not
 unconfirmed sessions or complete factory telemetry. The read-only
 [seed-to-run join](shape-and-handoff.md#sdlc-handoff) uses SDLC's source-owned record;
-the broader [binding-store proposal](job-records.md#goal-to-run-identity-prerequisite)
-is not implemented.
+the earlier Tinkery binding proposal was replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258).
 [Release evidence](first-release.md) is required before claiming a complete factory
 or improved outcomes.
 
