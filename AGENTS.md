@@ -7,6 +7,9 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
 ## Guardrails
 
 - Subtract first; say each thing once, plainly.
+- Validate external data at its boundary and preserve those guarantees in types.
+  Justify extra checks by the failure they prevent. Split functions when doing so
+  makes the code easier to understand or change.
 - Check changeability: name the [architecture diagnostics](docs/design/architecture.md#design-score)
   moved. Module and `pub` comments state promises and refusals, not implementation;
   the build requires them.
