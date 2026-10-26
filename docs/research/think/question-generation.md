@@ -20,7 +20,12 @@ they didn't cover.
 | Finding | Source | For think |
 | --- | --- | --- |
 | Goal questions lose almost all value once work starts. Clarifying at 10% of an agent's run reached pass@3 0.78 (0.80 with the full spec, 0.40 with none); by 70% it matched never asking. Unprompted, Claude Sonnet 4.5 asked in 23% of runs, halfway through on average. | [Ask Early, Ask Late, Ask Right](https://arxiv.org/html/2605.07937v1) | Supports think's purpose: settle the goal before Seed Me and agents start. |
-| Low-quality questions disturb people. 89 people, 897 searches: sessions with only low-quality questions rated 3.00/5 against 3.65 for high-quality ones; showing only good questions was about 63% more efficient. Specific questions beat generic ones. | [Zou et al. 2022](https://irlab.science.uva.nl/wp-content/papercite-data/pdf/zou2022asking.pdf), [Clarification usefulness](https://arxiv.org/abs/2402.01934) | No change proposed. |
+| Low-quality questions disturb people. 89 people, 897 searches: sessions with only low-quality questions rated 3.00/5 against 3.65 for high-quality ones; showing only good questions was about 63% more efficient. Specific questions beat generic ones. | [Zou et al. 2022](https://irlab.science.uva.nl/wp-content/papercite-data/pdf/zou2022asking.pdf), [Clarification usefulness](https://arxiv.org/abs/2402.01934) | The code fallback questions are generic templates. |
 | Choose a question by where its answers lead; ties favour not asking. About +5% answer F1. | [Modeling Future Conversation Turns (ICLR 2025)](https://arxiv.org/html/2410.13788v2) | Already think's rule. |
+| Clarification degrades with depth (Qwen-2.5-7B: 87% at turn 1, 21% at turn 3). Tracking each slot as filled, unfilled or conflicting raised accuracy from 71% to 88%, mostly on 7-8B models. | [ClarifyMT-Bench](https://arxiv.org/html/2512.21120v1) | Think tracks answers, skips and ask counts, but nothing flags an answer that contradicts an earlier one. |
 | Splitting "is the request unclear?" from "is the step hard?" raised clarification F1 by 36-73%. | [Uncertainty Decomposition](https://arxiv.org/html/2606.19559v1) | Already done: decisions are separate from notes. |
 | Batched multiple-choice questions (about 36 per session) raised prompt completeness; only 4 participants. | [PAWNI](https://arxiv.org/html/2608.01366) | Too weak to change one-question-at-a-time. |
+
+The comparisons above record the October 13 inspection, not a fresh check of current
+behavior. The generic-fallback and contradicting-answer proposals are retired;
+these findings remain historical evidence, not implementation guidance or permission.
