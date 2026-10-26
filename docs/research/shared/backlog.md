@@ -131,6 +131,27 @@ is neither built nor measured.
 
 ## Shared
 
+### Choose the build harness
+
+Parked from [#423](https://github.com/jon-devlapaz/tinkery/issues/423) on 2026-10-26.
+The operator wants to pick Pi or Claude Code as the build harness in Tinkery.
+
+**Build:** Wait for [tink-sdlc #110](https://github.com/jon-devlapaz/tink-sdlc/issues/110)
+to show that a Claude Code launcher can meet protocol 1. Until then, choosing a harness
+means passing another `--launcher` to tink-sdlc's `step build prepare`. A setting needs a
+consumer first: Approve copies only intake and stage 1, and Watch is read-only and repeats
+tink-sdlc's own next action. That command also needs a report path, a model pin and the
+stage-3 checkout, which API 1 doesn't expose.
+
+**Acceptance:** One saved choice, stored with [#422](https://github.com/jon-devlapaz/tinkery/issues/422)'s
+saved setup under `~/.config/tinkery/`, beside voice's `voice.json`. Picking or copying
+makes no provider calls and launches nothing.
+
+**Read:** [safeguards](#shared-safeguards), [menu](../../design/menu.md), [watch](../../design/watch.md).
+
+**Don't:** Grant a call budget, pick the operator's harness, add a second
+Think/Shape model host or build a settings maze.
+
 ### Keep runs and learn from them
 
 The external aggregation tool is retired, not awaiting absorption.
