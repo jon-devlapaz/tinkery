@@ -202,7 +202,7 @@ fn resolution_reply_field_is_optional_but_never_silently_coerced() {
             if let Some(links) = &links {
                 reply["resolves"] = links.clone();
             }
-            let decoded = decode(&reply.to_string()).unwrap();
+            let decoded = decode(&reply.to_string(), "").unwrap();
             let actual = match decoded {
                 Next::Question(ask) => ask.resolves,
                 Next::Seed { resolves, .. } => resolves,

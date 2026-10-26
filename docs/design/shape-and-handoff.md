@@ -589,11 +589,14 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   `--shape-budget`; a model error or stop offers F2 retry, or F7 for teach-back
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
-  Review refusals name the mismatched check or case/check counts; a missing check source
-  explains what can establish it without inventing evidence. F2 retries explicitly,
+  Review refusals name the mismatched check or case/check counts; a reply that also splits a
+  Done when line hears both faults in one refusal. A check that keeps a Done when line whole but
+  changes only its letter case is saved in the goal's own words; other wording still refuses.
+  A missing check source explains what can establish it without inventing evidence. F2 retries explicitly,
   retaining saved answers; nothing retries automatically. During the same opened visit,
   the next explicit F2 retry receives the last reply-decoding, review or acceptance-check
-  rejection as `previous_refusal`, separate from the goal, answers and findings. Only the
+  rejection, or ledger rule the reply's proposal broke (such as a reused node id), as
+  `previous_refusal`, separate from the goal, answers and findings. Only the
   first diagnostic line is kept, at most 2,048 UTF-8 bytes, with truncation disclosed.
   The diagnostic is not saved. It must match the session, ledger version and working
   folder; a changed context, successful step, stop or transport/storage failure clears it.
