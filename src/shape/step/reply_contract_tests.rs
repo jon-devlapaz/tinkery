@@ -1,5 +1,6 @@
 //! Captured #296 replies cross the fake-provider, decoder and real ledger boundaries.
 
+use super::typed_tests::review_error;
 use super::*;
 use crate::seed_me::{Affirmed, Config, ledger::fixtures::prose_reply};
 use std::{fs, os::unix::fs::PermissionsExt};
@@ -120,7 +121,10 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     eprintln!("#296 missing-source: {error:?}");
     assert!(error.answer_saved && saved.load(Ordering::Relaxed));
     assert!(
-        matches!(error.why, Why::Model(ref reason) if reason.contains("failure_cases must be a list of strings in check order"))
+        matches!(error.why, Why::Refused(ref reason) if reason.contains("Source must name the confirmed goal")
+            && reason.contains("Also: The seed reply needs a typed completion review")
+            && reason.contains("failure_cases must be a list of strings in check order")),
+        "#432: both broken rules in one refusal: {error:?}"
     );
     let captured: Value = serde_json::from_str(MISSING_SOURCE).unwrap();
     let check_error = crate::seed_me::ledger::validate_checks(
@@ -512,6 +516,7 @@ fn prompt_361_example_pairs_provisional_and_judge_checks_without_inventing_cover
     let Next::Seed { review, checks, .. } = decode(example, "").unwrap() else {
         panic!()
     };
+    let review = review.unwrap();
     assert_eq!(checks.as_array().unwrap().len(), 2);
     assert_eq!(checks[0]["kind"], "provisional");
     assert_eq!(checks[1]["kind"], "judge");
@@ -530,6 +535,7 @@ fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
     let Next::Seed { review, checks, .. } = decode(&reply.to_string(), "").unwrap() else {
         panic!()
     };
+    let review = review.unwrap();
     review
         .validate(&crate::seed_me::ledger::Value::from(checks))
         .unwrap();
@@ -541,7 +547,7 @@ fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
         json!(["TEST", {"statement":"TEST", "case":"TEST"}]),
     ] {
         reply["review"]["failure_cases"] = cases;
-        let error = decode(&reply.to_string(), "").unwrap_err();
+        let error = review_error(&reply);
         assert!(error.contains("typed completion review"));
         assert!(!error.contains("invalid type") && !error.contains("untagged"));
     }
@@ -549,6 +555,7 @@ fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
     let Next::Seed { review, checks, .. } = decode(&reply.to_string(), "").unwrap() else {
         panic!()
     };
+    let review = review.unwrap();
     assert!(
         review
             .validate(&crate::seed_me::ledger::Value::from(checks))
@@ -607,7 +614,7 @@ fn a_done_when_line_changed_only_in_letter_case_is_saved_in_the_operator_words()
     let agent = provider(root.path(), &reply.to_string(), 1);
     let error = look_again(&session, root.path(), &agent).unwrap_err();
     assert!(
-        matches!(error.why, Why::Model(ref reason) if reason.contains("keep this complete Done when line unchanged")),
+        matches!(error.why, Why::Refused(ref reason) if reason.contains("keep this complete Done when line unchanged")),
         "{error:?}"
     );
     assert!(error.feedback.is_some());
@@ -632,7 +639,7 @@ fn a_reply_breaking_done_when_and_case_count_hears_both_in_one_refusal() {
     reply["review"]["failure_cases"] = json!(["TEST only one case"]);
     let agent = provider(root.path(), &reply.to_string(), 1);
     let error = look_again(&session, root.path(), &agent).unwrap_err();
-    let Why::Model(reason) = &error.why else {
+    let Why::Refused(reason) = &error.why else {
         panic!("{error:?}")
     };
     assert!(

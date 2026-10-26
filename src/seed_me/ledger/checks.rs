@@ -124,11 +124,6 @@ pub(crate) fn keeps_criterion(statement: &str, criterion: &str, ignore_case: boo
 /// Unstructured goals and missing criteria add no requirements. This does not prove a check works.
 pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
     validate_checks(records)?;
-    keeps_goal_criteria(goal, records)
-}
-
-/// Only the Done when half of [`validate_goal_checks`], for naming beside other reply faults.
-pub(crate) fn keeps_goal_criteria(goal: &str, records: &Value) -> Result<()> {
     for criterion in goal_criteria(goal) {
         require(
             records.items().iter().any(|record| {

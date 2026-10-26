@@ -558,12 +558,21 @@ fn look(
             resolves,
         } => {
             let records = crate::seed_me::ledger::Value::from(checks.clone());
-            review
-                .validate(&records)
-                .map_err(|why| rejected(fail(Why::Model(why))))?;
-            // Only pure reply checks become retry feedback; storage failures never do.
-            ledger::validate_goal_checks(&goal, &records)
-                .map_err(|why| rejected(fail(Why::Refused(format!("Tinkery refused: {why}")))))?;
+            // #432: a reply breaking a check rule and its review hears both, so a retry can't
+            // trade one fault for the other. Only pure reply checks become retry feedback.
+            let review = review.and_then(|r| r.validate(&records).map(|()| r));
+            let review = match (ledger::validate_goal_checks(&goal, &records), review) {
+                (Ok(()), review) => review.map_err(|why| rejected(fail(Why::Model(why))))?,
+                (Err(rule), review) => {
+                    let also = review
+                        .err()
+                        .map(|e| format!(" Also: {e}"))
+                        .unwrap_or_default();
+                    return Err(rejected(fail(Why::Refused(format!(
+                        "Tinkery refused: {rule}{also}"
+                    )))));
+                }
+            };
             let revision = answering::draft_seed(
                 session,
                 expected,
@@ -680,7 +689,8 @@ pub(super) enum Next {
     Seed {
         confirming: Value,
         checks: Value,
-        review: Box<crate::seed_me::ledger::CompletionReview>,
+        /// Unusable reviews wait for the check rules, so one refusal names every broken rule.
+        review: Result<Box<crate::seed_me::ledger::CompletionReview>, String>,
         found: Vec<Found>,
         resolves: Option<Value>,
     },
@@ -773,15 +783,8 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 })?;
             restore_case(goal, &mut checks);
             let checks = Value::Array(checks);
-            // #432: a reply breaking both rules hears both, so a retry can't trade one for the other.
-            let kept = ledger::keeps_goal_criteria(goal, &checks.clone().into()).err();
-            let review = match (kept, review_reply::decode(value["review"].clone(), &checks)) {
-                (None, review) => review?,
-                (Some(kept), Ok(_)) => return Err(kept),
-                (Some(kept), Err(paired)) => return Err(format!("{kept} Also: {paired}")),
-            };
             Ok(Next::Seed {
-                review,
+                review: review_reply::decode(value["review"].clone(), &checks),
                 confirming: value.get("confirming").cloned().ok_or_else(||
                     "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
                 checks,

@@ -866,7 +866,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
         decode("{\"next\":\"seed\",\"review\":{\"contradictions\":[],\"decided\":[],\"done\":[],\"failure_cases\":[\"TEST wrong result must fail\"]},\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[]}", "").unwrap(),
         Next::Seed {
             confirming: serde_json::json!(" Build it. "),
-            review: serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[{"statement":"TEST","case":"TEST wrong result must fail"}]})).unwrap(),
+            review: Ok(serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[{"statement":"TEST","case":"TEST wrong result must fail"}]})).unwrap()),
             checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
             found: vec![],
             resolves: None,

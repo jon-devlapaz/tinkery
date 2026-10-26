@@ -2,6 +2,14 @@
 
 use super::*;
 
+/// Why a seed reply's completion review is unusable; decoding leaves that to the check rules.
+pub(super) fn review_error(reply: &Value) -> String {
+    match decode(&reply.to_string(), "") {
+        Ok(Next::Seed { review, .. }) => review.unwrap_err(),
+        other => panic!("not a seed reply: {:?}", other.err()),
+    }
+}
+
 #[test]
 fn session_sized_step_sends_findings_once_without_changing_saved_context() {
     use crate::seed_me::{Affirmed, Config, Original};
@@ -331,7 +339,7 @@ fn a_seed_reply_requires_a_typed_completion_review_without_parser_diagnostics() 
         json!({"contradictions":[], "decided":[], "done":[], "failure_cases":[], "extra":true}),
     ] {
         reply["review"] = review;
-        let error = decode(&reply.to_string(), "").unwrap_err();
+        let error = review_error(&reply);
         assert!(error.contains("typed completion review"), "{error}");
         assert!(
             !error.contains("invalid type")
@@ -340,16 +348,13 @@ fn a_seed_reply_requires_a_typed_completion_review_without_parser_diagnostics() 
         );
     }
     reply.as_object_mut().unwrap().remove("review");
-    assert!(
-        decode(&reply.to_string(), "")
-            .unwrap_err()
-            .contains("typed completion review")
-    );
+    assert!(review_error(&reply).contains("typed completion review"));
     reply["review"] = json!({"contradictions":[], "decided":["TEST choice"], "done":[],
         "failure_cases":["TEST wrong result must fail"]});
     let Next::Seed { review, checks, .. } = decode(&reply.to_string(), "").unwrap() else {
         panic!()
     };
+    let review = review.unwrap();
     review
         .validate(&crate::seed_me::ledger::Value::parse(&checks.to_string()).unwrap())
         .unwrap();
