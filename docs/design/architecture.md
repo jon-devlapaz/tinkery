@@ -47,7 +47,7 @@ or improved outcomes.
 | Module | Owns |
 | --- | --- |
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
-| `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch and the minimum terminal size. |
+| `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch, the minimum terminal size, paging and the clipped-view `more` cue. |
 | `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs)), the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |

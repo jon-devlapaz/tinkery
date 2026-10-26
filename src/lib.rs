@@ -45,6 +45,18 @@ pub fn page(height: u16) -> u16 {
     height.saturating_sub(1).max(1)
 }
 
+/// The muted cue for a clipped view scrolled `scroll` rows into `hidden` rows that don't fit:
+/// which way the rest lies. Nothing when every row fits, so a view never claims more than it has.
+pub fn more_cue(scroll: usize, hidden: usize) -> Option<&'static str> {
+    (hidden > 0).then_some(if scroll >= hidden {
+        "↑ more"
+    } else if scroll > 0 {
+        "↕ more"
+    } else {
+        "↓ more"
+    })
+}
+
 /// Light paper or warm charcoal. The choice lasts for one run: every launch starts light, and
 /// nothing reads the system appearance or saves the choice.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

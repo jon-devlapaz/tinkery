@@ -155,3 +155,29 @@ fn abandoned_read_cannot_publish_or_spawn_a_second_worker() {
     assert!(reopened.found.is_none());
     assert!(reader.running.is_none());
 }
+
+#[test]
+fn a_clipped_reading_says_where_the_hidden_command_lies() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        let mut view = view();
+        assert!(!screen(&mut view, width, height, false).contains("more"));
+        let Some(Ok(found)) = &mut view.found else {
+            panic!()
+        };
+        found.seeds[0].goal = (0..40).map(|i| format!("TEST goal row {i}\n")).collect();
+        let top = screen(&mut view, width, height, false);
+        assert!(
+            top.contains("↓ more") && !top.contains("TEST intake"),
+            "{top}"
+        );
+        view.key(KeyEvent::from(KeyCode::Down), &mut false);
+        assert!(screen(&mut view, width, height, false).contains("↕ more"));
+        view.key(KeyEvent::from(KeyCode::End), &mut false);
+        let tail = screen(&mut view, width, height, false);
+        assert!(
+            tail.contains("↑ more") && tail.contains("TEST intake"),
+            "{tail}"
+        );
+        assert!(tail.contains("esc back"), "{tail}");
+    }
+}

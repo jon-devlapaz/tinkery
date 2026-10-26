@@ -28,7 +28,9 @@ def journey(width, height, case, no_color):
         if case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout'):
             for name, date in [('TEST oldest café', '2026-01-01T00:00:00Z'),
                                ('TEST newest', '2026-02-01T00:00:00Z')]:
-                session = make(sessions, name, goal=name + '\nTEST original goal.', question=False)
+                # #434: a ready goal tall enough to push the command below the fold at both sizes.
+                extra = ''.join(f'\nTEST goal line {i}' for i in range(20)) if case == 'ready' else ''
+                session = make(sessions, name, goal=name + '\nTEST original goal.' + extra, question=False)
                 seed(session, confirm=True, title=name)
                 ledger = session / 'ledger.json'
                 value = json.loads(ledger.read_text())
@@ -132,6 +134,11 @@ def journey(width, height, case, no_color):
                     assert "Can't tell which seeds have started; none are hidden." in flat(), screen.text()
                 assert 'TEST oldest café' in flat() and 'TEST newest' not in flat(), screen.text()
                 assert 'TEST original goal.' in flat(), screen.text()
+                if case == 'ready':
+                    # The hidden command is announced, never mistaken for absent (#434).
+                    assert '↓ more' in flat() and '--seed-contract' not in flat(), screen.text()
+                    send(b'\x1b[F', '↑ more')
+                    assert '--tinkery' in flat() and '↓ more' not in flat(), screen.text()
                 acceptance = (expected[0] / 'seed-contract.md').read_text().split('## Acceptance criteria\n', 1)[1].split('\n## ', 1)[0]
                 for line in acceptance.splitlines():
                     if line.strip():
