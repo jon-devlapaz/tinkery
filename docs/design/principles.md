@@ -15,11 +15,22 @@ amends it. These notes explain design application, not a second constitution.
 ## Visual meaning
 
 Use the constitution's [colour roles](../yohaku.md#colour-has-one-job-each),
-including its non-colour cues. The shipped paper palette is light; the
-[session-only dark theme issue](https://github.com/jon-devlapaz/tinkery/issues/424)
-owns its behavior and scope.
+including its non-colour cues. Every launch starts on light paper. Ctrl-T, or a click
+on the muted `dark`/`light` label beside `?`, switches every screen at once to warm
+charcoal (never pure black) and back. Roles keep their jobs and at least 4.5:1 contrast.
+The choice lasts until Tinkery exits: nothing reads the system appearance or saves it.
+Ctrl-T never types. Without colour the label is hidden and nothing changes.
+The shipped control follows [#424](https://github.com/jon-devlapaz/tinkery/issues/424).
 After an answer, changed goal lines stay in full ink and unchanged lines rest
 muted; the distinction clears on typing or sending. No extra banner or model call.
+
+## Where to read next
+
+[Think](think.md) is intake; [goal block](goal-block.md) defines its output;
+[tend and handoff](shape-and-handoff.md) defines persistence and continuation;
+[voice](voice.md) defines local dictation; [menu](menu.md) distinguishes built views
+from future ones. [Architecture](architecture.md) maps code to phases and holds
+the design score. The [docs index](../README.md) links issue scopes and dated research.
 
 ## Why these choices
 

@@ -158,7 +158,8 @@ class DocumentationTests(unittest.TestCase):
         index = prose("docs/README.md")
         for issue in (422, 424, 426, 428):
             self.assertIn(f"https://github.com/jon-devlapaz/tinkery/issues/{issue}", index)
-        self.assertIn("Authoritative scope for dark-theme work", index)
+        self.assertIn("Shipped in", index)
+        self.assertIn("https://github.com/jon-devlapaz/tinkery/pull/430", index)
         self.assertIn("Open; needs approval", index)
         self.assertIn("Neither issue authorizes implementation.",
                       prose("docs/design/think.md"))

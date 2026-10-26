@@ -404,7 +404,13 @@ pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Pa
     let area = frame.area();
     frame.render_widget(
         Paragraph::new(format!("{declaration} (not verified)")).style(palette.muted),
-        Rect::new(11, 1, area.width.saturating_sub(16), 1).intersection(area),
+        Rect::new(
+            11,
+            1,
+            crate::header_end(area, palette, area.width.saturating_sub(5)).saturating_sub(11),
+            1,
+        )
+        .intersection(area),
     );
 }
 

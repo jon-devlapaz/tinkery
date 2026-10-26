@@ -21,7 +21,7 @@ to the smallest relevant reference.
 Read only the relevant sections. For a change, the applicable contract and
 current shipped behavior outrank proposals, snapshots and old issue status.
 
-## Published proposals
+## Published work and proposals
 
 Issues own proposal scope and status. Publication is not design acceptance,
 implementation permission, data permission or budget.
@@ -29,7 +29,7 @@ implementation permission, data permission or budget.
 | Material | Status and use |
 | --- | --- |
 | [Saved model setup](https://github.com/jon-devlapaz/tinkery/issues/422) | Issue owns scope and permission |
-| [Session-only dark theme](https://github.com/jon-devlapaz/tinkery/issues/424) | Authoritative scope for dark-theme work |
+| [Session-only dark theme](https://github.com/jon-devlapaz/tinkery/issues/424) | Shipped in [#430](https://github.com/jon-devlapaz/tinkery/pull/430); #424 records scope |
 | [Think multiple-choice research](https://github.com/jon-devlapaz/tinkery/issues/426) | Open; needs approval |
 | [Think evidence on demand](https://github.com/jon-devlapaz/tinkery/issues/428) | Open; needs approval |
 
