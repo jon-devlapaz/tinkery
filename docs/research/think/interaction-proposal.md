@@ -17,9 +17,43 @@ and [visual principles](../../design/principles.md) remain authoritative until a
 approved slice deliberately updates its affected decision. This proposal changes
 attention order/presentation, not model intent or permission policy.
 
-## Recommendation
+## Audit — 2026-10-25
 
-**While answering: question → answer → draft.** Exact originals remain on the left;
+This crosswalk compares the proposal with current contracts, code and regression
+tests. “Shipped” describes mechanics, not an accepted redesign or evidence of better
+usability. The October 22 dogfood is one scenario; it does not validate the
+presentation hypotheses below.
+
+| Proposal behavior | Current evidence | Status |
+| --- | --- | --- |
+| One focused question, with F2 as the only send action | [Think question and send contracts](../../design/think.md#questions); [question layout tests](../../../src/think/brain_dump/layout_tests.rs), including `active_question_is_readable_without_review_and_survives_resize` | Shipped. The proposed question → answer → draft hierarchy is not established by those tests. |
+| Separate writing, reading, in-flight, ready and review behavior | [Think shipped experience and model-call contracts](../../design/think.md#shipped-experience); [readiness tests](../../../src/think/brain_dump/intent_tests.rs), including `ready_invites_review_without_claiming_complete_intent` | Existing behavior is specified. Proposal-specific captions, pane arrangement and a distinct revision mode remain unverified. |
+| Suggested answer and reason, copied without sending or overwriting a draft | [#330](https://github.com/jon-devlapaz/tinkery/issues/330), shipped in [#332](https://github.com/jon-devlapaz/tinkery/pull/332); [suggestion implementation](../../../src/think/brain_dump/suggestion.rs) and [tests](../../../src/think/brain_dump/suggestion_tests.rs), including `suggestion_copies_without_submitting_or_overwriting` and `unaccepted_suggestions_are_recorded_but_never_become_model_context` | Shipped as separate text plus Ctrl-R. Inline ghost text and contextual Tab are not shipped. |
+| Read the full question and suggestion at small sizes without losing originals or unsent text | [question and wheel tests](../../../src/think/brain_dump/layout_tests.rs); [suggestion reachability test](../../../src/think/brain_dump/suggestion_tests.rs), which covers 80×24, 100×30, 160×40 and 320×40 in colour and no-colour | Those regions are covered. The proposal’s combined question/answer/draft layout, independently clamped viewports, actual pane size and long-answer interaction are not verified. |
+| Friendlier draft headings while preserving the frozen goal and originals | [Goal block](../../design/goal-block.md) owns the canonical parts and exact displayed block; [#322](https://github.com/jon-devlapaz/tinkery/issues/322) / [#328](https://github.com/jon-devlapaz/tinkery/pull/328) ship “Success criteria” in Why and copied output; [criteria tests](../../../src/think/brain_dump/readiness_tests.rs) | Accurate criteria labeling is shipped. The proposed headings are not; the goal-block schema and canonical labels remain unchanged. |
+| Review framing and access to originals, answers and open intent | [Think review contract](../../design/think.md#readiness-and-review); [editing and focus contract](../../design/think.md#editing-and-focus); [goal review tests](../../../src/think/brain_dump/goal_tests.rs) | F3 review, original-pane access and unresolved-intent review are shipped. The proposal’s combined review presentation is not tested. |
+
+### D1–D6 recommendations
+
+These are audit recommendations, not operator decisions or design acceptance. Do not
+open a feature issue from a preference alone. A later issue needs a concrete
+user-visible gap and separate scoped approval.
+
+| ID | Audit finding and recommendation |
+| --- | --- |
+| D1 | **Revise; defer a feature issue.** A focused question is shown and can be read and answered without opening review. The tests do not establish that placing the draft below it reduces effort or improves comprehension. Keep the shipped layout unless a specific gap is observed; if one is, scope a prototype to that gap. |
+| D2 | **Revise; no implementation issue yet.** Ctrl-R already copies a separate suggestion into an empty draft; Tab/Shift-Tab already navigate writing and originals. Keep this behavior and the shipped safeguards. Retain ghost text/Tab only as an unaccepted alternative until the operator explicitly chooses whether it should replace or supplement Ctrl-R. |
+| D3 | **Revise; defer a feature issue.** Reading/question overflow and suggestion/reason reachability have regression coverage, but the proposed shared scroll across question, ghost and draft, long answers, and combined layout is not proven. Keep the current scroll contract; require a concrete clipping or navigation failure before proposing a new route. |
+| D4 | **Drop the proposed heading change for now.** The goal block already has canonical `Why`, `Done when`, `Must` and `Must not` parts, while “Success criteria” is correctly used in supporting display and copied output. No evidence shows the proposed heading set solves a user-visible problem; do not rename or reshape stored goal content. |
+| D5 | **Revise; defer a feature issue.** The ready state already offers “Ready for your review” and F3, without claiming intent is complete. The persistent writing surface remains part of the shipped interaction; a dedicated `YOUR REVISION` mode or changed draft hierarchy is not established as necessary. |
+| D6 | **Revise; keep existing access and review contracts.** Originals remain accessible through Tab/Shift-Tab, and review carries open intent. The proposal’s particular source/answer framing has no regression evidence of an access gap. Do not add a presentation slice unless a concrete review-access failure is identified. |
+
+No usability improvement, reduced effort, or recommendation quality is established by
+this audit. No application, prompt, schema, saved-data or provider behavior changed.
+
+## Proposed direction — not accepted
+
+**Candidate while answering: question → answer → draft.** Exact originals remain on the left;
 the current question and answer sit together at the top right. When no question
 is active, the draft expands and review becomes the main next action. Thinking
 occupies the interaction region, not a detached footer. There is no permanent
@@ -91,25 +125,25 @@ meet that contract, retain and strengthen the existing labels rather than weaken
 the invariant. Correcting “I find…” or separating instructions from requirements
 belongs to a later, independently evaluated semantic slice.
 
-## Integrating #330 — one recommendation system
+## Shipped suggestions and the remaining proposal
 
-[#330](https://github.com/jon-devlapaz/tinkery/issues/330) owns published suggestion
-scope, provenance and call limits. At audit, its
-[open PR #332](https://github.com/jon-devlapaz/tinkery/pull/332) uses a separate
-suggestion/reason and **Ctrl-R** to copy into an empty draft. It is not shipped in
-the audited main revision. Its live evaluation is deferred with zero approved
-budget. This proposal must reuse that work, not add another generator, wire format,
-suggestion store or acceptance path.
+[#330](https://github.com/jon-devlapaz/tinkery/issues/330) shipped through
+[#332](https://github.com/jon-devlapaz/tinkery/pull/332). The current contract is a
+separate suggestion and reason, with **Ctrl-R** copying into an empty draft. F2
+alone sends; existing drafts are preserved; unaccepted suggestions stay out of
+subsequent request and handoff context. The issue remains open for its separately
+deferred live comparison, with zero approved budget. This proposal must not add a
+second generator, wire format, suggestion store or acceptance path.
 
 The operator subsequently requested inline muted text accepted with Tab. That is
 a requested presentation direction, **not a resolved keybinding/integration decision**.
 Current shipped Tab/Shift-Tab toggle writing and originals; a change needs explicit
-agreement before code. The operator has identified **Codex chat Research drafted-goal
-answer hints** as #330/#332's owner, finishing the already-approved Ctrl-R slice.
-**Codex chat Evaluate Think design and quality** coordinates integration as master
-supervisor. This document owns no #330 code and does not hold its current merge.
+agreement before code. The operator identified **Codex chat Research drafted-goal
+answer hints** as #330/#332's owner and **Codex chat Evaluate Think design and
+quality** as master supervisor. Those ownership decisions were resolved; they do
+not approve the remaining presentation proposal.
 
-### Proposed acceptance behavior
+### Proposed acceptance behavior — unaccepted
 
 | Situation | Proposed behavior |
 | --- | --- |
@@ -121,12 +155,12 @@ supervisor. This document owns no #330 code and does not hold its current merge.
 | Accepted suggestion | Ordinary editable draft; F2 remains a separate send. #330 owns its provenance rules; unaccepted suggestions never become answers or leak into model/seed context. |
 | Question changes, request starts, or suggestion is malformed/unavailable | Discard stale ghost and its acceptance hint. Keep answering/skipping usable; do not invent a preference. |
 
-For current WIP, keep the approved Ctrl-R slice unchanged. Contextual Tab is the
-operator-requested **future proposal**, not a change to make in #330/#332. Whether
-Tab replaces, supplements or is rejected in favor of Ctrl-R remains D2. Do not
-implement ghost text, silently ship both mappings, or take over that worktree.
+The shipped Ctrl-R slice is complete. Contextual Tab remains the operator-requested
+**unaccepted proposal**. Whether Tab replaces, supplements or is rejected in favor
+of Ctrl-R remains unresolved under D2. Do not implement ghost text or silently ship
+both mappings.
 
-### Overflow and focus
+### Overflow and focus — unvalidated proposal
 
 Recommendation: retain one reading-side PgUp/PgDn route, with each overflowing
 question, unaccepted ghost and draft viewport independently clamped; the wheel
@@ -141,19 +175,22 @@ silently clip or summarize either original or goal. Unaccepted ghost text needs
 a discoverable full-text route before use, not an invisible tail. If shared scrolling
 is confusing in a prototype, return to approval rather than invent extra bindings.
 
-## Approval decisions
+<a id="approval-decisions"></a>
 
-None of these decisions is implemented or accepted by this document.
+## Decisions and implementation boundary
+
+The recommendations above do not accept any proposed interaction. Only D7 records
+an already-resolved ownership decision.
 
 | ID | Operator decision | Recommendation / current state |
 | --- | --- | --- |
-| D1 | Question/answer first, draft below while answering? | Recommend yes; assistant proposal awaiting approval. |
-| D2 | Future inline ghost with contextual Tab, or keep the separately approved Ctrl-R presentation? | Operator requested ghost/Tab as a mockup refinement, not implementation. Preserve the current Ctrl-R slice; any later replacement/alias needs a new scoped decision. |
-| D3 | Accept the compact preview/shared-scroll model for a bounded prototype? | Recommend yes, subject to long-content/no-colour tests and operator inspection; no new focus keys by default. |
-| D4 | Approve the proposed display headings? | Recommend stronger hierarchy with these names, conditional on exact goal preservation. Semantic rewriting is excluded. |
-| D5 | Ready state uses review as primary; typing opens revision instead of a permanent empty form? | Recommend yes; unsent input must stay visible in every state. |
-| D6 | Include review wording/source access in this presentation slice or defer? | Recommend include framing/access only; unresolved-intent/model policy and authorization stay unchanged. |
-| D7 | Current ownership and integration | **Resolved by operator:** Research drafted-goal answer hints owns #330/#332; Evaluate Think design and quality is master supervisor. Finish approved Ctrl-R work; this proposal neither blocks its merge nor approves a new interaction. |
+| D1 | Question/answer first, draft below while answering? | **Unaccepted.** Audit recommendation: revise; defer a feature issue until a specific usability gap is observed. |
+| D2 | Future inline ghost with contextual Tab, or keep the shipped Ctrl-R presentation? | **Unaccepted.** Audit recommendation: revise; keep Ctrl-R and obtain an explicit choice before changing key behavior. |
+| D3 | Accept the compact preview/shared-scroll model for a bounded prototype? | **Unaccepted.** Audit recommendation: revise; retain current scrolling unless a concrete overflow or navigation failure is found. |
+| D4 | Approve the proposed display headings? | **Unaccepted.** Audit recommendation: drop the heading change; keep the canonical goal-block labels. |
+| D5 | Ready state uses review as primary; typing opens revision instead of a permanent empty form? | **Unaccepted.** Audit recommendation: revise; keep the existing ready/F3 behavior unless a distinct revision-mode problem is demonstrated. |
+| D6 | Include review wording/source access in this presentation slice or defer? | **Unaccepted.** Audit recommendation: revise; retain current original and unresolved-intent access unless a specific gap is identified. |
+| D7 | Current ownership and integration | **Resolved by operator:** Research drafted-goal answer hints owns #330/#332; Evaluate Think design and quality is master supervisor. This proposal neither blocks the merged slice nor approves a new interaction. |
 
 ## Validation before an implementation claim
 
@@ -175,6 +212,6 @@ Required evidence for that later scope:
   success threshold before #330/model-quality evaluation; previous trial accounting
   does not authorize it. Fakes do not prove effort reduction or intent fidelity.
 
-For #339: **review D1–D6; no application changes or new provider calls.** D7 records
-resolved ownership. Verified current WIP may merge under the operator's latest
-instruction; no new interaction feature follows from this document.
+For #427: **reconcile this proposal with shipped behavior; no application changes or
+new provider calls.** D7 records resolved ownership. This audit does not accept D1–D6
+or authorize an interaction feature.
