@@ -42,19 +42,9 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
 
 ## Layout and design entry points
 
-Read only the task's design; [architecture](docs/design/architecture.md#modules-today)
-maps modules to responsibilities.
-
-| Work | Read first |
-| --- | --- |
-| CLI, rendering, graph, input | [principles](docs/design/principles.md), [Pinstar API](vendor/pinstar/API.md), [Graf API](vendor/graf/API.md) |
-| Module boundaries | [architecture](docs/design/architecture.md) |
-| Menu, discovery, Measure | [menu](docs/design/menu.md) |
-| Think | [think](docs/design/think.md) |
-| Think evaluations | [think evaluation](docs/design/think-evaluation.md) |
-| Goal composition, validation and rendering | [goal block](docs/design/goal-block.md) |
-| Saving, Tend, Shape, continuation | [tend and handoff](docs/design/shape-and-handoff.md) |
-| Voice/setup | [voice](docs/design/voice.md) |
+Read only the relevant task contract from the
+[documentation index](docs/README.md). The [architecture map](docs/design/architecture.md#modules-today)
+shows module responsibilities.
 
 ## Cold setup
 

@@ -14,18 +14,14 @@ sessions, installs, settings and terminal, macOS and launcher preferences untouc
 The restrictions and separate data, evaluation and implementation permissions below
 do not approve any proposal.
 
-## Published from this inventory
+## Published records
 
-- [Release tasks R4–R10 and I2](../../design/first-release-issues.md) hold their specifications.
-- Think exclusions are in [#117](https://github.com/jon-devlapaz/tinkery/issues/117);
-  unsafe session-root refusal is in [#118](https://github.com/jon-devlapaz/tinkery/issues/118).
-- Retired Measure reader history is in [#119](https://github.com/jon-devlapaz/tinkery/issues/119)
-  and [#120](https://github.com/jon-devlapaz/tinkery/issues/120).
-  Neither authorizes a backend migration.
-- Historical dogfood stays in [findings](../../../findings/README.md).
-  Closed issue bodies and metadata stay unchanged.
-- I1 identity and R6 expected-input enforcement are conditional upstream checks,
-  not presumed missing capabilities or newly published tasks.
+Published scope and status belong in the [first-release issue index](../../design/first-release-issues.md)
+and linked issues, not this backlog. Think exclusions are recorded in [#117](https://github.com/jon-devlapaz/tinkery/issues/117);
+unsafe session-root refusal is recorded in [#118](https://github.com/jon-devlapaz/tinkery/issues/118).
+Retired Measure reader work is recorded in [#119](https://github.com/jon-devlapaz/tinkery/issues/119)
+and [#120](https://github.com/jon-devlapaz/tinkery/issues/120). Neither authorizes a backend migration.
+Historical dogfood stays in [findings](../../../findings/README.md). Closed issue bodies and metadata stay unchanged.
 
 ## Think
 
@@ -38,22 +34,10 @@ observations, linked issues and evidence limits at the recorded revision.
 
 ### Loose ends
 
-- **Large drafts:** full-buffer wrapping and position scans may lag. Measure editing
-  and rendering separately before cache design; the combined fixture is not
-  per-keystroke evidence. Caching isn't paste reliability.
-- **Approach prefixes:** `PROVISIONAL assumption:` conflicts with reading.txt's
-  no-template-prefix rule. It needs a budgeted prompt check.
 - **Separate goals:** only labels survive; checks and rules stay in originals.
   Attaching them needs a design choice.
 - **Dropped wire fields:** `Guess.outcome` duplicates done-when. The board ignores
   composed framing and uses parts and supports (`src/think/brain_dump/reading.rs`, `board.rs`).
-- [“Like X” early stop](#like-x-early-stop) can leave the source or scope ambiguous.
-- **Generic fallback questions:** first count fixed-template fallbacks in records
-  and eval logs, without calls. See [research](../think/question-generation.md).
-- **Contradicting answers:** the same research suggests adding one eval case before changes.
-- **Large routing:** split `src/think/brain_dump.rs` without loosening
-  [architecture limits](../../design/architecture.md#limits-enforced-by-testsarchitecturers).
-- **Record gaps:** eval-origin records and a separate gap-flagging script remain to build.
 
 ### Context menu and send aliases (C4–C6, C9)
 
@@ -86,48 +70,7 @@ Revert exact-span validation to prove failure.
 
 **Don't:** Restore permanent green or imply unused words are rejected.
 
-### Multiple-choice answers
-
-**Build:** Offer an optional 2–4 visibly guessed answers plus free text for
-choice-shaped questions, but no options for open ones. Never preselect.
-Record `chose: <option>` as the operator's selection, not an independently observed fact.
-
-**Acceptance:** Keyboard choices, mouse choices and free text refine the reading.
-There is no default or accidental send, and open questions stay uncluttered.
-Provenance survives review and handoff; choices confirm no goal or seed.
-Fakes prove mechanics. Evaluate fixation with the operator under a separately
-approved budget and dump set.
-
-**Read:** [safeguards](#shared-safeguards), [think](../../design/think.md), [goal block](../../design/goal-block.md), [principles](../../design/principles.md).
-
-**Don't:** Force choices, turn guesses into facts or trade meaning for speed.
-
-### Scratch-space spike — design only
-
-**Produce:** Research spatial sensemaking and deliberate grouping. Discuss usefulness,
-authority and exactness with the operator first. Mock up a 100×30 after-dump space
-with quoted spans, unused words, the question and notes. Show entry, grouping,
-a distinct agent suggestion and return to the same place. Decide whether arrangement
-is evidence (recommended), what grouping means and how editing creates sourced
-operator notes. Rearranging alone costs no call.
-
-**Acceptance:** Report where this beats another typed line. Answer the design
-questions and recommend building, shrinking or dropping it, with reasons.
-Dogfood uses only operator-supplied dumps with an explicit budget.
-Make no production changes; a later build needs separate approval. Hidden extracted
-cards aren't this proposal; stickies must not replace dump-first.
-
-**Read:** [safeguards](#shared-safeguards), [think](../../design/think.md), [principles](../../design/principles.md), [goal block](../../design/goal-block.md).
-
-**Don't:** Build the canvas, replace dump-first, let arrangement confirm anything,
-mix guesses with verbatim cards, persist canvases or invent operator dumps.
-
-### Like X early stop
-
-Ambiguous examples (“like the eval stuff we just ran”) can stop review before the
-source or scope is settled and send agents to the wrong source. Added words can
-correct it. The proposed final ambiguity check before “Nothing I'm unsure about”
-is neither built nor measured.
+**Issue:** [#428](https://github.com/jon-devlapaz/tinkery/issues/428) tracks the bounded implementation proposal; it is not approved for implementation.
 
 ## Shared
 
@@ -156,11 +99,11 @@ run retention and lessons are separate.
 **Build:** Keep these as separate slices:
 
 1. Explicitly retain local run records outside Tinkery history. Follow the identity
-   and revision evidence in the [binding contract](../../design/job-records.md#goal-to-run-identity-prerequisite)
-   and [R5](../../design/first-release-issues.md#r5). Use source-owned records,
-   not the retired aggregation tool. Separately approved identity and initial binding
-   precede R5; retention and lessons do not. Revisions and relocation stay deferred.
-   A binding doesn't archive a deleted worktree.
+   and revision rules before proposing an implementation. The earlier Tinkery
+   binding path was replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258);
+   this retention proposal has no accepted record contract. Use source-owned records,
+   not the retired aggregation tool. Revisions and relocation stay deferred. A
+   binding doesn't archive a deleted worktree.
 2. After Taste, the operator may request one guessed lesson. Show the proposed test
    or rule, its destination and source run. Before calling, show the text and
    destination and require an explicit budgeted send. If accepted lessons fail to
@@ -182,5 +125,6 @@ or agent-written memory. Don't restore the retired aggregation dependency.
 ### Deferred binding changes
 
 Revisions, relocation, retargeting and migration need a demonstrated need,
-[binding-contract](../../design/job-records.md#goal-to-run-identity-prerequisite)
-review and independently approved work. Initial I2 authorizes none.
+review against the unaccepted binding proposal and independently approved work. The
+initial binding proposal was replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258);
+that work does not authorize these changes.

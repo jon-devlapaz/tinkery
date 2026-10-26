@@ -120,8 +120,9 @@ explicitly authorized budget; provider charges may apply. `--help` lists options
 
 ## Read next
 
+- [Documentation index](docs/README.md): find the governing rules, task contracts,
+  setup, proposals and recorded evidence.
 - [Constitution](docs/yohaku.md): governing principles.
 - [Working guide](AGENTS.md): macOS setup, verification and contribution rules.
-- [Design](docs/design/principles.md): decisions and marked proposals.
 
 GPL-3.0-only; see [LICENSE](LICENSE).

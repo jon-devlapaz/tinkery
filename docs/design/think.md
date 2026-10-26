@@ -353,9 +353,7 @@ sentinels: bytes survive sending and copying, never execute on display.
 
 ## Open work only
 
-[Backlog](../research/shared/backlog.md#think) owns proposals, including
-[“Like X” early stop](../research/shared/backlog.md#like-x-early-stop). Help-only
-extracted cards are not the proposed scratch space.
+[Backlog](../research/shared/backlog.md#think) contains unpublished Think proposals.
 
 ## Decision-review evidence (#34)
 
