@@ -64,7 +64,7 @@ pub(super) fn instructions(reference: &str) -> Result<String, Refusal> {
 
 pub(super) fn prose(value: &Value) -> Result<Vec<(&'static str, &str)>, Refusal> {
     let refuse =
-        |reason: String| Refusal::Refused(format!("Seed reply {reason}; nothing was saved."));
+        |reason: String| Refusal::Rejected(format!("Seed reply {reason}; nothing was saved."));
     let object = value.as_object().ok_or_else(|| {
         let line = value.as_str().and_then(|text| text.lines().next())
             .map(|line| format!("; line 1: {line}")).unwrap_or_default();

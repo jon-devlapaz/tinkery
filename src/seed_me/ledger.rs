@@ -19,9 +19,11 @@ pub use questions::{next_question, queue_question, waiting_on};
 pub(crate) mod fixtures;
 mod seed;
 mod storage;
-pub(crate) use checks::validate_goal_checks;
 pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, document_headings, read_checks, validate_checks};
+pub(crate) use checks::{
+    goal_criteria, keeps_criterion, keeps_goal_criteria, validate_goal_checks,
+};
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub use storage::{
     PublishError, SaveState, confirm_as, confirm_displayed_as, confirm_seed,
@@ -328,9 +330,10 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
             ),
         )?;
         require(text(&node["id"]), "node requires an id")?;
+        let id = node["id"].string().unwrap();
         require(
-            seen.insert(node["id"].string().unwrap()),
-            "duplicate node id",
+            seen.insert(id),
+            format!("duplicate node id {id}: choose an id no other node uses"),
         )?;
         require(
             one_of(&node["kind"], &["fact", "decision"]),

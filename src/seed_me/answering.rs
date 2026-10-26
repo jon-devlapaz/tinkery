@@ -36,13 +36,16 @@ pub enum Refusal {
     Stale,
     /// Tinkery, or a check here, refused; the reason in plain words.
     Refused(String),
+    /// What a model reply proposed broke a ledger rule before anything was written. Unlike
+    /// [`Refusal::Refused`], it never comes from storage, so it may be named back to the model.
+    Rejected(String),
 }
 
 impl std::fmt::Display for Refusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Stale => f.write_str("Another writer changed this session first."),
-            Self::Refused(reason) => f.write_str(reason),
+            Self::Refused(reason) | Self::Rejected(reason) => f.write_str(reason),
         }
     }
 }
@@ -440,6 +443,19 @@ pub fn contract() -> Result<String, Refusal> {
 
 /// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
 /// unknown save is no refusal: it asks the operator to look before trying again.
+/// A ledger rule the reply's own proposal broke; see [`Refusal::Rejected`].
+fn rejected(reason: String) -> Refusal {
+    Refusal::Rejected(format!("Tinkery refused: {reason}"))
+}
+
+/// Check a reply-built `state` against the ledger's rules before any write, so a broken rule is
+/// the reply's and never a storage failure.
+fn reply_fits(state: &Value) -> Result<(), Refusal> {
+    ledger::validate(&ledger_value(state)?)
+        .map(drop)
+        .map_err(rejected)
+}
+
 fn not_saved(reason: String) -> Refusal {
     published(ledger::PublishError::from(reason))
 }
@@ -666,7 +682,7 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
         node["recommendation"] = recommendation.into();
     }
     let mut state = ledger_value(&ledger.state)?;
-    ledger::queue_question(&mut state, ledger_value(&node)?).map_err(not_saved)?;
+    ledger::queue_question(&mut state, ledger_value(&node)?).map_err(rejected)?;
     ledger.state = json(&state.pretty().map_err(not_saved)?)?;
     let mut assumed = ledger.state["assumed"]
         .as_array()
@@ -684,6 +700,7 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
     if !assumed.is_empty() {
         ledger.state["assumed"] = Value::Array(assumed);
     }
+    reply_fits(&ledger.state)?;
     publish(
         session,
         expected,
@@ -695,7 +712,7 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
 fn resolutions(state: &mut Value, links: Option<&Value>) -> Result<(), Refusal> {
     if let Some(links) = links {
         let mut proposed = ledger_value(state)?;
-        ledger::resolve_unknowns(&mut proposed, &ledger_value(links)?).map_err(not_saved)?;
+        ledger::resolve_unknowns(&mut proposed, &ledger_value(links)?).map_err(rejected)?;
         *state = json(&proposed.pretty().map_err(not_saved)?)?;
     }
     Ok(())
@@ -900,6 +917,7 @@ pub fn draft_seed(
     let prose = seed_reply::prose(confirming)?;
     resolutions(&mut ledger.state, resolves)?;
     facts(&mut ledger.state, found, folder);
+    reply_fits(&ledger.state)?;
     let grounding = receipts(&ledger.state, true);
     let path = session.join(SEED);
     let previous =
@@ -929,7 +947,7 @@ pub fn draft_seed(
         None => 1,
     };
     let records = ledger::Value::parse(&checks.to_string()).map_err(not_saved)?;
-    ledger::validate_goal_checks(ledger.goal().unwrap_or(""), &records).map_err(not_saved)?;
+    ledger::validate_goal_checks(ledger.goal().unwrap_or(""), &records).map_err(rejected)?;
     let rendered = ledger::checks_block(&records).map_err(not_saved)?;
     let version = if found.is_empty() && resolves.is_none() {
         expected

@@ -86,39 +86,60 @@ pub fn validate_checks(records: &Value) -> Result<()> {
     Ok(())
 }
 
+/// The confirmed goal's explicit Done when lines, in order. Unstructured goals have none.
+pub(crate) fn goal_criteria(goal: &str) -> Vec<&str> {
+    let mut in_done_when = false;
+    goal.lines()
+        .filter_map(|line| {
+            if let Some(value) = line.strip_prefix("Done when:") {
+                in_done_when = true;
+                Some(value.trim())
+            } else if in_done_when {
+                let value = line.strip_prefix("- ").map(str::trim);
+                in_done_when = value.is_some();
+                value
+            } else {
+                None
+            }
+        })
+        .filter(|value| !value.is_empty())
+        .collect()
+}
+
+/// Whether `statement` keeps `criterion` whole: the same words, or the clause form the goal block
+/// joined. `ignore_case` widens only letter case, never words or order.
+pub(crate) fn keeps_criterion(statement: &str, criterion: &str, ignore_case: bool) -> bool {
+    let same = |a: &str| {
+        if ignore_case {
+            a.to_lowercase() == criterion.to_lowercase()
+        } else {
+            a == criterion
+        }
+    };
+    same(statement) || same(&crate::goal::composed_line(statement))
+}
+
 /// Keep each explicit confirmed success line in one whole statement; never infer semantic coverage.
 /// A statement may keep the line's words in the clause form the goal block joined.
 /// Unstructured goals and missing criteria add no requirements. This does not prove a check works.
 pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
     validate_checks(records)?;
-    let mut in_done_when = false;
-    for line in goal.lines() {
-        let criterion = if let Some(value) = line.strip_prefix("Done when:") {
-            in_done_when = true;
-            Some(value.trim())
-        } else if in_done_when {
-            match line.strip_prefix("- ") {
-                Some(value) => Some(value.trim()),
-                None => {
-                    in_done_when = false;
-                    None
-                }
-            }
-        } else {
-            None
-        };
-        if let Some(criterion) = criterion.filter(|value| !value.is_empty()) {
-            require(
-                records.items().iter().any(|record| {
-                    record["statement"].string().is_some_and(|statement| {
-                        statement == criterion || crate::goal::composed_line(statement) == criterion
-                    })
-                }),
-                format!(
-                    "No seed was drafted: keep this complete Done when line unchanged in one check statement: {criterion} Separate checks may supplement it, not replace its sequence or qualifiers."
-                ),
-            )?;
-        }
+    keeps_goal_criteria(goal, records)
+}
+
+/// Only the Done when half of [`validate_goal_checks`], for naming beside other reply faults.
+pub(crate) fn keeps_goal_criteria(goal: &str, records: &Value) -> Result<()> {
+    for criterion in goal_criteria(goal) {
+        require(
+            records.items().iter().any(|record| {
+                record["statement"]
+                    .string()
+                    .is_some_and(|statement| keeps_criterion(statement, criterion, false))
+            }),
+            format!(
+                "No seed was drafted: keep this complete Done when line unchanged in one check statement: {criterion} Separate checks may supplement it, not replace its sequence or qualifiers."
+            ),
+        )?;
     }
     Ok(())
 }

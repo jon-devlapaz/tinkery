@@ -10,7 +10,10 @@
 
 use crate::{
     pi::{self, Call, CallBudget, Request},
-    seed_me::answering::{self, Alternative, Ask, Assumption, Found, Refusal},
+    seed_me::{
+        answering::{self, Alternative, Ask, Assumption, Found, Refusal},
+        ledger,
+    },
     think_record::{self, Event, MadeIn},
 };
 use serde_json::{Value, json};
@@ -389,7 +392,7 @@ fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
         feedback: None,
         why: match refusal {
             Refusal::Stale => Why::Stale,
-            Refusal::Refused(reason) => Why::Refused(reason),
+            Refusal::Refused(reason) | Refusal::Rejected(reason) => Why::Refused(reason),
         },
     }
 }
@@ -486,6 +489,11 @@ fn look(
         feedback: None,
     };
     let rejected = |failure: Failure| failure.rejected(session, expected, folder, cancelled);
+    // A ledger rule the reply broke is retry feedback too; storage refusals never are (#432).
+    let reply_refused = |refusal: Refusal| match refusal {
+        Refusal::Rejected(_) => rejected(refused(answer_saved)(refusal)),
+        refusal => refused(answer_saved)(refusal),
+    };
     let ledger = answering::read(session).map_err(refused(answer_saved))?;
     if ledger.version() != expected {
         return Err(fail(Why::Stale));
@@ -534,9 +542,9 @@ fn look(
                 fail(Why::Model(error))
             }
         })?;
-    match decode(&reply).map_err(|e| rejected(fail(Why::Model(e))))? {
+    match decode(&reply, &goal).map_err(|e| rejected(fail(Why::Model(e))))? {
         Next::Question(ask) => {
-            answering::ask(session, expected, &ask, folder).map_err(refused(answer_saved))?;
+            answering::ask(session, expected, &ask, folder).map_err(reply_refused)?;
             Ok(Done::Asked(Asked {
                 withheld: ask.recommendation().filter(|_| ask.hard()),
                 assumed: ask.assumed,
@@ -554,7 +562,7 @@ fn look(
                 .validate(&records)
                 .map_err(|why| rejected(fail(Why::Model(why))))?;
             // Only pure reply checks become retry feedback; storage failures never do.
-            crate::seed_me::ledger::validate_goal_checks(&goal, &records)
+            ledger::validate_goal_checks(&goal, &records)
                 .map_err(|why| rejected(fail(Why::Refused(format!("Tinkery refused: {why}")))))?;
             let revision = answering::draft_seed(
                 session,
@@ -565,7 +573,7 @@ fn look(
                 folder,
                 resolves.as_ref(),
             )
-            .map_err(refused(answer_saved))?;
+            .map_err(reply_refused)?;
             let seed = std::fs::read_to_string(session.join("seed-contract.md")).map_err(|_| {
                 fail(Why::Model(
                     "The draft could not be read. Reopen Shape before trying again.".into(),
@@ -594,6 +602,23 @@ fn input(ledger: &answering::Ledger, settled: Vec<Value>) -> Value {
         "found_so_far": ledger.findings(),
         "ledger": ledger.context_without_findings(),
     })
+}
+
+/// Restore the operator's exact Done when line where one check kept it whole but changed only its
+/// letter case (#432). Other words, and checks that split or reword a line, are left to refuse.
+fn restore_case(goal: &str, checks: &mut [Value]) {
+    for criterion in ledger::goal_criteria(goal) {
+        let keeps = |check: &Value, ignore_case| {
+            check["statement"]
+                .as_str()
+                .is_some_and(|statement| ledger::keeps_criterion(statement, criterion, ignore_case))
+        };
+        if !checks.iter().any(|check| keeps(check, false))
+            && let Some(check) = checks.iter_mut().find(|check| keeps(check, true))
+        {
+            check["statement"] = criterion.into();
+        }
+    }
 }
 
 /// Exactly two complete options, each with a known undo cost; anything else gives none.
@@ -663,8 +688,9 @@ pub(super) enum Next {
 
 /// The model's reply as one JSON object (surrounding prose or a code fence is tolerated).
 /// Tolerates redundant closing braces after one complete object, never missing content or a
-/// second object. Refuses a reply that asks to confirm: only the operator confirms.
-pub(super) fn decode(reply: &str) -> Result<Next, String> {
+/// second object. Refuses a reply that asks to confirm: only the operator confirms. A seed's
+/// checks must keep each of `goal`'s Done when lines whole; every broken rule is named at once.
+pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
     let start = reply.find('{').ok_or_else(|| {
         "The reply contains no JSON object. Return one question or seed draft.".to_owned()
     })?;
@@ -737,18 +763,32 @@ pub(super) fn decode(reply: &str) -> Result<Next, String> {
                     .filter(|c| ["low", "medium", "high"].contains(&c.as_str())),
             })))
         }
-        Some("seed") => Ok(Next::Seed {
-            review: review_reply::decode(value["review"].clone(), &value["checks"])?,
-            confirming: value.get("confirming").cloned().ok_or_else(||
-                "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
-            checks: value["checks"]
+        Some("seed") => {
+            let mut checks = value["checks"]
                 .as_array()
                 .filter(|checks| !checks.is_empty())
-                .map(|checks| Value::Array(checks.clone()))
-                .ok_or_else(|| "Seed reply field checks must be a non-empty list of check records.".to_owned())?,
-            found,
-            resolves: value.get("resolves").cloned(),
-        }),
+                .cloned()
+                .ok_or_else(|| {
+                    "Seed reply field checks must be a non-empty list of check records.".to_owned()
+                })?;
+            restore_case(goal, &mut checks);
+            let checks = Value::Array(checks);
+            // #432: a reply breaking both rules hears both, so a retry can't trade one for the other.
+            let kept = ledger::keeps_goal_criteria(goal, &checks.clone().into()).err();
+            let review = match (kept, review_reply::decode(value["review"].clone(), &checks)) {
+                (None, review) => review?,
+                (Some(kept), Ok(_)) => return Err(kept),
+                (Some(kept), Err(paired)) => return Err(format!("{kept} Also: {paired}")),
+            };
+            Ok(Next::Seed {
+                review,
+                confirming: value.get("confirming").cloned().ok_or_else(||
+                    "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
+                checks,
+                found,
+                resolves: value.get("resolves").cloned(),
+            })
+        }
         _ => unreachable!("Reply kind checked above"),
     }
 }

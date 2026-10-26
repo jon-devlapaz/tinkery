@@ -166,7 +166,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     )
     .unwrap_err();
     assert!(
-        matches!(prose_error, Refusal::Refused(ref reason) if reason.contains("probe answers belong to the ledger"))
+        matches!(prose_error, Refusal::Rejected(ref reason) if reason.contains("probe answers belong to the ledger"))
     );
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
     assert_eq!(agent.remaining(), 1);
@@ -455,7 +455,7 @@ fn reply_framing_repairs_only_complete_objects_and_names_remaining_errors() {
         format!("{question}}}"),
         format!("preface\n```json\n{question}}}\n```\nafterword"),
     ] {
-        let Next::Question(ask) = decode(&raw).unwrap() else {
+        let Next::Question(ask) = decode(&raw, "").unwrap() else {
             panic!()
         };
         assert_eq!(ask.question, question["question"].as_str().unwrap());
@@ -480,7 +480,7 @@ fn reply_framing_repairs_only_complete_objects_and_names_remaining_errors() {
             "field question must contain non-empty words",
         ),
     ] {
-        assert!(decode(raw).unwrap_err().contains(reason), "{raw}");
+        assert!(decode(raw, "").unwrap_err().contains(reason), "{raw}");
     }
     for raw in [
         format!("{question}{question}"),
@@ -491,7 +491,7 @@ fn reply_framing_repairs_only_complete_objects_and_names_remaining_errors() {
         format!("{question}unexpected}}"),
     ] {
         assert!(
-            decode(&raw)
+            decode(&raw, "")
                 .unwrap_err()
                 .contains("extra content after its JSON object"),
             "{raw}"
@@ -509,7 +509,7 @@ fn prompt_361_example_pairs_provisional_and_judge_checks_without_inventing_cover
         .find(|line| line.starts_with("{\"next\":\"seed\""))
         .unwrap();
     assert!(prompt.contains(example));
-    let Next::Seed { review, checks, .. } = decode(example).unwrap() else {
+    let Next::Seed { review, checks, .. } = decode(example, "").unwrap() else {
         panic!()
     };
     assert_eq!(checks.as_array().unwrap().len(), 2);
@@ -527,7 +527,7 @@ fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
     reply["checks"] =
         json!([{"statement":"TEST café check\r\n  ", "kind":"judge", "source":"TEST goal"}]);
     reply["review"]["failure_cases"] = json!(["TEST wrong result\r\n  "]);
-    let Next::Seed { review, checks, .. } = decode(&reply.to_string()).unwrap() else {
+    let Next::Seed { review, checks, .. } = decode(&reply.to_string(), "").unwrap() else {
         panic!()
     };
     review
@@ -541,12 +541,12 @@ fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
         json!(["TEST", {"statement":"TEST", "case":"TEST"}]),
     ] {
         reply["review"]["failure_cases"] = cases;
-        let error = decode(&reply.to_string()).unwrap_err();
+        let error = decode(&reply.to_string(), "").unwrap_err();
         assert!(error.contains("typed completion review"));
         assert!(!error.contains("invalid type") && !error.contains("untagged"));
     }
     reply["review"]["failure_cases"] = json!(["  "]);
-    let Next::Seed { review, checks, .. } = decode(&reply.to_string()).unwrap() else {
+    let Next::Seed { review, checks, .. } = decode(&reply.to_string(), "").unwrap() else {
         panic!()
     };
     assert!(
@@ -555,4 +555,145 @@ fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
             .unwrap_err()
             .contains("case 1 is blank")
     );
+}
+
+/// The #296 ledger with a structured Done when line, as Think composes one.
+fn done_when_session(root: &Path, criterion: &str) -> PathBuf {
+    let session = root.join("TEST-session");
+    fs::create_dir_all(&session).unwrap();
+    let mut ledger: Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/shape-296/ledger.json"
+    ))
+    .unwrap();
+    let goal = format!(
+        "{}\nDone when: {criterion}",
+        ledger["goal"].as_str().unwrap()
+    );
+    // The ledger keeps the confirmed goal in three places; change them together.
+    ledger["goal"] = goal.clone().into();
+    ledger["draft"]["goal"] = goal.clone().into();
+    ledger["nodes"][0]["answer"] = goal.into();
+    fs::write(session.join("ledger.json"), ledger.to_string()).unwrap();
+    session
+}
+
+#[test]
+fn a_done_when_line_changed_only_in_letter_case_is_saved_in_the_operator_words() {
+    // #432, recorded contradict call 7: "Valid-row" came back as "valid-row" and was refused.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-432-case-")
+        .tempdir()
+        .unwrap();
+    let criterion =
+        "Bad rows print a stderr warning; Valid-row output stays byte-for-byte identical.";
+    let session = done_when_session(root.path(), criterion);
+    let mut reply = valid_reply();
+    reply["checks"][0]["statement"] =
+        "bad rows print a stderr warning; valid-row output stays byte-for-byte identical.".into();
+    let agent = provider(root.path(), &reply.to_string(), 1);
+    assert_eq!(look_again(&session, root.path(), &agent), Ok(Done::Drafted));
+    let checks: Value =
+        serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
+    assert_eq!(checks[0]["statement"], criterion);
+    assert_eq!(
+        checks[1], reply["checks"][1],
+        "other checks keep the model's words"
+    );
+
+    // A changed word is not a case difference: it still refuses and writes nothing.
+    let session = done_when_session(&root.path().join("reworded"), criterion);
+    reply["checks"][0]["statement"] =
+        "bad rows print a warning; valid-row output stays byte-for-byte identical.".into();
+    let agent = provider(root.path(), &reply.to_string(), 1);
+    let error = look_again(&session, root.path(), &agent).unwrap_err();
+    assert!(
+        matches!(error.why, Why::Model(ref reason) if reason.contains("keep this complete Done when line unchanged")),
+        "{error:?}"
+    );
+    assert!(error.feedback.is_some());
+    assert!(!session.join("seed-checks.json").exists());
+}
+
+#[test]
+fn a_reply_breaking_done_when_and_case_count_hears_both_in_one_refusal() {
+    // #432, recorded trap call 1: one Done when line split in two checks, cases for neither shape.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-432-both-")
+        .tempdir()
+        .unwrap();
+    let session = done_when_session(
+        root.path(),
+        "A wrong answer prints ✗ and the existing explanation; Tests still pass.",
+    );
+    let mut reply = valid_reply();
+    reply["checks"][0]["statement"] =
+        "A wrong answer prints ✗ and the existing explanation.".into();
+    reply["checks"][1]["statement"] = "Tests still pass.".into();
+    reply["review"]["failure_cases"] = json!(["TEST only one case"]);
+    let agent = provider(root.path(), &reply.to_string(), 1);
+    let error = look_again(&session, root.path(), &agent).unwrap_err();
+    let Why::Model(reason) = &error.why else {
+        panic!("{error:?}")
+    };
+    assert!(
+        reason.contains("keep this complete Done when line unchanged"),
+        "{reason}"
+    );
+    assert!(reason.contains("Also: Completion review needs exactly one failure case per check: received 1 for 3 checks"), "{reason}");
+    let feedback = error
+        .feedback
+        .expect("an explicit retry hears this refusal");
+    assert!(
+        feedback.input()["reason"]
+            .as_str()
+            .unwrap()
+            .contains("Also: Completion review")
+    );
+    assert!(!session.join("seed-checks.json").exists());
+}
+
+#[test]
+fn a_ledger_rule_the_reply_broke_becomes_retry_feedback_and_storage_never_does() {
+    // #432, recorded contradict2 call 13: a finding reused the probe's node id; call 14 ran blind.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-432-ledger-")
+        .tempdir()
+        .unwrap();
+    let session = root.path().join("TEST-session");
+    fs::create_dir(&session).unwrap();
+    let before = include_str!("../../../tests/fixtures/shape-296/ledger.json");
+    fs::write(session.join("ledger.json"), before).unwrap();
+    let taken = serde_json::from_str::<Value>(before).unwrap()["nodes"][0]["id"].clone();
+    let mut reply = valid_reply();
+    reply["found"] = json!([{"id": taken, "claim": {"type": "observation", "scope": "TEST line"},
+        "checked": "README.md:1", "observed": "TEST observed"}]);
+    let agent = provider(root.path(), &reply.to_string(), 1);
+    let error = look_again(&session, root.path(), &agent).unwrap_err();
+    assert!(
+        matches!(error.why, Why::Refused(ref reason) if reason.contains(&format!("duplicate node id {}", taken.as_str().unwrap()))),
+        "{error:?}"
+    );
+    assert!(
+        error.feedback.is_some(),
+        "the retry must hear which rule broke"
+    );
+    assert_eq!(
+        fs::read_to_string(session.join("ledger.json")).unwrap(),
+        before
+    );
+
+    // A session another writer holds is a storage refusal: nothing for the model to fix.
+    let lock = fs::File::create(session.join(".writer.lock")).unwrap();
+    // SAFETY: the descriptor stays owned by `lock` for this whole test.
+    assert_eq!(
+        unsafe { libc::flock(std::os::fd::AsRawFd::as_raw_fd(&lock), libc::LOCK_EX) },
+        0
+    );
+    let agent = provider(root.path(), &valid_reply().to_string(), 1);
+    let error = look_again(&session, root.path(), &agent).unwrap_err();
+    assert!(
+        matches!(error.why, Why::Refused(ref reason) if reason.contains("already has a writer")),
+        "{error:?}"
+    );
+    assert!(error.feedback.is_none());
 }

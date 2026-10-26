@@ -851,8 +851,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
         r#"Here it is:
 ```json
 {"next":"question","id":"Storage","question":"Local?","found":[{"id":"read-1","claim":{"type":"observation","scope":"README"},"checked":"README.md:3","observed":"local only"}],"suggestion":null}
-```"#,
-    )
+```"#, "")
     .unwrap();
     let Next::Question(ask) = asked else {
         panic!("{asked:?}")
@@ -864,7 +863,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
     assert_eq!(ask.found.len(), 1);
     assert_eq!(ask.suggestion, None);
     assert_eq!(
-        decode("{\"next\":\"seed\",\"review\":{\"contradictions\":[],\"decided\":[],\"done\":[],\"failure_cases\":[\"TEST wrong result must fail\"]},\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[]}").unwrap(),
+        decode("{\"next\":\"seed\",\"review\":{\"contradictions\":[],\"decided\":[],\"done\":[],\"failure_cases\":[\"TEST wrong result must fail\"]},\"confirming\":\" Build it. \",\"checks\":[{\"statement\":\"TEST\",\"kind\":\"judge\",\"source\":\"TEST\"}],\"found\":[]}", "").unwrap(),
         Next::Seed {
             confirming: serde_json::json!(" Build it. "),
             review: serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[{"statement":"TEST","case":"TEST wrong result must fail"}]})).unwrap(),
@@ -874,8 +873,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
         }
     );
     let Next::Seed { found, .. } = decode(
-        r#"{"next":"seed","review":{"contradictions":[],"decided":[],"done":[],"failure_cases":["TEST wrong result must fail"]},"confirming":"Build it.","checks":[{"statement":"TEST","kind":"judge","source":"TEST"}],"found":[{"id":"read-1","claim":{"type":"observation","scope":"src/lib.rs"},"checked":"src/lib.rs:9","observed":"the palette"}]}"#,
-    )
+        r#"{"next":"seed","review":{"contradictions":[],"decided":[],"done":[],"failure_cases":["TEST wrong result must fail"]},"confirming":"Build it.","checks":[{"statement":"TEST","kind":"judge","source":"TEST"}],"found":[{"id":"read-1","claim":{"type":"observation","scope":"src/lib.rs"},"checked":"src/lib.rs:9","observed":"the palette"}]}"#, "")
     .unwrap() else {
         panic!("not a seed")
     };
@@ -890,7 +888,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
         "no json",
         "",
     ] {
-        assert!(decode(reply).is_err(), "{reply}");
+        assert!(decode(reply, "").is_err(), "{reply}");
     }
 }
 
@@ -968,10 +966,13 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         ))
     );
     assert_eq!(reply["found"].as_array().unwrap().len(), 13);
-    let refused = step::decode(&format!(
-        "My reading is provisional.\n{}\nNo checks were run.",
-        include_str!("../../tests/fixtures/stacker-r1-reply.json")
-    ))
+    let refused = step::decode(
+        &format!(
+            "My reading is provisional.\n{}\nNo checks were run.",
+            include_str!("../../tests/fixtures/stacker-r1-reply.json")
+        ),
+        "",
+    )
     .unwrap_err();
     assert!(
         refused.contains("findings are incomplete or use an unsupported format"),
@@ -2664,7 +2665,7 @@ fn a_step_may_assume_at_most_five_complete_defaults() {
         "{{\"next\":\"question\",\"question\":\"Local?\",\"found\":[],\"assumed\":[{}]}}",
         assumed.join(",")
     );
-    let step::Next::Question(ask) = step::decode(&reply).unwrap() else {
+    let step::Next::Question(ask) = step::decode(&reply, "").unwrap() else {
         panic!("not a question")
     };
     assert_eq!(ask.assumed.len(), 5);
@@ -2856,7 +2857,7 @@ fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
         let reply = format!(
             "{{\"next\":\"question\",\"question\":\"Local?\",\"found\":[],\"suggestion\":\"Local.\",\"options\":{options},\"against\":\" TEST sync helps later \",\"confidence\":\"{confidence}\"}}"
         );
-        let step::Next::Question(ask) = step::decode(&reply).unwrap() else {
+        let step::Next::Question(ask) = step::decode(&reply, "").unwrap() else {
             panic!("not a question")
         };
         ask
