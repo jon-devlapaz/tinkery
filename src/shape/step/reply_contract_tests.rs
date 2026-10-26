@@ -296,7 +296,8 @@ fn ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_stric
                 "received 3 for 4 checks"
             };
             assert!(
-                matches!(error.why, Why::Model(ref reason) if reason.contains(counts)),
+                matches!(error.why, Why::Model(ref reason) if reason.contains(counts)
+                    && reason.contains("failure mode") == (index == 1)),
                 "{error:?}"
             );
             assert_eq!(
@@ -703,4 +704,19 @@ fn a_ledger_rule_the_reply_broke_becomes_retry_feedback_and_storage_never_does()
         "{error:?}"
     );
     assert!(error.feedback.is_none());
+}
+
+#[test]
+fn one_case_per_failure_mode_hears_that_one_check_takes_one_string() {
+    // #432, re-measured contradict calls 2-4: two failure modes of one check, sent as two cases.
+    let mut reply = valid_reply();
+    reply["checks"] =
+        json!([{"statement":"TEST bad rows are skipped", "kind":"judge", "source":"TEST goal"}]);
+    reply["review"]["failure_cases"] = json!(["TEST still crashes", "TEST counts data rows"]);
+    let error = review_error(&reply);
+    assert!(error.contains("received 2 for 1 check. "), "{error}");
+    assert!(
+        error.contains("put every failure mode of one check in its one string"),
+        "{error}"
+    );
 }

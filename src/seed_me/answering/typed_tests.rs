@@ -105,11 +105,11 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
         ),
         (
             question(vec![fact("read", "observation"), unsupported], None),
-            "must cite the observations",
+            "node inferred: an inference must cite the observations",
         ),
         (
             question(vec![fact("read", "observation"), no_limits], None),
-            "must state its limits",
+            "node inferred: an inference must state its limits",
         ),
         (
             question(vec![fact("gap", "unknown")], Some(json!(["gap"]))),
