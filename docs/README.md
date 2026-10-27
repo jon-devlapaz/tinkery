@@ -30,8 +30,8 @@ implementation permission, data permission or budget.
 | --- | --- |
 | [Saved model setup](https://github.com/jon-devlapaz/tinkery/issues/422) | Issue owns scope and permission |
 | [Session-only dark theme](https://github.com/jon-devlapaz/tinkery/issues/424) | Shipped in [#430](https://github.com/jon-devlapaz/tinkery/pull/430); #424 records scope |
-| [Think multiple-choice research](https://github.com/jon-devlapaz/tinkery/issues/426) | Open; needs approval |
-| [Think evidence on demand](https://github.com/jon-devlapaz/tinkery/issues/428) | Open; needs approval |
+| [Think multiple-choice research](https://github.com/jon-devlapaz/tinkery/issues/426) | Issue owns scope and permission |
+| [Think evidence on demand](https://github.com/jon-devlapaz/tinkery/issues/428) | Issue owns scope and permission |
 
 ## Recorded evidence and retired proposals
 

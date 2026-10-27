@@ -52,8 +52,9 @@ Tinkery binding: [#258](https://github.com/jon-devlapaz/tinkery/issues/258). I1 
 <a id="r5"></a>
 ## R5 — Read the records for one linked job
 
-Published: [#111](https://github.com/jon-devlapaz/tinkery/issues/111) · closed, not planned; replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258). See the issue for scope, dependencies,
-open decisions and completion evidence.
+The original task [#111](https://github.com/jon-devlapaz/tinkery/issues/111) was superseded by
+[#258](https://github.com/jon-devlapaz/tinkery/issues/258). See #111 for its original scope and
+completion record.
 
 <a id="r6"></a>
 ## R6 — Show the exact decision in Approve
@@ -76,7 +77,7 @@ open decisions and completion evidence.
 <a id="r9"></a>
 ## R9 — Show recorded results and attention in Measure
 
-Closed, not planned: [#115](https://github.com/jon-devlapaz/tinkery/issues/115).
+Original task: [#115](https://github.com/jon-devlapaz/tinkery/issues/115).
 The narrower [#321](https://github.com/jon-devlapaz/tinkery/issues/321) lists repo PRs;
 it does not fulfill R9's accepted-results or recorded-attention scope.
 

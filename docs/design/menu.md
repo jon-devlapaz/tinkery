@@ -78,7 +78,7 @@ and title wrapping. The PR browser is
 [#321](https://github.com/jon-devlapaz/tinkery/issues/321), with visual refinement in
 [#338](https://github.com/jon-devlapaz/tinkery/issues/338); the broader results and
 effort proposals [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
-[#115](https://github.com/jon-devlapaz/tinkery/issues/115) remain closed, not planned.
+[#115](https://github.com/jon-devlapaz/tinkery/issues/115) own their current scope and status.
 
 ## Direction, not built behavior
 

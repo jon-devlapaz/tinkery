@@ -123,15 +123,15 @@ meet that contract, retain and strengthen the existing labels rather than weaken
 the invariant. Correcting “I find…” or separating instructions from requirements
 belongs to a later, independently evaluated semantic slice.
 
-## Shipped suggestions and the remaining proposal
+## Shipped suggestions
 
 [#330](https://github.com/jon-devlapaz/tinkery/issues/330) shipped through
 [#332](https://github.com/jon-devlapaz/tinkery/pull/332). The current contract is a
 separate suggestion and reason, with **Ctrl-R** copying into an empty draft. F2
 alone sends; existing drafts are preserved; unaccepted suggestions stay out of
-subsequent request and handoff context. The issue remains open for its separately
-deferred live comparison, with zero approved budget. This proposal must not add a
-second generator, wire format, suggestion store or acceptance path.
+subsequent request and handoff context. This proposal does not authorize a new
+interaction or live evaluation; those need separate approval and an explicit budget.
+It must not add a second generator, wire format, suggestion store or acceptance path.
 
 The operator subsequently requested inline muted text accepted with Tab. That is
 a requested presentation direction, **not a resolved keybinding/integration decision**.
