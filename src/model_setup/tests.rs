@@ -413,8 +413,7 @@ fn claude_code_models_are_picked_not_typed_and_saving_keeps_the_harness() {
     );
 }
 
-/// A fake Pi that prints `table` for `--list-models`, already started once so no other test's
-/// fork still holds it open for writing.
+/// A fake Pi running `script` with `sys` imported.
 fn lister(directory: &std::path::Path, script: &str) -> std::path::PathBuf {
     use std::os::unix::fs::PermissionsExt;
     let program = directory.join("pi");
@@ -424,15 +423,6 @@ fn lister(directory: &std::path::Path, script: &str) -> std::path::PathBuf {
     )
     .unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    for _ in 0..500 {
-        let started = std::process::Command::new(&program)
-            .stdout(std::process::Stdio::null())
-            .status();
-        if !started.is_err_and(|e| e.raw_os_error() == Some(libc::ETXTBSY)) {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
     program
 }
 

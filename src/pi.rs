@@ -301,16 +301,17 @@ fn explicit_model(model: &str) -> bool {
 /// Runs `pi --list-models --offline`, which reads Pi's registry and makes no model request;
 /// stops it after 10 seconds. Models Pi's extensions add may be missing; type those.
 pub fn pi_models(program: &Path) -> Result<Vec<String>, String> {
-    let mut child = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(["--list-models", "--offline"])
         .env_remove("PI_SESSION_ID")
         .env_remove("PI_SESSION_FILE")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .process_group(0)
-        .spawn()
-        .map_err(|error| format!("Cannot list Pi's models: {error}"))?;
+        .process_group(0);
+    let mut child =
+        start(&mut command).map_err(|error| format!("Cannot list Pi's models: {error}"))?;
     let overflow = Arc::new(AtomicBool::new(false));
     let stdout = read_pipe(child.stdout.take().unwrap(), LIMIT, "Pi", overflow);
     let started = Instant::now();
@@ -396,7 +397,7 @@ impl Call {
             Harness::Pi => self.pi()?,
             Harness::ClaudeCode => self.claude()?,
         };
-        let mut child = command
+        command
             .arg("--model")
             .arg(&self.model)
             .arg("--system-prompt")
@@ -404,14 +405,13 @@ impl Call {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .process_group(0)
-            .spawn()
-            .map_err(|error| match self.harness {
-                Harness::ClaudeCode if error.kind() == std::io::ErrorKind::NotFound => {
-                    "Cannot start Claude Code: `claude` is not installed or not on PATH.".to_owned()
-                }
-                _ => format!("Cannot start {host}: {error}"),
-            })?;
+            .process_group(0);
+        let mut child = start(&mut command).map_err(|error| match self.harness {
+            Harness::ClaudeCode if error.kind() == std::io::ErrorKind::NotFound => {
+                "Cannot start Claude Code: `claude` is not installed or not on PATH.".to_owned()
+            }
+            _ => format!("Cannot start {host}: {error}"),
+        })?;
         let mut stdin = child.stdin.take().unwrap();
         let writer = thread::spawn(move || stdin.write_all(&input));
         let overflow = Arc::new(AtomicBool::new(false));
@@ -665,6 +665,20 @@ fn claude_reply(
         }
     };
     Err(format!("{why} No automatic retry."))
+}
+
+/// Starts `command`, waiting up to a second while its executable is busy: one being replaced
+/// (an update in progress, or a fake a test just wrote) can't start until its writer closes it.
+fn start(command: &mut Command) -> std::io::Result<Child> {
+    let until = Instant::now() + Duration::from_secs(1);
+    loop {
+        match command.spawn() {
+            Err(error) if error.raw_os_error() == Some(libc::ETXTBSY) && Instant::now() < until => {
+                thread::sleep(Duration::from_millis(10));
+            }
+            started => return started,
+        }
+    }
 }
 
 // Stop descendants even if the host already exited, then reap the immediate child.
@@ -934,17 +948,6 @@ sys.exit({exit})
             )
             .unwrap();
             std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-            // Another test thread's fork can briefly hold the new file open for writing; once it
-            // has started once, it always can.
-            let until = Instant::now() + Duration::from_secs(5);
-            while Command::new(&program)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .status()
-                .is_err_and(|e| e.raw_os_error() == Some(libc::ETXTBSY) && Instant::now() < until)
-            {
-                thread::sleep(Duration::from_millis(10));
-            }
             Self { directory }
         }
 
@@ -1199,16 +1202,7 @@ openai-codex  gpt-6.1-terra               500K     128K     yes       yes   \n";
             "assert sys.argv[1:] == ['--list-models', '--offline'], sys.argv\n\
              assert sys.stdin.read() == ''\nsys.stdout.write({PI_TABLE:?})"
         ));
-        let mut models = Err(String::new());
-        // Another test thread's fork can briefly hold the new file open for writing.
-        for _ in 0..50 {
-            models = pi_models(&program);
-            if !models.as_ref().is_err_and(|e| e.contains("Text file busy")) {
-                break;
-            }
-            thread::sleep(Duration::from_millis(10));
-        }
-        assert_eq!(models.unwrap().len(), 4);
+        assert_eq!(pi_models(&program).unwrap().len(), 4);
         let (_directory, failing) = fake_pi("sys.exit(2)");
         let (_directory, empty) = fake_pi("print('provider  model')");
         for (program, why) in [
@@ -1216,10 +1210,7 @@ openai-codex  gpt-6.1-terra               500K     128K     yes       yes   \n";
             (empty, "listed no models"),
             (PathBuf::from("/TEST-no-such-pi"), "Cannot list Pi's models"),
         ] {
-            let error = (0..50)
-                .map(|_| pi_models(&program).unwrap_err())
-                .find(|e| !e.contains("Text file busy"))
-                .unwrap();
+            let error = pi_models(&program).unwrap_err();
             assert!(error.contains(why), "{error}");
         }
     }
