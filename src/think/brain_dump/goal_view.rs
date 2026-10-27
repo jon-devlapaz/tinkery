@@ -189,7 +189,7 @@ impl BrainDump {
             &affirmation.confirmation,
         )
     }
-    /// F3: opens review on the displayed goal, frozen as shown. Refused, with a visible reason, in
+    /// Opens review on the displayed goal, frozen as shown. Refused, with a visible reason, in
     /// practice, without a sessions folder, during a take, or while words are unsent or a reading is
     /// still coming, so what is confirmed is exactly what was read.
     pub fn review_goal(&mut self) {

@@ -83,3 +83,11 @@ class Screen:
 
     def text(self):
         return "\n".join("".join(row) for row in self.cells)
+
+    def pick(self, label):
+        """The digit F1's open list shows beside `label`, as the bytes that choose it."""
+        for line in self.text().splitlines():
+            match = re.search(r"(?<![0-9])([1-9])  [^│]*?" + re.escape(label), line)
+            if match:
+                return match.group(1).encode()
+        raise AssertionError(f"F1 offers no {label!r}:\n{self.text()}")

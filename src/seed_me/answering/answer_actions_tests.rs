@@ -189,7 +189,7 @@ fn delegation_records_the_suggestion_facts_and_operator_key() {
         node["authority_source"]
             .as_str()
             .unwrap()
-            .contains("'F12 delegate suggestion'")
+            .contains("'Delegate to the suggestion'")
     );
     let rendered = ledger::decisions_block(&ledger::load(&session).unwrap()).unwrap();
     assert!(rendered.contains("[delegated] TEST local"), "{rendered}");

@@ -292,8 +292,7 @@ fn aliases_never_undo_skip_or_insert_omega_and_repeats_do_not_toggle() {
         repeat.kind = KeyEventKind::Repeat;
         a.handle_key(repeat);
         assert_eq!(fake.borrow().commands.len(), 1);
-        a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
-        assert!(a.conversation.skipped().is_empty());
+        assert_eq!(a.conversation.skipped().len(), 1);
         assert!(a.voice_active());
     }
 }
@@ -498,11 +497,16 @@ fn final_preserves_raw_words_and_does_not_grant_confirmation() {
     assert!(a.handoff.review.is_none());
 }
 #[test]
-fn f10_closes_helper_preserves_unsaved_guard_and_can_reload_after_n() {
+fn leaving_closes_helper_preserves_unsaved_guard_and_can_reload_after_n() {
     let (mut a, fake) = attach(BrainDump::default());
     a.paste("typed");
     start(&mut a, &fake);
-    key(&mut a, KeyCode::F(10));
+    key(&mut a, KeyCode::Esc);
+    assert!(
+        !a.voice_active() && !a.screen.leave_prompt,
+        "Esc cancels the take first"
+    );
+    key(&mut a, KeyCode::Esc);
     assert!(a.screen.leave_prompt);
     assert!(!a.quitting());
     assert!(fake.borrow().closed > 0);
@@ -556,7 +560,7 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
     assert!(!layout::help_text(&a).contains("speak"));
     assert_eq!(
         layout::key_bar_items(&a),
-        vec![("s", "open in tend"), ("F10", "menu")]
+        vec![("s", "open in tend"), ("esc", "menu")]
     );
 }
 #[test]
@@ -578,13 +582,12 @@ fn voice_help_keeps_the_alias_and_local_label_visible_and_escape_cancellation() 
     let (mut a, fake) = attach(BrainDump::default());
     a.paste("my local draft");
     key(&mut a, KeyCode::F(1));
-    key(&mut a, KeyCode::F(1));
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         for mono in [false, true] {
             a.screen.original_scroll = 0;
             let view = snapshot(w, h, &mut a, mono).unwrap();
             assert!(
-                view.contains("Ctrl+Alt+Z") && view.contains("speak (local)"),
+                view.contains("Ctrl+Alt+Z") && view.contains("speaks"),
                 "{view}"
             );
         }
@@ -609,11 +612,13 @@ fn voice_help_keeps_the_alias_and_local_label_visible_and_escape_cancellation() 
 #[test]
 fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
     let mut a = BrainDump::default();
-    a.screen.help_all = true;
     assert!(!layout::help_text(&a).contains("speak"));
     assert!(!snapshot(100, 30, &mut a, false).unwrap().contains("speak"));
     let (mut a, fake) = attach(a);
-    assert!(layout::help_text(&a).contains("F6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"));
+    assert!(
+        layout::help_text(&a)
+            .contains("F6 or Ctrl+Alt+Z (⌃⌥Z) speaks; your voice stays on this machine.")
+    );
     assert!(
         layout::key_bar_items(&a)
             .contains(&(crate::voice::key_label(std::env::consts::OS), "speak"))

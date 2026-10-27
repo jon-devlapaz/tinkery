@@ -75,7 +75,7 @@ fn why_and_copy_label_success_criteria_without_claiming_experience_is_missing() 
         for text in [&details, &copied] {
             assert!(!text.contains("Desired experience") && !text.contains("Not supplied"));
         }
-        a.handle_key(KeyEvent::new(KeyCode::F(5), KeyModifiers::NONE));
+        super::tests::choose(&mut a, "Why");
         for (w, h) in [(80, 24), (100, 30), (82, 24)] {
             for mono in [false, true] {
                 let screen = snapshot(w, h, &mut a, mono).unwrap();
@@ -388,12 +388,12 @@ fn skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask() {
     a.paste("original");
     a.submit();
     settle(&mut a);
-    a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
+    super::tests::choose(&mut a, "Skip this question");
     assert!(!a.goal_ready());
     a.undo_skip();
     assert!(a.conversation.focused_question().is_some());
     assert_eq!(a.conversation.ask_counts()[&Part::DoneWhen], 1);
-    a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
+    super::tests::choose(&mut a, "Skip this question");
     let r = request(&a);
     let raw = serde_json::json!({"parts":parts(),"open":["done_when"],"questions":[{"target":"done_when","id":"renamed","text":"Reworded check?"}]});
     let g = Guess::decode(&raw.to_string(), &r, &mut vec![]).unwrap();

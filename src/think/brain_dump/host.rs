@@ -25,7 +25,7 @@ pub trait BoardHost: Send + Sync {
     fn calls_left(&self) -> Option<String> {
         None
     }
-    /// The host's own log lines for F5 "why"; none by default.
+    /// The host's own log lines for "Why" in F1; none by default.
     fn diagnostics(&self) -> Vec<String> {
         Vec::new()
     }

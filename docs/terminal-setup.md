@@ -2,7 +2,7 @@
 
 This page covers terminal-host settings and launch commands. Tinkery uses the
 host's font; it cannot install or choose one. For key behaviour, use in-app help
-(F1, then F1 again for every key). Report disagreements with the
+(F1, then h for how it works). Report disagreements with the
 [interaction contract](design/think.md#interaction-contracts), rather than treating
 this setup guide as a new rule.
 
@@ -56,20 +56,18 @@ Ctrl-L. Leave out credentials and private data.
 
 ## Function keys
 
-Think is driven by function keys: F1 help, F2 send, F3 review the goal (real drafting only), F8 skip,
-F9 copy, F10 back to the menu. F4 (originals), F5 (why) and F6 (speak, local
-voice) are listed in help. On a Mac keyboard you may need to hold **fn**, or enable
+Think and Shape share one key map: F2 runs the action the key bar names, F1 lists every
+other action allowed now with a number (press the number to run it), and Esc goes back.
+F6 speaks with local voice. On a Mac keyboard you may need to hold **fn**, or enable
 **Use F1, F2, etc. keys as standard function keys** in System Settings → Keyboard.
 The terminal must also pass function keys through rather than binding them itself.
 
-Ctrl aliases exist for hosts that capture function keys: **Ctrl-N** new dump
-(also Shift-F2), **Ctrl-G** review, **Ctrl-O** originals, **Ctrl-D** why. Local
-voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS).
+Local voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS), for hosts that capture F6.
 
 **Tab** (or Shift-Tab) switches between writing and the read-only original once
 it exists.
 **Ctrl-C** copies the active selection or cancels a request; it never leaves think.
-F10 asks first (`y` / `n`) when leaving would lose unsaved work. With `--home` it
+Esc asks first (`y` / `n`) when leaving would lose unsaved work. With `--home` it
 returns to the menu, where `q` quits. Without `--home`, it exits before a goal is
 saved and opens the menu after saving. See the
 [interaction contract](design/think.md#interaction-contracts) for selection,
@@ -92,8 +90,8 @@ those clicks, **Ctrl-A** selects all cards instead.
 
 ## Clipboard (OSC 52)
 
-Copying (F9 in think, `c` in Approve or on a verified Shape seed) sends text through the OSC 52
-escape. Tinkery cannot confirm the host clipboard changed. F9 says so ("Copy sent;
+Copying (F1's copy row in think, `c` in Approve or on a verified Shape seed) sends text through the OSC 52
+escape. Tinkery cannot confirm the host clipboard changed. Think says so ("Copy sent;
 host may require clipboard permission"); Approve and Shape just say "Copied."
 once the escape is written. Either way, both the terminal and any multiplexer must
 allow clipboard writes. Test by pasting into a scratch editor.
@@ -155,13 +153,13 @@ operator-authorized edit must remove that line after this change merges.
 Think and Shape share `--shape-budget CALLS` for the whole launch; the default is zero.
 Each Think shaping request, decision review, and Shape agent step uses one slot before
 Pi starts, including failures. Opening another goal does not reset it. Shape uses
-read-only tools in the displayed folder (`F4` picks another); paths outside it refuse.
+read-only tools in the displayed folder (F1 picks another); paths outside it refuse.
 This allowance counts Pi requests, not cost or tool-driven provider turns: a Shape
 step may make several provider requests. Authorize that work and its spending separately.
 
 A send makes at most two provider calls: one shaping call and one decision review,
 both before the reading is shown, with no automatic retry. Some sends make none, such as a new dump that first asks how its words fit.
-F3 opens the review. Scroll to its end (PgDn), then type `confirm` and Enter to
+F1's first row opens the review. Scroll to its end (PgDn), then type `confirm` and Enter to
 save the goal and its think record. Saving is not seed confirmation or permission
 to implement, and nothing launches an agent. See [think](design/think.md) and
 [tend and handoff](design/shape-and-handoff.md).

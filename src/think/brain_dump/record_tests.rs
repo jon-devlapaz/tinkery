@@ -39,8 +39,8 @@ fn session_with(
     a.paste(DUMP);
     a.submit();
     settle(&mut a);
-    key(&mut a, KeyCode::F(8), KeyModifiers::NONE);
-    key(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+    super::tests::choose(&mut a, "Skip this question");
+    super::tests::choose(&mut a, "Bring back");
     a.paste(ANSWER);
     a.submit();
     settle(&mut a);
@@ -319,7 +319,7 @@ fn a_session_that_never_confirms_or_fails_to_save_leaves_no_record() {
         "a failed Seed Me save wrote a record"
     );
     let mut quit = session(&root);
-    key(&mut quit, KeyCode::F(10), KeyModifiers::NONE);
+    key(&mut quit, KeyCode::Esc, KeyModifiers::NONE);
     key(&mut quit, KeyCode::Char('y'), KeyModifiers::NONE);
     assert_eq!(*quit.exit(), Exit::Menu);
     assert!(quit.finish_handoff().is_none());

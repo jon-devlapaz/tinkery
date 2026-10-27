@@ -16,6 +16,7 @@ use ratatui::{
     widgets::Paragraph,
 };
 
+pub mod actions;
 mod approve;
 pub mod goal;
 pub mod measure;

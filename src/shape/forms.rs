@@ -3,7 +3,6 @@
 
 use super::words::Words;
 use crate::seed_me::ledger::AnswerAction;
-use crossterm::event::KeyCode;
 
 pub(super) struct Form {
     pub(super) id: String,
@@ -71,20 +70,12 @@ impl Form {
         }
     }
 
-    pub(super) fn key(&self) -> KeyCode {
-        KeyCode::F(if matches!(self.fields, Fields::Defer { .. }) {
-            11
-        } else {
-            2
-        })
-    }
-
     pub(super) fn bar(&self) -> &'static str {
         match &self.fields {
             Fields::Defer {
                 condition: false, ..
-            } => "F11 next field",
-            Fields::Defer { .. } => "F11 save deferral",
+            } => "F2 next field",
+            Fields::Defer { .. } => "F2 save deferral",
             Fields::Revise(_) => "F2 save revision and look",
         }
     }
@@ -93,7 +84,7 @@ impl Form {
         match &self.fields {
             Fields::Defer { gate, reason, condition, .. } => {
                 let reason = if *condition { format!("\nReason: {}", reason.text()) } else { String::new() };
-                format!("Defer this question. You decide it can wait.\nGate: {gate}{reason}\nTab changes fields; F11 advances or saves. Esc cancels.")
+                format!("Defer this question. You decide it can wait.\nGate: {gate}{reason}\nTab changes fields; F2 advances or saves. Esc cancels.")
             }
             Fields::Revise(_) => concat!(
                 "Replace this answer. F2 saves the revision and looks into the next. ",

@@ -20,7 +20,7 @@ pub struct Conversation {
     applied: usize,
     settled: Vec<Settled>,
     skipped: Vec<Question>,
-    /// Skipped questions brought back with Ctrl-Z, newest first.
+    /// Skipped questions brought back from F1, newest first.
     restored: Vec<Question>,
     ask_counts: BTreeMap<Part, u8>,
     /// Words added outside an answer, with the question about their scope. They stay out of

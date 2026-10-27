@@ -48,11 +48,8 @@ fn review_and_receipt_help_cannot_confirm_copy_or_open_tend() {
         frozen
     );
     assert!(app.saved().is_none());
-    key(&mut app, KeyCode::F(10));
-    assert!(app.screen.leave_prompt && !app.quitting());
-    key(&mut app, KeyCode::Char('n'));
-    assert!(app.screen.help && !app.screen.leave_prompt);
     key(&mut app, KeyCode::Esc);
+    assert!(!app.screen.help && app.handoff.review.is_some() && !app.quitting());
     app.handoff.review = None;
     app.handoff.receipt = Some(seed_me::Receipt::test("/tmp/tinkery-TEST-overlay".into()));
     let receipt = app.handoff.receipt.as_ref().unwrap().text();
@@ -90,8 +87,11 @@ fn contextual_help_is_inset_and_keeps_the_original_and_draft() {
             key(&mut app, KeyCode::F(1));
             let help = snapshot(width, height, &mut app, mono).unwrap();
             assert!(help.contains("┌ Right now "));
-            assert!(help.contains("Every key") && help.contains("Close help"));
-            assert!(help.contains("my next answer stays mine"));
+            assert!(help.contains("How it works") && help.contains("Close help"));
+            assert!(
+                help.contains("my next answer stays mine"),
+                "{width}x{height}\n{help}"
+            );
             assert_eq!(app.screen.source_area, source_area);
             assert_eq!(
                 serde_json::to_value(app.conversation.sources()).unwrap(),
@@ -149,26 +149,23 @@ fn help_blocks_hidden_actions_and_typing_without_confirming_or_sending() {
 fn long_help_keeps_its_title_and_navigation_visible_while_scrolling_and_resizing() {
     let mut app = board();
     key(&mut app, KeyCode::F(1));
-    key(&mut app, KeyCode::F(1));
+    key(&mut app, KeyCode::Char('h'));
     for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40), (80, 24)] {
         app.screen.original_scroll = 0;
         let first = snapshot(width, height, &mut app, true).unwrap();
-        assert!(first.contains("┌ Every key "));
-        assert!(first.contains("How it works") && first.contains("Scroll"));
+        assert!(first.contains("┌ How it works "));
+        assert!(first.contains("Back to help") && first.contains("Scroll"));
         for _ in 0..100 {
             key(&mut app, KeyCode::PageDown);
         }
         let last = snapshot(width, height, &mut app, true).unwrap();
-        assert!(last.contains("┌ Every key "));
+        assert!(last.contains("┌ How it works "));
         assert!(last.contains("Close help") && last.contains("Scroll"));
-        assert!(last.contains("key bar"));
+        assert!(last.contains("Last result"));
         assert!(app.screen.original_scroll > 0);
     }
-    key(&mut app, KeyCode::Char('h'));
-    let technical = snapshot(80, 24, &mut app, true).unwrap();
-    assert!(technical.contains("┌ How it works ") && technical.contains("Back to help"));
     key(&mut app, KeyCode::Esc);
-    assert!(app.screen.help && app.screen.help_all && !app.screen.how);
+    assert!(app.screen.help && !app.screen.how);
     key(&mut app, KeyCode::F(1));
     assert!(!app.screen.help && !app.running() && !app.quitting());
 }
@@ -180,7 +177,6 @@ fn scroll_hint_is_present_exactly_when_the_help_body_overflows() {
             for mono in [false, true] {
                 let mut app = BrainDump::default();
                 app.screen.help = true;
-                app.screen.help_all = !how;
                 app.screen.how = how;
                 let first = snapshot(100, height, &mut app, mono).unwrap();
                 for _ in 0..100 {
@@ -254,16 +250,15 @@ fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
         let border = (title.0 - 2, sends.1);
         assert_eq!(buffer[border].symbol(), "│");
         assert_eq!(buffer[border].fg, palette.muted.fg.unwrap_or(Color::Reset));
-        // Quiet spacing: a blank row opens the panel, separates the sections and closes
-        // it, and the panel is followed by another blank row.
+        // Quiet spacing: a blank row opens the panel, separates the sections and closes it.
         let bottom = find_on_screen(buffer, "└");
         let blank_above = |text: &str| find_on_screen(buffer, text).1 - 1;
         let blank_below = |text: &str| find_on_screen(buffer, text).1 + 1;
         for y in [
             blank_above("Type your answer."),
-            blank_above("F1          Every key"),
-            blank_below("Esc         Close help"),
-            bottom.1 + 1,
+            blank_above("1  Review the goal"),
+            blank_above("h           How it works"),
+            blank_below("F1 / Esc    Close help"),
         ] {
             for x in sends.0..96 {
                 assert_eq!(buffer[(x, y)].symbol(), " ", "row {y} col {x}");
@@ -283,7 +278,7 @@ fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
             .draw(|frame| render(frame, &mut empty, palette))
             .unwrap();
         let buffer = terminal.backend().buffer();
-        let every = find_on_screen(buffer, "F1          Every key");
+        let every = find_on_screen(buffer, "h           How it works");
         assert_eq!(buffer[every].fg, palette.ink.fg.unwrap_or(Color::Reset));
         assert!(buffer[every].modifier.contains(Modifier::BOLD));
         assert_eq!(

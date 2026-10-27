@@ -74,7 +74,7 @@ fn review_blocked_by_unsent_words_says_so_on_the_normal_screen_and_keeps_them() 
             let goal = a.conversation.board().unwrap().parts.compose();
             a.input = Note::new("one more constraint");
             assert!(!shown(&mut a, w, h, no_color).contains(WHY));
-            key(&mut a, KeyCode::F(3));
+            super::tests::choose(&mut a, "Review the goal");
             assert!(a.handoff.review.is_none() && !a.running());
             assert!(shown(&mut a, w, h, no_color).contains(WHY), "{w}x{h}");
             assert_eq!(a.input.text, "one more constraint");
@@ -106,14 +106,14 @@ fn other_review_refusals_name_their_own_reason() {
     for (w, h) in SIZES {
         let mut a = board();
         ready(&mut a);
-        key(&mut a, KeyCode::F(3));
+        super::tests::choose(&mut a, "Review the goal");
         assert!(
             shown(&mut a, w, h, false).contains("A reply is waiting; F2 applies it, then review.")
         );
 
         let mut a = board();
         a.conversation.set_applied(0);
-        key(&mut a, KeyCode::F(3));
+        super::tests::choose(&mut a, "Review the goal");
         let screen = shown(&mut a, w, h, false);
         assert!(
             screen.contains("The reading is behind your words; F2 retries, then review.")
@@ -123,12 +123,10 @@ fn other_review_refusals_name_their_own_reason() {
 
         let mut a = BrainDump::with_host(Arc::new(Simulated));
         a.conversation = board().conversation;
-        key(&mut a, KeyCode::F(3));
         assert!(
-            shown(&mut a, w, h, false)
-                .contains("Saving a goal needs real mode and a sessions folder.")
+            !super::tests::offers(&a, "Review the goal"),
+            "practice never offers a review it would refuse"
         );
-        assert!(a.handoff.review.is_none());
     }
 }
 
@@ -136,11 +134,7 @@ fn other_review_refusals_name_their_own_reason() {
 fn card_and_selection_refusals_show_instead_of_hiding_in_last_result() {
     for (w, h) in SIZES {
         let mut a = board();
-        ctrl(&mut a, 'x');
-        assert!(
-            shown(&mut a, w, h, false)
-                .contains("No extracted cards. Select source text, then Ctrl-E.")
-        );
+        assert!(!super::tests::offers(&a, "extracted cards"));
         ctrl(&mut a, 'e');
         assert!(
             shown(&mut a, w, h, false)

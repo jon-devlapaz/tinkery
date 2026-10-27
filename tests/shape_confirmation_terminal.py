@@ -1,9 +1,9 @@
-"""F3 confirms only the displayed draft and ledger: real PTYs, TEST roots, zero calls."""
+"""F2 confirms only the displayed draft and ledger: real PTYs, TEST roots, zero calls."""
 import json
 from pathlib import Path
 import tempfile
 
-from shape_answer_terminal import F3, Run, files, helper
+from shape_answer_terminal import F2, Run, files, helper
 from shape_terminal import make, seed
 
 
@@ -32,15 +32,15 @@ def journey(width, height, changed):
             if changed:
                 refusal = ('The draft changed. Read it again before confirming.' if changed == 'seed'
                            else 'Another writer changed this session first, so nothing was saved.')
-                run.send(F3, refusal)
+                run.send(F2, refusal)
                 run.wait('your words ' + words)
                 assert files(session) == before, 'Stale confirmation wrote a skip, receipt or seed'
                 assert not (session / 'seed-confirmation.json').exists()
                 if changed == 'seed':
-                    run.send(F3, "PgDn to 'End of seed' first. Nothing was confirmed.")
+                    run.send(F2, "PgDn to 'End of seed' first. Nothing was confirmed.")
                     assert files(session) == before, 'The changed draft skipped the reading gate'
                     run.read_until('End of seed', whole_line=True)
-            run.send(F3, 'Seed ready:')
+            run.send(F2, 'Seed ready:')
             assert helper.status(session)['handoff']['verified']
             receipt = json.loads((session / 'seed-confirmation.json').read_text())
             assert receipt['source'] == words

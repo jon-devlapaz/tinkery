@@ -40,7 +40,7 @@ Tinkery does not split an item at `;` or a period: that would be a guess, and ev
 splitting rule misfires somewhere (“Dr. Smith”, “U.S. Army”, quoted text). The shaping
 prompt asks for one constraint per item instead. When an item seems to hold more than
 one (a later clause starts with syntax from the table below), a log-only note goes to
-Why (F5); the item is still shown and saved as written, with no flag on the goal block.
+Why (from F1); the item is still shown and saved as written, with no flag on the goal block.
 
 Before composition, `GoalParts::normalize_constraints` rewrites one thing only: an
 explicit leading prefix on a whole item. The prefix is matched case-insensitively and

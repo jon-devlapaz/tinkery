@@ -86,16 +86,26 @@ def journey(width, height, long_question=False, suggestion=False, mono=False):
             elif 'PgUp/PgDn scroll question' not in screen.text():
                 assert question in right(), screen.text()
             if suggestion:
-                os.write(master, b'\x12')  # Ctrl-R copies; no send.
-                wait(lambda s: 'Start with clinics.' in s and 'use and edit' not in s)
+                # F1's row copies the suggestion into the draft; no send.
+                os.write(master, b'\x1bOP')
+                wait(lambda s: 'Use the suggested answer' in s)
+                os.write(master, screen.pick('Use the suggested answer'))
+                wait(lambda s: 'Start with clinics.' in s and 'Close help' not in s)
                 assert (root / 'calls').read_text() == 'shape\ndecision-review\n'
                 os.write(master, b'\x15')  # Clear the copied draft, not the question.
-                wait(lambda s: 'use and edit' in s)
+                os.write(master, b'\x1bOP')
+                wait(lambda s: 'Use the suggested answer' in s)
+                os.write(master, b'\x1b')
+                wait(lambda s: 'Close help' not in s)
             os.write(master, b'UNSENT ANSWER')
             wait(lambda s: 'UNSENT ANSWER' in s)
             if suggestion:
-                os.write(master, b'\x12')
-                wait(lambda s: 'Your draft is kept.' in s)
+                # A typed draft is kept: F1 no longer offers to replace it.
+                os.write(master, b'\x1bOP')
+                wait(lambda s: 'Close help' in s)
+                assert 'Use the suggested' not in screen.text(), screen.text()
+                os.write(master, b'\x1b')
+                wait(lambda s: 'Close help' not in s)
                 assert 'UNSENT ANSWER' in screen.text()
             seen = right()
             for _ in range(35):
@@ -116,7 +126,7 @@ def journey(width, height, long_question=False, suggestion=False, mono=False):
             assert 'You are confirming' not in screen.text()
             assert (root / 'calls').read_text() == 'shape\ndecision-review\n'
             assert not (root / 'sessions').exists() and not (root / 'records').exists()
-            os.write(master, b'\x1b[21~')
+            os.write(master, b'\x1b')
             wait(lambda s: 'lose this draft?' in s)
             os.write(master, b'y')
             process.wait(timeout=5)

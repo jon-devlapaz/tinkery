@@ -3,7 +3,7 @@ from pathlib import Path
 import os
 import tempfile
 
-from shape_answer_terminal import F1, F10, Run, files
+from shape_answer_terminal import F1, Run, files
 from shape_terminal import make, seed
 
 
@@ -22,14 +22,14 @@ def journey(width, height, drafted):
             run.open_shape()
             run.read_until('Next: reopen this goal with Shape set up; F1 shows how.')
             run.send(F1, 'Right now')
-            run.read_until('press F10 then q to quit.')
+            run.read_until('press Esc until the menu, then q to quit.')
             run.read_until('Restart Tinkery with --home, --shape-pi,')
             run.read_until('--model PROVIDER/MODEL and --shape-budget CALLS.')
             run.read_until('Choose the call limit; the default is zero.')
             run.read_until('Keep the same --seed-session-root if you supplied one.')
             run.read_until('Open Tend (2), select this saved goal, press Enter, then s to reopen Shape.')
             assert "tend's c" not in run.flat(), run.screen.text()
-            run.send(F10, '3  shape')
+            run.menu()
             os.write(run.master, b'q')
             assert run.process.wait(timeout=5) == 0
             assert files(root) == before, 'Reading or setup help wrote TEST files'
@@ -45,7 +45,7 @@ def journey(width, height, drafted):
             run.send(F1, 'Right now')
             run.read_until('Model calls left this run: 0 of 0.')
             run.read_until(str(session), wrapped_path=True)
-            run.send(F10, '3  shape')
+            run.menu()
             assert run.calls() == [] and not (root / 'think-calls.jsonl').exists()
             assert files(root) == before, 'Reopening the configured goal wrote TEST files'
             print(f'Shape recovery passed at {width}x{height}: '

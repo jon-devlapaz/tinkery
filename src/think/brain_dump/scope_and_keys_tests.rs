@@ -72,7 +72,7 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     a.submit();
     wait(&mut a);
     let old = a.conversation.board().cloned().unwrap();
-    a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
+    super::tests::choose(&mut a, "new dump");
     a.paste("Also fix a typo in the welcome email.");
     a.submit();
     assert!(!a.running());
@@ -134,10 +134,10 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
     a.paste("Books I've read.");
     a.submit();
     wait(&mut a);
-    a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
+    super::tests::choose(&mut a, "new dump");
     a.paste("A welcome-email typo.");
     a.submit();
-    key(&mut a, KeyCode::F(8));
+    super::tests::choose(&mut a, "Skip this question");
     assert_eq!(a.conversation.focused_question().unwrap().id, "books-note");
     a.paste("A short note about each book.");
     a.submit();
@@ -169,7 +169,7 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
     );
     assert!(a.handoff.job.is_none());
     key(&mut a, KeyCode::Esc);
-    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
+    super::tests::choose(&mut a, "Bring back");
     assert_eq!(
         a.conversation.focused_question().unwrap().id,
         "scope-addition-2"
@@ -184,23 +184,49 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
     );
 }
 #[test]
-fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
+fn one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing() {
     let mut a = board();
     assert!(!a.screen.board_focus);
-    key(&mut a, KeyCode::F(6));
-    assert!(!a.screen.board_focus, "F6 no longer switches focus");
+    a.paste("unsent words");
+    let input = a.input.text.clone();
+    let retired = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        .map(|n| KeyEvent::new(KeyCode::F(n), KeyModifiers::NONE))
+        .into_iter()
+        .chain(
+            ['n', 'g', 'o', 'd', 'x', 'r', 'z']
+                .map(|c| KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL)),
+        )
+        .chain([KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT)]);
+    for event in retired {
+        a.handle_key(event);
+        assert!(
+            !a.screen.help
+                && !a.screen.original
+                && !a.screen.details
+                && !a.screen.leave_prompt
+                && !a.add_more
+                && a.conversation.skipped().is_empty()
+                && a.handoff.review.is_none()
+                && a.take_copy_request().is_none()
+                && !a.running()
+                && !a.quitting(),
+            "{event:?} did something"
+        );
+        assert_eq!(a.input.text, input, "{event:?}");
+    }
+    a.input = Note::new("");
     let q = a.conversation.focused_question().unwrap().id.clone();
-    key(&mut a, KeyCode::F(8));
+    super::tests::choose(&mut a, "Skip this question");
     assert_eq!(a.conversation.skipped().len(), 1);
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
             .contains("Question skipped")
     );
-    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
+    super::tests::choose(&mut a, "Bring back");
     assert_eq!(a.conversation.focused_question().unwrap().id, q);
     assert!(a.conversation.skipped().is_empty());
-    key(&mut a, KeyCode::F(9));
+    super::tests::choose(&mut a, "Copy the reading");
     assert!(a.take_copy_request().unwrap().contains("Tinkery"));
     a.copy_result(true);
     assert!(
@@ -208,13 +234,13 @@ fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
             .unwrap()
             .contains("Copy sent")
     );
-    key(&mut a, KeyCode::F(4));
+    super::tests::choose(&mut a, "Show your originals");
     assert!(a.screen.original);
     key(&mut a, KeyCode::Esc);
-    key(&mut a, KeyCode::F(5));
+    super::tests::choose(&mut a, "Why");
     assert!(a.screen.details);
     key(&mut a, KeyCode::Esc);
-    key(&mut a, KeyCode::F(3));
+    super::tests::choose(&mut a, "Review the goal");
     assert!(a.handoff.review.is_some());
     snapshot(100, 30, &mut a, false).unwrap();
     let back = a.screen.back_button;
@@ -229,20 +255,20 @@ fn f_keys_keep_aliases_modes_originals_copy_skip_undo_and_exit_guard() {
         a.screen.area,
     );
     assert!(a.handoff.review.is_none() && a.handoff.job.is_none());
-    key(&mut a, KeyCode::F(10));
+    key(&mut a, KeyCode::Esc);
     assert!(a.screen.leave_prompt && !a.quitting());
     key(&mut a, KeyCode::Esc);
     assert!(!a.screen.leave_prompt);
-    key(&mut a, KeyCode::F(10));
-    key(&mut a, KeyCode::F(10));
+    key(&mut a, KeyCode::Esc);
+    key(&mut a, KeyCode::Char('y'));
     assert!(a.quitting());
 }
 #[test]
 fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() {
     let mut a = board();
     let original = a.conversation.focused_question().unwrap().clone();
-    key(&mut a, KeyCode::F(8));
-    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
+    super::tests::choose(&mut a, "Skip this question");
+    super::tests::choose(&mut a, "Bring back");
     assert_eq!(a.conversation.focused_question().unwrap().id, original.id);
     let r = BoardRequest {
         ask_counts: Default::default(),
@@ -280,22 +306,15 @@ fn practice_never_offers_review_it_would_refuse() {
         if !seed_me {
             a.handoff.config = None;
         }
-        let bar = snapshot(100, 30, &mut a, false).unwrap();
-        assert!(!bar.lines().last().unwrap().contains("F3"), "{bar}");
-        assert!(!layout::key_bar_items(&a).contains(&("F3", "review")));
-        a.screen.help = true;
-        assert!(!layout::help_text(&a).contains("F3"));
+        assert!(!super::tests::offers(&a, "Review the goal"));
         amend_board(&mut a, |g| g.questions.clear());
+        assert!(!super::tests::offers(&a, "Review the goal"));
+        a.screen.help = true;
         let help = layout::help_text(&a);
-        assert!(
-            !help.contains("F3")
-                && help.contains("Saving a goal needs real mode and a sessions folder.")
-        );
+        assert!(help.contains("Saving a goal needs real mode and a sessions folder."));
     }
-    let mut a = board();
-    assert!(layout::key_bar_items(&a).contains(&("F3", "review")));
-    a.screen.help = true;
-    assert!(layout::help_text(&a).contains("F3 reviews the goal."));
+    let a = board();
+    assert!(super::tests::offers(&a, "Review the goal"));
 }
 #[test]
 fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
@@ -304,11 +323,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         let with_bar = snapshot(w, h, &mut a, false).unwrap();
         let rect = a.screen.source_area;
         let bar = with_bar.lines().last().unwrap();
-        assert!(bar.contains("F2 send") && bar.contains("F10 menu"), "{bar}");
-        assert!(
-            bar.contains("F8 skip") && bar.contains("F3 review"),
-            "{bar}"
-        );
+        assert_eq!(bar.trim(), "F2 send   F1 more   esc menu");
         for gone in ["switch", "originals", "why", "copy", "exit", "1 help"] {
             assert!(!bar.contains(gone), "{gone} in {bar}");
         }
@@ -326,7 +341,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
             without.lines().take(usize::from(h - 1)).collect::<Vec<_>>()
         );
         a.screen.key_bar = true;
-        key(&mut a, KeyCode::F(3));
+        super::tests::choose(&mut a, "Review the goal");
         let review = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&review, w).contains("type confirm to save."));
         let bar = review.lines().last().unwrap();
@@ -343,14 +358,14 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         );
         assert_eq!(
             receipt.lines().last().unwrap().trim(),
-            "s open in tend   F10 menu"
+            "s open in tend   esc menu"
         );
         assert_eq!(rect, a.screen.source_area);
     }
     let mut empty = BrainDump::default();
     assert!(empty.screen.key_bar);
     let bar = snapshot(100, 30, &mut empty, false).unwrap();
-    assert_eq!(bar.lines().last().unwrap().trim(), "F2 send   F10 menu");
+    assert_eq!(bar.lines().last().unwrap().trim(), "F2 send   esc menu");
 }
 #[test]
 fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation() {
@@ -368,10 +383,9 @@ fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation(
     let view = snapshot(100, 30, &mut a, false).unwrap();
     assert!(right_text(&view, 100).contains("The quoted line doesn't exist"));
     let help = layout::help_text(&a);
-    assert!(help.starts_with("Right now\nThe reading failed"));
-    assert!(!help.lines().nth(1).unwrap().contains("review"));
-    key(&mut a, KeyCode::F(3));
-    assert!(a.handoff.review.is_none());
+    let state = help.lines().find(|l| l.starts_with("The reading failed"));
+    assert!(state.is_some_and(|l| !l.contains("review")), "{help}");
+    assert!(!super::tests::offers(&a, "Review the goal"));
     assert_eq!(a.conversation.sources()[0].text, "Original kept.");
 }
 #[test]
@@ -516,12 +530,9 @@ fn right_side_speaks_in_one_voice_with_one_reading() {
     assert!(!one.contains("Review goal") && !one.contains("or maybe"));
     let bar = snapshot(100, 30, &mut a, false).unwrap();
     assert!(!bar.lines().last().unwrap().contains('7'));
-    let before = a.conversation.board().unwrap().goal().map(str::to_owned);
-    key(&mut a, KeyCode::F(7));
-    assert_eq!(
-        a.conversation.board().unwrap().goal().map(str::to_owned),
-        before,
-        "F7 switches no reading"
+    assert!(
+        !super::tests::offers(&a, "reading:"),
+        "nothing switches the reading"
     );
     assert_eq!(agent_text("Possible goal: a reading."), "A reading.");
     assert_eq!(agent_text("Note: keep this colon"), "Note: keep this colon");
@@ -720,8 +731,8 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     a.submit();
     wait(&mut a);
     assert!(a.conversation.focused_question().is_some());
-    key(&mut a, KeyCode::F(8));
-    a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
+    super::tests::choose(&mut a, "Skip this question");
+    super::tests::choose(&mut a, "new dump");
     a.paste("additional exact words");
     a.submit();
     assert!(a.conversation.awaiting_scope());
@@ -729,7 +740,7 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     let initial_bytes = encoded(&a, &a.input.text);
     assert!(initial_bytes <= 32768);
     a.submit();
-    a.handle_key(KeyEvent::new(KeyCode::Char('z'), KeyModifiers::CONTROL));
+    super::tests::choose(&mut a, "Bring back");
     a.paste("next answer");
     release.send(()).unwrap();
     wait(&mut a);
@@ -911,7 +922,7 @@ fn size_cache_tracks_edits_waiting_reply_scope_and_cards() {
     wait(&mut a);
     assert_cached_size(&mut a);
 
-    a.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT));
+    super::tests::choose(&mut a, "new dump");
     assert!(a.shaping.encoded_bytes.is_none());
     a.paste("added words");
     assert_cached_size(&mut a);

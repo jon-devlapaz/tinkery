@@ -309,7 +309,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 assert len(calls()) == before
                 assert tree(checkout) == original, 'next draft changed original goal or checkout'
                 assert not (base / 'TEST-sessions').exists()
-                send(b'\x1b[21~', 'Back to menu and lose this draft?')  # F10 loss guard
+                send(b'\x1b', 'Back to menu and lose this draft?')  # Esc loss guard
                 send(b'y', '1  think')
                 os.write(master, b'q')
                 process.wait(timeout=5)

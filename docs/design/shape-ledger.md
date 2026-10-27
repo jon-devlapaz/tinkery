@@ -64,7 +64,7 @@ The module promises what the helper promises today:
   Screening makes one search per pattern, so
   ordinary long receipts do not require rescanning every remaining suffix.
 
-Dropped with the skill: the browser viewer (Tend's garden and Shape's F5 already show
+Dropped with the skill: the browser viewer (Tend's garden and Shape's So far already show
 the ledger), the Lean path, simulated operators and `--no-viewer`.
 They stay in the "Not adopted" table until a revisit condition holds.
 
@@ -107,7 +107,7 @@ resolve a review flag.
 
 The skill's closing steps move into Tinkery, computed where they can be:
 
-- **Confirmation summary (zero calls).** The ledger computes the words above F3:
+- **Confirmation summary (zero calls).** The ledger computes the words above confirming:
   answers differing from an earlier settled answer, delegated or assumed choices, and
   exact-byte acceptance of suggestions. Each risky choice appears once, with all its
   labels. Counts exclude the confirmed goal and facts: accepted as suggested versus
@@ -121,9 +121,9 @@ The skill's closing steps move into Tinkery, computed where they can be:
   byte-bound confirmed-goal receipts through teach-back's recording path. Its decided,
   done and failure-case lines appear with the risk summary as drafting guesses;
   the ledger does not prove those judgments.
-- **Teach-back (optional F7 on a draft).** The operator may describe what will and
+- **Teach-back (optional, from F1 on a draft).** The operator may describe what will and
   won't be built. One explicitly budgeted comparison lists mismatches as guesses,
-  never blocking F3. The comparison has no tools or repository access.
+  never blocking confirmation. The comparison has no tools or repository access.
   Words, mismatches and skips are preserved verbatim in the ledger;
   no result grants build permission.
 
@@ -162,13 +162,13 @@ slice 8 moves only their location. Each slice had its own PR and approval:
    read-only `tinkery seed` commands. The consumer flag change is separate (section 4).
 4. **Typed findings and contradictions** (implemented; section 2). The ledger alone
    validates facts. Old untyped model replies are refused; existing untyped sessions
-   still read unchanged. `F6 keep with reason` revalidates without changing an answer
+   still read unchanged. `F2 keep with reason` revalidates without changing an answer
    or calling a model; flags continue to block confirmation and completion.
 5. **Deferral, delegation and revising an answer** (implemented; #284, #240, #239).
    The ledger alone owns required fields, grounding, revision eligibility and dependent reopening;
    Shape presents its refusals without duplicating the rules.
 6. **Prerequisites** from question replies (implemented; #286). The ledger alone owns
-   existence, cycles and ready order; F5 names the earlier answers held questions wait for.
+   existence, cycles and ready order; So far names the earlier answers held questions wait for.
 7. **Confirmation summary, completion review and teach-back** (implemented; #292, section 3).
 8. **Retire Seed Me** (implemented; #294): remove the skill flag, external CI fixture,
    skill continuation prompt and helper subprocesses, including Think saving and its viewer.

@@ -70,6 +70,19 @@ fn key(shape: &mut Shape, code: KeyCode) {
     shape.key(KeyEvent::new(code, KeyModifiers::NONE));
 }
 
+/// Picks the F1 row whose words contain `label`, by its number, as the operator does.
+fn choose(shape: &mut Shape, label: &str) {
+    let help = shape.help_text();
+    let digit = help
+        .lines()
+        .find_map(|line| {
+            let (n, words) = line.split_once("  ")?;
+            (n.len() == 1 && words.contains(label)).then(|| n.chars().next().unwrap())
+        })
+        .unwrap_or_else(|| panic!("F1 offers no {label:?}:\n{help}"));
+    assert!(shape.pick(KeyEvent::new(KeyCode::Char(digit), KeyModifiers::NONE)));
+}
+
 fn screen(shape: &mut Shape, width: u16, height: u16, body_height: u16) -> String {
     let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
     terminal
@@ -117,7 +130,7 @@ fn opened(session: &Path) -> Shape {
 }
 
 #[test]
-fn oversized_readings_are_refused_and_f3_changes_nothing() {
+fn oversized_readings_are_refused_and_f2_changes_nothing() {
     for source in ["seed", "review", "so far"] {
         let goal = if source == "so far" {
             "g".repeat(60_000)
@@ -157,7 +170,7 @@ fn oversized_readings_are_refused_and_f3_changes_nothing() {
         let mut shape = opened(&session);
         shape.paste("TEST confirm only a readable seed");
         if source == "so far" {
-            key(&mut shape, KeyCode::F(5));
+            choose(&mut shape, "So far");
         }
         for _ in 0..4_000 {
             key(&mut shape, KeyCode::PageDown);
@@ -168,10 +181,10 @@ fn oversized_readings_are_refused_and_f3_changes_nothing() {
             "{source}: {shown}"
         );
         assert!(
-            !shown.contains("End of seed") && !shown.contains("F3 confirm"),
+            !shown.contains("End of seed") && !shown.contains("F2 confirm"),
             "{shown}"
         );
-        key(&mut shape, KeyCode::F(3));
+        key(&mut shape, KeyCode::F(2));
         assert!(!screen(&mut shape, 80, 24, 20).contains("esc stop"));
         for _ in 0..10 {
             shape.tick();
@@ -192,7 +205,7 @@ fn a_zero_height_reading_never_authorizes_confirmation() {
         key(&mut shape, KeyCode::PageDown);
     }
     assert!(screen(&mut shape, 80, 24, 1).contains("read to end"));
-    key(&mut shape, KeyCode::F(3));
+    key(&mut shape, KeyCode::F(2));
     assert!(!screen(&mut shape, 80, 24, 1).contains("esc stop"));
     for _ in 0..1_000 {
         key(&mut shape, KeyCode::PageUp);

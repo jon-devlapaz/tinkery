@@ -91,7 +91,8 @@ def journey(width, height, no_color):
             calls = (cwd / 'calls.jsonl').read_bytes()
             requests = [json.loads(line) for line in calls.splitlines()]
             assert len(requests) == 2 and requests[0]['sources'][0]['text'] == DUMP
-            copied = copy(b'\x1b[20~')
+            send(b'\x1bOP')
+            copied = copy(screen.pick('Copy the reading'))
             assert '\n## I think this is about… / guess\n\n' + GOAL + '\n\n' in copied, copied
             assert DUMP in copied
 
@@ -116,31 +117,32 @@ def journey(width, height, no_color):
             # Help names this route and leaves both the reading position and draft intact.
             draft = 'Keep this café answer.'
             send(draft.encode()); before_help = reading()
-            send(b'\x1bOP'); send(b'\x1bOP')
+            send(b'\x1bOP'); send(b'h')
             help_seen = []
             for _ in range(24):
-                help_seen.append(joined(right()).replace('│', ''))
+                help_seen.append(' '.join(joined(right()).replace('│', '').split()))
                 if any('PgUp/PgDn   scroll the reading' in line or 'PgUp/PgDn scroll the reading' in line for line in help_seen):
                     break
                 send(b'\x1b[6~')
             else:
-                raise AssertionError('Every key does not document reading scrolling')
-            send(b'\x1b')
+                raise AssertionError('How it works does not document reading scrolling')
+            send(b'\x1b'); send(b'\x1b')
             assert reading() == before_help
             send(b'\x01')
             assert copy(b'\x03') == draft
-            assert copy(b'\x1b[20~') == copied
+            send(b'\x1bOP')
+            assert copy(screen.pick('Copy the reading')) == copied
             send(b'\x1b[5~' * 24)
             assert reading() == initial, 'PgUp did not return to the start'
 
             # Review still needs its own explicit action; exiting starts and saves nothing.
-            send(b'\x7f'); send(b'\x1bOR')
+            send(b'\x7f'); send(b'\x1bOP'); send(screen.pick('Review the goal'))
             wait_for(lambda: 'type confirm' in screen.text(), 'Review missing')
-            send(b'\x1b'); send(b'\x1b[21~')
+            send(b'\x1b'); send(b'\x1b')
             wait_for(lambda: 'Back to menu and lose this draft?' in screen.text(), 'Exit guard missing')
             send(b'n')
             assert process.poll() is None and 'lose this draft?' not in screen.text()
-            send(b'\x1b[21~'); send(b'y')
+            send(b'\x1b'); send(b'y')
             process.wait(timeout=5)
             assert process.returncode == 0
             assert (cwd / 'calls.jsonl').read_bytes() == calls, 'Navigation or copying started a call'

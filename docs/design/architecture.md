@@ -79,7 +79,7 @@ or improved outcomes.
 | `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
 | `think/brain_dump/host.rs` | Pi shaping then review, or practice simulation. Stateful hosts start separate histories for each Think visit. |
 | `think/brain_dump/board.rs` | A verified reading; `Board` exists only after verification. |
-| `think/brain_dump/checks.rs` | The per-send record shown in F5 "why". |
+| `think/brain_dump/checks.rs` | The per-send record shown in "Why", from F1. |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
 | `think/drafting.rs` | Think's Pi host: its model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |

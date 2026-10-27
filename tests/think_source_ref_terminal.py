@@ -83,14 +83,17 @@ def journey(width, height):
                 assert len(shaping) == i + 1
                 assert [s['text'] for s in shaping[-1]['sources']] == sources[:i + 1]
             # Inspect originals through the application's copy surface; never save a goal.
-            os.write(master, b'\x1b[20~')  # F9 copies the provisional board and originals.
+            # F1's copy row copies the provisional board and originals.
+            os.write(master, b'\x1bOP')
+            wait(lambda s: 'Copy the reading' in s)
+            os.write(master, screen.pick('Copy the reading'))
             wait(lambda s: bool(screen.clipboards))
             for words in sources:
                 assert words in screen.clipboards[-1], screen.clipboards[-1]
             assert 'MAP' in screen.clipboards[-1]
             assert len(requests()) == 10, 'No manual or automatic retry is needed'
             assert not (root / 'sessions').exists() and not (root / 'records').exists()
-            os.write(master, b'\x1b[21~')
+            os.write(master, b'\x1b')
             wait(lambda s: 'lose this draft?' in s)
             os.write(master, b'y')
             process.wait(timeout=5)

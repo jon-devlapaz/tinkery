@@ -9,7 +9,7 @@ Explicit successful saving shows `Saved.`, the exact frozen goal block and
 `Next: shape it into a seed in Shape.`
 
 - `s open in tend` opens this session's detail, not the garden.
-- F10 returns to the menu, including from standalone Think.
+- Esc returns to the menu, including from standalone Think.
 
 Nothing launches, opens a browser, pastes into a harness or starts implementation.
 Paths belong in F1 then `h`, with the [think record](think.md#think-record) below
@@ -310,7 +310,7 @@ The screen starts with the confirmed goal's first line in ink:
 
 | Tinkery reads | Shape shows |
 | --- | --- |
-| Current question | Show a muted label, jade question, `What I found:` for only the first supported finding (or legacy question receipt), and italic `Suggestion:`. F5 holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
+| Current question | Show a muted label, jade question, `What I found:` for only the first supported finding (or legacy question receipt), and italic `Suggestion:`. So far holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
 | No question or seed | If the saved record explicitly lacks a success criterion: `The saved goal leaves Done when open.` Otherwise: `Shape hasn't asked its next question yet.` |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status`, active or completed | `Seed ready` and revision; `c copy intake` when both paths are usable; completed adds a muted note that nothing can change |
@@ -325,7 +325,7 @@ only chooses the wording (architecture diagnostics 3 and 6).
 
 Ledger review flags precede open questions and older drafts: Shape shows the first
 flagged node as the current question, its unchanged answer and the ledger's reasons.
-`F6 keep with reason` publishes the operator's typed justification without a model call.
+`F2 keep with reason` publishes the operator's typed justification without a model call.
 `F2 revise` opens replacement words only for an operator-answered decision; see
 [answering](#answering-and-confirming). Each remaining flag holds confirmation and completion.
 Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
@@ -360,18 +360,18 @@ run stays outside Shape.
   wide. The goal headline or draft, then stage, precedes words, notices and `Next:`.
   Overflow scrolls while the words box and cursor, or running status, stay visible,
   occupying at most half the body. Cursor following survives long or wrapped
-  words and resize. Readings (seed plus review or feedback, and F5) must stay under 60,000 bytes; otherwise Shape refuses without confirming or changing anything.
+  words and resize. Readings (seed plus review or feedback, and So far) must stay under 60,000 bytes; otherwise Shape refuses without confirming or changing anything.
   An empty reading viewport cannot mark a draft read.
   Only overflow offers `pgup/dn read` while editing or `↑↓ scroll`
   otherwise; overflowing questions shorten the save key to `F2 save + look`.
   Seed `Nothing found` stays beside words. Crowded bars reduce gaps to two spaces,
-  never cut Esc or F10.
-- F5 **So far** is a full help-like page without a key bar: the entire confirmed
+  never cut Esc.
+- **So far** (from F1) is a full help-like page without a key bar: the entire confirmed
   goal unchanged, then settled `label: answer` decisions in ledger order. Only
   `user` authority shows `(you)`; others show their authority, e.g. `(delegated)`.
   Open questions follow in ledger order; held questions say `waits for:` with the earlier
-  answer labels they need. All current-question findings follow, unchanged and in recorded order. F5 or Esc
-  closes it; ↑↓ scrolls. The fixed last row says `↑↓ scroll · F5 close`.
+  answer labels they need. All current-question findings follow, unchanged and in recorded order. Esc
+  closes it; ↑↓ scrolls. The fixed last row says `↑↓ scroll · esc close`.
   It accepts no words, appears after a read, never during a step; F1 lists it.
 - Say the next step once: omit `Next:` when the key bar names the stage action;
   other states and failure notices keep exactly one.
@@ -389,47 +389,48 @@ run stays outside Shape.
 
 ### Answering and confirming
 
-With `--shape-pi` and `--model`, only these stages accept actions:
+With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Think's
+[one key map](think.md#help): F2 runs the action in the key bar, F1 numbers the rest.
 
 | Stage | Words | Key/action |
 | --- | --- | --- |
-| Flagged node | `your reason` | `F6 keep with reason`: keep the answer unchanged and revalidate, no model call |
-| Flagged operator-answered decision | `replacement answer` after `F2 revise` | `F2 save revision and look`: replace it, reopen settled dependents, then look |
+| Flagged node | `your reason` | `F2 keep with reason`: keep the answer unchanged and revalidate, no model call |
+| Flagged operator-answered decision | `replacement answer` after F1 **Revise** | `F2 save revision and look`: replace it, reopen settled dependents, then look |
 | Current question | `your answer` | `F2 save + look`: save then one step |
-| Current question | Reason, then revisit condition after `F11 defer` | `F11 save deferral`: publish deferred, then one step |
-| Current question | None required | `F12 delegate`: accept the grounded suggestion, then one step |
+| Current question | Reason, then revisit condition after F1 **Defer** | `F2 next field`, then `F2 save deferral`: publish deferred, then one step |
+| Current question | None required | F1 **Delegate**: accept the grounded suggestion, then one step |
 | No question or seed | None | `F2 look into the next question`: one step |
-| Draft replacing goal | `your words` | `F3 confirm seed rN`: confirm displayed revision with typed words |
-| Draft replacing goal | `your teach-back` after F7 | `F7 save + compare`: capture words and compare with the draft, one call; Esc restores confirmation words |
+| Draft replacing goal | `your words` | `F2 confirm seed rN`: confirm displayed revision with typed words |
+| Draft replacing goal | `your teach-back` after F1 **Teach back** | `F2 save + compare`: capture words and compare with the draft, one call; Esc restores confirmation words |
 
-- **Before confirmation:** the ledger computes the risk summary above F3, including
+- **Before confirmation:** the ledger computes the risk summary above confirming, including
   reversals detected from earlier settled answers, delegated and assumed choices,
   exact acceptance of suggestions, and accepted-versus-chosen-otherwise counts.
   Shape displays these words without its own checks or formatter.
-- **Teach-back:** draft-only F7 opens optional words about what will and won't be built,
+- **Teach-back:** on a draft, F1's **Teach back** opens optional words about what will and won't be built,
   prefilled with any confirmation words already typed, editable in a separate box.
-  F7 again saves them verbatim, then compares in one call behind F2's shared budget,
+  F2 saves them verbatim, then compares in one call behind F2's shared budget,
   with no tools or repository access;
   opening, typing, help and cancelling do not save or call. Confirmation words remain
   untouched. The latest completed comparison for these draft bytes appears as guesses
-  above the risk summary; mismatches are recorded verbatim and never block F3.
-  Failed comparisons retain captured words. F3 without a completed comparison records
+  above the risk summary; mismatches are recorded verbatim and never block confirming.
+  Failed comparisons retain captured words. Confirming without a completed comparison records
   `Skipped teach-back.` verbatim, after ordinary confirmation refusals. These append-only
   confirmed-goal receipts are bound to the revision and SHA-256 of draft bytes;
   confirmation digests cover them. They retain the existing receipt format and are
   interview records, not evidence changes or permission.
-  F1 explains F7 only where it applies; draft bars leave F5 and F8 in help to fit 80 columns.
-- **Defer:** F11 opens the reason, then advances to the revisit condition; Tab switches
+  F1 offers teach-back only on a draft.
+- **Defer:** F1's **Defer** opens the reason; F2 advances to the revisit condition; Tab switches
   between them. The form shows the question's gate: the operator alone decides it can wait.
-  F11 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
-- **Delegate:** F12 is one press, quoting that key as the authority source, saving the
+  F2 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
+- **Delegate:** F1's **Delegate** row is one choice, quoting that row as the authority source, saving the
   recorded suggestion unchanged with `delegated` authority and its supporting facts as evidence.
   Reply confidence is not appended to the recommendation or answer; the ledger never parses
   suggestion text.
   Missing facts or suggestion refuses without writing; type an answer instead.
 - **Revise:** only flagged decisions answered by the operator (including delegated answers)
-  offer F2 revise. Flagged findings (facts and inferences) and the confirmed goal offer only
-  keep-with-reason; Revise is not shown. There is no settled-answer picker: F5 remains read-only.
+  offer F1 **Revise**. Flagged findings (facts and inferences) and the confirmed goal offer only
+  keep-with-reason; Revise is not shown. There is no settled-answer picker: So far remains read-only.
   F2 saves exact replacement words with user authority; the ledger reopens every settled
   dependent with a reason naming the changed answer. Shape asks ready dependents one at a time
   before a new model question. Saving a revision uses F2's budget gate and next-step path:
@@ -438,8 +439,7 @@ With `--shape-pi` and `--model`, only these stages accept actions:
 - Esc cancels a form without changing the original answer editor. Ledger refusals keep the
   question and both typed fields, show the first reason line and allow correction and retry.
   Required fields, delegated evidence, revision eligibility and cascading reopen belong only to
-  the ledger; Shape adds no parallel rules. F1 explains applicable keys; question bars
-  leave F5 so far and F8 stop in help.
+  the ledger; Shape adds no parallel rules. F1 lists only the actions allowed now.
 - F2 saves exact answer bytes with `user` authority. Typing, paste, scrolling and
   help write nothing; held action keys never repeat. Letters, capitals and `?` remain words.
 - Pi runs one explicitly selected model with read-only `read`, `grep`, `find`, `ls`
@@ -519,7 +519,7 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   The validated review is preserved verbatim in append-only confirmed-goal receipts
   (`tinkery:review/completed`), using teach-back's revision and draft SHA-256 binding
   and recording path. These receipts are interview records, not changed goal evidence.
-  With the risk summary above F3, Shape marks the review as `Drafting step guess`:
+  With the risk summary above confirming, Shape marks the review as `Drafting step guess`:
   settled choices, observed done (or `Nothing observed done.`), and each failure
   case as `Must fail: <case>` followed by an indented `Check: <statement>` line.
   Both strings stay verbatim; the label above them marks them as drafting guesses.
@@ -567,26 +567,26 @@ With `--shape-pi` and `--model`, only these stages accept actions:
   Under its writer lock, the ledger rechecks the exact displayed draft bytes and ledger version
   before recording anything. A change keeps the typed words, refreshes the reading and requires
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
-  draft revision's last line has been on screen during this Shape visit, F3 says
+  draft revision's last line has been on screen during this Shape visit, F2 says
   `PgDn to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
   `End of seed` marker after the last section clears that. The saved seed is unchanged.
   Before that marker is reached, the key bar says `pgup/dn read to end` instead of
-  offering F3; the confirmation hint appears on the same frame that reaches the end.
+  offering to confirm; the confirmation hint appears on the same frame that reaches the end.
   Notices keep their own recovery instructions without repeating the key bar's action.
   The exact revision and draft bytes retain that satisfaction through typing, box growth,
   resize and rereads, including teach-back. A new revision or changed bytes require reading again.
-  F3 refuses CR or LF with `Put your confirming words on one line; nothing was confirmed.`
+  F2 refuses CR or LF with `Put your confirming words on one line; nothing was confirmed.`
   Changing the words clears a refusal about them.
   It retains words and neither writes nor calls. The empty `your words` field shows
-  the muted hint `a line saying you confirm, then F3` once the seed is read; typing hides it. Enter says
-  `F3 confirms the seed; Enter does not add a line.` without changing the words.
+  the muted hint `a line saying you confirm, then F2` once the seed is read; typing hides it. Enter says
+  `F2 confirms the seed; Enter does not add a line.` without changing the words.
   Pasted breaks remain intact, but confirmation is one `Confirmed by:` line.
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. A model failure, refusal or stop also
   says `Model calls left this run: N of M.`, Think's wording, so a retry is chosen knowing
   its cost (#435). Budget exhaustion points to
-  `--shape-budget`; a model error or stop offers F2 retry, or F7 for teach-back
+  `--shape-budget`; a model error or stop offers F2 retry, or F1's teach-back again
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
   Review refusals name the mismatched check or case/check counts; a reply that also splits a
@@ -624,9 +624,9 @@ None of the options or case against reaches the seed.
 
 - When either option is `hard`, The instinct-first rule applies: the question is recorded
   without its recommendation, and Shape shows the question and its finding with
-  `This is hard to undo, so what's your instinct? F9 shows the options and my suggestion.`
-- `F9 show me` records the withheld suggestion through `publish`, then shows the options, the case
-  against and the suggestion. The withheld suggestion lives only in this run; after a restart F9
+  `This is hard to undo, so what's your instinct? F1 shows the options and my suggestion.`
+- F1's **Show the options and suggestion** records the withheld suggestion through `publish`, then shows the options, the case
+  against and the suggestion. The withheld suggestion lives only in this run; after a restart it
   shows the options and says no suggestion was kept.
 - Cheap and moderate questions show everything at once.
 
@@ -656,7 +656,7 @@ work, risk, cost, reversibility and behavior about the same. Tinkery adds them t
 `assumed` list with the question (once per text) and shows them under that question only, headed
 `I'll assume these unless you object:`, each with its why. An assumption is never an answer.
 
-- `F7 object` then the assumption's number takes it off `assumed` and records an open decision,
+- F1's **Object** then the assumption's number takes it off `assumed` and records an open decision,
   `Instead of assuming`, which blocks drafting. Esc says `Nothing was changed.`; other keys do
   nothing while asked. A refusal shows Tinkery's first line and keeps the list.
 - The ledger's entries are exactly `{text, why}`, so "shown" lives with the question in this run,
@@ -669,11 +669,10 @@ work, risk, cost, reversibility and behavior about the same. Tinkery adds them t
 Ending is for good: Tinkery makes the session read-only and Tend stops listing it,
 which Tend's readiness needs. It needs no model or budget.
 
-- `F6 end session` on an active Seed ready completes it; `F8 stop` on a question,
+- F1's **End this session** on an active Seed ready completes it; **Stop this session** on a question,
   waiting or draft stops it, keeping open questions recorded and typed words unsaved.
-- The first press asks and says what ending costs, including copying intake first;
-  the same key again ends, Esc says `Nothing was ended.` Other keys, held keys and the other
-  ending key do nothing while asked.
+- Choosing it asks and says what ending costs, including copying intake first;
+  F2 then ends, Esc says `Nothing was ended.` Other keys and a held F2 do nothing while asked.
 - Tinkery ends through its ledger with a stated reason, the shared writer lock and atomic save.
   Completion needs the verified seed, not a viewer or `--no-viewer`. Tinkery refuses an unverified
   seed or a conflicting ended status; an identical ending is a no-op. Shape shows the ledger's
@@ -694,14 +693,14 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 | Browser viewer | Shape and Tend already show the ledger; status never opens a connection. | A separately approved viewing need cannot be met in Tinkery. |
 | Lean path | Lean is one Markdown file co-edited by hand; Shape has a ledger and Think already shapes the goal. | Full seeds prove too heavy for small goals. |
 | Agent mode | It tests the skill; Tinkery's stubs cover that, and a simulated seed never hands off. Agent work uses `--operator agent`. | A simulated run is needed in Tinkery. |
-| Frontier progress | F5 lists open and held questions; a progress count adds no next action. | Dogfood shows a need beyond the open-question list. |
+| Frontier progress | So far lists open and held questions; a progress count adds no next action. | Dogfood shows a need beyond the open-question list. |
 
 ### Grounding in the repository
 
 - Before F2 is offered, the session read finds the folder: recorded Think repo,
-  else launch repo, else launch folder. Show `The step reads files in NAME. F4 picks
-  another folder.` above words; F1 has the path. F4 opens `Folder:` with the current
-  path. Enter inserts newline; F4 accepts an existing absolute folder or `~/…`.
+  else launch repo, else launch folder. Show `The step reads files in NAME. F1 picks
+  another folder.` above words; F1 has the path. F1's **Choose the folder** opens `Folder:` with the current
+  path. Enter inserts newline; F2 accepts an existing absolute folder or `~/…`.
   Try exact bytes first, including breaks and trailing whitespace; only if absent,
   try trimming surrounding whitespace. Esc keeps the previous choice; missing folders are refused. Selection lasts only this Shape visit, writes nowhere; step receipts name it.
 - Each `found` becomes a settled `fact` on `evidence` authority, with a new `id`,
@@ -712,7 +711,7 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
   A question cites its facts through `supported_by`; a fact may name a settled node it
   `contradicts`. The ledger alone validates these rules and receipts; a refused reply
   saves no findings or question and shows its reason. An answer saved before the step stays saved.
-- Question findings display `What I found: PATH:LINE: what was seen`; F5 holds all.
+- Question findings display `What I found: PATH:LINE: what was seen`; So far holds all.
   Seed-step findings also become facts, including blast radius, and later steps receive
   them with IDs and claims in `found_so_far`. Model replies cannot revalidate, confirm
   or settle a decision. Untyped `checked`/`observed` replies are refused, not guessed

@@ -49,12 +49,8 @@ impl BrainDump {
     }
 
     pub(super) fn use_suggestion(&mut self) {
-        if !self.input.text.is_empty() {
-            self.refuse("Your draft is kept. Clear it first to use the suggestion.");
-            return;
-        }
+        // F1 offers this only when it can't replace a draft or use a stale suggestion.
         if !self.can_use_suggestion() {
-            self.refuse("No suggestion ready to use. Write your answer or skip.");
             return;
         }
         let answer = self

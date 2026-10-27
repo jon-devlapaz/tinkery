@@ -130,6 +130,26 @@ pub(super) fn amend_board(a: &mut BrainDump, edit: impl FnOnce(&mut Guess)) {
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
 }
+/// Runs the F1 row whose words contain `label`, as the operator does: F1, then its digit.
+/// Panics, showing help, when no such row is offered right now.
+pub(super) fn choose(a: &mut BrainDump, label: &str) {
+    if !a.screen.help {
+        key(a, KeyCode::F(1));
+    }
+    let help = layout::help_text(a);
+    let digit = help
+        .lines()
+        .find_map(|line| {
+            let (n, words) = line.split_once("  ")?;
+            (n.len() == 1 && words.contains(label)).then(|| n.chars().next().unwrap())
+        })
+        .unwrap_or_else(|| panic!("no {label:?} row in:\n{help}"));
+    key(a, KeyCode::Char(digit));
+}
+/// Whether F1 offers a row containing `label` right now.
+pub(super) fn offers(a: &BrainDump, label: &str) -> bool {
+    a.rows().iter().any(|row| row.label.contains(label))
+}
 pub(super) fn settle(a: &mut BrainDump) {
     let deadline = Instant::now() + Duration::from_secs(3);
     while a.running() && Instant::now() < deadline {
@@ -204,9 +224,9 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
         assert_eq!(host.requests.lock().unwrap().len(), 2);
         assert_eq!(host.requests.lock().unwrap()[1].layout[..old.len()], old);
         a.screen.board_focus = !a.screen.board_focus;
-        key(&mut a, KeyCode::F(9));
+        choose(&mut a, "Copy the reading");
         assert_eq!(a.take_copy_request(), Some(a.copy_text()));
-        a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+        choose(&mut a, "Show your originals");
         assert!(
             snapshot(w, h, &mut a, false)
                 .unwrap()
@@ -230,7 +250,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     settle(&mut a);
     let before = a.copy_text();
     a.screen.board_focus = !a.screen.board_focus;
-    key(&mut a, KeyCode::F(8));
+    choose(&mut a, "Skip this question");
     assert!(
         a.conversation.focused_question().is_none(),
         "only one model question"
@@ -469,14 +489,14 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
     settle(&mut a);
     a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
     a.screen.board_focus = !a.screen.board_focus;
-    key(&mut a, KeyCode::F(7));
+    choose(&mut a, "extracted cards");
     snapshot(100, 30, &mut a, false).unwrap();
     let (x, y) = first_card_point(&a);
     card_mouse(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
     card_mouse(&mut a, MouseEventKind::Drag(MouseButton::Left), x + 2, y);
     // Hiding the cards ends the gesture; the button-up never reaches the canvas.
-    key(&mut a, KeyCode::F(7));
-    key(&mut a, KeyCode::F(7));
+    choose(&mut a, "extracted cards");
+    choose(&mut a, "extracted cards");
     snapshot(100, 30, &mut a, false).unwrap();
     let released = a.card_positions();
     let view = (
@@ -509,7 +529,7 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     settle(&mut a);
     a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
     a.screen.board_focus = !a.screen.board_focus;
-    key(&mut a, KeyCode::F(7));
+    choose(&mut a, "extracted cards");
     snapshot(100, 30, &mut a, false).unwrap();
     let (x, y) = first_card_point(&a);
     let before = a.card_positions();
@@ -596,12 +616,12 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             assert_eq!(n.text(), f.text);
         }
         a.screen.board_focus = true;
-        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        choose(&mut a, "Why");
         let detail = snapshot(w, h, &mut a, false).unwrap();
         assert!(detail.contains("Success criteria"));
         assert!(!detail.contains("PROVISIONAL:"));
         assert!(a.details_text().contains("A dashboard worries me."));
-        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        key(&mut a, KeyCode::Esc);
         assert!(
             !snapshot(w, h, &mut a, true)
                 .unwrap()
@@ -613,9 +633,7 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
 fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     let mut a = BrainDump::with_host(Arc::new(Recording::default()));
     snapshot(100, 30, &mut a, false).unwrap();
-    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
-    assert!(a.notice.contains("No details before"));
-    assert!(!a.running());
+    assert!(!offers(&a, "Why"), "no details before a submit");
     a.paste("A question worth understanding.");
     a.submit();
     settle(&mut a);
@@ -629,21 +647,21 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
         a.screen.board_focus = mode == 1;
         a.screen.original = mode == 2;
         a.screen.help = mode == 3;
-        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        choose(&mut a, "Why");
         assert!(a.screen.details);
         assert!(!a.screen.original && !a.screen.help);
         assert_eq!(a.screen.board_focus, mode == 1);
         let frame = snapshot(100, 30, &mut a, false).unwrap();
         assert!(!frame.contains("provisional"));
         assert!(frame.contains("Success criteria"));
-        a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+        key(&mut a, KeyCode::Esc);
         assert!(!a.screen.details);
         assert_eq!(a.input.text, input);
         assert!(!a.running());
     }
     a.screen.details = true;
     a.screen.original = true;
-    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+    choose(&mut a, "Why");
     assert!(
         a.screen.details && !a.screen.original,
         "Hidden details incorrectly toggled off"
@@ -664,7 +682,7 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     assert_eq!(a.input.text, input);
     key(&mut a, KeyCode::Esc);
     a.screen.board_focus = !a.screen.board_focus;
-    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
+    choose(&mut a, "Why");
     assert!(a.screen.details);
     key(&mut a, KeyCode::Esc);
     assert!(!a.screen.details);
@@ -690,7 +708,7 @@ fn clipping_is_visible_and_original_is_one_action_away() {
     assert!(!view.contains("… Ctrl-O"));
     assert_eq!(a.conversation.sources()[0].text, source);
     assert!(a.conversation.fragments().is_empty());
-    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    choose(&mut a, "Show your originals");
     let original = snapshot(80, 24, &mut a, false).unwrap();
     assert!(original.contains("surveillance."));
 }
@@ -876,7 +894,7 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
     assert_eq!(host.requests.lock().unwrap().len(), 1);
     assert!(!a.running());
     assert_eq!(a.conversation.sources()[0].text, text);
-    key(&mut a, KeyCode::F(7));
+    choose(&mut a, "extracted cards");
     let view = snapshot(100, 30, &mut a, false).unwrap();
     let (_, ny) = a.screen.canvas.state.data.nodes[0].pos();
     let y = ((ny - a.screen.canvas.state.viewport_y) * a.screen.canvas.state.zoom
@@ -934,8 +952,7 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
             .unwrap()
             .contains("originals")
     );
-    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
-    assert!(!a.screen.original);
+    assert!(!offers(&a, "Show your originals"));
     a.paste("Meaning. Unmarked words are not misfits.");
     a.submit();
     settle(&mut a);
@@ -955,7 +972,7 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
     assert!(a.screen.help && !a.screen.details);
     snapshot(80, 24, &mut a, false).unwrap();
     key(&mut a, KeyCode::Esc);
-    a.handle_key(KeyEvent::new(KeyCode::Char('o'), KeyModifiers::CONTROL));
+    choose(&mut a, "Show your originals");
     assert!(a.screen.original && !a.screen.details);
     assert!(a.conversation.fragments().is_empty());
 }
@@ -1087,19 +1104,19 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     assert!(view.lines().rev().skip(1).all(|line| !line.contains("F2")));
     assert!(view.lines().last().unwrap().contains("F2 send"));
     assert!(!view.contains("Highlighted words support"));
-    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    choose(&mut a, "new dump");
     assert!(a.notice.contains("not an answer"));
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
             .contains("add more")
     );
-    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    choose(&mut a, "new dump");
     a.paste("both");
     a.submit();
     settle(&mut a);
     assert!(a.conversation.sources()[1].in_reply_to.is_some());
-    a.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::CONTROL));
+    choose(&mut a, "new dump");
     a.paste("Separate new dump.");
     a.submit();
     settle(&mut a);

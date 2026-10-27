@@ -392,12 +392,15 @@ fn ready_invites_review_without_claiming_complete_intent() {
         assert!(!screen.contains("Still missing") && !screen.contains("remain open"));
     }
     a.screen.help = true;
-    assert!(layout::help_text(&a).contains("Ready for your review.\nF3 reviews the goal."));
+    assert!(
+        layout::help_text(&a)
+            .contains("Ready for your review.\nReview the goal from the list above.")
+    );
 }
 #[test]
 fn skipped_why_names_only_the_missing_part() {
     let mut a = missing(Part::Why);
-    a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
+    super::tests::choose(&mut a, "Skip this question");
     assert!(a.conversation.focused_question().is_none() && !a.goal_ready());
     for screen in screens(&mut a) {
         assert!(
@@ -407,7 +410,8 @@ fn skipped_why_names_only_the_missing_part() {
         assert!(!screen.contains("Ready for your review") && !screen.contains("remain open"));
     }
     assert!(
-        layout::help_text(&a).starts_with("Right now\nStill missing: Why.\nF3 reviews the goal.")
+        layout::help_text(&a)
+            .contains("\n\nStill missing: Why.\nReview the goal from the list above.")
     );
     review_lists_and_saves(&mut a, &["Why — Which check 1?"]);
     assert_eq!(
@@ -418,7 +422,7 @@ fn skipped_why_names_only_the_missing_part() {
 #[test]
 fn done_when_after_skip_or_two_asks_is_named_missing_and_reviewable() {
     let mut skipped = missing(Part::DoneWhen);
-    skipped.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE));
+    super::tests::choose(&mut skipped, "Skip this question");
     let mut capped = missing(Part::DoneWhen);
     for answer in ["first answer", "second answer"] {
         capped.paste(answer);

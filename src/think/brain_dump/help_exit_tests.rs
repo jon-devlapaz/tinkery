@@ -8,82 +8,51 @@ fn ctrl_c(a: &mut BrainDump) {
     a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
 }
 fn leave(a: &mut BrainDump) {
-    key(a, KeyCode::F(10));
+    key(a, KeyCode::Esc);
 }
 #[test]
-fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
+fn help_leads_with_numbered_actions_then_context() {
     let mut a = BrainDump::default();
-    let now = layout::help_text(&a);
     assert_eq!(
-        now,
-        "Right now\nType, then F2 sends it.\n\nF1 every key · Esc close"
+        layout::help_text(&a),
+        "Right now\nType, then F2 sends it.\n\nF1 close"
     );
-    a.screen.help = true;
-    a.screen.help_all = true;
-    assert!(layout::help_text(&a).contains("practice reading; nothing leaves"));
     a = board();
     a.screen.help = true;
-    assert!(layout::help_text(&a).starts_with("Right now\nType your answer"));
-    assert!(
-        layout::help_text(&a).lines().count() <= 5,
-        "layer 1 stays short"
-    );
-    key(&mut a, KeyCode::F(1));
-    key(&mut a, KeyCode::F(1));
-    assert!(
-        !a.screen.help,
-        "F1 from closed opens layer 1; then layer 2; then closes"
-    );
-    key(&mut a, KeyCode::F(1));
-    assert!(a.screen.help && !a.screen.help_all);
-    key(&mut a, KeyCode::F(1));
-    assert!(a.screen.help && a.screen.help_all);
     let text = layout::help_text(&a);
-    assert!(text.starts_with("Every key"));
-    for heading in ["Write", "Look", "Finish", "Leave", "Words"] {
-        assert!(text.contains(&format!("\n{heading}\n")));
-    }
-    for consequence in [
-        "! Shift-F2  start a new dump",
-        "! F8   skip the question",
-        "! F10  back to the menu; asks before losing your draft",
-    ] {
-        assert!(text.contains(consequence), "{consequence}");
-    }
-    for gone in [
-        "F6",
-        "board",
-        "source",
-        "extract",
-        "cards",
-        "consequential",
-        "after returning",
-        "Ctrl-L",
-        "fn",
-        "Ctrl-C exits",
-        " / Ctrl-",
-    ] {
-        assert!(!text.contains(gone), "{gone}");
-    }
-    for internal in [
-        "shape/audit",
-        "answer-continuity",
-        "viewer",
-        "pins its origin",
-        "durable writes",
-    ] {
-        assert!(!text.contains(internal));
-    }
     assert!(
-        text.contains("reading   my guess") && text.contains("original  exactly what you typed")
+        text.starts_with("Right now\n1  Review the goal\n2  Skip this question\n")
+            && text.contains("\n\nType your answer.\nF2 sends."),
+        "{text}"
     );
+    for gone in [
+        "F3",
+        "F4",
+        "F5",
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "Shift-F2",
+        "Ctrl-N",
+        "Ctrl-G",
+        "Ctrl-Z",
+        "every key",
+    ] {
+        assert!(!text.contains(gone), "{gone}: {text}");
+    }
+    key(&mut a, KeyCode::F(1));
+    assert!(!a.screen.help, "F1 closes the one help layer");
+    key(&mut a, KeyCode::F(1));
+    assert!(a.screen.help);
     key(&mut a, KeyCode::Esc);
-    assert!(!a.screen.help && !a.screen.help_all);
+    assert!(!a.screen.help);
     a.add_more = true;
-    assert!(layout::help_text(&a).starts_with("Right now\nType a new dump"));
+    assert!(layout::help_text(&a).contains("\n\nType a new dump"));
     a.add_more = false;
     a.review_goal();
     assert!(layout::help_text(&a).starts_with("Right now\nType confirm"));
+    assert!(a.rows().is_empty(), "reviewing offers only confirm or back");
     let frozen = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::Char('h'));
@@ -115,22 +84,16 @@ fn help_leads_with_context_groups_actions_and_keeps_internals_on_second_page() {
     assert!(a.screen.help && !a.screen.how);
     key(&mut a, KeyCode::Esc);
     assert!(!a.screen.help);
-    a.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL));
-    let details = snapshot(100, 30, &mut a, false).unwrap();
-    assert!(details.contains("h How it works"));
-    key(&mut a, KeyCode::Char('h'));
-    assert!(a.screen.how && a.screen.help && !a.screen.details);
-    key(&mut a, KeyCode::F(1));
     assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, frozen);
     a.handoff.review = None;
     a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     let text = layout::help_text(&a);
     assert!(text.starts_with("Right now\nYour goal is saved"));
-    assert!(text.contains("F10 back to the menu"));
+    assert!(text.contains("Esc back to the menu"));
 }
 #[test]
-fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave() {
-    for state in 0..5 {
+fn exit_guard_keeps_unsent_original_and_reply_until_explicit_leave() {
+    for state in [0, 1, 2, 4] {
         let mut a = if state == 0 {
             BrainDump::default()
         } else {
@@ -139,16 +102,11 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
         if state == 0 || state == 2 {
             a.paste("unsent words?");
         }
-        if state == 3 {
-            a.review_goal();
-            a.paste("conf");
-        }
         if state == 4 {
             a.conversation.set_board(None);
         }
         let source = a.conversation.sources().to_vec();
         let input = a.input.text.clone();
-        let review = a.handoff.review.as_ref().map(|r| r.input.clone());
         ctrl_c(&mut a);
         assert!(
             !a.screen.leave_prompt && !a.quitting(),
@@ -167,7 +125,7 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
         a.paste("y");
         key(&mut a, KeyCode::Enter);
         key(&mut a, KeyCode::F(2));
-        let mut repeated = KeyEvent::new(KeyCode::F(10), KeyModifiers::NONE);
+        let mut repeated = KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE);
         repeated.kind = KeyEventKind::Repeat;
         a.handle_key(repeated);
         a.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::ALT));
@@ -179,17 +137,12 @@ fn exit_guard_keeps_unsent_original_reply_and_frozen_review_until_explicit_leave
             serde_json::to_value(&source).unwrap()
         );
         assert_eq!(a.input.text, input);
-        assert_eq!(a.handoff.review.as_ref().map(|r| r.input.clone()), review);
         assert!(!a.running());
         leave(&mut a);
         key(&mut a, KeyCode::Esc);
         assert!(!a.screen.leave_prompt);
         leave(&mut a);
-        if state % 2 == 0 {
-            key(&mut a, KeyCode::Char('y'));
-        } else {
-            leave(&mut a);
-        }
+        key(&mut a, KeyCode::Char('y'));
         assert!(a.quitting());
         assert!(a.handoff.receipt.is_none());
     }
@@ -374,14 +327,12 @@ fn rust_marks_only_consequence_and_never_alone() {
     );
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::F(1));
-    key(&mut a, KeyCode::F(1));
     let help = render(&mut a, false);
     assert!(
         rows(&help, rust)
             .iter()
             .all(|r| r.chars().all(|c| c == '!' || c == ' '))
     );
-    assert!(!rows(&help, rust).is_empty());
     let mono = render(&mut a, true);
     assert!(rows(&mono, rust).is_empty(), "NO_COLOR uses no colour");
 }

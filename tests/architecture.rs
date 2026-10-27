@@ -19,7 +19,7 @@ const BRAIN_DUMP_FIELDS: usize = 13;
 const BRAIN_DUMP_PUB_FIELDS: usize = 0;
 /// Most non-test source lines longer than [`LONG_LINE`] characters. Since #38 the model prompts
 /// live in their own files; what remains is help and display text.
-const LONG_LINES: usize = 8;
+const LONG_LINES: usize = 6;
 const LONG_LINE: usize = 200;
 /// Most calls to the test-only accessors on Think's `Conversation`. Tests that poke private state
 /// break on refactors that keep behavior; new tests drive Think through its real input instead.
@@ -42,6 +42,7 @@ const CONVERSATION_TEST_ACCESSORS: &[&str] = &[
 /// the unbuilt places) is the only one that knows every phase; `shared` is code any phase may use.
 /// A new module must be listed here, so a new phase can't count as shared code by default.
 const MODULES: &[(&str, &str)] = &[
+    ("actions", "shared"),
     ("approve", "approve"),
     ("goal", "shared"),
     ("measure", "measure"),
