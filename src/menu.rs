@@ -747,9 +747,10 @@ impl Home {
         }
     }
 
-    /// Shape's keys: F10 for the menu, F1 (or ? when Shape isn't taking words) for help, Esc
-    /// steps back (to the same Tend detail, freshly read). Held keys don't repeat an open, a save or
-    /// a confirmation. Shift types capitals. Only Shape's own named keys write or run.
+    /// Shape's keys: F1 (or ? when Shape isn't taking words) for help, where a digit runs its
+    /// numbered action, and Esc steps back (to the same Tend detail, freshly read). Held keys
+    /// don't repeat an open, a save or a confirmation. Shift types capitals. Only F2 and the
+    /// numbered actions write or run.
     fn shape_key(&mut self, key: KeyEvent) {
         let typing = matches!(&self.view, View::Shape(shape, _) if shape.takes_text());
         let editor_key = typing
@@ -777,10 +778,6 @@ impl Home {
             return;
         }
         match key.code {
-            KeyCode::F(10) => {
-                self.view = View::Menu;
-                self.help = false;
-            }
             KeyCode::Char('?') if typing && !self.help => {
                 if let View::Shape(shape, _) = &mut self.view {
                     shape.key(key);
@@ -795,7 +792,11 @@ impl Home {
             KeyCode::Esc if self.help => self.help = false,
             _ if self.help => {
                 if let View::Shape(shape, _) = &mut self.view {
-                    shape.scroll_help(key.code);
+                    if shape.pick(key) {
+                        self.help = false;
+                    } else {
+                        shape.scroll_help(key.code);
+                    }
                 }
             }
             _ => {
@@ -960,7 +961,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             return;
         }
         // Unbuilt places use the shared help; q goes back.
-        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure this repo's pull requests\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste    results and external review handoffs\n\nInside think, F10 returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
+        let help = "Right now\nq goes back to the menu · ? closes help\n\nPlaces\nthink   brain dump → readings → one question → confirm a goal\ntend    your saved goals, needs and Think history\nshape   answer Shape's questions and confirm a seed\nmeasure this repo's pull requests\napprove  verified seeds and manual intake commands\nwatch    runs in your tink-sdlc checkout (read-only)\ntaste    results and external review handoffs\n\nInside think, Esc returns here (it asks first if you'd lose work).\nEsc goes back from tend, shape, measure and unbuilt places.";
         frame.render_widget(
             Paragraph::new(help)
                 .style(palette.ink)
@@ -1591,7 +1592,7 @@ mod tests {
         let mut h = home(tmp.path());
         h.open(0);
         if let View::Think(dump) = &mut h.view {
-            dump.handle_key(key(KeyCode::F(10)));
+            dump.handle_key(key(KeyCode::Esc));
         }
         h.tick();
         assert!(matches!(h.view, View::Menu));
@@ -1607,7 +1608,8 @@ mod tests {
             assert!(dump.key_bar_on(), "on by default");
             dump.handle_key(key(KeyCode::F(1)));
             dump.handle_key(key(KeyCode::Char('b')));
-            dump.handle_key(key(KeyCode::F(10)));
+            dump.handle_key(key(KeyCode::Esc));
+            dump.handle_key(key(KeyCode::Esc));
         }
         h.tick();
         assert!(matches!(h.view, View::Menu));

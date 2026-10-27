@@ -10,7 +10,7 @@ import tempfile
 import time
 from pathlib import Path
 import test_launch as subprocess
-from shape_answer_terminal import Run, BINARY, QUESTION, SEED, F2, F3, F10, helper, files
+from shape_answer_terminal import Run, BINARY, QUESTION, SEED, ESC, F2, helper, files
 
 ACTOR = {'by': 'terminal', 'declaration': 'declared: agent',
          'action': 'typed confirm at this terminal', 'identity': 'declaration is not verified identity'}
@@ -47,7 +47,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             # Typing alone and confirming an unread attribution must write nothing.
             type_confirmation()
             assert not run.records.exists() and not run.sessions.exists()
@@ -55,7 +55,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
             assert not run.records.exists() and not run.sessions.exists()
             # Reopen with an empty input, read fully, then wait for typing to redraw.
             run.send(b'\x1b', "Ready for your review")
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
             if correct_typo:
                 type_confirmation(b'confirn', 'confirn')
@@ -109,7 +109,7 @@ def journey(width, height):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.send(F3, 'You are confirming')
+            run.choose('Review the goal', 'You are confirming')
             run.send(b'confirm\r', 'Saved.')
             record = json.loads(next(run.records.iterdir()).read_text())
             assert record['goal_confirmation'] == ACTOR
@@ -121,7 +121,7 @@ def journey(width, height):
             assert origin['authority'] == 'delegated'
             assert origin['delegation'] == {'agent': 'agent'}
             assert any(e['observed'] == 'Refusals feel noisy.' for e in origin['evidence'])
-            run.send(F10, '3  shape')
+            run.send(ESC, '3  shape')
             run.open_shape()
             run.wait('F2 look into the next question')
             run.send(F2, 'Probe: pre-mortem')
@@ -131,7 +131,7 @@ def journey(width, height):
             run.send(F2, 'pgup/dn read to end')
             os.write(run.master, b'\x1b[6~' * 20)
             run.type('TEST I confirm r1 for this isolated run.')
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             ledger = helper.load(session)
             assert ledger['operator'] == 'agent'
             assert ledger['goal'] == record['goal'] == goal
@@ -154,7 +154,7 @@ def journey(width, height):
             assert 'declared: agent' in (session / 'seed-contract.md').read_text()
             assert len(run.calls()) == 2
             # Both views disclose agent confirmation; copying never creates a run or approves.
-            run.send(F10, '4  approve')
+            run.menu()
             run.send(b'4', 'Seed 1 of 1')
             run.read_until(NOTE)
             assert 'c copy command' in run.flat()

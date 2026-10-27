@@ -7,9 +7,8 @@ import select
 import tempfile
 import time
 
-from shape_answer_terminal import Run, make, helper, files, SEED, GOAL, F1, F2, F10
+from shape_answer_terminal import Run, make, helper, files, SEED, GOAL, F1, F2
 
-F4 = b'\x1bOS'
 CRITERION = ('Enter three fictional places and compare known monthly costs; '
              'Keep unknown parking visible and restore the same saved hunt; '
              'The operator still judges usefulness and polish.')
@@ -99,9 +98,9 @@ def retry_journey(width, height, case):
             if case == 'folder':
                 other = root / 'TEST-other-folder'
                 other.mkdir()
-                run.send(F4, 'Next: F4 uses this folder;')
+                run.choose('Choose the folder', 'Next: F2 uses this folder;')
                 run.type('/TEST-other-folder')
-                run.send(F4, 'The step reads files in TEST-other-folder.')
+                run.send(F2, 'The step reads files in TEST-other-folder.')
                 assert len(run.calls()) == 1 and files(session) == saved
             drafted = False
             if case == 'stale':
@@ -118,7 +117,7 @@ def retry_journey(width, height, case):
                     run.wait('Next: F2 looks into the next question.')
                     assert len(run.calls()) == 1
             if case in ('session', 'visit'):
-                run.send(F10, '3  shape')
+                run.menu()
                 if case == 'session':
                     goal = 'TEST another session.\n' + goal.split('\n', 1)[1]
                     session = make(root / 'TEST-sessions', question=False, operator='agent', goal=goal)

@@ -72,7 +72,7 @@ pub(super) fn change(
             node.set("authority", "delegated".into());
             node.set(
                 "authority_source",
-                "the operator pressed 'F12 delegate suggestion' in Tinkery Shape".into(),
+                "the operator chose 'Delegate to the suggestion' in Tinkery Shape".into(),
             );
             node.set("evidence", evidence);
             state.set("current_question", Value::Null);

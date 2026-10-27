@@ -55,7 +55,7 @@ Explicit requirements and undecided success checks or permissions still belong i
 goals or questions.
 
 Answers and added dumps remain separate exact sources. Sending refines even a ready
-reading, never starts another dump. Skips persist; Ctrl-Z restores them. Separate
+reading, never starts another dump. Skips persist; F1 brings the last one back. Separate
 goals stay aside, not in each other's constraints; deferred items remain seed context.
 Constraint-polarity errors remain possible; decision coverage is a model
 judgment, not proof that choices mean the same thing. See [#64 evidence](../../findings/README.md#goal-history-and-review-regression-check-64).
@@ -70,7 +70,7 @@ recorded raw replies and operator originals stay unchanged.
 The current question shows one provisional answer and its reason, or says no suggestion
 is available. Shaping and review use original words and submitted answers to propose it;
 insufficient context must yield no proposal. Scope questions use the unavailable state.
-Ctrl-R (use and edit) copies a suggestion into an empty writing box; F2 alone sends it.
+F1's “Use the suggested answer” copies a suggestion into an empty writing box; F2 alone sends it.
 Existing drafts are preserved. Changed questions discard their old suggestion, including
 questions rewritten by board validation. Missing or malformed proposals leave questions usable.
 
@@ -134,14 +134,14 @@ review and recovery mechanics, not model quality;
 [#401](https://github.com/jon-devlapaz/tinkery/issues/401) retains that evaluation work.
 
 Without a composed goal, omit the review invitation. F1 uses the same first sentence
-and offers F3 only with a saveable goal. In practice or without a sessions folder, help says
+and offers review only with a saveable goal. In practice or without a sessions folder, help says
 saving needs real mode and a sessions folder. With no goal, offer adding words then F2,
 without a missing-field interview. If the first reading was unapplied or cancelled,
 offer an F2 retry. State depends only on goal
 content, including sent-but-unapplied words and unanswered skips, never recording
 or unsent text. Review lists all open intent.
 
-F3 deliberately reviews. Typed `confirm` plus Enter freezes the displayed goal and,
+Choosing “Review the goal” from F1 deliberately reviews. Typed `confirm` plus Enter freezes the displayed goal and,
 after successful saving, shows the [receipt](shape-and-handoff.md). Missing parts
 and questions may travel to the seed. Readiness is not required to save; saving
 is neither seed nor implementation approval.
@@ -187,7 +187,7 @@ context cannot be replaced by named attribution through the API once installed. 
 model requests and grants neither seed confirmation nor implementation permission.
 
 **Agent operation:** `--operator agent` is the whole agent context. Think saves, Shape
-answers and F3 seed confirmation all write as the agent: `operator: agent` ledgers,
+answers and F2 seed confirmation all write as the agent: `operator: agent` ledgers,
 delegated authority, a goal origin delegated to `agent`, and action reasons that begin
 `The agent`. Nothing an agent types becomes a human save. Shape writes need
 `--shape-pi`; without it an agent's Shape only reads, since its writes would carry no
@@ -239,7 +239,7 @@ Schema 3 retains the version, origin (`live` for Pi, otherwise `simulated`), mod
 thinking level, both prompts' hash, first-turn and confirm times, session folder,
 canonical path, source ID, launch Git root `repo` (or null), exact confirmed goal,
 every ordered, timed, verbatim turn (`words`, `asked`, `answered`, `skipped`,
-`restored`, `scope_asked`, `scope_answered`) and serialized F5 checks.
+`restored`, `scope_asked`, `scope_answered`) and serialized Why checks.
 Rejected checks retain `raw`; passing checks use decoded `candidate` and `raw: null`.
 Each Think visit gets separate Pi diagnostic history. Reused settings start no
 process or file read and cannot mix goals. Standalone return and reentry preserve
@@ -269,36 +269,40 @@ Overflow keeps muted `PgUp/PgDn scroll reading` below the reading. The active
 question grows to fit above the answer while retaining reading and input space.
 If it still overflows, `PgUp/PgDn scroll question` names the same scroll route;
 keys scroll both overflowing regions, and the wheel works over either. Keys and
-the wheel reveal all before review; Every key names the keyboard route. Hide each
+the wheel reveal all before review; How it works names the keyboard route. Hide each
 hint when its content fits, including after resize. Scrolling changes no goal,
 original or unsent answer text.
 
 ### Help
 
-The muted bar and help agree on F2, F3, F6, F8 and F10. Offer only permitted actions;
-F3 needs real mode with a sessions folder. Empty help says “Type, then F2 sends it.”
-F1 opens bounded reading-side help without changing originals or drafts.
-Right now leads with the state; F1 opens Every key, and `h` opens How it works.
+Think and Shape share one key map ([#440](https://github.com/jon-devlapaz/tinkery/issues/440)):
+F2 runs the one action the key bar names, F1 lists every other action allowed now, and Esc
+goes back. F6 (or Ctrl+Alt+Z) speaks; editing keys stay. No other function key or Ctrl
+alias acts. A row appears only when its action is allowed, so nothing in the list refuses:
+review needs real mode with a sessions folder. Empty help says “Type, then F2 sends it.”
+F1 opens bounded reading-side help without changing originals or drafts. Right now leads
+with the numbered rows (a digit runs its row once and closes help), then the state; `h`
+opens How it works and F1 closes. Labels fit one line of an 80-column panel; a short
+panel drops its blank rows and packs its keys so the rows stay above the writing box.
 The layer title is jade, headings and keys bold ink, and labels and borders muted.
 Short pages fit; long pages scroll under a fixed title and navigation. Show the
 scroll hint only on overflow. Empty technical sections add no gap before Last result.
 
 Esc first cancels voice, otherwise closes or backs from technical help. Reading
 cancellation remains after help closes. Help blocks typing, paste and hidden send,
-review or voice actions. F10 retains the loss guard, Ctrl-C cancellation, Ctrl-D
-Why, and `b` changes the preference without revealing the hidden bar. `?` remains
+review or voice actions. Ctrl-C cancellation stays, and `b` changes the preference without revealing the hidden bar. `?` remains
 text while writing. The review bar says `type confirm save goal and record` when recording.
 
 ### Editing and focus
 
 - Tab or Shift-Tab toggles writing and the original once present. Typing returns
-  to writing and clears original selection. Letters never command; F8 skips and F9 copies.
+  to writing and clears original selection. Letters never command; skipping and copying are F1 rows.
 - Shift with arrows, Home or End, and mouse drag select logical whole graphemes.
   Ctrl-A selects only the active surface. Writing input, Enter, deletion or paste
   replaces selection as one edit. There is no numeric editor-size cap. Allocation
   refusal preserves text and selection. Finite fixtures promise neither unlimited
   memory nor responsiveness.
-- Ctrl-E extracts; F7 or Ctrl-X toggles cards. Covered originals have no selection
+- Ctrl-E extracts; F1 shows or hides the cards. Covered originals have no selection
   and cannot be copied.
 - Ctrl-C copies a nonempty active selection, otherwise cancels a request or does
   nothing; it never exits. Dictation never deletes selection.
@@ -344,12 +348,12 @@ sentinels: bytes survive sending and copying, never execute on display.
   Enter before the reading's end says PgDn. Confirmation saves only from the end.
 - An unfinished save says “Handoff not complete. F1 then h shows why; Enter retries.”
   Last result retains the reason. Review messages grow, leaving Back its own row.
-- Idle Esc and F10 guard unsaved work. `--home` returns to the menu; standalone
+- Idle Esc guards unsaved work. `--home` returns to the menu; standalone
   exits before saving, opens the menu after saving. Esc first cancels voice or the
   reading, closes overlays, or leaves review. In the original, Esc clears a
   selection first; with no selection it returns to writing, preserving the draft.
   The next Esc asks before discarding; Esc at that prompt declines.
-- F4 originals and F5 why stay help-only. [Local voice](voice.md) inserts editable
+- Originals and Why are F1 rows. [Local voice](voice.md) inserts editable
   words, never sends. Answering keeps the original dump visible.
 
 ## Published proposals

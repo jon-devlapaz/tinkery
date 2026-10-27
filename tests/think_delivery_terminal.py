@@ -7,7 +7,7 @@ import tempfile
 import time
 from unittest.mock import patch
 
-from shape_answer_terminal import Run, F1, F2, F3, F9, F10
+from shape_answer_terminal import Run, ESC, F1, F2
 
 FIXTURE = Path(__file__).with_name('fixtures') / 'think-delivery-401.json'
 READY = 'Ready for your review.'
@@ -47,7 +47,8 @@ def journey(width, height, no_color):
 
         def copy_board():
             count = len(run.screen.clipboards)
-            os.write(run.master, F9)
+            run.send(F1, 'Copy the reading')
+            os.write(run.master, run.screen.pick('Copy the reading'))
             deadline = time.monotonic() + 8
             while time.monotonic() < deadline:
                 if select.select([run.master], [], [], .02)[0]:
@@ -101,7 +102,7 @@ def journey(width, height, no_color):
             run.send(F1, 'Right now')
             assert READY in run.flat() and "Nothing I'm unsure" not in run.flat()
             run.send(b'\x1b', READY)
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             assert "Operator's original request" in run.flat()
             read_right('Must not: Provide financial/legal advice.')
             no_save()
@@ -123,7 +124,7 @@ def journey(width, height, no_color):
             assert sent[2]['sources'][1]['text'] == fixture['correction']
             no_save()
 
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             read_right('Must not: Change tool configuration.')
             no_save()
             run.send(b'confirm\r', 'Saved.')
@@ -139,7 +140,7 @@ def journey(width, height, no_color):
             assert ledger['operator'] == 'agent'
             assert not (session / 'seed-contract.md').exists()
             assert requests() == sent, 'Confirmation must not start another model call.'
-            run.send(F10, '1  think')
+            run.send(ESC, '1  think')
             print(json.dumps(dict(width=width, height=height, no_color=no_color,
                                   provider='frozen candidates; zero real calls',
                                   journey='omitted constraints/review/correction/exact goal confirmation',

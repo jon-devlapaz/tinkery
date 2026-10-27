@@ -37,7 +37,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 
 - **Think:** clarify a dump and explicitly save the confirmed goal, unchanged, to
   `~/.local/share/tinkery/sessions/` with a record in `~/.local/share/tinkery/think/`.
-  Questions offer a suggested answer when available: Ctrl-R copies it for editing; F2 sends.
+  Questions offer a suggested answer when available: F1 can copy it for editing; F2 sends.
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
   Shape without changing saved sessions.
@@ -47,13 +47,13 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   waiting draft or verified ready seed. With real drafting set up
   ([terminal setup](docs/terminal-setup.md#launch)), `--shape-budget CALLS` (default zero)
   sets the launch allowance shared by Think and Shape. `F2` saves an answer and lets an agent investigate the next with
-  read-only tools; `F3` confirms the seed in your words once you've read it to the end.
+  read-only tools, and confirms the seed in your words once you've read it to the end.
   Agents operate Think and Shape with `--operator agent`; their saves are
-  [recorded as the agent's](docs/design/think.md#confirmation-attribution-185). `F5` shows the whole goal and decisions.
-  `F7` objects to an assumed default on a question, or opens optional one-call teach-back
-  on a draft; mismatches don't block `F3`. On a hard-to-undo question, `F9` shows the
-  options and suggestion after your instinct. `F6` twice completes a session whose seed is
-  ready; `F8` twice stops one still being shaped. Tinkery owns the ledger, seed checks,
+  [recorded as the agent's](docs/design/think.md#confirmation-attribution-185). `F1` lists
+  every other action allowed now by number: So far (the whole goal and decisions), objecting
+  to an assumed default, optional one-call teach-back on a draft (mismatches never block
+  confirming), the options on a hard-to-undo question after your instinct, and ending a
+  session, which asks once more. Tinkery owns the ledger, seed checks,
   confirmation, verification and ending; no viewer or network read is involved.
   `tinkery seed status --json DIR` and `tinkery seed checks DIR` expose read-only intake JSON.
   Its draft guidance and artifact reference are bundled; no external skill is needed.
@@ -113,7 +113,7 @@ cargo +stable run --locked -- --home
 ```
 
 Think is practice: no model calls or saved goals. Tend writes needs only when you
-explicitly link or unlink. F2 sends, Enter adds a line, F1 helps, F10 returns to the menu.
+explicitly link or unlink. F2 sends, Enter adds a line, F1 lists what else you can do, Esc returns to the menu.
 Add `--snapshot` for text output.
 
 Real drafting requires `--shape-pi --model provider/model-id` and an

@@ -169,11 +169,11 @@ fn wheel_over_question_uses_the_same_overflow_route() {
 }
 
 #[test]
-fn every_key_names_the_existing_reading_scroll_route() {
+fn how_it_works_names_the_existing_reading_scroll_route() {
     let mut a = board();
     key(&mut a, KeyCode::F(1));
-    key(&mut a, KeyCode::F(1));
-    assert!(layout::help_text(&a).contains("PgUp/PgDn   scroll the reading"));
+    key(&mut a, KeyCode::Char('h'));
+    assert!(layout::how_text(&a).contains("PgUp/PgDn scroll"));
 }
 
 #[test]

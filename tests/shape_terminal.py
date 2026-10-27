@@ -1,6 +1,6 @@
 """Shape reading journeys: real Rust ledger sessions in TEST roots, a Pi that must never run, no model calls.
-Opening and reading write nothing; answering (F2/F3) is covered by shape_answer_terminal.py. Under an agent
-launch declaration Shape only reads: F2, F3, F6, F7, F8, F11 and F12 are held and say why (#247)."""
+Opening and reading write nothing; answering (F2) is covered by shape_answer_terminal.py. Under an agent
+launch declaration Shape only reads: F2 and every writing F1 action are held and say why (#247)."""
 import base64, fcntl, importlib.util, os, re, select, shlex, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -33,7 +33,7 @@ P051_FINDINGS = [
     'No Stacker-specific regression exists in this TEST scenario. A later implementation '
     'needs behavior-specific assertions, including an observed red or targeted reversion probe.',
 ]
-SHAPE_KEYS = 'F5 so far   esc back   F10 menu'
+SHAPE_KEYS = 'F1 more   esc back'
 HELD = "An agent answers Shape with --shape-pi. Shape only reads; Esc goes back."
 LIST_KEYS = '↑↓ move   enter open   esc back'
 
@@ -142,9 +142,10 @@ def journey(width, height, case, no_color=False, operator='human'):
             return ' '.join(screen.text().split())
 
         def so_far(first=''):
-            """F5's page: the whole goal byte for byte, then the operator's decision; Esc closes it."""
+            """So far, from F1: the whole goal byte for byte, then the operator's decision; Esc closes it."""
             keys = screen.text().splitlines()[-1].strip()
-            send(b'\x1b[15~', 'F5 close')
+            send(b'\x1bOP', 'So far')
+            send(screen.pick('So far'), 'esc close')
             rows = [row[2:].rstrip() for row in screen.text().splitlines()]
             start = rows.index('Your goal, as you confirmed it') + 1
             shown = '\n'.join(rows[start:rows.index('', start)])
@@ -203,11 +204,11 @@ def journey(width, height, case, no_color=False, operator='human'):
                     'unreadable': 'Tinkery refused to read this session:',
                 }[case]
                 send(b's', expected)
-                keys = {'question': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
-                        'p051': 'F2 save + look   F11 defer   F12 delegate   esc back   F10 menu',
-                        'drafted': 'pgup/dn read to end   F7 teach-back   esc back   F10 menu',
-                        'ready': 'c copy intake   F6 end session   ' + SHAPE_KEYS,
-                        'unreadable': 'esc back   F10 menu'}.get(case, SHAPE_KEYS)
+                keys = {'question': 'F2 save + look   ' + SHAPE_KEYS,
+                        'p051': 'F2 save + look   ' + SHAPE_KEYS,
+                        'drafted': 'pgup/dn read to end   ' + SHAPE_KEYS,
+                        'ready': 'c copy intake   ' + SHAPE_KEYS,
+                        'unreadable': 'esc back'}.get(case, SHAPE_KEYS)
                 if held:
                     keys = {'ready': 'c copy intake   ' + SHAPE_KEYS}.get(case, SHAPE_KEYS)
                 # Scrolling is offered only on overflow; arrows belong to an active editor.
@@ -215,14 +216,19 @@ def journey(width, height, case, no_color=False, operator='human'):
                 scroll_keys = ('pgup/dn read   ' + keys
                                if acts else '↑↓ scroll   ' + keys)
                 bar = screen.text().splitlines()[-1].strip()
-                # A bar too wide for the terminal closes up rather than lose Esc or F10.
+                # A bar too wide for the terminal closes up rather than lose Esc.
                 assert bar in [k.replace('   ', gap) for k in (keys, scroll_keys) for gap in ('   ', '  ')], screen.text()
                 # The key bar names the next action, so no Next line repeats it.
                 assert flat().count('Next:') == (1 if held else 0 if acts or case == 'ready' else 1), screen.text()
                 if held:
                     assert HELD in flat(), screen.text()
+                    # F2 and the retired function keys write nothing; F1 offers no writing action.
                     for key in (b'\x1bOQ', b'\x1bOR', b'\x1b[17~', b'\x1b[18~', b'\x1b[19~', b'\x1b[23~', b'\x1b[24~'):
                         os.write(master, key * 2)
+                    send(b'\x1bOP', 'F1 close')
+                    for action in ('Defer', 'Delegate', 'Teach back', 'End this session', 'Stop this session'):
+                        assert action not in flat(), screen.text()
+                    send(b'\x1b', HELD)
                     send(b'x', HELD)
                     assert 'your answer' not in flat() and 'your words' not in flat(), screen.text()
                     assert files(sessions) == before, 'A held Shape wrote'
@@ -267,7 +273,8 @@ def journey(width, height, case, no_color=False, operator='human'):
                         assert finding.split(':')[0] not in flat(), screen.text()
                     assert 'your answer' in flat() and 'F2 save + look' in flat(), screen.text()
                     send(b'Keep it skill-only.', 'Keep it skill-only.')
-                    send(b'\x1b[15~', 'Findings for this question')
+                    send(b'\x1bOP', 'So far')
+                    send(screen.pick('So far'), 'Findings for this question')
                     # Every complete observation is reachable, without saving or calling.
                     viewports = [flat()]
                     for _ in range(80):
@@ -278,7 +285,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                         viewports.append(flat())
                     for finding in P051_FINDINGS:
                         assert any(' '.join(finding.split()) in view for view in viewports), finding
-                    send(b'\x1b[15~', 'Keep it skill-only.')
+                    send(b'\x1b', 'Keep it skill-only.')
                     assert 'Also found:' not in flat(), screen.text()
                     assert P051_FINDINGS[-1].split(':')[0] not in flat(), screen.text()
                 if case == 'question':

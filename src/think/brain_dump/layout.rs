@@ -9,7 +9,7 @@ use ratatui::style::Modifier;
 pub(super) const LIMIT_TEXT: &str = "Edit not accepted; words unchanged.";
 /// Staging refuses a skipped scope question before sending or committing words.
 pub(super) const SCOPE_REFUSAL: &str =
-    "Answer the skipped scope question first: Ctrl-Z brings it back.";
+    "Answer the skipped scope question first: F1 brings it back.";
 /// Empty sends need one next step, without a permanent warning on the blank screen.
 pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then F2 sends it.";
 /// A review invitation, not a claim that the reading captured every requirement.
@@ -69,7 +69,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         frame.render_widget(
             Paragraph::new(if app.screen.help {
-                "Help\nF1 or Esc returns. F10 back to the menu.\nResize to 80×24. Words retained."
+                "Help\nF1 or Esc returns. Esc again goes back to the menu.\nResize to 80×24. Words retained."
             } else {
                 "Need 80×24. Words retained."
             })
@@ -380,11 +380,7 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
 }
 pub(super) fn help_text(app: &BrainDump) -> String {
     if app.handoff.receipt.is_some() {
-        return if app.screen.help_all {
-            "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\ns   open in tend with this session selected\nF10  back to the menu; your goal stays saved\n\nNothing runs by itself. Goal is not seed or implementation approval.".into()
-        } else {
-            "Right now\nYour goal is saved. Next: shape it into a seed in Shape.\ns open in tend · F10 back to the menu\n\nF1 every key · h how it works · Esc close".into()
-        };
+        return "Right now\nYour goal is saved. Next: shape it into a seed in Shape.\ns open in tend · Esc back to the menu\n\nF1 close".into();
     }
     let open_now;
     let now = if matches!(
@@ -423,7 +419,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     {
         "Answer the question about your added words.\nF2 sends."
     } else if app.conversation.last_failure().is_some() {
-        "The reading failed; your words are safe.\nF2 tries again · F5 why."
+        "The reading failed; your words are safe.\nF2 tries again."
     } else if app.add_more {
         "Type a new dump.\nF2 sends it."
     } else if app.conversation.board().is_none()
@@ -436,7 +432,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
             "{}\n{}",
             open_intent(app).unwrap_or_else(|| "No question left.".into()),
             if composed && app.can_save() {
-                "F3 reviews the goal."
+                "Review the goal from the list above."
             } else if composed {
                 SAVE_NEEDS_REAL
             } else {
@@ -444,44 +440,26 @@ pub(super) fn help_text(app: &BrainDump) -> String {
             }
         );
         open_now.as_str()
-    } else if app.can_save() {
-        "Type your answer.\nF2 sends · F8 skips · F3 reviews the goal."
     } else {
-        "Type your answer.\nF2 sends · F8 skips."
+        "Type your answer.\nF2 sends."
     };
-    if !app.screen.help_all {
-        let left = app
-            .host
-            .calls_left()
-            .map_or_else(String::new, |left| format!("\n{left}"));
-        return format!("Right now\n{now}{left}\n\nF1 every key · Esc close");
-    }
-    let send = if app.real {
-        "! F2   send (your words go to the model; small cost)"
-    } else {
-        "F2   send (practice reading; nothing leaves)"
-    };
+    let left = app
+        .host
+        .calls_left()
+        .map_or_else(String::new, |left| format!("\n{left}"));
     let voice = if app.voice_available() {
-        "\nF6 / Ctrl+Alt+Z (⌃⌥Z)   speak (local)"
+        "\nF6 or Ctrl+Alt+Z (⌃⌥Z) speaks; your voice stays on this machine."
     } else {
         ""
     };
-    let finish = if !app.can_save() {
-        SAVE_NEEDS_REAL
-    } else if app.records() {
-        "! F3   review the goal; typing confirm saves it and its think record for good"
+    // The numbered actions come first, so even a short panel shows them without scrolling.
+    let rows = crate::actions::text(&app.rows());
+    let rows = if rows.is_empty() {
+        rows
     } else {
-        "! F3   review the goal; typing confirm saves it for good"
+        format!("{rows}\n\n")
     };
-    let leave = "! F10  back to the menu; asks before losing your draft\nEsc from writing does the same; elsewhere it cancels or goes back";
-    let select = if app.conversation.sources().is_empty() {
-        ""
-    } else {
-        "Tab  switch between writing and your original (the original is read-only)\n"
-    };
-    format!(
-        "Every key\nF1 close · h how it works · PgUp/PgDn scroll\n\nWrite\nType; Enter starts a new line.\nShift-arrows or drag select; Ctrl-A selects all; typing replaces; Ctrl-C copies\n{send}{voice}\n! Shift-F2  start a new dump instead of answering\n\nLook\nF4   your originals\nF5   why (attempts and checks)\nF9   copy the reading\nPgUp/PgDn   scroll the reading and any overflowing question\n{select}Drag across your original to select; Ctrl-C copies\nCtrl-R   use and edit the suggested answer (empty writing box only)\n! F8   skip the question (Ctrl-Z brings it back)\n\nFinish\n{finish}\n\nLeave\n{leave}\n\nWords\nreading   my guess at what you meant (italic)\noriginal  exactly what you typed (upright)\n!         loses something or can't be undone\nb         turns the key bar on or off\nCtrl-T    dark or light colours until you quit (none without colour)"
-    )
+    format!("Right now\n{rows}{now}{left}{voice}\n\nF1 close")
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
     if let Some(receipt) = &app.handoff.receipt {
@@ -495,7 +473,7 @@ pub(super) fn how_text(app: &BrainDump) -> String {
     let diagnostics = app.diagnostics().join("\n\n");
     let saving = "Only typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept.";
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nOther keys\nCtrl-N new dump, Ctrl-G review, Ctrl-O originals, Ctrl-D why, Ctrl-E extract, Ctrl-X cards, Ctrl-L repaint, Ctrl-PgUp/PgDn switch originals. Mac F-keys may need fn.{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nWords\nItalic is my guess at what you meant; upright is exactly what you typed.\n\nKeys\nF2 sends. F1 lists everything else you can do now; press its number. Esc goes back, or leaves and asks first if words would be lost. Enter starts a new line. Tab switches between writing and your original. Shift-arrows or drag select, Ctrl-A selects all, Ctrl-C copies, Ctrl-E extracts a selection to a card. PgUp/PgDn scroll the reading; Ctrl-PgUp/PgDn switch originals. b in help hides the key bar. Ctrl-T switches dark or light. Ctrl-L repaints. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {
             "Real: your words go to the model you chose and may cost money."
         } else {
@@ -514,7 +492,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     if app.screen.leave_prompt || app.handoff.job.is_some() {
         vec![]
     } else if app.handoff.receipt.is_some() {
-        vec![("s", "open in tend"), ("F10", "menu")]
+        vec![("s", "open in tend"), ("esc", "menu")]
     } else if app.handoff.review.is_some() {
         let save = if app.records() {
             "save goal and record"
@@ -527,27 +505,21 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
             (crate::voice::key_label(std::env::consts::OS), "stop"),
             ("esc", "cancel"),
         ]
-    } else if app.running() {
-        let mut items = vec![("esc", "cancel"), ("F10", "menu")];
-        if app.voice_available() {
-            items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
-        }
-        items
     } else {
-        let mut items = vec![("F2", "send")];
-        if app.conversation.board().is_some() && app.can_save() {
-            items.push(("F3", "review"));
-        }
-        if app.conversation.focused_question().is_some() {
-            if app.can_use_suggestion() {
-                items.push(("Ctrl-R", "use and edit"));
-            }
-            items.push(("F8", "skip"));
+        let mut items = if app.running() {
+            vec![("esc", "cancel")]
+        } else {
+            vec![("F2", "send")]
+        };
+        if !app.rows().is_empty() {
+            items.push(("F1", "more"));
         }
         if app.voice_available() {
             items.push((crate::voice::key_label(std::env::consts::OS), "speak"));
         }
-        items.push(("F10", "menu"));
+        if !app.running() {
+            items.push(("esc", "menu"));
+        }
         items
     }
 }

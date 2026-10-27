@@ -14,9 +14,7 @@ from vt_screen import Screen
 REPO = Path(__file__).resolve().parents[1]
 BINARY = REPO / 'target/debug/tinkery'
 import session_fixture as helper
-F1, F2, F3, F10 = b'\x1bOP', b'\x1bOQ', b'\x1bOR', b'\x1b[21~'
-F6, F7, F8, F9 = b'\x1b[17~', b'\x1b[18~', b'\x1b[19~', b'\x1b[20~'
-F11, F12 = b'\x1b[23~', b'\x1b[24~'
+F1, F2, ESC = b'\x1bOP', b'\x1bOQ', b'\x1b'
 
 # Think's requests get a reading with one question; Shape's steps pop the next scripted reply.
 HOST = r'''#!/usr/bin/env python3
@@ -219,6 +217,21 @@ class Run:
         os.write(self.master, data)
         self.wait(text)
 
+    def menu(self):
+        """Esc back one level at a time until the menu shows; Esc never leaves a draft unasked."""
+        for _ in range(4):
+            os.write(self.master, ESC)
+            try:
+                return self.wait('4  approve', timeout=3)
+            except AssertionError:
+                pass
+        raise AssertionError(f'Esc never reached the menu:\n{self.screen.text()}')
+
+    def choose(self, label, text):
+        """Opens F1, picks the row naming `label` by its number, then waits for `text`."""
+        self.send(F1, label)
+        self.send(self.screen.pick(label), text)
+
     def read_until(self, text, timeout=20, *, whole_line=False, wrapped_path=False):
         """Read each rendered page; reaching the bottom can hide an earlier wrapped warning."""
         deadline = time.monotonic() + timeout
@@ -280,13 +293,13 @@ def full_journey(width, height):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             run.send(b'confirm\r', 'Saved.')
             record = json.loads(next(run.records.iterdir()).read_text())
             session = run.sessions / record['seed_me_session']
             goal = helper.load(session)['goal']
             assert goal == record['goal']
-            run.send(F10, '3  shape')
+            run.send(ESC, '3  shape')
             before = files(run.sessions)
             target = cwd / 'TEST-target\nfolder'
             target.mkdir()
@@ -295,12 +308,12 @@ def full_journey(width, height):
             run.open_shape()
             run.wait("Shape hasn't asked its next question yet.")
             run.wait('F2 look into the next question')
-            # Before the first step, Shape says which folder it reads; F4 picks another.
-            run.wait(f'The step reads files in {cwd.name}. F4 picks another folder.')
+            # Before the first step, Shape says which folder it reads; F1 picks another.
+            run.wait(f'The step reads files in {cwd.name}. F1 picks another folder.')
             # Help may run past a short screen; the Rust tests check it names the full path.
             run.send(F1, 'The next step reads files in:')
             run.send(b'\x1b', 'F2 look into the next question')
-            run.send(b'\x1bOS', 'Next: F4 uses this folder')
+            run.choose('Choose the folder', 'Next: F2 uses this folder')
             # The editor may scroll off the path's start; exact destinations are checked in both calls below.
             assert cwd.name in ''.join(run.screen.text().split('Next:')[0].split()), run.screen.text()
             os.write(run.master, b'/TEST-targat')
@@ -308,7 +321,7 @@ def full_journey(width, height):
             run.send(b'\x1b[D' * 2 + b'\x1b[3~e\x1b[F\rfolder', 'enter newline')
             run.wait('TEST-target\nfolder', wrapped_path=True)
             assert files(run.sessions) == before and run.calls() == [], 'Folder editing wrote or called'
-            run.send(b'\x1bOS', 'The step reads files in TEST-targetfolder.')
+            run.send(F2, 'The step reads files in TEST-targetfolder.')
             # Opening, scrolling and help write nothing and call no model.
             run.send(b'\x1b[B', 'F2 look into the next question')
             run.send(F1, 'Model calls left this run: 2 of 6.')
@@ -406,16 +419,16 @@ def full_journey(width, height):
             run.type('Yes, I reject r1.')
             run.send(b'\x1b[D' * 4 + b'\x17confirm', 'Yes, I confirm r1.')
             run.send(b'\x1b[H' + b'\x1b[1;2C' * 3 + b'Indeed', 'Indeed, I confirm r1.')
-            run.send(b'\x1b[13;1:2~' * 3 + F1, 'Read the seed, type your confirming words on one line')
+            run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Read the seed, type your confirming words on one line')
             run.send(b'\x1b', 'Indeed, I confirm r1.')
-            assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held F3 wrote or called'
-            # F3 waits until the whole draft has been on screen (#250), and says so.
-            run.send(b'\x1b[H' + F3, "PgDn to 'End of seed' first. Nothing was confirmed.")
-            assert files(run.sessions) == before, 'F3 confirmed an unread draft'
+            assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held F2 wrote or called'
+            # F2 waits until the whole draft has been on screen (#250), and says so.
+            run.send(b'\x1b[H' + F2, "PgDn to 'End of seed' first. Nothing was confirmed.")
+            assert files(run.sessions) == before, 'F2 confirmed an unread draft'
             run.read_until('This is not implementation approval.')
             run.read_until('End of seed', whole_line=True)
             run.wait('Indeed, I confirm r1.')
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
             assert status['seed']['line_1'] == 'status: confirmed for intake', status
             assert status['handoff']['verified'] is True, status
@@ -430,20 +443,22 @@ def full_journey(width, height):
             run.send(b'\r', 'Next: check the seed in Shape.')
             assert ' '.join(goal.split()) in run.flat(), 'Return changed the displayed goal'
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from confirmation wrote or called'
-            # Ending takes F6 twice; Esc between keeps the session open (#231).
+            # Ending is an F1 row that asks once more; Esc between keeps the session open (#231).
             run.send(b's', 'Seed ready: you confirmed r1, and it still matches.')
-            run.wait('F6 end session')
+            run.wait('F1 more')
             before = files(run.sessions)
-            run.send(F6, 'End this session as completed?')
-            run.wait('F6 end for good   esc keep it')
+            run.choose('End this session', 'End this session as completed?')
+            run.wait('F2 end for good   esc keep it')
             run.send(b'\x1b', 'Nothing was ended.')
             assert files(run.sessions) == before, 'Asking or Esc ended the session'
-            run.send(F6, 'Next: F6 again ends it; Esc keeps it open.')
-            run.send(F6, 'Session completed. It\'s read-only now.')
+            run.choose('End this session', 'Next: F2 ends it; Esc keeps it open.')
+            run.send(F2, 'Session completed. It\'s read-only now.')
             run.wait('This session is completed, so nothing in it can change.')
             # Intake needs only the verified seed, so copying it stays available.
             run.wait('c copy intake')
-            assert 'F6 end session' not in run.flat(), run.screen.text()
+            run.send(F1, 'F1 close')
+            assert 'End this session' not in run.flat(), run.screen.text()
+            run.send(ESC, 'c copy intake')
             assert helper.load(session)['status'] == 'completed'
             assert helper.status(session)['handoff']['verified'] is True
             assert helper.load(session)['goal'] == goal, 'Ending changed the confirmed goal'
@@ -454,7 +469,7 @@ def full_journey(width, height):
             print(f'Shape answering full journey passed at {width}x{height}: folder shown and picked, '
                   f'think answer and saved findings in the input, 2 stub calls, grounded seed confirmed '
                   f'and handoff verified; Tend detail and garden refreshed after draft and confirmation; '
-                  f'F6 twice completed the session with intake still copyable')
+                  f'ending from F1, confirmed with F2, completed the session with intake still copyable')
         finally:
             run.close()
 
@@ -539,15 +554,15 @@ def case(name, width=100, height=30):
                 run.wait('Keep records local or synced?')
                 run.type('Local.')
                 before = files(sessions)
-                run.send(F8, 'Stop this session?')
+                run.choose('Stop this session', 'Stop this session?')
                 run.wait('your answer Local.')
                 # Asked, typing is not words and other keys do nothing; Esc keeps it open.
-                run.send(b'x' + F2, 'F8 stop for good   esc keep it')
+                run.send(b'x1', 'F2 stop for good   esc keep it')
                 run.send(b'\x1b', 'Nothing was ended.')
                 run.wait('your answer Local.')
                 assert files(sessions) == before and run.calls() == [], 'Asking or Esc wrote or called'
-                run.send(F8, 'Next: F8 again stops it; Esc keeps it open.')
-                run.send(F8, 'This session has ended (stopped).')
+                run.choose('Stop this session', 'Next: F2 stops it; Esc keeps it open.')
+                run.send(F2, 'This session has ended (stopped).')
                 ledger = helper.load(session)
                 assert ledger['status'] == 'stopped', ledger['status']
                 # The open question stays recorded, unanswered; the typed words were never saved.
@@ -562,13 +577,12 @@ def case(name, width=100, height=30):
                 node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
                 assert 'recommendation' not in node, node
                 assert 'Option B: Synced; TEST shared. Undo cost: hard.' in node['question'], node
-                run.send(F9, 'Here are the options and my suggestion.')
+                run.choose('Show the options', 'Here are the options and my suggestion.')
                 run.wait('Option B: Synced; TEST shared. Undo cost: hard.')
                 run.wait('Suggestion: Local, matching the README.')
                 assert 'Confidence:' not in run.screen.text(), run.screen.text()
                 node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
                 assert node['recommendation'] == 'Local, matching the README.', node
-                assert 'F9' not in run.screen.text().splitlines()[-1], run.screen.text()
                 assert len(run.calls()) == 1, 'Showing the suggestion called a model'
             elif name == 'assumptions':
                 run.wait("Shape hasn't asked its next question yet.")
@@ -576,12 +590,13 @@ def case(name, width=100, height=30):
                 run.wait('1. TEST notes are Markdown (why: TEST either format works)')
                 assert helper.load(session)['assumed'] == [{'text': 'TEST notes are Markdown', 'why': 'TEST either format works'}]
                 assert len(run.calls()) == 1
-                # Asked which, typing is not words; Esc keeps them, then F7 and its number objects.
+                # Asked which, typing is not words; Esc keeps them, then Object and its number objects.
                 before = files(sessions)
-                run.send(F7 + b'x', 'Which assumption do you object to?')
+                run.choose('Object', 'Which assumption do you object to?')
+                run.send(b'x', 'Which assumption do you object to?')
                 run.send(b'\x1b', 'Nothing was changed.')
                 assert files(sessions) == before, 'Asking which or Esc wrote'
-                run.send(F7, 'Which assumption do you object to?')
+                run.choose('Object', 'Which assumption do you object to?')
                 run.send(b'1', 'Not assumed: TEST notes are Markdown.')
                 ledger = helper.load(session)
                 assert ledger['assumed'] == [], ledger['assumed']
@@ -626,22 +641,22 @@ def case(name, width=100, height=30):
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             elif name in ('confirmation hint', 'confirmation Enter'):
                 run.wait('Seed draft r1')
-                # F3 needs the whole draft read first (#250); these cases are about the words.
+                # F2 needs the whole draft read first (#250); these cases are about the words.
                 os.write(run.master, b'\x1b[6~' * 10)
                 if name == 'confirmation hint':
-                    run.wait('a line saying you confirm, then F3')
+                    run.wait('a line saying you confirm, then F2')
                 run.wait('Confirming the seed is not approval to build.')
                 before = files(cwd)
-                run.send(b'\r', 'F3 confirms the seed; Enter does not add a line.')
-                run.wait('a line saying you confirm, then F3')
+                run.send(b'\r', 'F2 confirms the seed; Enter does not add a line.')
+                run.wait('a line saying you confirm, then F2')
                 run.type('TEST I confirm r1.')
-                assert 'a line saying you confirm, then F3' not in run.flat(), run.screen.text()
+                assert 'a line saying you confirm, then F2' not in run.flat(), run.screen.text()
                 run.send(b'\r' + F1, 'Read the seed, type your confirming words on one line')
                 run.send(b'\x1b', 'your words TEST I confirm r1.')
-                # F3 reaches Seed Me, not the multiline refusal: neither Enter inserted a break.
-                run.send(F3, 'Tinkery refused:')
+                # F2 reaches Seed Me, not the multiline refusal: neither Enter inserted a break.
+                run.send(F2, 'Tinkery refused:')
                 assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
-                assert files(cwd) == before, 'Hint, Enter or refused F3 wrote a file'
+                assert files(cwd) == before, 'Hint, Enter or refused F2 wrote a file'
                 assert run.calls() == [], 'Confirmation guidance called a model'
             elif name == 'multiline confirmation':
                 run.wait('Seed draft r1')
@@ -650,13 +665,13 @@ def case(name, width=100, height=30):
                 # Pasted LF/CR/CRLF still refuse without normalizing the words.
                 for ending in ('\n', '\r', '\r\n'):
                     run.send(b'\x1b[200~' + ('I confirm' + ending + 'r1.').encode() + b'\x1b[201~', 'r1.')
-                    run.send(F3, 'Put your confirming words on one line; nothing was confirmed.')
-                    assert files(cwd) == before, 'Multiline F3 wrote a file'
-                    assert run.calls() == [], 'Multiline F3 called a model'
+                    run.send(F2, 'Put your confirming words on one line; nothing was confirmed.')
+                    assert files(cwd) == before, 'Multiline F2 wrote a file'
+                    assert run.calls() == [], 'Multiline F2 called a model'
                     run.wait('your words I confirm r1.')
                     # CRLF is one editor newline, like CR and LF.
                     # Changed words clear the refusal about the old ones (#249).
-                    run.send(b'\x7f' * 13, 'a line saying you confirm, then F3')
+                    run.send(b'\x7f' * 13, 'a line saying you confirm, then F2')
                     assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
                     run.send(F1, 'Read the seed, type your confirming words on one line')
                     run.send(b'\x1b', 'your words')
@@ -666,7 +681,7 @@ def case(name, width=100, height=30):
                 run.type('I confirm r1.')
                 run.read_until('End of seed')
                 before = files(sessions)
-                run.send(F3, 'Tinkery refused: a simulated session cannot be confirmed')
+                run.send(F2, 'Tinkery refused: a simulated session cannot be confirmed')
                 assert files(sessions) == before, 'A practice seed was confirmed'
             else:
                 if question:
@@ -755,12 +770,12 @@ def supported_question_options(width, height, kind):
                 for hidden in ('Option A:', 'Suggestion:', 'Against my suggestion:'):
                     assert hidden not in run.flat(), run.screen.text()
                 assert 'recommendation' not in recorded
-                run.send(F9, 'Here are the options and my suggestion.')
+                run.choose('Show the options', 'Here are the options and my suggestion.')
                 run.read_until('Suggestion: Keep TEST notes private.')
                 assert len(run.calls()) == 1, 'Revealing a suggestion called the model'
             else:
                 assert recorded['question'] == question['question'], recorded
-                assert 'hard to undo' not in run.flat() and 'F9' not in run.flat(), run.screen.text()
+                assert 'hard to undo' not in run.flat() and 'Show the options' not in run.flat(), run.screen.text()
             before = files(run.sessions)
             run.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'your answer')
             assert files(run.sessions) == before and len(run.calls()) == 1, 'Typing wrote or called'
@@ -801,10 +816,10 @@ def prerequisite_questions(width, height):
             run.open_shape()
             run.wait('F2 look into the next question')
             before = files(run.sessions)
-            run.send(b'\x1b[15~', 'Open questions')
+            run.choose('So far', 'Open questions')
             run.read_until('TEST second choice — waits for: Where records live')
             assert files(run.sessions) == before and run.calls() == []
-            run.send(b'\x1b[15~', 'F2 look into the next question')
+            run.send(ESC, 'F2 look into the next question')
             run.send(F2, 'Keep records local or synced?')
             assert helper.load(session)['current_question'] == 'storage'
             assert run.calls() == [], 'Promoting A called a model'
@@ -815,14 +830,14 @@ def prerequisite_questions(width, height):
             assert next(n for n in saved['nodes'] if n['id'] == 'storage')['answer'] == 'TEST A stays local'
             assert next(n for n in saved['nodes'] if n['id'] == 'b')['prerequisites'] == ['storage']
             assert run.calls() == [], 'Promoting B called a model'
-            run.send(b'\x1b[15~', 'Open questions')
+            run.choose('So far', 'Open questions')
             assert 'waits for:' not in run.flat(), run.screen.text()
-            run.send(b'\x1b[15~', 'TEST which format after storage?')
+            run.send(ESC, 'TEST which format after storage?')
             run.type('TEST B is Markdown')
             run.send(F2, 'Seed draft r1')
             assert len(run.calls()) == 1 and helper.load(session)['goal'] == GOAL
             print(f'Shape prerequisites passed at {width}x{height}: prepared TEST A/B ledger, '
-                  'F5 names the held prerequisite, A then B without model calls, 1 final stub reply')
+                  'So far names the held prerequisite, A then B without model calls, 1 final stub reply')
         finally:
             run.close()
 
@@ -855,13 +870,13 @@ def typed_findings_review(width, height):
             assert [n['claim']['type'] for n in facts] == ['observation', 'inference'], facts
             assert facts[1]['supported_by'] == ['read-local']
             assert all(n['authority'] == 'evidence' and n['evidence'] for n in facts)
-            run.send(b'\x1b[15~', 'TEST the documented path is local')
-            run.send(b'\x1b[15~', 'your answer')
+            run.choose('So far', 'TEST the documented path is local')
+            run.send(ESC, 'your answer')
             run.type('TEST keep local')
             run.send(F2, 'Current question: review flagged answer')
             run.wait('Keep Where records live?')
             run.wait('Settled answer: TEST keep local')
-            run.wait('F6 keep with reason')
+            run.wait('F2 keep with reason')
             ledger = helper.load(session)
             assert helper.review_flags(ledger['nodes']), ledger
             seed_text = (session / 'seed-contract.md').read_text()
@@ -871,15 +886,14 @@ def typed_findings_review(width, height):
             evidence = seed_text.split('## Evidence and uncertainty\n', 1)[1].split('## Suggested first slice', 1)[0]
             assert evidence.count('TEST the documented path is local') == 1, seed_text
             before = files(run.sessions)
-            run.send(F3, 'Review the flagged answer first; nothing was confirmed.')
-            run.send(F6, "Type why you're keeping this answer first; nothing was saved.")
+            run.send(F2, "Type why you're keeping this answer first; nothing was saved.")
             assert files(run.sessions) == before and len(run.calls()) == 2
             run.type('TEST the scope still fits')
             # A held keep key is not an operator review; typing and help also save nothing.
-            run.send(b'\x1b[17;1:2~' + F1, 'F6 keeps it unchanged with your reason; no model runs.')
+            run.send(b'\x1b[1;1:2Q' + F1, 'F2 keeps it unchanged with your reason; no model runs.')
             run.send(b'\x1b', 'your reason TEST the scope still fits')
             assert files(run.sessions) == before and len(run.calls()) == 2
-            run.send(F6, 'Seed draft r1')
+            run.send(F2, 'Seed draft r1')
             run.wait('Answer kept with your reason. No model ran.')
             ledger = helper.load(session)
             kept = next(n for n in ledger['nodes'] if n['id'] == 'storage')
@@ -890,11 +904,11 @@ def typed_findings_review(width, height):
             run.read_until('This is not implementation approval.')
             # The handoff paragraph is not the end: confirmation rows follow it.
             run.read_until('End of seed', whole_line=True)
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == 2 and helper.load(session)['goal'] == GOAL
             print(f'Shape typed findings and contradiction review passed at {width}x{height}: '
-                  '2 stub calls, F3 held, F6 keep-with-reason, unchanged answer, verified seed')
+                  '2 stub calls, F2 keep-with-reason, unchanged answer, verified seed')
         finally:
             run.close()
 
@@ -940,20 +954,20 @@ def answer_actions(width, height):
             run = Run(cwd, width, height, budget=0 if action == 'revise zero budget' else 2, replies=replies)
             try:
                 run.open_shape()
-                run.wait('F2 revise' if action.startswith('revise') else 'F11 defer')
+                run.wait('F1 more')
                 before = files(run.sessions)
                 if action == 'defer':
                     run.type('TEST untouched answer')
-                    run.send(F11, 'reason to defer')
+                    run.choose('Defer', 'reason to defer')
                     run.wait('Gate: TEST choice')
                     run.type('TEST wait for scope')
-                    run.send(F11, 'revisit condition')
-                    run.send(F11, 'deferral requires reason and revisit condition')
+                    run.send(F2, 'revisit condition')
+                    run.send(F2, 'deferral requires reason and revisit condition')
                     assert files(run.sessions) == before and run.calls() == []
                     run.send(b'\t', 'reason to defer TEST wait for scope')
                     run.send(b'\t', 'revisit condition')
                     run.type('TEST before implementation')
-                    run.send(F11, 'Suggestion: Local, matching the README.')
+                    run.send(F2, 'Suggestion: Local, matching the README.')
                     saved = helper.load(session)
                     deferred = next(n for n in saved['nodes'] if n['id'] == 'storage')
                     assert deferred['status'] == 'deferred', deferred
@@ -962,20 +976,20 @@ def answer_actions(width, height):
                     assert deferred.get('answer') is None and not (session / 'seed-confirmation.json').exists()
                     assert len(run.calls()) == 1
                 elif action == 'delegate':
-                    run.send(F12, 'Suggestion: Local, matching the README.')
+                    run.choose('Delegate', 'Suggestion: Local, matching the README.')
                     delegated = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
                     assert delegated['authority'] == 'delegated' and delegated['answer'] == 'TEST choose local from the evidence.', delegated
                     assert delegated['recommendation'] == current['recommendation'], delegated
                     assert delegated['evidence'] == ['TEST README says local only'], delegated
-                    assert "'F12 delegate suggestion'" in delegated['authority_source'], delegated
+                    assert "'Delegate to the suggestion'" in delegated['authority_source'], delegated
                     assert len(run.calls()) == 1
                 elif action in ['no facts', 'no suggestion']:
                     run.type('TEST retain my answer')
-                    run.send(F12, 'no supporting facts' if action == 'no facts' else 'no suggestion')
+                    run.choose('Delegate', 'no supporting facts' if action == 'no facts' else 'no suggestion')
                     run.wait('your answer TEST retain my answer')
                     assert files(run.sessions) == before and run.calls() == []
                 elif action in ['revise draft', 'revise zero budget']:
-                    run.send(F2, 'F2 save revision and look')
+                    run.choose('Revise', 'F2 save revision and look')
                     run.type('TEST revised synced only with permission')
                     if action == 'revise zero budget':
                         run.send(F2, 'No model calls are left')
@@ -989,8 +1003,7 @@ def answer_actions(width, height):
                         assert helper.decisions_block(saved) in seed and 'TEST revised synced only with permission' in seed
                         assert len(run.calls()) == 1, 'Revision without dependents did not take the normal next step'
                 else:
-                    run.wait('F2 revise')
-                    run.send(F2, 'F2 save revision and look')
+                    run.choose('Revise', 'F2 save revision and look')
                     run.type('TEST revised synced only with permission')
                     run.send(F2, 'TEST answer child again?')
                     saved = helper.load(session)
@@ -1020,7 +1033,7 @@ def answer_actions(width, height):
 
 
 def closing_summary(width, height):
-    """Ledger risks appear above confirmation, and F3 records an exact skip without a call."""
+    """Ledger risks appear above confirmation, and F2 records an exact skip without a call."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-closing-summary-') as directory:
         cwd = Path(directory).resolve()
         session = make(cwd / 'TEST-sessions', question=False)
@@ -1047,7 +1060,9 @@ def closing_summary(width, height):
         try:
             run.open_shape()
             run.wait('F2 look into the next question')
-            assert 'F7 teach-back' not in run.flat()
+            run.send(F1, 'F1 close')
+            assert 'Teach back' not in run.flat(), run.screen.text()
+            run.send(ESC, 'F2 look into the next question')
             run.send(F2, 'Seed draft r1')
             for line in ['Before you confirm', 'Accepted as suggested: 2; chosen otherwise: 3.',
                          'changed: TEST remote — reverses an earlier answer',
@@ -1055,7 +1070,7 @@ def closing_summary(width, height):
                          'Assumed: TEST Markdown — TEST either format works',
                          'accepted: TEST yes — accepted exactly as suggested']:
                 run.read_until(line)
-            run.wait('F7 teach-back')
+            run.wait('F1 more')
             assert len(run.calls()) == 1
             argv = run.calls()[0]['argv']
             prompt = argv[argv.index('--system-prompt') + 1]
@@ -1063,7 +1078,7 @@ def closing_summary(width, height):
                 assert rule in prompt, rule
             run.type('TEST confirm only this seed')
             run.read_until('End of seed', whole_line=True)
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             assert origin['evidence'][-1]['observed'] == 'Skipped teach-back.'
@@ -1076,7 +1091,7 @@ def closing_summary(width, height):
 
 
 def completion_review_display(width, height, done=False, replay_299=False):
-    """Drafting review survives saving and appears as guesses above F3, without extra calls."""
+    """Drafting review survives saving and appears as guesses above F2 confirming, without extra calls."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-review-display-') as directory:
         cwd = Path(directory).resolve()
         session = make(cwd / 'TEST-sessions', question=False)
@@ -1131,7 +1146,7 @@ def completion_review_display(width, height, done=False, replay_299=False):
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
             run.type('TEST confirm review')
             run.read_until('End of seed', whole_line=True)
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             print(f'Shape completion review display {"#299 exact replay" if replay_299 else "done" if done else "empty done"} passed at {width}x{height}: 1 stub call')
         finally:
@@ -1238,16 +1253,16 @@ def read_end_revision(width, height):
             run.wait('F2 look into the next question')
             run.send(F2, 'Seed draft r1')
             run.wait('pgup/dn read to end')
-            assert 'F3' not in run.screen.text(), run.screen.text()
+            assert 'F2 confirm' not in run.screen.text(), run.screen.text()
             seed_before = (session / 'seed-contract.md').read_bytes()
             before = files(session)
-            run.send(F3, "PgDn to 'End of seed' first. Nothing was confirmed.")
+            run.send(F2, "PgDn to 'End of seed' first. Nothing was confirmed.")
             assert files(session) == before and len(run.calls()) == 1
             assert b'End of seed' not in seed_before
             assert 'Next: type your own words' not in run.screen.text()
             run.read_until('TEST-SEED-END')
             run.read_until('End of seed', whole_line=True)
-            assert 'F3 confirm seed r1' in run.screen.text(), run.screen.text()
+            assert 'F2 confirm seed r1' in run.screen.text(), run.screen.text()
             assert 'read to end' not in run.screen.text(), run.screen.text()
             assert sum(line.strip() == 'End of seed' for line in run.screen.text().splitlines()) == 1
             assert (session / 'seed-contract.md').read_bytes() == seed_before
@@ -1260,14 +1275,14 @@ def read_end_revision(width, height):
             run.width = resized_width
             run.screen = Screen(resized_width, resized_height)
             fcntl.ioctl(run.slave, termios.TIOCSWINSZ, struct.pack('HHHH', resized_height, resized_width, 0, 0))
-            run.wait('F3 confirm seed r1')
+            run.wait('F2 confirm seed r1')
             assert files(session) == before and len(run.calls()) == 1
-            run.send(F7, 'your teach-back')
-            run.send(F7, 'Teach-back compared. Mismatches never block F3.')
-            run.wait('F3 confirm seed r1')
+            run.choose('Teach back', 'your teach-back')
+            run.send(F2, 'Teach-back compared. Mismatches never block confirming.')
+            run.wait('F2 confirm seed r1')
             assert (session / 'seed-contract.md').read_bytes() == seed_before
             # No page key after typing or the fresh read of the same revision.
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             confirmation = json.loads((session / 'seed-confirmation.json').read_text())
             assert confirmation['source'] == words
             assert helper.load(session)['goal'] == GOAL
@@ -1279,7 +1294,7 @@ def read_end_revision(width, height):
 
 
 def teach_back(width, height, exhausted=False):
-    """Capture is explicit and budget-gated; even reported mismatches leave F3 available."""
+    """Capture is explicit and budget-gated; even reported mismatches leave confirming available."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-teach-back-') as directory:
         cwd = Path(directory).resolve()
         session = make(cwd / 'TEST-sessions', question=False)
@@ -1291,31 +1306,31 @@ def teach_back(width, height, exhausted=False):
         try:
             run.open_shape()
             run.wait('F2 look into the next question')
-            run.send(b'\x1bOS', 'Next: F4 uses this folder')
-            run.send(b'/TEST-repository\x1bOS', 'The step reads files in TEST-repository.')
+            run.choose('Choose the folder', 'Next: F2 uses this folder')
+            run.send(b'/TEST-repository' + F2, 'The step reads files in TEST-repository.')
             run.send(F2, 'Seed draft r1')
-            run.wait('F7 teach-back')
+            run.wait('F1 more')
             run.type('TEST I confirm r1')
             before = files(run.sessions)
-            run.send(F7, 'your teach-back')
+            run.choose('Teach back', 'your teach-back')
             run.wait('TEST I confirm r1')
             run.send(b'\x01cancel me\x1b', 'Teach-back cancelled. Nothing was saved.')
             run.wait('TEST I confirm r1')
             assert files(run.sessions) == before and len(run.calls()) == 1
-            run.send(F7, 'your teach-back')
+            run.choose('Teach back', 'your teach-back')
             run.wait('TEST I confirm r1')
             words = 'TEST build sync.\r\nNo deletes.  '
             # Select the prefill and replace it; the separate confirmation editor stays intact.
             run.send(b'\x01\x1b[1;2F\x1b[200~' + words.encode() + b'\x1b[201~', 'No deletes.')
-            run.send(F1, 'F7 saves and compares (one model call)')
+            run.send(F1, 'F2 saves and compares (one model call)')
             run.send(b'\x1b', 'your teach-back')
             assert files(run.sessions) == before and len(run.calls()) == 1
             if exhausted:
-                run.send(F7, 'No model calls are left')
+                run.send(F2, 'No model calls are left')
                 assert files(run.sessions) == before and len(run.calls()) == 1
                 run.send(b'\x1b', 'Teach-back cancelled.')
             else:
-                run.send(b'\x1b[18;1:2~' + F7, 'Teach-back compared. Mismatches never block F3.')
+                run.send(b'\x1b[1;1:2Q' + F2, 'Teach-back compared. Mismatches never block confirming.')
                 run.wait('pgup/dn read to end')
                 run.wait('TEST I confirm r1')
                 run.read_until('Teach-back mismatch (guess): TEST sync is outside the draft.')
@@ -1330,7 +1345,7 @@ def teach_back(width, height, exhausted=False):
                 assert run.calls()[1]['input'] == {'kind': 'teach-back',
                     'draft': (session / 'seed-contract.md').read_text(), 'operator_words': words}
             run.read_until('End of seed', whole_line=True)
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             if exhausted:
@@ -1339,8 +1354,9 @@ def teach_back(width, height, exhausted=False):
                 assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == [words, mismatch, 'Teach-back compared.']
             assert saved['goal'] == GOAL and helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == (1 if exhausted else 2)
-            assert 'F7 teach-back' not in run.flat()
-            print(f'Shape teach-back {"zero budget" if exhausted else "mismatch + F3"} passed at {width}x{height}')
+            run.send(F1, 'F1 close')
+            assert 'Teach back' not in run.flat(), run.screen.text()
+            print(f'Shape teach-back {"zero budget" if exhausted else "mismatch + F2"} passed at {width}x{height}')
         finally:
             run.close()
 
@@ -1357,11 +1373,11 @@ def teach_back_retry(width, height):
             run.wait('F2 look into the next question')
             run.send(F2, 'Seed draft r1')
             run.type('TEST confirm r1')
-            run.send(F7, 'your teach-back')
+            run.choose('Teach back', 'your teach-back')
             run.wait('TEST confirm r1')
             run.send(b'\x01\x1b[1;2F', 'your teach-back')
             run.type('TEST first teach-back')
-            run.send(F7, 'The teach-back reply needs a mismatches list.')
+            run.send(F2, 'The teach-back reply needs a mismatches list.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == ['TEST first teach-back']
@@ -1369,16 +1385,16 @@ def teach_back_retry(width, height):
             for parser_text in ['invalid type', 'integer', 'line 1 column']:
                 assert parser_text not in run.flat(), run.screen.text()
             run.send(F1, 'Model calls left this run: 1 of 3.')
-            run.send(b'\x1b', 'F7 teach-back')
+            run.send(b'\x1b', 'F1 more')
             assert len(run.calls()) == 2, 'A failed comparison retried on its own'
-            run.send(F7, 'your teach-back')
+            run.choose('Teach back', 'your teach-back')
             run.wait('TEST confirm r1')
             run.send(b'\x01\x1b[1;2F', 'your teach-back')
             run.type('TEST corrected teach-back')
-            run.send(F7, 'Teach-back compared. Mismatches never block F3.')
+            run.send(F2, 'Teach-back compared. Mismatches never block confirming.')
             run.read_until('Teach-back guess: no mismatches reported.')
             run.read_until('End of seed', whole_line=True)
-            run.send(F3, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == [
@@ -1405,12 +1421,12 @@ def exit_hint(width, height, stage):
             run.type('never')
             run.send(F2, "Ready for your review")
             run.wait(headline)
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             run.send(b'confirm\r', 'Saved.')
             session = next(run.sessions.iterdir())
             goal = helper.load(session)['goal']
             assert goal.splitlines()[0] == headline, goal
-            run.send(F10, '3  shape')
+            run.send(ESC, '3  shape')
             if stage != 'goal':
                 run.open_shape()
                 run.wait('F2 look into the next question')
@@ -1424,7 +1440,7 @@ def exit_hint(width, height, stage):
                     seed.write_bytes(seed.read_bytes() + b'\nTEST changed after confirmation\n')
                 if stage == 'unreadable':
                     (session / 'ledger.json').write_text('TEST invalid JSON')
-                run.send(F10, '3  shape')
+                run.menu()
             before = files(run.sessions)
             os.write(run.master, b'q')
             output = bytearray()
@@ -1507,7 +1523,7 @@ def missing_success_before_calls(width, height, no_color):
                 run.open_shape()
                 run.wait('The saved goal leaves Done when open.')
                 run.wait('F2 look into the next question')
-                run.send(F10, '1  think')
+                run.menu()
                 assert run.calls() == [], 'Opening or leaving Shape called a provider'
                 assert files(run.sessions) == before, 'Shape changed the saved goal or ledger'
                 print(f'Shape #314 missing Done when named at {width}x{height} NO_COLOR={no_color}; zero calls/writes')

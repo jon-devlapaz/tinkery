@@ -59,7 +59,9 @@ def journey(width, height, criteria, no_color):
             os.write(master, b'\x1b[200~' + WORDS.encode() + b'\x1b[201~\x1bOQ')
             wait(lambda s: ("Ready for your review." if criteria else "Still missing: Done when.")
                  in ' '.join(s.split()))
-            os.write(master, b'UNSENT ANSWER\x1b[15~')
+            os.write(master, b'UNSENT ANSWER\x1bOP')
+            wait(lambda s: 'Why: attempts and checks' in s)
+            os.write(master, screen.pick('Why: attempts and checks'))
             wait(lambda s: 'Success criteria' in s and 'F2 send' in s)
             right = ' '.join(' '.join(line[width * 48 // 100 + 2:]
                                      for line in screen.text().splitlines()).split())
@@ -67,7 +69,9 @@ def journey(width, height, criteria, no_color):
             assert 'Desired experience' not in right and 'Not supplied' not in right
             os.write(master, b'\x1b')
             wait(lambda s: 'Success criteria' not in s and 'UNSENT ANSWER' in s)
-            os.write(master, b'\x1b[20~')
+            os.write(master, b'\x1bOP')
+            wait(lambda s: 'Copy the reading' in s)
+            os.write(master, screen.pick('Copy the reading'))
             wait(lambda s: bool(screen.clipboards))
             copied = screen.clipboards[-1]
             assert f'## Success criteria / proposed\n\n{criteria or "Not yet captured"}' in copied
@@ -76,14 +80,14 @@ def journey(width, height, criteria, no_color):
             assert 'UNSENT ANSWER' in screen.text()
             assert (root / 'calls').read_text() == 'shape\ndecision-review\n'
             assert not (root / 'sessions').exists() and not (root / 'records').exists()
-            os.write(master, b'\x1b[21~')
+            os.write(master, b'\x1b')
             wait(lambda s: 'lose this draft?' in s)
             os.write(master, b'y')
             process.wait(timeout=5)
             assert process.returncode == 0
             print(json.dumps(dict(width=width, height=height, criteria_present=criteria is not None,
                                   no_color=no_color, provider='fake; zero real calls',
-                                  journey='F2/F5/Why/Esc/F9 captured OSC52/unsent answer/no save')))
+                                  journey='F2/F1 Why/Esc/F1 copy captured OSC52/unsent answer/no save')))
         finally:
             if process.poll() is None:
                 process.kill()

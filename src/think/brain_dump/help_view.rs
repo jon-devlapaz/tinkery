@@ -7,15 +7,20 @@ use ratatui::{
     widgets::{Borders, Padding},
 };
 
-/// Handle only help navigation and preferences. Hidden writing/goal actions stay inert;
-/// F10, Ctrl-C and the explicit Ctrl-D inspection route remain owned by the caller.
+/// Handle help navigation, preferences and the numbered actions: a digit runs its row.
+/// Hidden writing/goal actions stay inert; Ctrl-C remains owned by the caller.
 pub(super) fn handle_key(app: &mut BrainDump, key: KeyEvent) -> bool {
     if !app.screen.help
         || app.screen.leave_prompt
-        || (key.modifiers.contains(KeyModifiers::CONTROL)
-            && matches!(key.code, KeyCode::Char('c' | 'd')))
+        || (key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c'))
     {
         return false;
+    }
+    if !app.screen.how
+        && let Some(act) = crate::actions::pick(&app.rows(), key)
+    {
+        app.run(act);
+        return true;
     }
     if !key.modifiers.is_empty()
         || (key.kind == KeyEventKind::Repeat
@@ -28,12 +33,7 @@ pub(super) fn handle_key(app: &mut BrainDump, key: KeyEvent) -> bool {
     }
     match key.code {
         KeyCode::F(1) => {
-            if !app.screen.help_all && !app.screen.how {
-                app.screen.help_all = true;
-            } else {
-                app.screen.help = false;
-                app.screen.help_all = false;
-            }
+            app.screen.help = false;
             app.screen.how = false;
             app.screen.original_scroll = 0;
         }
@@ -49,10 +49,7 @@ pub(super) fn handle_key(app: &mut BrainDump, key: KeyEvent) -> bool {
             app.screen.how = false;
             app.screen.original_scroll = 0;
         }
-        KeyCode::Esc => {
-            app.screen.help = false;
-            app.screen.help_all = false;
-        }
+        KeyCode::Esc => app.screen.help = false,
         KeyCode::Down | KeyCode::PageDown => {
             app.screen.original_scroll = app.screen.original_scroll.saturating_add(5);
         }
@@ -79,7 +76,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let mut lines = raw.lines();
     let title = lines.next().unwrap_or("Help");
     let mut body: Vec<_> = lines.collect();
-    if app.screen.help_all || app.screen.how {
+    if app.screen.how {
         body.remove(0);
     } else {
         body.pop();
@@ -89,17 +86,18 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let content_width = width - 4;
     let paragraph = Paragraph::new(content).wrap(Wrap { trim: false });
     let content_rows = paragraph.line_count(content_width);
-    let max_height = area.height - 6;
+    // Never cover the writing box (or its label): the operator's draft stays in view.
+    let input = app.screen.input_area;
+    let max_height =
+        if input.y > 3 + 9 && input.height > 0 && input.right() > area.width - width - 2 {
+            (input.y - 2 - 3).min(area.height - 6)
+        } else {
+            area.height - 6
+        };
     let mut navigation = if app.screen.how {
         vec![("h / Esc", "Back to help"), ("F1", "Close help")]
-    } else if app.screen.help_all {
-        vec![("F1 / Esc", "Close help"), ("h", "How it works")]
     } else {
-        vec![
-            ("F1", "Every key"),
-            ("h", "How it works"),
-            ("Esc", "Close help"),
-        ]
+        vec![("h", "How it works"), ("F1 / Esc", "Close help")]
     };
     let cancel = if app.voice_active() {
         Some("Cancel voice")
@@ -109,18 +107,27 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     if let Some(label) = cancel {
         if app.screen.how {
             navigation[0] = ("h", "Back to help");
-            navigation.push(("Esc", label));
-        } else if app.screen.help_all {
-            navigation[0] = ("F1", "Close help");
-            navigation.push(("Esc", label));
         } else {
-            navigation[2] = ("Esc", label);
+            navigation[1] = ("F1", "Close help");
         }
+        navigation.push(("Esc", label));
     }
-    if content_rows + navigation.len() + 5 > max_height as usize {
+    // A short panel drops its blank rows and packs the keys onto as few lines as fit, so the
+    // numbered actions keep the room and the writing box below stays in view.
+    let tight = content_rows + navigation.len() + 5 > max_height as usize;
+    if tight {
         navigation.push(("PgUp/PgDn", "Scroll"));
     }
-    let height = (content_rows + navigation.len() + 5).min(max_height as usize) as u16;
+    let footer_lines: Vec<Line> = if tight {
+        packed(&navigation, width - 4, palette)
+    } else {
+        navigation
+            .iter()
+            .map(|(key, label)| action(key, label, false, palette))
+            .collect()
+    };
+    let chrome = if tight { 2 } else { 5 };
+    let height = (content_rows + footer_lines.len() + chrome).min(max_height as usize) as u16;
     let panel = Rect::new(area.width - width - 2, 3, width, height);
     let block = Block::default()
         .title(Span::styled(
@@ -129,14 +136,18 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         ))
         .borders(Borders::ALL)
         .border_style(palette.muted)
-        .padding(Padding::uniform(1));
+        .padding(if tight {
+            Padding::horizontal(1)
+        } else {
+            Padding::uniform(1)
+        });
     let inner = block.inner(panel);
-    let footer_height = navigation.len() as u16;
+    let footer_height = footer_lines.len() as u16;
     let body_area = Rect::new(
         inner.x,
         inner.y,
         inner.width,
-        inner.height - footer_height - 1,
+        inner.height - footer_height - u16::from(!tight),
     );
     let footer = Rect::new(
         inner.x,
@@ -156,15 +167,30 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             .scroll((app.screen.original_scroll, 0)),
         body_area,
     );
-    frame.render_widget(
-        Paragraph::new(
-            navigation
-                .into_iter()
-                .map(|(key, label)| action(key, label, false, palette))
-                .collect::<Vec<_>>(),
-        ),
-        footer,
-    );
+    frame.render_widget(Paragraph::new(footer_lines), footer);
+}
+
+/// Key and label pairs side by side, as many to a line as fit in `width`.
+fn packed(pairs: &[(&str, &str)], width: u16, palette: Palette) -> Vec<Line<'static>> {
+    let mut lines: Vec<Line> = vec![];
+    for (key, label) in pairs {
+        let size = key.chars().count() + 1 + label.chars().count();
+        let fits = lines
+            .last()
+            .is_some_and(|line| line.width() + 3 + size <= width as usize);
+        let mut spans = vec![
+            Span::styled(format!("{key} "), palette.ink.bold()),
+            Span::styled(label.to_string(), palette.muted),
+        ];
+        match lines.last_mut() {
+            Some(line) if fits => {
+                line.spans.push(Span::raw("   "));
+                line.spans.append(&mut spans);
+            }
+            _ => lines.push(Line::from(spans)),
+        }
+    }
+    lines
 }
 
 fn action(key: &str, label: &str, consequence: bool, palette: Palette) -> Line<'static> {
@@ -172,7 +198,14 @@ fn action(key: &str, label: &str, consequence: bool, palette: Palette) -> Line<'
     if consequence {
         spans.push(Span::styled("! ", palette.rust));
     }
-    let width = (if consequence { 10 } else { 12 }).max(key.chars().count() + 1);
+    let column = if key.chars().all(|c| c.is_ascii_digit()) {
+        3
+    } else if consequence {
+        10
+    } else {
+        12
+    };
+    let width = column.max(key.chars().count() + 1);
     spans.push(Span::styled(format!("{key:<width$}"), palette.ink.bold()));
     spans.push(Span::styled(label.to_owned(), palette.muted));
     Line::from(spans)
@@ -191,7 +224,7 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
                 | "Sending"
                 | "Saving"
                 | "After saving"
-                | "Other keys"
+                | "Keys"
                 | "Last result"
         ) {
             lines.push(Line::styled(line.to_owned(), palette.ink.bold()));
@@ -209,15 +242,15 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
             if matches!(
                 key,
                 "F1" | "F2"
-                    | "F3"
-                    | "F4"
-                    | "F5"
-                    | "F6"
-                    | "F7"
-                    | "F8"
-                    | "F9"
-                    | "F10"
-                    | "Shift-F2"
+                    | "1"
+                    | "2"
+                    | "3"
+                    | "4"
+                    | "5"
+                    | "6"
+                    | "7"
+                    | "8"
+                    | "9"
                     | "PgUp/PgDn"
                     | "Tab"
                     | "Esc"
@@ -225,12 +258,7 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
                     | "s"
                     | "b"
             ) {
-                let (key, label) = if key == "F6" {
-                    part.split_once("   ")
-                        .unwrap_or((key, part[key.len()..].trim_start()))
-                } else {
-                    (key, part[key.len()..].trim_start())
-                };
+                let (key, label) = (key, part[key.len()..].trim_start());
                 lines.push(action(
                     &key.replace(" / ", "/"),
                     label,

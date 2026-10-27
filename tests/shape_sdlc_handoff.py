@@ -46,7 +46,7 @@ def command(argv, cwd, env, expected=0):
 
 
 def shape(root, env):
-    """Draft through F2 and confirm through F3, never by writing a seed fixture."""
+    """Draft and confirm through F2, never by writing a seed fixture."""
     sessions = root / 'TEST-sessions'
     session = helper.create(sessions)
     old = helper.load(session)
@@ -67,7 +67,7 @@ def shape(root, env):
         {'id': 'test-delegated', 'kind': 'decision', 'prerequisites': [],
          'evidence': ['TEST synthetic grounding'], 'owner': 'TEST fixture', 'gate': 'TEST only',
          'status': 'settled', 'answer': 'TEST suggestion', 'authority': 'delegated',
-         'authority_source': "TEST fixture replay of 'F12 delegate suggestion', not operator approval"},
+         'authority_source': "TEST fixture replay of 'Delegate to the suggestion', not operator approval"},
     ])
     reply = json.loads((REPO / 'tests/fixtures/stacker-r1-reply.json').read_text())
     reply['confirming'] = seed_fields(reply['confirming'])
@@ -131,11 +131,11 @@ def shape(root, env):
         send(b'\x1bOQ', 'Seed draft r1')
         wait('pgup/dn read to end')
         send(CONFIRMATION.encode(), CONFIRMATION)
-        # F3 confirms only a draft read to the end (#250).
-        send(b'\x1bOR', "PgDn to 'End of seed' first. Nothing was confirmed.")
+        # F2 confirms only a draft read to the end (#250).
+        send(b'\x1bOQ', "PgDn to 'End of seed' first. Nothing was confirmed.")
         os.write(master, b'\x1b[6~' * 40)
-        wait('F3 confirm seed r1')
-        send(b'\x1bOR', 'Seed ready: you confirmed r1, and it still matches.')
+        wait('F2 confirm seed r1')
+        send(b'\x1bOQ', 'Seed ready: you confirmed r1, and it still matches.')
         status = helper.status(session)
         assert status['handoff']['verified'] is True
         for key in ('viewer', 'snapshot', 'snapshot_current'):

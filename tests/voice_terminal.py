@@ -101,8 +101,7 @@ def journey(width, height, no_color):
             while time.monotonic() < deadline: pump()
             assert not rows('voice-calls.jsonl') and not rows('requests.jsonl')
             send(b'\x1bOP', 'Right now')
-            send(b'\x1bOP', 'Every key')
-            text('speak (local)')
+            text('speaks;')
             send(b'\x1bOP', "What's on your mind?")
             send(b'typed ', 'typed')
             send(b'\x1b[17~', 'ghost words')
@@ -116,10 +115,11 @@ def journey(width, height, no_color):
             assert rows('requests.jsonl')[0]['sources'][0]['text'] == 'typed kept spoken words'
             # CSI-u Ctrl+Alt+Z: never Ctrl+Z undo or a character insertion.
             send(b'\x1b[122;7u', 'ghost words')
-            send(b'\x1b[20~')
-            wait(lambda: bool(screen.clipboards), 'clipboard')
-            assert 'ghost words' not in screen.clipboards[-1]
-            assert 'typed kept spoken words' in screen.clipboards[-1]
+            # During a take F1 offers nothing to run, and F1 closes help without cancelling it.
+            send(b'\x1bOP', 'Cancel voice')
+            assert 'Copy the reading' not in screen.text(), screen.text()
+            send(b'\x1bOP', 'ghost words')
+            assert 'Cancel voice' not in screen.text(), screen.text()
             send(b'\x1bOQ', 'What would make a handover')
             requests = rows('requests.jsonl')
             assert len(requests) == 2
@@ -134,7 +134,8 @@ def journey(width, height, no_color):
             assert 'untouched' in screen.text() and 'late final' not in screen.text()
             assert len(rows('requests.jsonl')) == 2
             send(b'\x15')
-            send(b'\x1bOR', 'type confirm to save')
+            send(b'\x1bOP', 'Review the goal')
+            send(screen.pick('Review the goal'), 'type confirm to save')
             before = len(rows('voice-calls.jsonl'))
             send(b'\x1b[17~' + 'Ω'.encode())
             time.sleep(.1)
@@ -142,7 +143,9 @@ def journey(width, height, no_color):
             assert 'Ω' not in screen.text() and len(rows('requests.jsonl')) == 2
             send(b'\x1b', VOICE_KEY + ' speak')
             send(b'\x1b[17~', 'ghost words')
-            send(b'\x1b[21~', 'Back to menu and lose this draft? y / n')
+            # Esc cancels the take first; Esc again asks before leaving and closes the helper.
+            send(b'\x1b', VOICE_KEY + ' speak')
+            send(b'\x1b', 'Back to menu and lose this draft? y / n')
             wait(lambda: (cwd / 'node-closed.txt').exists(), 'helper stdin EOF')
             for pid in (cwd / 'node-pids.txt').read_text().splitlines():
                 try:
@@ -155,7 +158,7 @@ def journey(width, height, no_color):
             send(b'\x1b[17~')
             text(VOICE_KEY + ' speak')
             assert len(rows('requests.jsonl')) == 2
-            send(b'\x1b[21~', 'Back to menu and lose this draft? y / n')
+            send(b'\x1b', 'Back to menu and lose this draft? y / n')
             send(b'y')
             process.wait(timeout=5)
             assert process.returncode == 0
@@ -164,7 +167,7 @@ def journey(width, height, no_color):
             after[3] &= ~getattr(termios, 'PENDIN', 0)
             assert after == original
             assert {p.name for p in cwd.iterdir()} == {'node', 'pi', 'python3', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-closed.txt', 'node-ready.txt'}
-            print(json.dumps(dict(width=width, height=height, no_color=no_color, journey='current cursor/stop/F2/cancel/alias/review/EOF/reap', pi_calls=0, microphone=False, node_runtime=False)))
+            print(json.dumps(dict(width=width, height=height, no_color=no_color, journey='current cursor/stop/F2/cancel/alias/F1 during take/review/EOF/reap', pi_calls=0, microphone=False, node_runtime=False)))
         finally:
             if process.poll() is None:
                 process.kill()

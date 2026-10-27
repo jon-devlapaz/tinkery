@@ -86,7 +86,6 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
             KeyCode::F(6),
             KeyCode::F(8),
             KeyCode::F(9),
-            KeyCode::Esc,
             KeyCode::Char('q'),
         ] {
             key(&mut a, code);
@@ -113,7 +112,7 @@ fn receipt_copy_is_exact_and_tend_is_an_explicit_request() {
             .last()
             .unwrap()
             .trim(),
-        "s open in tend   F10 menu"
+        "s open in tend   esc menu"
     );
     key(&mut a, KeyCode::Char('c'));
     assert!(a.take_copy_request().is_none());
@@ -124,9 +123,8 @@ fn receipt_copy_is_exact_and_tend_is_an_explicit_request() {
     key(&mut a, KeyCode::Char('s'));
     assert_eq!(a.exit(), &Exit::Tend("/tmp/TEST-receipt/session".into()));
     assert!(!a.quitting() && !a.running());
-    a.screen.help_all = true;
     let help = layout::help_text(&a);
-    assert!(help.contains("s   open in tend"));
+    assert!(help.contains("s open in tend"));
     assert!(!help.contains("send") && !help.contains("speak"));
     assert!(layout::how_text(&a).contains("/tmp/TEST-receipt/session"));
 }
@@ -199,7 +197,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     amend_board(&mut a, |g| g.questions.clear());
     let text = snapshot(100, 30, &mut a, false).unwrap();
     assert!(text.contains("Ready for your review."));
-    assert!(text.contains("F3 review"));
+    assert!(text.contains("F1 more") && super::tests::offers(&a, "Review the goal"));
     assert!(a.handoff.receipt.is_none());
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();

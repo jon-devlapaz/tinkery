@@ -320,7 +320,7 @@ fn hidden_review_finishes_an_already_started_save_and_requested_exit() {
         a.handoff.job = Some(rx);
         snapshot(40, 12, &mut a, true).unwrap();
         if leave {
-            a.handle_key(KeyEvent::new(KeyCode::F(10), KeyModifiers::NONE));
+            a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             assert!(a.handoff.exit_after && !a.quitting());
         }
         let mut receipt = seed_me::Receipt::test("/tmp/tinkery-TEST-completed-save/session".into());
@@ -374,9 +374,7 @@ fn bare_agent_declaration_saves_as_the_agent() {
     let mut a = declared().with_sessions(Some(tmp.path().join("TEST-sessions")));
     a.set_goal_confirmation(GoalConfirmation::terminal(Some("agent")).unwrap())
         .unwrap();
-    a.screen.help_all = true;
-    assert!(layout::help_text(&a).contains("typing confirm saves"));
-    a.screen.help_all = false;
+    assert!(layout::how_text(&a).contains("Only typing confirm saves"));
     a.review_goal();
     let saved = a.handoff.review.as_ref().unwrap().affirmation.affirmed();
     assert!(saved.source.contains("declared: agent"), "{}", saved.source);

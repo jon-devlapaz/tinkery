@@ -106,7 +106,7 @@ def journey(width, height, no_color=False):
                     assert header().endswith('light  ?'), (place, header())
                     flip(CTRL_T, 'dark')
                     flip(click_label(), 'light')
-                    send(b'\x1b' if place == 'measure' else b'\x1b[21~', '1  think')
+                    send(b'\x1b' if place in ('measure', 'shape') else b'\x1b[21~', '1  think')
                 send(b'1', "What's on your mind?")
                 assert header().endswith('light  ?'), header()
                 send(b'TEST tilt', 'TEST tilt')

@@ -46,8 +46,9 @@ def journey(w,h,home):
    raise AssertionError(screen.text())
   def send(keys,text):os.write(master,keys);drain(lambda s:text in s)
   def right():return ' '.join(' '.join(l[w*48//100+2:].split()) for l in screen.text().splitlines())
+  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'type confirm')
   def confirm():
-   send(b'\x1bOR','type confirm');send(b'confirm\r','Saved.')
+   review();send(b'confirm\r','Saved.')
   try:
    if home:send(b'1',"What's on your mind?")
    else:drain(lambda s:"What's on your mind?" in s)
@@ -56,9 +57,9 @@ def journey(w,h,home):
    confirm()
    alpha_file=next(records.iterdir());alpha_bytes=alpha_file.read_bytes();alpha=json.loads(alpha_bytes)
    assert sum(c['check']=='structure-spans-history' for c in alpha['checks'])==2,alpha['checks']
-   send(b'\x1b[21~','1  think');send(b'1',"What's on your mind?")
+   send(b'\x1b','1  think');send(b'1',"What's on your mind?")
    send(b'BRAVO','BRAVO');send(b'\x1bOQ','May refusals show private text?')
-   send(b'\x1bOR','type confirm')
+   review()
    assert right().count('May refusals show private text?')==1,right()
    assert right().count('Open decision: Private text')==0,right()
    assert 'Open decision: Uploads' in right(),right()
@@ -75,7 +76,7 @@ def journey(w,h,home):
    assert len(context['decisions'])==2 and len(context['unresolved'])==1
    assert context['unresolved_notes']==['Open decision: Uploads (local / cloud)'],context
    assert not (root/bravo['seed_me_session']/'seed-contract.md').exists()
-   send(b'\x1b[21~','1  think');os.write(master,b'q');drain(lambda s:p.poll() is not None);assert p.returncode==0
+   send(b'\x1b','1  think');os.write(master,b'q');drain(lambda s:p.poll() is not None);assert p.returncode==0
    assert alpha_file.read_bytes()==alpha_bytes,'Starting a new goal changed the older record'
    for session in root.iterdir():assert not (session/'viewer.json').exists()
    calls=[json.loads(l) for l in (cwd/'calls.jsonl').read_text().splitlines()]

@@ -112,7 +112,8 @@ def confirm_goals(root, width, height, no_color):
             terminal.send(b'\x1bOQ', 'May refusals show private text?')
             terminal.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'gardez les mots exacts.')
             terminal.send(b'\x1bOQ', "Ready for your review")
-            terminal.send(b'\x1bOR', 'type confirm')
+            terminal.send(b'\x1bOP', 'Review the goal')
+            terminal.send(terminal.screen.pick('Review the goal'), 'type confirm')
             terminal.send(b'confirm\r', 'Saved.')
             matches = [json.loads(path.read_text()) for path in records.glob('*.json')
                        if marker in path.read_text()]
@@ -126,7 +127,7 @@ def confirm_goals(root, width, height, no_color):
             ledger = json.loads((session / 'ledger.json').read_text())
             assert ledger['goal'] == record['goal']
             saved[marker] = record
-            terminal.send(b'\x1b[21~', MENU)
+            terminal.send(b'\x1b', MENU)
         terminal.quit()
     finally:
         terminal.close()

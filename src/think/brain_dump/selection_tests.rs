@@ -45,7 +45,7 @@ fn tab_does_nothing_without_an_original_or_inside_modal_views() {
     key(&mut empty, KeyCode::Tab);
     assert!(!empty.screen.board_focus && empty.input.text.is_empty());
     let mut a = ready();
-    key(&mut a, KeyCode::F(4));
+    super::tests::choose(&mut a, "Show your originals");
     assert!(a.screen.original);
     key(&mut a, KeyCode::Tab);
     assert!(
@@ -128,7 +128,7 @@ fn a_stale_original_selection_is_never_copied_after_any_focus_change() {
     // A selection hidden behind the F4 reader is not the active surface either.
     key(&mut a, KeyCode::Tab);
     shift_right(&mut a, 3);
-    key(&mut a, KeyCode::F(4));
+    super::tests::choose(&mut a, "Show your originals");
     ctrl_c(&mut a);
     assert!(a.take_copy_request().is_none());
 }
@@ -339,7 +339,7 @@ fn a_selection_does_not_change_what_f10_guards() {
         press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
     }
     assert_eq!(a.input.text, "all of this");
-    key(&mut a, KeyCode::F(10));
+    key(&mut a, KeyCode::Esc);
     assert!(!a.quitting(), "unsent words still ask first");
     assert!(a.screen.leave_prompt || a.quitting(), "F10 keeps its guard");
 }
@@ -449,31 +449,31 @@ fn ordinary_letters_in_original_focus_return_to_writing_and_do_nothing_else() {
 }
 
 #[test]
-fn f8_f9_f7_and_modified_keys_still_work_from_either_focus() {
+fn copy_skip_and_cards_work_from_either_focus() {
     for focus in [false, true] {
         let mut a = with_card();
         if focus {
             key(&mut a, KeyCode::Tab);
         }
         assert!(a.conversation.focused_question().is_some());
-        key(&mut a, KeyCode::F(9));
+        super::tests::choose(&mut a, "Copy the reading");
         assert_eq!(
             a.take_copy_request(),
             Some(a.copy_text()),
             "F9 focus={focus}"
         );
-        key(&mut a, KeyCode::F(8));
+        super::tests::choose(&mut a, "Skip this question");
         assert_eq!(a.conversation.skipped().len(), 1, "F8 focus={focus}");
-        press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
+        super::tests::choose(&mut a, "Bring back");
         assert!(
             a.conversation.skipped().is_empty(),
             "Ctrl-Z undoes the skip"
         );
-        key(&mut a, KeyCode::F(7));
+        super::tests::choose(&mut a, "extracted cards");
         assert!(a.screen.show_extractions, "F7 shows cards, focus={focus}");
-        press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+        super::tests::choose(&mut a, "extracted cards");
         assert!(!a.screen.show_extractions, "Ctrl-X hides them");
-        press(&mut a, KeyCode::Char('x'), KeyModifiers::CONTROL);
+        super::tests::choose(&mut a, "extracted cards");
         assert!(a.screen.show_extractions);
         assert!(a.input.text.is_empty());
     }
@@ -484,9 +484,8 @@ fn f8_f9_f7_and_modified_keys_still_work_from_either_focus() {
         a.screen.board_focus && a.input.text.is_empty(),
         "Ctrl-F is not text"
     );
-    let mut none = ready();
-    key(&mut none, KeyCode::F(7));
-    assert!(none.notice.contains("No extracted cards") && !none.screen.show_extractions);
+    let none = ready();
+    assert!(!super::tests::offers(&none, "extracted cards"));
 }
 
 #[test]
@@ -496,7 +495,7 @@ fn cards_covering_the_original_hide_its_selection_but_not_the_writing_box() {
     key(&mut a, KeyCode::Tab);
     press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
     assert!(a.screen.selection.is_some());
-    key(&mut a, KeyCode::F(7));
+    super::tests::choose(&mut a, "extracted cards");
     assert_eq!(
         a.screen.selection, None,
         "cards clear the original's selection"
@@ -521,7 +520,7 @@ fn cards_covering_the_original_hide_its_selection_but_not_the_writing_box() {
     // Tab does not walk into the hidden original, and cards close back to a copyable original.
     key(&mut a, KeyCode::Tab);
     assert!(!a.screen.board_focus);
-    key(&mut a, KeyCode::F(7));
+    super::tests::choose(&mut a, "extracted cards");
     press(&mut a, KeyCode::Char('a'), KeyModifiers::CONTROL);
     ctrl_c(&mut a);
     assert_eq!(

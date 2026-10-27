@@ -10,7 +10,7 @@ import termios
 import time
 from pathlib import Path
 from agent_operation_terminal import ACTOR, LONG_WHY
-from shape_answer_terminal import Run, F2, F3, helper
+from shape_answer_terminal import Run, F2, helper
 from vt_screen import Screen
 
 GOAL = f'I keep refusals calm.\nWhy: {LONG_WHY}.\nDone when: Refusals never show private text.'
@@ -63,7 +63,7 @@ def journey(width, height, read=False, supported=False):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             if read:
                 run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
             word = 'confirm' if read else 'conf'
@@ -78,7 +78,7 @@ def journey(width, height, read=False, supported=False):
             else:
                 run.wait('Need 80×24.')
                 no_save(run)
-                os.write(run.master, b'\x1b[6~' * 200 + b'\x7fx' + F3
+                os.write(run.master, b'\x1b[6~' * 200 + b'\x7fx' + F2
                          + b'\x1b[200~hidden paste\x1b[201~\r')
                 pump(run, .5)
                 no_save(run)
@@ -119,7 +119,7 @@ def stale_mouse(input_first):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.send(F3, 'type confirm')
+            run.choose('Review the goal', 'type confirm')
             os.write(run.master, b'confirm')
             input_is(run, 'confirm')
             assert run.screen.text().splitlines()[27][50:54] == 'Back'

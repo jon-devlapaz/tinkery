@@ -59,6 +59,7 @@ def journey(limit, home, width, height):
             if not limit:
                 shows(left)
             terminal.send(b'\x1bOP', 'Right now')
+            terminal.send(b'\x1b[6~' * 5, 'Close help')  # Rows come first; the allowance follows.
             shows(left)
             terminal.send(b'\x1b', 'TEST budget words')
 
@@ -69,13 +70,13 @@ def journey(limit, home, width, height):
             shows(left)
 
             if home:
-                terminal.send(b'\x1b[21~', 'lose this draft?')
+                terminal.send(b'\x1b', 'lose this draft?')
                 terminal.send(b'y', '1  think')
                 terminal.send(b'1', "What's on your mind?")
                 terminal.send(b'TEST new goal', 'TEST new goal')
                 terminal.send(b'\x1bOQ', "Reading failed: Call limit")
                 assert len(calls()) == (limit or 0), 'New goal reset the launch allowance'
-                terminal.send(b'\x1b[21~', 'lose this draft?')
+                terminal.send(b'\x1b', 'lose this draft?')
                 terminal.send(b'y', '1  think')
 
                 # Shape receives the same remaining allowance as Think.

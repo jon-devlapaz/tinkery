@@ -68,6 +68,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     if text not in screen.text():return
    raise AssertionError(f'Stale modal still visible: {text}')
   def send(data,text):os.write(master,data);await_text(text)
+  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'type confirm')
   try:
    if home:
     await_text('think');title=screen.text().splitlines()[1]
@@ -79,18 +80,18 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    os.write(master,b'\x1b[200~'+dump.encode()+b'\x1b[201~');await_text('compound.')
    send(b'\x1bOQ','Which UI');assert not root.exists() and not records.exists()
    # Unsent words block review, and the screen says why; clearing them clears the reason.
-   send(b'x\x07','unsent');assert 'Send (F2) or clear your unsent words, then review.' in right(),screen.text()
+   send(b'x\x1bOP','Review the goal');send(screen.pick('Review the goal'),'unsent');assert 'Send (F2) or clear your unsent words, then review.' in right(),screen.text()
    os.write(master,b'\x7f');absent('unsent')
-   send(b'\x07','type confirm');assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists() and not records.exists()
+   review();assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists() and not records.exists()
    # A refused Enter says why where the confirm prompt was: scroll first, or type the word.
    send(b'\r','Enter.');shown=' '.join(right().split());assert 'Read to the end first: PgDn scrolls. Then type confirm and Enter.' in shown or 'Type confirm, then Enter. Nothing saved.' in shown,screen.text()
    os.write(master,b'\x1bOQ');time.sleep(.1);assert not root.exists() and not records.exists(),'Opening/Enter/F2 implied consent'
    os.write(master,b'\x1b');absent('type confirm');assert not root.exists() and not records.exists()
-   send(b'\x07','type confirm')
+   review()
    os.write(master,b'\x1b[6~'*30);await_text('remain unresolved?')
    send(b'confirm\r','Saved.');await_text('Next:')
    assert 'Next: shape it into a seed in Shape.' in right(),screen.text()
-   assert screen.text().splitlines()[-1].strip()=='s open in tend   F10 menu'
+   assert screen.text().splitlines()[-1].strip()=='s open in tend   esc menu'
    assert str(root) not in screen.text() and 'seed not written yet' not in screen.text()
    first_goal=right()
    sessions=list(root.iterdir());assert len(sessions)==1
@@ -145,22 +146,22 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert 'Next: shape it into a seed in Shape.' in right(),screen.text()
    for line in ledger['goal'].splitlines(): assert line in first_goal or line in right(),(line,first_goal,screen.text())
    send(b'\x1bOP','Right now');send(b'h','How it works')
-   os.write(master,b'\x1b[6~');await_text('Session:')
    # Page down one step at a time: the record path follows Seed Me's, and its length varies by platform.
    seen=[right()]
-   for _ in range(12):
+   for _ in range(16):
     if 'Think record:' in seen[-1]:break
     os.write(master,b'\x1b[6~');deadline=time.monotonic()+.5
     while time.monotonic()<deadline:
      if select.select([master],[],[],.02)[0]:feed()
     seen.append(right())
    assert 'Think record:' in seen[-1],screen.text()
-   os.write(master,b'\x1b');await_text('Right now');send(b'\x1bOP','Every key')
+   assert any('Session:' in page for page in seen),seen
+   os.write(master,b'\x1b');await_text('Right now')
    assert 'send' not in right() and 'speak' not in right()
    os.write(master,b'\x1b');await_text('Saved.')
    assert str(root) not in screen.text()
    if menu_only:
-    send(b'\x1b[21~','think')
+    send(b'\x1b','think')
     assert process.poll() is None and 'tend' in screen.text()
    else:
     # Make the target non-first with the official helper, not hand-written canonical files.
@@ -193,7 +194,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert ('Think record: '+str(written[0])).encode() in bytes(raw),bytes(raw)[-2000:]
    assert not (session/'viewer.json').exists()
    assert helper('read',session)['status']=='active';assert not (session/'seed-contract.md').exists()
-   print(json.dumps(dict(width=width,height=height,provider='stub',ledger='Rust',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['s','F10'],entry='home' if home else 'standalone',navigation='F10' if menu_only else 's',viewer_started=False,session_root='isolated temporary directory',home_case=home_case,session_case=session_case,in_repo=in_repo)))
+   print(json.dumps(dict(width=width,height=height,provider='stub',ledger='Rust',think_record='one, verified',test_confirmation='AUTOMATED TEST, NOT OPERATOR',goal_only=True,receipt_keys=['s','Esc'],entry='home' if home else 'standalone',navigation='Esc' if menu_only else 's',viewer_started=False,session_root='isolated temporary directory',home_case=home_case,session_case=session_case,in_repo=in_repo)))
   finally:
    if process.poll() is None:process.kill();process.wait()
    os.close(master);os.close(slave)

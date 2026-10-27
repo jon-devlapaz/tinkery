@@ -63,6 +63,27 @@ fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
 }
 
+/// Picks the F1 row whose words contain `label` the way the operator does: by its number.
+fn choose(shape: &mut Shape, label: &str) {
+    let help = shape.help_text();
+    let digit = help
+        .lines()
+        .find_map(|line| {
+            let (n, words) = line.split_once("  ")?;
+            (n.len() == 1 && words.contains(label)).then(|| n.chars().next().unwrap())
+        })
+        .unwrap_or_else(|| panic!("F1 offers no {label:?}:\n{help}"));
+    assert!(shape.pick(key(KeyCode::Char(digit))), "{help}");
+}
+
+/// Whether F1 offers a row whose words contain `label` right now.
+fn offers(shape: &Shape, label: &str) -> bool {
+    shape.help_text().lines().any(|line| {
+        line.split_once("  ")
+            .is_some_and(|(n, w)| n.len() == 1 && w.contains(label))
+    })
+}
+
 #[test]
 fn so_far_names_open_questions_and_the_answers_they_wait_for() {
     for (width, height) in [(80, 24), (100, 30)] {
@@ -75,41 +96,39 @@ fn so_far_names_open_questions_and_the_answers_they_wait_for() {
             shaping.goal = Some("TEST goal".into());
             shaping.decided.clear();
             shaping.open = vec!["TEST A".into(), "TEST B — waits for: TEST A, TEST C".into()];
-            shape.key(key(KeyCode::F(5)));
+            choose(&mut shape, "So far");
             let text = screen(&mut shape, width, height, no_color);
             assert!(text.contains("Open questions"), "{text}");
             assert!(
                 text.contains("TEST B — waits for: TEST A, TEST C"),
                 "{text}"
             );
-            assert!(text.contains("F5 close"), "{text}");
+            assert!(text.contains("esc close"), "{text}");
         }
     }
 }
 
 #[test]
-fn new_answer_keys_cannot_escape_an_ending_or_objection() {
+fn new_answer_actions_cannot_escape_an_ending_or_objection() {
     for ending in [true, false] {
-        for code in [11, 12] {
-            let mut shape = done(question()).with_agent(Some(agent(1)));
-            let open = shape.open.as_mut().unwrap();
-            if ending {
-                open.asking = Some(Ending::Stopped);
-            } else {
-                open.objecting = true;
-            }
-            shape.key(key(KeyCode::F(code)));
-            let open = shape.open.as_ref().unwrap();
-            assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
-            assert!(open.notice.is_none());
-            assert_eq!(open.asking.is_some(), ending);
-            assert_eq!(open.objecting, !ending);
+        let mut shape = done(question()).with_agent(Some(agent(1)));
+        let open = shape.open.as_mut().unwrap();
+        if ending {
+            open.asking = Some(Ending::Stopped);
+        } else {
+            open.objecting = true;
         }
+        assert!(!offers(&shape, "Defer") && !offers(&shape, "Delegate"));
+        let open = shape.open.as_ref().unwrap();
+        assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
+        assert!(open.notice.is_none());
+        assert_eq!(open.asking.is_some(), ending);
+        assert_eq!(open.objecting, !ending);
     }
 }
 
 #[test]
-fn crowded_question_bars_keep_the_new_actions_and_both_exits_visible() {
+fn crowded_question_bars_keep_more_and_back_visible_and_f1_lists_every_action() {
     for (width, height) in [(80, 24), (100, 30)] {
         for hard in [true, false] {
             let mut stage = question();
@@ -128,13 +147,16 @@ fn crowded_question_bars_keep_the_new_actions_and_both_exits_visible() {
             });
             let text = screen(&mut shape, width, height, true);
             let bar = text.lines().last().unwrap();
-            for key in ["F11 defer", "F7 object", "esc back", "F10 menu"] {
+            for key in ["F1 more", "esc back"] {
                 assert!(bar.contains(key), "{text}");
             }
-            assert!(
-                bar.contains(if hard { "F9 show me" } else { "F12 delegate" }),
-                "{text}"
-            );
+            for label in [
+                "Defer",
+                "Object",
+                if hard { "Show the options" } else { "Delegate" },
+            ] {
+                assert!(offers(&shape, label), "{label}: {}", shape.help_text());
+            }
         }
     }
 }
@@ -142,14 +164,14 @@ fn crowded_question_bars_keep_the_new_actions_and_both_exits_visible() {
 #[test]
 fn forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing() {
     let mut shape = done(question()).with_agent(Some(agent(1)));
-    for code in [11, 12] {
-        let mut held = key(KeyCode::F(code));
+    for digit in ['1', '2'] {
+        let mut held = key(KeyCode::Char(digit));
         held.kind = KeyEventKind::Repeat;
-        shape.key(held);
+        assert!(!shape.pick(held));
         let open = shape.open.as_ref().unwrap();
         assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
     }
-    shape.key(key(KeyCode::F(11)));
+    choose(&mut shape, "Defer");
     let open = shape.open.as_mut().unwrap();
     let Reading::Done(Ok(shaping)) = &mut open.reading else {
         panic!()
@@ -183,11 +205,11 @@ fn only_flagged_operator_decisions_offer_a_revision_form() {
             })
             .with_agent(Some(agent(0)));
             let text = screen(&mut shape, width, height, true);
-            assert_eq!(text.contains("F2 revise"), revisable, "{text}");
-            assert_eq!(shape.help_text().contains("F2 revise"), revisable);
-            shape.key(key(KeyCode::F(2)));
-            assert_eq!(shape.open.as_ref().unwrap().form.is_some(), revisable);
+            assert!(text.contains("F1 more"), "{text}");
+            assert_eq!(offers(&shape, "Revise"), revisable);
             if revisable {
+                choose(&mut shape, "Revise");
+                assert!(shape.open.as_ref().unwrap().form.is_some());
                 shape.paste("TEST replacement\r\nwords ");
                 assert!(screen(&mut shape, width, height, true).contains("replacement answer"));
                 shape.key(key(KeyCode::Esc));
@@ -202,11 +224,11 @@ fn only_flagged_operator_decisions_offer_a_revision_form() {
 fn deferral_form_keeps_fields_and_original_answer_without_writes() {
     let mut shape = done(question()).with_agent(Some(agent(0)));
     shape.paste("TEST original answer");
-    shape.key(key(KeyCode::F(11)));
+    choose(&mut shape, "Defer");
     shape.paste("TEST wait\r\nfor scope ");
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("Gate: TEST gate"), "{text}");
-    shape.key(key(KeyCode::F(11)));
+    shape.key(key(KeyCode::F(2)));
     shape.paste("TEST before implementation ");
     shape.key(key(KeyCode::Tab));
     assert_eq!(
@@ -221,11 +243,10 @@ fn deferral_form_keeps_fields_and_original_answer_without_writes() {
     assert_eq!(open.typed.text(), "TEST original answer");
     assert!(open.running.is_none() && open.writing.is_none());
     shape.held = true;
-    for code in [11, 12] {
-        shape.key(key(KeyCode::F(code)));
-        assert!(shape.open.as_ref().unwrap().form.is_none());
-        assert!(shape.open.as_ref().unwrap().running.is_none());
-    }
+    assert!(!offers(&shape, "Defer") && !offers(&shape, "Delegate"));
+    shape.key(key(KeyCode::F(2)));
+    assert!(shape.open.as_ref().unwrap().form.is_none());
+    assert!(shape.open.as_ref().unwrap().running.is_none());
 }
 
 #[test]
@@ -247,11 +268,11 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
         text.contains("Next: reopen this goal with Shape set up; F1 shows how."),
         "{text}"
     );
-    assert!(!text.contains("F6 keep"), "{text}");
+    assert!(!text.contains("F2 keep"), "{text}");
     let mut writable = done(stage).with_agent(Some(agent(0)));
     let text = screen(&mut writable, 80, 24, true);
-    assert!(text.contains("F6 keep with reason"), "{text}");
-    writable.key(key(KeyCode::F(6)));
+    assert!(text.contains("F2 keep with reason"), "{text}");
+    writable.key(key(KeyCode::F(2)));
     assert!(screen(&mut writable, 80, 24, true).contains(WORD_REFUSALS[3]));
     assert!(writable.open.as_ref().unwrap().writing.is_none());
     assert!(writable.open.as_ref().unwrap().running.is_none());
@@ -286,7 +307,7 @@ fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent
             "{text}"
         );
     }
-    shape.key(key(KeyCode::F(5)));
+    choose(&mut shape, "So far");
     shape.key(key(KeyCode::Char('c')));
     assert_eq!(shape.take_copy_request(), None);
 }
@@ -352,14 +373,10 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
     ];
     for (stage, said) in cases {
         // Without an agent, ending is the only write: the stage decides whether it's offered.
-        let keys = match stage {
-            Shaped::Question { .. } | Shaped::Waiting | Shaped::Drafted { .. } => {
-                "F8 stop   F5 so far   esc back   F10 menu"
-            }
-            Shaped::Ready { ended: false, .. } => {
-                "F6 end session   F5 so far   esc back   F10 menu"
-            }
-            _ => "F5 so far   esc back   F10 menu",
+        let ending = match stage {
+            Shaped::Question { .. } | Shaped::Waiting | Shaped::Drafted { .. } => Some("Stop"),
+            Shaped::Ready { ended: false, .. } => Some("End this session"),
+            _ => None,
         };
         for (width, height) in [(100, 30), (80, 24)] {
             for no_color in [false, true] {
@@ -375,18 +392,21 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
                 assert_eq!(text.matches("Next:").count(), 1, "{text}");
                 assert!(!text.contains("Option"), "{text}");
                 assert!(!text.contains("/tmp/TEST-shape"), "{text}");
-                assert_eq!(text.lines().last().unwrap().trim(), keys);
+                assert_eq!(text.lines().last().unwrap().trim(), "F1 more   esc back");
+                for label in ["Stop", "End this session"] {
+                    assert_eq!(offers(&shape, label), ending == Some(label), "{label}");
+                }
                 assert_eq!(so_far(&mut shape, width, height, no_color), GOAL);
             }
         }
     }
 }
 
-/// Opens "So far" with F5 and returns the goal it shows, after checking the page around it and
+/// Opens "So far" from F1 and returns the goal it shows, after checking the page around it and
 /// that Esc closes it.
 fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String {
-    shape.key(key(KeyCode::F(5)));
-    assert!(!shape.takes_text(), "F5's page took words");
+    choose(shape, "So far");
+    assert!(!shape.takes_text(), "So far took words");
     let text = screen(shape, width, height, no_color);
     let rows: Vec<&str> = text.lines().map(str::trim_start).collect();
     let start = rows
@@ -405,20 +425,17 @@ fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String 
         flat.contains("TEST format: Markdown, as the README says. (delegated)"),
         "a decision the operator didn't settle read as theirs:\n{text}"
     );
-    assert!(text.contains("F5 close"), "{text}");
-    assert!(
-        !text.contains("esc back"),
-        "a key bar on F5's page:\n{text}"
-    );
+    assert!(text.contains("esc close"), "{text}");
+    assert!(!text.contains("esc back"), "a key bar on So far:\n{text}");
     shape.key(key(KeyCode::Char('x')));
     shape.key(key(KeyCode::Esc));
     assert!(
         shape.open.as_ref().unwrap().so_far.is_none(),
-        "Esc kept F5's page"
+        "Esc kept So far open"
     );
     assert!(
         shape.open.as_ref().unwrap().typed.is_empty(),
-        "F5's page took a letter"
+        "So far took a letter"
     );
     rows[start + 1..end].join("\n")
 }
@@ -652,7 +669,7 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     assert_eq!(text.matches("Next:").count(), 1, "{text}");
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "F2 save + look   F11 defer   F12 delegate   esc back   F10 menu"
+        "F2 save + look   F1 more   esc back"
     );
 }
 
@@ -669,7 +686,7 @@ fn teach_back_prefills_exact_confirmation_words_without_sharing_edits() {
             dir.path(),
         );
         shape.paste(words);
-        shape.key(key(KeyCode::F(7)));
+        choose(&mut shape, "Teach back");
         let open = shape.open.as_ref().unwrap();
         assert_eq!(open.teach_back.as_ref().unwrap().text(), words);
         assert_eq!(open.typed.text(), words);
@@ -698,24 +715,18 @@ fn no_next_line_repeats_the_one_action_the_key_bar_names() {
         text: Some("status: draft\n# Seed: TEST\nrevision: r2\n".into()),
     };
     for (stage, keys) in [
-        (
-            question(),
-            "F2 save + look   F11 defer   F12 delegate   esc back   F10 menu",
-        ),
+        (question(), "F2 save + look   F1 more   esc back"),
         (
             Shaped::Waiting,
-            "F2 look into the next question   F8 stop   F5 so far   esc back   F10 menu",
+            "F2 look into the next question   F1 more   esc back",
         ),
-        (
-            seed,
-            "F3 confirm seed r2   F7 teach-back   esc back   F10 menu",
-        ),
+        (seed, "F2 confirm seed r2   F1 more   esc back"),
     ] {
         for (width, height) in [(100, 30), (80, 24)] {
             let mut shape = reading(done(stage.clone()).with_agent(Some(agent(1))), dir.path());
             let text = screen(&mut shape, width, height, true);
             assert_eq!(text.matches("Next:").count(), 0, "{text}");
-            // A bar too wide for 80 columns closes up rather than lose Esc or F10.
+            // A bar too wide for 80 columns closes up rather than lose Esc.
             let bar = text.lines().last().unwrap().trim();
             assert!(bar == keys || bar == keys.replace("   ", "  "), "{text}");
         }
@@ -747,20 +758,19 @@ fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
         assert_eq!(text.matches("Next:").count(), 0, "{text}");
         assert_eq!(text.lines().last().unwrap().trim(), "esc stop");
     }
-    // F5 waits until the step is done, and help says what Esc does now.
-    shape.key(key(KeyCode::F(5)));
-    assert!(shape.open.as_ref().unwrap().so_far.is_none());
+    // So far waits until the step is done, and help says what Esc does now.
+    assert!(!offers(&shape, "So far"));
     assert!(
         shape
             .help_text()
-            .contains("A step is running. Esc stops it.\nEsc stop · F10 menu")
+            .contains("A step is running. Esc stops it.\nEsc stop\n\nF1 close")
     );
 }
 
 #[test]
 fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
     let dir = tempfile::tempdir().unwrap();
-    // One finding can still overflow; the others belong behind F5.
+    // One finding can still overflow; the others belong behind So far.
     let found = vec![format!(
         "src/TEST/1.rs:1: {}",
         "this path prints the helper's error verbatim, stderr included. ".repeat(18)
@@ -784,16 +794,15 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
         text.contains("  your answer\n  TEST first line\n  TEST last line"),
         "{text}"
     );
-    assert_eq!(
-        text.lines().last().unwrap().trim(),
-        "pgup/dn read  F2 save + look  F11 defer  F12 delegate  esc back  F10 menu"
-    );
+    let bar = text.lines().last().unwrap().trim();
+    let keys = "pgup/dn read   F2 save + look   F1 more   esc back";
+    assert!(bar == keys || bar == keys.replace("   ", "  "), "{text}");
     // Scrolling moves only the reading; the answer stays where it is.
     for _ in 0..30 {
         shape.key(key(KeyCode::PageDown));
     }
     let text = screen(&mut shape, 80, 24, true);
-    assert!(text.contains("F4 picks another folder."), "{text}");
+    assert!(text.contains("F1 picks another folder."), "{text}");
     assert!(text.contains("TEST last line"), "{text}");
 }
 
@@ -814,7 +823,7 @@ fn without_an_agent_shape_only_reads_and_letters_scroll() {
 }
 
 #[test]
-fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
+fn a_draft_shows_the_seed_and_f2_needs_the_operators_own_words() {
     let seed =
         "status: draft\n# Seed: TEST\nrevision: r2\n\n## You are confirming\nTEST seed body.\n";
     let mut shape = done(Shaped::Drafted {
@@ -833,11 +842,10 @@ fn a_draft_shows_the_seed_and_f3_needs_the_operators_own_words() {
         assert!(!text.contains(raw), "{raw} shown:\n{text}");
     }
     assert!(
-        text.contains("  your words\n  a line saying you confirm, then F3\n\n  Confirming the seed is not approval to build."),
+        text.contains("  your words\n  a line saying you confirm, then F2\n\n  Confirming the seed is not approval to build."),
         "{text}"
     );
     shape.key(key(KeyCode::F(2)));
-    shape.key(key(KeyCode::F(3)));
     assert!(shape.open.as_ref().unwrap().running.is_none());
     assert!(
         screen(&mut shape, 100, 30, true).contains("Type your words first; nothing was confirmed.")
@@ -1372,7 +1380,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
         }
         assert!(
             seen.iter().all(|s| *s),
-            "Review missing above F3 at {width}x{height}: {seen:?}"
+            "Review missing above F2 at {width}x{height}: {seen:?}"
         );
     }
     let Shaped::Drafted {
@@ -2115,7 +2123,7 @@ fn reading(mut shape: Shape, folder: &Path) -> Shape {
 }
 
 #[test]
-fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
+fn the_folder_a_step_reads_shows_before_f2_and_f1_picks_another() {
     let dir = tempfile::tempdir().unwrap();
     let (first, other) = (dir.path().join("TEST-first"), dir.path().join("TEST-other"));
     std::fs::create_dir_all(&first).unwrap();
@@ -2124,14 +2132,14 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
         let mut shape = reading(done(stage).with_agent(Some(agent(1))), &first);
         let text = screen(&mut shape, 80, 24, true);
         assert!(
-            text.contains("The step reads files in TEST-first. F4 picks another folder."),
+            text.contains("The step reads files in TEST-first. F1 picks another folder."),
             "{text}"
         );
         assert!(shape.help_text().contains(&format!(
             "The next step reads files in: {}",
             first.display()
         )));
-        shape.key(key(KeyCode::F(4)));
+        choose(&mut shape, "Choose the folder");
         assert!(shape.takes_text());
         let text = screen(&mut shape, 80, 24, true);
         // A long folder path wraps, so compare without the wrapping whitespace.
@@ -2141,13 +2149,13 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
             "{text}"
         );
         assert!(
-            text.contains("Next: F4 uses this folder; Esc keeps TEST-first."),
+            text.contains("Next: F2 uses this folder; Esc keeps TEST-first."),
             "{text}"
         );
         assert_eq!(text.matches("Next:").count(), 1, "{text}");
         assert_eq!(
             text.lines().last().unwrap().trim(),
-            "enter newline   F4 use folder   esc cancel"
+            "enter newline   F2 use folder   esc cancel"
         );
         // Esc keeps the folder shown; the typed answer is untouched.
         shape.key(key(KeyCode::Char('x')));
@@ -2156,9 +2164,9 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
         assert!(screen(&mut shape, 80, 24, true).contains("reads files in TEST-first."));
         assert!(shape.open.as_ref().unwrap().typed.is_empty());
         // A folder that isn't there is refused and the shown one stays.
-        shape.key(key(KeyCode::F(4)));
+        choose(&mut shape, "Choose the folder");
         shape.paste("-missing");
-        shape.key(key(KeyCode::F(4)));
+        shape.key(key(KeyCode::F(2)));
         let text = screen(&mut shape, 100, 30, true);
         let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
         assert!(
@@ -2167,12 +2175,12 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
         );
         assert!(text.contains("reads files in TEST-first."), "{text}");
         // An existing folder is used for the next step.
-        shape.key(key(KeyCode::F(4)));
+        choose(&mut shape, "Choose the folder");
         for _ in 0..first.display().to_string().chars().count() + 20 {
             shape.key(key(KeyCode::Backspace));
         }
         shape.paste(&other.display().to_string());
-        shape.key(key(KeyCode::F(4)));
+        shape.key(key(KeyCode::F(2)));
         let text = screen(&mut shape, 100, 30, true);
         assert!(
             text.contains("The step reads files in TEST-other."),
@@ -2188,16 +2196,14 @@ fn the_folder_a_step_reads_shows_before_f2_and_f4_picks_another() {
 #[test]
 fn no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_is_known() {
     let dir = tempfile::tempdir().unwrap();
-    let mut read_only = reading(done(question()), dir.path());
-    assert!(!screen(&mut read_only, 100, 30, true).contains("F4"));
-    read_only.key(key(KeyCode::F(4)));
-    assert!(read_only.open.as_ref().unwrap().choosing.is_none());
+    let read_only = reading(done(question()), dir.path());
+    assert!(!offers(&read_only, "Choose the folder"));
     let seed = Shaped::Drafted {
         revision: Some("r1".into()),
         text: Some("status: draft\n".into()),
     };
-    let mut drafted = reading(done(seed).with_agent(Some(agent(1))), dir.path());
-    assert!(!screen(&mut drafted, 100, 30, true).contains("F4"));
+    let drafted = reading(done(seed).with_agent(Some(agent(1))), dir.path());
+    assert!(!offers(&drafted, "Choose the folder"));
     let mut finding = done(Shaped::Waiting).with_agent(Some(agent(1)));
     assert!(screen(&mut finding, 100, 30, true).contains("Finding which folder the step reads."));
     finding.key(key(KeyCode::F(2)));
@@ -2243,20 +2249,20 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
 #[test]
 fn so_far_scrolls_on_a_short_screen_and_always_says_how_to_close() {
     let mut shape = done(Shaped::Waiting);
-    shape.key(key(KeyCode::F(5)));
+    choose(&mut shape, "So far");
     let text = screen(&mut shape, 80, 14, true);
     assert!(text.contains("Your goal, as you confirmed it"), "{text}");
-    assert!(text.contains("↑↓ scroll · F5 close"), "{text}");
+    assert!(text.contains("↑↓ scroll · esc close"), "{text}");
     for _ in 0..20 {
         shape.key(key(KeyCode::Down));
     }
     let text = screen(&mut shape, 80, 14, true);
     assert!(text.contains("TEST format: Markdown"), "{text}");
-    assert!(text.contains("↑↓ scroll · F5 close"), "{text}");
-    shape.key(key(KeyCode::F(5)));
+    assert!(text.contains("↑↓ scroll · esc close"), "{text}");
+    shape.key(key(KeyCode::Esc));
     assert!(
         shape.open.as_ref().unwrap().so_far.is_none(),
-        "F5 didn't close its page"
+        "Esc didn't close So far"
     );
 }
 
@@ -2315,7 +2321,7 @@ fn enter_at_seed_confirmation_guides_without_editing_or_starting_a_step() {
         assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
         assert!(
             screen(&mut shape, 80, 24, true)
-                .contains("F3 confirms the seed; Enter does not add a line.")
+                .contains("F2 confirms the seed; Enter does not add a line.")
         );
     }
 }
@@ -2337,7 +2343,7 @@ fn multiline_confirmation_is_refused_before_a_step_and_keeps_the_words() {
         .with_agent(Some(agent(0)));
         screen(&mut shape, 80, 24, true);
         shape.paste(words);
-        shape.key(key(KeyCode::F(3)));
+        shape.key(key(KeyCode::F(2)));
         let open = shape.open.as_ref().unwrap();
         assert!(
             open.running.is_none(),
@@ -2360,7 +2366,7 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         let folder = dir.path().join(name);
         std::fs::create_dir(&folder).unwrap();
         let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
-        shape.key(key(KeyCode::F(4)));
+        choose(&mut shape, "Choose the folder");
         shape.key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
         shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
         shape.paste(folder.to_str().unwrap());
@@ -2370,7 +2376,7 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
             "Enter applied the folder"
         );
         shape.key(key(KeyCode::Backspace));
-        shape.key(key(KeyCode::F(4)));
+        shape.key(key(KeyCode::F(2)));
         let open = shape.open.as_ref().unwrap();
         assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
         assert!(open.notice.is_none(), "the exact folder was refused");
@@ -2384,11 +2390,11 @@ fn a_pasted_folder_with_a_trailing_line_break_is_used() {
     let folder = dir.path().join("TEST-pasted");
     std::fs::create_dir(&folder).unwrap();
     let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
-    shape.key(key(KeyCode::F(4)));
+    choose(&mut shape, "Choose the folder");
     shape.key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
     shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
     shape.paste(&format!("  {}\r\n", folder.display()));
-    shape.key(key(KeyCode::F(4)));
+    shape.key(key(KeyCode::F(2)));
     let open = shape.open.as_ref().unwrap();
     assert!(open.notice.is_none(), "the pasted folder was refused");
     assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
@@ -2456,7 +2462,7 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
                 "{shown}"
             );
             assert!(
-                shown.lines().last().unwrap().contains("F10 menu"),
+                shown.lines().last().unwrap().contains("esc back"),
                 "{shown}"
             );
         }
@@ -2580,31 +2586,27 @@ fn uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed() {
 }
 
 #[test]
-fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
-    let repeat = |code| {
-        KeyEvent::new_with_kind(
-            code,
-            KeyModifiers::NONE,
-            crossterm::event::KeyEventKind::Repeat,
-        )
-    };
+fn ending_asks_once_more_and_esc_or_a_held_key_ends_nothing() {
+    let held = KeyEvent::new_with_kind(
+        KeyCode::F(2),
+        KeyModifiers::NONE,
+        crossterm::event::KeyEventKind::Repeat,
+    );
     for (stage, ending, other) in [
-        (question(), KeyCode::F(8), KeyCode::F(6)),
+        (question(), "Stop this session", "End this session"),
         (
             Shaped::Ready {
                 revision: Some("r2".into()),
                 ended: false,
             },
-            KeyCode::F(6),
-            KeyCode::F(8),
+            "End this session",
+            "Stop this session",
         ),
     ] {
         let mut shape = done(stage);
-        // The other ending key, and a held one, ask nothing.
-        shape.key(key(other));
-        shape.key(repeat(ending));
-        assert!(shape.open.as_ref().unwrap().asking.is_none());
-        shape.key(key(ending));
+        // Each stage offers only its own ending.
+        assert!(!offers(&shape, other));
+        choose(&mut shape, ending);
         assert!(shape.open.as_ref().unwrap().asking.is_some());
         let text = screen(&mut shape, 80, 24, true);
         assert!(text.contains("read-only for good"), "{text}");
@@ -2614,12 +2616,14 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
         let open = shape.open.as_ref().unwrap();
         assert!(open.asking.is_none() && open.writing.is_none());
         assert!(screen(&mut shape, 80, 24, true).contains("Nothing was ended."));
-        // Asked, other keys do nothing; the same key again ends it through the helper.
-        shape.key(key(ending));
+        // Asked, other keys and a held F2 do nothing; F2 ends it through the helper.
+        choose(&mut shape, ending);
+        assert!(!offers(&shape, ending), "F1 offered more while asking");
         shape.key(key(KeyCode::Char('x')));
-        shape.key(key(other));
+        shape.key(key(KeyCode::Char('1')));
+        shape.key(held);
         assert!(shape.open.as_ref().unwrap().writing.is_none());
-        shape.key(key(ending));
+        shape.key(key(KeyCode::F(2)));
         assert!(shape.open.as_ref().unwrap().writing.is_some());
         // This fixture's session path doesn't exist, so the ledger's refusal lands.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -2645,10 +2649,8 @@ fn ending_takes_the_same_key_twice_and_esc_or_a_held_key_ends_nothing() {
             reason: "TEST".into(),
         },
     ] {
-        let mut shape = done(stage);
-        shape.key(key(KeyCode::F(6)));
-        shape.key(key(KeyCode::F(8)));
-        assert!(shape.open.as_ref().unwrap().asking.is_none());
+        let shape = done(stage);
+        assert!(!offers(&shape, "End this session") && !offers(&shape, "Stop this session"));
     }
 }
 
@@ -2674,11 +2676,10 @@ fn a_step_may_assume_at_most_five_complete_defaults() {
 }
 
 #[test]
-fn assumptions_show_with_their_question_and_f7_then_a_number_objects_to_one() {
+fn assumptions_show_with_their_question_and_object_then_a_number_objects_to_one() {
     let mut shape = done(question());
-    // No assumptions: F7 offers nothing.
-    shape.key(key(KeyCode::F(7)));
-    assert!(!shape.open.as_ref().unwrap().objecting);
+    // No assumptions: F1 offers no objection.
+    assert!(!offers(&shape, "Object"));
     shape.open.as_mut().unwrap().assumed = vec![
         Assumption {
             text: "TEST notes are Markdown".into(),
@@ -2700,16 +2701,16 @@ fn assumptions_show_with_their_question_and_f7_then_a_number_objects_to_one() {
             flat.contains("2. TEST one machine (why: TEST nothing syncs yet)"),
             "{text}"
         );
-        assert!(text.lines().last().unwrap().contains("F7 object"), "{text}");
+        assert!(text.lines().last().unwrap().contains("F1 more"), "{text}");
     }
-    shape.key(key(KeyCode::F(7)));
+    choose(&mut shape, "Object");
     assert!(shape.open.as_ref().unwrap().objecting);
     assert!(screen(&mut shape, 80, 24, true).contains("esc keep them all"));
     // Esc keeps them all; a number with no assumption and other keys do nothing.
     shape.key(key(KeyCode::Esc));
     assert!(!shape.open.as_ref().unwrap().objecting);
     assert!(screen(&mut shape, 80, 24, true).contains("Nothing was changed."));
-    shape.key(key(KeyCode::F(7)));
+    choose(&mut shape, "Object");
     for code in [
         KeyCode::Char('3'),
         KeyCode::Char('0'),
@@ -2834,7 +2835,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
 #[test]
 fn asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing() {
     let dir = tempfile::tempdir().unwrap();
-    for ask in [KeyCode::F(8), KeyCode::F(7)] {
+    for ask in ["Stop this session", "Object"] {
         let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
         shape.open.as_mut().unwrap().assumed = vec![Assumption {
             text: "TEST one machine".into(),
@@ -2842,8 +2843,8 @@ fn asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing() {
         }];
         shape.paste("TEST kept");
         assert!(shape.takes_text());
-        shape.key(key(ask));
-        assert!(!shape.takes_text(), "{ask:?} still takes words");
+        choose(&mut shape, ask);
+        assert!(!shape.takes_text(), "{ask} still takes words");
         shape.paste(" TEST pasted while asked");
         assert_eq!(shape.open.as_ref().unwrap().typed.text(), "TEST kept");
         shape.key(key(KeyCode::Esc));
@@ -2908,12 +2909,9 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
             for hidden in ["Option A", "Against my suggestion", "Suggestion:"] {
                 assert!(!flat.contains(hidden), "{hidden} shown first:\n{text}");
             }
-            assert!(
-                text.lines().last().unwrap().contains("F9 show me"),
-                "{text}"
-            );
+            assert!(text.lines().last().unwrap().contains("F1 more"), "{text}");
         }
-        shape.key(key(KeyCode::F(9)));
+        choose(&mut shape, "Show the options");
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
         while shape.open.as_ref().unwrap().writing.is_some() {
             assert!(std::time::Instant::now() < deadline, "reveal never landed");
@@ -2928,7 +2926,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
             Some(_) => assert!(said.starts_with("Cannot read this session:"), "{said}"),
         }
     }
-    // Once revealed, the options and the case against show, and F9 is gone.
+    // Once revealed, the options and the case against show, and F1 no longer offers them.
     let mut shape = done(hard.clone());
     shape.open.as_mut().unwrap().revealed = true;
     let text = screen(&mut shape, 100, 30, true);
@@ -2942,8 +2940,8 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         "{text}"
     );
     assert!(!flat.contains("so what's your instinct?"), "{text}");
-    assert!(!text.lines().last().unwrap().contains("F9"), "{text}");
-    // Cheap and moderate questions show everything at once and offer no F9.
+    assert!(!offers(&shape, "Show the options"));
+    // Cheap and moderate questions show everything at once and offer no reveal.
     let Shaped::Question {
         id,
         title,
@@ -2972,7 +2970,10 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         text.contains("Option A: Local") && text.contains("Suggestion: Local."),
         "{text}"
     );
-    assert!(!text.contains("instinct") && !text.contains("F9"), "{text}");
+    assert!(
+        !text.contains("instinct") && !offers(&shape, "Show the options"),
+        "{text}"
+    );
 }
 
 #[cfg(unix)]
@@ -3227,17 +3228,23 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
             assert!(!shape.takes_text(), "a held Shape took words");
             let flat = |text: String| text.split_whitespace().collect::<Vec<_>>().join(" ");
             assert!(flat(screen(&mut shape, 100, 30, true)).contains(HELD));
-            for code in [KeyCode::F(2), KeyCode::F(3), KeyCode::F(6), KeyCode::F(8)] {
-                shape.key(key(code));
-                shape.key(key(code));
-                let open = shape.open.as_ref().unwrap();
-                assert!(open.running.is_none() && open.writing.is_none() && open.asking.is_none());
-            }
+            shape.key(key(KeyCode::F(2)));
+            shape.key(key(KeyCode::F(2)));
+            let open = shape.open.as_ref().unwrap();
+            assert!(open.running.is_none() && open.writing.is_none() && open.asking.is_none());
             let text = screen(&mut shape, 100, 30, true);
             assert!(flat(text.clone()).contains(HELD), "{text}");
             let bar = text.lines().last().unwrap();
-            for offered in ["F2", "F3", "F6", "F8"] {
-                assert!(!bar.contains(offered), "held Shape offers {offered}: {bar}");
+            assert!(!bar.contains("F2"), "held Shape offers F2: {bar}");
+            for label in [
+                "End",
+                "Stop",
+                "Defer",
+                "Delegate",
+                "Teach back",
+                "Choose the folder",
+            ] {
+                assert!(!offers(&shape, label), "held Shape offers {label}");
             }
             assert!(shape.help_text().contains(HELD));
         }
@@ -3253,14 +3260,11 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             let bar = initial.lines().last().unwrap();
             assert!(bar.contains("pgup/dn read to end"), "{initial}");
             assert_eq!(initial.matches("pgup/dn read to end").count(), 1);
-            assert!(!initial.contains("F3"), "{initial}");
-            assert!(
-                bar.contains("esc back") && bar.contains("F10 menu"),
-                "{initial}"
-            );
+            assert!(!initial.contains("F2 confirm"), "{initial}");
+            assert!(bar.contains("esc back"), "{initial}");
             assert!(!initial.contains("Next:"), "{initial}");
             // A refusal must not restore a premature confirmation instruction.
-            for code in [KeyCode::F(3), KeyCode::Enter] {
+            for code in [KeyCode::F(2), KeyCode::Enter] {
                 shape.key(key(code));
                 let text = screen(&mut shape, width, height, no_color);
                 assert!(
@@ -3269,7 +3273,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                 );
                 assert!(!text.contains("Next: type your own words"), "{text}");
                 assert!(
-                    !text.contains("a line saying you confirm, then F3"),
+                    !text.contains("a line saying you confirm, then F2"),
                     "{text}"
                 );
                 assert!(shape.open.as_ref().unwrap().running.is_none());
@@ -3290,7 +3294,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             // The very first frame that reaches the end offers confirmation.
             assert!(text.contains("End of seed"), "{text}");
             assert!(
-                text.lines().last().unwrap().contains("F3 confirm seed r1"),
+                text.lines().last().unwrap().contains("F2 confirm seed r1"),
                 "{text}"
             );
             assert!(!text.contains("read to end"), "{text}");
@@ -3299,7 +3303,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             for (w, h) in [(80, 24), (100, 30)] {
                 let text = screen(&mut shape, w, h, no_color);
                 assert!(
-                    text.lines().last().unwrap().contains("F3 confirm seed r1"),
+                    text.lines().last().unwrap().contains("F2 confirm seed r1"),
                     "{text}"
                 );
                 assert!(!text.contains("read to end"), "{text}");
@@ -3320,11 +3324,11 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             empty.scroll = u16::MAX;
             let text = screen(&mut empty, width, height, no_color);
             assert!(
-                text.contains("a line saying you confirm, then F3"),
+                text.contains("a line saying you confirm, then F2"),
                 "{text}"
             );
             assert!(
-                text.lines().last().unwrap().contains("F3 confirm seed r1"),
+                text.lines().last().unwrap().contains("F2 confirm seed r1"),
                 "{text}"
             );
         }
@@ -3332,12 +3336,12 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
 }
 
 #[test]
-fn f3_waits_until_the_whole_seed_draft_has_been_on_screen() {
+fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
     for (width, height) in [(100, 30), (80, 24)] {
         let mut shape = done(long_draft()).with_agent(Some(agent(0)));
         screen(&mut shape, width, height, true);
         shape.paste("I confirm r1.");
-        shape.key(key(KeyCode::F(3)));
+        shape.key(key(KeyCode::F(2)));
         assert!(shape.open.as_ref().unwrap().running.is_none());
         let refusal = screen(&mut shape, width, height, true);
         assert!(
@@ -3415,12 +3419,12 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
                     "{change}: {text}"
                 );
                 assert_eq!(
-                    bar.contains("F3 confirm seed r1"),
+                    bar.contains("F2 confirm seed r1"),
                     !changed,
                     "{change}: {text}"
                 );
                 if changed {
-                    shape.key(key(KeyCode::F(3)));
+                    shape.key(key(KeyCode::F(2)));
                     assert!(shape.open.as_ref().unwrap().running.is_none());
                     assert!(
                         screen(&mut shape, width, height, no_color)
@@ -3450,7 +3454,7 @@ fn changing_the_words_clears_a_refusal_about_them_and_only_then() {
     .with_agent(Some(agent(0)));
     screen(&mut shape, 80, 24, true);
     shape.paste("I confirm\nr1.");
-    shape.key(key(KeyCode::F(3)));
+    shape.key(key(KeyCode::F(2)));
     assert!(screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
     shape.key(key(KeyCode::Left));
     assert!(
@@ -3610,4 +3614,39 @@ print('TEST deliberately invalid reply')
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
     assert_eq!(answering::read(&session).unwrap().goal(), Some(GOAL));
     assert!(!session.join("seed-contract.md").exists());
+}
+
+#[test]
+fn retired_function_keys_do_nothing_and_f1_reaches_every_action() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    shape.open.as_mut().unwrap().assumed.push(Assumption {
+        text: "TEST default".into(),
+        why: "TEST equal".into(),
+    });
+    for n in 3..=12 {
+        shape.key(key(KeyCode::F(n)));
+        let open = shape.open.as_ref().unwrap();
+        assert!(
+            open.form.is_none()
+                && open.choosing.is_none()
+                && open.teach_back.is_none()
+                && open.asking.is_none()
+                && open.so_far.is_none()
+                && !open.objecting
+                && open.running.is_none()
+                && open.writing.is_none(),
+            "F{n} still does something"
+        );
+    }
+    for label in [
+        "Defer",
+        "Delegate",
+        "Object",
+        "Choose the folder",
+        "So far",
+        "Stop this session",
+    ] {
+        assert!(offers(&shape, label), "{label}: {}", shape.help_text());
+    }
 }

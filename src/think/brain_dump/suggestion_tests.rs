@@ -25,7 +25,7 @@ fn fixture() -> BrainDump {
     a
 }
 fn use_it(a: &mut BrainDump) {
-    a.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL));
+    super::super::tests::choose(a, "Use the suggested");
 }
 
 #[test]
@@ -50,8 +50,10 @@ fn suggestion_copies_without_submitting_or_overwriting() {
             .any(|t| matches!(t.event, Event::Answered { .. }))
     );
     a.input = Note::new("My exact draft\r\n");
-    use_it(&mut a);
-    assert_eq!(a.input.text, "My exact draft\r\n");
+    assert!(
+        !super::super::tests::offers(&a, "Use the suggested"),
+        "a draft is never replaced"
+    );
 }
 
 #[test]
@@ -211,9 +213,10 @@ fn unavailable_and_stale_suggestions_never_change_the_draft() {
             "new dump" => a.add_more = true,
             _ => a.conversation.set_board(None),
         }
-        use_it(&mut a);
-        assert!(a.input.text.is_empty(), "{state}");
-        assert!(!a.running());
+        assert!(
+            !super::super::tests::offers(&a, "Use the suggested"),
+            "{state}"
+        );
     }
 }
 

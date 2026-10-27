@@ -48,7 +48,7 @@ impl BrainDump {
         self.shaping.encoded_bytes = None;
         self.place_card();
         self.notice =
-            "Extracted by you; original intact. F7 shows cards; nothing confirmed.".into();
+            "Extracted by you; original intact. F1 shows cards; nothing confirmed.".into();
         Ok(())
     }
     pub(super) fn handle_source_key(&mut self, key: KeyEvent) -> bool {
@@ -82,10 +82,6 @@ impl BrainDump {
             if let Err(error) = result {
                 self.refuse(error);
             }
-            return true;
-        }
-        if ctrl && key.code == KeyCode::Char('x') {
-            self.toggle_cards();
             return true;
         }
         if !self.screen.board_focus || self.conversation.sources().is_empty() {

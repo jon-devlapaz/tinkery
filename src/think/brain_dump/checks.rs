@@ -1,4 +1,4 @@
-//! The record each send leaves, shown by F5 "why" and written to the log: which check ran, what
+//! The record each send leaves, shown by "Why" in F1 and written to the log: which check ran, what
 //! it decided and why, and where the person's words landed. It records; it never changes a
 //! reading or a decision. A check that rejects keeps the model's raw reply so the failure can
 //! be read in full.
@@ -65,7 +65,7 @@ impl Decision {
             candidate: None,
         }
     }
-    /// The record as F5 shows it.
+    /// The record as Why shows it.
     pub fn text(&self) -> String {
         format!(
             "{} · {} · {} · {} ms · request {}\n{}{}",
@@ -232,7 +232,7 @@ pub(super) fn why(history: &[String]) -> String {
         .join("\n\n")
 }
 /// The checks as a think record keeps them: each as it serializes, except that the model's
-/// reply stays only where F5 shows it, on a rejection. A passing check's reply is already in
+/// reply stays only where Why shows it, on a rejection. A passing check's reply is already in
 /// its decoded `candidate`, so keeping both would only make long sessions' records large.
 pub(super) fn recorded(history: &[String]) -> Vec<serde_json::Value> {
     history

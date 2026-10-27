@@ -29,6 +29,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 pub mod board;
+mod now;
 mod suggestion;
 use crate::goal::{GoalParts, Part};
 pub use suggestion::Suggestion;
@@ -61,7 +62,7 @@ pub struct BrainDump {
     /// Real provider mode, not practice.
     real: bool,
     notice: String,
-    /// Local checks on each send, shown in F5 "why".
+    /// Local checks on each send, shown in "Why" (F1).
     local_checks: Vec<checks::Decision>,
     /// Text waiting to be copied by the terminal host.
     copy: Option<String>,
@@ -90,10 +91,8 @@ enum Refusal {
 /// selection. Nothing here is part of the conversation.
 struct Screen {
     key_bar: bool,
-    /// Help (F1), the originals (F4) and why (F5) cover the right side.
+    /// Help (F1), the originals and why cover the right side.
     help: bool,
-    /// Help layer 2: every action, one key each.
-    help_all: bool,
     how: bool,
     original: bool,
     details: bool,
@@ -128,7 +127,6 @@ impl Default for Screen {
         Self {
             key_bar: true,
             help: false,
-            help_all: false,
             how: false,
             original: false,
             details: false,
@@ -183,7 +181,7 @@ struct Handoff {
     review: Option<goal_view::Review>,
     job: Option<std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>>,
     receipt: Option<seed_me::Receipt>,
-    /// F10 during the save: leave once it reads back.
+    /// Esc during the save: leave once it reads back.
     exit_after: bool,
     /// Where a confirmed session's think record goes; `None` writes none.
     record_root: Option<std::path::PathBuf>,
@@ -320,7 +318,7 @@ impl BrainDump {
             .collect::<Vec<_>>()
             .join("\n\n")
     }
-    /// What F9 copies: the reading, its questions, settled answers, extractions and originals,
+    /// What "Copy the reading" copies: the reading, its questions, settled answers, extractions and originals,
     /// each marked provisional. Copying confirms nothing.
     pub fn copy_text(&self) -> String {
         let mut text = "# Tinkery / provisional board\n\nNothing confirmed. Unsaved.\n".to_owned();
@@ -783,7 +781,7 @@ impl BrainDump {
         .into();
     }
     /// One key press. Releases are ignored; navigation and copying never send or save.
-    pub fn handle_key(&mut self, mut key: KeyEvent) {
+    pub fn handle_key(&mut self, key: KeyEvent) {
         self.shaping.encoded_bytes = None;
         self.conversation.forget_changes();
         if key.kind == KeyEventKind::Release {
@@ -792,31 +790,24 @@ impl BrainDump {
         if !self.screen.help && key.code != KeyCode::F(1) {
             self.screen.refused = None;
         }
-        let mut ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        if matches!(key.code, KeyCode::F(2..=10))
-            && (key.kind == KeyEventKind::Repeat
-                || !(key.modifiers.is_empty()
-                    || (key.code == KeyCode::F(2) && key.modifiers == KeyModifiers::SHIFT)))
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        // One key map (#440): F1 lists, F2 sends, F6 speaks; other function keys do nothing.
+        if let KeyCode::F(n) = key.code
+            && (!matches!(n, 1 | 2 | 6)
+                || n != 6 && (key.kind == KeyEventKind::Repeat || !key.modifiers.is_empty()))
         {
             return;
         }
-        if key
-            .modifiers
-            .intersects(KeyModifiers::ALT | KeyModifiers::SUPER)
-            && matches!(key.code, KeyCode::F(1..=10))
+        if key.code == KeyCode::Esc
+            && self.handoff.job.is_some()
+            && !self.screen.help
+            && key.modifiers.is_empty()
         {
-            return;
-        }
-        if key.code == KeyCode::F(10) {
-            if self.handoff.job.is_some() {
-                if let Some(voice) = &mut self.voice {
-                    voice.close();
-                }
-                self.handoff.exit_after = true;
-                self.notice = "Saving your goal; back to the menu once it's saved.".into();
-            } else {
-                self.request_leave();
+            if let Some(voice) = &mut self.voice {
+                voice.close();
             }
+            self.handoff.exit_after = true;
+            self.notice = "Saving your goal; back to the menu once it's saved.".into();
             return;
         }
         if help_view::handle_key(self, key) {
@@ -834,9 +825,10 @@ impl BrainDump {
             }
             if key.code == KeyCode::F(1) {
                 self.screen.help = true;
-                self.screen.help_all = false;
                 self.screen.how = false;
                 self.screen.original_scroll = 0;
+            } else if key.code == KeyCode::Esc {
+                self.request_leave();
             } else {
                 self.goal_key(key);
             }
@@ -844,58 +836,6 @@ impl BrainDump {
         }
         if self.voice_key(key) {
             return;
-        }
-        if !self.screen.leave_prompt && matches!(key.code, KeyCode::F(2..=9)) {
-            match key.code {
-                KeyCode::F(2) if key.modifiers.contains(KeyModifiers::SHIFT) => {
-                    key.code = KeyCode::Char('n');
-                    key.modifiers = KeyModifiers::CONTROL;
-                    ctrl = true;
-                }
-                KeyCode::F(3) => {
-                    self.review_goal();
-                    return;
-                }
-                KeyCode::F(4) => {
-                    if !self.conversation.sources().is_empty() {
-                        self.screen.original = true;
-                        self.screen.help = false;
-                        self.screen.details = false;
-                        self.screen.original_scroll = 0;
-                    }
-                    return;
-                }
-                KeyCode::F(5) => {
-                    self.toggle_details();
-                    return;
-                }
-                KeyCode::F(8..=9)
-                    if self.handoff.review.is_none()
-                        && self.handoff.receipt.is_none()
-                        && !self.screen.help
-                        && !self.screen.details
-                        && !self.screen.original =>
-                {
-                    if key.code == KeyCode::F(8) {
-                        self.skip_question();
-                    } else {
-                        self.copy_board();
-                    }
-                    return;
-                }
-                KeyCode::F(7)
-                    if self.handoff.review.is_none()
-                        && self.handoff.receipt.is_none()
-                        && !self.screen.help
-                        && !self.screen.details
-                        && !self.screen.original =>
-                {
-                    self.toggle_cards();
-                    return;
-                }
-                KeyCode::F(6..=9) => return,
-                _ => {}
-            }
         }
         if self.screen.leave_prompt && key.kind == KeyEventKind::Repeat {
             return;
@@ -927,15 +867,10 @@ impl BrainDump {
         }
         if key.code == KeyCode::F(1) {
             self.screen.help = true;
-            self.screen.help_all = false;
             self.screen.how = false;
             self.screen.original = false;
             self.screen.details = false;
             self.screen.original_scroll = 0;
-            return;
-        }
-        if ctrl && key.code == KeyCode::Char('d') {
-            self.toggle_details();
             return;
         }
         if self.handoff.review.is_some()
@@ -950,10 +885,6 @@ impl BrainDump {
         }
         if !self.screen.original && !self.screen.help && !self.screen.details && self.goal_key(key)
         {
-            return;
-        }
-        if ctrl && key.code == KeyCode::Char('g') {
-            self.review_goal();
             return;
         }
         if key.code == KeyCode::Esc
@@ -980,7 +911,6 @@ impl BrainDump {
                 KeyCode::Esc => {
                     self.screen.original = false;
                     self.screen.help = false;
-                    self.screen.help_all = false;
                     self.screen.details = false;
                 }
                 KeyCode::PageDown | KeyCode::Down => {
@@ -1001,7 +931,6 @@ impl BrainDump {
                 self.request_leave();
             }
             KeyCode::F(2) => self.submit(),
-            KeyCode::Char('r') if key.modifiers == KeyModifiers::CONTROL => self.use_suggestion(),
             KeyCode::Tab | KeyCode::BackTab
                 if !key
                     .modifiers
@@ -1009,21 +938,6 @@ impl BrainDump {
             {
                 self.toggle_original_focus()
             }
-            KeyCode::Char('n') if ctrl => {
-                self.add_more = !self.add_more;
-                self.focus_writing();
-                self.notice = if self.add_more {
-                    "New dump, not an answer. Ctrl-N returns to answering; F2 submits."
-                } else {
-                    "Typing answers the focused question; F2 submits."
-                }
-                .into();
-            }
-            KeyCode::Char('o') if ctrl && !self.conversation.sources().is_empty() => {
-                self.screen.original = true;
-                self.screen.original_scroll = 0;
-            }
-            KeyCode::Char('z') if ctrl => self.undo_skip(),
             KeyCode::PageDown => {
                 self.screen.paper_scroll = self.screen.paper_scroll.saturating_add(5)
             }
@@ -1085,13 +999,24 @@ impl BrainDump {
         self.notice = why.into();
         self.screen.refused = Some(Refusal::Other);
     }
-    /// F8: skip the question in focus. Ctrl-Z brings it back.
+    /// Skip the question in focus; F1 can bring it back.
     fn skip_question(&mut self) {
         if self.conversation.skip_focused() {
-            self.notice = "Question skipped. Ctrl-Z brings it back.".into();
+            self.notice = "Question skipped. F1 can bring it back.".into();
         }
     }
-    /// F9: copy the reading.
+    /// Switch the writing box between a new dump and an answer to the focused question.
+    fn new_dump(&mut self) {
+        self.add_more = !self.add_more;
+        self.focus_writing();
+        self.notice = if self.add_more {
+            "New dump, not an answer. F2 sends it; F1 goes back to answering."
+        } else {
+            "Typing answers the focused question; F2 sends."
+        }
+        .into();
+    }
+    /// Copy the reading.
     fn copy_board(&mut self) {
         let text = self.copy_text();
         if text.len() > 128 * 1024 {
@@ -1100,24 +1025,18 @@ impl BrainDump {
             self.copy = Some(text);
         }
     }
-    /// F7 / Ctrl-X: show or hide the extracted cards that replace the original. While
+    /// Show or hide the extracted cards that replace the original. While
     /// they cover it the original is hidden, so it holds no selection and no focus.
-    pub(super) fn toggle_cards(&mut self) {
-        if self.conversation.sources().is_empty() {
-            return;
-        }
-        if self.conversation.fragments().is_empty() {
-            self.refuse("No extracted cards. Select source text, then Ctrl-E.");
-        } else {
-            self.screen.show_extractions = !self.screen.show_extractions;
-            if self.screen.show_extractions {
-                // Cards take the focus the original had (Enter on a card returns to its
-                // source); the hidden original keeps no selection to copy.
-                self.screen.board_focus = true;
-                self.input.collapse();
-                self.screen.input_drag = false;
-                self.screen.selection = None;
-            }
+    /// F1 offers it only once a card exists.
+    fn toggle_cards(&mut self) {
+        self.screen.show_extractions = !self.screen.show_extractions;
+        if self.screen.show_extractions {
+            // Cards take the focus the original had (Enter on a card returns to its
+            // source); the hidden original keeps no selection to copy.
+            self.screen.board_focus = true;
+            self.input.collapse();
+            self.screen.input_drag = false;
+            self.screen.selection = None;
         }
         self.screen.canvas.cancel_gesture();
         self.screen.drag_anchor = None;
@@ -1130,18 +1049,6 @@ impl BrainDump {
             }
             None => {}
         }
-    }
-    fn toggle_details(&mut self) {
-        if self.conversation.sources().is_empty() {
-            self.refuse("No details before a submit; no request sent.");
-            return;
-        }
-        let was_modal = self.screen.original || self.screen.help;
-        self.screen.drag_anchor = None;
-        self.screen.original = false;
-        self.screen.help = false;
-        self.screen.details = was_modal || !self.screen.details;
-        self.screen.paper_scroll = 0;
     }
     /// Tab / Shift-Tab toggle between writing and the left original. Needs a source.
     fn toggle_original_focus(&mut self) {
