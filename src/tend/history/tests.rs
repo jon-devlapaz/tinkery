@@ -139,13 +139,13 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
     let body = screen(&mut view, (100, 30), false, false);
     assert!(body.contains("  Café 👩‍💻"));
     assert!(body.contains("Keep my words.  "));
-    assert!(body.contains("Original words · submission 1"));
-    assert!(body.contains("Answer · submission 4"));
+    assert!(body.contains("Original words 1"));
+    assert!(body.contains("Answer 4"));
     assert!(body.contains("  TEST scope answer Café  "));
     assert!(body.contains("Goal exactly.") && body.contains("Must not: rewrite."));
     assert!(!body.contains("MODEL") && !body.contains("/TEST"));
     assert!(
-        !body.contains("Recorded reading text"),
+        !body.contains("Readings · Tinkery's guesses"),
         "missing context added an empty section"
     );
     assert!(screen(&mut view, (100, 30), true, true).contains("MODEL-ONLY-HERE"));
@@ -299,7 +299,8 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
         &GoalConfirmation::terminal(Some("agent")).unwrap(),
         Some(&context),
     )
-    .unwrap();
+    .unwrap()
+    .path;
     let bytes = std::fs::read(&path).unwrap();
     let history = think_record::read(&records, &session, goal).unwrap();
     assert_eq!(history.turns[0].event, turns[0].event);
@@ -309,17 +310,20 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
         view.finish(Ok(history.clone()));
         let first = screen(&mut view, size, false, false);
         let entries = [
-            "Submission 1 · no earlier reading recorded",
-            "Reading 1 presented",
-            "Submission 2 · after reading 1",
-            "Reading 2 presented",
+            "Original words 1",
+            "Reading 1 shown",
+            "Answer 2 · after reading 1",
+            "Reading 2 shown",
         ];
         let positions: Vec<_> = entries
             .iter()
             .map(|entry| first.find(entry).expect("entry on first screen"))
             .collect();
         assert!(positions.windows(2).all(|p| p[0] < p[1]), "{first}");
-        assert!(first.contains("1970-01-01T00:00:03.000Z"));
+        assert!(first.contains("Recorded sequence · 1 Jan 1970, UTC"));
+        assert!(first.contains("00:00:03  Answer 2 · after reading 1"));
+        assert!(first.contains("Shown means it reached the screen, not that it was read."));
+        assert!(!first.contains("1970-01-01T"));
         assert!(!first.contains("framings") && !first.contains("structure-spans-history"));
         let mut all = first
             .lines()
@@ -337,12 +341,12 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
             all.push_str(next.lines().nth(usize::from(size.1 - 2)).unwrap());
             previous = next;
         }
-        assert!(all.contains("Answer · submission 2"));
+        assert!(all.contains("Answer 2"));
         let headings = [
-            "Answer · submission 2",
-            "Recorded reading text",
-            "Reading 1 · Tinkery's guess",
-            "Reading 2 · Tinkery's guess",
+            "Answer 2",
+            "Readings · Tinkery's guesses",
+            "Reading 1 · shown 00:00:02",
+            "Reading 2 · shown 00:00:04",
             "Confirmed goal",
         ];
         let positions: Vec<_> = headings
@@ -358,14 +362,14 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
             );
         }
         let first_reading = all
-            .split("Reading 1 · Tinkery's guess")
+            .split("Reading 1 · shown 00:00:02")
             .nth(1)
             .unwrap()
-            .split("Reading 2 · Tinkery's guess")
+            .split("Reading 2 · shown 00:00:04")
             .next()
             .unwrap();
         let second_reading = all
-            .split("Reading 2 · Tinkery's guess")
+            .split("Reading 2 · shown 00:00:04")
             .nth(1)
             .unwrap()
             .split("Confirmed goal")
@@ -422,12 +426,14 @@ fn reading_guesses_are_italic_and_preserve_partial_groups_without_changing_origi
         readings: vec![
             RecordedReading {
                 at: "2026-10-27T01:00:00Z".into(),
+                heading: "Reading 1 · shown 01:00:00".into(),
                 main: vec!["  TEST MAIN Café  ".into(), "TEST MAIN TWO".into()],
                 other_goals: vec!["TEST OTHER FIRST".into(), "TEST OTHER SECOND".into()],
                 deferred: vec!["TEST DEFERRED FIRST".into(), "TEST DEFERRED SECOND".into()],
             },
             RecordedReading {
                 at: "2026-10-27T00:00:00Z".into(),
+                heading: "Reading 2 · shown 00:00:00".into(),
                 main: vec!["  \n  ".into()],
                 other_goals: vec![],
                 deferred: vec!["TEST PARTIAL Café\u{202e}".into()],
@@ -504,8 +510,8 @@ fn reading_guesses_are_italic_and_preserve_partial_groups_without_changing_origi
         ] {
             assert!(seen.contains(marker));
         }
-        let first = seen.find("Reading 1 · Tinkery's guess").unwrap();
-        let partial = seen.find("Reading 2 · Tinkery's guess").unwrap();
+        let first = seen.find("Reading 1 · shown 01:00:00").unwrap();
+        let partial = seen.find("Reading 2 · shown 00:00:00").unwrap();
         assert!(first < partial);
     }
 }

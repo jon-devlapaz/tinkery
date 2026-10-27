@@ -232,26 +232,57 @@ pub fn write_with_confirmation(
     session: &Session<'_>,
     confirmation: &GoalConfirmation,
 ) -> Result<PathBuf, String> {
-    write_with_context(root, session, confirmation, None)
+    write_with_context(root, session, confirmation, None).map(|record| record.path)
+}
+
+/// A successfully saved Think record, including any nonfatal loss of reading context.
+#[derive(Debug)]
+pub struct WrittenRecord {
+    /// Where the complete record was written.
+    pub path: PathBuf,
+    /// Why optional reading context was omitted; the confirmed goal and originals still saved.
+    pub reading_context_error: Option<String>,
+}
+
+impl WrittenRecord {
+    /// The save's path and any context-loss reason, for technical details and exit receipts.
+    pub fn message(&self) -> String {
+        let path = format!("Think record: {}", self.path.display());
+        match &self.reading_context_error {
+            Some(reason) => format!("{path}\n{}", context::not_saved(reason)),
+            None => path,
+        }
+    }
+
+    /// A short nonfatal notice for the saved-goal screen; the full reason remains in details.
+    pub fn notice(&self) -> Option<&'static str> {
+        self.reading_context_error
+            .as_ref()
+            .map(|_| "Reading sequence wasn't saved; F1 then h shows why.")
+    }
 }
 
 /// Writes confirmed history with optional terminal presentation context. Context never changes
-/// originals or model inputs; invalid context and oversized records refuse publication.
+/// originals or model inputs; invalid context is omitted with a saved reason and nonfatal notice.
+/// Oversized records refuse publication rather than truncate originals.
 pub fn write_with_context(
     root: &Path,
     session: &Session<'_>,
     confirmation: &GoalConfirmation,
     context: Option<&ReadingContext>,
-) -> Result<PathBuf, String> {
+) -> Result<WrittenRecord, String> {
     confirmation.validate()?;
-    if let Some(context) = context {
-        context.validate(
-            session
-                .turns
-                .iter()
-                .map(|turn| (&turn.event, utc(turn.at, ':'))),
-        )?;
-    }
+    let reading_context_error = context.and_then(|context| {
+        context
+            .check(
+                session
+                    .turns
+                    .iter()
+                    .map(|turn| (&turn.event, utc(turn.at, ':'))),
+            )
+            .err()
+    });
+    let context = context.filter(|_| reading_context_error.is_none());
     #[derive(Serialize)]
     struct TurnOut<'a> {
         at: String,
@@ -289,6 +320,7 @@ pub fn write_with_context(
             option_env!("TINKERY_BUILD_COMMIT"), option_env!("TINKERY_BUILD_DIRTY")
         ),
         "reading_context": context,
+        "reading_context_error": reading_context_error,
         "origin": session.origin.origin,
         "harness": session.origin.harness,
         "model": session.origin.model,
@@ -319,7 +351,10 @@ pub fn write_with_context(
         .map_err(|e| format!("{}: {e}", path.display()))?;
     file.persist_noclobber(&path)
         .map_err(|e| format!("{}: {}", path.display(), e.error))?;
-    Ok(path)
+    Ok(WrittenRecord {
+        path,
+        reading_context_error,
+    })
 }
 
 /// The saved session's folder name, kept to characters that are safe in a file name.

@@ -19,6 +19,8 @@ pub struct ReadingContext {
 pub struct RecordedReading {
     /// The presentation timestamp exactly as recorded, including its timezone.
     pub at: String,
+    /// Reader-owned heading with the reading number and UTC shown time, dated when needed.
+    pub heading: String,
     /// Each saved framing text, retaining empty strings and item boundaries.
     pub main: Vec<String>,
     /// Items classified as other goals in this reading, with their exact wording.
@@ -49,10 +51,55 @@ fn submitted(event: &Event) -> Option<usize> {
     }
 }
 
-fn timestamp(at: &str) -> Result<(), String> {
+#[derive(Deserialize)]
+struct Snapshot {
+    framings: Vec<Framing>,
+    other_goals: Vec<String>,
+    deferred: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct Framing {
+    text: String,
+}
+
+struct ValidatedEntry<'a> {
+    at: String,
+    time: time::OffsetDateTime,
+    content: Content<'a>,
+}
+
+enum Content<'a> {
+    Presented {
+        board: &'a Value,
+        snapshot: Snapshot,
+    },
+    Submitted {
+        label: String,
+    },
+}
+
+fn timestamp(at: &str) -> Result<time::OffsetDateTime, String> {
     time::OffsetDateTime::parse(at, &time::format_description::well_known::Rfc3339)
-        .map(|_| ())
-        .map_err(|_| "Invalid reading-context timestamp.".into())
+        .ok()
+        .and_then(|at| at.checked_to_offset(time::UtcOffset::UTC))
+        .ok_or_else(|| "Invalid reading-context timestamp.".into())
+}
+
+fn date(date: time::Date) -> String {
+    let months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    format!(
+        "{} {} {}",
+        date.day(),
+        months[date.month() as usize - 1],
+        date.year()
+    )
+}
+
+fn clock(at: time::OffsetDateTime) -> String {
+    format!("{:02}:{:02}:{:02}", at.hour(), at.minute(), at.second())
 }
 
 impl ReadingContext {
@@ -70,82 +117,115 @@ impl ReadingContext {
         });
     }
 
-    pub(super) fn validate<'a>(
-        &self,
-        turns: impl Iterator<Item = (&'a Event, String)>,
-    ) -> Result<(), String> {
+    fn validate<'a, 'event>(
+        &'a self,
+        turns: impl Iterator<Item = (&'event Event, String)>,
+    ) -> Result<Vec<ValidatedEntry<'a>>, String> {
         let sources: Vec<_> = turns
-            .filter_map(|(event, at)| submitted(event).map(|source| (source, at)))
+            .filter_map(|(event, at)| submitted(event).map(|source| (source, event, at)))
             .collect();
-        if sources.first().is_some_and(|(source, _)| *source == 0)
+        if sources.first().is_some_and(|(source, ..)| *source == 0)
             || sources.windows(2).any(|pair| pair[0].0 >= pair[1].0)
         {
             return Err("Reading context requires ordered unique source numbers.".into());
         }
         let mut next = 0;
+        let mut entries = Vec::new();
         for entry in &self.events {
             match entry {
                 Entry::Submitted { source } => {
-                    let Some((expected, at)) = sources.get(next) else {
+                    let Some((expected, event, at)) = sources.get(next) else {
                         return Err("Reading context repeats or invents submitted words.".into());
                     };
                     if source != expected {
-                        return Err("Reading context disagrees with submitted-source order.".into());
+                        return Err("Reading sequence does not match the saved words.".into());
                     }
-                    timestamp(at)?;
+                    let label = event.source_label().ok_or("Expected submitted words.")?;
+                    entries.push(ValidatedEntry {
+                        at: at.clone(),
+                        time: timestamp(at)?,
+                        content: Content::Submitted { label },
+                    });
                     next += 1;
                 }
                 Entry::Presented { at, board } => {
-                    timestamp(at)?;
-                    // Preserve this historical snapshot as data. Today's model decoder or board
-                    // verification must not reinterpret it, including its frozen framing text.
-                    let framings = board.get("framings").and_then(Value::as_array);
-                    let extras = board.get("other_goals").and_then(Value::as_array);
-                    let deferred = board.get("deferred").and_then(Value::as_array);
-                    if next == 0
-                        || !board.is_object()
-                        || framings.is_none_or(|rows| rows.iter().any(|r| !r["text"].is_string()))
-                        || extras.is_none_or(|rows| rows.iter().any(|r| !r.is_string()))
-                        || deferred.is_none_or(|rows| rows.iter().any(|r| !r.is_string()))
-                        || !(framings.is_some_and(|rows| {
-                            rows.iter()
-                                .any(|r| r["text"].as_str().is_some_and(|s| !s.trim().is_empty()))
-                        }) || [extras, deferred].into_iter().flatten().any(|rows| {
-                            rows.iter()
-                                .any(|r| r.as_str().is_some_and(|s| !s.trim().is_empty()))
-                        }))
+                    // Serde also accepts positional structs; recorded boards and framings require objects.
+                    if !board.is_object()
+                        || board["framings"]
+                            .as_array()
+                            .is_some_and(|rows| rows.iter().any(|row| !row.is_object()))
                     {
                         return Err("Reading context has an invalid presentation snapshot.".into());
                     }
+                    // Only these historical fields are interpreted; retain the full frozen board.
+                    let snapshot = Snapshot::deserialize(board)
+                        .map_err(|_| "Reading context has an invalid presentation snapshot.")?;
+                    if next == 0
+                        || !snapshot
+                            .framings
+                            .iter()
+                            .map(|row| &row.text)
+                            .chain(&snapshot.other_goals)
+                            .chain(&snapshot.deferred)
+                            .any(|text| !text.trim().is_empty())
+                    {
+                        return Err("Reading context has an invalid presentation snapshot.".into());
+                    }
+                    entries.push(ValidatedEntry {
+                        at: at.clone(),
+                        time: timestamp(at)?,
+                        content: Content::Presented { board, snapshot },
+                    });
                 }
             }
         }
         if next != sources.len() {
             return Err("Reading context is missing submitted words.".into());
         }
-        Ok(())
+        Ok(entries)
     }
+
+    pub(super) fn check<'a>(
+        &self,
+        turns: impl Iterator<Item = (&'a Event, String)>,
+    ) -> Result<(), String> {
+        self.validate(turns).map(|_| ())
+    }
+}
+
+pub(super) fn not_saved(reason: &str) -> String {
+    format!("Reading sequence was not saved: {reason}")
 }
 
 pub(super) fn history<'a>(
     value: &Value,
     turns: impl Iterator<Item = (&'a Event, String)>,
+    error: &Value,
 ) -> ContextHistory {
-    if value.is_null() {
+    if value.is_null()
+        && let Some(reason) = error.as_str().filter(|reason| !reason.trim().is_empty())
+    {
+        let notice = not_saved(reason);
+        return ContextHistory {
+            sequence: notice.clone(),
+            details: notice,
+            readings: vec![],
+        };
+    }
+    if value.is_null() && error.is_null() {
         return ContextHistory {
             sequence: "Reading sequence was not recorded.".into(),
             details: "Reading context: not recorded.".into(),
             readings: vec![],
         };
     }
-    let turns: Vec<_> = turns.collect();
-    let context = serde_json::from_value::<ReadingContext>(value.clone()).and_then(|context| {
-        context
-            .validate(turns.iter().map(|(event, at)| (*event, at.clone())))
-            .map(|_| context)
-            .map_err(serde::de::Error::custom)
-    });
-    let Ok(context) = context else {
+    let context = serde_json::from_value::<ReadingContext>(value.clone());
+    let entries = context
+        .as_ref()
+        .ok()
+        .filter(|_| error.is_null())
+        .and_then(|context| context.validate(turns).ok());
+    let Some(entries) = entries else {
         return ContextHistory {
             sequence: "Reading sequence unavailable; saved words remain below.".into(),
             details:
@@ -158,66 +238,54 @@ pub(super) fn history<'a>(
         "Reading context: terminal output, not proof of attention or a complete screen replay."
             .into(),
     ];
-    let mut sequence = vec![
-        "Recorded order; presentation does not establish that someone read it.".into(),
-        String::new(),
-    ];
+    let heading_date = entries.first().map(|entry| entry.time.date());
+    let mut sequence = vec![heading_date.map_or_else(
+        || "Recorded sequence".into(),
+        |day| format!("Recorded sequence · {}, UTC", date(day)),
+    )];
+    let mut current_date = heading_date;
     let mut readings = Vec::new();
     let mut reading = 0;
-    let mut submitted_times = turns
-        .iter()
-        .filter_map(|(event, at)| submitted(event).map(|_| at));
-    for entry in context.events {
-        match entry {
-            Entry::Presented { at, board } => {
-                let strings = |field: &str| {
-                    board[field]
-                        .as_array()
-                        .expect("validated list")
-                        .iter()
-                        .map(|item| item.as_str().expect("validated string").to_owned())
-                        .collect()
+    // List order is evidence, even when wall clocks go backward.
+    for ValidatedEntry { at, time, content } in entries {
+        if current_date != Some(time.date()) {
+            sequence.push(date(time.date()));
+            current_date = Some(time.date());
+        }
+        let shown = clock(time);
+        match content {
+            Content::Presented { board, snapshot } => {
+                reading += 1;
+                let day = if Some(time.date()) == heading_date {
+                    String::new()
+                } else {
+                    format!(", {}", date(time.date()))
                 };
                 readings.push(RecordedReading {
                     at: at.clone(),
-                    main: board["framings"]
-                        .as_array()
-                        .expect("validated framings")
-                        .iter()
-                        .map(|item| {
-                            item["text"]
-                                .as_str()
-                                .expect("validated framing text")
-                                .to_owned()
-                        })
-                        .collect(),
-                    other_goals: strings("other_goals"),
-                    deferred: strings("deferred"),
+                    heading: format!("Reading {reading} · shown {shown}{day}"),
+                    main: snapshot.framings.into_iter().map(|row| row.text).collect(),
+                    other_goals: snapshot.other_goals,
+                    deferred: snapshot.deferred,
                 });
-                reading = readings.len();
-                sequence.push(format!("{at}  Reading {reading} presented"));
+                sequence.push(format!("{shown}  Reading {reading} shown"));
                 lines.push(format!(
                     "Presented reading {reading} at {at}\nVerified board associated with the frame:\n{}",
-                    serde_json::to_string_pretty(&board).expect("JSON snapshot serializes")
+                    serde_json::to_string_pretty(board).expect("JSON snapshot serializes")
                 ));
             }
-            Entry::Submitted { source } => {
-                let at = submitted_times.next().expect("validated source");
-                let context = if reading == 0 {
-                    "before any recorded presentation".into()
-                } else {
-                    format!("after reading {reading}")
-                };
+            Content::Submitted { label } => {
                 let relation = if reading == 0 {
-                    "no earlier reading recorded".into()
+                    String::new()
                 } else {
-                    format!("after reading {reading}")
+                    format!(" · after reading {reading}")
                 };
-                sequence.push(format!("{at}  Submission {source} · {relation}"));
-                lines.push(format!("Submitted source {source} at {at}, {context}."));
+                sequence.push(format!("{shown}  {label}{relation}"));
+                lines.push(format!("{label}{relation} at {at}."));
             }
         }
     }
+    sequence.push("Shown means it reached the screen, not that it was read.".into());
     ContextHistory {
         sequence: sequence.join("\n"),
         details: lines.join("\n\n"),

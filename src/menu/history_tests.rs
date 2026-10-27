@@ -55,7 +55,7 @@ fn wait_for_history(home: &mut Home) {
     let until = Instant::now() + Duration::from_secs(3);
     loop {
         home.tick();
-        if rendered(home).contains("Original words · submission 1") {
+        if rendered(home).contains("Original words 1") {
             return;
         }
         assert!(Instant::now() < until, "{}", rendered(home));
@@ -73,7 +73,7 @@ fn history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal() {
     assert!(goal_view.contains("r history"));
     press(&mut home, KeyCode::F(1));
     press(&mut home, KeyCode::Char('r'));
-    assert!(!rendered(&mut home).contains("Original words · submission 1"));
+    assert!(!rendered(&mut home).contains("Original words 1"));
     press(&mut home, KeyCode::Esc);
     let reads = think_record::count_reads(path.parent().unwrap());
     press(&mut home, KeyCode::Char('r'));

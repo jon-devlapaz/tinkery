@@ -24,6 +24,7 @@ fn check(value: Value, events: &[Event]) -> String {
         events
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+        &Value::Null,
     )
     .details
 }
@@ -40,6 +41,7 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
         words()
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+        &Value::Null,
     );
     let sequence = result.sequence;
     let text = result.details;
@@ -49,25 +51,23 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
     assert_eq!(result.readings[0].at, "1970-01-01T00:01:40.000Z");
     assert_eq!(result.readings[1].at, "1970-01-01T00:00:50.000Z");
     assert_eq!(
-        sequence.lines().skip(2).collect::<Vec<_>>(),
+        sequence.lines().collect::<Vec<_>>(),
         vec![
-            "2026-10-24T23:16:53Z  Submission 1 · no earlier reading recorded",
-            "1970-01-01T00:01:40.000Z  Reading 1 presented",
-            "2026-10-24T23:16:53Z  Submission 2 · after reading 1",
-            "1970-01-01T00:00:50.000Z  Reading 2 presented",
+            "Recorded sequence · 24 Oct 2026, UTC",
+            "23:16:53  Original words 1",
+            "1 Jan 1970",
+            "00:01:40  Reading 1 shown",
+            "24 Oct 2026",
+            "23:16:53  Answer 2 · after reading 1",
+            "1 Jan 1970",
+            "00:00:50  Reading 2 shown",
+            "Shown means it reached the screen, not that it was read.",
         ]
     );
     assert!(!sequence.contains("TEST exact frozen wording"));
-    assert_eq!(
-        sequence.matches("presentation does not establish").count(),
-        1
-    );
-    assert!(
-        text.contains(
-            "Submitted source 1 at 2026-10-24T23:16:53Z, before any recorded presentation"
-        )
-    );
-    assert!(text.contains("Submitted source 2 at 2026-10-24T23:16:53Z, after reading 1"));
+    assert_eq!(sequence.matches("Shown means").count(), 1);
+    assert!(text.contains("Original words 1 at 2026-10-24T23:16:53Z."));
+    assert!(text.contains("Answer 2 · after reading 1 at 2026-10-24T23:16:53Z."));
     assert!(text.contains("TEST exact frozen wording"));
     assert!(text.contains("Presented reading 2 at 1970-01-01T00:00:50.000Z"));
     assert_eq!(
@@ -75,6 +75,67 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
         "Reading context: not recorded."
     );
 }
+#[test]
+fn source_labels_follow_event_kinds_and_only_presentations_add_relations() {
+    let mut events = words();
+    events.push(Event::ScopeAnswered {
+        id: "scope".into(),
+        question: "Same goal?".into(),
+        source: 4,
+        answer: "TEST yes".into(),
+    });
+    let value = serde_json::json!({"events":[
+        {"kind":"submitted","source":1},
+        {"kind":"submitted","source":2},
+        {"kind":"presented","at":"2026-10-27T23:59:59.999Z","board":board()},
+        {"kind":"submitted","source":4},
+        {"kind":"presented","at":"2026-10-28T00:00:00Z","board":board()}
+    ]});
+    let result = history(
+        &value,
+        events.iter().enumerate().map(|(index, event)| {
+            (
+                event,
+                if index == 2 {
+                    "2026-10-28T02:00:00+02:00"
+                } else {
+                    "2026-10-27T23:59:58Z"
+                }
+                .into(),
+            )
+        }),
+        &Value::Null,
+    );
+    assert_eq!(
+        result.sequence.lines().collect::<Vec<_>>(),
+        [
+            "Recorded sequence · 27 Oct 2026, UTC",
+            "23:59:58  Original words 1",
+            "23:59:58  Answer 2",
+            "23:59:59  Reading 1 shown",
+            "28 Oct 2026",
+            "00:00:00  Answer 4 · after reading 1",
+            "00:00:00  Reading 2 shown",
+            "Shown means it reached the screen, not that it was read.",
+        ]
+    );
+    for (event, label) in events
+        .iter()
+        .zip(["Original words 1", "Answer 2", "Answer 4"])
+    {
+        assert_eq!(event.source_label().as_deref(), Some(label));
+        assert!(result.sequence.contains(label));
+        assert!(result.details.contains(label));
+    }
+    assert_eq!(result.readings[0].heading, "Reading 1 · shown 23:59:59");
+    assert_eq!(
+        result.readings[1].heading,
+        "Reading 2 · shown 00:00:00, 28 Oct 2026"
+    );
+    assert_eq!(result.sequence.matches("after reading").count(), 1);
+    assert!(!result.sequence.contains("no earlier") && !result.sequence.contains("Submission"));
+}
+
 #[test]
 fn malformed_context_never_supplies_a_relationship() {
     let good = serde_json::json!({"events":[{"kind":"submitted","source":1},
@@ -97,9 +158,15 @@ fn malformed_context_never_supplies_a_relationship() {
     cases.push(bad);
     for board in [
         serde_json::json!({"framings":[],"other_goals":[],"deferred":[]}),
+        serde_json::json!([[{"text":"TEST positional board"}],[],[]]),
+        serde_json::json!({"framings":[["TEST positional framing"]],"other_goals":[],"deferred":[]}),
         serde_json::json!({"framings":[{"text":5}],"other_goals":[],"deferred":[]}),
         serde_json::json!({"framings":[{"text":"  "}],"other_goals":[],"deferred":[]}),
         serde_json::json!({"framings":[],"other_goals":[5]}),
+        serde_json::json!({"framings":[{"text":"TEST valid"}],"other_goals":[]}),
+        serde_json::json!({"framings":[{"text":"TEST valid"}],"deferred":[]}),
+        serde_json::json!({"other_goals":["TEST valid"],"deferred":[]}),
+        serde_json::json!({"framings":[{"text":"\t"}],"other_goals":[" "],"deferred":["\n"]}),
     ] {
         let mut bad = good.clone();
         bad["events"][1]["board"] = board;
@@ -111,6 +178,7 @@ fn malformed_context_never_supplies_a_relationship() {
             words()
                 .iter()
                 .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+            &Value::Null,
         );
         assert_eq!(
             result.sequence,
@@ -148,7 +216,7 @@ fn build_stamp_requires_full_commit_and_explicit_modified_state() {
 }
 
 #[test]
-fn sequence_preserves_recorded_timezone_and_distinguishes_missing_from_invalid() {
+fn sequence_converts_offsets_to_utc_and_retains_exact_times_in_details() {
     let events = words();
     let value = serde_json::json!({"events":[{"kind":"submitted","source":1},
         {"kind":"presented","at":"2026-10-25T01:00:00+02:00","board":board()},
@@ -158,15 +226,34 @@ fn sequence_preserves_recorded_timezone_and_distinguishes_missing_from_invalid()
         events
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53-05:00".into())),
+        &Value::Null,
     );
     let sequence = result.sequence;
     let details = result.details;
-    assert!(sequence.contains("2026-10-25T01:00:00+02:00  Reading 1 presented"));
-    assert!(sequence.contains("2026-10-24T23:16:53-05:00  Submission 2 · after reading 1"));
+    assert_eq!(
+        sequence.lines().collect::<Vec<_>>(),
+        [
+            "Recorded sequence · 25 Oct 2026, UTC",
+            "04:16:53  Original words 1",
+            "24 Oct 2026",
+            "23:00:00  Reading 1 shown",
+            "25 Oct 2026",
+            "04:16:53  Answer 2 · after reading 1",
+            "Shown means it reached the screen, not that it was read.",
+        ]
+    );
+    assert_eq!(
+        result.readings[0].heading,
+        "Reading 1 · shown 23:00:00, 24 Oct 2026"
+    );
+    assert!(details.contains("2026-10-25T01:00:00+02:00"));
+    assert!(details.contains("2026-10-24T23:16:53-05:00"));
+    assert!(!sequence.contains("+02:00") && !sequence.contains("-05:00"));
     assert!(details.contains("TEST exact frozen wording"));
     let missing = history(
         &Value::Null,
         events.iter().map(|event| (event, String::new())),
+        &Value::Null,
     );
     assert_eq!(missing.sequence, "Reading sequence was not recorded.");
     assert!(missing.readings.is_empty());
@@ -192,6 +279,7 @@ fn reading_text_preserves_lists_whitespace_and_partial_presentations_without_rec
         events
             .iter()
             .map(|event| (event, "2026-10-26T23:00:00Z".into())),
+        &Value::Null,
     );
     assert_eq!(result.readings.len(), 2);
     assert_eq!(
@@ -214,9 +302,5 @@ fn reading_text_preserves_lists_whitespace_and_partial_presentations_without_rec
             .iter()
             .any(|s| s.contains("MUST NEVER RECOMPOSE"))
     );
-    assert!(
-        result
-            .sequence
-            .contains("2026-10-27T00:00:00Z  Reading 2 presented")
-    );
+    assert!(result.sequence.contains("00:00:00  Reading 2 shown"));
 }

@@ -93,8 +93,15 @@ fn presentation_context_connects_words_to_successful_output_not_applied_replies(
             app.saved().unwrap().goal.as_str(),
         )
         .unwrap();
-        assert!(history.details.contains("Submitted source 3"));
-        assert!(history.details.contains("after reading 1"));
+        let label = history
+            .turns
+            .iter()
+            .filter_map(|turn| turn.event.source_label())
+            .nth(2)
+            .unwrap();
+        let relation = format!("{label} · after reading 1");
+        assert!(history.details.contains(&relation));
+        assert!(history.sequence.contains(&relation));
     }
 }
 #[test]

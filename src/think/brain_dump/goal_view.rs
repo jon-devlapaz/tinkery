@@ -156,18 +156,22 @@ impl BrainDump {
     pub(crate) fn record_root(&self) -> Option<&Path> {
         self.handoff.record_root.as_deref()
     }
-    /// Where this visit's think record was written, or why it wasn't; `None` before a save or
-    /// when no record folder is set.
+    /// The written record's path and any lost-context reason, or why it wasn't written.
+    /// `None` before a save or when no record folder is set.
     pub(super) fn record_line(&self) -> Option<String> {
         self.handoff.record.as_ref().map(|r| match r {
-            Ok(path) => format!("Think record: {}", path.display()),
+            Ok(record) => record.message(),
             Err(e) => format!("Think record not written: {e}"),
         })
     }
     /// Writes the think record for the session just saved in `receipt`: every turn, every
     /// check (with the model's reply only where it rejected), and the goal exactly as it was
     /// confirmed on the review screen.
-    fn write_record(&self, root: &Path, receipt: &Receipt) -> Result<PathBuf, String> {
+    fn write_record(
+        &self,
+        root: &Path,
+        receipt: &Receipt,
+    ) -> Result<record::WrittenRecord, String> {
         let affirmation = &self
             .handoff
             .review
@@ -287,7 +291,8 @@ impl BrainDump {
                         .map(|root| self.write_record(&root, &receipt));
                     self.notice = match &self.handoff.record {
                         Some(Err(_)) => RECORD_FAILED.into(),
-                        _ => "Saved.".into(),
+                        Some(Ok(record)) => record.notice().unwrap_or("Saved.").into(),
+                        None => "Saved.".into(),
                     };
                     self.handoff.review = None;
                     self.screen.paper_scroll = 0;
@@ -418,13 +423,19 @@ pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Pa
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let inner = app.screen.agent_area;
     if let Some(receipt) = &app.handoff.receipt {
+        let record_notice = app
+            .handoff
+            .record
+            .as_ref()
+            .and_then(|record| record.as_ref().ok())
+            .and_then(record::WrittenRecord::notice);
         let notice = if app.notice == "Copied."
             || app.notice.starts_with("Clipboard")
             || app.notice == RECORD_FAILED
         {
             app.notice.as_str()
         } else {
-            ""
+            record_notice.unwrap_or("")
         };
         render_saved_goal(
             frame,
