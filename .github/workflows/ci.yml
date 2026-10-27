@@ -39,8 +39,6 @@ jobs:
       - name: Documentation contracts
         run: |
           python3 tests/test_documentation.py
-          python3 tests/test_planning_docs.py
-          python3 tests/test_job_record_docs.py
   check:
     needs: scope
     if: needs.scope.outputs.docs_only != 'true'

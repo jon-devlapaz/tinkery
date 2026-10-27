@@ -37,10 +37,7 @@ selection establishes neither open-weight compatibility nor comparative quality.
 
 [Think records](think.md#think-record) retain confirmed-session evidence, not
 unconfirmed sessions or complete factory telemetry. The read-only
-[seed-to-run join](shape-and-handoff.md#sdlc-handoff) uses SDLC's source-owned record;
-the earlier Tinkery binding proposal was replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258).
-[Release evidence](first-release.md) is required before claiming a complete factory
-or improved outcomes.
+[seed-to-run join](shape-and-handoff.md#sdlc-handoff) uses SDLC's source-owned record.
 
 ## Modules today
 

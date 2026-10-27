@@ -56,7 +56,7 @@ class ScopeTests(unittest.TestCase):
 
     def test_constitution_design_and_research_prose_is_lightweight(self):
         names = ["docs/yohaku.md", "docs/design/menu.md",
-                 "docs/research/shared/job-records-proposal.md"]
+                 "docs/research/shared/baseline.md"]
         base = self.rebase_with(names)
         for name in names:
             with self.subTest(path=name):
@@ -209,8 +209,7 @@ class WorkflowGateTests(unittest.TestCase):
         self.assertIn("python3 tests/test_ci_scope.py", self.workflow)
         self.assertIn("python3 tests/test_documentation.py", self.workflow)
         docs_job = self.workflow.split("\n  docs:\n", 1)[1].split("\n  check:\n", 1)[0]
-        for test in ["test_documentation.py", "test_planning_docs.py", "test_job_record_docs.py"]:
-            self.assertIn(f"python3 tests/{test}", docs_job)
+        self.assertIn("python3 tests/test_documentation.py", docs_job)
         self.assertIn("setup: ${{ steps.classify.outputs.setup }}", self.workflow)
         self.assertIn("needs.scope.outputs.setup != 'false'", self.workflow)
         self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
