@@ -127,6 +127,12 @@ class DocumentationLintTests(unittest.TestCase):
 
 
 class DocumentationTests(unittest.TestCase):
+    def test_issue_chooser_requires_bounded_task_form(self):
+        config = (REPO / ".github/ISSUE_TEMPLATE/config.yml").read_text()
+        self.assertRegex(config, r"(?m)^blank_issues_enabled: false$")
+        self.assertIn("labels: [needs-approval]",
+                      (REPO / ".github/ISSUE_TEMPLATE/task.yml").read_text())
+
     def test_an_installed_sdlc_scaffold_steers_only_its_own_docs(self):
         receipt = json.dumps({"files": ["_system/SDLC.md", "stages/01-plan/CONTEXT.md"]})
         tracked = {"AGENTS.md", "docs/yohaku.md", "_system/SDLC.md", "_system/scaffold.json",
