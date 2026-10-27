@@ -259,6 +259,40 @@ reads records. This is not the session's `ledger.json`. Tend's deliberate
 [history](shape-and-handoff.md#think-history) adds no model context.
 Eval record reading and gap flags are separate slices.
 
+### Presented readings and subsequent words
+
+Optional `reading_context.events` keeps terminal presentations and submitted-source
+references in one ordered list. Each `presented` entry holds a UTC `at` and the frozen
+verified `board` associated with that frame, including its composed framing text.
+Each `submitted` entry names the existing `source`; its words and timestamp stay in
+`turns`. Its context is the preceding presentation, or none before the first.
+List order establishes sequence even when wall clocks move backward. This records
+what preceded submitted words, not a claim that they corrected it or why.
+
+A presentation is acknowledged only after frame output and ending synchronized output
+succeed, with nonblank reading content visible in the reading pane or goal review.
+Help, other covering panels, originals, minimum-size notices and failed output do not
+qualify. Repainting an acknowledged board adds nothing; a newly applied board can
+qualify even when its wording is identical. A pending or applied-but-unpainted reply
+cannot replace the last recorded presentation. The snapshot can include offscreen
+material: this is neither full-screen replay nor proof that someone read it.
+
+Collection stays in memory until existing typed confirmation writes the record.
+Unconfirmed exits and crashes still leave no record. History's technical details show
+presentations, source submission times and their relationship. Old records say context
+was not recorded; malformed optional context says unavailable without invalidating
+independently valid originals or goal attribution. References must cover committed
+sources exactly once in order. Historical boards are inspected as recorded, never
+reinterpreted through today's model decoder. Writer and reader share the 16 MiB
+complete-record limit; an oversized record fails visibly without truncating originals.
+
+`tinkery_source` holds optional compile-time supplied build information. Set
+`TINKERY_BUILD_COMMIT` to the full 40-hex Tinkery commit and `TINKERY_BUILD_DIRTY`
+to `true` or `false` when building; Cargo tracks changes to these inputs. Missing or
+malformed inputs record null, shown as unknown. This is supplied information, not
+authenticated provenance; a modified build identifies only its base commit. Ordinary
+unstamped builds remain unknown. Saving never reads Git from the application's folder.
+
 ## Interaction contracts
 
 ### Reading

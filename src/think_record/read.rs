@@ -5,7 +5,7 @@
 mod origins;
 pub(crate) use origins::read_origins;
 
-use super::{Event, GoalConfirmation, SCHEMA, session_id};
+use super::{Event, GoalConfirmation, MAX_RECORD_BYTES, SCHEMA, context, session_id};
 use crate::seed_me;
 use serde::Deserialize;
 use std::{
@@ -76,12 +76,15 @@ impl Unavailable {
 // Limit each file before parsing or formatting its checks. A larger record is unavailable,
 // never partially shown. History holds one selected record plus one file; batch attribution
 // keeps only paths, identities, goals and origins after each file is validated.
-const MAX_RECORD_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Deserialize)]
 struct SavedRecord {
     schema: u8,
     tinkery: String,
+    #[serde(default)]
+    tinkery_source: serde_json::Value,
+    #[serde(default)]
+    reading_context: serde_json::Value,
     origin: String,
     model: Option<String>,
     thinking: Option<String>,
@@ -164,6 +167,14 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
     }
     require_unique(&identity_index([session])?, &selected)?;
     let made_in = origin(record.schema, record.repo);
+    let reading_details = context::details(
+        &record.reading_context,
+        record
+            .turns
+            .iter()
+            .map(|turn| (&turn.event, turn.at.clone())),
+    );
+    let source_details = context::source_details(&record.tinkery_source);
     let details = format!(
         concat!(
             "Think record: {}\nSession: {}\nSession ID: {}\nRepository: {}\nFormat: {}\nTinkery: {}\n",
@@ -189,6 +200,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         record.goal_confirmation.details(),
         serde_json::to_string_pretty(&record.checks).expect("JSON values always serialize"),
     );
+    let details = format!("{details}\n\n{source_details}\n\n{reading_details}");
     Ok(History {
         turns: record.turns,
         goal: record.goal,

@@ -136,7 +136,8 @@ Detail's `r history` shows original words, questions, answers, skips, restores a
 the exact confirmed goal in recorded order. Suggestions have their own label, never an answer label.
 A recorded repository adds `Made in`
 and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
-shows the full path, `none` or `not recorded`, plus model information and checks.
+shows the full path, `none` or `not recorded`, plus model information, checks and
+[recorded reading context](think.md#presented-readings-and-subsequent-words).
 Labels are muted; operator words use ink. Display escapes unsafe terminal controls
 without changing stored words.
 

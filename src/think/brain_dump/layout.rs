@@ -295,6 +295,16 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         )),
         reading,
     );
+    // Inspect the clipped output, excluding the heading when it is in the viewport.
+    let heading = u16::from(usize::from(app.screen.paper_scroll).min(reading_max) == 0);
+    let content = Rect::new(
+        reading.x,
+        reading.y + heading,
+        reading.width,
+        reading.height.saturating_sub(heading),
+    );
+    app.screen.reading_visible =
+        failure.is_none() && app.conversation.board().is_some() && visible_content(frame, content);
     frame.render_widget(
         question.scroll((
             usize::from(app.screen.paper_scroll).min(question_max) as u16,
@@ -581,4 +591,34 @@ pub(super) fn render_leave_prompt(frame: &mut Frame, app: &BrainDump, palette: P
         .style(palette.ink),
         rect,
     );
+}
+
+// Qualify the actual viewport, not offscreen text or the reading's heading.
+pub(super) fn visible_content(frame: &mut Frame, area: Rect) -> bool {
+    let area = area.intersection(frame.area());
+    let buffer = frame.buffer_mut();
+    (area.y..area.bottom())
+        .any(|y| (area.x..area.right()).any(|x| !buffer[(x, y)].symbol().trim().is_empty()))
+}
+
+#[cfg(test)]
+mod presentation_viewport_tests {
+    use super::*;
+    #[test]
+    fn blank_scrolled_viewport_does_not_qualify_offscreen_reading_text() {
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 4)).unwrap();
+        for (scroll, expected) in [(0, true), (1, false), (5, true)] {
+            terminal
+                .draw(|frame| {
+                    let area = frame.area();
+                    frame.render_widget(
+                        Paragraph::new("TEST first\n\n\n\n\nTEST last").scroll((scroll, 0)),
+                        area,
+                    );
+                    assert_eq!(visible_content(frame, area), expected);
+                })
+                .unwrap();
+        }
+    }
 }

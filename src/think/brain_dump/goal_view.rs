@@ -175,7 +175,7 @@ impl BrainDump {
             .ok_or("No confirmed goal to record.")?
             .affirmation;
         let origin = self.host.origin();
-        record::write_with_confirmation(
+        record::write_with_context(
             root,
             &record::Session {
                 origin: &origin,
@@ -187,6 +187,7 @@ impl BrainDump {
                 confirmed: std::time::SystemTime::now(),
             },
             &affirmation.confirmation,
+            Some(self.conversation.reading_context()),
         )
     }
     /// Opens review on the displayed goal, frozen as shown. Refused, with a visible reason, in
@@ -528,6 +529,21 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         .saturating_sub(rows[0].height as usize) as u16;
     review.scroll = review.scroll.min(review.max);
     frame.render_widget(p.scroll((review.scroll, 0)), rows[0]);
+    // Only the goal's visible rows count; attribution and confirmation instructions do not.
+    let goal_start = 1usize;
+    let goal_end = goal_start + line_count(&review.affirmation.goal);
+    let start = goal_start.max(usize::from(review.scroll));
+    let end = goal_end.min(usize::from(review.scroll) + usize::from(rows[0].height));
+    if end > start {
+        let content = Rect::new(
+            rows[0].x,
+            rows[0].y + (start - usize::from(review.scroll)) as u16,
+            rows[0].width,
+            (end - start) as u16,
+        );
+        app.screen.reading_visible = layout::visible_content(frame, content);
+    }
+
     frame.render_widget(
         Paragraph::new(prompt.clone())
             .wrap(Wrap { trim: false })

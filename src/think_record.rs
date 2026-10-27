@@ -8,6 +8,8 @@
 //! when it does.
 
 mod confirmation;
+mod context;
+pub use context::ReadingContext;
 #[cfg(test)]
 mod confirmation_tests;
 mod read;
@@ -31,6 +33,9 @@ use std::{
 
 /// The record format's version. Renaming or removing a field changes it.
 pub const SCHEMA: u8 = 3;
+
+// The reader and writer share one complete-record limit; neither truncates originals.
+const MAX_RECORD_BYTES: u64 = 16 * 1024 * 1024;
 
 /// Where records go for a user whose home is `home` (the `HOME` variable). Only a default: the
 /// operator may point Tinkery elsewhere with `--record-root`, and nothing here creates the
@@ -224,7 +229,26 @@ pub fn write_with_confirmation(
     session: &Session<'_>,
     confirmation: &GoalConfirmation,
 ) -> Result<PathBuf, String> {
+    write_with_context(root, session, confirmation, None)
+}
+
+/// Writes confirmed history with optional terminal presentation context. Context never changes
+/// originals or model inputs; invalid context and oversized records refuse publication.
+pub fn write_with_context(
+    root: &Path,
+    session: &Session<'_>,
+    confirmation: &GoalConfirmation,
+    context: Option<&ReadingContext>,
+) -> Result<PathBuf, String> {
     confirmation.validate()?;
+    if let Some(context) = context {
+        context.validate(
+            session
+                .turns
+                .iter()
+                .map(|turn| (&turn.event, utc(turn.at, ':'))),
+        )?;
+    }
     #[derive(Serialize)]
     struct TurnOut<'a> {
         at: String,
@@ -258,6 +282,10 @@ pub fn write_with_confirmation(
     let record = serde_json::json!({
         "schema": SCHEMA,
         "tinkery": env!("CARGO_PKG_VERSION"),
+        "tinkery_source": context::build_source(
+            option_env!("TINKERY_BUILD_COMMIT"), option_env!("TINKERY_BUILD_DIRTY")
+        ),
+        "reading_context": context,
         "origin": session.origin.origin,
         "model": session.origin.model,
         "thinking": session.origin.thinking,
@@ -275,6 +303,9 @@ pub fn write_with_confirmation(
     });
     let mut text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
     text.push('\n');
+    if text.len() as u64 > MAX_RECORD_BYTES {
+        return Err("Think record exceeds the 16 MiB history limit; no record was written.".into());
+    }
     std::fs::create_dir_all(root).map_err(|e| format!("{}: {e}", root.display()))?;
     let path = root.join(format!("{}_{id}.json", utc(session.confirmed, '-')));
     let mut file =

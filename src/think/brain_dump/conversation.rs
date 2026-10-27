@@ -16,6 +16,9 @@ pub struct Conversation {
     sources: Vec<Source>,
     fragments: Vec<Fragment>,
     board: Option<board::Board>,
+    board_revision: usize,
+    presented_revision: usize,
+    context: crate::think_record::ReadingContext,
     /// The highest source id the board has read.
     applied: usize,
     settled: Vec<Settled>,
@@ -109,6 +112,25 @@ impl Conversation {
                 .turns
                 .iter()
                 .any(|t| matches!(t.event, Event::DraftSuggested { .. }))
+    }
+    pub(super) fn reading_context(&self) -> &crate::think_record::ReadingContext {
+        &self.context
+    }
+    pub(super) fn presentation(&self) -> Option<super::Presentation> {
+        (self.board_revision > self.presented_revision).then(|| super::Presentation {
+            revision: self.board_revision,
+            board: serde_json::to_value(self.board.as_ref().expect("applied board").wire())
+                .expect("verified board serializes"),
+        })
+    }
+    pub(super) fn presented(&mut self, presentation: super::Presentation) {
+        if presentation.revision == self.board_revision
+            && presentation.revision > self.presented_revision
+        {
+            self.context
+                .presented(presentation.board, std::time::SystemTime::now());
+            self.presented_revision = presentation.revision;
+        }
     }
     fn note(&mut self, event: Event) {
         self.turns.push(Turn {
@@ -480,6 +502,7 @@ impl Conversation {
         self.sources = staged.sources.clone();
         self.settled = staged.request.settled.clone();
         if let Some(source) = self.sources.last().cloned() {
+            self.context.submitted(source.id);
             let question = self
                 .settled
                 .iter()
@@ -589,6 +612,7 @@ impl Conversation {
                 }
                 self.last_failure = None;
                 self.board = Some(board);
+                self.board_revision += 1;
                 self.applied = request.sources.iter().map(|s| s.id).max().unwrap_or(0);
                 self.note_focus();
                 Ok(())

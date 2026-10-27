@@ -91,6 +91,8 @@ enum Refusal {
 /// selection. Nothing here is part of the conversation.
 struct Screen {
     key_bar: bool,
+    /// This frame contains reading content; overlays can suppress its acknowledgment.
+    reading_visible: bool,
     /// Help (F1), the originals and why cover the right side.
     help: bool,
     how: bool,
@@ -128,6 +130,7 @@ impl Default for Screen {
     fn default() -> Self {
         Self {
             key_bar: true,
+            reading_visible: false,
             help: false,
             how: false,
             original: false,
@@ -199,7 +202,27 @@ impl Default for BrainDump {
         Self::with_mode(Arc::new(Simulated), false)
     }
 }
+/// The verified board associated with a rendered frame. Only the terminal owner acknowledges
+/// successful output; this is neither a full screen snapshot nor proof of human attention.
+pub struct Presentation {
+    revision: usize,
+    board: serde_json::Value,
+}
+
 impl BrainDump {
+    /// The first presentation candidate for this board, only when this frame exposes reading
+    /// content. Calling this never records output; the owner must acknowledge successful IO.
+    pub fn presentation(&self) -> Option<Presentation> {
+        if !self.screen.reading_visible || self.screen.help || self.screen.leave_prompt {
+            return None;
+        }
+        self.conversation.presentation()
+    }
+    /// Acknowledge the frame only after terminal drawing and synchronized output succeed.
+    /// Repeated or stale acknowledgments add nothing, and nothing is written to disk here.
+    pub fn presented(&mut self, presentation: Presentation) {
+        self.conversation.presented(presentation);
+    }
     /// Think that reads with `host`. [`BrainDump::default`] is practice: a simulated reading
     /// and nothing leaves the machine.
     pub fn with_host(host: Arc<dyn BoardHost>) -> Self {
@@ -1329,6 +1352,7 @@ impl BrainDump {
 
 /// Paints think, remembering where things went so the mouse lands where it was drawn.
 pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
+    app.screen.reading_visible = false;
     layout::render(frame, app, palette);
     layout::render_header(frame, palette);
     goal_view::render_declaration(frame, app, palette);
@@ -1616,3 +1640,6 @@ mod voice_tests;
 #[cfg(test)]
 #[path = "brain_dump_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod presentation_tests;

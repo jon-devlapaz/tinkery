@@ -137,6 +137,18 @@ def journey(width, height, no_color):
             assert record['turns'][0]['text'] == fixture['words']
             assert record['turns'][1]['answer'] == fixture['correction']
             assert record['goal'] == ledger['goal'] == corrected_goal
+            events = record['reading_context']['events']
+            assert [event['kind'] for event in events] == [
+                'submitted', 'presented', 'submitted', 'presented']
+            assert events[0]['source'] == 1 and events[2]['source'] == 2
+            assert events[1]['board']['other_goals'] == fixture['readings'][0]['other_goals']
+            assert events[3]['board']['other_goals'] == []
+            assert events[1]['board']['framings'][0]['text'] == first_goal
+            assert events[3]['board']['framings'][0]['text'] == corrected_goal
+            for event in events:
+                if event['kind'] == 'presented':
+                    assert event['at'].endswith('Z')
+            assert 'tinkery_source' in record  # Unknown for an ordinary unstamped build.
             assert record['goal_confirmation']['declaration'] == 'declared: agent'
             assert ledger['operator'] == 'agent'
             assert not (session / 'seed-contract.md').exists()
@@ -144,6 +156,7 @@ def journey(width, height, no_color):
             run.send(ESC, '1  think')
             print(json.dumps(dict(width=width, height=height, no_color=no_color,
                                   provider='frozen candidates; zero real calls',
+                                  tinkery_source=record['tinkery_source'],
                                   journey='omitted constraints/review/correction/exact goal confirmation',
                                   acceptance='automated replay, not human or model-quality acceptance')))
         finally:
