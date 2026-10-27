@@ -62,6 +62,8 @@ def journey(limit, home, width, height):
             terminal.send(b'\x1b[6~' * 5, 'Close help')  # Rows come first; the allowance follows.
             shows(left)
             terminal.send(b'\x1b', 'TEST budget words')
+            # Typing before help closes would land in help (macOS CI race).
+            terminal.wait(lambda screen: 'Close help' not in screen)
 
             # Another submission cannot borrow a fresh allowance.
             terminal.send(b'TEST another answer', 'TEST another answer')
