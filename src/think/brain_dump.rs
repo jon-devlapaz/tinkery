@@ -97,6 +97,8 @@ struct Screen {
     original: bool,
     details: bool,
     leave_prompt: bool,
+    /// F1's Model and calls row asked for the Model panel, which the launch owns.
+    model: bool,
     /// The notice says why the last action did nothing; drawn until the next input.
     refused: Option<Refusal>,
     /// Focus is on the original (or its cards), not the writing box.
@@ -131,6 +133,7 @@ impl Default for Screen {
             original: false,
             details: false,
             leave_prompt: false,
+            model: false,
             refused: None,
             board_focus: false,
             show_extractions: false,
@@ -769,6 +772,11 @@ impl BrainDump {
     /// Text think asked to copy, taken once; see [`BrainDump::copy_result`].
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()
+    }
+    /// Whether F1's Model and calls row was picked since the last ask; the launch opens the
+    /// panel. Asking clears it.
+    pub fn take_model_request(&mut self) -> bool {
+        std::mem::take(&mut self.screen.model)
     }
     /// Whether the copy reached the terminal's clipboard, so the notice can say so.
     pub fn copy_result(&mut self, sent: bool) {

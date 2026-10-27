@@ -32,7 +32,7 @@ for arguments, error in [
     (['--taste-result'], b'--taste-result needs RUN_ID=PR_URL'),
     (['--taste-result', 'TEST-run=https://github.com/TEST/example/pull/1'], b'canonical lowercase UUIDv4'),
     (['--taste-result', '00000000-0000-4000-8000-000000000114=TEST/example#1'], b'full canonical'),
-    (['--shape-pi', '--model', 'bare'], b'explicit --model provider/model-id'),
+    (['--shape-pi', '--model', 'bare'], b'explicit model: provider/model-id'),
     # Think alone has no Watch, Approve or Taste, so their inputs are refused, not ignored.
     (['--snapshot', '--sdlc-root', 'TEST-sdlc'], b'require --home'),
     (['--snapshot', '--taste-result', '00000000-0000-4000-8000-000000000114=https://github.com/TEST/example/pull/1'],

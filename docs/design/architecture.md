@@ -47,7 +47,8 @@ or improved outcomes.
 | Module | Owns |
 | --- | --- |
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
-| `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch, the minimum terminal size, paging and the clipped-view `more` cue. |
+| `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch and the model label's room, the minimum terminal size, paging and the clipped-view `more` cue. |
+| `model_setup.rs`, `model_setup/panel.rs` | The saved model setup's one parser (file and flags), atomic save, header label and Model panel; the terminal loop owns when it shows (shared). |
 | `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs)), the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |
