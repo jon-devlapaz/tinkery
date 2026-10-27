@@ -35,6 +35,8 @@ pub struct History {
     pub made_in: MadeIn,
     /// Source, model and check information for technical help, kept apart from the conversation.
     pub details: String,
+    /// Compact sequence from the same validated context as details, or an explicit missing/invalid notice.
+    pub sequence: String,
 }
 
 /// The repository a confirmed goal was made in, as its record says. Where it was made, never
@@ -169,7 +171,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
     }
     require_unique(&identity_index([session])?, &selected)?;
     let made_in = origin(record.schema, record.repo);
-    let reading_details = context::details(
+    let (sequence, reading_details) = context::history(
         &record.reading_context,
         record
             .turns
@@ -209,6 +211,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         goal: record.goal,
         made_in,
         details,
+        sequence,
     })
 }
 

@@ -154,10 +154,56 @@ def journey(width, height, no_color):
             assert not (session / 'seed-contract.md').exists()
             assert requests() == sent, 'Confirmation must not start another model call.'
             run.send(ESC, '1  think')
+            before_history = {str(p): (p.read_bytes(), p.stat().st_mtime_ns)
+                              for p in root.rglob('*') if p.is_file()}
+            run.send(b'2', 'enter open')
+            run.send(b'\r', 's shape')
+            run.send(b'r', 'Recorded sequence')
+            first_history = run.screen.text()
+            sequence = ['Submission 1 · no earlier reading recorded', 'Reading 1 presented',
+                        'Submission 2 · after reading 1', 'Reading 2 presented']
+            positions = [first_history.index(label) for label in sequence]
+            assert positions == sorted(positions), first_history
+            for event in events:
+                if event['kind'] == 'presented':
+                    assert event['at'] in first_history
+            assert 'framings' not in first_history and 'structure-spans-history' not in first_history
+            # Walk one row at a time so the full answer is checked through the real viewport.
+            visible = '\n'.join(first_history.splitlines()[5:height - 1])
+            previous = first_history
+            for _ in range(180):
+                os.write(run.master, b'\x1b[B')
+                deadline = time.monotonic() + .5
+                while time.monotonic() < deadline:
+                    if select.select([run.master], [], [], .02)[0]:
+                        run.screen.feed(os.read(run.master, 65536))
+                    if not run.screen.synchronized and run.screen.text() != previous:
+                        break
+                current = run.screen.text()
+                if current == previous:
+                    break
+                visible += current.splitlines()[height - 2]
+                previous = current
+            else:
+                raise AssertionError('History did not reach its end')
+            compact = lambda text: ''.join(text.split())
+            assert 'Answer · submission 2' in visible
+            for text in [fixture['words'], fixture['correction'], corrected_goal]:
+                assert compact(text) in compact(visible), 'History omitted submitted words or goal'
+            run.send(F1, 'Right now')
+            run.send(b'h', 'How it works')
+            run.send(ESC, 'Right now')
+            run.send(ESC, 'Think history')
+            run.send(b'\x1b[H', 'Recorded sequence')
+            assert run.screen.text() == first_history
+            assert requests() == sent, 'History navigation must not start a stub request'
+            after_history = {str(p): (p.read_bytes(), p.stat().st_mtime_ns)
+                             for p in root.rglob('*') if p.is_file()}
+            assert before_history == after_history, 'History navigation changed saved files'
             print(json.dumps(dict(width=width, height=height, no_color=no_color,
                                   provider='frozen candidates; zero real calls',
                                   tinkery_source=record['tinkery_source'],
-                                  journey='omitted constraints/review/correction/exact goal confirmation',
+                                  journey='omission/review/correction/save/first-screen sequence/full history/read-only',
                                   acceptance='automated replay, not human or model-quality acceptance')))
         finally:
             run.close()
