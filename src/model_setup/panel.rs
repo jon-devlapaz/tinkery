@@ -1,9 +1,13 @@
 //! The header's model label and the Model panel it opens. The label shows real state: calls left
 //! when this launch drafts with a model, else `practice`. The panel changes a draft of the saved
-//! setup; `s` saves it, `esc` drops it. Claude Code's models are picked from a list; Pi's are
-//! typed. When this launch drafts, its Now row adds calls at once, for this launch only. Nothing
-//! here starts a request.
-use std::{path::PathBuf, sync::Arc};
+//! setup; `s` saves it, `esc` drops it. `enter` on Model picks the next model the harness offers:
+//! Claude Code's fixed list, or the list Pi prints (asked once, off the paint path, with no model
+//! request); `t` types any model instead. When this launch drafts, its Now row adds calls at once,
+//! for this launch only. Nothing here starts a model request.
+use std::{
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent};
 use ratatui::{
@@ -20,6 +24,8 @@ use crate::{Palette, pi::CallBudget};
 const TOP_UP: usize = 5;
 /// Why an agent's panel only shows: its allowance is the operator's to give.
 const AGENT: &str = "An agent can't save a setup or add calls; the operator does.";
+/// The note while Pi lists its models.
+const LISTING: &str = "Listing Pi's models…";
 
 /// This launch's model state: where the setup saves, what was saved, the launch's calls when it
 /// drafts, and the panel while it is open.
@@ -29,6 +35,11 @@ pub struct Controls {
     budget: Option<Arc<CallBudget>>,
     panel: Option<Panel>,
     agent: bool,
+    /// The Pi executable that lists models; `None` types Pi models.
+    pi: Option<PathBuf>,
+    /// Pi's models once listed, or why not; asked at most once per launch.
+    pi_models: Arc<OnceLock<Result<Vec<String>, String>>>,
+    pi_asked: bool,
 }
 
 struct Panel {
@@ -52,7 +63,16 @@ impl Controls {
             budget,
             panel: None,
             agent: false,
+            pi: None,
+            pi_models: Arc::default(),
+            pi_asked: false,
         }
+    }
+
+    /// Lets `enter` on Model pick from the models Pi at `program` lists.
+    pub fn listing_pi(mut self, program: PathBuf) -> Self {
+        self.pi = Some(program);
+        self
     }
 
     /// For an agent operator: the panel shows the setup but refuses to save or add calls.
@@ -146,9 +166,29 @@ impl Controls {
                         draft.thinking = "low".into();
                     }
                 }
-                1 => match draft.harness.models() {
-                    [] => panel.typing = Some(draft.model.clone()),
-                    models => draft.model = next(models, &draft.model.as_str()).into(),
+                1 if draft.harness == Harness::ClaudeCode => {
+                    draft.model = next(draft.harness.models(), &draft.model.as_str()).into()
+                }
+                1 => match (self.pi_models.get(), &self.pi) {
+                    (Some(Ok(models)), _) => {
+                        let models: Vec<&str> = models.iter().map(String::as_str).collect();
+                        draft.model = next(&models, &draft.model.as_str()).into();
+                    }
+                    (Some(Err(why)), _) => {
+                        panel.note = format!("{why} Type the model instead.");
+                        panel.typing = Some(draft.model.clone());
+                    }
+                    (None, None) => panel.typing = Some(draft.model.clone()),
+                    (None, Some(program)) => {
+                        panel.note = LISTING.into();
+                        if !self.pi_asked {
+                            self.pi_asked = true;
+                            let (program, models) = (program.clone(), self.pi_models.clone());
+                            std::thread::spawn(move || {
+                                let _ = models.set(crate::pi::pi_models(&program));
+                            });
+                        }
+                    }
                 },
                 2 => {
                     draft.thinking = next(draft.harness.thinking(), &draft.thinking.as_str()).into()
@@ -161,6 +201,9 @@ impl Controls {
                     }
                 }
             },
+            KeyCode::Char('t') if panel.row == 1 && key.modifiers.is_empty() => {
+                panel.typing = Some(draft.model.clone())
+            }
             KeyCode::Char('s') if key.modifiers.is_empty() => self.save(),
             _ => {}
         }
@@ -242,13 +285,13 @@ impl Controls {
             Line::default(),
             Line::styled("F2 sends your words to this model.", palette.ink),
             Line::styled("The cap is on requests, not dollars.", palette.ink),
-            Line::styled(panel.note.clone(), palette.muted),
+            Line::styled(self.note(panel), palette.muted),
             Line::default(),
             Line::styled(
-                if panel.typing.is_some() {
-                    "enter done   esc undo"
-                } else {
-                    "↑↓ choose   enter change   s save   esc close"
+                match (&panel.typing, panel.row) {
+                    (Some(_), _) => "enter done   esc undo",
+                    (None, 1) => "↑↓ choose   enter next   t type   s save   esc",
+                    (None, _) => "↑↓ choose   enter change   s save   esc close",
                 },
                 palette.muted,
             ),
@@ -268,6 +311,19 @@ impl Controls {
             .padding(Padding::new(1, 1, 0, 0));
         frame.render_widget(Clear, at);
         frame.render_widget(text.block(block), at);
+    }
+
+    /// The panel's note, saying how listing Pi's models went once it has.
+    fn note(&self, panel: &Panel) -> String {
+        match self.pi_models.get() {
+            Some(Ok(models)) if panel.note == LISTING => {
+                format!("Pi lists {} models; enter picks the next.", models.len())
+            }
+            Some(Err(why)) if panel.note == LISTING => {
+                format!("{why} Type the model instead.")
+            }
+            _ => panel.note.clone(),
+        }
     }
 
     fn rows(&self) -> usize {
