@@ -156,14 +156,16 @@ pub enum Event {
     },
 }
 
-/// Who produced the readings: Pi with a named model, or the practice simulation.
+/// Who produced the readings: a harness with a named model, or the practice simulation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Origin {
-    /// `live` for Pi, `simulated` for practice or a stand-in host.
+    /// `live` for a model host, `simulated` for practice or a stand-in host.
     pub origin: String,
-    /// The model, as `provider/model-id`, when there was one.
+    /// Which program drafted, when there was one.
+    pub harness: Option<crate::pi::Harness>,
+    /// The model, as the harness was given it, when there was one.
     pub model: Option<String>,
-    /// Pi's thinking level, when set.
+    /// The harness's thinking level, when set.
     pub thinking: Option<String>,
     /// [`hash`] of the system prompts the readings used, when known.
     pub prompt_hash: Option<String>,
@@ -173,6 +175,7 @@ impl Origin {
     pub fn simulated() -> Self {
         Self {
             origin: "simulated".into(),
+            harness: None,
             model: None,
             thinking: None,
             prompt_hash: None,
@@ -287,6 +290,7 @@ pub fn write_with_context(
         ),
         "reading_context": context,
         "origin": session.origin.origin,
+        "harness": session.origin.harness,
         "model": session.origin.model,
         "thinking": session.origin.thinking,
         "prompt_hash": session.origin.prompt_hash,

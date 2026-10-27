@@ -204,7 +204,7 @@ fn coverage_board(request: &BoardRequest, g: &serde_json::Value) -> Vec<Coverage
         })
         .collect()
 }
-pub(super) fn log(host: &PiHost, d: &Decision) {
+pub(super) fn log(host: &ModelHost, d: &Decision) {
     if let Ok(mut history) = host.brain_history.lock() {
         history.push(serde_json::to_string(d).expect("decision is serializable"));
     }

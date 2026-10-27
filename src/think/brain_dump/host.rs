@@ -1,5 +1,5 @@
-//! Who answers a reading request: [`BoardHost`] is the boundary, met by Pi (a shaping call, then
-//! the decision review) or by the practice simulation.
+//! Who answers a reading request: [`BoardHost`] is the boundary, met by a model host, Pi or
+//! Claude Code (a shaping call, then the decision review), or by the practice simulation.
 use super::*;
 use crate::think_record as record;
 
@@ -34,12 +34,12 @@ pub trait BoardHost: Send + Sync {
         record::Origin::simulated()
     }
 }
-impl BoardHost for PiHost {
+impl BoardHost for ModelHost {
     fn call_in_flight(&self) -> Option<Request> {
         self.active_call.try_lock().ok().and_then(|call| *call)
     }
     fn new_session(&self) -> Option<Arc<dyn BoardHost>> {
-        Some(Arc::new(PiHost::new_session(self)))
+        Some(Arc::new(ModelHost::new_session(self)))
     }
     fn calls_left(&self) -> Option<String> {
         self.budget().map(crate::pi::CallBudget::left)
@@ -47,6 +47,7 @@ impl BoardHost for PiHost {
     fn origin(&self) -> record::Origin {
         record::Origin {
             origin: "live".into(),
+            harness: Some(self.harness),
             model: Some(self.model.clone()),
             thinking: (!self.thinking.is_empty()).then(|| self.thinking.clone()),
             prompt_hash: Some(record::hash(&format!(

@@ -16,7 +16,7 @@ use tinkery::think::{
     brain_dump::{
         BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, decision_review_input,
     },
-    drafting::{CallBudget, PiHost, Request},
+    drafting::{CallBudget, ModelHost, Request},
 };
 use tinkery::think_record::hash;
 
@@ -93,7 +93,7 @@ impl BoardHost for Fake {
     fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
         let raw = self.request(Request::Shaping)?;
         let mut changes = vec![];
-        // Like PiHost, readable invalid boards still get a review before decoding.
+        // Like ModelHost, readable invalid boards still get a review before decoding.
         let review = decision_review_input(&request, &raw).and_then(|_| {
             self.request(Request::DecisionReview)
                 .ok()
@@ -288,9 +288,13 @@ fn run(options: &Options) -> Result<Value, String> {
         None => (fake.clone(), Duration::from_secs(5)),
         Some(live) => (
             Arc::new(
-                PiHost::new(live.pi_command.clone(), live.model.clone())?
-                    .with_thinking(&live.thinking)?
-                    .with_budget(budget.clone()),
+                ModelHost::new(
+                    tinkery::pi::Harness::Pi,
+                    live.pi_command.clone(),
+                    live.model.clone(),
+                )?
+                .with_thinking(&live.thinking)?
+                .with_budget(budget.clone()),
             ),
             // Two 90-second Pi calls per send, plus room to settle.
             Duration::from_secs(200),

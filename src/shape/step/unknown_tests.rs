@@ -96,6 +96,7 @@ print(json.dumps(reply))
 "##, seed_reply=seed_reply.to_string(), question_first=if question_first {"True"} else {"False"})).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Agent::new(
+        crate::pi::Harness::Pi,
         program,
         "test/stub".into(),
         String::new(),

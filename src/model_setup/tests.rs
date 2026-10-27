@@ -3,7 +3,7 @@ use crate::pi::{CallBudget, Request};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 fn setup(model: &str, thinking: &str, calls: usize) -> Setup {
-    Setup::new(model.into(), thinking.into(), calls).unwrap()
+    Setup::new(Harness::Pi, model.into(), thinking.into(), calls).unwrap()
 }
 
 fn press(controls: &mut Controls, code: KeyCode) {
@@ -34,16 +34,41 @@ fn screen(controls: &Controls) -> String {
 
 #[test]
 fn one_parser_refuses_what_neither_flags_nor_file_may_hold() {
-    assert!(Setup::new("anthropic/model".into(), "low".into(), 10).is_ok());
-    assert!(Setup::new(String::new(), "low".into(), 0).is_ok());
-    for (model, thinking, calls, why) in [
-        ("model", "low", 5, "provider/model-id"),
-        ("a/b c", "low", 5, "provider/model-id"),
-        ("a/b", "automatic", 5, "Use thinking off|minimal|low"),
-        ("", "low", 5, "Choose a model"),
+    use Harness::{ClaudeCode, Pi};
+    assert!(Setup::new(Pi, "anthropic/model".into(), "low".into(), 10).is_ok());
+    assert!(Setup::new(Pi, String::new(), "off".into(), 0).is_ok());
+    assert!(Setup::new(ClaudeCode, "claude-opus-5-5".into(), "max".into(), 5).is_ok());
+    for (harness, model, thinking, calls, why) in [
+        (Pi, "model", "low", 5, "provider/model-id"),
+        (Pi, "a/b c", "low", 5, "provider/model-id"),
+        (Pi, "a/b", "automatic", 5, "Use thinking off|minimal|low"),
+        (Pi, "", "low", 5, "Choose a model"),
+        (ClaudeCode, "sonnet", "low", 5, "claude-sonnet-5-5"),
+        (
+            ClaudeCode,
+            "anthropic/claude-opus-5-5",
+            "low",
+            5,
+            "Claude Code model id",
+        ),
+        (ClaudeCode, "claude-", "low", 5, "Claude Code model id"),
+        (
+            ClaudeCode,
+            "claude-opus-5-5",
+            "off",
+            5,
+            "Use thinking low|medium|high|xhigh|max with Claude Code",
+        ),
+        (
+            ClaudeCode,
+            "claude-opus-5-5",
+            "minimal",
+            5,
+            "with Claude Code",
+        ),
     ] {
-        let refused = Setup::new(model.into(), thinking.into(), calls).unwrap_err();
-        assert!(refused.contains(why), "{refused}");
+        let refused = Setup::new(harness, model.into(), thinking.into(), calls).unwrap_err();
+        assert!(refused.contains(why), "{model} {thinking}: {refused}");
     }
 }
 
@@ -51,18 +76,19 @@ fn one_parser_refuses_what_neither_flags_nor_file_may_hold() {
 fn launch_drafts_only_with_saved_calls_or_shape_pi_and_flags_win_for_one_launch() {
     let saved = setup("p/saved", "high", 10);
     let practice_saved = setup("p/saved", "high", 0);
-    assert_eq!(Setup::launch(false, None, None, None, None), Ok(None));
+    assert_eq!(Setup::launch(false, None, None, None, None, None), Ok(None));
     assert_eq!(
-        Setup::launch(false, None, None, None, Some(&practice_saved)),
+        Setup::launch(false, None, None, None, None, Some(&practice_saved)),
         Ok(None)
     );
     assert_eq!(
-        Setup::launch(false, None, None, None, Some(&saved)),
+        Setup::launch(false, None, None, None, None, Some(&saved)),
         Ok(Some(saved.clone()))
     );
     assert_eq!(
         Setup::launch(
             true,
+            None,
             Some("p/flag".into()),
             Some("max".into()),
             Some(2),
@@ -71,21 +97,70 @@ fn launch_drafts_only_with_saved_calls_or_shape_pi_and_flags_win_for_one_launch(
         Ok(Some(setup("p/flag", "max", 2)))
     );
     assert_eq!(
-        Setup::launch(true, None, None, None, Some(&practice_saved)),
+        Setup::launch(true, None, None, None, None, Some(&practice_saved)),
         Ok(Some(practice_saved.clone())),
         "--shape-pi drafts with the saved model even with zero calls"
     );
     assert_eq!(
-        Setup::launch(true, Some("p/flag".into()), None, None, None),
+        Setup::launch(true, None, Some("p/flag".into()), None, None, None),
         Ok(Some(setup("p/flag", "low", 0))),
         "without a saved file, flags keep today's defaults"
     );
     assert!(
-        Setup::launch(true, None, None, None, None)
+        Setup::launch(true, None, None, None, None, None)
             .unwrap_err()
             .contains("requires an explicit --model")
     );
-    assert!(Setup::launch(true, Some("p/m".into()), Some("lots".into()), None, None).is_err());
+    assert!(
+        Setup::launch(
+            true,
+            None,
+            Some("p/m".into()),
+            Some("lots".into()),
+            None,
+            None
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn a_harness_flag_keeps_the_saved_calls_but_never_another_harness_s_model_or_thinking() {
+    use Harness::{ClaudeCode, Pi};
+    let saved = setup("p/saved", "minimal", 10);
+    let claude = |model: &str, thinking: &str, calls| {
+        Setup::new(ClaudeCode, model.into(), thinking.into(), calls).unwrap()
+    };
+    assert!(
+        Setup::launch(true, Some(ClaudeCode), None, None, None, Some(&saved))
+            .unwrap_err()
+            .contains("--model: a Claude Code model id"),
+        "a Pi model is never sent to Claude Code"
+    );
+    assert_eq!(
+        Setup::launch(
+            true,
+            Some(ClaudeCode),
+            Some("claude-haiku-5-5".into()),
+            None,
+            None,
+            Some(&saved)
+        ),
+        Ok(Some(claude("claude-haiku-5-5", "low", 10))),
+        "Pi's minimal thinking stays with Pi"
+    );
+    let saved_claude = claude("claude-opus-5-5", "xhigh", 5);
+    assert_eq!(
+        Setup::launch(true, None, None, None, None, Some(&saved_claude)),
+        Ok(Some(saved_claude.clone()))
+    );
+    assert!(
+        Setup::launch(true, Some(Pi), None, None, None, Some(&saved_claude))
+            .unwrap_err()
+            .contains("provider/model-id")
+    );
+    assert_eq!(Harness::parse("claude-code"), Ok(ClaudeCode));
+    assert!(Harness::parse("claude").is_err());
 }
 
 #[test]
@@ -122,7 +197,9 @@ fn only_s_writes_the_file_and_esc_leaves_it_alone() {
     assert_eq!(controls.label(), "practice");
     assert!(!controls.key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE)));
     controls.open();
+    assert!(screen(&controls).contains("Harness   Pi"));
     assert!(screen(&controls).contains("Model     none"));
+    press(&mut controls, KeyCode::Down);
     press(&mut controls, KeyCode::Enter);
     typed(&mut controls, "anthropic/claude-test");
     press(&mut controls, KeyCode::Enter);
@@ -146,6 +223,7 @@ fn only_s_writes_the_file_and_esc_leaves_it_alone() {
         screen(&controls).contains("Model     none"),
         "esc kept the draft"
     );
+    press(&mut controls, KeyCode::Down);
     press(&mut controls, KeyCode::Enter);
     typed(&mut controls, "anthropic/claude-test");
     press(&mut controls, KeyCode::Enter);
@@ -175,10 +253,11 @@ fn saving_refuses_calls_without_a_model_and_typing_refuses_a_loose_model() {
     let file = path(Some(home.path().as_os_str())).unwrap();
     let mut controls = Controls::new(Some(file.clone()), Ok(None), None);
     controls.open();
+    press(&mut controls, KeyCode::Down);
     press(&mut controls, KeyCode::Enter);
     typed(&mut controls, "no-provider s");
     press(&mut controls, KeyCode::Enter);
-    assert!(screen(&controls).contains("Use provider/model-id"));
+    assert!(screen(&controls).contains("Use an explicit model: provider/model-id"));
     press(&mut controls, KeyCode::Esc);
     assert!(
         controls.is_open(),
@@ -214,7 +293,7 @@ fn adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap() {
     let mut controls = Controls::new(Some(file.clone()), Ok(None), Some(budget.clone()));
     assert_eq!(controls.label(), "0 calls left");
     controls.open();
-    for _ in 0..3 {
+    for _ in 0..4 {
         press(&mut controls, KeyCode::Down);
     }
     press(&mut controls, KeyCode::Enter);
@@ -240,7 +319,7 @@ fn an_agent_sees_the_setup_but_cannot_save_it_or_add_calls() {
     controls.open();
     press(&mut controls, KeyCode::Char('s'));
     assert!(screen(&controls).contains("An agent can't save a setup or add calls"));
-    for _ in 0..3 {
+    for _ in 0..4 {
         press(&mut controls, KeyCode::Down);
     }
     press(&mut controls, KeyCode::Enter);
@@ -265,8 +344,71 @@ fn practice_has_no_now_row_and_clicking_the_label_opens_the_panel() {
     assert!(controls.click(at(start), area));
     assert!(controls.is_open());
     assert!(!screen(&controls).contains("Now "));
-    for _ in 0..3 {
+    for _ in 0..4 {
         press(&mut controls, KeyCode::Down);
     }
-    assert!(screen(&controls).contains("› Model"), "three rows wrap");
+    assert!(screen(&controls).contains("› Harness"), "four rows wrap");
+}
+
+#[test]
+fn claude_code_models_are_picked_not_typed_and_saving_keeps_the_harness() {
+    let home = tempfile::tempdir().unwrap();
+    let file = path(Some(home.path().as_os_str())).unwrap();
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, r#"{"model":"p/old","thinking":"minimal","calls":5}"#).unwrap();
+    assert_eq!(
+        load(&file),
+        Ok(Some(setup("p/old", "minimal", 5))),
+        "a file without a harness is Pi"
+    );
+    let mut controls = Controls::new(Some(file.clone()), load(&file), None);
+    controls.open();
+    press(&mut controls, KeyCode::Enter);
+    let shown = screen(&controls);
+    assert!(
+        shown.contains("Harness   Claude Code") && shown.contains("claude-sonnet-5-5"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("Thinking  low"),
+        "minimal is Pi's alone: {shown}"
+    );
+    press(&mut controls, KeyCode::Down);
+    press(&mut controls, KeyCode::Enter);
+    assert!(screen(&controls).contains("claude-opus-5-5"));
+    assert!(
+        screen(&controls).contains("↑↓ choose"),
+        "picking never starts typing"
+    );
+    press(&mut controls, KeyCode::Down);
+    for level in ["medium", "high", "xhigh", "max", "low"] {
+        press(&mut controls, KeyCode::Enter);
+        assert!(screen(&controls).contains(&format!("Thinking  {level}")));
+    }
+    press(&mut controls, KeyCode::Char('s'));
+    assert_eq!(
+        load(&file),
+        Ok(Some(
+            Setup::new(
+                Harness::ClaudeCode,
+                "claude-opus-5-5".into(),
+                "low".into(),
+                5
+            )
+            .unwrap()
+        ))
+    );
+    assert!(
+        std::fs::read_to_string(&file)
+            .unwrap()
+            .contains(r#""harness": "claude-code""#)
+    );
+    press(&mut controls, KeyCode::Up);
+    press(&mut controls, KeyCode::Up);
+    press(&mut controls, KeyCode::Enter);
+    let shown = screen(&controls);
+    assert!(
+        shown.contains("Harness   Pi") && shown.contains("Model     none"),
+        "a Claude Code model is never kept for Pi: {shown}"
+    );
 }

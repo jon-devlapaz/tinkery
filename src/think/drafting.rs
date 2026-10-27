@@ -1,6 +1,6 @@
-//! Think's model host: Pi configured for the reading and the decision review.
+//! Think's model host: Pi or Claude Code configured for the reading and the decision review.
 //!
-//! A request runs Pi with no tools, session, extensions or context files, so the model sees
+//! A request runs the host with no tools, session, extensions or context files, so the model sees
 //! only the prompt and the words sent. The process boundary (caps, timeout, cancellation) and the
 //! call budget are shared in [`crate::pi`]; this module adds think's instructions and settings.
 //! The app and evaluations attach a [`CallBudget`]; no request starts once its limit is reached.
@@ -20,7 +20,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-pub use crate::pi::{Attempt, CallBudget, LIMIT, Request};
+pub use crate::pi::{Attempt, CallBudget, Harness, LIMIT, Request};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -37,9 +37,10 @@ pub struct Approach {
     pub undo_cost: String,
 }
 
-/// Pi, configured for think's shaping calls: an explicit model, a thinking level, and the
-/// bundled working-draft guidance as standing instructions.
-pub struct PiHost {
+/// Pi or Claude Code, configured for think's shaping calls: an explicit model, a thinking level,
+/// and the bundled working-draft guidance as standing instructions.
+pub struct ModelHost {
+    pub(super) harness: Harness,
     program: PathBuf,
     pub(super) model: String,
     pub(super) thinking: String,
@@ -49,13 +50,13 @@ pub struct PiHost {
     pub(super) active_call: std::sync::Mutex<Option<Request>>,
 }
 
-impl PiHost {
-    /// Pi at `program` with an explicit model and bundled working-draft guidance. Starts nothing.
-    pub fn new(program: PathBuf, model: String) -> Result<Self, String> {
-        if !crate::pi::explicit_model(&model) {
-            return Err("Use an explicit --model provider/model-id.".into());
-        }
+impl ModelHost {
+    /// `harness` at `program` with a model it accepts and bundled working-draft guidance. Starts
+    /// nothing.
+    pub fn new(harness: Harness, program: PathBuf, model: String) -> Result<Self, String> {
+        harness.check_model(&model)?;
         Ok(Self {
+            harness,
             program,
             model,
             thinking: "low".into(),
@@ -71,6 +72,7 @@ impl PiHost {
     /// its own history.
     pub fn new_session(&self) -> Self {
         Self {
+            harness: self.harness,
             program: self.program.clone(),
             model: self.model.clone(),
             thinking: self.thinking.clone(),
@@ -81,9 +83,9 @@ impl PiHost {
         }
     }
 
-    /// Sets Pi's thinking level; refuses a level Pi doesn't name. The default is `low`.
+    /// Sets the thinking level; refuses one the harness doesn't name. The default is `low`.
     pub fn with_thinking(mut self, level: &str) -> Result<Self, String> {
-        crate::model_setup::check_thinking(level)?;
+        self.harness.check_thinking(level)?;
         self.thinking = level.into();
         Ok(self)
     }
@@ -95,7 +97,7 @@ impl PiHost {
             .1
     }
 
-    /// Counts every request against `budget`, refusing any past its limit before Pi starts.
+    /// Counts every request against `budget`, refusing any past its limit before the host starts.
     /// Callers must supply the authorized allowance; the app defaults it to zero.
     pub fn with_budget(mut self, budget: Arc<CallBudget>) -> Self {
         self.budget = Some(budget);
@@ -106,7 +108,7 @@ impl PiHost {
         self.budget.as_deref()
     }
 
-    /// Leaves the thinking level to Pi's own default.
+    /// Leaves the thinking level to the host's own default.
     pub fn with_default_thinking(mut self) -> Self {
         self.thinking.clear();
         self
@@ -121,6 +123,7 @@ impl PiHost {
     ) -> Result<String, String> {
         *self.active_call.lock().unwrap() = Some(kind);
         let result = crate::pi::Call {
+            harness: self.harness,
             program: self.program.clone(),
             model: self.model.clone(),
             thinking: self.thinking.clone(),

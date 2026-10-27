@@ -86,6 +86,8 @@ struct SavedRecord {
     #[serde(default)]
     reading_context: serde_json::Value,
     origin: String,
+    #[serde(default)]
+    harness: Option<String>,
     model: Option<String>,
     thinking: Option<String>,
     prompt_hash: Option<String>,
@@ -178,7 +180,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
     let details = format!(
         concat!(
             "Think record: {}\nSession: {}\nSession ID: {}\nRepository: {}\nFormat: {}\nTinkery: {}\n",
-            "Origin: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n",
+            "Origin: {}\nHarness: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n",
             "Goal confirmer (caller-declared, not authenticated): {}\n\nChecks:\n{}"
         ),
         path.display(),
@@ -192,6 +194,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         record.schema,
         record.tinkery,
         record.origin,
+        record.harness.as_deref().unwrap_or("not recorded"),
         record.model.as_deref().unwrap_or("not recorded"),
         record.thinking.as_deref().unwrap_or("not recorded"),
         record.prompt_hash.as_deref().unwrap_or("not recorded"),

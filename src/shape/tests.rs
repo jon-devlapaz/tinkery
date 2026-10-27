@@ -607,6 +607,7 @@ fn incomplete_lists_keep_the_count_and_f1_route() {
 fn agent(budget: usize) -> Arc<Agent> {
     Arc::new(
         Agent::new(
+            crate::pi::Harness::Pi,
             "/tmp/TEST-shape/never-run-pi".into(),
             "test/model".into(),
             "low".into(),
@@ -1321,6 +1322,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     let version = answered_probe(&receipt.session);
     let agent = Arc::new(
         step::Agent::new(
+            crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
@@ -1671,6 +1673,7 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': checks, 'review
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(
         step::Agent::new(
+            crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
@@ -1930,6 +1933,7 @@ else:
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(
         step::Agent::new(
+            crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
@@ -2059,6 +2063,7 @@ print(json.dumps({{'next': 'seed', 'confirming': body, 'checks': json.loads({che
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(
         step::Agent::new(
+            crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
@@ -3110,6 +3115,7 @@ fn the_first_step_puts_the_pre_mortem_to_the_operator_without_a_model() {
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Arc::new(
         step::Agent::new(
+            crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
@@ -3559,6 +3565,7 @@ print('TEST deliberately invalid reply')
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let budget = CallBudget::new(2);
     let agent = Agent::new(
+        crate::pi::Harness::Pi,
         program,
         "test/stub".into(),
         String::new(),

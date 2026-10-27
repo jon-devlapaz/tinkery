@@ -39,6 +39,7 @@ fn provider(root: &Path, reply: &str, calls: usize) -> Agent {
     fs::write(&program, "#!/usr/bin/env python3\nimport pathlib, sys\nsys.stdin.read()\nprint(pathlib.Path(__file__).with_name('TEST-reply.json').read_text())\n").unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     Agent::new(
+        crate::pi::Harness::Pi,
         program,
         "test/stub".into(),
         String::new(),
@@ -718,5 +719,91 @@ fn one_case_per_failure_mode_hears_that_one_check_takes_one_string() {
     assert!(
         error.contains("put every failure mode of one check in its one string"),
         "{error}"
+    );
+}
+
+#[test]
+fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_result() {
+    let root = tempfile::Builder::new()
+        .prefix("TEST-claude-step-")
+        .tempdir()
+        .unwrap();
+    let session = Config::new(Some(root.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: "TEST book loans".into(),
+            outcome: "TEST two loans survive restart".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture".into(),
+        })
+        .unwrap()
+        .session;
+    let version = answering::read(&session).unwrap().version();
+    let version = answering::probe(&session, version).unwrap().unwrap();
+    // Claude Code gets a clean environment, so the fake's paths are baked in.
+    let log = root.path().join("TEST-started.json");
+    let reply = json!({"type":"result", "is_error":false, "result":valid_reply().to_string(),
+        "modelUsage":{"claude-TEST":{}}});
+    let program = root.path().join("claude");
+    fs::write(
+        &program,
+        format!(
+            "#!/usr/bin/env python3\nimport json, os, sys\nsys.stdin.read()\n\
+             open({log:?}, 'w').write(json.dumps(dict(argv=sys.argv[1:], cwd=os.getcwd())))\n\
+             print({reply:?})\n",
+            log = log.display().to_string(),
+            reply = reply.to_string(),
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = Agent::new(
+        Harness::ClaudeCode,
+        program,
+        "claude-TEST".into(),
+        "max".into(),
+        None,
+        CallBudget::new(1),
+        None,
+    )
+    .unwrap();
+    let done = run(
+        &Work::Answer {
+            id: answering::PROBE.0.into(),
+            words: "TEST answer".into(),
+            expected: version,
+            folder: root.path().into(),
+        },
+        &session,
+        &agent,
+        &AtomicBool::new(false),
+        &AtomicBool::new(false),
+    );
+    assert_eq!(done, Ok(Done::Drafted));
+    let started: Value = serde_json::from_str(&fs::read_to_string(log).unwrap()).unwrap();
+    let argv: Vec<String> = serde_json::from_value(started["argv"].clone()).unwrap();
+    let after = |flag: &str| argv[argv.iter().position(|a| a == flag).unwrap() + 1].clone();
+    assert_eq!(after("--tools"), "Read,Grep,Glob");
+    assert_eq!(after("--permission-mode"), "dontAsk");
+    assert_eq!(after("--effort"), "max");
+    assert_eq!(
+        Path::new(started["cwd"].as_str().unwrap())
+            .canonicalize()
+            .unwrap(),
+        root.path().canonicalize().unwrap()
+    );
+    assert!(
+        Agent::new(
+            Harness::ClaudeCode,
+            "claude".into(),
+            "claude-TEST".into(),
+            "minimal".into(),
+            None,
+            CallBudget::new(0),
+            None
+        )
+        .is_err(),
+        "a level Claude Code doesn't name is refused before anything starts"
     );
 }

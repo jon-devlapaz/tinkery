@@ -8,7 +8,7 @@ pub(super) const PROMPT: &str = include_str!("prompts/decision_review.txt");
 /// Indices of shaping decisions a review explicitly identifies as the same choice.
 pub(super) const COVERS: &str = "covers";
 
-impl PiHost {
+impl ModelHost {
     /// Runs the review on a reading's raw reply. Returns the decisions it found, or `None` when
     /// it found none or couldn't run, leaving the reading as it was.
     pub(super) fn review_decisions(
