@@ -1,0 +1,2 @@
+# Applies to GitHub's web issue chooser; API-created issues may bypass templates.
+blank_issues_enabled: false
