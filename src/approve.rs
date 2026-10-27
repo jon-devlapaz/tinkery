@@ -15,11 +15,14 @@ use std::{
 };
 
 use crate::{
-    Palette, sdlc,
+    Palette,
+    repo::Repo,
+    sdlc,
     seed_me::{
         Session, Stage,
         ready::{self, ReadySeed},
     },
+    think_record::{self, MadeIn},
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
@@ -29,9 +32,20 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 
+enum OriginNote {
+    Different(String),
+    Unknown,
+    NoRepo,
+}
+
+struct Reading {
+    seed: ReadySeed,
+    origin_note: Option<OriginNote>,
+}
+
 #[derive(Default)]
 struct Found {
-    seeds: Vec<ReadySeed>,
+    seeds: Vec<Reading>,
     unavailable: usize,
     reasons: Vec<String>,
     start_unknown: Option<String>,
@@ -46,7 +60,7 @@ pub(crate) struct Reader {
 }
 
 impl Reader {
-    /// Stop publication and further session reads without blocking terminal input.
+    /// Stop publication and further seed verification without blocking terminal input.
     pub(crate) fn cancel(&mut self) {
         if let Some((_, stop)) = &self.running {
             stop.store(true, Ordering::SeqCst);
@@ -72,7 +86,13 @@ impl Reader {
         }
     }
 
-    fn start(&mut self, sessions: Vec<Session>, root: Option<PathBuf>, mut found: Found) -> bool {
+    fn start(
+        &mut self,
+        sessions: Vec<Session>,
+        root: Option<PathBuf>,
+        record_root: Result<PathBuf, String>,
+        mut found: Found,
+    ) -> bool {
         if self.running.is_some() {
             return false;
         }
@@ -80,6 +100,18 @@ impl Reader {
         let cancelled = stop.clone();
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
+            let resolved_root = root.as_deref().and_then(|root| root.canonicalize().ok());
+            let repo = resolved_root.as_deref().and_then(Repo::enclosing);
+            let origins = root.as_ref().and_then(|_| {
+                let selected: Vec<_> = sessions
+                    .iter()
+                    .map(|session| (session.path.as_path(), session.goal.as_str()))
+                    .collect();
+                record_root
+                    .ok()
+                    .and_then(|root| think_record::read_origins(&root, &selected).ok())
+            });
+            let origins = origins.unwrap_or_else(|| vec![MadeIn::Unknown; sessions.len()]);
             let runs = root
                 .as_deref()
                 .ok_or("Start Tinkery with --sdlc-root PATH to check.".into())
@@ -88,7 +120,7 @@ impl Reader {
                 found.start_unknown = Some(reason.clone());
             }
             // Discovery owns chronological sorting. Reverse its newest-first order, not timestamps.
-            for session in sessions.into_iter().rev() {
+            for (session, origin) in sessions.into_iter().zip(origins).rev() {
                 if cancelled.load(Ordering::SeqCst) {
                     return;
                 }
@@ -110,7 +142,17 @@ impl Reader {
                     }
                 }
                 match ready::read(&session.path, root.as_deref()) {
-                    Ok(Some(seed)) => found.seeds.push(seed),
+                    Ok(Some(mut seed)) => {
+                        let origin_note = root.as_deref().and_then(|root| {
+                            let origin = if resolved_root.is_some() {
+                                origin
+                            } else {
+                                MadeIn::Unknown
+                            };
+                            origin_note(&mut seed, origin, repo.as_ref(), root)
+                        });
+                        found.seeds.push(Reading { seed, origin_note });
+                    }
                     Ok(None) => {}
                     Err(reason) => {
                         found.unavailable += 1;
@@ -177,6 +219,7 @@ impl Approve {
         unavailable: usize,
         reasons: Vec<String>,
         reader: &mut Reader,
+        record_root: Result<PathBuf, String>,
     ) {
         if !self.waiting {
             return;
@@ -186,6 +229,7 @@ impl Approve {
             if reader.start(
                 sessions,
                 self.root.clone(),
+                record_root,
                 Found {
                     unavailable,
                     reasons,
@@ -205,7 +249,7 @@ impl Approve {
         }
     }
 
-    fn seeds(&self) -> &[ReadySeed] {
+    fn seeds(&self) -> &[Reading] {
         match &self.found {
             Some(Ok(found)) => &found.seeds,
             _ => &[],
@@ -268,7 +312,7 @@ impl Approve {
                 self.copy = self
                     .seeds()
                     .get(self.selected)
-                    .and_then(|s| s.commands.clone());
+                    .and_then(|reading| reading.seed.commands.clone());
             }
             code => scroll(&mut self.scroll, code, self.page),
         }
@@ -336,7 +380,8 @@ impl Approve {
                     if found.unavailable > 0 {
                         lines.push(Line::styled(format!("{} sessions couldn't be read; this list may be incomplete. F1 shows why.", found.unavailable), palette.muted));
                     }
-                    if let Some(seed) = found.seeds.get(self.selected) {
+                    if let Some(reading) = found.seeds.get(self.selected) {
+                        let seed = &reading.seed;
                         keys = if seed.commands.is_some() {
                             "n/p seed   ↑↓ read   c copy command   esc back   ? help"
                         } else {
@@ -366,6 +411,18 @@ impl Approve {
                         if let Some(note) = &seed.confirmation_note {
                             lines.push(Line::raw(note.clone()));
                         }
+                        if let Some(note) = &reading.origin_note {
+                            let (text, style) = match note {
+                                OriginNote::Different(reason) => (reason.as_str(), palette.ink),
+                                OriginNote::Unknown => {
+                                    ("Where this seed was made is unknown.", palette.muted)
+                                }
+                                OriginNote::NoRepo => {
+                                    ("Made outside any repository.", palette.muted)
+                                }
+                            };
+                            lines.push(Line::styled(display(text), style));
+                        }
                         if seed.commands.is_some() {
                             lines.push(Line::raw(
                                 "Paste this command to create the titled run and import its checks for definition review. Copying runs nothing."
@@ -375,7 +432,7 @@ impl Approve {
                             for line in commands.lines() {
                                 lines.push(Line::raw(line.to_owned()));
                             }
-                        } else {
+                        } else if !matches!(reading.origin_note, Some(OriginNote::Different(_))) {
                             lines.push(Line::raw("Cannot copy: name a checkout with --sdlc-root PATH; checkout, seed, title and executable must be safe for one shell line."));
                         }
                     } else {
@@ -437,6 +494,34 @@ impl Approve {
                 1,
             ),
         );
+    }
+}
+
+fn origin_note(
+    seed: &mut ReadySeed,
+    origin: MadeIn,
+    repo: Option<&Repo>,
+    root: &std::path::Path,
+) -> Option<OriginNote> {
+    match origin {
+        MadeIn::Repo(other) if repo.is_none_or(|repo| repo.root() != other) => {
+            seed.commands = None;
+            let name = |path: &std::path::Path| {
+                path.file_name().map_or_else(
+                    || path.display().to_string(),
+                    |name| name.to_string_lossy().into_owned(),
+                )
+            };
+            let other = name(&other);
+            let checkout = repo.map_or_else(|| name(root), Repo::name);
+            Some(OriginNote::Different(format!(
+                "Made in {other}, not the checkout you named ({checkout}). \
+                 To start it, reopen Tinkery with --sdlc-root naming {other}."
+            )))
+        }
+        MadeIn::Repo(_) => None,
+        MadeIn::Unknown => Some(OriginNote::Unknown),
+        MadeIn::NoRepo => Some(OriginNote::NoRepo),
     }
 }
 

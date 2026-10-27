@@ -330,7 +330,13 @@ impl Home {
                 ),
                 Err(reason) => (Err(reason.clone()), 0, Vec::new()),
             };
-            view.offer(sessions, unavailable, reasons, &mut self.approve_reader);
+            view.offer(
+                sessions,
+                unavailable,
+                reasons,
+                &mut self.approve_reader,
+                self.record_root.clone(),
+            );
         }
     }
 
