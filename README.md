@@ -90,9 +90,9 @@ The complete journey and its benefit remain unproven; passing checks are not acc
 
 ## Where we’re going next
 
-Measure lists PRs, not accepted outcomes or recorded effort. The broader measurement
-proposals are closed, not planned. See the
-[first-release plan](docs/design/first-release.md) and [task index](docs/design/first-release-issues.md).
+Measure lists PRs, not accepted outcomes or recorded effort. The broader proposals are in
+the [first-release plan](docs/design/first-release.md) and
+[task index](docs/design/first-release-issues.md).
 Published issues own proposal scope; publication is not implementation permission.
 
 ## What success means
