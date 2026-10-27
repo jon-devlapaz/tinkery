@@ -8,6 +8,12 @@ implementation permission remain separate.
 
 The menu supplies its existing session discovery result, without Tend's repository
 filter. Approve reads across that configured session root, oldest update first.
+The menu also supplies its Think record root. Once per visit, Approve's worker reads
+origins through `think_record::read_origins`, using the existing live identity and
+exact-goal checks. It compares recorded repository roots with `Repo::enclosing` of
+the canonicalized named checkout; `.git` contents are never read. Relative segments
+and symlink aliases resolve for comparison only, not as a new handoff destination.
+Different worktrees count as different repositories, even with the same folder name.
 No skill or model configuration is needed. Only Tinkery-verified ready seeds not already started appear, including
 completed sessions whose seed remains verified. Drafts, stopped sessions and unverifiable confirmations do not.
 Failed discovery and unreadable seeds stay unavailable;
@@ -21,8 +27,8 @@ refuse the reading. This is a snapshot, not a live freshness claim. Return to th
 menu and reopen to read again. Unsafe terminal controls are escaped only for display.
 
 One menu-owned verifier survives visits. Reads run off input and paint paths through
-disk reads. Leaving stops publication and further session
-reads; the current file read finishes before the verifier is reused. Reopening while it
+disk reads. Leaving stops publication and further seed
+reads; the current origin scan or file read finishes before the verifier is reused. Reopening while it
 finishes refuses a replacement worker and asks the operator to reopen later. Late
 results never reopen a view or populate a different visit.
 
@@ -41,6 +47,15 @@ at tink-sdlc's 80 characters without a trailing hyphen. Paths use the shared can
 shell quoting; no placeholder needs replacing. Existing run names still refuse creation.
 Copying runs nothing and grants no approval. Missing checkout, an empty slug or
 unsafe paths leave the verified seed readable with a reason and no copy action.
+A known different repository does the same: a plain reason names both repository
+folders and asks the operator to reopen with `--sdlc-root` naming the seed's origin.
+It offers no command, and `c` does nothing. Names explain the refusal; only root paths
+establish identity. Matching origins keep the existing copy action.
+Older records, missing or unreadable Think records, and an unresolvable checkout
+leave the origin unknown; a muted note says so without adding a copy refusal.
+A known origin outside any repository likewise keeps copy with a muted note.
+These readings establish where Think ran, not what the goal concerns or whether it
+has started elsewhere. Without `--sdlc-root`, origin handling changes nothing.
 Copy uses the existing OSC 52 transport and feedback. For
 [agent-confirmed seeds](think.md#confirmation-attribution-185), show
 `Agent-confirmed seed` and the tink-sdlc 1.38.0-or-newer intake requirement alongside
@@ -77,6 +92,10 @@ scrolling and abandoned reads. [PTY journeys](../../tests/approve_terminal.py)
 use the actual Rust ledger and temporary TEST roots at 80×24 and 100×30,
 with and without colour. They cover ordering, excluded drafts/stale seeds, the
 combined command, empty/incomplete/unreadable roots, matched/edited/moved seeds,
-no checkout, unreadable runs and unchanged source trees. The
+no checkout, unreadable runs, different-repository refusal and unchanged source trees.
+Rust view tests also cover matching and canonicalized checkout roots, older, missing
+and unreadable records, outside-repository origins and unresolved checkout paths.
+Reversion probes remove the mismatch refusal and block unknown-origin copying;
+both must fail the corresponding public-interface regressions. The
 [real handoff journey](../../tests/shape_sdlc_handoff.py) proves the move to Watch.
 These prove mechanics, not operator acceptance or real-work benefit.

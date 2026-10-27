@@ -60,6 +60,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Intake commands use `--tinkery PATH` to recheck the seed through this executable.
 - **Approve:** menu place 4 shows verified seeds, oldest first, with their exact goal
   and acceptance checks. `c` copies run creation and intake commands; nothing runs.
+  A seed known to come from another repository stays readable but cannot be copied
+  into the named checkout; unknown origins keep copy with a note.
   Seeds already started move to Watch; without a named checkout, start status is unknown.
   See [Approve](docs/design/approve.md).
 - **Watch:** with `--sdlc-root PATH`, reads that tink-sdlc checkout's runs through its own

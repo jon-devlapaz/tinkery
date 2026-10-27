@@ -25,7 +25,7 @@ def journey(width, height, case, no_color):
         root = Path(directory).resolve()
         sessions = root / "TEST sessions' folder"
         expected = []
-        if case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout'):
+        if case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout', 'different-repo'):
             for name, date in [('TEST oldest café', '2026-01-01T00:00:00Z'),
                                ('TEST newest', '2026-02-01T00:00:00Z')]:
                 # #434: a ready goal tall enough to push the command below the fold at both sizes.
@@ -51,7 +51,7 @@ def journey(width, height, case, no_color):
         elif case == 'unreadable':
             sessions.write_text('TEST not a directory')
         checkout = root / "TEST checkout's folder"
-        configured = case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable')
+        configured = case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'different-repo')
         if configured:
             script = checkout / '_system/scripts/sdlc.py'
             script.parent.mkdir(parents=True)
@@ -59,7 +59,7 @@ def journey(width, height, case, no_color):
             record = {'path': 'runs/TEST-other/seed-contract.md', 'source': str(original.resolve()),
                       'sha256': hashlib.sha256(original.read_bytes()).hexdigest()}
             report = {'protocol': 'tink-sdlc', 'api_version': 1, 'runs': [
-                {'slug': 'TEST-unrelated-name', 'seed_contract': record}] if case != 'ready' else []}
+                {'slug': 'TEST-unrelated-name', 'seed_contract': record}] if case not in ('ready', 'different-repo') else []}
             script.write_text('print(' + repr(json.dumps(report)) + ')\n'
                               if case != 'runs-unreadable' else 'raise SystemExit("TEST unreadable runs")\n')
             if case == 'edited':
@@ -68,6 +68,20 @@ def journey(width, height, case, no_color):
                 moved = sessions / 'TEST moved session'
                 expected[0].rename(moved)
                 expected[0] = moved
+        if case == 'different-repo':
+            (checkout / '.git').mkdir()
+            other = root / 'TEST-other-repo'
+            (other / '.git').mkdir(parents=True)
+            records = root / 'TEST-records'
+            records.mkdir()
+            for index, session in enumerate(expected):
+                ledger = json.loads((session / 'ledger.json').read_text())
+                record = dict(schema=3, tinkery='TEST', origin='simulated',
+                    started='2026-01-01T00:00:00Z', confirmed='2026-01-01T00:00:00Z',
+                    seed_me_session=session.name, seed_me_session_path=str(session),
+                    seed_me_session_id=ledger['session_id'], repo=str(other),
+                    turns=[], checks=[], goal=ledger['goal'])
+                (records / f'TEST-{index}.json').write_text(json.dumps(record))
         host = root / 'pi'
         host.write_text('#!/bin/sh\ntouch TEST-provider-was-run\nexit 86\n')
         host.chmod(0o755)
@@ -121,6 +135,16 @@ def journey(width, height, case, no_color):
                     assert 'unknown start' in flat(), screen.text()
                 else:
                     assert 'unknown start' not in flat(), screen.text()
+            elif case == 'different-repo':
+                wait(lambda: 'Seed 1 of 2' in flat())
+                assert 'TEST oldest café' in flat() and 'TEST original goal.' in flat(), screen.text()
+                send(b'\x1b[F', 'Made in TEST-other-repo,')
+                assert "not the checkout you named (TEST checkout's folder)." in flat(), screen.text()
+                assert 'To start it, reopen Tinkery with --sdlc-root naming TEST-other-repo.' in flat(), screen.text()
+                assert 'c copy command' not in flat() and 'python3' not in flat(), screen.text()
+                os.write(master, b'c')
+                send(b'\x1b', '4 approve')
+                assert not copies(), 'mismatched repo offered a copy'
             elif case == 'no-checkout':
                 wait(lambda: 'Seed 1 of 2' in flat())
                 send(b'\x1b[F', 'Cannot copy:')
@@ -190,5 +214,5 @@ def journey(width, height, case, no_color):
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
         for no_color in [False, True]:
-            for case in ['ready', 'empty', 'incomplete', 'unreadable', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout']:
+            for case in ['ready', 'empty', 'incomplete', 'unreadable', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout', 'different-repo']:
                 journey(*size, case, no_color)
