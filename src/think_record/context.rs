@@ -107,12 +107,15 @@ impl ReadingContext {
     }
 }
 
-pub(super) fn details<'a>(
+pub(super) fn history<'a>(
     value: &Value,
     turns: impl Iterator<Item = (&'a Event, String)>,
-) -> String {
+) -> (String, String) {
     if value.is_null() {
-        return "Reading context: not recorded.".into();
+        return (
+            "Reading sequence was not recorded.".into(),
+            "Reading context: not recorded.".into(),
+        );
     }
     let turns: Vec<_> = turns.collect();
     let context = serde_json::from_value::<ReadingContext>(value.clone()).and_then(|context| {
@@ -122,12 +125,18 @@ pub(super) fn details<'a>(
             .map_err(serde::de::Error::custom)
     });
     let Ok(context) = context else {
-        return "Reading context: unavailable (invalid metadata). Originals remain independent."
-            .into();
+        return (
+            "Reading sequence unavailable; saved words remain below.".into(),
+            "Reading context: unavailable (invalid metadata). Originals remain independent.".into(),
+        );
     };
     let mut lines = vec![
         "Reading context: terminal output, not proof of attention or a complete screen replay."
             .into(),
+    ];
+    let mut sequence = vec![
+        "Recorded order; presentation does not establish that someone read it.".into(),
+        String::new(),
     ];
     let mut reading = 0;
     let mut submitted_times = turns
@@ -137,6 +146,7 @@ pub(super) fn details<'a>(
         match entry {
             Entry::Presented { at, board } => {
                 reading += 1;
+                sequence.push(format!("{at}  Reading {reading} presented"));
                 lines.push(format!(
                     "Presented reading {reading} at {at}\nVerified board associated with the frame:\n{}",
                     serde_json::to_string_pretty(&board).expect("JSON snapshot serializes")
@@ -149,11 +159,17 @@ pub(super) fn details<'a>(
                 } else {
                     format!("after reading {reading}")
                 };
+                let relation = if reading == 0 {
+                    "no earlier reading recorded".into()
+                } else {
+                    format!("after reading {reading}")
+                };
+                sequence.push(format!("{at}  Submission {source} · {relation}"));
                 lines.push(format!("Submitted source {source} at {at}, {context}."));
             }
         }
     }
-    lines.join("\n\n")
+    (sequence.join("\n"), lines.join("\n\n"))
 }
 
 // Cargo tracks option_env inputs itself. No runtime repository lookup can confuse the

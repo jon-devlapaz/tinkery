@@ -132,8 +132,18 @@ views offer only `esc back`; an empty repo view also offers `a toggle goals`.
 
 ## Think history
 
-Detail's `r history` shows original words, questions, answers, skips, restores and
-the exact confirmed goal in recorded order. Suggestions have their own label, never an answer label.
+Detail's `r history` starts with **Recorded sequence**: presentations and submissions
+in the saved context's order, with full recorded timestamps including timezone. Submission
+numbers match the **Original words · submission N** and **Answer · submission N** headings
+below. One notice distinguishes presentation from someone reading it. Missing context says
+`Reading sequence was not recorded.`; invalid context says
+`Reading sequence unavailable; saved words remain below.` Neither hides valid history.
+The shared reader validates context once for both this summary and technical details;
+the view parses neither JSON nor formatted details. No timestamp sorting or merged chronology
+with question/skip actions is inferred.
+
+Original words, questions, answers, skips, restores and the exact confirmed goal follow
+in their existing recorded order. Suggestions have their own label, never an answer label.
 A recorded repository adds `Made in`
 and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
 shows the full path, `none` or `not recorded`, plus model information, checks and

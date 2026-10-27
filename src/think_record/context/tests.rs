@@ -19,12 +19,13 @@ fn board() -> Value {
     serde_json::json!({"framings":[{"text":"TEST exact frozen wording","supports":[]}],"other_goals":[],"deferred":[]})
 }
 fn check(value: Value, events: &[Event]) -> String {
-    details(
+    history(
         &value,
         events
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53Z".into())),
     )
+    .1
 }
 #[test]
 fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_text() {
@@ -34,7 +35,26 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
     context.submitted(2);
     context.presented(board(), UNIX_EPOCH + Duration::from_secs(50));
     let value = serde_json::to_value(&context).unwrap();
-    let text = check(value, &words());
+    let (sequence, text) = history(
+        &value,
+        words()
+            .iter()
+            .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+    );
+    assert_eq!(
+        sequence.lines().skip(2).collect::<Vec<_>>(),
+        vec![
+            "2026-10-24T23:16:53Z  Submission 1 · no earlier reading recorded",
+            "1970-01-01T00:01:40.000Z  Reading 1 presented",
+            "2026-10-24T23:16:53Z  Submission 2 · after reading 1",
+            "1970-01-01T00:00:50.000Z  Reading 2 presented",
+        ]
+    );
+    assert!(!sequence.contains("TEST exact frozen wording"));
+    assert_eq!(
+        sequence.matches("presentation does not establish").count(),
+        1
+    );
     assert!(
         text.contains(
             "Submitted source 1 at 2026-10-24T23:16:53Z, before any recorded presentation"
@@ -79,7 +99,17 @@ fn malformed_context_never_supplies_a_relationship() {
         cases.push(bad);
     }
     for bad in cases {
-        let result = check(bad, &words());
+        let (sequence, result) = history(
+            &bad,
+            words()
+                .iter()
+                .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+        );
+        assert_eq!(
+            sequence,
+            "Reading sequence unavailable; saved words remain below."
+        );
+        assert!(!sequence.contains("after reading"));
         assert!(result.contains("unavailable"), "{result}");
         assert!(!result.contains("after reading"));
     }
@@ -107,4 +137,26 @@ fn build_stamp_requires_full_commit_and_explicit_modified_state() {
     }
     assert!(source_details(&Value::Null).contains("unknown"));
     assert!(source_details(&serde_json::json!({"commit":commit})).contains("unavailable"));
+}
+
+#[test]
+fn sequence_preserves_recorded_timezone_and_distinguishes_missing_from_invalid() {
+    let events = words();
+    let value = serde_json::json!({"events":[{"kind":"submitted","source":1},
+        {"kind":"presented","at":"2026-10-25T01:00:00+02:00","board":board()},
+        {"kind":"submitted","source":2}]});
+    let (sequence, details) = history(
+        &value,
+        events
+            .iter()
+            .map(|event| (event, "2026-10-24T23:16:53-05:00".into())),
+    );
+    assert!(sequence.contains("2026-10-25T01:00:00+02:00  Reading 1 presented"));
+    assert!(sequence.contains("2026-10-24T23:16:53-05:00  Submission 2 · after reading 1"));
+    assert!(details.contains("TEST exact frozen wording"));
+    let missing = history(
+        &Value::Null,
+        events.iter().map(|event| (event, String::new())),
+    );
+    assert_eq!(missing.0, "Reading sequence was not recorded.");
 }

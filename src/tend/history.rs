@@ -124,7 +124,7 @@ impl View {
         self.failed = result.is_err();
         match result {
             Ok(history) => {
-                let mut blocks = Vec::new();
+                let mut blocks = vec![("Recorded sequence".into(), true), (history.sequence, true)];
                 for turn in history.turns {
                     match turn.event {
                         Event::DraftSuggested { text, provenance } => add(
@@ -139,13 +139,20 @@ impl View {
                                 format!("{answer}\nWhy: {reason}"),
                             );
                         }
-                        Event::Words { text, .. } => add(&mut blocks, "Your words", text),
+                        Event::Words { text, source } => add(
+                            &mut blocks,
+                            &format!("Original words · submission {source}"),
+                            text,
+                        ),
                         Event::Asked { question, .. } | Event::ScopeAsked { question, .. } => {
                             add(&mut blocks, "Question", question)
                         }
-                        Event::Answered { answer, .. } | Event::ScopeAnswered { answer, .. } => {
-                            add(&mut blocks, "Your answer", answer)
-                        }
+                        Event::Answered { answer, source, .. }
+                        | Event::ScopeAnswered { answer, source, .. } => add(
+                            &mut blocks,
+                            &format!("Answer · submission {source}"),
+                            answer,
+                        ),
                         Event::Skipped { question, .. } => {
                             add(&mut blocks, "Skipped question", question)
                         }

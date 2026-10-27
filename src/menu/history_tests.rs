@@ -55,7 +55,7 @@ fn wait_for_history(home: &mut Home) {
     let until = Instant::now() + Duration::from_secs(3);
     loop {
         home.tick();
-        if rendered(home).contains("Your words") {
+        if rendered(home).contains("Original words · submission 1") {
             return;
         }
         assert!(Instant::now() < until, "{}", rendered(home));
@@ -73,10 +73,27 @@ fn history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal() {
     assert!(goal_view.contains("r history"));
     press(&mut home, KeyCode::F(1));
     press(&mut home, KeyCode::Char('r'));
-    assert!(!rendered(&mut home).contains("Your words"));
+    assert!(!rendered(&mut home).contains("Original words · submission 1"));
     press(&mut home, KeyCode::Esc);
+    let reads = think_record::count_reads(path.parent().unwrap());
     press(&mut home, KeyCode::Char('r'));
     wait_for_history(&mut home);
+    let opened_reads = reads.totals();
+    assert_eq!(opened_reads, (1, 1), "opening owns one record scan/read");
+    for code in [
+        KeyCode::Down,
+        KeyCode::Up,
+        KeyCode::PageDown,
+        KeyCode::PageUp,
+        KeyCode::End,
+        KeyCode::Home,
+    ] {
+        press(&mut home, code);
+        home.tick();
+        rendered(&mut home);
+    }
+    snapshot(80, 24, &mut home, true).unwrap();
+    snapshot(140, 42, &mut home, true).unwrap();
     let history = rendered(&mut home);
     assert!(history.contains("My original Café 👩‍💻") && !history.contains("/TEST"));
     press(&mut home, KeyCode::Char('c'));
@@ -95,6 +112,11 @@ fn history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal() {
     assert!(rendered(&mut home).contains("Right now"));
     press(&mut home, KeyCode::Esc);
     assert_eq!(rendered(&mut home), history);
+    assert_eq!(
+        reads.totals(),
+        opened_reads,
+        "scrolling, help and resize re-read history"
+    );
     press(&mut home, KeyCode::Esc);
     assert_eq!(rendered(&mut home), goal_view);
     assert_eq!(fs::read(path).unwrap(), bytes);

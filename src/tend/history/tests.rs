@@ -14,6 +14,7 @@ fn outcome(label: &str) -> Outcome {
         goal: label.into(),
         made_in: MadeIn::Unknown,
         details: label.into(),
+        sequence: "Reading sequence was not recorded.".into(),
     })
 }
 
@@ -110,20 +111,35 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
     let original = "  Café 👩‍💻\nKeep my words.  ";
     let mut view = View::waiting();
     view.finish(Ok(History {
-        turns: vec![think_record::RecordedTurn {
-            at: "TEST time".into(),
-            event: Event::Words {
-                source: 1,
-                text: original.into(),
+        turns: vec![
+            think_record::RecordedTurn {
+                at: "TEST time".into(),
+                event: Event::Words {
+                    source: 1,
+                    text: original.into(),
+                },
             },
-        }],
+            think_record::RecordedTurn {
+                at: "TEST later".into(),
+                event: Event::ScopeAnswered {
+                    id: "scope".into(),
+                    question: "Same goal?".into(),
+                    source: 4,
+                    answer: "  TEST scope answer Café  ".into(),
+                },
+            },
+        ],
         goal: "Goal exactly.\nMust not: rewrite.".into(),
         made_in: MadeIn::Repo("/TEST/private/TEST-repo".into()),
         details: "/TEST/private-record.json\nMODEL-ONLY-HERE".into(),
+        sequence: "Reading sequence was not recorded.".into(),
     }));
     let body = screen(&mut view, (100, 30), false, false);
     assert!(body.contains("  Café 👩‍💻"));
     assert!(body.contains("Keep my words.  "));
+    assert!(body.contains("Original words · submission 1"));
+    assert!(body.contains("Answer · submission 4"));
+    assert!(body.contains("  TEST scope answer Café  "));
     assert!(body.contains("Goal exactly.") && body.contains("Must not: rewrite."));
     assert!(!body.contains("MODEL") && !body.contains("/TEST"));
     assert!(screen(&mut view, (100, 30), true, true).contains("MODEL-ONLY-HERE"));
@@ -139,6 +155,7 @@ fn no_known_repository_adds_nothing_to_history() {
             goal: "Goal.".into(),
             made_in,
             details: String::new(),
+            sequence: "Reading sequence was not recorded.".into(),
         }));
         let body = screen(&mut view, (100, 30), false, false);
         assert!(!body.contains("Made in"), "{body}");
@@ -202,4 +219,132 @@ fn page_keys_move_a_screen_of_history_less_one_row() {
         view.scroll(KeyCode::PageUp, false, false);
         assert_eq!(view.body.offset, 0);
     }
+}
+
+#[test]
+fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
+    use crate::think_record::{GoalConfirmation, Origin, ReadingContext, Session, Turn};
+    use std::time::{Duration, UNIX_EPOCH};
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/think-delivery-401.json"
+    ))
+    .unwrap();
+    let words = fixture["words"].as_str().unwrap();
+    let answer = fixture["correction"].as_str().unwrap();
+    let goal = fixture["readings"][1]["framings"][0]["text"]
+        .as_str()
+        .unwrap();
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-sequence-")
+        .tempdir()
+        .unwrap();
+    let session = root.path().join("TEST-sessions/TEST-room-to-choose");
+    std::fs::create_dir_all(&session).unwrap();
+    std::fs::write(
+        session.join("ledger.json"),
+        serde_json::json!({
+            "schema_version":1,"session_id":"TEST-room-to-choose","status":"active","goal":goal,
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let turns = [
+        Turn {
+            at: UNIX_EPOCH + Duration::from_secs(1),
+            event: Event::Words {
+                source: 1,
+                text: words.into(),
+            },
+        },
+        Turn {
+            at: UNIX_EPOCH + Duration::from_secs(3),
+            event: Event::Answered {
+                id: "goal-refinement-2".into(),
+                question: "What should change about this goal?".into(),
+                source: 2,
+                answer: answer.into(),
+            },
+        },
+    ];
+    let mut context = ReadingContext::default();
+    context.submitted(1);
+    context.presented(
+        fixture["readings"][0].clone(),
+        UNIX_EPOCH + Duration::from_secs(2),
+    );
+    context.submitted(2);
+    context.presented(
+        fixture["readings"][1].clone(),
+        UNIX_EPOCH + Duration::from_secs(4),
+    );
+    let records = root.path().join("TEST-records");
+    let path = think_record::write_with_context(
+        &records,
+        &Session {
+            origin: &Origin::simulated(),
+            turns: &turns,
+            checks: vec![],
+            goal,
+            seed_me_session: &session,
+            repo: None,
+            confirmed: UNIX_EPOCH + Duration::from_secs(5),
+        },
+        &GoalConfirmation::terminal(Some("agent")).unwrap(),
+        Some(&context),
+    )
+    .unwrap();
+    let bytes = std::fs::read(&path).unwrap();
+    let history = think_record::read(&records, &session, goal).unwrap();
+    assert_eq!(history.turns[0].event, turns[0].event);
+    assert_eq!(history.turns[1].event, turns[1].event);
+    for size in [(80, 24), (140, 42)] {
+        let mut view = View::waiting();
+        view.finish(Ok(history.clone()));
+        let first = screen(&mut view, size, false, false);
+        let entries = [
+            "Submission 1 · no earlier reading recorded",
+            "Reading 1 presented",
+            "Submission 2 · after reading 1",
+            "Reading 2 presented",
+        ];
+        let positions: Vec<_> = entries
+            .iter()
+            .map(|entry| first.find(entry).expect("entry on first screen"))
+            .collect();
+        assert!(positions.windows(2).all(|p| p[0] < p[1]), "{first}");
+        assert!(first.contains("1970-01-01T00:00:03.000Z"));
+        assert!(!first.contains("framings") && !first.contains("structure-spans-history"));
+        let mut all = first
+            .lines()
+            .skip(5)
+            .take(usize::from(size.1 - 6))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut previous = first;
+        for _ in 0..200 {
+            view.scroll(KeyCode::Down, false, false);
+            let next = screen(&mut view, size, false, false);
+            if next == previous {
+                break;
+            }
+            all.push_str(next.lines().nth(usize::from(size.1 - 2)).unwrap());
+            previous = next;
+        }
+        assert!(all.contains("Answer · submission 2"));
+        let compact = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+        for text in [words, answer, goal] {
+            assert!(
+                compact(&all).contains(&compact(text)),
+                "full text missing at {size:?}"
+            );
+        }
+        assert!(screen(&mut view, size, true, true).contains("Think record:"));
+        view.scroll(KeyCode::Home, false, false);
+        assert!(screen(&mut view, size, false, false).contains("Recorded sequence"));
+    }
+    assert_eq!(
+        std::fs::read(path).unwrap(),
+        bytes,
+        "display changed the source record"
+    );
 }

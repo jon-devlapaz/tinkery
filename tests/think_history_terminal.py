@@ -139,7 +139,7 @@ def read_history(terminal, marker, record):
     terminal.send(b'\r', DETAIL)
     assert marker in terminal.screen.text(), terminal.screen.text()
     terminal.send(b'r', 'Think history')
-    terminal.wait(lambda screen: 'Your words' in screen)
+    terminal.wait(lambda screen: 'Original words · submission 1' in screen)
     first = terminal.screen.text()
     assert str(Path(record['seed_me_session_path']).parent) not in first, first
     frames = [first]
