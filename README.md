@@ -118,7 +118,7 @@ Add `--snapshot` for text output.
 
 Real drafting needs a model and an explicitly authorized call allowance; provider
 charges may apply. Press `m` on the menu, or click the `practice` label, to choose the
-model, thinking level and calls each launch: `s` saves them in
+harness (Pi or Claude Code), model, thinking level and calls each launch: `s` saves them in
 `~/.config/tinkery/model.json` and later launches draft with them. `--shape-pi --model
 provider/model-id` and `--shape-budget CALLS` override them for one launch and save
 nothing. Out of calls, F1's Model and calls row adds more for this launch only.

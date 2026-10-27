@@ -1,15 +1,15 @@
-//! Shape's agent step: one operator key, then (when it says so) one model call through Pi with
-//! read-only tools, and the shared ledger calls that record the result.
+//! Shape's agent step: one operator key, then (when it says so) one model call through the chosen
+//! harness with read-only tools, and the shared ledger calls that record the result.
 //!
 //! The model only investigates and drafts words: what it found, with the next question or what the
 //! seed confirms, plus separate check records validated only by Tinkery's ledger. It never formats or runs checks. It reads only the folder the operator was shown. Tinkery saves the operator's
 //! answer, the question and the findings, builds the seed's evidence and decisions from
 //! the ledger, and confirms a seed itself, each through the shared session boundary. The model is never asked to confirm
 //! anything, and nothing it replies can confirm a seed. Each step counts against the call budget
-//! before Pi starts; with none left it refuses before writing anything.
+//! before the model starts; with none left it refuses before writing anything.
 
 use crate::{
-    pi::{self, Call, CallBudget, Request},
+    pi::{self, Call, CallBudget, Harness, Request},
     seed_me::{
         answering::{self, Alternative, Ask, Assumption, Found, Refusal},
         ledger,
@@ -135,7 +135,7 @@ pub(super) const FIELDS: &[&str] = &[
     "missing",
 ];
 
-/// How Shape reaches a model: Pi with an explicit model and read-only tools, a call budget shared
+/// How Shape reaches a model: Pi or Claude Code with an explicit model and read-only tools, a call budget shared
 /// for the whole run (zero unless the operator sets one), and where Think's records are.
 pub struct Agent {
     call: Call,
@@ -145,10 +145,11 @@ pub struct Agent {
 }
 
 impl Agent {
-    /// Pi at `program` with `model` and `thinking` (empty for Pi's default), starting in `folder`
-    /// unless Think recorded where a goal was made; `budget` limits every step. Refuses a vague
-    /// model. Starts nothing.
+    /// `harness` at `program` with `model` and `thinking` (empty for its default), starting in
+    /// `folder` unless Think recorded where a goal was made; `budget` limits every step. Refuses a
+    /// model or thinking level the harness doesn't accept. Starts nothing.
     pub fn new(
+        harness: Harness,
         program: PathBuf,
         model: String,
         thinking: String,
@@ -156,11 +157,13 @@ impl Agent {
         budget: Arc<CallBudget>,
         records: Option<PathBuf>,
     ) -> Result<Self, String> {
-        if !pi::explicit_model(&model) {
-            return Err("Use an explicit --model provider/model-id.".into());
+        harness.check_model(&model)?;
+        if !thinking.is_empty() {
+            harness.check_thinking(&thinking)?;
         }
         Ok(Self {
             call: Call {
+                harness,
                 program,
                 model,
                 thinking,

@@ -238,13 +238,14 @@ present attribution refuses history and batch repo attribution rather than choos
 an operator or silently discarding it. Record/session identity, exact-goal checks,
 duplicate refusals and per-file limits are unchanged.
 
-Schema 3 retains the version, origin (`live` for Pi, otherwise `simulated`), model,
+Schema 3 retains the version, origin (`live` for a model host, otherwise `simulated`),
+harness (`pi` or `claude-code`; older records lack it and read as not recorded), model,
 thinking level, both prompts' hash, first-turn and confirm times, session folder,
 canonical path, source ID, launch Git root `repo` (or null), exact confirmed goal,
 every ordered, timed, verbatim turn (`words`, `asked`, `answered`, `skipped`,
 `restored`, `scope_asked`, `scope_answered`) and serialized Why checks.
 Rejected checks retain `raw`; passing checks use decoded `candidate` and `raw: null`.
-Each Think visit gets separate Pi diagnostic history. Reused settings start no
+Each Think visit gets separate model diagnostic history. Reused settings start no
 process or file read and cannot mix goals. Standalone return and reentry preserve
 the record folder.
 

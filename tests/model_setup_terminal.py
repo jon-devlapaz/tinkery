@@ -1,6 +1,7 @@
-"""The Model panel through real keys (#422): saving, later launches, flags, top-up and refusals.
+"""The Model panel through real keys (#422, #449): saving, later launches, flags, top-up, refusals
+and the Claude Code harness.
 
-Fake Pi on PATH, temporary TEST homes and roots, no providers.
+Fake Pi and Claude Code on PATH, temporary TEST homes and roots, no providers.
 """
 import json
 import os
@@ -23,7 +24,25 @@ else:
         why='the setup matters', done_when='the saved model drafts'),
         open=['why'], questions=[dict(id='reason', target='why', text='Which TEST reason?')])))
 '''
-F1, F2, ESC, DOWN = b'\x1bOP', b'\x1bOQ', b'\x1b', b'\x1b[B'
+# Claude Code starts in a clean environment and an empty folder, so the log path is filled in.
+CLAUDE = '''#!/usr/bin/env python3
+import json, os, sys
+request = json.load(sys.stdin)
+argv = sys.argv[1:]
+flag = lambda name: argv[argv.index(name) + 1]
+with open(LOG, 'a') as log:
+    log.write(json.dumps(dict(model=flag('--model'), thinking=flag('--effort'), tools=flag('--tools'),
+        files=os.listdir('.'), env=sorted(os.environ))) + '\\n')
+if request.get('kind') == 'decision-review':
+    reply = dict(decisions=[])
+else:
+    reply = dict(parts=dict(who='I', outcome='keep TEST claude words', why='the harness matters',
+        done_when='Claude Code drafts'), open=['why'],
+        questions=[dict(id='reason', target='why', text='Which TEST claude reason?')])
+print(json.dumps(dict(type='result', is_error=False, result=json.dumps(reply),
+    modelUsage={flag('--model'): {}})))
+'''
+F1, F2, ESC, DOWN, UP = b'\x1bOP', b'\x1bOQ', b'\x1b', b'\x1b[B', b'\x1b[A'
 
 
 class Launch:
@@ -72,19 +91,19 @@ def journey(no_color):
         with Launch(root, home, ['--home', *colour]) as terminal:
             terminal.wait(lambda screen: '1  think' in screen)
             assert 'practice' in header(terminal), header(terminal)
-            terminal.send(b'm', 'Model     none')
-            terminal.send(b'\r', 'enter done')
+            terminal.send(b'm', 'Harness   Pi')
+            terminal.send(DOWN + b'\r', 'enter done')
             terminal.send(b'test/saved', 'test/saved')
             terminal.send(b'\r', '↑↓ choose')
             terminal.send(DOWN + DOWN + b'\r', '5 each launch')
             terminal.send(ESC, '1  think')
             assert not saved.exists(), 'esc wrote the setup'
             terminal.send(b'm', 'Model     none')
-            terminal.send(b'\r' + b'test/saved' + b'\r', '↑↓ choose')
+            terminal.send(DOWN + b'\r' + b'test/saved' + b'\r', '↑↓ choose')
             terminal.send(DOWN + b'\r', 'medium')
             terminal.send(DOWN + b'\r', '5 each launch')
             terminal.send(b's', 'drafts with it.')
-            assert json.loads(saved.read_text()) == dict(model='test/saved', thinking='medium', calls=5)
+            assert json.loads(saved.read_text()) == dict(harness='pi', model='test/saved', thinking='medium', calls=5)
             assert 'practice' in header(terminal), 'saving changed this launch'
             terminal.send(ESC, '1  think')
             terminal.quit()
@@ -122,7 +141,7 @@ def journey(no_color):
             assert len(calls(root)) == start
             assert 'TEST topped up words' in terminal.screen.text()
             pick(terminal, 'Model and calls')
-            terminal.send(DOWN * 3 + b'\r', '5 left · enter adds 5')
+            terminal.send(DOWN * 4 + b'\r', '5 left · enter adds 5')
             terminal.send(ESC, 'TEST topped up words')
             assert '5 calls left' in header(terminal), header(terminal)
             terminal.send(F2, 'Which TEST reason?')
@@ -138,7 +157,7 @@ def journey(no_color):
             terminal.send(b'TEST agent words', 'TEST agent words')
             pick(terminal, 'Model and calls')
             terminal.send(b's', "can't save a setup or add calls")
-            terminal.send(DOWN * 3 + b'\r', '0 left · enter adds 5')
+            terminal.send(DOWN * 4 + b'\r', '0 left · enter adds 5')
             assert '0 calls left' in header(terminal)
             terminal.send(ESC, 'TEST agent words')
         assert saved.read_text() == before, 'an agent changed the setup'
@@ -153,6 +172,61 @@ def journey(no_color):
             terminal.send(ESC, '1  think')
             terminal.quit()
         print(f'Model panel no_color={no_color}: {len(calls(root))} fake Pi starts')
+        claude_code(root, colour)
+
+
+def claude_code(root, colour):
+    """Claude Code is picked, saved and drafts with no tools in an empty folder (#449)."""
+    home = root / 'TEST-claude-home'
+    home.mkdir()
+    saved = home / '.config/tinkery/model.json'
+    log = root / 'TEST-claude-calls.jsonl'
+    host = root / 'TEST-bin' / 'claude'
+    host.write_text(CLAUDE.replace('LOG', repr(str(log))))
+    host.chmod(0o700)
+    started = lambda: [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+    pi_calls = len(calls(root))
+
+    # The model is picked from a list, never typed, and thinking keeps to Claude Code's levels.
+    with Launch(root, home, ['--home', *colour]) as terminal:
+        terminal.wait(lambda screen: '1  think' in screen)
+        terminal.send(b'm', 'Harness   Pi')
+        terminal.send(b'\r', 'claude-sonnet-5-5')
+        terminal.send(DOWN + b'\r', 'claude-opus-5-5')
+        terminal.send(DOWN + b'\r', 'Thinking  medium')
+        terminal.send(DOWN + b'\r', '5 each launch')
+        terminal.send(b's', 'drafts with it.')
+        assert json.loads(saved.read_text()) == dict(harness='claude-code', model='claude-opus-5-5',
+                                                     thinking='medium', calls=5)
+        terminal.send(ESC, '1  think')
+        terminal.quit()
+    assert started() == []
+
+    # A later launch drafts through Claude Code: no tools, an empty folder, a clean environment.
+    with Launch(root, home, colour) as terminal:
+        terminal.wait(lambda _: '5 calls left' in header(terminal))
+        terminal.send(b'TEST claude words', 'TEST claude words')
+        terminal.send(F2, 'Which TEST claude reason?')
+    assert started(), 'Claude Code never started'
+    for call in started():
+        assert (call['model'], call['thinking'], call['tools'], call['files']) == ('claude-opus-5-5', 'medium', '', []), call
+        assert not any(name.startswith('TINKERY') for name in call['env']), call['env']
+    assert len(calls(root)) == pi_calls, 'Pi started for a Claude Code setup'
+
+    # Flags win for one launch; Pi's own levels and --pi-command are refused for Claude Code.
+    before, start = saved.read_text(), len(started())
+    with Launch(root, home, ['--shape-pi', '--model', 'claude-haiku-5-5', '--thinking', 'max', *colour]) as terminal:
+        terminal.wait(lambda _: '5 calls left' in header(terminal))
+        terminal.send(b'TEST flag words', 'TEST flag words')
+        terminal.send(F2, 'Which TEST claude reason?')
+    assert {(c['model'], c['thinking']) for c in started()[start:]} == {('claude-haiku-5-5', 'max')}, started()
+    assert saved.read_text() == before
+    for args, refusal in [(['--thinking', 'minimal'], 'with Claude Code'),
+                          (['--pi-command', 'pi'], '--pi-command applies to Pi'),
+                          (['--harness', 'claude'], 'Use harness pi|claude-code')]:
+        with Launch(root, home, ['--shape-pi', '--harness', 'claude-code', '--model', 'claude-haiku-5-5', *args]) as terminal:
+            terminal.wait(lambda screen: refusal in ' '.join(screen.split()))
+    print(f'Claude Code no_color={bool(colour)}: {len(started())} fake Claude Code starts')
 
 
 if __name__ == '__main__':

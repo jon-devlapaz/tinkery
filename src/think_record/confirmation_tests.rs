@@ -44,6 +44,7 @@ fn record(root: &Path, path: &Path, confirmation: &GoalConfirmation) -> Result<P
         &Session {
             origin: &Origin {
                 origin: "live".into(),
+                harness: Some(crate::pi::Harness::Pi),
                 model: Some("TEST/reading-model".into()),
                 thinking: None,
                 prompt_hash: None,

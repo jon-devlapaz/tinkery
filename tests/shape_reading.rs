@@ -107,6 +107,7 @@ fn screen(shape: &mut Shape, width: u16, height: u16, body_height: u16) -> Strin
 
 fn opened(session: &Path) -> Shape {
     let agent = Agent::new(
+        tinkery::pi::Harness::Pi,
         PathBuf::from("/tinkery-TEST-no-provider"),
         "TEST/fake".into(),
         String::new(),

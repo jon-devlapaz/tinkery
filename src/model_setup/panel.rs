@@ -1,7 +1,8 @@
 //! The header's model label and the Model panel it opens. The label shows real state: calls left
 //! when this launch drafts with a model, else `practice`. The panel changes a draft of the saved
-//! setup; `s` saves it, `esc` drops it. When this launch drafts, its Now row adds calls at once,
-//! for this launch only. Nothing here starts a request.
+//! setup; `s` saves it, `esc` drops it. Claude Code's models are picked from a list; Pi's are
+//! typed. When this launch drafts, its Now row adds calls at once, for this launch only. Nothing
+//! here starts a request.
 use std::{path::PathBuf, sync::Arc};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent};
@@ -12,7 +13,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Padding, Paragraph, Wrap},
 };
 
-use super::{CALLS, Setup, THINKING};
+use super::{CALLS, Harness, Setup};
 use crate::{Palette, pi::CallBudget};
 
 /// Calls one `enter` on the Now row adds.
@@ -79,7 +80,7 @@ impl Controls {
         let note = match &self.saved {
             Err(why) => why.clone(),
             Ok(_) if self.budget.is_some() => {
-                "Model and thinking changes start with the next launch.".into()
+                "Harness, model and thinking changes start with the next launch.".into()
             }
             Ok(_) => "Saved changes start with the next launch.".into(),
         };
@@ -106,6 +107,7 @@ impl Controls {
         }
         let rows = self.rows();
         let panel = self.panel.as_mut().expect("checked open");
+        let draft = &mut panel.draft;
         if let Some(text) = &mut panel.typing {
             match key.code {
                 KeyCode::Char(c) if !key.modifiers.intersects(!KeyModifiers::SHIFT) => text.push(c),
@@ -115,11 +117,12 @@ impl Controls {
                 KeyCode::Esc => panel.typing = None,
                 KeyCode::Enter => {
                     let model = text.trim().to_owned();
-                    if model.is_empty() || crate::pi::explicit_model(&model) {
-                        panel.draft.model = model;
-                        panel.typing = None;
-                    } else {
-                        panel.note = "Use provider/model-id, with no spaces.".into();
+                    match draft.harness.check_model(&model) {
+                        Err(why) if !model.is_empty() => panel.note = why,
+                        _ => {
+                            draft.model = model;
+                            panel.typing = None;
+                        }
                     }
                 }
                 _ => {}
@@ -135,9 +138,22 @@ impl Controls {
             KeyCode::Up => panel.row = (panel.row + rows - 1) % rows,
             KeyCode::Down => panel.row = (panel.row + 1) % rows,
             KeyCode::Enter => match panel.row {
-                0 => panel.typing = Some(panel.draft.model.clone()),
-                1 => panel.draft.thinking = next(&THINKING, &panel.draft.thinking.as_str()).into(),
-                2 => panel.draft.calls = next(&CALLS, &panel.draft.calls),
+                0 => {
+                    // Another harness can't run this one's model or every thinking level.
+                    draft.harness = next(&Harness::ALL, &draft.harness);
+                    draft.model = draft.harness.models().first().map_or("", |m| m).into();
+                    if draft.harness.check_thinking(&draft.thinking).is_err() {
+                        draft.thinking = "low".into();
+                    }
+                }
+                1 => match draft.harness.models() {
+                    [] => panel.typing = Some(draft.model.clone()),
+                    models => draft.model = next(models, &draft.model.as_str()).into(),
+                },
+                2 => {
+                    draft.thinking = next(draft.harness.thinking(), &draft.thinking.as_str()).into()
+                }
+                3 => draft.calls = next(&CALLS, &draft.calls),
                 _ if self.agent => panel.note = AGENT.into(),
                 _ => {
                     if let Some(budget) = &self.budget {
@@ -210,13 +226,14 @@ impl Controls {
         };
         let mut lines = vec![
             Line::default(),
-            row(0, "Model", model),
-            row(1, "Thinking", panel.draft.thinking.clone()),
-            row(2, "Calls", format!("{} each launch", panel.draft.calls)),
+            row(0, "Harness", panel.draft.harness.label().into()),
+            row(1, "Model", model),
+            row(2, "Thinking", panel.draft.thinking.clone()),
+            row(3, "Calls", format!("{} each launch", panel.draft.calls)),
         ];
         if let Some(budget) = &self.budget {
             lines.push(row(
-                3,
+                4,
                 "Now",
                 format!("{} left · enter adds {TOP_UP}", budget.remaining()),
             ));
@@ -254,13 +271,18 @@ impl Controls {
     }
 
     fn rows(&self) -> usize {
-        if self.budget.is_some() { 4 } else { 3 }
+        if self.budget.is_some() { 5 } else { 4 }
     }
 
     fn save(&mut self) {
         let panel = self.panel.as_mut().expect("checked open");
         let draft = &panel.draft;
-        let checked = Setup::new(draft.model.clone(), draft.thinking.clone(), draft.calls);
+        let checked = Setup::new(
+            draft.harness,
+            draft.model.clone(),
+            draft.thinking.clone(),
+            draft.calls,
+        );
         panel.note = match (checked, &self.path) {
             _ if self.agent => AGENT.into(),
             (Err(why), _) => why,

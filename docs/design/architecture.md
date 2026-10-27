@@ -49,7 +49,7 @@ or improved outcomes.
 | `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch and the model label's room, the minimum terminal size, paging and the clipped-view `more` cue. |
 | `model_setup.rs`, `model_setup/panel.rs` | The saved model setup's one parser (file and flags), atomic save, header label and Model panel; the terminal loop owns when it shows (shared). |
-| `pi.rs` | The one place Pi starts: a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs)), the call budget and prompt-file assembly (shared). |
+| `pi.rs` | The one place a model host starts, Pi or Claude Code: which models and levels each accepts, a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs) for Pi, `dontAsk` for Claude Code), the call budget and prompt-file assembly (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs` | The seven places and navigation, including Esc from Shape back to its original Tend view. |
 | `measure.rs` | Recent PR list, details and evidence limits; explicit reads only, no writes or providers. |
@@ -83,7 +83,7 @@ or improved outcomes.
 | `think/brain_dump/checks.rs` | The per-send record shown in "Why", from F1. |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
-| `think/drafting.rs` | Think's Pi host: its model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
+| `think/drafting.rs` | Think's model host: its harness and model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
 | `think_record.rs`, `think_record/confirmation.rs`, `think_record/read.rs` | Confirmed-session format, caller-declared context, the shared authorization-to-actor boundary and exact-session history attribution; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |

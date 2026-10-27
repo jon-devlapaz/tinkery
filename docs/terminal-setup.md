@@ -148,10 +148,14 @@ Explicit roots do not trigger the default move and cannot read the retired old r
 The installed launcher still passes the removed `--seed-me` flag; its separate,
 operator-authorized edit must remove that line after this change merges.
 
-`--thinking` sets Pi's reasoning level (default `low`).
+`--thinking` sets the reasoning level (default `low`). `--harness claude-code` drafts through
+Claude Code (`claude` on PATH, on its own login) with a `--model` such as `claude-sonnet-5-5`
+and an effort of `low` to `max`; `--pi-command` applies to Pi only. Claude Code runs with a
+clean environment and no settings, MCP servers or session; Think gives it no tools and an
+empty folder, and Shape gives it only Read, Grep and Glob in the displayed folder.
 
 Instead of flags, `m` on the menu opens the [Model panel](design/menu.md#model-setup), and
-`s` there saves the model, thinking level and calls each launch in
+`s` there saves the harness, model, thinking level and calls each launch in
 `~/.config/tinkery/model.json`. Later launches draft with a saved setup that allows calls;
 flags still override it for one launch and write nothing. Trials should keep a temporary
 HOME so they never read or write the operator's saved setup.
@@ -159,9 +163,9 @@ HOME so they never read or write the operator's saved setup.
 Think and Shape share `--shape-budget CALLS` (or the saved calls) for the whole launch;
 the default is zero. F1's Model and calls row adds calls for this launch only.
 Each Think shaping request, decision review, and Shape agent step uses one slot before
-Pi starts, including failures. Opening another goal does not reset it. Shape uses
+the model starts, including failures. Opening another goal does not reset it. Shape uses
 read-only tools in the displayed folder (F1 picks another); paths outside it refuse.
-This allowance counts Pi requests, not cost or tool-driven provider turns: a Shape
+This allowance counts requests, not cost or tool-driven provider turns: a Shape
 step may make several provider requests. Authorize that work and its spending separately.
 
 A send makes at most two provider calls: one shaping call and one decision review,

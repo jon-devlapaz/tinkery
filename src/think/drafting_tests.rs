@@ -6,13 +6,18 @@ fn input(text: &str) -> Vec<u8> {
 }
 
 #[cfg(unix)]
-fn host(script: &str) -> (tempfile::TempDir, PiHost) {
+fn host(script: &str) -> (tempfile::TempDir, ModelHost) {
     use std::os::unix::fs::PermissionsExt;
     let directory = tempfile::tempdir().unwrap();
     let program = directory.path().join("pi");
     std::fs::write(&program, format!("#!/usr/bin/env python3\n{script}\n")).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = PiHost::new(program, "anthropic/claude-haiku-4-5".into()).unwrap();
+    let host = ModelHost::new(
+        crate::pi::Harness::Pi,
+        program,
+        "anthropic/claude-haiku-4-5".into(),
+    )
+    .unwrap();
     (directory, host)
 }
 
@@ -37,10 +42,14 @@ print('done')
 "#;
     let (directory, host) = host(script);
     assert!(
-        PiHost::new(directory.path().join("pi"), "test/model".into())
-            .unwrap()
-            .with_thinking("automatic")
-            .is_err()
+        ModelHost::new(
+            crate::pi::Harness::Pi,
+            directory.path().join("pi"),
+            "test/model".into()
+        )
+        .unwrap()
+        .with_thinking("automatic")
+        .is_err()
     );
     let before = std::fs::read_dir(directory.path()).unwrap().count();
     let prompt = host.working_instructions().to_owned();
@@ -59,7 +68,7 @@ print('done')
 #[cfg(unix)]
 #[test]
 fn failures_timeout_overflow_and_cancellation_never_return_output() {
-    let call = |host: &PiHost, text: &str, cancelled: &AtomicBool| {
+    let call = |host: &ModelHost, text: &str, cancelled: &AtomicBool| {
         host.complete(Request::Shaping, input(text), "prompt".into(), cancelled)
     };
     for script in [
@@ -100,7 +109,7 @@ fn failures_timeout_overflow_and_cancellation_never_return_output() {
 /// A Pi that leaves one file per start in the returned folder, then prints `reply`, or exits
 /// with 3 when `reply` is empty. The files show exactly how many processes ran.
 #[cfg(unix)]
-fn counting_host(reply: &str) -> (tempfile::TempDir, PiHost, tempfile::TempDir) {
+fn counting_host(reply: &str) -> (tempfile::TempDir, ModelHost, tempfile::TempDir) {
     let starts = tempfile::tempdir().unwrap();
     let (directory, host) = host(&format!(
         "import os, sys, uuid\nopen(os.path.join({:?}, uuid.uuid4().hex), 'w').close()\nprint({reply:?}) if {reply:?} else sys.exit(3)",
@@ -117,7 +126,7 @@ fn started(starts: &tempfile::TempDir) -> usize {
 #[cfg(unix)]
 #[test]
 fn a_budget_refuses_before_pi_starts_and_counts_failures_and_retries() {
-    let call = |host: &PiHost, kind| {
+    let call = |host: &ModelHost, kind| {
         host.complete(
             kind,
             input("words"),

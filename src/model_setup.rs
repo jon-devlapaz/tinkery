@@ -1,5 +1,5 @@
-//! The model setup Think and Shape draft with: the model, its thinking level and the calls each
-//! launch allows. One parser checks the saved file (`~/.config/tinkery/model.json`) and the launch
+//! The model setup Think and Shape draft with: the harness (Pi or Claude Code), the model, its
+//! thinking level and the calls each launch allows. One parser checks the saved file (`~/.config/tinkery/model.json`) and the launch
 //! flags alike, so neither can hold a value the other would refuse. Flags win for one launch and
 //! write nothing. A missing file means practice; an unreadable or invalid one is refused with its
 //! path and Tinkery stays in practice rather than guessing. Only `s` in the Model panel writes the
@@ -16,10 +16,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+pub use crate::pi::Harness;
 pub use panel::Controls;
 
-/// The thinking levels Pi names, in the order the panel cycles them.
-pub const THINKING: [&str; 7] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 /// The per-launch call allowances the panel offers. Zero is practice.
 pub const CALLS: [usize; 4] = [0, 5, 10, 25];
 
@@ -27,44 +26,45 @@ pub const CALLS: [usize; 4] = [0, 5, 10, 25];
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Setup {
-    /// `provider/model-id`, or empty when no model is chosen.
+    /// Which program drafts; a file without one means Pi.
+    #[serde(default)]
+    pub harness: Harness,
+    /// A model the harness accepts, or empty when no model is chosen.
     pub model: String,
-    /// One of [`THINKING`].
+    /// One of the harness's thinking levels.
     pub thinking: String,
-    /// Pi requests each launch allows, shared by Think and Shape.
+    /// Requests each launch allows, shared by Think and Shape.
     pub calls: usize,
 }
 
-/// Refuses a thinking level Pi doesn't name.
-pub fn check_thinking(level: &str) -> Result<(), String> {
-    if THINKING.contains(&level) {
-        Ok(())
-    } else {
-        Err(format!("Use thinking {}.", THINKING.join("|")))
-    }
-}
-
 impl Setup {
-    /// The one parser for the three values, from flags or the file. Refuses a model that isn't an
-    /// explicit `provider/model-id`, an unknown thinking level, and calls without a model.
-    pub fn new(model: String, thinking: String, calls: usize) -> Result<Self, String> {
-        check_thinking(&thinking)?;
-        if !model.is_empty() && !crate::pi::explicit_model(&model) {
-            return Err("Use an explicit model: provider/model-id, with no spaces.".into());
+    /// The one parser for the four values, from flags or the file. Refuses a model or thinking
+    /// level the harness doesn't accept, and calls without a model.
+    pub fn new(
+        harness: Harness,
+        model: String,
+        thinking: String,
+        calls: usize,
+    ) -> Result<Self, String> {
+        harness.check_thinking(&thinking)?;
+        if !model.is_empty() {
+            harness.check_model(&model)?;
         }
         if model.is_empty() && calls > 0 {
             return Err("Choose a model before allowing calls.".into());
         }
         Ok(Self {
+            harness,
             model,
             thinking,
             calls,
         })
     }
 
-    /// No model, low thinking, no calls.
+    /// Pi, no model, low thinking, no calls.
     pub fn practice() -> Self {
         Self {
+            harness: Harness::Pi,
             model: String::new(),
             thinking: "low".into(),
             calls: 0,
@@ -72,10 +72,12 @@ impl Setup {
     }
 
     /// The setup this launch drafts with, or `None` for practice. `--shape-pi` (`live`) drafts
-    /// even with zero calls; each flag replaces its saved value for this launch only. Without
-    /// `--shape-pi`, a saved setup with calls drafts and one without is practice.
+    /// even with zero calls; each flag replaces its saved value for this launch only, and the
+    /// saved model and thinking apply only to the saved harness. Without `--shape-pi`, a saved
+    /// setup with calls drafts and one without is practice.
     pub fn launch(
         live: bool,
+        harness: Option<Harness>,
         model: Option<String>,
         thinking: Option<String>,
         calls: Option<usize>,
@@ -84,14 +86,21 @@ impl Setup {
         if !live {
             return Ok(saved.filter(|s| s.calls > 0).cloned());
         }
+        let harness = harness.or(saved.map(|s| s.harness)).unwrap_or_default();
+        let same = saved.filter(|s| s.harness == harness);
         let model = model
-            .or_else(|| saved.map(|s| s.model.clone()).filter(|m| !m.is_empty()))
-            .ok_or("--shape-pi requires an explicit --model provider/model-id")?;
+            .or_else(|| same.map(|s| s.model.clone()).filter(|m| !m.is_empty()))
+            .ok_or_else(|| {
+                format!(
+                    "--shape-pi requires an explicit --model: {}",
+                    harness.model_shape()
+                )
+            })?;
         let thinking = thinking
-            .or_else(|| saved.map(|s| s.thinking.clone()))
+            .or_else(|| same.map(|s| s.thinking.clone()))
             .unwrap_or_else(|| "low".into());
         let calls = calls.or(saved.map(|s| s.calls)).unwrap_or(0);
-        Self::new(model, thinking, calls).map(Some)
+        Self::new(harness, model, thinking, calls).map(Some)
     }
 }
 
@@ -120,9 +129,10 @@ pub fn load(path: &Path) -> Result<Option<Setup>, String> {
             path.display()
         )
     };
-    let raw: Setup = serde_json::from_str(&text)
-        .map_err(|_| refused("it needs model, thinking and calls, and nothing else.".into()))?;
-    Setup::new(raw.model, raw.thinking, raw.calls)
+    let raw: Setup = serde_json::from_str(&text).map_err(|_| {
+        refused("it needs model, thinking and calls, an optional harness, and nothing else.".into())
+    })?;
+    Setup::new(raw.harness, raw.model, raw.thinking, raw.calls)
         .map(Some)
         .map_err(refused)
 }

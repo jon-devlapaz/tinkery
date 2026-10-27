@@ -398,7 +398,7 @@ if mode=='syntax':print('not JSON');sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*31500 if mode=='review-cap' else 'A judged result'),uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote='invented' if mode=='invalid' else r['sources'][0]['text'][:10] if mode=='review-cap' else r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#)).unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let pi = PiHost::new(program, "test/model".into())
+        let pi = ModelHost::new(crate::pi::Harness::Pi, program, "test/model".into())
             .unwrap()
             .with_default_thinking();
         let result = pi.reshape(r.clone(), &AtomicBool::new(false));
@@ -505,7 +505,8 @@ if (root/'reject').exists():print('provider input/context rejected',file=sys.std
 print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judges the result.',supports=[dict(source=1,quote=r['sources'][0]['text'],occurrence=0)])],outcome='A judged result.',misfits=[],questions=[],alternatives=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(PiHost::new(program, "test/model".into()).unwrap());
+    let host =
+        Arc::new(ModelHost::new(crate::pi::Harness::Pi, program, "test/model".into()).unwrap());
     let mut a = BrainDump::with_host(host);
     a.paste("the restaurateur judges the result");
     a.submit();
@@ -604,7 +605,8 @@ else:
         )
         .unwrap();
         fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-        let host = Arc::new(PiHost::new(program, "test/stub".into()).unwrap());
+        let host =
+            Arc::new(ModelHost::new(crate::pi::Harness::Pi, program, "test/stub".into()).unwrap());
         let mut a = if refining {
             board()
         } else {

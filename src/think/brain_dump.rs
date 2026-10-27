@@ -9,7 +9,7 @@
 use super::{
     Motion, Note,
     canvas::Canvas,
-    drafting::{Approach, Job, LIMIT as REQUEST_LIMIT, PiHost, Request},
+    drafting::{Approach, Job, LIMIT as REQUEST_LIMIT, ModelHost, Request},
 };
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{

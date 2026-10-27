@@ -209,6 +209,7 @@ print(json.dumps(reply))
 "##, reply = reply.to_string())).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Agent::new(
+        crate::pi::Harness::Pi,
         program,
         "test/stub".into(),
         String::new(),
@@ -262,6 +263,7 @@ fn zero_budget_refuses_revision_before_reading_or_publishing() {
     let ledger = root.path().join("ledger.json");
     std::fs::write(&ledger, "TEST untouched ledger").unwrap();
     let agent = Agent::new(
+        crate::pi::Harness::Pi,
         root.path().join("TEST-never-run"),
         "test/model".into(),
         String::new(),
@@ -301,6 +303,7 @@ fn teach_back_zero_budget_refuses_before_capture_or_any_read() {
     let path = root.path().join("ledger.json");
     std::fs::write(&path, "TEST untouched").unwrap();
     let agent = Agent::new(
+        crate::pi::Harness::Pi,
         root.path().join("TEST-never-run"),
         "test/model".into(),
         String::new(),

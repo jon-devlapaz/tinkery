@@ -442,8 +442,8 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   the ledger; Shape adds no parallel rules. F1 lists only the actions allowed now.
 - F2 saves exact answer bytes with `user` authority. Typing, paste, scrolling and
   help write nothing; held action keys never repeat. Letters, capitals and `?` remain words.
-- Pi runs one explicitly selected model with read-only `read`, `grep`, `find`, `ls`
-  tools, no commands, in the [shown folder](#grounding-in-the-repository). Input includes
+- The chosen harness runs one explicitly selected model with read-only tools (Pi's `read`,
+  `grep`, `find`, `ls`; Claude Code's `Read`, `Grep`, `Glob` under `dontAsk`), no commands, in the [shown folder](#grounding-in-the-repository). Input includes
   the confirmed goal, attributable Think answers, every `found_so_far` finding and
   a model-only ledger view: findings appear only in `found_so_far`, not again as
   ledger fact nodes or copied decision evidence. Settled pre-mortem questions and answers stay
@@ -468,7 +468,7 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   JSON, a missing question and an unsupported reply kind have specific reasons.
   The step finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
-- The launch allowance (saved calls or `--shape-budget CALLS`) defaults to zero; each step counts one before Pi starts.
+- The launch allowance (saved calls or `--shape-budget CALLS`) defaults to zero; each step counts one before the model starts.
   Exhaustion refuses answer, defer, delegate, revision and teach-back before saving anything and explains how to allow calls.
 - Tinkery, never the model, publishes answers and questions with the displayed version
   or the version at step start. Stale versions refuse, retain

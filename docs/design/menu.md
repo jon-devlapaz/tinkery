@@ -51,24 +51,29 @@ owns the file, parser, label and panel; the terminal loop draws them over every 
 
 | Row | Change with `enter` |
 | --- | --- |
-| Model | Type an exact `provider/model-id`; Tinkery can't confirm the account may use it. |
-| Thinking | Cycles `off` to `max`. |
+| Harness | Cycles Pi and Claude Code. Changing it resets Model and any level the new one lacks. |
+| Model | Pi: type an exact `provider/model-id`. Claude Code: cycles `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`. Tinkery can't confirm the account may use it. |
+| Thinking | Cycles the harness's levels: Pi `off` to `max`, Claude Code's effort `low` to `max`. |
 | Calls | Cycles 0, 5, 10, 25 requests each launch, shared by Think and Shape; 0 is practice. |
 | Now | Only when this launch drafts: adds 5 calls at once, for this launch only. |
 
-`s` saves Model, Thinking and Calls to `~/.config/tinkery/model.json`; `esc` closes and drops
+`s` saves Harness, Model, Thinking and Calls to `~/.config/tinkery/model.json`; `esc` closes and drops
 unsaved changes. Nothing else writes the file, and saving changes later launches, not this
 one. Calls need a model. The panel says F2 sends words to this model and the cap counts
 requests, not dollars. Nothing in it starts a request.
 
-One parser checks the file and the `--model`, `--thinking` and `--shape-budget` flags. A
-later plain launch drafts when the saved setup allows calls; `--shape-pi` drafts for one
+One parser checks the file and the `--harness`, `--model`, `--thinking` and `--shape-budget`
+flags. A file without a harness is Pi. Claude Code takes only full `claude-` ids, never an alias
+whose meaning changes, so records name the model used. A launch's saved model and thinking
+apply only to the saved harness. A later plain launch drafts when the saved setup allows calls; `--shape-pi` drafts for one
 launch, each flag replacing its saved value, and writes nothing. A missing file is practice.
 An unreadable or invalid file is refused with its path in the panel and the launch stays
 practice; Tinkery never guesses. An `--operator agent` launch never inherits saved calls,
 and its panel refuses to save or add calls: an agent's allowance is `--shape-budget` alone,
-given by the operator. No credentials and no Pi config are read. There is no build
-harness row: nothing in Tinkery starts a build
+given by the operator. No credentials and no Pi config are read; Claude Code uses its own
+login. [pi.rs](../../src/pi.rs) starts either harness with the same isolation, caps and budget
+([#449](https://github.com/jon-devlapaz/tinkery/issues/449)). There is no build harness row:
+nothing in Tinkery starts a build
 ([#422](https://github.com/jon-devlapaz/tinkery/issues/422)).
 
 ## Measure

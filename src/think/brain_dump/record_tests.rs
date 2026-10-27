@@ -422,7 +422,8 @@ if marker=='TEST-BAD':print('TEST not a reading');sys.exit(0)
 print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='the work is stuck',done_when='tests pass'),questions=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(PiHost::new(program, "test/model".into()).unwrap());
+    let host =
+        Arc::new(ModelHost::new(crate::pi::Harness::Pi, program, "test/model".into()).unwrap());
     let root = dir.path().join("TEST-records");
     let mut a = BrainDump::with_host(host)
         .with_sessions(None)
@@ -473,7 +474,8 @@ marker=r['sources'][0]['text']
 print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work is stuck',done_when='tests pass for '+marker),questions=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(PiHost::new(program, "test/model".into()).unwrap());
+    let host =
+        Arc::new(ModelHost::new(crate::pi::Harness::Pi, program, "test/model".into()).unwrap());
     let root = dir.path().join("TEST-records");
     let mut first = BrainDump::with_host(host.clone())
         .with_sessions(None)
@@ -616,4 +618,56 @@ fn without_a_repository_review_says_nothing_about_one() {
     a.review_goal();
     let screen = snapshot(100, 30, &mut a, true).unwrap();
     assert!(!screen.contains("made in"), "{screen}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_claude_code_reading_is_recorded_with_its_harness_and_exact_model() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let program = dir.path().join("claude");
+    std::fs::write(&program, r#"#!/usr/bin/env python3
+import json,sys
+r=json.load(sys.stdin)
+assert sys.argv[sys.argv.index('--tools')+1]==''
+reply={"decisions":[]} if r.get('kind')=='decision-review' else dict(parts=dict(who='I',outcome='finish TEST claude goal',why='the work is stuck',done_when='tests pass'),questions=[])
+print(json.dumps(dict(type='result',is_error=False,result=json.dumps(reply),modelUsage={'claude-opus-5-5':{}})))
+"#).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let host = Arc::new(
+        ModelHost::new(
+            crate::pi::Harness::ClaudeCode,
+            program,
+            "claude-opus-5-5".into(),
+        )
+        .unwrap()
+        .with_thinking("xhigh")
+        .unwrap(),
+    );
+    let root = dir.path().join("TEST-records");
+    let mut a = BrainDump::with_host(host)
+        .with_sessions(None)
+        .with_record_root(root.clone());
+    a.paste("TEST claude words");
+    a.submit();
+    settle(&mut a);
+    a.review_goal();
+    let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    assert!(goal.contains("TEST claude goal"), "{goal}");
+    save(&mut a, Ok(receipt(dir.path(), &goal)));
+    let file = records(&root).pop().unwrap();
+    let record: serde_json::Value = serde_json::from_slice(&std::fs::read(file).unwrap()).unwrap();
+    assert_eq!(record["origin"], "live");
+    assert_eq!(record["harness"], "claude-code");
+    assert_eq!(record["model"], "claude-opus-5-5");
+    assert_eq!(record["thinking"], "xhigh");
+    assert!(
+        ModelHost::new(
+            crate::pi::Harness::ClaudeCode,
+            "claude".into(),
+            "opus".into()
+        )
+        .is_err(),
+        "an alias that changes meaning is never recorded as the model"
+    );
 }

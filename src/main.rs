@@ -21,7 +21,7 @@ use tinkery::{
     model_setup::Controls,
     think::{
         brain_dump::{self, BrainDump, Exit},
-        drafting::PiHost,
+        drafting::ModelHost,
     },
 };
 
@@ -62,6 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut snapshot = false;
     let mut full_redraw = false;
     let mut shape_pi = false;
+    let mut harness = None;
     let mut model = None;
     let mut thinking = None;
     let mut seed_session_root = None;
@@ -101,7 +102,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--full-redraw" => full_redraw = true,
             "--shape-pi" => shape_pi = true,
-            "--model" => model = Some(args.next().ok_or("--model needs provider/model-id")?),
+            "--harness" => {
+                harness = Some(tinkery::pi::Harness::parse(
+                    &args.next().ok_or("--harness needs pi or claude-code")?,
+                )?)
+            }
+            "--model" => model = Some(args.next().ok_or("--model needs a model id")?),
             "--thinking" => thinking = Some(args.next().ok_or("--thinking needs a level")?),
             "--seed-session-root" => {
                 seed_session_root = Some(PathBuf::from(
@@ -128,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 shape_budget = Some(
                     args.next()
                         .and_then(|calls| calls.parse::<usize>().ok())
-                        .ok_or("--shape-budget needs a number of Pi requests")?,
+                        .ok_or("--shape-budget needs a number of model requests")?,
                 );
             }
             "--pi-command" => {
@@ -138,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi unless one is saved)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: saved, else low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Pi requests shared by Think and Shape this run (default: saved calls, else 0)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--taste-result RUN_ID=PR_URL  Explicit canonical run UUIDv4 and full GitHub PR URL; repeatable, launch-only\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model for this launch\n--harness    pi|claude-code: who drafts (default: saved, else pi); Claude Code uses its own login\n--model      Pi: provider/model-id; Claude Code: a claude- model id (required with --shape-pi unless one is saved)\n--thinking   Reasoning level: Pi off|minimal|low|medium|high|xhigh|max, Claude Code low..max (default: saved, else low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi; Claude Code is always claude on PATH)\n--shape-budget CALLS  Model requests shared by Think and Shape this run (default: saved calls, else 0)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--taste-result RUN_ID=PR_URL  Explicit canonical run UUIDv4 and full GitHub PR URL; repeatable, launch-only\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }
@@ -146,13 +152,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     if !shape_pi
-        && (model.is_some()
+        && (harness.is_some()
+            || model.is_some()
             || thinking.is_some()
             || pi_command.is_some()
             || shape_budget.is_some_and(|calls| calls > 0))
     {
         return Err(
-            "--model, --thinking, --pi-command and --shape-budget require --shape-pi".into(),
+            "--harness, --model, --thinking, --pi-command and --shape-budget require --shape-pi"
+                .into(),
         );
     }
     // Watch, Approve and Taste live in the home menu; Think alone would ignore their inputs.
@@ -182,12 +190,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
     let launch = tinkery::model_setup::Setup::launch(
         shape_pi,
+        harness,
         model,
         thinking,
         shape_budget,
         usable.as_ref(),
     )?;
     let live = launch.is_some();
+    let harness = launch.as_ref().map(|l| l.harness).unwrap_or_default();
+    let program = match pi_command {
+        Some(_) if harness == tinkery::pi::Harness::ClaudeCode => {
+            return Err("--pi-command applies to Pi, not Claude Code".into());
+        }
+        Some(command) => command,
+        None => PathBuf::from(harness.program()),
+    };
     if live {
         record_root.as_ref().map_err(Clone::clone)?;
     }
@@ -201,12 +218,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let host = match &launch {
         Some(launch) => Some(Arc::new(
-            PiHost::new(
-                pi_command.clone().unwrap_or_else(|| "pi".into()),
-                launch.model.clone(),
-            )?
-            .with_thinking(&launch.thinking)?
-            .with_budget(call_budget.clone()),
+            ModelHost::new(launch.harness, program.clone(), launch.model.clone())?
+                .with_thinking(&launch.thinking)?
+                .with_budget(call_budget.clone()),
         )),
         None => None,
     };
@@ -238,7 +252,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shape_agent = match &launch {
         Some(launch) => Some(Arc::new(
             tinkery::shape::Agent::new(
-                pi_command.clone().unwrap_or_else(|| "pi".into()),
+                launch.harness,
+                program,
                 launch.model.clone(),
                 launch.thinking.clone(),
                 repo.as_ref()
