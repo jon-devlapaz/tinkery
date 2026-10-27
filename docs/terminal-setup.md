@@ -145,8 +145,9 @@ launch renames only the old sessions folder, leaving every session byte and Thin
 unchanged. History matches ledger session IDs across the move. A visible notice names it.
 If both roots exist, Tinkery refuses; move the leftover old root aside yourself, never merge blindly.
 Explicit roots do not trigger the default move and cannot read the retired old root.
-The installed launcher still passes the removed `--seed-me` flag; its separate,
-operator-authorized edit must remove that line after this change merges.
+The installed launcher passes only `--home`, so the saved [model setup](design/menu.md#model-setup)
+decides how a plain launch drafts. A launcher that also passes `--model` overrides the saved model
+but not the saved harness, and a Pi model under a saved Claude Code harness is refused.
 
 `--thinking` sets the reasoning level (default `low`). `--harness claude-code` drafts through
 Claude Code (`claude` on PATH, on its own login) with a `--model` such as `claude-sonnet-5-5`
