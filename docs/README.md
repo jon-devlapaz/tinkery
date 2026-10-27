@@ -16,7 +16,6 @@ to the smallest relevant reference.
 | Saving, history, Tend, Shape or continuation | The relevant section of [Tend and handoff](design/shape-and-handoff.md); [Shape ledger](design/shape-ledger.md) records its accepted design decisions |
 | Approvals, external work, result review or measurement | [Approve](design/approve.md), [Watch](design/watch.md), [Taste](design/taste.md), [Menu and Measure](design/menu.md) |
 | Local dictation | [Voice](design/voice.md) |
-| The full intended journey and its release evidence | [First release](design/first-release.md), then its [task index](design/first-release-issues.md); verify current status and permission in the linked issues |
 
 Read only the relevant sections. For a change, the applicable contract and
 current shipped behavior outrank proposals, snapshots and old issue status.
@@ -40,8 +39,6 @@ These dated records are not current behavior or permission to implement:
 | Material | Status and use |
 | --- | --- |
 | [Think interaction proposal](research/think/interaction-proposal.md) | Dated mockup and audit; unresolved redesign is not accepted. See [#427](https://github.com/jon-devlapaz/tinkery/issues/427) for its disposition |
-| [Superseded job-record proposal](research/shared/job-records-proposal.md) | Historical design replaced by [#258](https://github.com/jon-devlapaz/tinkery/issues/258) |
-| [Job-record source survey](research/shared/job-record-survey.md) | Evidence at pinned revisions; refresh before relying on capability claims |
 | [Question-generation research](research/think/question-generation.md) | Research comparison, not a shipped behavior specification |
 | [Human baseline](research/shared/baseline.md) | A recorded evaluation plan and partial results, not a code-quality score |
 | [Dogfood findings](../findings/README.md) | Historical observations and evidence; not a general outcome claim |

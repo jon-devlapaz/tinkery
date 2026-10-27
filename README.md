@@ -19,7 +19,7 @@ without losing your words or your control. Nothing runs without you: one next st
 | **Taste** | Compare the result with your original goal; accept or correct it. |
 | **Measure** | Judge accepted, checked results against your effort. |
 
-This is the intended journey, not all shipped behavior. Originals remain verbatim;
+This is the product flow, not all shipped behavior. Originals remain verbatim;
 confirmed goals stay unchanged through handoffs. Readings and suggestions are guesses.
 
 ## What Tinkery builds on
@@ -85,15 +85,6 @@ On first default-root launch, old saved sessions move once to Tinkery's sessions
 with a visible notice and no Think-record writes. History matches unique ledger session IDs. Leftover old and new roots
 refuse rather than merge; no old-root reader remains. Runs bound to moved seeds show unknown
 in Watch, not a guessed match.
-
-The complete journey and its benefit remain unproven; passing checks are not acceptance.
-
-## Where we’re going next
-
-Measure lists PRs, not accepted outcomes or recorded effort. The broader proposals are in
-the [first-release plan](docs/design/first-release.md) and
-[task index](docs/design/first-release-issues.md).
-Published issues own proposal scope; publication is not implementation permission.
 
 ## What success means
 
