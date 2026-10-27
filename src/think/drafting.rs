@@ -83,12 +83,7 @@ impl PiHost {
 
     /// Sets Pi's thinking level; refuses a level Pi doesn't name. The default is `low`.
     pub fn with_thinking(mut self, level: &str) -> Result<Self, String> {
-        if !matches!(
-            level,
-            "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
-        ) {
-            return Err("Use --thinking off|minimal|low|medium|high|xhigh|max.".into());
-        }
+        crate::model_setup::check_thinking(level)?;
         self.thinking = level.into();
         Ok(self)
     }

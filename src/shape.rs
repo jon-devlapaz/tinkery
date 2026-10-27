@@ -81,6 +81,8 @@ pub struct Shape {
     /// An agent launch without --shape-pi: Shape only reads.
     held: bool,
     copy: Option<String>,
+    /// F1's Model and calls row asked for the Model panel, which the launch owns.
+    model: bool,
 }
 
 /// What a key asks of whoever holds Shape.
@@ -207,6 +209,7 @@ impl Shape {
             agent: None,
             held: false,
             copy: None,
+            model: false,
         }
     }
 
@@ -230,6 +233,11 @@ impl Shape {
     /// Take the requested intake line once; the terminal owns OSC 52, never execution.
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()
+    }
+
+    /// Whether F1's Model and calls row was picked since the last ask. Asking clears it.
+    pub fn take_model_request(&mut self) -> bool {
+        std::mem::take(&mut self.model)
     }
 
     /// Report the terminal write, not host clipboard acceptance, with retryable feedback.
@@ -295,6 +303,7 @@ impl Shape {
             agent: None,
             held: false,
             copy: None,
+            model: false,
         }
     }
 
@@ -772,9 +781,8 @@ impl Shape {
                 .to_owned()
         } else {
             "Shape reads and calls no model; its only write is ending a session, from F1, which asks once more first. \
-                 To set up Shape, press Esc until the menu, then q to quit. Restart Tinkery with --home, --shape-pi, \
-                 --model PROVIDER/MODEL and --shape-budget CALLS. Choose the call limit; the default is zero. \
-                 Keep the same --seed-session-root if you supplied one. \
+                 To set up Shape, press Esc until the menu, then m: choose a model and calls, and s saves them. \
+                 Then q quits; start Tinkery again, keeping the same --seed-session-root if you supplied one. \
                  Open Tend (2), select this saved goal, press Enter, then s to reopen Shape."
                 .to_owned()
         };
@@ -2030,7 +2038,7 @@ fn said(
                 "{saved}No model calls are left: this run's budget is {limit}. Nothing {}was saved.",
                 if answer_saved { "more " } else { "" }
             ),
-            Some("Next: start Tinkery with --shape-budget CALLS to allow model calls.".into()),
+            Some("Next: add calls from F1, Model and calls, then send again.".into()),
         ),
         Why::Model(error) => (
             format!(

@@ -39,13 +39,14 @@ else:
 
 
 class Terminal:
-    def __init__(self, root, width, height, args):
+    def __init__(self, root, width, height, args, home=None, extra=None):
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
         self.screen = Screen(width, height)
         self.process = subprocess.Popen([str(BINARY), '--link-root', str(root / 'TEST-links'), *map(str, args)],
             stdin=self.slave, stdout=self.slave, stderr=self.slave, cwd=root,
-            env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}))
+            env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node',
+                                        **(extra or {})}, home=home))
 
     def wait(self, predicate, timeout=20):
         deadline = time.monotonic() + timeout

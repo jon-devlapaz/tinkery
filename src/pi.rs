@@ -16,7 +16,7 @@ use std::{
     process::{Child, Command, Stdio},
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
@@ -55,10 +55,10 @@ pub struct Attempt {
 /// A hard limit on Pi requests, shared by every host that holds it. A request is counted
 /// before anything starts, whatever happens after; once the limit is reached the next request is
 /// refused unstarted. The count never resets, so a new session on the same budget can't spend
-/// it twice.
+/// it twice. Only an explicit [`CallBudget::add`] raises the limit, for this launch alone.
 #[derive(Debug)]
 pub struct CallBudget {
-    limit: usize,
+    limit: AtomicUsize,
     attempts: std::sync::Mutex<Vec<Attempt>>,
 }
 
@@ -66,13 +66,17 @@ impl CallBudget {
     /// A budget allowing at most `limit` requests. Zero refuses every request.
     pub fn new(limit: usize) -> Arc<Self> {
         Arc::new(Self {
-            limit,
+            limit: AtomicUsize::new(limit),
             attempts: Default::default(),
         })
     }
-    /// The configured limit.
+    /// The limit now.
     pub fn limit(&self) -> usize {
-        self.limit
+        self.limit.load(Ordering::Relaxed)
+    }
+    /// Allows `calls` more requests this launch. Starts nothing and saves nothing.
+    pub fn add(&self, calls: usize) {
+        self.limit.fetch_add(calls, Ordering::Relaxed);
     }
     /// Every request seen so far, in order, refusals included.
     pub fn attempts(&self) -> Vec<Attempt> {
@@ -87,14 +91,14 @@ impl CallBudget {
     }
     /// Requests still allowed.
     pub fn remaining(&self) -> usize {
-        self.limit.saturating_sub(self.used())
+        self.limit().saturating_sub(self.used())
     }
     /// The allowance in the words both phases show: requests left out of the limit.
     pub fn left(&self) -> String {
         format!(
             "Model calls left this run: {} of {}.",
             self.remaining(),
-            self.limit
+            self.limit()
         )
     }
     /// Counts one `kind` request, or refuses it when the limit is reached. Returns the slot that
@@ -102,10 +106,10 @@ impl CallBudget {
     pub fn reserve(&self, kind: Request) -> Result<usize, String> {
         let mut attempts = self.attempts.lock().unwrap();
         let used = attempts.iter().filter(|a| a.outcome != "refused").count();
-        if used >= self.limit {
+        let limit = self.limit();
+        if used >= limit {
             let error = format!(
-                "Call limit of {} reached; the next request was refused before it started.",
-                self.limit
+                "Call limit of {limit} reached; the next request was refused before it started. Add calls to keep going."
             );
             attempts.push(Attempt {
                 kind,
