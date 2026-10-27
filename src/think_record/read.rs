@@ -37,6 +37,8 @@ pub struct History {
     pub details: String,
     /// Compact sequence from the same validated context as details, or an explicit missing/invalid notice.
     pub sequence: String,
+    /// One saved text projection per presentation, in the same order as the compact sequence.
+    pub readings: Vec<super::RecordedReading>,
 }
 
 /// The repository a confirmed goal was made in, as its record says. Where it was made, never
@@ -171,7 +173,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
     }
     require_unique(&identity_index([session])?, &selected)?;
     let made_in = origin(record.schema, record.repo);
-    let (sequence, reading_details) = context::history(
+    let context = context::history(
         &record.reading_context,
         record
             .turns
@@ -205,13 +207,14 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         record.goal_confirmation.details(),
         serde_json::to_string_pretty(&record.checks).expect("JSON values always serialize"),
     );
-    let details = format!("{details}\n\n{source_details}\n\n{reading_details}");
+    let details = format!("{details}\n\n{source_details}\n\n{}", context.details);
     Ok(History {
         turns: record.turns,
         goal: record.goal,
         made_in,
         details,
-        sequence,
+        sequence: context.sequence,
+        readings: context.readings,
     })
 }
 

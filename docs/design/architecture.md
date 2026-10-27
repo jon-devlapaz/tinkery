@@ -132,7 +132,8 @@ The terminal owner alone acknowledges successful output through a small opaque
 presentation interface (2). The existing history details expose the evidence without
 new storage or phase dependencies (7). The shared reader derives the compact history sequence
 and technical details from one validation, hiding record parsing from Tend's view (2, 3, 6).
-No architecture limit or recorded score changes.
+The same traversal supplies exact reading-text lists; Tend alone owns their labels and local
+ink/muted/guess styling. No architecture limit or recorded score changes.
 
 ## Limits enforced by `tests/architecture.rs`
 

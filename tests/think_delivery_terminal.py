@@ -188,6 +188,23 @@ def journey(width, height, no_color):
                 raise AssertionError('History did not reach its end')
             compact = lambda text: ''.join(text.split())
             assert 'Answer · submission 2' in visible
+            headers = ['Answer · submission 2', 'Recorded reading text',
+                       "Reading 1 · Tinkery's guess", "Reading 2 · Tinkery's guess", 'Confirmed goal']
+            assert [visible.index(h) for h in headers] == sorted(visible.index(h) for h in headers)
+            first_reading = visible.split("Reading 1 · Tinkery's guess", 1)[1].split(
+                "Reading 2 · Tinkery's guess", 1)[0]
+            second_reading = visible.split("Reading 2 · Tinkery's guess", 1)[1].split('Confirmed goal', 1)[0]
+            first_main, other_goals = first_reading.split('Also in your dump', 1)
+            assert compact(first_goal) in compact(first_main), 'Reading 1 wording changed'
+            for item in events[1]['board']['other_goals']:
+                assert compact(item) in compact(other_goals), 'Reading 1 grouping missing'
+            assert compact(corrected_goal) in compact(second_reading), 'Reading 2 wording changed'
+            assert 'Also in your dump' not in second_reading
+            for item in added:
+                assert compact('Must: ' + item) not in compact(first_main)
+                assert compact('Must: ' + item) in compact(second_reading)
+            for item in ['Change operator sessions.', 'Change tool configuration.']:
+                assert compact('Must not: ' + item) in compact(second_reading)
             for text in [fixture['words'], fixture['correction'], corrected_goal]:
                 assert compact(text) in compact(visible), 'History omitted submitted words or goal'
             run.send(F1, 'Right now')
@@ -203,7 +220,7 @@ def journey(width, height, no_color):
             print(json.dumps(dict(width=width, height=height, no_color=no_color,
                                   provider='frozen candidates; zero real calls',
                                   tinkery_source=record['tinkery_source'],
-                                  journey='omission/review/correction/save/first-screen sequence/full history/read-only',
+                                  journey='omission/review/correction/save/sequence/exact reading text and groupings/read-only',
                                   acceptance='automated replay, not human or model-quality acceptance')))
         finally:
             run.close()

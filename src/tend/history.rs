@@ -124,7 +124,10 @@ impl View {
         self.failed = result.is_err();
         match result {
             Ok(history) => {
-                let mut blocks = vec![("Recorded sequence".into(), true), (history.sequence, true)];
+                let mut blocks = vec![
+                    ("Recorded sequence".into(), Tone::Muted),
+                    (history.sequence, Tone::Muted),
+                ];
                 for turn in history.turns {
                     match turn.event {
                         Event::DraftSuggested { text, provenance } => add(
@@ -159,6 +162,15 @@ impl View {
                         Event::Restored { question, .. } => {
                             add(&mut blocks, "Question restored", question)
                         }
+                    }
+                }
+                if !history.readings.is_empty() {
+                    add(&mut blocks, "Recorded reading text", concat!(
+                        "Saved main reading text and its groupings, including offscreen text. ",
+                        "Questions and other details remain in the conversation or How it works."
+                    ).into());
+                    for (index, reading) in history.readings.into_iter().enumerate() {
+                        add_reading(&mut blocks, index + 1, reading);
                     }
                 }
                 add(&mut blocks, "Confirmed goal", history.goal);
@@ -266,12 +278,53 @@ fn folder(root: &std::path::Path) -> String {
         |name| name.to_string_lossy().into_owned(),
     )
 }
-fn add(blocks: &mut Vec<(String, bool)>, label: &str, text: String) {
+fn add(blocks: &mut Vec<(String, Tone)>, label: &str, text: String) {
     if !blocks.is_empty() {
-        blocks.push((String::new(), false));
+        blocks.push((String::new(), Tone::Ink));
     }
-    blocks.push((label.into(), true));
-    blocks.push((text, false));
+    blocks.push((label.into(), Tone::Muted));
+    blocks.push((text, Tone::Ink));
+}
+
+fn add_reading(
+    blocks: &mut Vec<(String, Tone)>,
+    number: usize,
+    reading: think_record::RecordedReading,
+) {
+    blocks.push((String::new(), Tone::Ink));
+    blocks.push((format!("Reading {number} · Tinkery's guess"), Tone::Muted));
+    blocks.push((format!("Presented at {}", reading.at), Tone::Muted));
+    // Preserve whitespace strings below while making an otherwise blank main text explicit.
+    if reading.main.iter().all(|text| text.trim().is_empty()) {
+        blocks.push((
+            "No goal text recorded for this reading.".into(),
+            Tone::Muted,
+        ));
+    }
+    for text in reading.main {
+        blocks.push((String::new(), Tone::Ink));
+        blocks.push((text, Tone::Guess));
+    }
+    for (label, items) in [
+        ("Also in your dump", reading.other_goals),
+        ("For the seed", reading.deferred),
+    ] {
+        if !items.is_empty() {
+            blocks.push((String::new(), Tone::Ink));
+            blocks.push((label.into(), Tone::Muted));
+            for text in items {
+                blocks.push((String::new(), Tone::Ink));
+                blocks.push((text, Tone::Guess));
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Tone {
+    Ink,
+    Muted,
+    Guess,
 }
 
 // Keep stored words unchanged. Escape terminal controls only in the display copy.
@@ -285,8 +338,8 @@ fn display(text: &str) -> String {
 
 /// Wrapped rows use usize, and only the visible rows reach the terminal renderer.
 struct Page {
-    source: Vec<(String, bool)>,
-    rows: Vec<(String, bool)>,
+    source: Vec<(String, Tone)>,
+    rows: Vec<(String, Tone)>,
     width: u16,
     /// Rows on screen at the last draw, for PgUp/PgDn.
     height: u16,
@@ -295,14 +348,14 @@ struct Page {
 
 impl Page {
     fn plain(text: &str) -> Self {
-        Self::new(vec![(text.into(), false)])
+        Self::new(vec![(text.into(), Tone::Ink)])
     }
 
-    fn new(source: Vec<(String, bool)>) -> Self {
+    fn new(source: Vec<(String, Tone)>) -> Self {
         Self {
             source: source
                 .into_iter()
-                .map(|(s, muted)| (display(&s), muted))
+                .map(|(s, tone)| (display(&s), tone))
                 .collect(),
             rows: vec![],
             width: 0,
@@ -314,20 +367,20 @@ impl Page {
     fn layout(&mut self, width: u16) {
         self.width = width;
         self.rows.clear();
-        for (text, muted) in &self.source {
+        for (text, tone) in &self.source {
             for line in text.split('\n') {
                 let mut row = String::new();
                 let mut used = 0;
                 for grapheme in line.graphemes(true) {
                     let cells = grapheme.width();
                     if used + cells > usize::from(width) && !row.is_empty() {
-                        self.rows.push((std::mem::take(&mut row), *muted));
+                        self.rows.push((std::mem::take(&mut row), *tone));
                         used = 0;
                     }
                     row.push_str(grapheme);
                     used += cells;
                 }
-                self.rows.push((row, *muted));
+                self.rows.push((row, *tone));
             }
         }
     }
@@ -348,10 +401,14 @@ impl Page {
             .iter()
             .skip(self.offset)
             .take(usize::from(area.height))
-            .map(|(text, muted)| {
+            .map(|(text, tone)| {
                 Line::styled(
                     text.as_str(),
-                    if *muted { palette.muted } else { palette.ink },
+                    match tone {
+                        Tone::Ink => palette.ink,
+                        Tone::Muted => palette.muted,
+                        Tone::Guess => palette.ink.add_modifier(ratatui::style::Modifier::ITALIC),
+                    },
                 )
             })
             .collect();

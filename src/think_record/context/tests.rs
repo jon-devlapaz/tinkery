@@ -25,7 +25,7 @@ fn check(value: Value, events: &[Event]) -> String {
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53Z".into())),
     )
-    .1
+    .details
 }
 #[test]
 fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_text() {
@@ -35,12 +35,19 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
     context.submitted(2);
     context.presented(board(), UNIX_EPOCH + Duration::from_secs(50));
     let value = serde_json::to_value(&context).unwrap();
-    let (sequence, text) = history(
+    let result = history(
         &value,
         words()
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53Z".into())),
     );
+    let sequence = result.sequence;
+    let text = result.details;
+    assert_eq!(result.readings.len(), 2);
+    assert_eq!(result.readings[0].main, ["TEST exact frozen wording"]);
+    assert_eq!(result.readings[1].main, result.readings[0].main);
+    assert_eq!(result.readings[0].at, "1970-01-01T00:01:40.000Z");
+    assert_eq!(result.readings[1].at, "1970-01-01T00:00:50.000Z");
     assert_eq!(
         sequence.lines().skip(2).collect::<Vec<_>>(),
         vec![
@@ -99,19 +106,20 @@ fn malformed_context_never_supplies_a_relationship() {
         cases.push(bad);
     }
     for bad in cases {
-        let (sequence, result) = history(
+        let result = history(
             &bad,
             words()
                 .iter()
                 .map(|event| (event, "2026-10-24T23:16:53Z".into())),
         );
         assert_eq!(
-            sequence,
+            result.sequence,
             "Reading sequence unavailable; saved words remain below."
         );
-        assert!(!sequence.contains("after reading"));
-        assert!(result.contains("unavailable"), "{result}");
-        assert!(!result.contains("after reading"));
+        assert!(!result.sequence.contains("after reading"));
+        assert!(result.details.contains("unavailable"));
+        assert!(!result.details.contains("after reading"));
+        assert!(result.readings.is_empty());
     }
 }
 #[test]
@@ -145,12 +153,14 @@ fn sequence_preserves_recorded_timezone_and_distinguishes_missing_from_invalid()
     let value = serde_json::json!({"events":[{"kind":"submitted","source":1},
         {"kind":"presented","at":"2026-10-25T01:00:00+02:00","board":board()},
         {"kind":"submitted","source":2}]});
-    let (sequence, details) = history(
+    let result = history(
         &value,
         events
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53-05:00".into())),
     );
+    let sequence = result.sequence;
+    let details = result.details;
     assert!(sequence.contains("2026-10-25T01:00:00+02:00  Reading 1 presented"));
     assert!(sequence.contains("2026-10-24T23:16:53-05:00  Submission 2 · after reading 1"));
     assert!(details.contains("TEST exact frozen wording"));
@@ -158,5 +168,55 @@ fn sequence_preserves_recorded_timezone_and_distinguishes_missing_from_invalid()
         &Value::Null,
         events.iter().map(|event| (event, String::new())),
     );
-    assert_eq!(missing.0, "Reading sequence was not recorded.");
+    assert_eq!(missing.sequence, "Reading sequence was not recorded.");
+    assert!(missing.readings.is_empty());
+}
+
+#[test]
+fn reading_text_preserves_lists_whitespace_and_partial_presentations_without_recomposition() {
+    let events = words();
+    let frozen = serde_json::json!({
+        "framings":[{"text":"  TEST frozen Café\n\nsecond  "},{"text":"TEST second framing\r\n"}],
+        "other_goals":["  TEST other; preserve semicolon  ","TEST other second"],
+        "deferred":["TEST deferred first","  TEST deferred second\n  "],
+        "parts":{"who":"TEST invented","outcome":"MUST NEVER RECOMPOSE"}
+    });
+    let partial =
+        serde_json::json!({"framings":[],"other_goals":[],"deferred":["  TEST partial only\n  "]});
+    let value = serde_json::json!({"events":[{"kind":"submitted","source":1},
+        {"kind":"presented","at":"2026-10-27T01:00:00Z","board":frozen},
+        {"kind":"submitted","source":2},
+        {"kind":"presented","at":"2026-10-27T00:00:00Z","board":partial}]});
+    let result = history(
+        &value,
+        events
+            .iter()
+            .map(|event| (event, "2026-10-26T23:00:00Z".into())),
+    );
+    assert_eq!(result.readings.len(), 2);
+    assert_eq!(
+        result.readings[0].main,
+        ["  TEST frozen Café\n\nsecond  ", "TEST second framing\r\n"]
+    );
+    assert_eq!(
+        result.readings[0].other_goals,
+        ["  TEST other; preserve semicolon  ", "TEST other second"]
+    );
+    assert_eq!(
+        result.readings[0].deferred,
+        ["TEST deferred first", "  TEST deferred second\n  "]
+    );
+    assert!(result.readings[1].main.is_empty());
+    assert_eq!(result.readings[1].deferred, ["  TEST partial only\n  "]);
+    assert!(
+        !result.readings[0]
+            .main
+            .iter()
+            .any(|s| s.contains("MUST NEVER RECOMPOSE"))
+    );
+    assert!(
+        result
+            .sequence
+            .contains("2026-10-27T00:00:00Z  Reading 2 presented")
+    );
 }
