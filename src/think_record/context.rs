@@ -13,6 +13,26 @@ pub struct ReadingContext {
     events: Vec<Entry>,
 }
 
+/// Saved main reading text and its original groupings from one validated presentation.
+/// These strings are copied verbatim, never recomposed from parts or decoded under new rules.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecordedReading {
+    /// The presentation timestamp exactly as recorded, including its timezone.
+    pub at: String,
+    /// Each saved framing text, retaining empty strings and item boundaries.
+    pub main: Vec<String>,
+    /// Items classified as other goals in this reading, with their exact wording.
+    pub other_goals: Vec<String>,
+    /// Items deferred for the seed, with their exact wording.
+    pub deferred: Vec<String>,
+}
+
+pub(super) struct ContextHistory {
+    pub sequence: String,
+    pub details: String,
+    pub readings: Vec<RecordedReading>,
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Entry {
@@ -110,12 +130,13 @@ impl ReadingContext {
 pub(super) fn history<'a>(
     value: &Value,
     turns: impl Iterator<Item = (&'a Event, String)>,
-) -> (String, String) {
+) -> ContextHistory {
     if value.is_null() {
-        return (
-            "Reading sequence was not recorded.".into(),
-            "Reading context: not recorded.".into(),
-        );
+        return ContextHistory {
+            sequence: "Reading sequence was not recorded.".into(),
+            details: "Reading context: not recorded.".into(),
+            readings: vec![],
+        };
     }
     let turns: Vec<_> = turns.collect();
     let context = serde_json::from_value::<ReadingContext>(value.clone()).and_then(|context| {
@@ -125,10 +146,13 @@ pub(super) fn history<'a>(
             .map_err(serde::de::Error::custom)
     });
     let Ok(context) = context else {
-        return (
-            "Reading sequence unavailable; saved words remain below.".into(),
-            "Reading context: unavailable (invalid metadata). Originals remain independent.".into(),
-        );
+        return ContextHistory {
+            sequence: "Reading sequence unavailable; saved words remain below.".into(),
+            details:
+                "Reading context: unavailable (invalid metadata). Originals remain independent."
+                    .into(),
+            readings: vec![],
+        };
     };
     let mut lines = vec![
         "Reading context: terminal output, not proof of attention or a complete screen replay."
@@ -138,6 +162,7 @@ pub(super) fn history<'a>(
         "Recorded order; presentation does not establish that someone read it.".into(),
         String::new(),
     ];
+    let mut readings = Vec::new();
     let mut reading = 0;
     let mut submitted_times = turns
         .iter()
@@ -145,7 +170,31 @@ pub(super) fn history<'a>(
     for entry in context.events {
         match entry {
             Entry::Presented { at, board } => {
-                reading += 1;
+                let strings = |field: &str| {
+                    board[field]
+                        .as_array()
+                        .expect("validated list")
+                        .iter()
+                        .map(|item| item.as_str().expect("validated string").to_owned())
+                        .collect()
+                };
+                readings.push(RecordedReading {
+                    at: at.clone(),
+                    main: board["framings"]
+                        .as_array()
+                        .expect("validated framings")
+                        .iter()
+                        .map(|item| {
+                            item["text"]
+                                .as_str()
+                                .expect("validated framing text")
+                                .to_owned()
+                        })
+                        .collect(),
+                    other_goals: strings("other_goals"),
+                    deferred: strings("deferred"),
+                });
+                reading = readings.len();
                 sequence.push(format!("{at}  Reading {reading} presented"));
                 lines.push(format!(
                     "Presented reading {reading} at {at}\nVerified board associated with the frame:\n{}",
@@ -169,7 +218,11 @@ pub(super) fn history<'a>(
             }
         }
     }
-    (sequence.join("\n"), lines.join("\n\n"))
+    ContextHistory {
+        sequence: sequence.join("\n"),
+        details: lines.join("\n\n"),
+        readings,
+    }
 }
 
 // Cargo tracks option_env inputs itself. No runtime repository lookup can confuse the

@@ -15,6 +15,7 @@ fn outcome(label: &str) -> Outcome {
         made_in: MadeIn::Unknown,
         details: label.into(),
         sequence: "Reading sequence was not recorded.".into(),
+        readings: vec![],
     })
 }
 
@@ -133,6 +134,7 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
         made_in: MadeIn::Repo("/TEST/private/TEST-repo".into()),
         details: "/TEST/private-record.json\nMODEL-ONLY-HERE".into(),
         sequence: "Reading sequence was not recorded.".into(),
+        readings: vec![],
     }));
     let body = screen(&mut view, (100, 30), false, false);
     assert!(body.contains("  Café 👩‍💻"));
@@ -142,6 +144,10 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
     assert!(body.contains("  TEST scope answer Café  "));
     assert!(body.contains("Goal exactly.") && body.contains("Must not: rewrite."));
     assert!(!body.contains("MODEL") && !body.contains("/TEST"));
+    assert!(
+        !body.contains("Recorded reading text"),
+        "missing context added an empty section"
+    );
     assert!(screen(&mut view, (100, 30), true, true).contains("MODEL-ONLY-HERE"));
     assert!(body.contains("Made in") && body.contains("TEST-repo"));
 }
@@ -156,6 +162,7 @@ fn no_known_repository_adds_nothing_to_history() {
             made_in,
             details: String::new(),
             sequence: "Reading sequence was not recorded.".into(),
+            readings: vec![],
         }));
         let body = screen(&mut view, (100, 30), false, false);
         assert!(!body.contains("Made in"), "{body}");
@@ -331,6 +338,18 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
             previous = next;
         }
         assert!(all.contains("Answer · submission 2"));
+        let headings = [
+            "Answer · submission 2",
+            "Recorded reading text",
+            "Reading 1 · Tinkery's guess",
+            "Reading 2 · Tinkery's guess",
+            "Confirmed goal",
+        ];
+        let positions: Vec<_> = headings
+            .iter()
+            .map(|heading| all.find(heading).expect("heading reachable"))
+            .collect();
+        assert!(positions.windows(2).all(|p| p[0] < p[1]));
         let compact = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
         for text in [words, answer, goal] {
             assert!(
@@ -338,6 +357,40 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
                 "full text missing at {size:?}"
             );
         }
+        let first_reading = all
+            .split("Reading 1 · Tinkery's guess")
+            .nth(1)
+            .unwrap()
+            .split("Reading 2 · Tinkery's guess")
+            .next()
+            .unwrap();
+        let second_reading = all
+            .split("Reading 2 · Tinkery's guess")
+            .nth(1)
+            .unwrap()
+            .split("Confirmed goal")
+            .next()
+            .unwrap();
+        let (main, extras) = first_reading
+            .split_once("Also in your dump")
+            .expect("first reading grouping");
+        assert!(
+            compact(main).contains(&compact(
+                fixture["readings"][0]["framings"][0]["text"]
+                    .as_str()
+                    .unwrap()
+            ))
+        );
+        for item in fixture["readings"][0]["other_goals"].as_array().unwrap() {
+            assert!(compact(extras).contains(&compact(item.as_str().unwrap())));
+        }
+        assert!(!main.contains("Must: Build through"));
+        assert!(!second_reading.contains("Also in your dump"));
+        for text in fixture["readings"][1]["parts"]["must"].as_array().unwrap() {
+            assert!(compact(second_reading).contains(&compact(text.as_str().unwrap())));
+        }
+        view.scroll(KeyCode::End, false, false);
+        assert!(screen(&mut view, size, false, false).contains("Change tool configuration."));
         assert!(screen(&mut view, size, true, true).contains("Think record:"));
         view.scroll(KeyCode::Home, false, false);
         assert!(screen(&mut view, size, false, false).contains("Recorded sequence"));
@@ -347,4 +400,112 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
         bytes,
         "display changed the source record"
     );
+}
+
+#[test]
+fn reading_guesses_are_italic_and_preserve_partial_groups_without_changing_original_styles() {
+    use crate::think_record::{RecordedReading, RecordedTurn};
+    use ratatui::style::Modifier;
+    let mut view = View::waiting();
+    view.finish(Ok(History {
+        turns: vec![RecordedTurn {
+            at: "TEST time".into(),
+            event: Event::Words {
+                source: 1,
+                text: "TEST ORIGINAL ink".into(),
+            },
+        }],
+        goal: "TEST CONFIRMED ink".into(),
+        made_in: MadeIn::Unknown,
+        details: "TEST DETAILS".into(),
+        sequence: "TEST sequence".into(),
+        readings: vec![
+            RecordedReading {
+                at: "2026-10-27T01:00:00Z".into(),
+                main: vec!["  TEST MAIN Café  ".into(), "TEST MAIN TWO".into()],
+                other_goals: vec!["TEST OTHER FIRST".into(), "TEST OTHER SECOND".into()],
+                deferred: vec!["TEST DEFERRED FIRST".into(), "TEST DEFERRED SECOND".into()],
+            },
+            RecordedReading {
+                at: "2026-10-27T00:00:00Z".into(),
+                main: vec!["  \n  ".into()],
+                other_goals: vec![],
+                deferred: vec!["TEST PARTIAL Café\u{202e}".into()],
+            },
+        ],
+    }));
+    for no_color in [false, true] {
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let mut seen = String::new();
+        let mut item_boundaries = false;
+        view.scroll(KeyCode::Home, false, false);
+        let mut previous = String::new();
+        for _ in 0..100 {
+            terminal
+                .draw(|frame| {
+                    view.render(
+                        frame,
+                        Rect::new(2, 3, 76, 20),
+                        Palette::new(no_color),
+                        false,
+                        false,
+                    )
+                })
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            let mut current = String::new();
+            for y in 5..23 {
+                let text = (2..78).map(|x| buffer[(x, y)].symbol()).collect::<String>();
+                for marker in ["TEST MAIN", "TEST OTHER", "TEST DEFERRED", "TEST PARTIAL"] {
+                    if let Some(column) = text.find(marker) {
+                        let cell = &buffer[(2 + column as u16, y)];
+                        assert!(
+                            cell.modifier.contains(Modifier::ITALIC),
+                            "guess lost italic: {text}"
+                        );
+                    }
+                }
+                for marker in ["TEST ORIGINAL", "TEST CONFIRMED"] {
+                    if let Some(column) = text.find(marker) {
+                        let cell = &buffer[(2 + column as u16, y)];
+                        assert!(
+                            !cell.modifier.contains(Modifier::ITALIC),
+                            "original/confirmed became a guess"
+                        );
+                    }
+                }
+                current.push_str(&text);
+                current.push('\n');
+            }
+            item_boundaries |= current
+                .lines()
+                .map(str::trim_end)
+                .collect::<Vec<_>>()
+                .join("\n")
+                .contains("TEST OTHER FIRST\n\nTEST OTHER SECOND");
+            seen.push_str(&current);
+            if current == previous {
+                break;
+            }
+            previous = current;
+            view.scroll(KeyCode::Down, false, false);
+        }
+        assert!(item_boundaries, "other-goal item boundaries disappeared");
+        assert!(seen.contains("  TEST MAIN Café  "));
+        assert!(seen.contains("TEST MAIN TWO"));
+        assert!(seen.contains("No goal text recorded for this reading."));
+        assert!(seen.contains("TEST PARTIAL Café\\u{202e}"));
+        assert!(!seen.contains('\u{202e}'));
+        for marker in [
+            "TEST OTHER FIRST",
+            "TEST OTHER SECOND",
+            "TEST DEFERRED FIRST",
+            "TEST DEFERRED SECOND",
+        ] {
+            assert!(seen.contains(marker));
+        }
+        let first = seen.find("Reading 1 · Tinkery's guess").unwrap();
+        let partial = seen.find("Reading 2 · Tinkery's guess").unwrap();
+        assert!(first < partial);
+    }
 }

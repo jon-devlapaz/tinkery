@@ -142,8 +142,19 @@ The shared reader validates context once for both this summary and technical det
 the view parses neither JSON nor formatted details. No timestamp sorting or merged chronology
 with question/skip actions is inferred.
 
-Original words, questions, answers, skips, restores and the exact confirmed goal follow
-in their existing recorded order. Suggestions have their own label, never an answer label.
+Original words, questions, answers, skips and restores follow in their existing recorded
+order. Suggestions have their own label, never an answer label. **Recorded reading text**
+then shows each presentation's saved main text and other-goal/deferred groupings, before the
+unchanged **Confirmed goal**. Reading numbers and timestamps match the compact sequence,
+including identical or partial readings. Main text and grouped items stay verbatim, in
+separate paragraphs; they are italic guesses, while originals and the confirmed goal retain
+ink. Absent or whitespace-only main text says `No goal text recorded for this reading.` and retains ancillary
+items. Missing or invalid context adds no empty section beyond the existing sequence notice.
+
+This section includes saved offscreen text, not the full original screen. Questions and
+remaining snapshot fields stay in the conversation or technical details. It never rebuilds
+readings from parts, sorts timestamps, merges event streams or infers corrections. The shared
+reader supplies typed text lists during the same validation pass; Tend only formats them.
 A recorded repository adds `Made in`
 and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
 shows the full path, `none` or `not recorded`, plus model information, checks and

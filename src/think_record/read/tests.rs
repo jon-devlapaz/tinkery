@@ -712,6 +712,7 @@ fn optional_reading_metadata_cannot_invalidate_independent_originals_or_attribut
     let history = read(&root, &session, GOAL).unwrap();
     assert!(history.details.contains("Reading context: not recorded"));
     assert_eq!(history.sequence, "Reading sequence was not recorded.");
+    assert!(history.readings.is_empty());
     assert!(history.details.contains("Tinkery source: unknown"));
     amend(&path, |v| {
         v["reading_context"] = serde_json::json!({"events":[{"kind":"submitted","source":999}]});
@@ -721,6 +722,7 @@ fn optional_reading_metadata_cannot_invalidate_independent_originals_or_attribut
     assert_eq!(history.turns[0].event, turns()[0].event);
     assert_eq!(history.goal, GOAL);
     assert!(history.details.contains("Reading context: unavailable"));
+    assert!(history.readings.is_empty());
     assert_eq!(
         history.sequence,
         "Reading sequence unavailable; saved words remain below."

@@ -9,7 +9,7 @@
 
 mod confirmation;
 mod context;
-pub use context::ReadingContext;
+pub use context::{ReadingContext, RecordedReading};
 #[cfg(test)]
 mod confirmation_tests;
 mod read;
