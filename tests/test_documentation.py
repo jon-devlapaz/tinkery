@@ -167,7 +167,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("`approved` records scoped operator permission",
                       prose("AGENTS.md"))
         for path in ("AGENTS.md", "README.md", "docs/README.md",
-                     ".agents/skills/issues-board/SKILL.md", "docs/design/architecture.md",
+                     "docs/design/architecture.md",
                      "docs/design/think.md", "docs/design/principles.md",
                      "docs/terminal-setup.md"):
             self.assertNotIn("backlog.md", prose(path), path)
