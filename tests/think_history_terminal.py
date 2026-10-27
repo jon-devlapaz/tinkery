@@ -139,7 +139,7 @@ def read_history(terminal, marker, record):
     terminal.send(b'\r', DETAIL)
     assert marker in terminal.screen.text(), terminal.screen.text()
     terminal.send(b'r', 'Think history')
-    terminal.wait(lambda screen: 'Original words · submission 1' in screen)
+    terminal.wait(lambda screen: 'Original words 1' in screen)
     first = terminal.screen.text()
     assert str(Path(record['seed_me_session_path']).parent) not in first, first
     frames = [first]
@@ -169,6 +169,9 @@ def read_history(terminal, marker, record):
     for text in expected:
         for line in text.splitlines():
             assert line in visible, (line, visible)
+    assert 'Answer 2' in visible
+    assert "Readings · Tinkery's guesses" in visible
+    assert 'Reading 1 · shown ' in visible and 'Reading 2 · shown ' in visible
     assert 'Tinkery suggested (not an answer)' in visible
     assert 'Omit private text.' in visible and 'Why: Keep it private.' in visible
     assert 'May refusals show private text?' in visible

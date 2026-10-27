@@ -132,29 +132,34 @@ views offer only `esc back`; an empty repo view also offers `a toggle goals`.
 
 ## Think history
 
-Detail's `r history` starts with **Recorded sequence**: presentations and submissions
-in the saved context's order, with full recorded timestamps including timezone. Submission
-numbers match the **Original words · submission N** and **Answer · submission N** headings
-below. One notice distinguishes presentation from someone reading it. Missing context says
+Detail's `r history` starts with **Recorded sequence · 27 Oct 2026, UTC** (the first
+event's UTC date). Rows show `HH:MM:SS` in UTC, converting recorded offsets, with a date
+line whenever the date changes. List order stays the truth even when clocks go backward.
+**Original words N** and **Answer N** use the source number and event kind, matching the
+conversation headings below; answers include scope answers. Only a preceding presentation
+adds ` · after reading R`. Presentations say **Reading R shown**. One notice says
+`Shown means it reached the screen, not that it was read.` Missing context says
 `Reading sequence was not recorded.`; invalid context says
 `Reading sequence unavailable; saved words remain below.` Neither hides valid history.
-The shared reader validates context once for both this summary and technical details;
-the view parses neither JSON nor formatted details. No timestamp sorting or merged chronology
-with question/skip actions is inferred.
+The shared reader owns these labels and validates context once for this summary, saved
+reading text and technical details; the view parses neither JSON nor formatted details.
+It infers no merged chronology with question/skip actions.
 
 Original words, questions, answers, skips and restores follow in their existing recorded
-order. Suggestions have their own label, never an answer label. **Recorded reading text**
+order. Suggestions have their own label, never an answer label. **Readings · Tinkery's guesses**
 then shows each presentation's saved main text and other-goal/deferred groupings, before the
-unchanged **Confirmed goal**. Reading numbers and timestamps match the compact sequence,
-including identical or partial readings. Main text and grouped items stay verbatim, in
-separate paragraphs; they are italic guesses, while originals and the confirmed goal retain
-ink. Absent or whitespace-only main text says `No goal text recorded for this reading.` and retains ancillary
-items. Missing or invalid context adds no empty section beyond the existing sequence notice.
+unchanged **Confirmed goal**. Muted headings say **Reading R · shown HH:MM:SS**, appending
+the UTC date only when it differs from the sequence heading's date. This includes identical
+or partial readings. Main text and grouped items stay verbatim, in separate italic paragraphs,
+under **Also in your dump** or **For the seed** where recorded. Originals and the confirmed
+goal retain ink. Absent or whitespace-only main text says `No goal text recorded for this reading.`
+and retains ancillary items. Missing or invalid context adds no empty readings section.
 
 This section includes saved offscreen text, not the full original screen. Questions and
 remaining snapshot fields stay in the conversation or technical details. It never rebuilds
 readings from parts, sorts timestamps, merges event streams or infers corrections. The shared
-reader supplies typed text lists during the same validation pass; Tend only formats them.
+reader supplies typed text lists and reading headings; Tend only lays them out and styles them.
+Exact recorded timestamps and full frozen snapshots remain in technical details.
 A recorded repository adds `Made in`
 and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
 shows the full path, `none` or `not recorded`, plus model information, checks and

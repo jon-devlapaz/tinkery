@@ -735,6 +735,41 @@ fn optional_reading_metadata_cannot_invalidate_independent_originals_or_attribut
 }
 
 #[test]
+fn invalid_context_still_saves_confirmed_goal_and_exact_originals() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-invalid-context");
+    let root = dir.path().join("TEST-records");
+    let mut context = crate::think_record::ReadingContext::default();
+    context.submitted(999); // Disagrees with the committed sources.
+    let original = fs::read(session.join("ledger.json")).unwrap();
+    let path = crate::think_record::write_with_context(
+        &root,
+        &Session {
+            origin: &Origin::simulated(),
+            turns: &turns(),
+            checks: vec![],
+            goal: GOAL,
+            seed_me_session: &session,
+            repo: None,
+            confirmed: UNIX_EPOCH,
+        },
+        &GoalConfirmation::default(),
+        Some(&context),
+    )
+    .unwrap();
+    let record: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    assert!(record["reading_context"].is_null());
+    assert_eq!(record["goal"], GOAL);
+    let history = read(&root, &session, GOAL).unwrap();
+    assert_eq!(history.goal, GOAL);
+    assert_eq!(history.turns[0].event, turns()[0].event);
+    assert_eq!(history.turns[3].event, turns()[3].event);
+    assert_eq!(history.sequence, "Reading sequence was not recorded.");
+    assert!(history.readings.is_empty());
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), original);
+}
+
+#[test]
 fn oversized_confirmed_record_is_refused_before_creating_an_unreadable_file() {
     let dir = tempfile::tempdir().unwrap();
     let session = session(dir.path(), "TEST-large-context");

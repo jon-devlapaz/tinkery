@@ -124,11 +124,9 @@ impl View {
         self.failed = result.is_err();
         match result {
             Ok(history) => {
-                let mut blocks = vec![
-                    ("Recorded sequence".into(), Tone::Muted),
-                    (history.sequence, Tone::Muted),
-                ];
+                let mut blocks = vec![(history.sequence, Tone::Muted)];
                 for turn in history.turns {
+                    let label = turn.event.source_label();
                     match turn.event {
                         Event::DraftSuggested { text, provenance } => add(
                             &mut blocks,
@@ -142,20 +140,21 @@ impl View {
                                 format!("{answer}\nWhy: {reason}"),
                             );
                         }
-                        Event::Words { text, source } => add(
+                        Event::Words { text, .. } => add(
                             &mut blocks,
-                            &format!("Original words · submission {source}"),
+                            &label.expect("source event has a heading"),
                             text,
                         ),
                         Event::Asked { question, .. } | Event::ScopeAsked { question, .. } => {
                             add(&mut blocks, "Question", question)
                         }
-                        Event::Answered { answer, source, .. }
-                        | Event::ScopeAnswered { answer, source, .. } => add(
-                            &mut blocks,
-                            &format!("Answer · submission {source}"),
-                            answer,
-                        ),
+                        Event::Answered { answer, .. } | Event::ScopeAnswered { answer, .. } => {
+                            add(
+                                &mut blocks,
+                                &label.expect("source event has a heading"),
+                                answer,
+                            )
+                        }
                         Event::Skipped { question, .. } => {
                             add(&mut blocks, "Skipped question", question)
                         }
@@ -165,12 +164,10 @@ impl View {
                     }
                 }
                 if !history.readings.is_empty() {
-                    add(&mut blocks, "Recorded reading text", concat!(
-                        "Saved main reading text and its groupings, including offscreen text. ",
-                        "Questions and other details remain in the conversation or How it works."
-                    ).into());
-                    for (index, reading) in history.readings.into_iter().enumerate() {
-                        add_reading(&mut blocks, index + 1, reading);
+                    blocks.push((String::new(), Tone::Ink));
+                    blocks.push(("Readings · Tinkery's guesses".into(), Tone::Muted));
+                    for reading in history.readings {
+                        add_reading(&mut blocks, reading);
                     }
                 }
                 add(&mut blocks, "Confirmed goal", history.goal);
@@ -286,14 +283,9 @@ fn add(blocks: &mut Vec<(String, Tone)>, label: &str, text: String) {
     blocks.push((text, Tone::Ink));
 }
 
-fn add_reading(
-    blocks: &mut Vec<(String, Tone)>,
-    number: usize,
-    reading: think_record::RecordedReading,
-) {
+fn add_reading(blocks: &mut Vec<(String, Tone)>, reading: think_record::RecordedReading) {
     blocks.push((String::new(), Tone::Ink));
-    blocks.push((format!("Reading {number} · Tinkery's guess"), Tone::Muted));
-    blocks.push((format!("Presented at {}", reading.at), Tone::Muted));
+    blocks.push((reading.heading, Tone::Muted));
     // Preserve whitespace strings below while making an otherwise blank main text explicit.
     if reading.main.iter().all(|text| text.trim().is_empty()) {
         blocks.push((

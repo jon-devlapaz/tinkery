@@ -1,5 +1,6 @@
 """Replay #401's recorded omission and correction through keys; zero real model calls."""
 import json
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import select
@@ -160,13 +161,16 @@ def journey(width, height, no_color):
             run.send(b'\r', 's shape')
             run.send(b'r', 'Recorded sequence')
             first_history = run.screen.text()
-            sequence = ['Submission 1 · no earlier reading recorded', 'Reading 1 presented',
-                        'Submission 2 · after reading 1', 'Reading 2 presented']
+            sequence = ['Original words 1', 'Reading 1 shown',
+                        'Answer 2 · after reading 1', 'Reading 2 shown']
             positions = [first_history.index(label) for label in sequence]
             assert positions == sorted(positions), first_history
             for event in events:
                 if event['kind'] == 'presented':
-                    assert event['at'] in first_history
+                    shown = datetime.fromisoformat(event['at'].replace('Z', '+00:00')).astimezone(timezone.utc)
+                    assert shown.strftime('%H:%M:%S') in first_history
+                    assert event['at'] not in first_history
+            assert 'Shown means it reached the screen, not that it was read.' in first_history
             assert 'framings' not in first_history and 'structure-spans-history' not in first_history
             # Walk one row at a time so the full answer is checked through the real viewport.
             visible = '\n'.join(first_history.splitlines()[5:height - 1])
@@ -187,13 +191,13 @@ def journey(width, height, no_color):
             else:
                 raise AssertionError('History did not reach its end')
             compact = lambda text: ''.join(text.split())
-            assert 'Answer · submission 2' in visible
-            headers = ['Answer · submission 2', 'Recorded reading text',
-                       "Reading 1 · Tinkery's guess", "Reading 2 · Tinkery's guess", 'Confirmed goal']
+            assert 'Answer 2' in visible
+            headers = ['Answer 2', "Readings · Tinkery's guesses",
+                       'Reading 1 · shown ', 'Reading 2 · shown ', 'Confirmed goal']
             assert [visible.index(h) for h in headers] == sorted(visible.index(h) for h in headers)
-            first_reading = visible.split("Reading 1 · Tinkery's guess", 1)[1].split(
-                "Reading 2 · Tinkery's guess", 1)[0]
-            second_reading = visible.split("Reading 2 · Tinkery's guess", 1)[1].split('Confirmed goal', 1)[0]
+            first_reading = visible.split('Reading 1 · shown ', 1)[1].split(
+                'Reading 2 · shown ', 1)[0]
+            second_reading = visible.split('Reading 2 · shown ', 1)[1].split('Confirmed goal', 1)[0]
             first_main, other_goals = first_reading.split('Also in your dump', 1)
             assert compact(first_goal) in compact(first_main), 'Reading 1 wording changed'
             for item in events[1]['board']['other_goals']:

@@ -17,11 +17,24 @@ use std::{
 /// One turn as recorded, with the person's words unchanged.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct RecordedTurn {
-    /// The recorded UTC time, without estimating time spent working.
+    /// The timestamp exactly as recorded, without estimating time spent working.
     pub at: String,
     /// The recorded words or question action.
     #[serde(flatten)]
     pub event: Event,
+}
+
+impl Event {
+    /// The source heading shared by the history sequence and conversation; non-submissions have none.
+    pub fn source_label(&self) -> Option<String> {
+        match self {
+            Self::Words { source, .. } => Some(format!("Original words {source}")),
+            Self::Answered { source, .. } | Self::ScopeAnswered { source, .. } => {
+                Some(format!("Answer {source}"))
+            }
+            _ => None,
+        }
+    }
 }
 
 /// A verified connection to one saved goal; reading supplies no model context and writes nothing.
@@ -35,7 +48,7 @@ pub struct History {
     pub made_in: MadeIn,
     /// Source, model and check information for technical help, kept apart from the conversation.
     pub details: String,
-    /// Compact sequence from the same validated context as details, or an explicit missing/invalid notice.
+    /// Reader-owned sequence heading and rows from the same validated context as details, or a missing/invalid notice.
     pub sequence: String,
     /// One saved text projection per presentation, in the same order as the compact sequence.
     pub readings: Vec<super::RecordedReading>,

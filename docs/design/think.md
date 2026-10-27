@@ -279,13 +279,15 @@ cannot replace the last recorded presentation. The snapshot can include offscree
 material: this is neither full-screen replay nor proof that someone read it.
 
 Collection stays in memory until existing typed confirmation writes the record.
-Unconfirmed exits and crashes still leave no record. History's technical details show
-presentations, source submission times and their relationship. Old records say context
-was not recorded; malformed optional context says unavailable without invalidating
-independently valid originals or goal attribution. References must cover committed
-sources exactly once in order. Historical boards are inspected as recorded, never
-reinterpreted through today's model decoder. Writer and reader share the 16 MiB
-complete-record limit; an oversized record fails visibly without truncating originals.
+Unconfirmed exits and crashes still leave no record. Invalid optional context is saved as
+null: it never blocks recording the confirmed goal and originals. Existing malformed context
+remains distinct from missing context in [history](shape-and-handoff.md#think-history), without
+invalidating independently valid originals or goal attribution. Technical details retain exact
+recorded timestamps, full frozen boards and the same submission relationships as the sequence.
+References must cover committed sources exactly once in order. Historical boards validate
+required framing-text, other-goal and deferred lists into typed text once, requiring at least
+one nonblank string; they never pass through today's model decoder. Writer and reader share
+the 16 MiB complete-record limit; an oversized record fails visibly without truncating originals.
 
 `tinkery_source` holds optional compile-time supplied build information. Set
 `TINKERY_BUILD_COMMIT` to the full 40-hex Tinkery commit and `TINKERY_BUILD_DIRTY`

@@ -236,7 +236,7 @@ pub fn write_with_confirmation(
 }
 
 /// Writes confirmed history with optional terminal presentation context. Context never changes
-/// originals or model inputs; invalid context and oversized records refuse publication.
+/// originals or model inputs; invalid context is omitted, while oversized records refuse publication.
 pub fn write_with_context(
     root: &Path,
     session: &Session<'_>,
@@ -244,14 +244,14 @@ pub fn write_with_context(
     context: Option<&ReadingContext>,
 ) -> Result<PathBuf, String> {
     confirmation.validate()?;
-    if let Some(context) = context {
-        context.validate(
+    let context = context.filter(|context| {
+        context.is_valid(
             session
                 .turns
                 .iter()
                 .map(|turn| (&turn.event, utc(turn.at, ':'))),
-        )?;
-    }
+        )
+    });
     #[derive(Serialize)]
     struct TurnOut<'a> {
         at: String,
