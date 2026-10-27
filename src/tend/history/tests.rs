@@ -299,7 +299,8 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
         &GoalConfirmation::terminal(Some("agent")).unwrap(),
         Some(&context),
     )
-    .unwrap();
+    .unwrap()
+    .path;
     let bytes = std::fs::read(&path).unwrap();
     let history = think_record::read(&records, &session, goal).unwrap();
     assert_eq!(history.turns[0].event, turns[0].event);

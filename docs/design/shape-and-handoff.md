@@ -14,7 +14,9 @@ Explicit successful saving shows `Saved.`, the exact frozen goal block and
 Nothing launches, opens a browser, pastes into a harness or starts implementation.
 Paths belong in F1 then `h`, with the [think record](think.md#think-record) below
 the session path. If recording fails, the goal stays saved; help and a muted receipt
-notice disclose the gap. Notices wrap without clipping in receipt and detail.
+notice disclose the gap. If only reading context was rejected, the successful receipt says
+`Reading sequence wasn't saved; F1 then h shows why.` The path and full reason remain in
+technical details and the plain-text exit receipt. Notices wrap without clipping in receipt and detail.
 The plain-text exit receipt may include recovery locations. Its next step is read
 from the session at exit, through the shared verifier: a verified confirmed seed
 points to Approve, a draft to confirming in Shape, and a goal without a seed to
@@ -139,8 +141,10 @@ line whenever the date changes. List order stays the truth even when clocks go b
 conversation headings below; answers include scope answers. Only a preceding presentation
 adds ` · after reading R`. Presentations say **Reading R shown**. One notice says
 `Shown means it reached the screen, not that it was read.` Missing context says
-`Reading sequence was not recorded.`; invalid context says
-`Reading sequence unavailable; saved words remain below.` Neither hides valid history.
+`Reading sequence was not recorded.` Rejected context says
+`Reading sequence was not saved: <reason>` in both history and technical details. Malformed
+saved context, including times outside the supported UTC range, says
+`Reading sequence unavailable; saved words remain below.` None hides valid originals or the goal.
 The shared reader owns these labels and validates context once for this summary, saved
 reading text and technical details; the view parses neither JSON nor formatted details.
 It infers no merged chronology with question/skip actions.

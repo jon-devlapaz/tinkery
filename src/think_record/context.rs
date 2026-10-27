@@ -81,8 +81,9 @@ enum Content<'a> {
 
 fn timestamp(at: &str) -> Result<time::OffsetDateTime, String> {
     time::OffsetDateTime::parse(at, &time::format_description::well_known::Rfc3339)
-        .map(|at| at.to_offset(time::UtcOffset::UTC))
-        .map_err(|_| "Invalid reading-context timestamp.".into())
+        .ok()
+        .and_then(|at| at.checked_to_offset(time::UtcOffset::UTC))
+        .ok_or_else(|| "Invalid reading-context timestamp.".into())
 }
 
 fn date(date: time::Date) -> String {
@@ -137,7 +138,7 @@ impl ReadingContext {
                         return Err("Reading context repeats or invents submitted words.".into());
                     };
                     if source != expected {
-                        return Err("Reading context disagrees with submitted-source order.".into());
+                        return Err("Reading sequence does not match the saved words.".into());
                     }
                     let label = event.source_label().ok_or("Expected submitted words.")?;
                     entries.push(ValidatedEntry {
@@ -184,16 +185,34 @@ impl ReadingContext {
         Ok(entries)
     }
 
-    pub(super) fn is_valid<'a>(&self, turns: impl Iterator<Item = (&'a Event, String)>) -> bool {
-        self.validate(turns).is_ok()
+    pub(super) fn check<'a>(
+        &self,
+        turns: impl Iterator<Item = (&'a Event, String)>,
+    ) -> Result<(), String> {
+        self.validate(turns).map(|_| ())
     }
+}
+
+pub(super) fn not_saved(reason: &str) -> String {
+    format!("Reading sequence was not saved: {reason}")
 }
 
 pub(super) fn history<'a>(
     value: &Value,
     turns: impl Iterator<Item = (&'a Event, String)>,
+    error: &Value,
 ) -> ContextHistory {
-    if value.is_null() {
+    if value.is_null()
+        && let Some(reason) = error.as_str().filter(|reason| !reason.trim().is_empty())
+    {
+        let notice = not_saved(reason);
+        return ContextHistory {
+            sequence: notice.clone(),
+            details: notice,
+            readings: vec![],
+        };
+    }
+    if value.is_null() && error.is_null() {
         return ContextHistory {
             sequence: "Reading sequence was not recorded.".into(),
             details: "Reading context: not recorded.".into(),
@@ -204,6 +223,7 @@ pub(super) fn history<'a>(
     let entries = context
         .as_ref()
         .ok()
+        .filter(|_| error.is_null())
         .and_then(|context| context.validate(turns).ok());
     let Some(entries) = entries else {
         return ContextHistory {

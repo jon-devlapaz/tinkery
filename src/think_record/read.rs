@@ -102,6 +102,8 @@ struct SavedRecord {
     tinkery_source: serde_json::Value,
     #[serde(default)]
     reading_context: serde_json::Value,
+    #[serde(default)]
+    reading_context_error: serde_json::Value,
     origin: String,
     #[serde(default)]
     harness: Option<String>,
@@ -192,6 +194,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             .turns
             .iter()
             .map(|turn| (&turn.event, turn.at.clone())),
+        &record.reading_context_error,
     );
     let source_details = context::source_details(&record.tinkery_source);
     let details = format!(

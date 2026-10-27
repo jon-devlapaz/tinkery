@@ -192,7 +192,7 @@ struct Handoff {
     /// Where a confirmed session's think record goes; `None` writes none.
     record_root: Option<std::path::PathBuf>,
     /// The think record written with the save, or why it wasn't.
-    record: Option<Result<std::path::PathBuf, String>>,
+    record: Option<Result<crate::think_record::WrittenRecord, String>>,
     /// The repository Tinkery was started in; the review shows it and the record keeps it.
     repo: Option<crate::repo::Repo>,
 }

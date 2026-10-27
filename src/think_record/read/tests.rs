@@ -734,6 +734,57 @@ fn optional_reading_metadata_cannot_invalidate_independent_originals_or_attribut
     );
 }
 
+fn extreme_timestamp_keeps_independent_history(presentation: bool) {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-extreme-time");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &session, 10);
+    let extreme = "9999-12-31T23:59:59-01:00";
+    amend(&path, |value| {
+        value["reading_context"] = serde_json::json!({"events":[
+            {"kind":"submitted","source":1},
+            {"kind":"presented","at":"2026-10-27T01:00:00Z","board":{
+                "framings":[{"text":"TEST frozen reading"}],"other_goals":[],"deferred":[]
+            }},
+            {"kind":"submitted","source":2},
+            {"kind":"submitted","source":4}
+        ]});
+        if presentation {
+            value["reading_context"]["events"][1]["at"] = extreme.into();
+        } else {
+            value["turns"][0]["at"] = extreme.into();
+        }
+    });
+    let bytes = fs::read(&path).unwrap();
+    let history = read(&root, &session, GOAL).unwrap();
+    assert_eq!(
+        history.sequence,
+        "Reading sequence unavailable; saved words remain below."
+    );
+    assert!(history.details.contains("Reading context: unavailable"));
+    assert!(history.readings.is_empty());
+    assert_eq!(history.goal, GOAL);
+    assert_eq!(
+        history
+            .turns
+            .iter()
+            .map(|turn| &turn.event)
+            .collect::<Vec<_>>(),
+        turns().iter().map(|turn| &turn.event).collect::<Vec<_>>()
+    );
+    assert_eq!(fs::read(path).unwrap(), bytes);
+}
+
+#[test]
+fn extreme_presentation_timestamp_keeps_originals_and_goal() {
+    extreme_timestamp_keeps_independent_history(true);
+}
+
+#[test]
+fn extreme_submitted_timestamp_keeps_originals_and_goal() {
+    extreme_timestamp_keeps_independent_history(false);
+}
+
 #[test]
 fn invalid_context_still_saves_confirmed_goal_and_exact_originals() {
     let dir = tempfile::tempdir().unwrap();
@@ -742,7 +793,7 @@ fn invalid_context_still_saves_confirmed_goal_and_exact_originals() {
     let mut context = crate::think_record::ReadingContext::default();
     context.submitted(999); // Disagrees with the committed sources.
     let original = fs::read(session.join("ledger.json")).unwrap();
-    let path = crate::think_record::write_with_context(
+    let written = crate::think_record::write_with_context(
         &root,
         &Session {
             origin: &Origin::simulated(),
@@ -757,16 +808,98 @@ fn invalid_context_still_saves_confirmed_goal_and_exact_originals() {
         Some(&context),
     )
     .unwrap();
-    let record: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    let record: serde_json::Value =
+        serde_json::from_slice(&fs::read(&written.path).unwrap()).unwrap();
+    let reason = "Reading sequence does not match the saved words.";
+    let message = format!("Reading sequence was not saved: {reason}");
     assert!(record["reading_context"].is_null());
+    assert_eq!(record["reading_context_error"], reason);
+    assert_eq!(written.reading_context_error.as_deref(), Some(reason));
+    assert!(written.message().contains(&message));
     assert_eq!(record["goal"], GOAL);
     let history = read(&root, &session, GOAL).unwrap();
     assert_eq!(history.goal, GOAL);
-    assert_eq!(history.turns[0].event, turns()[0].event);
-    assert_eq!(history.turns[3].event, turns()[3].event);
-    assert_eq!(history.sequence, "Reading sequence was not recorded.");
+    assert_eq!(
+        history
+            .turns
+            .iter()
+            .map(|turn| &turn.event)
+            .collect::<Vec<_>>(),
+        turns().iter().map(|turn| &turn.event).collect::<Vec<_>>()
+    );
+    assert_eq!(history.sequence, message);
+    assert!(history.details.contains(&message));
     assert!(history.readings.is_empty());
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), original);
+
+    // Render the writer's save notice through the same public receipt component as Think.
+    use crate::goal::confirmed::{SavedGoal, render_saved_goal};
+    use ratatui::{Terminal, backend::TestBackend};
+    let notice = written
+        .notice()
+        .expect("a successful save must disclose lost context");
+    assert_eq!(
+        notice,
+        "Reading sequence wasn't saved; F1 then h shows why."
+    );
+    for width in [36, 76] {
+        let mut terminal = Terminal::new(TestBackend::new(width, 20)).unwrap();
+        terminal
+            .draw(|frame| {
+                render_saved_goal(
+                    frame,
+                    &mut 0,
+                    frame.area(),
+                    crate::Palette::new(true),
+                    SavedGoal {
+                        goal: &history.goal,
+                        next: None,
+                        notice,
+                        saved: true,
+                    },
+                );
+            })
+            .unwrap();
+        let screen = terminal
+            .backend()
+            .buffer()
+            .content
+            .chunks(usize::from(width))
+            .map(|row| row.iter().map(|cell| cell.symbol()).collect::<String>())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let compact = |text: &str| {
+            text.chars()
+                .filter(|c| !c.is_whitespace())
+                .collect::<String>()
+        };
+        assert!(screen.contains("Saved."));
+        assert!(compact(&screen).contains(&compact(notice)), "{screen}");
+        assert!(compact(&screen).contains(&compact(GOAL)), "{screen}");
+    }
+}
+
+#[test]
+fn malformed_context_error_keeps_independent_history() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-context-error");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &session, 10);
+    for error in [
+        serde_json::json!(42),
+        serde_json::json!("  "),
+        serde_json::json!({"reason":"TEST"}),
+    ] {
+        amend(&path, |value| value["reading_context_error"] = error);
+        let history = read(&root, &session, GOAL).unwrap();
+        assert_eq!(
+            history.sequence,
+            "Reading sequence unavailable; saved words remain below."
+        );
+        assert_eq!(history.goal, GOAL);
+        assert_eq!(history.turns[0].event, turns()[0].event);
+        assert!(history.readings.is_empty());
+    }
 }
 
 #[test]

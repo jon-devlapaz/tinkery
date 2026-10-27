@@ -24,6 +24,7 @@ fn check(value: Value, events: &[Event]) -> String {
         events
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+        &Value::Null,
     )
     .details
 }
@@ -40,6 +41,7 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
         words()
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+        &Value::Null,
     );
     let sequence = result.sequence;
     let text = result.details;
@@ -102,6 +104,7 @@ fn source_labels_follow_event_kinds_and_only_presentations_add_relations() {
                 .into(),
             )
         }),
+        &Value::Null,
     );
     assert_eq!(
         result.sequence.lines().collect::<Vec<_>>(),
@@ -175,6 +178,7 @@ fn malformed_context_never_supplies_a_relationship() {
             words()
                 .iter()
                 .map(|event| (event, "2026-10-24T23:16:53Z".into())),
+            &Value::Null,
         );
         assert_eq!(
             result.sequence,
@@ -222,6 +226,7 @@ fn sequence_converts_offsets_to_utc_and_retains_exact_times_in_details() {
         events
             .iter()
             .map(|event| (event, "2026-10-24T23:16:53-05:00".into())),
+        &Value::Null,
     );
     let sequence = result.sequence;
     let details = result.details;
@@ -248,6 +253,7 @@ fn sequence_converts_offsets_to_utc_and_retains_exact_times_in_details() {
     let missing = history(
         &Value::Null,
         events.iter().map(|event| (event, String::new())),
+        &Value::Null,
     );
     assert_eq!(missing.sequence, "Reading sequence was not recorded.");
     assert!(missing.readings.is_empty());
@@ -273,6 +279,7 @@ fn reading_text_preserves_lists_whitespace_and_partial_presentations_without_rec
         events
             .iter()
             .map(|event| (event, "2026-10-26T23:00:00Z".into())),
+        &Value::Null,
     );
     assert_eq!(result.readings.len(), 2);
     assert_eq!(
