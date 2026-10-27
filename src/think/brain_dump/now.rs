@@ -16,6 +16,7 @@ pub(super) enum Act {
     Why,
     Cards,
     Copy,
+    Model,
 }
 
 impl BrainDump {
@@ -46,31 +47,33 @@ impl BrainDump {
         if !self.conversation.skipped().is_empty() {
             rows.push(Row::new("Bring back the skipped question", Act::UndoSkip));
         }
-        if self.conversation.sources().is_empty() {
-            return rows;
-        }
-        rows.push(Row::new(
-            if self.add_more {
-                "Answer instead of a new dump"
-            } else {
-                "Start a new dump instead"
-            },
-            Act::NewDump,
-        ));
-        rows.push(Row::new("Show your originals", Act::Originals));
-        rows.push(Row::new("Why: attempts and checks", Act::Why));
-        if !self.conversation.fragments().is_empty() {
+        if !self.conversation.sources().is_empty() {
             rows.push(Row::new(
-                if self.screen.show_extractions {
-                    "Hide the extracted cards"
+                if self.add_more {
+                    "Answer instead of a new dump"
                 } else {
-                    "Show the extracted cards"
+                    "Start a new dump instead"
                 },
-                Act::Cards,
+                Act::NewDump,
             ));
+            rows.push(Row::new("Show your originals", Act::Originals));
+            rows.push(Row::new("Why: attempts and checks", Act::Why));
+            if !self.conversation.fragments().is_empty() {
+                rows.push(Row::new(
+                    if self.screen.show_extractions {
+                        "Hide the extracted cards"
+                    } else {
+                        "Show the extracted cards"
+                    },
+                    Act::Cards,
+                ));
+            }
+            if board.is_some() {
+                rows.push(Row::new("Copy the reading", Act::Copy));
+            }
         }
-        if board.is_some() {
-            rows.push(Row::new("Copy the reading", Act::Copy));
+        if self.host.calls_left().is_some() {
+            rows.push(Row::new("Model and calls", Act::Model));
         }
         rows
     }
@@ -97,6 +100,7 @@ impl BrainDump {
             }
             Act::Cards => self.toggle_cards(),
             Act::Copy => self.copy_board(),
+            Act::Model => self.screen.model = true,
         }
     }
 }

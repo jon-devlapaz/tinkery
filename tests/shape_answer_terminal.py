@@ -702,7 +702,7 @@ def case(name, width=100, height=30):
                 assert run.flat().count('Next:') == 1, run.screen.text()
                 ledger = helper.load(session)
                 if name == 'zero budget':
-                    run.wait('Next: start Tinkery with --shape-budget CALLS')
+                    run.wait('Next: add calls from F1, Model and calls')
                     run.wait('your answer Local.')
                     assert files(sessions) == before and run.calls() == [], 'Zero budget wrote or called'
                 elif name in ('model writes decisions', 'seed secret'):

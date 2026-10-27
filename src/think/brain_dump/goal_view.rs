@@ -407,7 +407,7 @@ pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Pa
         Rect::new(
             11,
             1,
-            crate::header_end(area, palette, area.width.saturating_sub(5)).saturating_sub(11),
+            crate::header_end(area, area.width.saturating_sub(5)).saturating_sub(11),
             1,
         )
         .intersection(area),

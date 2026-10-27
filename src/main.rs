@@ -18,6 +18,7 @@ use crossterm::{
 use tinkery::{
     Palette, ThemeSwitch,
     menu::{self, Home},
+    model_setup::Controls,
     think::{
         brain_dump::{self, BrainDump, Exit},
         drafting::PiHost,
@@ -67,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut record_root = None;
     let mut link_root = None;
     let mut pi_command = None;
-    let mut shape_budget = 0;
+    let mut shape_budget = None;
     let mut home_menu = false;
     let mut operator = None;
     let mut sdlc_root = None;
@@ -124,10 +125,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ));
             }
             "--shape-budget" => {
-                shape_budget = args
-                    .next()
-                    .and_then(|calls| calls.parse::<usize>().ok())
-                    .ok_or("--shape-budget needs a number of Pi requests")?;
+                shape_budget = Some(
+                    args.next()
+                        .and_then(|calls| calls.parse::<usize>().ok())
+                        .ok_or("--shape-budget needs a number of Pi requests")?,
+                );
             }
             "--pi-command" => {
                 pi_command = Some(launch_relative(PathBuf::from(
@@ -136,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n\nWithout --shape-pi, think is practice: replies are simulated and nothing leaves your machine.\nWith --shape-pi, your words go to the model you chose and may cost money.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Pi requests shared by Think and Shape this run (default: 0, none)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--taste-result RUN_ID=PR_URL  Explicit canonical run UUIDv4 and full GitHub PR URL; repeatable, launch-only\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi --model provider/model-id\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model through Pi\n--model      provider/model-id to use (required with --shape-pi unless one is saved)\n--thinking   Reasoning level: off|minimal|low|medium|high|xhigh|max (default: saved, else low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi)\n--shape-budget CALLS  Pi requests shared by Think and Shape this run (default: saved calls, else 0)\n--sdlc-root PATH  The tink-sdlc checkout watch reads with its own status --json (read-only; nothing is discovered)\n--taste-result RUN_ID=PR_URL  Explicit canonical run UUIDv4 and full GitHub PR URL; repeatable, launch-only\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }
@@ -144,7 +146,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     if !shape_pi
-        && (model.is_some() || thinking.is_some() || pi_command.is_some() || shape_budget > 0)
+        && (model.is_some()
+            || thinking.is_some()
+            || pi_command.is_some()
+            || shape_budget.is_some_and(|calls| calls > 0))
     {
         return Err(
             "--model, --thinking, --pi-command and --shape-budget require --shape-pi".into(),
@@ -160,23 +165,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(root) => Ok(std::env::current_dir()?.join(root)),
         None => tinkery::think_record::default_root(std::env::var_os("HOME").as_deref()),
     };
-    if shape_pi {
+    let setup_path = tinkery::model_setup::path(std::env::var_os("HOME").as_deref());
+    let saved = setup_path
+        .as_deref()
+        .map_or(Ok(None), tinkery::model_setup::load);
+    let agent = operator.as_deref() == Some("agent");
+    // An agent never inherits the operator's saved calls; its allowance is --shape-budget alone.
+    let usable =
+        saved
+            .as_ref()
+            .ok()
+            .and_then(Option::as_ref)
+            .map(|setup| tinkery::model_setup::Setup {
+                calls: if agent { 0 } else { setup.calls },
+                ..setup.clone()
+            });
+    let launch = tinkery::model_setup::Setup::launch(
+        shape_pi,
+        model,
+        thinking,
+        shape_budget,
+        usable.as_ref(),
+    )?;
+    let live = launch.is_some();
+    if live {
         record_root.as_ref().map_err(Clone::clone)?;
     }
-    let call_budget = tinkery::pi::CallBudget::new(shape_budget);
-    let host = if shape_pi {
-        Some(Arc::new(
+    let call_budget = tinkery::pi::CallBudget::new(launch.as_ref().map_or(0, |l| l.calls));
+    let controls =
+        tinkery::model_setup::Controls::new(setup_path, saved, live.then(|| call_budget.clone()));
+    let controls = if agent {
+        controls.for_agent()
+    } else {
+        controls
+    };
+    let host = match &launch {
+        Some(launch) => Some(Arc::new(
             PiHost::new(
                 pi_command.clone().unwrap_or_else(|| "pi".into()),
-                model
-                    .clone()
-                    .ok_or("--shape-pi requires an explicit --model provider/model-id")?,
+                launch.model.clone(),
             )?
-            .with_thinking(thinking.as_deref().unwrap_or("low"))?
+            .with_thinking(&launch.thinking)?
             .with_budget(call_budget.clone()),
-        ))
-    } else {
-        None
+        )),
+        None => None,
     };
     let default_root_requested = seed_session_root.is_none();
     let link_root = tinkery::tend::needs::resolve_root(link_root);
@@ -184,7 +216,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(root) => Ok(tinkery::seed_me::resolve_root(Some(root))?),
         None => tinkery::seed_me::default_root(std::env::var_os("HOME").as_deref()),
     };
-    if shape_pi && !snapshot {
+    if live && !snapshot {
         sessions_root.as_ref().map_err(Clone::clone)?;
     }
     if !snapshot && (!io::stdin().is_terminal() || !io::stdout().is_terminal()) {
@@ -203,12 +235,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok()
         .and_then(|dir| tinkery::repo::Repo::enclosing(&dir));
     // Shape's agent step reads files where the goal was made, else where Tinkery started.
-    let shape_agent = match (shape_pi, &model) {
-        (true, Some(model)) => Some(Arc::new(
+    let shape_agent = match &launch {
+        Some(launch) => Some(Arc::new(
             tinkery::shape::Agent::new(
                 pi_command.clone().unwrap_or_else(|| "pi".into()),
-                model.clone(),
-                thinking.clone().unwrap_or_else(|| "low".into()),
+                launch.model.clone(),
+                launch.thinking.clone(),
                 repo.as_ref()
                     .map(|r| r.root().to_path_buf())
                     .or_else(|| std::env::current_dir().ok()),
@@ -217,7 +249,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?
             .with_confirmation(Some(confirmation.clone())),
         )),
-        _ => None,
+        None => None,
     };
     if home_menu {
         let make_dump: Box<dyn Fn() -> BrainDump> = if let Some(host) = host.clone() {
@@ -253,7 +285,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut menu = Home::new(make_dump, sessions_root, link_root.clone())
             .with_repo(repo)
             .with_shape_agent(shape_agent)
-            .with_shape_held(operator.as_deref() == Some("agent") && !shape_pi)
+            .with_shape_held(agent && !live)
             .with_sdlc_root(match sdlc_root {
                 Some(root) if root.is_relative() => Some(std::env::current_dir()?.join(root)),
                 root => root,
@@ -264,14 +296,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         if snapshot {
             menu.discover_for_snapshot(std::time::Duration::from_secs(5));
-            println!("{}", menu::snapshot(100, 30, &mut menu, no_color)?);
+            let mut app = Intake::Home(Box::new(menu));
+            println!("{}", screen_text(&mut app, &controls, no_color)?);
             return Ok(());
         }
         let mut terminal = ratatui::try_init()?;
         let mut app = Intake::Home(Box::new(menu));
         let result = run_shape(
             &mut terminal,
-            no_color,
+            Header {
+                theme: ThemeSwitch::new(no_color),
+                model: controls,
+            },
             &mut app,
             full_redraw,
             link_root,
@@ -299,13 +335,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dump.set_goal_confirmation(confirmation)?;
     }
     if snapshot {
-        println!(
-            "{}",
-            match &mut app {
-                Intake::Home(app) => menu::snapshot(100, 30, app, no_color)?,
-                Intake::Brain(app) => brain_dump::snapshot(100, 30, app, no_color)?,
-            }
-        );
+        println!("{}", screen_text(&mut app, &controls, no_color)?);
         return Ok(());
     }
     app = match app {
@@ -317,7 +347,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = ratatui::try_init()?;
     let result = run_shape(
         &mut terminal,
-        no_color,
+        Header {
+            theme: ThemeSwitch::new(no_color),
+            model: controls,
+        },
         &mut app,
         full_redraw,
         link_root,
@@ -407,6 +440,48 @@ impl Intake {
             Self::Brain(a) => a.copy_result(sent),
         }
     }
+    fn take_model_request(&mut self) -> bool {
+        match self {
+            Self::Home(a) => a.take_model_request(),
+            Self::Brain(a) => a.take_model_request(),
+        }
+    }
+}
+
+// The header's two switches the loop owns over every screen: light or dark, and the model.
+struct Header {
+    theme: ThemeSwitch,
+    model: Controls,
+}
+
+// The screen, then the model label and panel over it; the loop and --snapshot draw the same.
+fn draw(frame: &mut ratatui::Frame, app: &mut Intake, controls: &Controls, palette: Palette) {
+    app.render(frame, palette);
+    controls.render(frame, palette);
+}
+
+// The 100 x 30 view as text: no terminal mode, no model requests. Home lines are trimmed.
+fn screen_text(
+    app: &mut Intake,
+    controls: &Controls,
+    no_color: bool,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let (width, height) = (100, 30);
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))?;
+    terminal.draw(|frame| draw(frame, app, controls, Palette::new(no_color)))?;
+    let trim = matches!(app, Intake::Home(_));
+    let buffer = terminal.backend().buffer();
+    Ok((0..height)
+        .map(|y| {
+            let line: String = (0..width).map(|x| buffer[(x, y)].symbol()).collect();
+            if trim {
+                line.trim_end().to_owned()
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n"))
 }
 
 struct InputGuard;
@@ -454,7 +529,7 @@ impl Drop for InputGuard {
 
 fn run_shape(
     terminal: &mut ratatui::DefaultTerminal,
-    no_color: bool,
+    header: Header,
     app: &mut Intake,
     full_redraw: bool,
     link_root: Result<PathBuf, String>,
@@ -472,7 +547,10 @@ fn run_shape(
     let mut pending_input = None;
     let mut discard_mouse = false;
     let mut previous_area = None;
-    let mut theme = ThemeSwitch::new(no_color);
+    let Header {
+        mut theme,
+        model: mut controls,
+    } = header;
     while !app.quit() {
         app.tick(&link_root, &shape_agent);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
@@ -487,7 +565,7 @@ fn run_shape(
                         frame.area(),
                     );
                 } else {
-                    app.render(frame, theme.palette());
+                    draw(frame, app, &controls, theme.palette());
                 }
                 if repaint || full_redraw {
                     for cell in &mut frame.buffer_mut().content {
@@ -536,10 +614,16 @@ fn run_shape(
                     }
                     Event::Key(key) if theme.key(key) => {}
                     Event::Mouse(event) if theme.click(event, area) => {}
+                    Event::Key(key) if controls.key(key) => {}
+                    Event::Paste(text) if controls.paste(&text) => {}
+                    Event::Mouse(event) if controls.click(event, area) => {}
                     Event::Key(key) => app.handle_key(key),
                     Event::Paste(text) => app.paste(&text),
                     Event::Mouse(event) => app.handle_mouse(event, area),
                     _ => {}
+                }
+                if app.take_model_request() {
+                    controls.open();
                 }
                 if app.quit() || !event::poll(std::time::Duration::ZERO)? {
                     discard_mouse = false;

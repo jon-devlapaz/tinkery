@@ -23,10 +23,10 @@ place names. Numbers align with the title and bar. Tend's muted count appears by
 its name only when [discovery](#session-discovery) is complete and nonzero.
 Digits and aliases still work without bar clutter. Open places and help hide this bar.
 
-Help overlays the upper-right (38×13), leaving choices and descriptions visible at
+Help overlays the upper-right (38×14), leaving choices and descriptions visible at
 all supported sizes. It has a thin muted border, jade title, bold ink headings and
 keys, and muted action labels. A blank row follows the title. Key and action columns
-align, with `Esc Close help` separate below; with colour, `Ctrl-T Dark or light` sits under `q`. There is no ambiguous Leave heading,
+align, with `Esc Close help` separate below; `m Model and calls` sits under `q`, then with colour `Ctrl-T Dark or light`. There is no ambiguous Leave heading,
 new colour or background. NO_COLOR keeps the hierarchy. Help blocks underlying
 digits, Enter, movement and row clicks; paste still does nothing. Esc closes help;
 ?, F1 or the corner click toggles it. q, Ctrl-C and F10 retain quit routes.
@@ -40,6 +40,36 @@ This names location, not the goal's subject or permission.
 Digits or arrows followed by Enter open a place; home `q` quits.
 [Think's exit guard](think.md#sending-and-leaving) protects unsaved work.
 `--home` opens the menu; otherwise Think opens. The installed launcher passes `--home`.
+
+## Model setup
+
+The header's muted label, left of the light/dark switch (or `?` without colour), shows real
+state: `practice`, or the calls this launch has left. Clicking it, `m` on the menu, or the
+Model and calls row in Think's or Shape's F1 list (offered when the launch drafts) opens the
+Model panel in Help's upper-right spot and frame. [model_setup.rs](../../src/model_setup.rs)
+owns the file, parser, label and panel; the terminal loop draws them over every screen.
+
+| Row | Change with `enter` |
+| --- | --- |
+| Model | Type an exact `provider/model-id`; Tinkery can't confirm the account may use it. |
+| Thinking | Cycles `off` to `max`. |
+| Calls | Cycles 0, 5, 10, 25 requests each launch, shared by Think and Shape; 0 is practice. |
+| Now | Only when this launch drafts: adds 5 calls at once, for this launch only. |
+
+`s` saves Model, Thinking and Calls to `~/.config/tinkery/model.json`; `esc` closes and drops
+unsaved changes. Nothing else writes the file, and saving changes later launches, not this
+one. Calls need a model. The panel says F2 sends words to this model and the cap counts
+requests, not dollars. Nothing in it starts a request.
+
+One parser checks the file and the `--model`, `--thinking` and `--shape-budget` flags. A
+later plain launch drafts when the saved setup allows calls; `--shape-pi` drafts for one
+launch, each flag replacing its saved value, and writes nothing. A missing file is practice.
+An unreadable or invalid file is refused with its path in the panel and the launch stays
+practice; Tinkery never guesses. An `--operator agent` launch never inherits saved calls,
+and its panel refuses to save or add calls: an agent's allowance is `--shape-budget` alone,
+given by the operator. No credentials and no Pi config are read. There is no build
+harness row: nothing in Tinkery starts a build
+([#422](https://github.com/jon-devlapaz/tinkery/issues/422)).
 
 ## Measure
 

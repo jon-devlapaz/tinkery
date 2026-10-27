@@ -78,6 +78,8 @@ pub struct Home {
     /// An agent launch without --shape-pi: Shape only reads.
     shape_held: bool,
     approve_reader: approve::Reader,
+    /// `m` on the menu asked for the Model panel, which the launch owns.
+    model_request: bool,
 }
 
 enum View {
@@ -125,6 +127,7 @@ impl Home {
             taste_results: crate::taste::ResultLinks::default(),
             shape_held: false,
             approve_reader: approve::Reader::default(),
+            model_request: false,
         }
     }
 
@@ -414,6 +417,17 @@ impl Home {
         }
     }
 
+    /// Whether `m` on the menu, or F1's Model and calls row in Think or Shape, asked for the
+    /// Model panel since the last ask. Asking clears it.
+    pub fn take_model_request(&mut self) -> bool {
+        let place = match &mut self.view {
+            View::Think(dump) => dump.take_model_request(),
+            View::Shape(shape, _) => shape.take_model_request(),
+            _ => false,
+        };
+        std::mem::take(&mut self.model_request) || place
+    }
+
     /// Whether the last copy reached the clipboard, so the place can say so.
     pub fn copy_result(&mut self, sent: bool) {
         match &mut self.view {
@@ -646,6 +660,7 @@ impl Home {
                 }
                 KeyCode::Enter => self.open(self.selected),
                 KeyCode::Char('q') => self.quit = true,
+                KeyCode::Char('m') => self.model_request = true,
                 _ => {}
             },
             View::Tend(tend) => match key.code {
@@ -900,7 +915,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         Rect::new(
             2,
             1,
-            crate::header_end(area, palette, area.width.saturating_sub(4)).saturating_sub(2),
+            crate::header_end(area, area.width.saturating_sub(4)).saturating_sub(2),
             1,
         ),
     );
@@ -1047,7 +1062,7 @@ fn body(area: Rect) -> Rect {
 fn render_menu_help(frame: &mut Frame, palette: Palette) {
     let area = frame.area();
     let width = 38.min(area.width.saturating_sub(4));
-    let panel = Rect::new(area.width.saturating_sub(width + 2), 3, width, 13).intersection(area);
+    let panel = Rect::new(area.width.saturating_sub(width + 2), 3, width, 14).intersection(area);
     let action = |key: &str, label: &str| {
         Line::from(vec![
             Span::styled(format!("{key:<8}"), palette.ink.bold()),
@@ -1063,6 +1078,7 @@ fn render_menu_help(frame: &mut Frame, palette: Palette) {
         action("1–7", "Open directly"),
         Line::default(),
         action("q", "Quit Tinkery"),
+        action("m", "Model and calls"),
         if palette.theme.is_some() {
             action("Ctrl-T", "Dark or light")
         } else {
@@ -1238,8 +1254,8 @@ mod tests {
                     rows[3].chars().position(|c| c == '┌'),
                     Some(width as usize - 40)
                 );
-                assert!(rows[15].contains('└'));
-                assert_eq!(rows[16], "  7  measure");
+                assert!(rows[16].starts_with("  7  measure") && rows[16].contains('└'));
+                assert!(panel_content(rows[12]).starts_with("m       Model and calls"));
                 assert!(!screen.contains("↑↓ move   enter open"));
                 assert!(!screen.contains("Inside think"));
                 h.handle_key(key(KeyCode::Esc));

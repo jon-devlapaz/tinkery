@@ -468,7 +468,7 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   JSON, a missing question and an unsupported reply kind have specific reasons.
   The step finds the blast radius and the ways to meet the goal before choosing to ask or draft;
   a small live trial on #161 favored that order, which is evidence, not an eval.
-- `--shape-budget CALLS` defaults to zero; each step counts one before Pi starts.
+- The launch allowance (saved calls or `--shape-budget CALLS`) defaults to zero; each step counts one before Pi starts.
   Exhaustion refuses answer, defer, delegate, revision and teach-back before saving anything and explains how to allow calls.
 - Tinkery, never the model, publishes answers and questions with the displayed version
   or the version at step start. Stale versions refuse, retain
@@ -586,7 +586,7 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
 - Failures name what happened and one `Next:`. A model failure, refusal or stop also
   says `Model calls left this run: N of M.`, Think's wording, so a retry is chosen knowing
   its cost (#435). Budget exhaustion points to
-  `--shape-budget`; a model error or stop offers F2 retry, or F1's teach-back again
+  F1's Model and calls row, which adds calls for this launch; a model error or stop offers F2 retry, or F1's teach-back again
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
   Review refusals name the mismatched check or case/check counts; a reply that also splits a

@@ -663,8 +663,13 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
         "{text}"
     );
     assert!(
-        flat.contains("Next: start Tinkery with --shape-budget CALLS"),
+        flat.contains("Next: add calls from F1, Model and calls, then send again."),
         "{text}"
+    );
+    choose(&mut shape, "Model and calls");
+    assert!(
+        shape.take_model_request() && !shape.take_model_request(),
+        "the row asks the launch for the panel once"
     );
     assert_eq!(text.matches("Next:").count(), 1, "{text}");
     assert_eq!(

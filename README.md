@@ -45,8 +45,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   when its saved record verifies.
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
   waiting draft or verified ready seed. With real drafting set up
-  ([terminal setup](docs/terminal-setup.md#launch)), `--shape-budget CALLS` (default zero)
-  sets the launch allowance shared by Think and Shape. `F2` saves an answer and lets an agent investigate the next with
+  ([terminal setup](docs/terminal-setup.md#launch)), the saved calls or `--shape-budget CALLS` (default zero)
+  set the launch allowance shared by Think and Shape. `F2` saves an answer and lets an agent investigate the next with
   read-only tools, and confirms the seed in your words once you've read it to the end.
   Agents operate Think and Shape with `--operator agent`; their saves are
   [recorded as the agent's](docs/design/think.md#confirmation-attribution-185). `F1` lists
@@ -116,8 +116,13 @@ Think is practice: no model calls or saved goals. Tend writes needs only when yo
 explicitly link or unlink. F2 sends, Enter adds a line, F1 lists what else you can do, Esc returns to the menu.
 Add `--snapshot` for text output.
 
-Real drafting requires `--shape-pi --model provider/model-id` and an
-explicitly authorized budget; provider charges may apply. `--help` lists options.
+Real drafting needs a model and an explicitly authorized call allowance; provider
+charges may apply. Press `m` on the menu, or click the `practice` label, to choose the
+model, thinking level and calls each launch: `s` saves them in
+`~/.config/tinkery/model.json` and later launches draft with them. `--shape-pi --model
+provider/model-id` and `--shape-budget CALLS` override them for one launch and save
+nothing. Out of calls, F1's Model and calls row adds more for this launch only.
+`--help` lists options. See [the Model panel](docs/design/menu.md#model-setup).
 [Terminal setup](docs/terminal-setup.md#launch) gives an isolated trial.
 
 ## Read next

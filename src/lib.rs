@@ -2,7 +2,7 @@
 //!
 //! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `approve`, `watch`, `taste`, `measure`); the menu
 //! is the only module that knows them all. Phases never use each other: anything two of them
-//! share (`goal`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
+//! share (`goal`, `model_setup`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
 #![deny(missing_docs, unreachable_pub)]
 
@@ -21,6 +21,7 @@ mod approve;
 pub mod goal;
 pub mod measure;
 pub mod menu;
+pub mod model_setup;
 pub mod pi;
 pub mod repo;
 mod sdlc;
@@ -201,13 +202,19 @@ pub(crate) fn switch_area(area: Rect) -> Rect {
     .intersection(area)
 }
 
-/// Where header text before the switch must end: a column short of the switch when it shows,
-/// else `fallback`, so screens without colour keep their header room unchanged.
-pub(crate) fn header_end(area: Rect, palette: Palette, fallback: u16) -> u16 {
-    match palette.theme {
-        Some(_) => fallback.min(switch_area(area).x.saturating_sub(1)),
-        None => fallback,
-    }
+/// Room on header row 1 for the model label, which ends two columns before the switch's place.
+const LABEL_ROOM: u16 = 14;
+
+/// Where the model label may sit on header row 1; its text is right-aligned inside. It keeps
+/// its place without colour, so the hidden switch's place stays empty.
+pub(crate) fn label_area(area: Rect) -> Rect {
+    let end = switch_area(area).x.saturating_sub(2);
+    Rect::new(end.saturating_sub(LABEL_ROOM), 1, LABEL_ROOM.min(end), 1).intersection(area)
+}
+
+/// Where header text before the model label must end: a column short of it, or `fallback`.
+pub(crate) fn header_end(area: Rect, fallback: u16) -> u16 {
+    fallback.min(label_area(area).x.saturating_sub(1))
 }
 
 /// Paints the switch label, naming the theme it switches to. Nothing without colour.

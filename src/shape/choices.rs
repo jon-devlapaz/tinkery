@@ -17,6 +17,7 @@ pub(super) enum Choice {
     Folder,
     SoFar,
     End(Ending),
+    Model,
 }
 
 impl Shape {
@@ -76,6 +77,9 @@ impl Shape {
                 None => {}
             }
         }
+        if self.agent.is_some() && matches!(open.reading, Reading::Done(Ok(_))) {
+            rows.push(Row::new("Model and calls", Choice::Model));
+        }
         rows
     }
 
@@ -89,6 +93,10 @@ impl Shape {
     }
 
     fn run(&mut self, choice: Choice) {
+        if choice == Choice::Model {
+            self.model = true;
+            return;
+        }
         let agent = self.agent.clone();
         let Some(open) = &mut self.open else {
             return;
@@ -114,6 +122,7 @@ impl Shape {
                 open.asking = Some(ending);
                 open.notice = Some(asked(ending));
             }
+            Choice::Model => {}
             Choice::Defer | Choice::Delegate | Choice::Revise => {
                 let Some(agent) = agent else {
                     return;
