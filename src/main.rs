@@ -440,6 +440,18 @@ impl Intake {
             Self::Brain(a) => a.copy_result(sent),
         }
     }
+    fn presentation(&self) -> Option<brain_dump::Presentation> {
+        match self {
+            Self::Home(a) => a.presentation(),
+            Self::Brain(a) => a.presentation(),
+        }
+    }
+    fn presented(&mut self, presentation: brain_dump::Presentation) {
+        match self {
+            Self::Home(a) => a.presented(presentation),
+            Self::Brain(a) => a.presented(presentation),
+        }
+    }
     fn take_model_request(&mut self) -> bool {
         match self {
             Self::Home(a) => a.take_model_request(),
@@ -527,6 +539,19 @@ impl Drop for InputGuard {
     }
 }
 
+// A terminal receipt is truthful only when both frame drawing and ending synchronized
+// output succeeded. Keep this single boundary shared by the real loop and failure tests.
+fn finish_frame<T>(
+    drawn: io::Result<T>,
+    synchronized: io::Result<()>,
+    acknowledge: impl FnOnce(),
+) -> io::Result<T> {
+    synchronized?;
+    let drawn = drawn?;
+    acknowledge();
+    Ok(drawn)
+}
+
 fn run_shape(
     terminal: &mut ratatui::DefaultTerminal,
     header: Header,
@@ -554,6 +579,7 @@ fn run_shape(
     while !app.quit() {
         app.tick(&link_root, &shape_agent);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
+        let mut presentation = None;
         let drawn = (|| {
             let drawn = terminal.draw(|frame| {
                 if let Some(notice) = &migration {
@@ -566,6 +592,9 @@ fn run_shape(
                     );
                 } else {
                     draw(frame, app, &controls, theme.palette());
+                    if !controls.is_open() {
+                        presentation = app.presentation();
+                    }
                 }
                 if repaint || full_redraw {
                     for cell in &mut frame.buffer_mut().content {
@@ -575,8 +604,12 @@ fn run_shape(
             })?;
             io::Result::Ok(drawn.area)
         })();
-        execute!(io::stdout(), EndSynchronizedUpdate)?;
-        let drawn_area = drawn?;
+        let drawn_area =
+            finish_frame(drawn, execute!(io::stdout(), EndSynchronizedUpdate), || {
+                if let Some(presentation) = presentation {
+                    app.presented(presentation);
+                }
+            })?;
         frame_painted(drawn_area, &mut previous_area, &mut discard_mouse);
         repaint = false;
         let ready = pending_input.is_some() || event::poll(std::time::Duration::ZERO)?;
@@ -645,6 +678,26 @@ fn run_shape(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn presentation_receipt_requires_successful_draw_and_synchronized_output() {
+        for (draw_ok, sync_ok) in [(true, true), (false, true), (true, false), (false, false)] {
+            let mut acknowledged = false;
+            let drawn = if draw_ok {
+                Ok(())
+            } else {
+                Err(std::io::Error::other("TEST draw failed"))
+            };
+            let sync = if sync_ok {
+                Ok(())
+            } else {
+                Err(std::io::Error::other("TEST synchronization failed"))
+            };
+            let result = super::finish_frame(drawn, sync, || acknowledged = true);
+            assert_eq!(result.is_ok(), draw_ok && sync_ok);
+            assert_eq!(acknowledged, draw_ok && sync_ok);
+        }
+    }
+
     use super::*;
     use crossterm::event::KeyEvent;
     use ratatui::layout::Rect;

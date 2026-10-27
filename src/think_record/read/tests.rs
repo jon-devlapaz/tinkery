@@ -698,3 +698,66 @@ fn a_current_record_without_a_usable_repository_field_is_unreadable() {
         fs::write(&path, original).unwrap();
     }
 }
+
+#[test]
+fn optional_reading_metadata_cannot_invalidate_independent_originals_or_attribution() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-context");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &session, 10);
+    amend(&path, |v| {
+        v.as_object_mut().unwrap().remove("reading_context");
+        v.as_object_mut().unwrap().remove("tinkery_source");
+    });
+    let history = read(&root, &session, GOAL).unwrap();
+    assert!(history.details.contains("Reading context: not recorded"));
+    assert!(history.details.contains("Tinkery source: unknown"));
+    amend(&path, |v| {
+        v["reading_context"] = serde_json::json!({"events":[{"kind":"submitted","source":999}]});
+        v["tinkery_source"] = serde_json::json!({"commit":"invalid","dirty":false});
+    });
+    let history = read(&root, &session, GOAL).unwrap();
+    assert_eq!(history.turns[0].event, turns()[0].event);
+    assert_eq!(history.goal, GOAL);
+    assert!(history.details.contains("Reading context: unavailable"));
+    assert!(history.details.contains("Tinkery source: unavailable"));
+    assert_eq!(
+        read_origins(&root, &[(session.as_path(), GOAL)]).unwrap(),
+        vec![MadeIn::NoRepo]
+    );
+}
+
+#[test]
+fn oversized_confirmed_record_is_refused_before_creating_an_unreadable_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-large-context");
+    let root = dir.path().join("TEST-records");
+    let mut context = crate::think_record::ReadingContext::default();
+    context.submitted(1);
+    context.presented(
+        serde_json::json!({
+            "framings":[{"text":"T".repeat(MAX_RECORD_BYTES as usize)}],"other_goals":[],"deferred":[]
+        }),
+        UNIX_EPOCH,
+    );
+    context.submitted(2);
+    context.submitted(4);
+    let original = fs::read(session.join("ledger.json")).unwrap();
+    let result = crate::think_record::write_with_context(
+        &root,
+        &Session {
+            origin: &Origin::simulated(),
+            turns: &turns(),
+            checks: vec![],
+            goal: GOAL,
+            seed_me_session: &session,
+            repo: None,
+            confirmed: UNIX_EPOCH,
+        },
+        &GoalConfirmation::default(),
+        Some(&context),
+    );
+    assert!(result.unwrap_err().contains("16 MiB"));
+    assert!(!root.exists(), "writer published an unreadable record");
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), original);
+}

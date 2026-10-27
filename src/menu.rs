@@ -874,6 +874,21 @@ impl Home {
         }
     }
 
+    /// The Think reading associated with this frame, if one awaits successful output.
+    pub fn presentation(&self) -> Option<brain_dump::Presentation> {
+        match &self.view {
+            View::Think(dump) => dump.presentation(),
+            _ => None,
+        }
+    }
+
+    /// Acknowledge successful terminal output to the open Think visit only.
+    pub fn presented(&mut self, presentation: brain_dump::Presentation) {
+        if let View::Think(dump) = &mut self.view {
+            dump.presented(presentation);
+        }
+    }
+
     /// Memory only: an exact count of active sessions once a complete, current read has
     /// landed. Unknown, partial or failed reads show nothing, never zero.
     pub fn count(&self, index: usize) -> Option<String> {

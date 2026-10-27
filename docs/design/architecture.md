@@ -129,6 +129,12 @@ shared palette (6). Screens still receive one `Palette`, so no caller changed it
 the terminal loop alone holds the choice (2). This map names the owner (7). No phase dependency,
 architecture limit or recorded score changes.
 
+Think's optional reading context keeps record validation and format decisions in
+`think_record/context.rs`; Think serializes its verified board at that boundary (3, 6).
+The terminal owner alone acknowledges successful output through a small opaque
+presentation interface (2). The existing history details expose the evidence without
+new storage or phase dependencies (7). No architecture limit or recorded score changes.
+
 ## Limits enforced by `tests/architecture.rs`
 
 | Limit | Today |
