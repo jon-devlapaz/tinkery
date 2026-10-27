@@ -52,7 +52,7 @@ owns the file, parser, label and panel; the terminal loop draws them over every 
 | Row | Change with `enter` |
 | --- | --- |
 | Harness | Cycles Pi and Claude Code. Changing it resets Model and any level the new one lacks. |
-| Model | Pi: type an exact `provider/model-id`. Claude Code: cycles `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`. Tinkery can't confirm the account may use it. |
+| Model | Picks the next model. Pi: the first `enter` lists Pi's models once with `pi --list-models --offline` (no model request), then each `enter` picks the next; if Pi can't list, it types. Claude Code: cycles `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`. `t` types any model, such as one an extension adds that Pi doesn't list. Tinkery can't confirm the account may use it. |
 | Thinking | Cycles the harness's levels: Pi `off` to `max`, Claude Code's effort `low` to `max`. |
 | Calls | Cycles 0, 5, 10, 25 requests each launch, shared by Think and Shape; 0 is practice. |
 | Now | Only when this launch drafts: adds 5 calls at once, for this launch only. |

@@ -15,7 +15,7 @@
 use std::{
     io::{Read, Write},
     os::unix::process::CommandExt,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{
         Arc,
@@ -295,6 +295,65 @@ fn explicit_model(model: &str) -> bool {
     model.split_once('/').is_some_and(|(provider, id)| {
         !provider.is_empty() && !id.is_empty() && !model.chars().any(char::is_whitespace)
     })
+}
+
+/// The models Pi lists for its configured providers, as `provider/model-id`, in Pi's order.
+/// Runs `pi --list-models --offline`, which reads Pi's registry and makes no model request;
+/// stops it after 10 seconds. Models Pi's extensions add may be missing; type those.
+pub fn pi_models(program: &Path) -> Result<Vec<String>, String> {
+    let mut child = Command::new(program)
+        .args(["--list-models", "--offline"])
+        .env_remove("PI_SESSION_ID")
+        .env_remove("PI_SESSION_FILE")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .map_err(|error| format!("Cannot list Pi's models: {error}"))?;
+    let overflow = Arc::new(AtomicBool::new(false));
+    let stdout = read_pipe(child.stdout.take().unwrap(), LIMIT, "Pi", overflow);
+    let started = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) if stdout.is_finished() => break Ok(status),
+            Err(error) => break Err(format!("Cannot list Pi's models: {error}")),
+            _ if started.elapsed() >= Duration::from_secs(10) => {
+                break Err("Pi took too long to list its models.".into());
+            }
+            _ => thread::sleep(Duration::from_millis(20)),
+        }
+    };
+    stop(&mut child);
+    let status = status?;
+    let output = stdout
+        .join()
+        .map_err(|_| "Pi output reader failed.".to_owned())??;
+    if !status.success() {
+        return Err(format!("Pi couldn't list its models ({status})."));
+    }
+    let models = listed_models(&String::from_utf8_lossy(&output));
+    if models.is_empty() {
+        return Err("Pi listed no models.".into());
+    }
+    Ok(models)
+}
+
+/// The `provider/model-id` of each row under Pi's `provider  model  …` header.
+fn listed_models(table: &str) -> Vec<String> {
+    table
+        .lines()
+        .skip_while(|line| {
+            let mut fields = line.split_whitespace();
+            (fields.next(), fields.next()) != (Some("provider"), Some("model"))
+        })
+        .skip(1)
+        .filter_map(|line| {
+            let mut fields = line.split_whitespace();
+            Some(format!("{}/{}", fields.next()?, fields.next()?))
+        })
+        .filter(|model| explicit_model(model))
+        .collect()
 }
 
 impl Call {
@@ -1099,6 +1158,69 @@ sys.exit({exit})
         assert!(Harness::Pi.check_thinking("minimal").is_ok());
         for model in Harness::ClaudeCode.models() {
             assert!(Harness::ClaudeCode.check_model(model).is_ok());
+        }
+    }
+
+    /// The head of `pi --list-models --offline` as Pi 1.4.0 prints it, trailing spaces and all.
+    const PI_TABLE: &str = "Loading registry\n\
+provider      model                       context  max-out  thinking  images\n\
+anthropic     claude-haiku-5-5            1M       128K     yes       yes   \n\
+anthropic     claude-opus-5-5             1M       128K     yes       yes   \n\
+freellmapi    auto:fast                   128K     16.4K    no        yes   \n\
+openai-codex  gpt-6.1-terra               500K     128K     yes       yes   \n";
+
+    fn fake_pi(script: &str) -> (tempfile::TempDir, PathBuf) {
+        let directory = tempfile::Builder::new()
+            .prefix("tinkery-TEST-pi-list-")
+            .tempdir()
+            .unwrap();
+        let program = directory.path().join("pi");
+        std::fs::write(
+            &program,
+            format!("#!/usr/bin/env python3\nimport sys\n{script}\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+        (directory, program)
+    }
+
+    #[test]
+    fn pi_lists_its_models_as_provider_slash_id_without_a_model_request() {
+        assert_eq!(
+            listed_models(PI_TABLE),
+            [
+                "anthropic/claude-haiku-5-5",
+                "anthropic/claude-opus-5-5",
+                "freellmapi/auto:fast",
+                "openai-codex/gpt-6.1-terra"
+            ]
+        );
+        let (_directory, program) = fake_pi(&format!(
+            "assert sys.argv[1:] == ['--list-models', '--offline'], sys.argv\n\
+             assert sys.stdin.read() == ''\nsys.stdout.write({PI_TABLE:?})"
+        ));
+        let mut models = Err(String::new());
+        // Another test thread's fork can briefly hold the new file open for writing.
+        for _ in 0..50 {
+            models = pi_models(&program);
+            if !models.as_ref().is_err_and(|e| e.contains("Text file busy")) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(models.unwrap().len(), 4);
+        let (_directory, failing) = fake_pi("sys.exit(2)");
+        let (_directory, empty) = fake_pi("print('provider  model')");
+        for (program, why) in [
+            (failing, "couldn't list its models"),
+            (empty, "listed no models"),
+            (PathBuf::from("/TEST-no-such-pi"), "Cannot list Pi's models"),
+        ] {
+            let error = (0..50)
+                .map(|_| pi_models(&program).unwrap_err())
+                .find(|e| !e.contains("Text file busy"))
+                .unwrap();
+            assert!(error.contains(why), "{error}");
         }
     }
 }

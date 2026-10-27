@@ -198,7 +198,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     let live = launch.is_some();
     let harness = launch.as_ref().map(|l| l.harness).unwrap_or_default();
-    let program = match pi_command {
+    let program = match pi_command.clone() {
         Some(_) if harness == tinkery::pi::Harness::ClaudeCode => {
             return Err("--pi-command applies to Pi, not Claude Code".into());
         }
@@ -211,6 +211,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let call_budget = tinkery::pi::CallBudget::new(launch.as_ref().map_or(0, |l| l.calls));
     let controls =
         tinkery::model_setup::Controls::new(setup_path, saved, live.then(|| call_budget.clone()));
+    let controls = controls.listing_pi(
+        pi_command
+            .clone()
+            .unwrap_or_else(|| tinkery::pi::Harness::Pi.program().into()),
+    );
     let controls = if agent {
         controls.for_agent()
     } else {

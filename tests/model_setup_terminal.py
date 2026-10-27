@@ -12,6 +12,13 @@ from think_history_terminal import Terminal
 
 HOST = '''#!/usr/bin/env python3
 import json, pathlib, sys
+if sys.argv[1:] == ['--list-models', '--offline']:
+    with pathlib.Path('TEST-lists.jsonl').open('a') as log:
+        log.write('{}\\n')
+    print('provider  model         context')
+    print('test      listed-one    1M  ')
+    print('test      listed-two    1M  ')
+    sys.exit(0)
 request = json.load(sys.stdin)
 model = sys.argv[sys.argv.index('--model') + 1]
 thinking = sys.argv[sys.argv.index('--thinking') + 1]
@@ -92,14 +99,19 @@ def journey(no_color):
             terminal.wait(lambda screen: '1  think' in screen)
             assert 'practice' in header(terminal), header(terminal)
             terminal.send(b'm', 'Harness   Pi')
-            terminal.send(DOWN + b'\r', 'enter done')
-            terminal.send(b'test/saved', 'test/saved')
+            # Enter lists Pi's models once and then picks through them; t types any model.
+            terminal.send(DOWN + b'\r', 'Pi lists 2 models')
+            terminal.send(b'\r', 'Model     test/listed-one')
+            terminal.send(b'\r', 'Model     test/listed-two')
+            terminal.send(b't', 'enter done')
+            terminal.send(b'\x7f' * len('test/listed-two') + b'test/saved', 'test/saved')
             terminal.send(b'\r', '↑↓ choose')
             terminal.send(DOWN + DOWN + b'\r', '5 each launch')
             terminal.send(ESC, '1  think')
             assert not saved.exists(), 'esc wrote the setup'
             terminal.send(b'm', 'Model     none')
-            terminal.send(DOWN + b'\r' + b'test/saved' + b'\r', '↑↓ choose')
+            terminal.send(DOWN + b'\r', 'Model     test/listed-one')
+            terminal.send(b't' + b'\x7f' * len('test/listed-one') + b'test/saved' + b'\r', '↑↓ choose')
             terminal.send(DOWN + b'\r', 'medium')
             terminal.send(DOWN + b'\r', '5 each launch')
             terminal.send(b's', 'drafts with it.')
@@ -108,6 +120,7 @@ def journey(no_color):
             terminal.send(ESC, '1  think')
             terminal.quit()
         assert calls(root) == []
+        assert len((root / 'TEST-lists.jsonl').read_text().splitlines()) == 1, 'Pi listed more than once'
 
         # A later plain launch drafts with the saved setup; launching starts nothing, F2 sends.
         with Launch(root, home, colour) as terminal:

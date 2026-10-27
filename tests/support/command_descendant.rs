@@ -24,6 +24,8 @@ impl Fixture {
             fixture.program(),
             r#"#!/usr/bin/env python3
 import pathlib, subprocess, sys, time
+if sys.argv[1:] == ['--TEST-ready']:
+    sys.exit(0)
 pathlib.Path('TEST-input').write_bytes(sys.stdin.buffer.read())
 child = subprocess.Popen([sys.executable, '-c', '''import os, pathlib, time
 ready = pathlib.Path('TEST-child-pid')
@@ -45,6 +47,16 @@ sys.exit(int(pathlib.Path('TEST-exit').read_text()))
         )
         .unwrap();
         fs::set_permissions(fixture.program(), fs::Permissions::from_mode(0o755)).unwrap();
+        // Another test thread's fork can briefly hold the new file open for writing, which makes
+        // starting it fail; once it has started once, it always can.
+        let until = Instant::now() + Duration::from_secs(5);
+        while Command::new(fixture.program())
+            .arg("--TEST-ready")
+            .status()
+            .is_err_and(|e| e.raw_os_error() == Some(26) && Instant::now() < until)
+        {
+            thread::sleep(Duration::from_millis(10));
+        }
         fixture
     }
 

@@ -412,3 +412,89 @@ fn claude_code_models_are_picked_not_typed_and_saving_keeps_the_harness() {
         "a Claude Code model is never kept for Pi: {shown}"
     );
 }
+
+/// A fake Pi that prints `table` for `--list-models`, already started once so no other test's
+/// fork still holds it open for writing.
+fn lister(directory: &std::path::Path, script: &str) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let program = directory.join("pi");
+    std::fs::write(
+        &program,
+        format!("#!/usr/bin/env python3\nimport sys\n{script}\n"),
+    )
+    .unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    for _ in 0..500 {
+        let started = std::process::Command::new(&program)
+            .stdout(std::process::Stdio::null())
+            .status();
+        if !started.is_err_and(|e| e.raw_os_error() == Some(libc::ETXTBSY)) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    program
+}
+
+fn shown_once(controls: &Controls, text: &str) -> String {
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let shown = screen(controls);
+        if shown.contains(text) || std::time::Instant::now() > until {
+            return shown;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+#[test]
+fn enter_picks_pi_s_listed_models_and_t_still_types_one() {
+    let directory = tempfile::tempdir().unwrap();
+    let program = lister(
+        directory.path(),
+        "print('provider   model     context')\n\
+         print('anthropic  claude-a  1M  ')\n\
+         print('freellmapi auto:fast 128K')",
+    );
+    let mut controls = Controls::new(None, Ok(None), None).listing_pi(program);
+    controls.open();
+    press(&mut controls, KeyCode::Down);
+    assert!(screen(&controls).contains("enter next   t type"));
+    press(&mut controls, KeyCode::Enter);
+    let shown = shown_once(&controls, "Pi lists 2 models; enter picks the next.");
+    assert!(shown.contains("Pi lists 2 models"), "{shown}");
+    assert!(
+        shown.contains("Model     none"),
+        "listing picks nothing on its own"
+    );
+    for model in [
+        "anthropic/claude-a",
+        "freellmapi/auto:fast",
+        "anthropic/claude-a",
+    ] {
+        press(&mut controls, KeyCode::Enter);
+        assert!(screen(&controls).contains(&format!("Model     {model}")));
+    }
+    press(&mut controls, KeyCode::Char('t'));
+    for _ in 0.."anthropic/claude-a".len() {
+        press(&mut controls, KeyCode::Backspace);
+    }
+    typed(&mut controls, "antigravity/unlisted");
+    press(&mut controls, KeyCode::Enter);
+    assert!(screen(&controls).contains("Model     antigravity/unlisted"));
+}
+
+#[test]
+fn a_pi_that_cannot_list_falls_back_to_typing_and_says_why() {
+    let directory = tempfile::tempdir().unwrap();
+    let program = lister(directory.path(), "sys.exit(3)");
+    let mut controls = Controls::new(None, Ok(None), None).listing_pi(program);
+    controls.open();
+    press(&mut controls, KeyCode::Down);
+    press(&mut controls, KeyCode::Enter);
+    let shown = shown_once(&controls, "Type the model instead.");
+    assert!(shown.contains("couldn't list its models"), "{shown}");
+    press(&mut controls, KeyCode::Enter);
+    let shown = screen(&controls);
+    assert!(shown.contains("enter done"), "{shown}");
+}
