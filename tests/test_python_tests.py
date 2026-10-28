@@ -20,13 +20,17 @@ class TierTests(unittest.TestCase):
         self.names = lambda tier: [p.name for p in self.selected(tier)]
 
     def test_full_runs_every_test_file_once(self):
-        files = sorted(p.name for p in (ROOT / 'tests').glob('*.py') if p.name != 'vt_screen.py')
+        helpers = {'vt_screen.py', 'session_fixture.py', 'test_launch.py'}
+        files = sorted(p.name for p in (ROOT / 'tests').glob('*.py') if p.name not in helpers)
         self.assertEqual(sorted(self.names('full')), files)
 
     def test_pr_skips_exactly_the_post_merge_journeys(self):
         self.assertEqual(set(self.names('full')) - set(self.names('pr')), self.post_merge)
         self.assertIn('goal_confirmation_terminal.py', self.names('pr'))
         self.assertIn('agent_operation_terminal.py', self.names('pr'))
+        for tier in ('pr', 'full'):
+            self.assertNotIn('session_fixture.py', self.names(tier))
+            self.assertNotIn('test_launch.py', self.names(tier))
 
     def test_unknown_tier_and_stale_names_are_refused(self):
         with self.assertRaises(SystemExit):
@@ -213,6 +217,9 @@ raise SystemExit(4)
                 process.stdout.close()
         self.assertFalse(reader.is_alive())
         output = ''.join(lines)
+        self.assertIn(f'Python tests: tier full, {len(selected)} files, 2 workers', output)
+        self.assertNotIn('== tests/session_fixture.py ', output)
+        self.assertNotIn('== tests/test_launch.py ', output)
         self.assertNotEqual(process.returncode, 0, output)
         self.assertTrue((self.root / 'TEST-blocked-done').exists())
         self.assertTrue((self.root / 'TEST-later-done').exists())
