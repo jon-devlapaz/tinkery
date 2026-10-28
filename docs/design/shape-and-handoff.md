@@ -173,7 +173,9 @@ and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
 shows the full path, `none` or `not recorded`, plus model information, checks and
 [recorded reading context](think.md#presented-readings-and-subsequent-words).
 Labels are muted; operator words use ink. Display escapes unsafe terminal controls
-without changing stored words.
+without changing stored words. History keeps whitespace-delimited words together when
+they fit the view; longer tokens wrap at grapheme boundaries. Explicit line breaks,
+whitespace and tones remain, and scrolling reaches every row.
 
 ↑↓, `j k`, PgUp, PgDn (a view less one row), Home and End scroll width-wrapped history, including Unicode
 beyond 65,535 rows. Help scrolls independently. Esc goes details → help → history

@@ -1,0 +1,5 @@
+I want a small household repair log for me and my partner on our one shared laptop. We rent, and I keep forgetting what we tried when a leak or appliance problem comes back. I want to jot down the date, the problem, what we tried, and whether it helped, then find those notes again.
+
+Keep it usable without internet. No accounts, no cloud sync, no automatic reminders, and no landlord portal. I want a manual JSON export so we can keep our own backup. Photos might help, but I haven't decided whether they belong in the first version. Don't treat that as permission to add them. We should not need to record our address or our landlord's name. I don't want a project-management system.
+
+I'd call the first version useful if we can record three repair attempts and later find the relevant one without reading every entry. I haven't decided what searching or organizing should look like. Keep the first version small, but don't silently drop the limits above.

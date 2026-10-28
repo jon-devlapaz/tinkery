@@ -363,7 +363,24 @@ impl Page {
             for line in text.split('\n') {
                 let mut row = String::new();
                 let mut used = 0;
-                for grapheme in line.graphemes(true) {
+                let mut word_start = true;
+                for (index, grapheme) in line.grapheme_indices(true) {
+                    let whitespace = grapheme.chars().all(char::is_whitespace);
+                    if word_start && !whitespace {
+                        let word_width: usize = line[index..]
+                            .graphemes(true)
+                            .take_while(|part| !part.chars().all(char::is_whitespace))
+                            .map(|part| part.width())
+                            .sum();
+                        if word_width <= usize::from(width)
+                            && used + word_width > usize::from(width)
+                            && !row.is_empty()
+                        {
+                            self.rows.push((std::mem::take(&mut row), *tone));
+                            used = 0;
+                        }
+                    }
+                    word_start = whitespace;
                     let cells = grapheme.width();
                     if used + cells > usize::from(width) && !row.is_empty() {
                         self.rows.push((std::mem::take(&mut row), *tone));
