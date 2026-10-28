@@ -2,21 +2,14 @@
 
 <img width="1888" height="1012" alt="image" src="https://github.com/user-attachments/assets/85c0c26c-f7f6-4e5a-9538-dc8f603e0659" />
 
-A terminal-based diagram editor for **Obsidian Canvas**, **Mermaid**, **Graphviz DOT**, and **PlantUML** files. Built with Rust and the Ratatui framework.
+The hosted Pinstar library used by Tinkery, for **Obsidian Canvas**, **Mermaid**, **Graphviz DOT**, and **PlantUML** files. This copy omits the standalone executable and OS packaging; see [API.md](API.md) for host integration and [UPSTREAM](UPSTREAM) for provenance.
 
 ## Disclaimer
 `pinstar` is a sub-project of [clin-rs](https://github.com/reekta92/clin-rs). Separated for standalone use/testing. The project evolves as a module inside the `clin-rs` project **for now** in the future once it's matured enough both versions will be merged and unified together so any future updates inside one or other will be available on each other. Until then the project is in semi-maintanence mode. Reported bugs or features will be looked into for implementation.
 
 **If you want to have newest features/changes about this project check out clin-rs. Note that flowchart support does not exists in clin-rs though, for now.**
 
-## Usage
-```bash
-pinstar <FILE>.canvas|.md|.dot|.puml
-```
-
-If the file doesn't exist, pinstar creates an empty diagram in the detected format.
-
-### Supported Formats
+## Supported Formats
 | Extension | Format | Layout |
 |-----------|--------|--------|
 | `.canvas` | Obsidian Canvas JSON | Free-form, force-directed |
@@ -38,6 +31,8 @@ If the file doesn't exist, pinstar creates an empty diagram in the detected form
 - **External Editor**: Edit node content or entire diagrams in your `$EDITOR`
 - **Image Rendering**: Terminal-native image previews for Canvas file nodes (requires Kitty/Sixel/iTerm2 support)
 ## Keybindings
+
+These are the retained `handle_pinstar_event` defaults. Hosts can use `apply_action` for their own keymap and supply external-editor, dialog and clipboard integration.
 
 ### Navigation
 | Key | Action |
@@ -128,22 +123,6 @@ Default · Red · Orange · Yellow · Green · Cyan · Blue · Purple · Magenta
 - **Text Editing**: [ratatui-textarea](https://github.com/rhysd/ratatui-textarea) for inline editing
 - **Parsing**: `regex` for multi-format parsers
 - **Identifiers**: `uuid` crate for RFC 4122 compliant node tracking
-
-## Installation
-### Pre-built Packages
-Pre-compiled binaries and system packages (`.deb`, `.rpm`, `PKGBUILD`) for Debian/Ubuntu, Fedora/RHEL, and Arch Linux are available on the GitHub **[Releases](https://github.com/reekta92/pinstar/releases)** page.
-
-### Via Cargo
-```bash
-cargo install pinstar
-```
-
-## Building from Source
-Requires Rust toolchain (MSRV 1.85).
-
-```bash
-cargo build --release
-```
 
 ## Library Usage
 
