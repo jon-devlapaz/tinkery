@@ -833,20 +833,20 @@ fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason
         .prefix("TEST-469-shared-")
         .tempdir()
         .unwrap();
-    let suite = |reply: &mut Value| reply["checks"][1]["cmd"] = "./TEST-check".into();
-    let twin = |reply: &mut Value| {
+    let suite: fn(&mut Value) = |reply| reply["checks"][1]["cmd"] = "./TEST-check".into();
+    let twin: fn(&mut Value) = |reply| {
         reply["checks"][2] = json!({"statement":"TEST other behavior","kind":"provisional",
             "cmd":"./TEST-new-check","expect":"TEST","cwd":".","missing":"TEST","source":"TEST"})
     };
-    let cases: [(&str, &dyn Fn(&mut Value), &str); 2] = [
+    let cases = [
         (
             "suite",
-            &suite,
+            suite,
             "check 2 proposes `./TEST-check`, which check 1 also uses.",
         ),
         (
             "twin",
-            &twin,
+            twin,
             "check 2 proposes `./TEST-new-check`, which check 3 also uses.",
         ),
     ];
