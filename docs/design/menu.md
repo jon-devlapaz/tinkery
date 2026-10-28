@@ -75,9 +75,10 @@ flags. A file without a harness is Pi. Claude Code takes only full `claude-` ids
 whose meaning changes, so records name the model used. A launch's saved model and thinking
 apply only to the saved harness. A later plain launch drafts when the saved setup allows drafting runs;
 `--shape-budget 0` alone selects practice without changing that file. `--shape-pi` drafts for one
-launch, each flag replacing its saved value, and writes nothing. A missing file is practice.
-An unreadable or invalid file is refused with its path in the panel and the launch stays
-practice; Tinkery never guesses. An `--operator agent` launch never inherits saved runs,
+launch, each flag replacing its saved value, and writes nothing. A missing file supplies no saved defaults.
+An unreadable or invalid file is refused with its path in the panel; explicit launch flags
+still apply. The panel describes this launch separately from saved-file errors.
+An `--operator agent` launch never inherits saved runs,
 and its panel refuses to save or add runs: an agent's allowance is `--shape-budget` alone,
 given by the operator. No credentials and no Pi config are read; Claude Code uses its own
 login. [pi.rs](../../src/pi.rs) starts either harness with the same isolation, caps and budget

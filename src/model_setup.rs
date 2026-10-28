@@ -1,10 +1,10 @@
 //! The model setup Think and Shape draft with: the harness (Pi or Claude Code), the model, its
 //! thinking level and the drafting runs each launch allows. One parser checks the saved file (`~/.config/tinkery/model.json`) and the launch
 //! flags alike, so neither can hold a value the other would refuse. Flags win for one launch and
-//! write nothing. A missing file means practice; an unreadable or invalid one is refused with its
-//! path and Tinkery stays in practice rather than guessing. Only `s` in the Model panel writes the
-//! file. Opening, reading or changing the panel starts no request; runs added there count for
-//! this launch alone. Names no phase.
+//! write nothing. A missing file supplies no defaults; an unreadable or invalid one is refused
+//! with its path. The panel names the resolved launch's recipient or practice state separately.
+//! Only `s` in the Model panel writes the file. Opening, reading or changing the panel starts no
+//! request; runs added there count for this launch alone. Names no phase.
 
 mod panel;
 
@@ -118,14 +118,14 @@ pub fn load(path: &Path) -> Result<Option<Setup>, String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(_) => {
             return Err(format!(
-                "Cannot read {}. Check its permissions; using practice.",
+                "Cannot read {}. Check its permissions.",
                 path.display()
             ));
         }
     };
     let refused = |why: String| {
         format!(
-            "{} is not a model setup: {why} Save again from this panel to replace it; using practice.",
+            "{} is not a model setup: {why} Save again from this panel to replace it.",
             path.display()
         )
     };

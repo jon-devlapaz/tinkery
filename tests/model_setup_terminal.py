@@ -105,6 +105,55 @@ def zero_override(root, home, colour, started):
     assert saved.read_bytes() == before, 'explicit zero changed the saved setup'
 
 
+def saved_errors(no_color=False):
+    """Saved-file errors describe the file; resolved launch state names the recipient (#583)."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-model-error-', dir='/tmp') as directory:
+        root = Path(directory)
+        home = root / 'HOME'
+        saved = home / '.config/tinkery/model.json'
+        saved.parent.mkdir(parents=True)
+        (root / 'TEST-bin').mkdir()
+        host = root / 'TEST-bin/pi'
+        host.write_text(HOST)
+        host.chmod(0o700)
+        colour = ['--no-color'] if no_color else []
+        for error in ['invalid', 'unreadable']:
+            if error == 'invalid':
+                saved.write_text('not json')
+            else:
+                saved.unlink()
+                saved.mkdir()  # A directory refuses reading even when tests run as root.
+            for size in [(80, 24), (100, 30)]:
+                for budget in [None, 0, 1]:
+                    flags = (['--shape-budget', '0'] if budget is None else
+                             ['--shape-pi', '--model', 'test/active', '--shape-budget', str(budget)])
+                    with Launch(root, home, ['--home', *flags, *colour], size, 'agent') as terminal:
+                        terminal.wait(lambda screen: '1  think' in screen)
+                        terminal.send(b'm', 'For later launches')
+                        shown = terminal.screen.text()
+                        words = ' '.join(shown.replace('│', ' ').split())
+                        for text in ['s save', 'esc close']:
+                            assert text in shown, (text, shown)
+                        expected_error = 'is not a model setup' if error == 'invalid' else 'Cannot read'
+                        assert expected_error in words, shown
+                        assert 'model.json' in words, shown
+                        if budget is None:
+                            assert 'This launch: practice; no model requests.' in words, shown
+                            assert 'practice' in header(terminal)
+                            assert 'F2 sends' not in shown
+                        else:
+                            assert 'F2 sends to Pi: test/active.' in words, shown
+                            assert 'practice' not in words, shown
+                            assert f'{budget} run' in header(terminal), header(terminal)
+                        assert calls(root) == [] and not (root / 'TEST-lists.jsonl').exists()
+                        terminal.send(ESC, '1  think')
+                    if error == 'invalid':
+                        assert saved.read_text() == 'not json'
+                    else:
+                        assert saved.is_dir()
+        print(f'Saved-model errors no_color={no_color}: 12 PTY cases; zero host starts')
+
+
 def journey(no_color):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-model-') as directory:
         root = Path(directory)
@@ -210,7 +259,7 @@ def journey(no_color):
             terminal.wait(lambda screen: '1  think' in screen)
             assert 'practice' in header(terminal)
             shown = terminal.send(b'm', 'is not a model setup')
-            assert 'using practice' in ' '.join(shown.split()), shown
+            assert 'This launch: practice; no model requests.' in ' '.join(shown.split()), shown
             terminal.send(ESC, '1  think')
             terminal.quit()
         print(f'Model panel no_color={no_color}: {len(calls(root))} fake Pi starts')
@@ -280,4 +329,5 @@ def claude_code(root, colour):
 
 if __name__ == '__main__':
     for no_color in [False, True]:
+        saved_errors(no_color)
         journey(no_color)
