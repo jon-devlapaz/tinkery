@@ -78,6 +78,8 @@ none is italic.
 
 The selected-line footer shows the first goal line in ink, status and relative time
 muted, then needs and readiness, e.g. `needs Local records · ready`.
+Valid offsets determine age and order. Timestamp syntax stays unchanged; invalid
+dates and pre-epoch values remain `time unknown`.
 Unresolved ids say `1 need not found` or `N needs not found`; no needs adds nothing.
 Short summaries retain status and time. If these crowd the headline, show the
 headline, readiness and `F1 needs`; scrollable Help retains full titles. Ambiguous source

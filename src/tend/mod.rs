@@ -557,31 +557,6 @@ pub(super) fn timestamp(value: &str) -> Option<u64> {
         number(14, 16)?,
         number(17, 19)?,
     );
-    if !(1..=12).contains(&month)
-        || !(0..24).contains(&hour)
-        || !(0..60).contains(&minute)
-        || !(0..60).contains(&second)
-    {
-        return None;
-    }
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let days = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    if !(1..=days[(month - 1) as usize]).contains(&day) {
-        return None;
-    }
     let tail = value.get(19..)?;
     let zone = if let Some(fraction) = tail.strip_prefix('.') {
         let n = fraction.bytes().take_while(u8::is_ascii_digit).count();
@@ -609,13 +584,21 @@ pub(super) fn timestamp(value: &str) -> Option<u64> {
             _ => return None,
         }
     };
-    // Gregorian civil date to days since 1970-01-01.
-    let y = year - i64::from(month <= 2);
-    let era = y.div_euclid(400);
-    let yo = y - era * 400;
-    let mp = month + if month > 2 { -3 } else { 9 };
-    let days = era * 146097 + yo * 365 + yo / 4 - yo / 100 + (153 * mp + 2) / 5 + day - 1 - 719468;
-    u64::try_from(days * 86400 + hour * 3600 + minute * 60 + second - offset).ok()
+    let date = time::Date::from_calendar_date(
+        year.try_into().ok()?,
+        u8::try_from(month).ok()?.try_into().ok()?,
+        day.try_into().ok()?,
+    )
+    .ok()?;
+    let local = date
+        .with_hms(
+            hour.try_into().ok()?,
+            minute.try_into().ok()?,
+            second.try_into().ok()?,
+        )
+        .ok()?;
+    let offset = time::UtcOffset::from_whole_seconds(offset.try_into().ok()?).ok()?;
+    u64::try_from(local.assume_offset(offset).unix_timestamp()).ok()
 }
 fn relative_time(updated: &str, now: u64) -> String {
     let Some(at) = timestamp(updated) else {
