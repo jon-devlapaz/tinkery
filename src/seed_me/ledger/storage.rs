@@ -635,7 +635,7 @@ pub fn end(
             )?;
         }
         super::seed::require_seed_decisions(directory, &ledger, "cannot complete")?;
-        super::checks::require_seed_checks(directory, true)?;
+        super::checks::require_seed_checks(directory, &ledger, true)?;
     }
     let bytes = result.pretty()?;
     commit(

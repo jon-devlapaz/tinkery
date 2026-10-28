@@ -321,12 +321,12 @@ struct HeadingError {
 
 /// Locate literal artifact headings, retaining the helper-compatible refusal wording.
 pub fn document_headings(body: &str) -> Result<Vec<(usize, String)>> {
-    headings(body).map_err(|error| error.rule.into())
+    headings(body, &[]).map_err(|error| error.rule.into())
 }
 
 /// The same structural parser with offending lines for model prose-field refusals.
 pub(crate) fn prose_headings(body: &str) -> Result<Vec<(usize, String)>> {
-    headings(body).map_err(|error| {
+    headings(body, &[]).map_err(|error| {
         format!(
             "{} at line {}: {}",
             error.prose_rule,
@@ -336,7 +336,10 @@ pub(crate) fn prose_headings(body: &str) -> Result<Vec<(usize, String)>> {
     })
 }
 
-fn headings(body: &str) -> std::result::Result<Vec<(usize, String)>, HeadingError> {
+fn headings(
+    body: &str,
+    goal_lines: &[String],
+) -> std::result::Result<Vec<(usize, String)>, HeadingError> {
     let opening = Regex::new(r"^ {0,3}(`{3,}|~{3,})(.*)$").unwrap();
     let setext = Regex::new(r"^(?:=+|-+)[ \t]*$").unwrap();
     let container = Regex::new(r"^(?:>[ \t]*|(?:[-+*]|\d+[.)])[ \t]+)").unwrap();
@@ -366,7 +369,11 @@ fn headings(body: &str) -> std::result::Result<Vec<(usize, String)>, HeadingErro
             fence = Some(c[1].into());
             continue;
         }
-        let visible = without_comments(raw, &mut comment);
+        let visible = if !comment && goal_lines.iter().any(|line| line == raw) {
+            raw.into()
+        } else {
+            without_comments(raw, &mut comment)
+        };
         let mut candidate = visible.trim_start_matches(whitespace);
         loop {
             if setext.is_match(candidate) {
@@ -393,7 +400,11 @@ fn headings(body: &str) -> std::result::Result<Vec<(usize, String)>, HeadingErro
     Ok(headings)
 }
 
-pub(super) fn require_seed_checks(directory: &Path, allow_legacy: bool) -> Result<Value> {
+pub(super) fn require_seed_checks(
+    directory: &Path,
+    ledger: &Value,
+    allow_legacy: bool,
+) -> Result<Value> {
     let records = read_checks(directory)?;
     let body = super::seed::seed_lines(directory)?.concat();
     require(
@@ -404,7 +415,8 @@ pub(super) fn require_seed_checks(directory: &Path, allow_legacy: bool) -> Resul
             .any(|(i, c)| *c == b'\r' && body.as_bytes().get(i + 1) != Some(&b'\n')),
         "checks refuse lone CR: seed line endings must be LF or CRLF",
     )?;
-    let headings = document_headings(&body)?;
+    let headings = headings(&body, &super::seed::goal_lines(ledger)?)
+        .map_err(|error| error.rule.to_string())?;
     require(
         headings.first().is_some_and(|(_, s)| {
             s.strip_prefix("# ").is_some_and(|title| {
