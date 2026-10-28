@@ -476,10 +476,10 @@ def full_journey(width, height):
             run.send(F2, 'Session completed. It\'s read-only now.')
             run.wait('This session is completed, so nothing in it can change.')
             # Intake needs only the verified seed, so Approve still offers it.
-            run.wait('Approve copies the command that starts the build.')
+            run.wait('F1, then 1: Open this seed in Approve.')
             run.send(F1, 'F1 close')
             assert 'End this session' not in run.flat(), run.screen.text()
-            run.send(ESC, 'Approve copies the command that starts the build.')
+            run.send(ESC, 'F1, then 1: Open this seed in Approve.')
             assert helper.load(session)['status'] == 'completed'
             assert helper.status(session)['handoff']['verified'] is True
             assert helper.load(session)['goal'] == goal, 'Ending changed the confirmed goal'
