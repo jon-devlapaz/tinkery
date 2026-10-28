@@ -161,6 +161,9 @@ fn repeated_or_modified_keys_never_copy_open_or_read() {
     taste.copy_result(false);
     assert!(taste.notice.contains("Clipboard unavailable"));
     taste.rows.clear();
+    let shown = screen(&mut taste, 80, 24);
+    assert!(shown.contains("r read results"));
+    assert!(!shown.contains("run preview") && !shown.contains("accepted externally"));
     taste.key(KeyEvent::from(KeyCode::Char('e')));
     assert!(
         !taste.evidence,

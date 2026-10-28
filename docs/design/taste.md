@@ -12,6 +12,9 @@ explains the read. `r` runs that checkout's API 1 `status --json`, then each val
 run's `status <slug> --json`. The shared [SDLC boundary](architecture.md#modules-today)
 owns bounded execution, cancellation and the exact saved-goal join used by Watch.
 Unsupported interfaces or states refuse the reading. No source writes or polling.
+Without a current result, the footer keeps help and exit, plus `r read results` only
+when the named checkout is available and no read/open helper is running. Result
+actions return when a result is selected; this changes guidance, not key behavior.
 
 API 1 has no PR reference, and its [SDLC contract](https://github.com/jon-devlapaz/tink-sdlc/blob/main/assets/_system/SDLC.md#L232-L240)
 says handoff prose is not a machine interface. Supply the relationship deliberately
