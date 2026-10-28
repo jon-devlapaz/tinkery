@@ -69,7 +69,7 @@ fn held_question_waits_for_ready_decisions_in_ledger_order_then_promotes() {
 }
 
 #[test]
-fn held_questions_with_deferred_parents_save_without_becoming_current() {
+fn deferred_prerequisite_refuses_the_whole_reply_and_allows_a_new_question() {
     let root = tempfile::Builder::new()
         .prefix("TEST-deferred-parent-")
         .tempdir()
@@ -81,24 +81,61 @@ fn held_questions_with_deferred_parents_save_without_becoming_current() {
         version,
         "a",
         &ledger::AnswerAction::Defer {
-            reason: "TEST wait".into(),
-            revisit: "TEST revisit".into(),
+            reason: "  TEST wait café  ".into(),
+            revisit: "TEST revisit 中".into(),
         },
         None,
     )
     .unwrap();
-    let version = ask(
-        &session,
-        version,
-        &proposal("b", Some(json!(["a"]))),
-        root.path(),
-    )
-    .unwrap();
-    assert!(!read(&session).unwrap().has_current_question());
-    assert_eq!(promote(&session, version).unwrap(), None);
+    fs::write(root.path().join("README.md"), "TEST fact\n").unwrap();
+    let mut blocked = proposal("b", Some(json!(["a"])));
+    blocked.found.push(Found {
+        id: "read".into(),
+        claim: json!({"type":"observation","scope":"TEST"}),
+        checked: "README.md:1".into(),
+        observed: "TEST fact".into(),
+        supported_by: None,
+        contradicts: None,
+    });
+    blocked.assumed.push(Assumption {
+        text: "TEST default".into(),
+        why: "TEST equivalent".into(),
+    });
+    let saved_files = || {
+        fs::read_dir(&session)
+            .unwrap()
+            .map(|entry| {
+                let entry = entry.unwrap();
+                (entry.file_name(), fs::read(entry.path()).unwrap())
+            })
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let before = saved_files();
+    let error = ask(&session, version, &blocked, root.path())
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("deferred decision a") && error.contains("retry the step"),
+        "{error}"
+    );
+    assert_eq!(saved_files(), before);
+    let saved = read(&session).unwrap();
+    assert_eq!(saved.goal(), Some("TEST goal"));
+    assert_eq!(saved.state["nodes"][1]["status"], "deferred");
     assert_eq!(
-        super::super::shaping::read(&session).unwrap().open,
-        ["TEST b — waits for: TEST a"]
+        saved.state["nodes"][1]["defer_reason"],
+        "  TEST wait café  "
+    );
+    assert_eq!(
+        saved.state["nodes"][1]["revisit_condition"],
+        "TEST revisit 中"
+    );
+    let version = ask(&session, version, &proposal("c", None), root.path()).unwrap();
+    assert_eq!(read(&session).unwrap().state["current_question"], "c");
+    answer(&session, version, "c", "TEST independent answer", None).unwrap();
+    assert_eq!(
+        read(&session).unwrap().state["nodes"][1]["status"],
+        "deferred"
     );
 }
 
