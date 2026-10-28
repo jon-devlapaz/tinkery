@@ -130,6 +130,108 @@ struct SavedRecord {
 /// must be unique among readable live sessions before and after the read. A path-only record may use
 /// its final folder name as the ID only when that folder is missing. Nothing is rewritten.
 pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavailable> {
+    let VerifiedRecord {
+        selected,
+        path,
+        record,
+    } = verified_record(root, session, goal)?;
+    let made_in = origin(record.schema, record.repo);
+    let context = context::history(
+        &record.reading_context,
+        record
+            .turns
+            .iter()
+            .map(|turn| (&turn.event, turn.at.clone())),
+        &record.reading_context_error,
+    );
+    let source_details = context::source_details(&record.tinkery_source);
+    let details = format!(
+        concat!(
+            "Think record: {}\nSession: {}\nSession ID: {}\nRepository: {}\nFormat: {}\nTinkery: {}\n",
+            "Origin: {}\nHarness: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n",
+            "Goal confirmer (caller-declared, not authenticated): {}\n\nChecks:\n{}"
+        ),
+        path.display(),
+        selected.0.display(),
+        selected.1,
+        match &made_in {
+            MadeIn::Repo(root) => root.display().to_string(),
+            MadeIn::NoRepo => "none".into(),
+            MadeIn::Unknown => "not recorded".into(),
+        },
+        record.schema,
+        record.tinkery,
+        record.origin,
+        record.harness.as_deref().unwrap_or("not recorded"),
+        record.model.as_deref().unwrap_or("not recorded"),
+        record.thinking.as_deref().unwrap_or("not recorded"),
+        record.prompt_hash.as_deref().unwrap_or("not recorded"),
+        record.started,
+        record.confirmed,
+        record.goal_confirmation.details(),
+        serde_json::to_string_pretty(&record.checks).expect("JSON values always serialize"),
+    );
+    let details = format!("{details}\n\n{source_details}\n\n{}", context.details);
+    Ok(History {
+        turns: record.turns,
+        goal: record.goal,
+        made_in,
+        details,
+        sequence: context.sequence,
+        readings: context.readings,
+    })
+}
+
+/// A submitted question and answer, with the recorded words unchanged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct AnsweredQuestion {
+    /// The question the person answered.
+    pub question: String,
+    /// Their exact submitted answer.
+    pub answer: String,
+}
+
+/// Only the verified origin and submissions Shape needs; no history presentation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ShapeContext {
+    /// Where this exact saved goal was made.
+    pub made_in: MadeIn,
+    /// Answered questions in recorded order, without suggestions or skipped questions.
+    pub answered: Vec<AnsweredQuestion>,
+}
+
+/// Uses the same attribution and refusal contract as [`read`]; Shape owns its prompt format.
+pub(crate) fn read_for_shape(
+    root: &Path,
+    session: &Path,
+    goal: &str,
+) -> Result<ShapeContext, Unavailable> {
+    let record = verified_record(root, session, goal)?.record;
+    Ok(ShapeContext {
+        made_in: origin(record.schema, record.repo),
+        answered: record
+            .turns
+            .into_iter()
+            .filter_map(|turn| match turn.event {
+                Event::Answered {
+                    question, answer, ..
+                }
+                | Event::ScopeAnswered {
+                    question, answer, ..
+                } => Some(AnsweredQuestion { question, answer }),
+                _ => None,
+            })
+            .collect(),
+    })
+}
+
+struct VerifiedRecord {
+    selected: (PathBuf, String),
+    path: PathBuf,
+    record: SavedRecord,
+}
+
+fn verified_record(root: &Path, session: &Path, goal: &str) -> Result<VerifiedRecord, Unavailable> {
     let selected = current_session(session, goal)?;
     require_unique(&identity_index([session])?, &selected)?;
     let entries = entries(root)?;
@@ -187,50 +289,10 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         ));
     }
     require_unique(&identity_index([session])?, &selected)?;
-    let made_in = origin(record.schema, record.repo);
-    let context = context::history(
-        &record.reading_context,
-        record
-            .turns
-            .iter()
-            .map(|turn| (&turn.event, turn.at.clone())),
-        &record.reading_context_error,
-    );
-    let source_details = context::source_details(&record.tinkery_source);
-    let details = format!(
-        concat!(
-            "Think record: {}\nSession: {}\nSession ID: {}\nRepository: {}\nFormat: {}\nTinkery: {}\n",
-            "Origin: {}\nHarness: {}\nModel: {}\nThinking: {}\nPrompt: {}\nStarted: {}\nConfirmed: {}\n",
-            "Goal confirmer (caller-declared, not authenticated): {}\n\nChecks:\n{}"
-        ),
-        path.display(),
-        selected.0.display(),
-        selected.1,
-        match &made_in {
-            MadeIn::Repo(root) => root.display().to_string(),
-            MadeIn::NoRepo => "none".into(),
-            MadeIn::Unknown => "not recorded".into(),
-        },
-        record.schema,
-        record.tinkery,
-        record.origin,
-        record.harness.as_deref().unwrap_or("not recorded"),
-        record.model.as_deref().unwrap_or("not recorded"),
-        record.thinking.as_deref().unwrap_or("not recorded"),
-        record.prompt_hash.as_deref().unwrap_or("not recorded"),
-        record.started,
-        record.confirmed,
-        record.goal_confirmation.details(),
-        serde_json::to_string_pretty(&record.checks).expect("JSON values always serialize"),
-    );
-    let details = format!("{details}\n\n{source_details}\n\n{}", context.details);
-    Ok(History {
-        turns: record.turns,
-        goal: record.goal,
-        made_in,
-        details,
-        sequence: context.sequence,
-        readings: context.readings,
+    Ok(VerifiedRecord {
+        selected,
+        path,
+        record,
     })
 }
 

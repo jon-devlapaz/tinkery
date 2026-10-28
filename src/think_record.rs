@@ -19,8 +19,8 @@ pub use confirmation::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
 
 #[cfg(test)]
 pub(crate) use read::count_reads;
-pub(crate) use read::read_origins;
 pub use read::{History, MadeIn, RecordedTurn, Unavailable, read};
+pub(crate) use read::{read_for_shape, read_origins};
 
 use crate::goal::Part;
 use serde::{Deserialize, Serialize};
