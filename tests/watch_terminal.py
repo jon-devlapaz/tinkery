@@ -182,13 +182,13 @@ def journey(width, height, no_color, configured=True):
                 assert len(calls()) == before_detail + 1, 'scrolling launched a read'
                 send(b'\x1b', 'Needs you')
                 # Fixed near-cap bodies plus small metadata remain readable through End.
-                for fill in ('x', '\n'):
+                for slug, fill in [('TEST-near-bound-inline', 'x'), ('TEST-near-bound-lines', '\n')]:
                     accepted = json.loads(json.dumps(DETAIL))
                     accepted['run']['checklist'][0]['mark'] = {
                         'evidence': fill * 59000 + '\nTEST-ACCEPTED-TAIL'}
-                    set_state(list=envelope(runs=[run('TEST-near-bound', 'blocked')]),
-                              details={'TEST-near-bound': accepted})
-                    send(b'r', 'TEST-near-bound')
+                    set_state(list=envelope(runs=[run(slug, 'blocked')]),
+                              details={slug: accepted})
+                    send(b'r', slug)
                     send(b'\r', 'TEST executable check')
                     send(b'\x1b[F', 'TEST-ACCEPTED-TAIL')
                     assert 'too long' not in screen.text(), screen.text()
