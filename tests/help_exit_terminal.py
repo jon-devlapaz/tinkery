@@ -15,18 +15,19 @@ def journey(w,h):
   cwd=Path(d);host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));original=termios.tcgetattr(slave);screen=Screen(w,h);raw=bytearray()
   process=subprocess.Popen([str(BINARY),'--shape-pi', '--shape-budget', '64','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
-  def await_condition(condition):
+  def await_condition(condition,after=0):
    deadline=time.monotonic()+5
    while time.monotonic()<deadline:
     if select.select([master],[],[],.02)[0]:
      chunk=os.read(master,65536);raw.extend(chunk);screen.feed(chunk)
-    if condition(screen.text()) and not screen.synchronized:
+    if condition(screen.text()) and screen.ready(after):
      assert screen.cells[1][2:9]==list('tinkery') and screen.cells[1][screen.width-3]=='?',screen.text()
      return
     if process.poll() is not None:break
    raise AssertionError(screen.text())
-  def wait(text):await_condition(lambda s:text in s)
-  def send(data,text):os.write(master,data);wait(text)
+  def wait(text,after=0):await_condition(lambda s:text in s,after)
+  def send(data,text):
+   before=screen.frames;os.write(master,data);wait(text,before)
   try:
    wait("What's on your mind?");send(b'\x1bOP','Type, then F2 sends it.')
    assert '┌ Right now ' in screen.text() and 'Close help' in screen.text(),screen.text()
@@ -46,7 +47,8 @@ def journey(w,h):
    nw,nh=(100,30) if w==80 else (80,24)
    fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',nh,nw,0,0));screen=Screen(nw,nh);os.write(master,b'\x0c');wait('How it works')
    # Esc walks back one layer at a time: how it works, help, review, then the leave guard.
-   send(b'\x1b','Close help');os.write(master,b'\x1b');await_condition(lambda s:'Close help' not in s)
+   send(b'\x1b','┌ Right now ');before=screen.frames;os.write(master,b'\x1b')
+   await_condition(lambda s:'┌ Right now ' not in s and 'type confirm' in s,before)
    os.write(master,b'\x1b');await_condition(lambda s:'type confirm' not in s)
    send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
    while select.select([master],[],[],.02)[0]:raw.extend(os.read(master,65536))

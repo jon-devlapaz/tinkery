@@ -66,11 +66,11 @@ def journey(width, height, kind='garden'):
             raw.extend(data)
             screen.feed(data)
 
-        def wait(predicate):
+        def wait(predicate, after=0):
             deadline = time.monotonic()+5
             while time.monotonic() < deadline:
                 if select.select([master], [], [], .02)[0]: feed()
-                if predicate() and not screen.synchronized: return
+                if predicate() and screen.ready(after): return
                 if process.poll() is not None: break
             raise AssertionError(screen.text())
 
@@ -287,9 +287,13 @@ def journey(width, height, kind='garden'):
                 send(b'\x1b', GARDEN_KEYS)
                 wait(lambda: selected(index))
                 if index < 2: move(b'j', index+1)
-            send(b'\x1b', '1  think')
-            send(b'2', GARDEN_KEYS)
-            send(b'\x1b[21~', '1  think')
+            home_keys = '↑↓ move   enter open   ? help   q quit'
+            for key, footer in [(b'\x1b', home_keys), (b'2', GARDEN_KEYS),
+                                (b'\x1b[21~', home_keys)]:
+                frame_before = screen.frames
+                os.write(master, key)
+                wait(lambda: screen.text().splitlines()[-2 if footer == home_keys else -1].strip() == footer
+                     and (footer != home_keys or '1  think' in screen.text()), frame_before)
             assert process.poll() is None
             os.write(master, b'\x1b[21~')
             wait(lambda: process.poll() is not None)
