@@ -1,24 +1,20 @@
 """Measure outside a repo: navigation and help never run external commands."""
-import fcntl
 import json
 import os
 from pathlib import Path
 import select
-import signal
-import struct
 import test_launch as subprocess
 import tempfile
-import termios
 import time
 
-from vt_screen import Screen
+from terminal_process import TerminalProcess
 
 REPO = Path(__file__).resolve().parents[1]
 UNKNOWN = 'No launch repository.'
 SIZES = [(80, 24), (100, 30), (160, 40), (320, 40)]
 
 
-class Terminal:
+class Terminal(TerminalProcess):
     def __init__(self, width, height, no_color, gh_script=None):
         self.temporary = tempfile.TemporaryDirectory(prefix='tinkery-TEST-measure-')
         self.root = Path(self.temporary.name).resolve()
@@ -35,37 +31,29 @@ class Terminal:
             (self.root / '.git').mkdir()
             (binary / 'gh').write_text(gh_script)
         self.before = self.files()
-        self.master, self.slave = os.openpty()
-        self.resize(width, height)
         env = {'PATH': str(binary), 'TERM': 'xterm-256color',
                'TINKERY_NODE': str(binary / 'node')}
         if gh_script is not None:
             env['GH_REPO'] = 'TEST/wrong-repository'
         if no_color:
             env['NO_COLOR'] = '1'
-        self.process = subprocess.Popen(
+        super().__init__(
             [str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
              '--seed-session-root', str(self.root / 'TEST-sessions')],
             cwd=self.root, env=subprocess.environment(env, home=home),
-            stdin=self.slave, stdout=self.slave, stderr=self.slave)
+            width=width, height=height)
         self.wait(lambda: '1  think' in self.screen.text())
 
     def files(self):
         return {str(p.relative_to(self.root)): p.read_bytes()
                 for p in self.root.rglob('*') if p.is_file()}
 
-    def resize(self, width, height):
-        fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        self.screen = Screen(width, height)
-        if hasattr(self, 'process'):
-            os.kill(self.process.pid, signal.SIGWINCH)
-
     def wait(self, predicate, seconds=5):
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
             if select.select([self.master], [], [], .02)[0]:
                 try:
-                    self.screen.feed(os.read(self.master, 65536))
+                    self.feed()
                 except OSError:
                     if self.process.poll() is None:
                         raise
@@ -94,11 +82,7 @@ class Terminal:
         assert not (self.root / 'TEST-sessions').exists()
 
     def close(self):
-        if self.process.poll() is None:
-            self.process.kill()
-            self.process.wait()
-        os.close(self.master)
-        os.close(self.slave)
+        super().close()
         self.temporary.cleanup()
 
 

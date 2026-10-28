@@ -20,7 +20,7 @@ class TierTests(unittest.TestCase):
         self.names = lambda tier: [p.name for p in self.selected(tier)]
 
     def test_full_runs_every_test_file_once(self):
-        helpers = {'vt_screen.py', 'session_fixture.py', 'test_launch.py'}
+        helpers = {'vt_screen.py', 'session_fixture.py', 'test_launch.py', 'terminal_process.py'}
         files = sorted(p.name for p in (ROOT / 'tests').glob('*.py') if p.name not in helpers)
         self.assertEqual(sorted(self.names('full')), files)
 

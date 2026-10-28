@@ -1,20 +1,17 @@
 """Taste over synthetic API 1, explicit launch mappings and fake gh; no network or providers."""
 import base64
-import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import select
-import struct
 import sys
 import tempfile
-import termios
 import time
 import test_launch as subprocess
 from shape_terminal import make as make_session, seed as make_seed
-from vt_screen import Screen
+from terminal_process import TerminalProcess
 from support.seed_file_fixture import replaced_seed
 
 REPO = Path(__file__).resolve().parents[1]
@@ -117,10 +114,6 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
         (binary / 'python3').symlink_to(sys.executable)
         (binary / 'gh').write_text(f'#!{sys.executable}\n' + FAKE)
         (binary / 'gh').chmod(0o755)
-        master, slave = os.openpty()
-        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        screen = Screen(width, height)
-        raw = bytearray()
         env = {**os.environ, 'HOME': str(base / 'HOME'), 'PATH': f'{binary}:/usr/bin:/bin',
                'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node',
                'TEST_TASTE_STATE': str(statefile), 'TEST_TASTE_CALLS': str(log), 'TEST_TASTE_PID': str(pid)}
@@ -138,8 +131,9 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
                 args += ['--taste-result', f'{mapped_id}=https://github.com/TEST/clinic-tycoon/pull/2']
             else:
                 args += ['--taste-result', f'{mapped_id}={URL}']  # identical declarations agree
-        process = subprocess.Popen(args, cwd=base, env=subprocess.environment(env, home=env['HOME']),
-                                   stdin=slave, stdout=slave, stderr=slave)
+        terminal = TerminalProcess(args, cwd=base, env=subprocess.environment(env, home=env['HOME']),
+                                   width=width, height=height)
+        process, master, screen, raw = terminal.process, terminal.master, terminal.screen, terminal.raw
         original = tree(checkout)
         original_elsewhere = tree(elsewhere)
 
@@ -147,9 +141,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
             deadline = time.monotonic() + seconds
             while time.monotonic() < deadline:
                 if select.select([master], [], [], .02)[0]:
-                    chunk = os.read(master, 65536)
-                    raw.extend(chunk)
-                    screen.feed(chunk)
+                    terminal.feed()
                 if predicate() and not screen.synchronized:
                     return
                 assert process.poll() is None, screen.text()
@@ -482,11 +474,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
             print(json.dumps(dict(journey='Taste', width=width, height=height, no_color=no_color,
                                   provider_calls=0, navigation='explicit o only', verdicts=0)))
         finally:
-            if process.poll() is None:
-                process.kill()
-                process.wait()
-            os.close(master)
-            os.close(slave)
+            terminal.close()
 
 
 if __name__ == '__main__':

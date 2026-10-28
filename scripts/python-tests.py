@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 import test_launch
 # Helper modules, not tests.
-HELPERS = {'vt_screen.py', 'session_fixture.py', 'test_launch.py'}
+HELPERS = {'vt_screen.py', 'session_fixture.py', 'test_launch.py', 'terminal_process.py'}
 # Slow terminal journeys that pull requests skip; pushes to main and nightly runs keep them.
 POST_MERGE = {
     'hidden_review_terminal.py',
