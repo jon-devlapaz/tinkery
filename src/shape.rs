@@ -72,6 +72,7 @@ pub struct Shape {
     unreadable: usize,
     failures: Vec<crate::seed_me::ReadFailure>,
     help_scroll: u16,
+    actions: crate::actions::Page,
     selected: usize,
     open: Option<Opened>,
     scroll: u16,
@@ -201,6 +202,7 @@ impl Shape {
             unreadable: 0,
             failures: Vec::new(),
             help_scroll: 0,
+            actions: crate::actions::Page::default(),
             selected: 0,
             open: Some(Opened::start(session)),
             scroll: 0,
@@ -274,6 +276,7 @@ impl Shape {
             unreadable: 0,
             failures: Vec::new(),
             help_scroll: 0,
+            actions: crate::actions::Page::default(),
             selected: 0,
             open: None,
             scroll: 0,
@@ -760,7 +763,7 @@ impl Shape {
             ""
         };
         // The numbered actions come first, so even a short panel shows them without scrolling.
-        let rows = crate::actions::text(&self.rows());
+        let rows = self.actions.text(&self.rows());
         let rows = if rows.is_empty() {
             rows
         } else {

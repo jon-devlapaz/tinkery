@@ -85,7 +85,12 @@ impl Shape {
 
     /// Runs the row F1 numbers with this digit, if any; the caller closes help when it does.
     pub fn pick(&mut self, key: KeyEvent) -> bool {
-        let Some(choice) = crate::actions::pick(&self.rows(), key) else {
+        let rows = self.rows();
+        if self.actions.turn(rows.len(), key) {
+            self.help_scroll = 0;
+            return false;
+        }
+        let Some(choice) = self.actions.pick(&rows, key) else {
             return false;
         };
         self.run(choice);

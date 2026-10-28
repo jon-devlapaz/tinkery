@@ -463,7 +463,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         ""
     };
     // The numbered actions come first, so even a short panel shows them without scrolling.
-    let rows = crate::actions::text(&app.rows());
+    let rows = app.screen.actions.text(&app.rows());
     let rows = if rows.is_empty() {
         rows
     } else {

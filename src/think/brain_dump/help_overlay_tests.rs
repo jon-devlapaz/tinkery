@@ -75,6 +75,155 @@ fn key(app: &mut BrainDump, code: KeyCode) {
 }
 
 #[test]
+fn ten_actions_keep_model_and_calls_reachable_without_spending_calls() {
+    use std::{
+        sync::atomic::{AtomicUsize, Ordering},
+        time::{Duration, Instant},
+    };
+    struct Host(AtomicUsize);
+    impl BoardHost for Host {
+        fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Guess::decode(
+                &serde_json::json!({
+                    "parts": {"who":"I", "outcome":"keep a repair log", "why":"remember repairs", "done_when":"I find an earlier repair"},
+                    "open": ["why", "who"],
+                    "questions": [{"id":format!("question-{}", request.sources.len()),
+                        "target": if request.sources.len() == 1 { "why" } else { "who" },
+                        "text": if request.sources.len() == 1 { "Why keep repairs?" } else { "Who reads it?" }, "suggestion":{"answer":"Just me", "reason":"You described your own log"}}]
+                }).to_string(),
+                &request,
+                &mut vec![],
+            )
+        }
+        fn calls_left(&self) -> Option<String> {
+            Some("0 calls left".into())
+        }
+    }
+    for (width, height) in [(80, 24), (100, 30)] {
+        for mono in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let host = Arc::new(Host(AtomicUsize::new(0)));
+            let mut app = BrainDump::with_host(host.clone())
+                .with_sessions(Some(root.path().join("TEST-sessions")));
+            let words = "Keep my exact repair-log words.";
+            app.paste(words);
+            key(&mut app, KeyCode::F(2));
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while app.running() && Instant::now() < deadline {
+                app.tick();
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            assert!(!app.running());
+            key(&mut app, KeyCode::F(1));
+            let help = snapshot(width, height, &mut app, mono).unwrap();
+            assert!(help.contains("3  Skip this question"), "{help}");
+            key(&mut app, KeyCode::Char('3'));
+            key(&mut app, KeyCode::F(1));
+            let help = snapshot(width, height, &mut app, mono).unwrap();
+            assert!(help.contains("3  Start a new dump instead"), "{help}");
+            key(&mut app, KeyCode::Char('3'));
+            app.paste("Keep these added words too.");
+            key(&mut app, KeyCode::F(2));
+            app.paste("These belong to the same goal.");
+            key(&mut app, KeyCode::F(2));
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while app.running() && Instant::now() < deadline {
+                app.tick();
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            assert!(!app.running());
+            // Extract through the same input as the operator; no private conversation setup.
+            key(&mut app, KeyCode::Tab);
+            app.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+            app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+            key(&mut app, KeyCode::Tab);
+            assert_eq!(app.conversation().fragments().len(), 1);
+            key(&mut app, KeyCode::F(1));
+            let help = snapshot(width, height, &mut app, mono).unwrap();
+            assert!(
+                help.contains("Actions 1/2") && help.contains("←/→"),
+                "{help}"
+            );
+            assert!(help.contains("1  Review the goal"), "{help}");
+            for event in [
+                KeyEvent::new(KeyCode::Right, KeyModifiers::CONTROL),
+                KeyEvent::new_with_kind(KeyCode::Right, KeyModifiers::NONE, KeyEventKind::Repeat),
+                KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE),
+                KeyEvent::new(KeyCode::F(1), KeyModifiers::CONTROL),
+                KeyEvent::new(KeyCode::F(2), KeyModifiers::SHIFT),
+            ] {
+                app.handle_key(event);
+                assert!(
+                    snapshot(width, height, &mut app, mono)
+                        .unwrap()
+                        .contains("Actions 1/2")
+                );
+            }
+            key(&mut app, KeyCode::Right);
+            let next = snapshot(width, height, &mut app, mono).unwrap();
+            assert!(
+                next.contains("Actions 2/2") && next.contains("1  Model and calls"),
+                "{next}"
+            );
+            assert!(next.contains("0 calls left"), "{next}");
+            for event in [
+                KeyEvent::new(KeyCode::Char('1'), KeyModifiers::CONTROL),
+                KeyEvent::new_with_kind(
+                    KeyCode::Char('1'),
+                    KeyModifiers::NONE,
+                    KeyEventKind::Repeat,
+                ),
+            ] {
+                app.handle_key(event);
+                assert!(!app.take_model_request());
+            }
+            key(&mut app, KeyCode::Left);
+            assert!(
+                snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains("Actions 1/2")
+            );
+            key(&mut app, KeyCode::Right);
+            key(&mut app, KeyCode::Esc);
+            assert!(
+                !snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains("Right now")
+            );
+            assert!(!app.take_model_request());
+            key(&mut app, KeyCode::F(1));
+            assert!(
+                snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains("Actions 1/2")
+            );
+            key(&mut app, KeyCode::Right);
+            key(&mut app, KeyCode::Char('1'));
+            assert!(app.take_model_request());
+            assert!(!app.take_model_request());
+            key(&mut app, KeyCode::F(1));
+            assert!(
+                snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains("Actions 1/2")
+            );
+            key(&mut app, KeyCode::Esc);
+            assert!(
+                !snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains("Right now")
+            );
+            assert_eq!(app.conversation().sources()[0].text, words);
+            assert_eq!(host.0.load(Ordering::SeqCst), 2);
+            assert!(app.saved().is_none() && !root.path().join("TEST-sessions").exists());
+            assert!(app.take_copy_request().is_none());
+            assert_eq!(app.exit(), &Exit::Stay);
+        }
+    }
+}
+
+#[test]
 fn contextual_help_is_inset_and_keeps_the_original_and_draft() {
     for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         for mono in [false, true] {

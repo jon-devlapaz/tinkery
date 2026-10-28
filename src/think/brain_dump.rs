@@ -96,6 +96,7 @@ struct Screen {
     /// Help (F1), the originals and why cover the right side.
     help: bool,
     how: bool,
+    actions: crate::actions::Page,
     original: bool,
     details: bool,
     leave_prompt: bool,
@@ -133,6 +134,7 @@ impl Default for Screen {
             reading_visible: false,
             help: false,
             how: false,
+            actions: crate::actions::Page::default(),
             original: false,
             details: false,
             leave_prompt: false,
@@ -897,6 +899,7 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::F(1) {
+            self.screen.actions.reset();
             self.screen.help = true;
             self.screen.how = false;
             self.screen.original = false;
@@ -1208,6 +1211,7 @@ impl BrainDump {
             && event.column == area.width.saturating_sub(3)
         {
             self.screen.help = !self.screen.help;
+            self.screen.actions.reset();
             self.screen.how = false;
             self.screen.original = false;
             self.screen.details = false;
