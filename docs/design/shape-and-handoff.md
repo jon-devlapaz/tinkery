@@ -337,6 +337,9 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
 
 ### Reading where a seed stands
 
+Each session read derives ledger fields and status from the same validated snapshot.
+Seed and confirmation artifacts are still checked separately.
+
 Tend detail offers `s shape` on goal-saved, seed-drafted and
 seed-needs-checking stages; Esc returns there. Menu place 3 lists only goal-saved
 or seed-drafted sessions. Enter opens one; Esc returns to the list. Held `s` or Enter
@@ -385,7 +388,7 @@ With a model, the key bar names the available action.
 Ledger refusals say `Tinkery refused` with the first reason line; other failures
 are explicit, with reasons and paths in F1. Reads stay off paint paths.
 Opening, reading and scrolling write or copy nothing, call no model and leave prompts
-unchanged. Status ignores viewer records and snapshots; it opens no network connection.
+unchanged.
 `tinkery seed status --json DIR` prints the intake status without `viewer`, `snapshot` or
 `snapshot_current`; `tinkery seed checks DIR` prints the strict check records. Both are read-only.
 
@@ -772,8 +775,8 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 - Each `found` becomes a settled `fact` on `evidence` authority, with a new `id`,
   `claim` and a receipt (`checked`, `at`, `observed`, `check: read-only file tools in FOLDER`).
   `claim.type` is `observation`, `inference` or `unknown`, and `claim.scope` names what
-  was examined. Inferences cite observations through `supported_by` and state `limits`;
-  unknown says what this investigation has not established, never that it does not exist.
+  was examined. Inferences cite observations through `supported_by` and state `limits`.
+  Unknowns retain [the ledger's meaning and resolution rules](shape-ledger.md#2-what-shape-writes).
   A question cites its facts through `supported_by`; a fact may name a settled node it
   `contradicts`. The ledger alone validates these rules and receipts; a refused reply
   saves no findings or question and shows its reason. An answer saved before the step stays saved.
@@ -792,8 +795,8 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
   gaps rather than inventing them.
 - The evidence section groups findings by check method, with claim type, scope,
   inference limits and support IDs for typed facts. Legacy receipts retain
-  `- PATH:LINE: what was seen (observed DATE)`. Each finding appears once in this section;
-  the ledger's canonical Decisions block also omits resolved unknowns. Collapse internal whitespace to
+  `- PATH:LINE: what was seen (observed DATE)`. Each finding appears once in this section.
+  Collapse internal whitespace to
   prevent heading injection. With none:
   `- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.`
 - File citations use `PATH:LINE` or `PATH:FIRST-LAST`, with `-`, `–` or `—` and optional
