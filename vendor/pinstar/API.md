@@ -260,7 +260,7 @@ Execute a context menu item by its label string. Used when the host intercepts
 menu selection through its own keybind system rather than letting the engine
 handle `MenuSelect`.
 
-### Standalone Keymap: `handle_pinstar_event`
+### Default Keymap: `handle_pinstar_event`
 
 ```rust
 pub fn handle_pinstar_event(
@@ -271,8 +271,9 @@ pub fn handle_pinstar_event(
 ) -> bool;
 ```
 
-Default hardcoded keymap used by the standalone `pinstar` binary. Hosts with
-their own keybind system (like clin-rs) should use `apply_action` instead.
+The upstream default keymap remains available to library hosts; this copy omits
+the standalone executable. Hosts with their own keybind system (like clin-rs)
+should use `apply_action` instead.
 
 ## Rendering
 
