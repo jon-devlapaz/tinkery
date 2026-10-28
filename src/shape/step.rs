@@ -14,7 +14,7 @@ use crate::{
         answering::{self, Alternative, Ask, Assumption, Found, Refusal},
         ledger,
     },
-    think_record::{self, Event, MadeIn},
+    think_record::{self, MadeIn},
 };
 use serde_json::{Value, json};
 use std::{
@@ -208,7 +208,7 @@ impl Agent {
         let made_in = self
             .records
             .as_deref()
-            .and_then(|root| think_record::read(root, session, goal).ok())
+            .and_then(|root| think_record::read_for_shape(root, session, goal).ok())
             .and_then(|read| match read.made_in {
                 MadeIn::Repo(path) => Some(path),
                 _ => None,
@@ -666,20 +666,14 @@ pub(super) fn prompt() -> String {
 /// The questions Think's record says the operator answered for this exact session and goal.
 /// Nothing when no record can be attributed.
 fn think(records: Option<&Path>, session: &Path, goal: &str) -> Vec<Value> {
-    let Some(read) = records.and_then(|root| think_record::read(root, session, goal).ok()) else {
+    let Some(read) =
+        records.and_then(|root| think_record::read_for_shape(root, session, goal).ok())
+    else {
         return Vec::new();
     };
-    read.turns
-        .iter()
-        .filter_map(|turn| match &turn.event {
-            Event::Answered {
-                question, answer, ..
-            }
-            | Event::ScopeAnswered {
-                question, answer, ..
-            } => Some(json!({"question": question, "answer": answer})),
-            _ => None,
-        })
+    read.answered
+        .into_iter()
+        .map(|submission| json!({"question": submission.question, "answer": submission.answer}))
         .collect()
 }
 

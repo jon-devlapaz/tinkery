@@ -81,7 +81,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
 | `think/drafting.rs` | Think's model host: its harness and model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
-| `think_record.rs`, `think_record/confirmation.rs`, `think_record/read.rs` | Confirmed-session format, caller-declared context, the shared authorization-to-actor boundary and exact-session history attribution; no phase behavior. |
+| `think_record.rs`, `think_record/confirmation.rs`, `think_record/read.rs` | Confirmed-session format, caller-declared context, the shared authorization-to-actor boundary, exact-session attribution, formatted history and typed submissions for Shape; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 | `watch.rs` | The runs in one named tink-sdlc checkout from its API 1 `status --json`: refusing other interfaces, waiting runs first, one run's detail. |
@@ -132,6 +132,8 @@ The terminal owner alone acknowledges successful output through a small opaque
 presentation interface (2). The existing history details expose the evidence without
 new storage or phase dependencies (7). The shared reader derives the compact history sequence
 and technical details from one validation, hiding record parsing from Tend's view (2, 3, 6).
+The same verified record read supplies only origin and typed submissions to Shape;
+Shape owns its prompt JSON (2, 3, 6). Neither projection adds a scan or a shortcut reader.
 The typed snapshot boundary preserves validated text lists (2, 6); the shared reader alone owns
 history labels and UTC wording (3, 6), while Tend owns layout and ink/muted/guess styling (7).
 No architecture limit or recorded score changes.

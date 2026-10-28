@@ -442,3 +442,77 @@ fn untyped_or_partial_findings_are_refused_never_dropped_or_guessed() {
         assert!(error.ends_with("Retry the step."), "{error}");
     }
 }
+
+#[test]
+fn verified_think_origin_selects_the_same_folder_or_existing_fallback() {
+    use crate::{
+        seed_me::{Affirmed, Config},
+        think_record::{self, Origin, Session},
+    };
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-shape-origin-")
+        .tempdir()
+        .unwrap();
+    let goal = "TEST exact saved goal";
+    let session = Config::new(Some(root.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: goal.into(),
+            outcome: goal.into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture".into(),
+        })
+        .unwrap()
+        .session;
+    let records = root.path().join("TEST-records");
+    let repo = root.path().join("TEST-origin-repo");
+    let fallback = root.path().join("TEST-fallback");
+    let record = think_record::write(
+        &records,
+        &Session {
+            origin: &Origin::simulated(),
+            turns: &[],
+            checks: vec![],
+            goal,
+            seed_me_session: &session,
+            repo: Some(&repo),
+            confirmed: std::time::UNIX_EPOCH,
+        },
+    )
+    .unwrap();
+    let original = std::fs::read(&record).unwrap();
+    let agent = Agent::new(
+        Harness::Pi,
+        root.path().join("TEST-never-run"),
+        "TEST/model".into(),
+        String::new(),
+        Some(fallback.clone()),
+        CallBudget::new(0),
+        Some(records),
+    )
+    .unwrap();
+    assert_eq!(agent.folder(&session, goal), repo);
+    for variant in ["no repo", "old schema", "wrong goal", "missing"] {
+        let mut value: Value = serde_json::from_slice(&original).unwrap();
+        match variant {
+            "no repo" => value["repo"] = Value::Null,
+            "old schema" => {
+                value["schema"] = 2.into();
+                value.as_object_mut().unwrap().remove("repo");
+            }
+            "wrong goal" => value["goal"] = "TEST changed record goal".into(),
+            "missing" => {
+                std::fs::remove_file(&record).unwrap();
+            }
+            _ => unreachable!(),
+        }
+        if variant != "missing" {
+            std::fs::write(&record, serde_json::to_vec(&value).unwrap()).unwrap();
+        }
+        assert_eq!(agent.folder(&session, goal), fallback, "{variant}");
+        std::fs::write(&record, &original).unwrap();
+    }
+    assert_eq!(agent.remaining(), 0);
+    assert!(!root.path().join("TEST-never-run").exists());
+}

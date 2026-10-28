@@ -152,6 +152,12 @@ fn history_uses_ledger_ids_in_one_root_and_refuses_ambiguous_live_sessions() {
     amend(&other.join("ledger.json"), |v| {
         v["session_id"] = "TEST-id-TEST-a".into()
     });
+    assert!(
+        read_for_shape(&root, &moved, GOAL)
+            .unwrap_err()
+            .message
+            .contains("More than one saved session")
+    );
     let error = read(&root, &moved, GOAL).unwrap_err();
     assert!(
         error.message.contains("More than one saved session"),
@@ -333,6 +339,12 @@ fn rejects_wrong_goal_and_incomplete_or_unknown_turns() {
     let path = record(&root, &session, 10);
     let original = fs::read(&path).unwrap();
     amend(&path, |value| value["goal"] = "TEST changed".into());
+    assert!(
+        read_for_shape(&root, &session, GOAL)
+            .unwrap_err()
+            .message
+            .contains("disagrees")
+    );
     assert!(
         read(&root, &session, GOAL)
             .unwrap_err()
@@ -630,6 +642,16 @@ fn batch_origins_match_individual_strict_history_attribution() {
             (other.as_path(), GOAL),
             (outside.as_path(), GOAL),
         ];
+        for (path, goal) in sessions {
+            match (read(&root, path, goal), read_for_shape(&root, path, goal)) {
+                (Ok(history), Ok(shape)) => assert_eq!(shape.made_in, history.made_in, "{case}"),
+                (Err(history), Err(shape)) => {
+                    assert_eq!(shape.message, history.message, "{case}");
+                    assert_eq!(shape.details, history.details, "{case}");
+                }
+                (history, shape) => panic!("{case}: history {history:?}; Shape {shape:?}"),
+            }
+        }
         let individual: Vec<_> = sessions
             .iter()
             .map(|(path, goal)| read(&root, path, goal).map_or(MadeIn::Unknown, |h| h.made_in))
@@ -728,6 +750,12 @@ fn optional_reading_metadata_cannot_invalidate_independent_originals_or_attribut
         "Reading sequence unavailable; saved words remain below."
     );
     assert!(history.details.contains("Tinkery source: unavailable"));
+    let shape = read_for_shape(&root, &session, GOAL).unwrap();
+    assert_eq!(shape.made_in, MadeIn::NoRepo);
+    assert_eq!(shape.answered[0].question, "Why?");
+    assert_eq!(shape.answered[0].answer, "  TEST because.\n");
+    assert_eq!(shape.answered[1].question, "Same goal?");
+    assert_eq!(shape.answered[1].answer, "yes");
     assert_eq!(
         read_origins(&root, &[(session.as_path(), GOAL)]).unwrap(),
         vec![MadeIn::NoRepo]
@@ -935,4 +963,36 @@ fn oversized_confirmed_record_is_refused_before_creating_an_unreadable_file() {
     assert!(result.unwrap_err().contains("16 MiB"));
     assert!(!root.exists(), "writer published an unreadable record");
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), original);
+}
+
+#[test]
+fn shape_context_keeps_only_exact_submissions_in_one_verified_scan() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-shape");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &session, 10);
+    let record_before = fs::read(&path).unwrap();
+    let ledger_before = fs::read(session.join("ledger.json")).unwrap();
+    let counts = count_reads(&root);
+    let shape = read_for_shape(&root, &session, GOAL).unwrap();
+    assert_eq!(counts.totals(), (1, 1));
+    assert_eq!(shape.made_in, MadeIn::NoRepo);
+    assert_eq!(
+        shape.answered,
+        vec![
+            AnsweredQuestion {
+                question: "Why?".into(),
+                answer: "  TEST because.\n".into()
+            },
+            AnsweredQuestion {
+                question: "Same goal?".into(),
+                answer: "yes".into()
+            },
+        ]
+    );
+    assert_eq!(fs::read(path).unwrap(), record_before);
+    assert_eq!(
+        fs::read(session.join("ledger.json")).unwrap(),
+        ledger_before
+    );
 }

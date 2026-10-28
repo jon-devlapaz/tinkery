@@ -202,6 +202,12 @@ refuse plainly rather than choose one; current-root identity scans happen off th
 An existing path without a recorded ID cannot prove attribution. Unfinished-session recording
 remains outside this feature.
 
+Shape uses the same verified record read and full record parsing for its recorded
+repository and exact answered question/answer pairs. It receives typed data and owns
+the JSON format of its step prompt. History presentation is built only for history
+readers. Invalid optional reading context still leaves valid attribution and Shape's
+submitted words usable, while history retains its diagnostic notice.
+
 ## Linking needs
 
 Garden `l` starts “this goal needs …”. The source retains `›`; movement marks a
