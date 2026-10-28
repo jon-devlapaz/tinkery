@@ -19,9 +19,11 @@ from shape_terminal import make as make_session, seed as make_seed
 REPO = Path(__file__).resolve().parents[1]
 FAKE = '''import json, os, sys, time
 from pathlib import Path
+pid = Path(os.environ['TEST_WATCH_PID'])
+pid.with_suffix('.tmp').write_text(str(os.getpid()))
+pid.with_suffix('.tmp').replace(pid)
 with open(os.environ['TEST_WATCH_LOG'], 'a') as log:
     log.write(' '.join(sys.argv[1:]) + '\\n')
-Path(os.environ['TEST_WATCH_PID']).write_text(str(os.getpid()))
 state = json.loads(Path(os.environ['TEST_WATCH_STATE']).read_text())
 if state.get('slow'):
     time.sleep(30)

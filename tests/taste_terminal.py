@@ -32,9 +32,11 @@ if len(sys.argv) > 1 and sys.argv[1] == 'api':
         log.write(json.dumps(sys.argv[1:]) + '\\n')
     print('HTTP 404', file=sys.stderr)
     sys.exit(1)
+pid = Path(os.environ['TEST_TASTE_PID'])
+pid.with_suffix('.tmp').write_text(str(os.getpid()))
+pid.with_suffix('.tmp').replace(pid)
 with open(os.environ['TEST_TASTE_CALLS'], 'a') as log:
     log.write(json.dumps(sys.argv[1:]) + '\\n')
-Path(os.environ['TEST_TASTE_PID']).write_text(str(os.getpid()))
 state = json.loads(Path(os.environ['TEST_TASTE_STATE']).read_text())
 if state.get('slow'):
     time.sleep(30)
