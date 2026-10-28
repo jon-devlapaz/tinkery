@@ -121,22 +121,11 @@ The remaining debt is `brain_dump.rs`'s narrow interface over substantial routin
 The module map and phase contracts own current boundaries; this score is a dated
 assessment, not proof of current quality.
 
-The light/dark switch keeps theme colours, the switch key and its header place behind the
-shared palette (6). Screens still receive one `Palette`, so no caller changed its colour code (3);
-the terminal loop alone holds the choice (2). This map names the owner (7). No phase dependency,
-architecture limit or recorded score changes.
-
-Think's optional reading context keeps record validation and format decisions in
-`think_record/context.rs`; Think serializes its verified board at that boundary (3, 6).
-The terminal owner alone acknowledges successful output through a small opaque
-presentation interface (2). The existing history details expose the evidence without
-new storage or phase dependencies (7). The shared reader derives the compact history sequence
-and technical details from one validation, hiding record parsing from Tend's view (2, 3, 6).
-The same verified record read supplies only origin and typed submissions to Shape;
-Shape owns its prompt JSON (2, 3, 6). Neither projection adds a scan or a shortcut reader.
-The typed snapshot boundary preserves validated text lists (2, 6); the shared reader alone owns
-history labels and UTC wording (3, 6), while Tend owns layout and ink/muted/guess styling (7).
-No architecture limit or recorded score changes.
+Design reasons remain with [theme ownership](https://github.com/jon-devlapaz/tinkery/pull/430),
+[presentation receipts](https://github.com/jon-devlapaz/tinkery/pull/451),
+[history sequence](https://github.com/jon-devlapaz/tinkery/pull/458) and
+[typed history](https://github.com/jon-devlapaz/tinkery/pull/462).
+For Shape's typed context, read [Think history](shape-and-handoff.md#think-history).
 
 ## Limits enforced by `tests/architecture.rs`
 
