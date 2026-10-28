@@ -1,6 +1,5 @@
 """Project verification policy and exact-block extraction; no tools, provider or audio calls."""
 from pathlib import Path
-import json
 import runpy
 import tempfile
 import unittest
@@ -38,17 +37,7 @@ class FullCheckTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.block()
 
-    def test_temporary_policy_invokes_exact_runner_with_isolated_home(self):
-        policy = self.root / 'verification.json'
-        policy.write_text(json.dumps({
-            'require_tink': False,
-            'checks': [{'argv': ['python3', 'scripts/full-check.py'], 'timeout_seconds': 1800}],
-        }))
-        config = json.loads(policy.read_text())
-        self.assertIs(config['require_tink'], False)
-        check = config['checks'][0]
-        self.assertEqual(check['argv'], ['python3', 'scripts/full-check.py'])
-        self.assertGreater(check['timeout_seconds'], 0)
+    def test_invokes_exact_commands_with_isolated_home(self):
         commands = 'echo "exact commands"\n'
         self.source('<!-- full-check:start -->\n```bash\n' + commands +
                     '```\n<!-- full-check:end -->\n')
