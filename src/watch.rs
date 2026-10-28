@@ -844,5 +844,25 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             }
         }
     }
+    // Each line costs at least one row, even with no spans; rendered labels count too.
+    let bytes: usize = lines
+        .iter()
+        .map(|line| {
+            1 + line
+                .spans
+                .iter()
+                .map(|span| span.content.len())
+                .sum::<usize>()
+        })
+        .sum();
+    if bytes >= 60_000 {
+        return Text::from(vec![
+            Line::styled("! Detail is too long to show completely.", palette.rust),
+            Line::raw("Read it in the named tink-sdlc checkout:"),
+            Line::raw(format!("python3 {SCRIPT} status <slug> --json")),
+            Line::raw("Replace <slug> with the selected run's name."),
+            Line::raw("Esc returns to the runs."),
+        ]);
+    }
     Text::from(lines)
 }
