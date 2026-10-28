@@ -10,7 +10,7 @@
 | 6 | taste | Review an exact result against its unchanged goal; open its PR or copy an external review handoff ([Taste](taste.md)). |
 | 7 | measure | This repo's recent pull requests, read from GitHub only on explicit request; no metrics or acceptance claims. |
 
-Only selection reveals a description; [menu.rs](../../src/menu.rs) owns the copy.
+Each place shows its one-line purpose beside its name; [menu.rs](../../src/menu.rs) owns the copy.
 Name the purpose without borrowing another place's name. Taste can explicitly open
 one [unsent next-dump draft](taste.md#after-external-acceptance) in a fresh Think
 visit; the menu alone connects those phases, and starts no request. [Tend](shape-and-handoff.md)
@@ -18,13 +18,14 @@ owns the garden and handoff. Unbuilt places authorize nothing. Goal confirmation
 intake approval and implementation permission remain separate.
 
 The muted key bar `↑↓ move   enter open   ? help   q quit` has one blank row below.
-The description or latest receipt sits two blank rows below the list, aligned with
-place names. Numbers align with the title and bar. Tend's muted count appears by
-its name only when [discovery](#session-discovery) is complete and nonzero.
+The latest receipt keeps its row two blank rows below the list, aligned with place
+names; without a receipt that row stays blank. Numbers align with the title and bar.
+Inline purposes stay muted after the reserved count column. Tend's muted count appears
+by its name only when [discovery](#session-discovery) is complete and nonzero.
 Digits and aliases still work without bar clutter. Open places and help hide this bar.
 
-Help overlays the upper-right (38×14), leaving choices and descriptions visible at
-all supported sizes. It has a thin muted border, jade title, bold ink headings and
+Help overlays the upper-right (38×14), leaving place choices visible. At 80 columns
+it may cover part of the inline purposes; closing help restores them. It has a thin muted border, jade title, bold ink headings and
 keys, and muted action labels. A blank row follows the title. Key and action columns
 align, with `Esc Close help` separate below; `m Model and runs` sits under `q`, then with colour `Ctrl-T Dark or light`. There is no ambiguous Leave heading,
 new colour or background. NO_COLOR keeps the hierarchy. Help blocks underlying
