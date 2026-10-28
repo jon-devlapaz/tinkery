@@ -13,19 +13,6 @@ making for tinkery prior to tink sdlc." Yohaku agrees: *move each correction lef
 make the mistake impossible in the code, and write a rule only when code can't hold it.
 
 The former Seed Me helper is a historical reference, pinned above to 2026-10-19.
-Tinkery's shared Rust ledger now owns these protections:
-
-| Seed Me protection | Reference (helper: 2026-10-19) | Rust ledger today |
-| --- | --- | --- |
-| Stale writes refused, origin pinned, nodes never deleted | `session.py` `transition` (L320) | Shipped: shared Rust publication. |
-| Confirmation bound to seed bytes, decisions and checks | `confirm_seed` (L950), `verify_handoff` (L916) | Shipped: Rust seed confirmation and handoff verification. |
-| Check records and the seed's heading sequence | `validate_checks` (L732), `document_headings` (L846) | Shipped: Rust check and heading validation. |
-| Typed facts; an inference cites its observations | `validate_claim` (L78) | Shipped: typed fact nodes and `supported_by`, validated by the Rust ledger. |
-| Prerequisites, cycles, dependents wait | `validate` (L132) | Shipped: question replies preserve prerequisite decision IDs; the Rust ledger refuses invalid dependencies and holds questions until ready. |
-| Changed evidence or answers flag dependents for review | `review_flags` (L288), `transition` | Shipped: contradictory facts flag review; answer revision reopens settled dependents. |
-| Deferral with reason and revisit condition; delegation only on grounded questions | `validate` | Shipped: explicit operator actions publish through the ledger's typed answer boundary. |
-| Completion review, teach-back, naming the riskiest items at confirmation | Rust ledger and typed Shape replies | Shipped: ledger-computed risks, review within drafting, optional budgeted teach-back. |
-
 Completion review and teach-back still contain model judgments, not semantic proofs;
 the ledger enforces their typed records, coverage and explicit actions. This design
 replaced the former rule that Seed Me alone owns the session, ledger and contract
@@ -36,17 +23,9 @@ replaced the former rule that Seed Me alone owns the session, ledger and contrac
 **Settled by the operator (2026-10-19): port the helper's rules to Rust, in one shared
 module that replaces `seed_me/`.** Vendoring `session.py` behind the subprocess was the alternative.
 
-| | Port to Rust | Vendor `session.py` |
-| --- | --- | --- |
-| Owner | One module, in the language of every caller | A second language on the critical path |
-| Boundary | Typed calls; rules testable with `cargo test` | JSON over a subprocess; every caller decodes it |
-| Cost | About 1,100 lines of Python, plus porting its tests | Small now; every later rule change is Python |
-| Risk | Behavior drift | Two owners if Tinkery adds rules beside it |
-
-Contain the drift with a **differential test**: during migration, run the Rust module and
-the pinned `session.py` on the same fixtures and require identical refusals and ledgers.
-Seed Me's own suite (`tests/`, about 5,400 lines, mostly epistemics, session and checks)
-supplies the fixtures. Slice 8 retired that differential harness and fixture; Rust-only regressions now own the protections.
+Rust keeps one typed boundary for every caller rather than a second language on the
+critical path. The migration used differential fixtures against the pinned helper;
+completed slice 8 retired that harness. Rust regressions now own these protections.
 
 The Rust ledger preserves these former helper protections:
 - **Validation:** node schema and statuses; prerequisites exist, are acyclic, and settle first;
@@ -103,105 +82,48 @@ resolve a review flag.
 - **Prerequisites.** A question reply may name the earlier questions it depends on. The
   module refuses cycles and holds the question until they settle.
 
-## 3. Procedure that becomes code
+## 3. Closing a draft
 
-The skill's closing steps move into Tinkery, computed where they can be:
-
-- **Confirmation summary (zero calls).** The ledger computes the words above confirming:
-  answers differing from an earlier settled answer, delegated or assumed choices, and
-  exact-byte acceptance of suggestions. Each risky choice appears once, with all its
-  labels. Counts exclude the confirmed goal and facts: accepted as suggested versus
-  chosen otherwise. A changed answer is a reversal indicator, not a semantic judgment.
-- **Completion review (inside drafting, no extra call).** The drafting step checks
-  settled choices for contradictions, separates *decided* from *done*, and names a
-  case that must fail each check. The model supplies case strings in check order;
-  Tinkery attaches the exact statements, leaving no wording to copy; named objects
-  are not a model reply format. New blockers return as questions. The
-  ledger enforces typed review coverage and retains the review as append-only,
-  byte-bound confirmed-goal receipts through teach-back's recording path. Its decided,
-  done and failure-case lines appear with the risk summary as drafting guesses;
-  the ledger does not prove those judgments.
-- **Teach-back (optional, from F1 on a draft).** The operator may describe what will and
-  won't be built. One explicitly budgeted comparison lists mismatches as guesses,
-  never blocking confirmation. The comparison has no tools or repository access.
-  Words, mismatches and skips are preserved verbatim in the ledger;
-  no result grants build permission.
-
-[Answering and confirming](shape-and-handoff.md#answering-and-confirming) owns the
-shipped keys, reply schema, receipt format, failure behavior and budget gate.
+The ledger computes confirmation risks from recorded choices, excluding the confirmed
+goal and facts from choice counts. Completion review and
+optional, explicitly budgeted teach-back remain drafting judgments, not semantic
+proofs or implementation permission. For their keys, coverage, receipts, failure
+behavior and budget gate, read [Answering and confirming](shape-and-handoff.md#answering-and-confirming).
 
 ## 4. The tink-sdlc intake contract
 
-**Shipped:** intake uses Tinkery as its sole verifier. The consumer runs exactly
-`PATH seed status --json DIR`, `PATH seed checks DIR`, then status again for stability,
-requiring `handoff.verified`. Tinkery's status omits viewer and snapshot records and
-opens no network connection; completion needs no viewer.
-Think's working-draft guidance and the artifact reference are bundled verbatim from
+Tinkery is tink-sdlc's sole seed verifier. Intake runs `PATH seed status --json DIR`,
+`PATH seed checks DIR`, then status again for stability, requiring `handoff.verified`.
+Status omits viewer and snapshot records and opens no network connection; completion
+needs no viewer. CI and the handoff journey pin tink-sdlc 1.41.0 at
+`6eee1f1d3f2035983c01b3c61b51f0afb5dccf19`.
+Think's working-draft guidance and artifact reference remain bundled verbatim from
 Seed Me `c9d766760dbeac0c05c92108165f9e968bec0a66`; no runtime reads an installed skill.
-
-[tink-sdlc #90](https://github.com/jon-devlapaz/tink-sdlc/issues/90) shipped in PR #91,
-scaffold 1.34.0. CI and the handoff journey pin current main (1.41.0) at
-`6eee1f1d3f2035983c01b3c61b51f0afb5dccf19`. Copied intake commands use
-`--tinkery PATH`; the old helper flag is refused by that consumer.
-The session folder's files keep
-their names (`seed-contract.md`, `ledger.json`, `seed-checks.json`,
-`seed-confirmation.json`), so Approve and Watch's match on the seed's canonical path and
-sha256 ([#258](https://github.com/jon-devlapaz/tinkery/issues/258)) keep working.
+The intake change shipped in [tink-sdlc #90](https://github.com/jon-devlapaz/tink-sdlc/issues/90)
+(PR #91). For navigation and copying behavior, read
+[SDLC handoff](shape-and-handoff.md#sdlc-handoff).
+Copied commands use `--tinkery PATH`; the consumer refuses the old helper flag
+([tink-sdlc #88](https://github.com/jon-devlapaz/tink-sdlc/issues/88)).
 tink-sdlc re-checking the digests itself would make two owners of one rule, so it doesn't.
-This renames the flag in [tink-sdlc #88](https://github.com/jon-devlapaz/tink-sdlc/issues/88).
 
-## 5. Migration
+## 5. Completed migration and limits
 
-The module reads today's `ledger.json` unchanged, so existing sessions keep working and
-slice 8 moves only their location. Each slice had its own PR and approval:
+The eight-slice migration accepted in [#269](https://github.com/jon-devlapaz/tinkery/issues/269)
+completed with [#294](https://github.com/jon-devlapaz/tinkery/issues/294).
+For current session-location, migration and continuation behavior, read the
+[continuation contract](shape-and-handoff.md#continuation-contract).
 
-1. **Rust ledger: read, validate, transition, review flags**, under the differential test.
-   Shape still calls the helper; nothing visible changes.
-2. **Shape publishes through the module** (answers, questions, objections, probes).
-3. **Seed, confirmation, verification and ending in Rust** (implemented), plus the two
-   read-only `tinkery seed` commands. The consumer flag change is separate (section 4).
-4. **Typed findings and contradictions** (implemented; section 2). The ledger alone
-   validates facts. Old untyped model replies are refused; existing untyped sessions
-   still read unchanged. `F2 keep with reason` revalidates without changing an answer
-   or calling a model; flags continue to block confirmation and completion.
-5. **Deferral, delegation and revising an answer** (implemented; #284, #240, #239).
-   The ledger alone owns required fields, grounding, revision eligibility and dependent reopening;
-   Shape presents its refusals without duplicating the rules.
-6. **Prerequisites** from question replies (implemented; #286). The ledger alone owns
-   existence, cycles and ready order; So far names the earlier answers held questions wait for.
-7. **Confirmation summary, completion review and teach-back** (implemented; #292, section 3).
-8. **Retire Seed Me** (implemented; #294): remove the skill flag, external CI fixture,
-   skill continuation prompt and helper subprocesses, including Think saving and its viewer.
-   Sessions move once to `~/.local/share/tinkery/sessions` on a default-root launch;
-   a visible notice names the move. Existing old and new roots refuse rather than merge.
-   There is no old-root reader. Watch's old-path joins become unknown.
-   Think records remain byte-identical: history matches unique live ledger session IDs.
-   A path-only record whose folder is missing may use its final folder name as that ID;
-   duplicate live IDs refuse. This identity rule was Claude's call, not jondev's.
-   Old-format ledgers move with all their folder bytes untouched, even when today's ledger
-   reader refuses their stored fields; the move never parses or repairs sessions.
-   Differential tests retire; Rust-only protections remain. Receipt times now require
-   RFC 3339; Unicode categories replace the Python table, and JSON publication adaptation
-   is typed. Editable reads retain their numeric and refusal compatibility.
-   The installed launcher's removed flag is a separate held edit after merge.
+The missing-old-path history identity rule was Claude's call, not jondev's.
+Old-format ledgers moved with their folder bytes untouched; moving never parsed or
+repaired sessions. Receipt times now require RFC 3339; Unicode categories replaced
+the Python table. JSON publication adaptation is typed. Editable reads retain their
+numeric and refusal compatibility.
 
-## Design score and limits
-
-- Row 3 (implementation changes without touching callers) improves: ledger rules sit
-  behind typed calls, not a JSON subprocess every caller decodes.
-- Row 6 (each module hides an important decision) improves: transitions, cascade,
-  review flags and unknown-resolution eligibility hide in one module.
-- Rows 2 and 3 improve: a step proposes ID links without owning their rules; active findings
-  and seed projections consume the ledger's resolution marker, with no answer parser.
-  The existing ledger and Shape contracts keep that ownership visible (row 7).
-- #296 improves rows 2, 3 and 6: Shape decodes ordered case strings; the ledger alone
-  pairs them with check statements and owns coverage, without changing saved review
-  records, byte-bound receipts or their readers.
-  The [reply contract](shape-and-handoff.md#answering-and-confirming) keeps that boundary
-  visible (row 7). Missing evidence still refuses; no automatic retry is added.
-- The phase rule holds: the ledger is shared code that names no phase; Think, Tend,
-  Shape and Approve use it as they use `seed_me/` today.
-- No limit in `tests/architecture.rs` changes in this document.
+The shared ledger names no phase and hides transition, review and unknown-resolution
+rules behind typed calls. This improves caller independence and decision ownership
+([architecture diagnostics](architecture.md#design-score), rows 2, 3 and 6).
+The reply contract keeps the boundary visible (row 7). Missing evidence still refuses;
+no automatic retry or architecture-test limit change follows from this design.
 
 ## Decisions
 
