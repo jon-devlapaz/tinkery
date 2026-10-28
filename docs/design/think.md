@@ -99,18 +99,20 @@ Existing records remain readable; older readers may refuse the new event rather
 than mistake a proposal for original words. Tend history labels the offered draft
 separately. The prior goal remains unchanged; no suggestion confirms a goal or seed.
 
-### Model calls
+### Drafting runs
 
-Each live send makes at most two calls: shaping, then decision review. While a call
-is in flight, the initial reading or refinement status says `Thinking… (call 1 of up
-to 2)`, then `Reviewing decisions… (call 2 of up to 2)`. These name phases, not a
-claim that both calls ran; unreadable shaping skips review. Practice claims no
-model calls. Scope questions may use none. No calls follow display, and nothing
+Each live send uses at most two drafting runs: shaping, then decision review. While a run
+is in flight, the initial reading or refinement status says `Thinking… (run 1 of up
+to 2)`, then `Reviewing decisions… (run 2 of up to 2)`. These name phases, not a
+claim that both runs ran; unreadable shaping skips review. Practice claims no
+drafting runs. Scope questions may use none. No runs follow display, and nothing
 retries automatically. With a model, Right now help and a failed reading say
-`Model calls left this run: N of M.`, the launch allowance Shape shares (#435). The
-header label shows the calls left; F1's Model and calls row opens the
-[Model panel](menu.md#model-setup), where Now adds calls for this launch only. Exhaustion
-keeps the words and starts nothing; the refusal says to add calls.
+`Drafting runs left this launch: N of M.`, the launch allowance Shape shares (#435). The
+header label shows the runs left; F1's Model and runs row opens the
+[Model panel](menu.md#model-setup), where Now adds runs for this launch only. Exhaustion
+keeps the words and starts nothing; the refusal says to add runs. The
+[Model panel contract](menu.md#model-setup) defines what a run counts and why it does
+not cap spending.
 Practice and verification use fakes; [historical evals](#decision-review-evidence-34)
 promise no general quality.
 

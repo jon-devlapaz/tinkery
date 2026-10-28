@@ -100,7 +100,7 @@ struct Screen {
     original: bool,
     details: bool,
     leave_prompt: bool,
-    /// F1's Model and calls row asked for the Model panel, which the launch owns.
+    /// F1's Model and runs row asked for the Model panel, which the launch owns.
     model: bool,
     /// The notice says why the last action did nothing; drawn until the next input.
     refused: Option<Refusal>,
@@ -798,7 +798,7 @@ impl BrainDump {
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()
     }
-    /// Whether F1's Model and calls row was picked since the last ask; the launch opens the
+    /// Whether F1's Model and runs row was picked since the last ask; the launch opens the
     /// panel. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         std::mem::take(&mut self.screen.model)

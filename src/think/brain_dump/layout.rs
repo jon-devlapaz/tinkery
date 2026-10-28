@@ -30,8 +30,8 @@ pub(super) const STATUS_ROWS: u16 = 2;
 
 fn thinking_status(app: &BrainDump) -> &'static str {
     match app.host.call_in_flight() {
-        Some(Request::Shaping) => "Thinking… (call 1 of up to 2)",
-        Some(Request::DecisionReview) => "Reviewing decisions… (call 2 of up to 2)",
+        Some(Request::Shaping) => "Thinking… (run 1 of up to 2)",
+        Some(Request::DecisionReview) => "Reviewing decisions… (run 2 of up to 2)",
         _ => "Thinking…",
     }
 }
@@ -460,10 +460,9 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         "Type your answer.\nF2 sends."
     };
-    let left = app
-        .host
-        .calls_left()
-        .map_or_else(String::new, |left| format!("\n{left}"));
+    let left = app.host.calls_left().map_or_else(String::new, |left| {
+        format!("\n{left}\nOne send may use two drafting runs: reading and decision review.")
+    });
     let voice = if app.voice_available() {
         "\nF6 or Ctrl+Alt+Z (⌃⌥Z) speaks; your voice stays on this machine."
     } else {

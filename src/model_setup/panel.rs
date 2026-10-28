@@ -1,9 +1,9 @@
-//! The header's model label and the Model panel it opens. The label shows real state: calls left
+//! The header's model label and the Model panel it opens. The label shows real state: runs left
 //! when this launch drafts with a model, else `practice`. The panel names this launch's recipient
 //! and edits settings for later launches; `s` saves them, `esc` drops them.
 //! `enter` on Model picks the next model the harness offers:
 //! Claude Code's fixed list, or the list Pi prints (asked once, off the paint path, with no model
-//! request); `t` types any model instead. When this launch drafts, its Now row adds calls at once,
+//! request); `t` types any model instead. When this launch drafts, its Now row adds runs at once,
 //! for this launch only. Nothing here starts a model request.
 use std::{
     path::PathBuf,
@@ -21,14 +21,14 @@ use ratatui::{
 use super::{CALLS, Harness, Setup};
 use crate::{Palette, pi::CallBudget};
 
-/// Calls one `enter` on the Now row adds.
+/// Drafting runs one `enter` on the Now row adds.
 const TOP_UP: usize = 5;
 /// Why an agent's panel only shows: its allowance is the operator's to give.
-const AGENT: &str = "An agent can't save a setup or add calls; the operator does.";
+const AGENT: &str = "An agent can't save a setup or add runs; the operator does.";
 /// The note while Pi lists its models.
 const LISTING: &str = "Listing Pi's models…";
 
-/// This launch's model state: where the setup saves, what was saved, the launch's calls when it
+/// This launch's model state: where the setup saves, what was saved, the launch's runs when it
 /// drafts, and the panel while it is open.
 pub struct Controls {
     path: Option<PathBuf>,
@@ -77,17 +77,17 @@ impl Controls {
         self
     }
 
-    /// For an agent operator: the panel shows the setup but refuses to save or add calls.
+    /// For an agent operator: the panel shows the setup but refuses to save or add runs.
     pub fn for_agent(mut self) -> Self {
         self.agent = true;
         self
     }
 
-    /// The header label: calls left when this launch drafts, else `practice`.
+    /// The header label: runs left when this launch drafts, else `practice`.
     pub fn label(&self) -> String {
         match &self.active {
-            Some((_, budget)) if budget.remaining() == 1 => "1 call left".into(),
-            Some((_, budget)) => format!("{} calls left", budget.remaining()),
+            Some((_, budget)) if budget.remaining() == 1 => "1 run left".into(),
+            Some((_, budget)) => format!("{} runs left", budget.remaining()),
             None => "practice".into(),
         }
     }
@@ -277,7 +277,7 @@ impl Controls {
             row(0, "Harness", panel.draft.harness.label().into()),
             row(1, "Model", model),
             row(2, "Thinking", panel.draft.thinking.clone()),
-            row(3, "Calls", format!("{} each launch", panel.draft.calls)),
+            row(3, "Runs", format!("{} each launch", panel.draft.calls)),
         ];
         if let Some((_, budget)) = &self.active {
             lines.push(row(
@@ -288,7 +288,14 @@ impl Controls {
         }
         lines.extend([
             Line::default(),
-            Line::styled("The cap is on requests, not dollars.", palette.ink),
+            Line::styled(
+                "Runs count drafting attempts, including failures and cancellations.",
+                palette.ink,
+            ),
+            Line::styled(
+                "Tools or retries may make several provider requests. No spending cap.",
+                palette.ink,
+            ),
             Line::styled(self.note(panel), palette.muted),
             Line::default(),
         ]);
