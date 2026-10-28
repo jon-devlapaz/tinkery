@@ -47,7 +47,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             # Typing alone and confirming an unread attribution must write nothing.
             type_confirmation()
             assert not run.records.exists() and not run.sessions.exists()
@@ -55,7 +55,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
             assert not run.records.exists() and not run.sessions.exists()
             # Reopen with an empty input, read fully, then wait for typing to redraw.
             run.send(b'\x1b', "Ready for your review")
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
             if correct_typo:
                 type_confirmation(b'confirn', 'confirn')

@@ -313,7 +313,7 @@ def full_journey(width, height):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             run.send(b'confirm\r', 'Saved.')
             record = json.loads(next(run.records.iterdir()).read_text())
             session = run.sessions / record['seed_me_session']
@@ -1460,7 +1460,7 @@ def exit_hint(width, height, stage):
             run.type('never')
             run.send(F2, "Ready for your review")
             run.wait(headline)
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             run.send(b'confirm\r', 'Saved.')
             session = next(run.sessions.iterdir())
             goal = helper.load(session)['goal']

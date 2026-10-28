@@ -137,7 +137,7 @@ def journey(width, height, no_color):
 
             # Review still needs its own explicit action; exiting starts and saves nothing.
             send(b'\x7f'); send(b'\x1bOP'); send(screen.pick('Review the goal'))
-            wait_for(lambda: 'type confirm' in screen.text(), 'Review missing')
+            wait_for(lambda: 'You are confirming' in screen.text(), 'Review missing')
             send(b'\x1b'); send(b'\x1b')
             wait_for(lambda: 'Back to menu and lose this draft?' in screen.text(), 'Exit guard missing')
             send(b'n')

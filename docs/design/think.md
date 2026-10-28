@@ -150,6 +150,8 @@ and questions may travel to the seed. Readiness is not required to save; saving
 is neither seed nor implementation approval.
 Review reserves the confirmation input row and normal instruction height, so typing
 or correcting `confirm` does not move an already-read end. Unread content still prevents saving.
+Until the current review reaches its end, ordinary instructions, the key bar and review help
+name PgDn before confirmation. Once it fits or reaches the end, they offer the existing typed confirmation.
 Below 80×24, the size warning holds review input and scrolling; no new save can start.
 Resize is painted before queued keys and paste resume; mouse events from the old layout are ignored.
 Existing input, goal and attribution stay intact;
@@ -336,7 +338,7 @@ scroll hint only on overflow. Empty technical sections add no gap before Last re
 Esc first cancels voice, otherwise closes or backs from technical help. Reading
 cancellation remains after help closes. Help blocks typing, paste and hidden send,
 review or voice actions. Ctrl-C cancellation stays, and `b` changes the preference without revealing the hidden bar. `?` remains
-text while writing. The review bar says `type confirm save goal and record` when recording.
+text while writing. Once the review reaches its end, its bar says `type confirm save goal and record` when recording.
 
 ### Editing and focus
 

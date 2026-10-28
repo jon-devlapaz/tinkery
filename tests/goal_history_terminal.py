@@ -46,7 +46,7 @@ def journey(w,h,home):
    raise AssertionError(screen.text())
   def send(keys,text):os.write(master,keys);drain(lambda s:text in s)
   def right():return ' '.join(' '.join(l[w*48//100+2:].split()) for l in screen.text().splitlines())
-  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'type confirm')
+  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'You are confirming')
   def confirm():
    review();send(b'confirm\r','Saved.')
   try:

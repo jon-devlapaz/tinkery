@@ -37,11 +37,11 @@ def journey(w,h):
    send(b'\x1b[200~'+dump.encode()+b'\x1b[201~','LAST-ORIGINAL-LINE')
    send(b'\x1b','Back to menu and lose this draft? y / n');assert process.poll() is None
    os.write(master,b'n');await_condition(lambda s:'lose this draft?' not in s);wait('LAST-ORIGINAL-LINE')
-   send(b'\x1bOQ','Which complexity');send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'type confirm')
+   send(b'\x1bOQ','Which complexity');send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'You are confirming')
    # Source starts at its beginning; review never paints over the top header.
    assert ''.join(screen.cells[4][2:20])=='i am worried that ',screen.text()
    os.write(master,b'\x1b[<65;4;6M'*30);wait('LAST-ORIGINAL-LINE')
-   send(b'\x1bOP','Type confirm');send(b'h','How it works')
+   send(b'\x1bOP','Right now');send(b'h','How it works')
    # Resize the same live alternate screen and force a complete repaint.
    nw,nh=(100,30) if w==80 else (80,24)
    fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',nh,nw,0,0));screen=Screen(nw,nh);os.write(master,b'\x0c');wait('How it works')

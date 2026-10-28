@@ -39,7 +39,7 @@ def journey(w,h):
    send(b'Books read this year.','Books read this year.')
    assert 'Write something, then F2 sends it.' not in screen.text(),screen.text()
    send(b'\x1bOQ','What would you want')
-   choose('Review the goal','type confirm');assert process.poll() is None
+   choose('Review the goal','You are confirming');assert process.poll() is None
    send(b'\x1b','What would you want')
    os.write(master,b'\x1b[17~');time.sleep(.2);assert 'board controls' not in screen.text()
    choose('Skip this question','Question skipped')
@@ -58,7 +58,7 @@ def journey(w,h):
    assert 'Also fix a welcome-email typo.' in screen.text(),screen.text()
    calls=[json.loads(line) for line in (cwd/'calls.jsonl').read_text().splitlines()]
    assert len([r for r in calls if not r.get('kind')])==1,'Addition was sent before scope answer'
-   choose('Review the goal','type confirm');assert 'Still open' in screen.text()
+   choose('Review the goal','You are confirming');assert 'Still open' in screen.text()
    # Click the quiet Back action, never Enter/confirm.
    col=w*48//100+3;row=h-2
    send(f'\x1b[<0;{col};{row}M'.encode(),'Should these added words')
