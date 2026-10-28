@@ -212,6 +212,20 @@ def retry_after_missing_node():
                 assert time.monotonic() < deadline, f'{path} never appeared'
                 time.sleep(.02)
 
+        def helpers_exited():
+            pids = cwd / 'node-pids.txt'
+            if not pids.exists():
+                return
+            deadline = time.monotonic() + 5
+            for pid in pids.read_text().splitlines():
+                while True:
+                    try:
+                        os.kill(int(pid), 0)
+                    except ProcessLookupError:
+                        break
+                    assert time.monotonic() < deadline, f'Voice helper {pid} did not exit'
+                    time.sleep(.01)
+
         try:
             text(VOICE_KEY + ' speak')
             # The launch looked once and failed; the voice key reloads voice and looks again.
@@ -224,6 +238,17 @@ def retry_after_missing_node():
                 text(VOICE_KEY + ' speak')
             os.write(master, b'\x1b[17~')
             text('ghost words')
+            # Cancel the take, then leave the same empty draft through the normal UI.
+            os.write(master, b'\x1b')
+            deadline = time.monotonic() + 5
+            while 'ghost words' in screen.text():
+                assert time.monotonic() < deadline, 'cancelled partial stayed visible'
+                text(VOICE_KEY + ' speak')
+            os.write(master, b'\x1b')
+            process.wait(timeout=5)
+            assert process.returncode == 0
+            appears('node-closed.txt')
+            helpers_exited()
             print(json.dumps(dict(journey='missing Node found on reload', pi_calls=0, microphone=False)))
         finally:
             if process.poll() is None:
@@ -231,6 +256,8 @@ def retry_after_missing_node():
                 process.wait()
             os.close(master)
             os.close(slave)
+            # The fixture's recorded ready helper may finish after a forced parent kill.
+            helpers_exited()
 
 
 for no_color in [False, True]:
