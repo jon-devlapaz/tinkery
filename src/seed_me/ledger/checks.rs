@@ -156,7 +156,8 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
             (0..commands.len()).find(|&i| i != index && commands[i] == Some((cmd, cwd)))
         {
             return Err(format!(
-                "No seed was drafted: check {} proposes `{cmd}`, which check {} also uses in cwd `{}`. A provisional's proposed command must select its missing regression by name; otherwise leave cmd out.",
+                "No seed was drafted: check {} proposes `{cmd}`, which check {} also uses in cwd `{}`. \
+                 A provisional's proposed command must select its missing regression by name; otherwise leave cmd out.",
                 index + 1,
                 other + 1,
                 cwd.unwrap_or(".")
