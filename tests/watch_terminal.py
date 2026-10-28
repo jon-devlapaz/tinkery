@@ -13,6 +13,7 @@ import termios
 import time
 
 from vt_screen import Screen
+from support.seed_file_fixture import replaced_seed
 from shape_terminal import make as make_session, seed as make_seed
 
 REPO = Path(__file__).resolve().parents[1]
@@ -274,6 +275,23 @@ def journey(width, height, no_color, configured=True):
                     assert ('TEST exact goal tail' in screen.text()) == (seed_case == 'matched')
                     assert not any(word in screen.text() for word in ('seed_contract', 'sha256', 'API'))
                     send(b'\x1b', 'Needs you')
+                # Invalid originals are unknown promptly, including a regular path replaced by a FIFO.
+                seed.write_bytes(original)
+                ledger.write_bytes(original_ledger)
+                receipt.write_bytes(original_receipt)
+                row = {**run('TEST-replaced-seed', 'blocked'), 'seed_contract': record}
+                set_state(list=envelope(runs=[row]))
+                for kind in ('fifo', 'directory'):
+                    send(b'r', 'TEST café')
+                    with replaced_seed(seed, kind):
+                        started = time.monotonic()
+                        send(b'r', "Goal unknown: the original seed changed or can't be found.")
+                        assert time.monotonic() - started < 2, 'non-regular seed delayed Watch'
+                        send(b'\r', 'Stage 3 gate: pending')
+                        send(b'\x1b', 'Needs you')
+                        assert time.monotonic() - started < 2, 'non-regular seed delayed Watch or Escape'
+                        assert 'TEST café' not in screen.text()
+                    send(b'r', 'TEST café')
                 # A matched quiet run stays exactly one row, immediately followed by its neighbour.
                 seed.write_bytes(original)
                 ledger.write_bytes(original_ledger)

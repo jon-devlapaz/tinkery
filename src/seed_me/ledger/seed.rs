@@ -36,7 +36,7 @@ pub(super) fn seed_lines(directory: &Path) -> Result<Vec<String>> {
             path.display()
         ),
     )?;
-    Ok(fs::read_to_string(path)
+    Ok(super::super::read_seed_text(&path)
         .map_err(|e| e.to_string())?
         .split_inclusive('\n')
         .map(str::to_owned)
@@ -282,7 +282,7 @@ pub fn seed_summary(directory: &Path) -> Result<Value> {
     if !path.is_file() {
         return Ok(Value::Null);
     }
-    let data = fs::read(path).map_err(|e| e.to_string())?;
+    let data = super::super::read_seed(&path).map_err(|e| e.to_string())?;
     let text = String::from_utf8_lossy(&data);
     let lines: Vec<_> = text.split('\n').collect();
     let label = lines.iter().skip(1).find_map(|s| revision(s));

@@ -15,6 +15,7 @@ import time
 import test_launch as subprocess
 from shape_terminal import make as make_session, seed as make_seed
 from vt_screen import Screen
+from support.seed_file_fixture import replaced_seed
 
 REPO = Path(__file__).resolve().parents[1]
 RUN_ID = '00000000-0000-4000-8000-000000000114'
@@ -386,6 +387,16 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                     assert len(copied()) == count
                 ledger.write_bytes(original_ledger)
                 receipt.write_bytes(original_receipt)
+            # A seed path replaced by a FIFO/directory becomes unknown without trapping Escape.
+            for kind in ('fifo', 'directory'):
+                send(b'r', 'TEST café')
+                with replaced_seed(seed, kind):
+                    started = time.monotonic()
+                    send(b'r', 'Goal unknown')
+                    send(b'\x1b', 'enter review')
+                    assert time.monotonic() - started < 2, 'non-regular seed delayed Taste or Escape'
+                    send(b'\r', 'Goal unknown')
+                send(b'r', 'TEST café')
             # Handoff prose is irrelevant, including conflicting links: only launch inputs bind.
             handoff.write_text(f'{URL}\nhttps://github.com/TEST/decoy/pull/999\n')
             update()
