@@ -327,6 +327,8 @@ F1 opens bounded reading-side help without changing originals or drafts. Right n
 with the numbered rows (a digit runs its row once and closes help), then the state; `h`
 opens How it works and F1 closes. Labels fit one line of an 80-column panel; a short
 panel drops its blank rows and packs its keys so the rows stay above the writing box.
+Lists longer than nine actions show a fixed page hint: Left/Right changes pages;
+1–9 chooses from the displayed page. Reopening F1 starts at the first page.
 The layer title is jade, headings and keys bold ink, and labels and borders muted.
 Short pages fit; long pages scroll under a fixed title and navigation. Show the
 scroll hint only on overflow. Empty technical sections add no gap before Last result.

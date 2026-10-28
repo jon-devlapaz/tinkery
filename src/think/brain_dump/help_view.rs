@@ -16,8 +16,12 @@ pub(super) fn handle_key(app: &mut BrainDump, key: KeyEvent) -> bool {
     {
         return false;
     }
+    if !app.screen.how && app.screen.actions.turn(app.rows().len(), key) {
+        app.screen.original_scroll = 0;
+        return true;
+    }
     if !app.screen.how
-        && let Some(act) = crate::actions::pick(&app.rows(), key)
+        && let Some(act) = app.screen.actions.pick(&app.rows(), key)
     {
         app.run(act);
         return true;
@@ -99,6 +103,12 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     } else {
         vec![("h", "How it works"), ("F1 / Esc", "Close help")]
     };
+    let page_hint = (!app.screen.how)
+        .then(|| app.screen.actions.hint(app.rows().len()))
+        .flatten();
+    if let Some(hint) = &page_hint {
+        navigation.insert(0, ("←/→", hint.as_str()));
+    }
     let cancel = if app.voice_active() {
         Some("Cancel voice")
     } else {
