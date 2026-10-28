@@ -571,7 +571,11 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   red or green. Routine setup or an unperformed reversion probe does not make an
   existing check provisional; missing assertions, tests or invocations do, with
   `missing` naming the gap. Never invent commands or substitute a generic runner
-  for a missing regression. Taste stays `judge` with what the operator inspects.
+  for a missing regression. A provisional's optional `cmd` proposes how its missing
+  regression will run: it selects only that named test with the repository's runner,
+  in a form that fails when nothing matches, or is left out. A new draft whose provisional
+  proposes a command another check also uses is refused with both check numbers (#469);
+  stored seeds are read unchanged. Taste stays `judge` with what the operator inspects.
   If requested behavior appears present, propose verification and repairs only for
   demonstrated gaps. Settled and explicitly deferred decisions stay settled;
   deferrals remain operator prerequisites, not chosen alternatives.
