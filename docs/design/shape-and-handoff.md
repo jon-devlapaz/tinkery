@@ -140,8 +140,9 @@ views offer only `esc back`; an empty repo view also offers `a toggle goals`.
 Detail's `r history` starts with **Recorded sequence · 27 Oct 2026, UTC** (the first
 event's UTC date). Rows show `HH:MM:SS` in UTC, converting recorded offsets, with a date
 line whenever the date changes. List order stays the truth even when clocks go backward.
-**Original words N** and **Answer N** use the source number and event kind, matching the
-conversation headings below; answers include scope answers. Only a preceding presentation
+**Original words N** labels original-word events; **Submission N** labels recorded
+answers and scope answers without claiming a question was asked. Source numbers match
+the conversation headings below. Only a preceding presentation
 adds ` · after reading R`. Presentations say **Reading R shown**. One notice says
 `Shown means it reached the screen, not that it was read.` Missing context says
 `Reading sequence was not recorded.` Rejected context says

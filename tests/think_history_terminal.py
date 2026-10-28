@@ -169,7 +169,7 @@ def read_history(terminal, marker, record):
     for text in expected:
         for line in text.splitlines():
             assert line in visible, (line, visible)
-    assert 'Answer 2' in visible
+    assert 'Submission 2' in visible
     assert "Readings · Tinkery's guesses" in visible
     assert 'Reading 1 · shown ' in visible and 'Reading 2 · shown ' in visible
     assert 'Tinkery suggested (not an answer)' in visible
@@ -264,7 +264,76 @@ def unavailable(kind, template):
             terminal.close()
 
 
+def submission_labels(width, height, no_color, context):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-submission-labels-') as directory:
+        root = Path(directory).resolve()
+        session, records = root / 'TEST-sessions' / 'goal', root / 'TEST-records'
+        session.mkdir(parents=True)
+        records.mkdir()
+        stamp, goal = '2026-10-24T23:16:53Z', 'TEST confirmed goal stays exact.'
+        turns = [
+            dict(kind='words', source=1, text='TEST original café'),
+            dict(kind='answered', source=2, id='freeform', question='',
+                 answer='  TEST correction: keep manual reset.\nNo accounts, please.  '),
+            dict(kind='asked', id='q', part='why', question='Why now?'),
+            dict(kind='answered', source=3, id='q', question='Why now?', answer='TEST ordinary answer.'),
+            dict(kind='scope_asked', id='scope', source=4, question='Same goal?'),
+            dict(kind='scope_answered', source=4, id='scope', question='Same goal?', answer='TEST scope answer.'),
+        ]
+        (session / 'ledger.json').write_text(json.dumps(dict(schema_version=1,
+            session_id='TEST-id', goal=goal, status='active')))
+        record = dict(schema=3, tinkery='TEST', origin='simulated', harness=None, model=None,
+            thinking=None, prompt_hash=None, started=stamp, confirmed=stamp,
+            seed_me_session=session.name, seed_me_session_path=str(session), seed_me_session_id='TEST-id',
+            repo=None, turns=[dict(at=stamp, **turn) for turn in turns], checks=[], goal=goal)
+        if context == 'valid':
+            record['reading_context'] = dict(events=[dict(kind='submitted', source=i) for i in range(1, 5)])
+        elif context == 'malformed':
+            record['reading_context'] = dict(events='invalid TEST context')
+        (records / 'TEST-history.json').write_text(json.dumps(record))
+        before = files(root)
+        terminal = Terminal(root, width, height, ['--operator', 'agent', '--home',
+            '--seed-session-root', session.parent, '--record-root', records,
+            *(['--no-color'] if no_color else [])])
+        try:
+            terminal.wait(lambda screen: MENU in screen)
+            terminal.send(b'2', GARDEN)
+            terminal.send(b'\r', DETAIL)
+            terminal.send(b'r', 'Think history')
+            terminal.wait(lambda screen: 'Original words 1' in screen)
+            frames = [terminal.screen.text()]
+            if context == 'valid':
+                assert '23:16:53  Submission 2' in frames[0], frames[0]
+            else:
+                expected = ('Reading sequence was not recorded.' if context == 'missing'
+                            else 'Reading sequence unavailable; saved words remain below.')
+                assert expected in frames[0], frames[0]
+            for _ in range(10):
+                if 'Confirmed goal' in frames[-1]:
+                    break
+                frames.append(terminal.changed(b'\x1b[6~'))
+            else:
+                raise AssertionError('History did not reach the confirmed goal')
+            visible = ' '.join('\n'.join(frames).split())
+            for pair in ['Original words 1 TEST original café',
+                         'Submission 2 TEST correction: keep manual reset. No accounts, please.',
+                         'Question Why now?', 'Submission 3 TEST ordinary answer.',
+                         'Question Same goal?', 'Submission 4 TEST scope answer.',
+                         'Confirmed goal ' + goal]:
+                assert pair in visible, (pair, visible)
+            assert all('Answer ' + str(i) not in visible for i in [2, 3, 4]), visible
+            terminal.quit()
+            assert files(root) == before, 'History changed stored event types, words or goal'
+            print(json.dumps(dict(width=width, height=height, no_color=no_color,
+                journey='neutral submissions/' + context, provider_calls=0)))
+        finally:
+            terminal.close()
+
+
 if __name__ == '__main__':
+    for size, no_color in [((80, 24), True), ((100, 30), False)]:
+        for context in ['valid', 'missing', 'malformed']:
+            submission_labels(*size, no_color, context)
     # Long-history wrapping and resize are covered in src/tend/history/tests.rs.
     for size, no_color in [((100, 30), False), ((80, 24), False), ((80, 24), True)]:
         template = journey(*size, no_color)
