@@ -249,13 +249,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("interactive mode needs a terminal; use --snapshot or --help".into());
     }
     let migration = if default_root_requested {
-        tinkery::seed_me::migration::migrate(std::env::var_os("HOME").as_deref())?
+        tinkery::seed_me::migration::migrate(std::env::var_os("HOME").as_deref(), !snapshot)?
     } else {
         None
     };
-    if snapshot && let Some(notice) = &migration {
-        eprintln!("{notice}");
-    }
     // Where Tinkery was started; found by looking for `.git`, never by running git.
     let repo = std::env::current_dir()
         .ok()
