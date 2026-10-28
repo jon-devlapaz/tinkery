@@ -125,6 +125,33 @@ fn launch_drafts_only_with_saved_calls_or_shape_pi_and_flags_win_for_one_launch(
 }
 
 #[test]
+fn explicit_zero_overrides_saved_calls_without_changing_the_saved_setup() {
+    for saved in [
+        setup("p/saved", "high", 5),
+        Setup::new(
+            Harness::ClaudeCode,
+            "claude-opus-5-5".into(),
+            "high".into(),
+            5,
+        )
+        .unwrap(),
+    ] {
+        assert_eq!(
+            Setup::launch(false, None, None, None, Some(0), Some(&saved)),
+            Ok(None)
+        );
+        assert_eq!(
+            Setup::launch(false, None, None, None, None, Some(&saved)),
+            Ok(Some(saved.clone()))
+        );
+        assert_eq!(
+            Setup::launch(true, None, None, None, Some(0), Some(&saved)),
+            Ok(Some(Setup { calls: 0, ..saved }))
+        );
+    }
+}
+
+#[test]
 fn a_harness_flag_keeps_the_saved_calls_but_never_another_harness_s_model_or_thinking() {
     use Harness::{ClaudeCode, Pi};
     let saved = setup("p/saved", "minimal", 10);

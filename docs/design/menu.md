@@ -65,7 +65,8 @@ requests, not dollars. Nothing in it starts a request.
 One parser checks the file and the `--harness`, `--model`, `--thinking` and `--shape-budget`
 flags. A file without a harness is Pi. Claude Code takes only full `claude-` ids, never an alias
 whose meaning changes, so records name the model used. A launch's saved model and thinking
-apply only to the saved harness. A later plain launch drafts when the saved setup allows calls; `--shape-pi` drafts for one
+apply only to the saved harness. A later plain launch drafts when the saved setup allows calls;
+`--shape-budget 0` alone selects practice without changing that file. `--shape-pi` drafts for one
 launch, each flag replacing its saved value, and writes nothing. A missing file is practice.
 An unreadable or invalid file is refused with its path in the panel and the launch stays
 practice; Tinkery never guesses. An `--operator agent` launch never inherits saved calls,
