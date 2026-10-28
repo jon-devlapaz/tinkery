@@ -26,6 +26,7 @@ impl Tend {
             return;
         }
         self.links = self.needs.read().into_links();
+        self.prepare_graph();
         if let Err(reason) = &self.links {
             self.refuse_link(UNAVAILABLE, reason.clone());
             return;
@@ -94,6 +95,7 @@ impl Tend {
         match self.needs.set(&source, &target, linked) {
             Ok((links, changed)) => {
                 self.links = Ok(links);
+                self.prepare_graph();
                 self.notice = match (changed, linked) {
                     (true, _) => "",
                     (false, true) => "Already linked.",
@@ -105,6 +107,7 @@ impl Tend {
             }
             Err(reason) => {
                 self.links = self.needs.read().into_links();
+                self.prepare_graph();
                 let message = if self.links.is_err() {
                     UNAVAILABLE
                 } else {
