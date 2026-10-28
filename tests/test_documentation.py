@@ -162,14 +162,7 @@ class DocumentationTests(unittest.TestCase):
 
     def test_published_proposals_link_to_issue_authority_and_keep_permission_gates(self):
         index = prose("docs/README.md")
-        for issue in (422, 424, 426, 428):
-            self.assertIn(f"https://github.com/jon-devlapaz/tinkery/issues/{issue}", index)
-        self.assertIn("Shipped in", index)
-        self.assertIn("https://github.com/jon-devlapaz/tinkery/pull/430", index)
-        for issue in (426, 428):
-            row = next(line for line in index.splitlines()
-                       if f"https://github.com/jon-devlapaz/tinkery/issues/{issue}" in line)
-            self.assertIn("Issue owns scope and permission", row)
+        self.assertIn("Issues own proposal scope and status.", index)
         self.assertIn("Neither issue authorizes implementation.",
                       prose("docs/design/think.md"))
         self.assertIn("Publication is not design acceptance", index)

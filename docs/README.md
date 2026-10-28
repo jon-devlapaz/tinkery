@@ -25,13 +25,6 @@ current shipped behavior outrank proposals, snapshots and old issue status.
 Issues own proposal scope and status. Publication is not design acceptance,
 implementation permission, data permission or budget.
 
-| Material | Status and use |
-| --- | --- |
-| [Saved model setup](https://github.com/jon-devlapaz/tinkery/issues/422) | Issue owns scope and permission |
-| [Session-only dark theme](https://github.com/jon-devlapaz/tinkery/issues/424) | Shipped in [#430](https://github.com/jon-devlapaz/tinkery/pull/430); #424 records scope |
-| [Think multiple-choice research](https://github.com/jon-devlapaz/tinkery/issues/426) | Issue owns scope and permission |
-| [Think evidence on demand](https://github.com/jon-devlapaz/tinkery/issues/428) | Issue owns scope and permission |
-
 ## Recorded evidence and retired proposals
 
 These dated records are not current behavior or permission to implement:
