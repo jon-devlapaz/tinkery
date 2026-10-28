@@ -3,6 +3,8 @@ import json
 import os
 import sys
 import time
+import signal
+import threading
 
 from measure_terminal import SIZES, Terminal
 
@@ -24,6 +26,14 @@ with pathlib.Path('calls').open('a') as out:
 assert os.environ['GH_PROMPT_DISABLED'] == '1'
 assert sys.stdin.read() == ''
 mode = {mode!r}
+if mode.startswith('held-') or mode == 'descendant':
+    import subprocess
+    child = subprocess.Popen([sys.executable, '-c', "import os,pathlib,time; p=pathlib.Path('helper-pid'); p.with_suffix('.tmp').write_text(str(os.getpid())); p.with_suffix('.tmp').replace(p); time.sleep(60)"],
+                             start_new_session=mode.startswith('held-'), stdin=subprocess.DEVNULL,
+                             stdout=None if mode == 'held-stdout' else subprocess.DEVNULL,
+                             stderr=None if mode == 'held-stderr' else subprocess.DEVNULL)
+    while not pathlib.Path('helper-pid').exists():
+        time.sleep(.01)
 if mode == 'slow':
     time.sleep(60)
 if mode == 'oversized':
@@ -164,6 +174,91 @@ def cases():
     print('8 error, empty, partial, missing-gh, refresh and cancellation journeys passed')
 
 
+def held_pipe_journey(stream, timeout=False):
+    t = Terminal(100, 30, False, fake([], 'held-' + stream))
+    release = None
+    helper = None
+    try:
+        t.send(b'7', 'Nothing has been read yet')
+        started = time.monotonic()
+        t.send(b'r', 'Reading GitHub')
+        direct = wait_for_call(t)['pid']
+        ready = t.root / 'helper-pid'
+        t.wait(ready.exists)
+        helper = int(ready.read_text())
+        def child_reaped():
+            try:
+                os.kill(direct, 0)
+                return False
+            except ProcessLookupError:
+                return True
+        t.wait(child_reaped)
+        # Only the fixture owns this detached writer. Release a reverted blocking join safely.
+        def stop_helper():
+            try:
+                os.kill(helper, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        release = threading.Timer(32 if timeout else 3, stop_helper)
+        release.start()
+        if timeout:
+            t.wait(lambda: 'GitHub read exceeded 30 seconds' in t.screen.text(), seconds=34)
+            assert time.monotonic() - started < 31.5, 'deadline waited for the detached writer'
+            t.send(b'\x1b', '1  think')
+        else:
+            started = time.monotonic()
+            t.send(b'\x1b', '1  think')
+            assert time.monotonic() - started < 2, 'Escape waited for the detached writer'
+        try:
+            os.kill(direct, 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError('direct gh child was not reaped')
+        os.kill(helper, 0)  # Product cancellation must not kill an unrelated process group.
+        stop_helper()
+        release.cancel()
+        release.join()
+        ready.unlink()
+        t.finish(expected_calls=1)
+        print(json.dumps(dict(journey='held pipe', stream=stream, timeout=timeout, provider_calls=0)))
+    finally:
+        if release:
+            release.cancel()
+            release.join()
+        if helper:
+            try:
+                os.kill(helper, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        t.close()
+
+
+def ordinary_descendant_journey():
+    helper = None
+    t = Terminal(80, 24, True, fake([], 'descendant'))
+    try:
+        t.send(b'7', 'Nothing has been read yet')
+        t.send(b'r', 'No PRs found in this window')
+        helper = int((t.root / 'helper-pid').read_text())
+        # Same-group descendants remain the product's responsibility.
+        import test_launch as processes
+        state = processes.run(['/bin/ps', '-o', 'stat=', '-p', str(helper)],
+                              capture_output=True, text=True,
+                              env=processes.environment(home=t.root / 'HOME')).stdout.strip()
+        assert not state or state.startswith('Z'), 'ordinary descendant survived the read'
+        (t.root / 'helper-pid').unlink()
+        t.send(b'\x1b', '1  think')
+        t.finish(expected_calls=1)
+    finally:
+        if helper:
+            try:
+                os.kill(helper, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        t.close()
+
+
 def layout_journey(width, height, no_color):
     title = 'Wrap these exact Unicode words 漢字 e\u0301. ' * 70 + 'LAST-TITLE-WORD'
     payload = [pr(n, title=title if n == 1 else f'TEST row {n}') for n in range(1, 102)]
@@ -207,6 +302,10 @@ if __name__ == '__main__':
         for no_color in (False, True):
             journey(*dimensions, no_color)
     cases()
+    for stream in ('stdout', 'stderr'):
+        held_pipe_journey(stream)
+        held_pipe_journey(stream, timeout=True)
+    ordinary_descendant_journey()
     for dimensions in SIZES + [(70, 49)]:
         for no_color in (False, True):
             layout_journey(*dimensions, no_color)
