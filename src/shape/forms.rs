@@ -18,6 +18,10 @@ enum Fields {
         condition: bool,
     },
     Revise(Words),
+    Revisit {
+        target: crate::seed_me::ledger::DeferredPrerequisite,
+        words: Words,
+    },
 }
 
 impl Form {
@@ -42,6 +46,20 @@ impl Form {
         }
     }
 
+    pub(super) fn revisit(
+        target: crate::seed_me::ledger::DeferredPrerequisite,
+        expected: u64,
+    ) -> Self {
+        Self {
+            id: target.id.clone(),
+            expected,
+            fields: Fields::Revisit {
+                target,
+                words: Words::new(""),
+            },
+        }
+    }
+
     pub(super) fn words(&mut self) -> &mut Words {
         match &mut self.fields {
             Fields::Defer {
@@ -56,7 +74,7 @@ impl Form {
                     reason
                 }
             }
-            Fields::Revise(words) => words,
+            Fields::Revise(words) | Fields::Revisit { words, .. } => words,
         }
     }
 
@@ -67,6 +85,7 @@ impl Form {
             } => "reason to defer",
             Fields::Defer { .. } => "revisit condition",
             Fields::Revise(_) => "replacement answer",
+            Fields::Revisit { .. } => "your answer",
         }
     }
 
@@ -77,6 +96,7 @@ impl Form {
             } => "F2 next field",
             Fields::Defer { .. } => "F2 save deferral",
             Fields::Revise(_) => "F2 save revision and look",
+            Fields::Revisit { .. } => "F2 answer deferred prerequisite",
         }
     }
 
@@ -86,6 +106,11 @@ impl Form {
                 let reason = if *condition { format!("\nReason: {}", reason.text()) } else { String::new() };
                 format!("Defer this question. You decide it can wait.\nGate: {gate}{reason}\nTab changes fields; F2 advances or saves. Esc cancels.")
             }
+            Fields::Revisit { target, .. } => format!(
+                concat!("Answer deferred prerequisite: {}\n{}\nDeferred because: {}\nRevisit when: {}\n",
+                    "You decide whether to answer now. F2 saves only this answer; ",
+                    "dependent questions still need answers. No model runs. Esc cancels."),
+                target.title, target.question, target.reason, target.revisit),
             Fields::Revise(_) => concat!(
                 "Replace this answer. F2 saves the revision and looks into the next. ",
                 "Recorded dependents come first, without a model call; otherwise one step runs. Esc cancels."
@@ -119,6 +144,7 @@ impl Form {
                 revisit: revisit.text().to_owned(),
             },
             Fields::Revise(words) => AnswerAction::Revise(words.text().to_owned()),
+            Fields::Revisit { words, .. } => AnswerAction::Revisit(words.text().to_owned()),
         }
     }
 }

@@ -19,6 +19,7 @@ fn done(stage: Shaped) -> Shape {
         confirmation_note: None,
         confirmation: vec![],
         teach_back: vec![],
+        deferred: None,
         open: vec![],
         decided: vec![
             Decided {
