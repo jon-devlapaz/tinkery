@@ -69,6 +69,9 @@ developer's files are needed.
 
 ## Full zero-call verification
 
+[The Rust test wrapper](scripts/rust-tests.py) runs the workspace in a fresh TEST HOME
+and refuses default application storage.
+
 Run `python3 scripts/full-check.py` from the repository root after setup. Its shared
 launch guard gives the exact block below a temporary TEST HOME; do not run binary
 verification against the operator's HOME. Cold-clone CI runs the block when setup may change. [CI routing](scripts/ci-scope.py) and its
@@ -90,7 +93,7 @@ python3 --version
 cargo +stable build --locked
 cargo +stable run --locked -- --operator agent --home --snapshot
 cargo +stable run --locked -- --operator agent --snapshot --no-color
-cargo +stable test --workspace --locked
+python3 scripts/rust-tests.py
 node --test voice/*.test.mjs pi/*.test.mjs
 python3 scripts/python-tests.py
 cargo +stable fmt --all -- --check
