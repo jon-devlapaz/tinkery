@@ -1,5 +1,6 @@
 use super::*;
 use serde_json::json;
+use std::fs;
 
 mod descendant {
     include!(concat!(
@@ -70,6 +71,9 @@ fn canonical_source_and_verified_current_bytes_join_the_exact_goal() {
     let seed = Seed::parse(&run).unwrap().unwrap();
     assert!(started(&[seed], &source).unwrap());
     assert_eq!(goal(&run), Goal::Matched(" TEST café\nexact goal  ".into()));
+    let symlink = source.with_file_name("TEST-alias.md");
+    std::os::unix::fs::symlink(&source, &symlink).unwrap();
+    assert!(started(&[Seed::parse(&run).unwrap().unwrap()], &symlink).unwrap());
     let mut alias = run.clone();
     alias["seed_contract"]["source"] = source
         .parent()

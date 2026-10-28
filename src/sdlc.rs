@@ -9,7 +9,6 @@ pub(crate) use run::{DEADLINE, Read, SCRIPT, execute, run as status};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    fs,
     path::{Path, PathBuf},
     sync::atomic::AtomicBool,
 };
@@ -59,7 +58,8 @@ impl Seed {
         if self.source.as_os_str() != path.as_os_str() {
             return Ok(false);
         }
-        let bytes = fs::read(path).map_err(|e| format!("Cannot read the original seed: {e}"))?;
+        let bytes = crate::seed_me::read_seed(&path)
+            .map_err(|e| format!("Cannot read the original seed: {e}"))?;
         Ok(self.sha256 == format!("{:x}", Sha256::digest(bytes)))
     }
 }
