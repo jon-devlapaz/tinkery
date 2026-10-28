@@ -218,3 +218,84 @@ fn a_zero_height_reading_never_authorizes_confirmation() {
     assert_eq!(files(&session), before);
     assert!(!session.join("seed-confirmation.json").exists());
 }
+
+#[test]
+fn public_shape_status_preserves_seed_and_confirmation_states() {
+    use tinkery::seed_me::shaping::{self, Shaped};
+    let (_root, session) = fixture("TEST exact goal", "TEST small body");
+    let assert_read_only = |session: &Path| {
+        let before = files(session);
+        let view = shaping::read(session).unwrap();
+        let status = ledger::status(session).unwrap();
+        assert_eq!(view.version, status["version"].to_json().unwrap().as_u64());
+        assert_eq!(view.goal.as_deref(), Some("TEST exact goal"));
+        assert_eq!(files(session), before);
+        (view, status)
+    };
+    let (view, _) = assert_read_only(&session);
+    assert!(matches!(view.stage, Shaped::Drafted { revision: Some(ref r), .. } if r == "r1"));
+    ledger::confirm_seed(&session, "r1", "TEST explicit confirmation", STAMP).unwrap();
+    let (view, status) = assert_read_only(&session);
+    assert!(matches!(view.stage, Shaped::Ready { ended: false, .. }));
+    assert_eq!(status["handoff"]["verified"].to_json().unwrap(), true);
+    let seed = session.join("seed-contract.md");
+    let confirmed = fs::read(&seed).unwrap();
+    let mut changed = confirmed.clone();
+    changed.extend_from_slice(b"\nTEST changed bytes\n");
+    fs::write(&seed, changed).unwrap();
+    let (view, status) = assert_read_only(&session);
+    assert!(matches!(view.stage, Shaped::Unverified { .. }));
+    assert_eq!(status["handoff"]["verified"].to_json().unwrap(), false);
+    fs::write(&seed, &confirmed).unwrap();
+    let record = session.join("seed-confirmation.json");
+    let confirmation = fs::read(&record).unwrap();
+    fs::remove_file(&record).unwrap();
+    let (view, status) = assert_read_only(&session);
+    assert!(matches!(view.stage, Shaped::Unverified { .. }));
+    assert_eq!(status["handoff"]["verified"].to_json().unwrap(), false);
+    fs::write(&record, &confirmation).unwrap();
+
+    fs::remove_file(&seed).unwrap();
+    fs::create_dir(&seed).unwrap();
+    let ledger_bytes = fs::read(session.join("ledger.json")).unwrap();
+    assert!(!matches!(
+        shaping::read(&session).unwrap().stage,
+        Shaped::Ready { .. }
+    ));
+    assert_eq!(
+        ledger::status(&session).unwrap()["handoff"]["verified"]
+            .to_json()
+            .unwrap(),
+        false
+    );
+    assert!(seed.is_dir());
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), ledger_bytes);
+    assert_eq!(fs::read(&record).unwrap(), confirmation);
+    fs::remove_dir(&seed).unwrap();
+    fs::write(&seed, confirmed).unwrap();
+    ledger::end(&session, "completed", "TEST completed", STAMP).unwrap();
+    assert!(matches!(
+        assert_read_only(&session).0.stage,
+        Shaped::Ready { ended: true, .. }
+    ));
+
+    let (_other, session) = fixture("TEST exact goal", "TEST body");
+    fs::remove_file(session.join("seed-contract.md")).unwrap();
+    let current = ledger::load(&session).unwrap()["version"]
+        .to_json()
+        .unwrap()
+        .as_u64()
+        .unwrap();
+    let version = tinkery::seed_me::answering::probe(&session, current)
+        .unwrap()
+        .unwrap();
+    let (view, status) = assert_read_only(&session);
+    assert_eq!(view.version, Some(version));
+    assert!(
+        matches!(view.stage, Shaped::Question { ref id, .. } if id == tinkery::seed_me::answering::PROBE.0)
+    );
+    assert_eq!(
+        status["current_question"].string(),
+        Some(tinkery::seed_me::answering::PROBE.0)
+    );
+}
