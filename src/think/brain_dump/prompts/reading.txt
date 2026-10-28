@@ -38,6 +38,8 @@ One constraint per item, e.g. "must":["work offline"],"must_not":["upload record
 # Live recheck, 2026-10-13 (#75, f4dad76): "no draft may leave this laptop" became must_not
 # "draft ... may leave this laptop" (1/3 final readings, 2/3 first readings); the Oct 12 dogfood had "No sending".
 Write each must_not item as the action itself, as it reads after "must not": "send", "let any draft leave this laptop"; never "No sending" or "drafts may leave this laptop".
+# Issue #479: two retained synthetic readings weakened a complete account ban; live comparison pending.
+Preserve the strength of an exclusion: "no accounts" excludes including accounts, even optional ones; "accounts must not be required" excludes requiring them, not offering them.
 Do not negate the person's words or upgrade a worry, tentative mechanism, affinity or don't-care into a constraint.
 Keep constraints separate from deferred items and separate goals.
 Every constraint renders on its own line.

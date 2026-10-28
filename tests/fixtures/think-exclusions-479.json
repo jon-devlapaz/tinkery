@@ -1,0 +1,81 @@
+{
+  "provenance": "Synthetic data; faithful-response controls are authored, not retained model replies.",
+  "cases": [
+    {
+      "id": "repair-ban",
+      "provenance": "Retained synthetic original; exact UTF-8 bytes from corrections/original.txt.",
+      "words": "I want a small household repair log for me and my partner on our one shared laptop. We rent, and I keep forgetting what we tried when a leak or appliance problem comes back. I want to jot down the date, the problem, what we tried, and whether it helped, then find those notes again.\n\nKeep it usable without internet. No accounts, no cloud sync, no automatic reminders, and no landlord portal. I want a manual JSON export so we can keep our own backup. Photos might help, but I haven't decided whether they belong in the first version. Don't treat that as permission to add them. We should not need to record our address or our landlord's name. I don't want a project-management system.\n\nI'd call the first version useful if we can record three repair attempts and later find the relevant one without reading every entry. I haven't decided what searching or organizing should look like. Keep the first version small, but don't silently drop the limits above.",
+      "must": [
+        "work offline",
+        "provide a manual JSON export"
+      ],
+      "must_not": [
+        "include accounts",
+        "use cloud sync",
+        "send automatic reminders",
+        "include a landlord portal",
+        "require our address",
+        "require our landlord's name",
+        "become a project-management system"
+      ],
+      "deferred": []
+    },
+    {
+      "id": "watering-ban",
+      "provenance": "Reconstructed from history/004-first-reading.txt screen rows, not retained exact input bytes.",
+      "words": "I want an offline checklist for watering my three balcony pots. Let me name each pot, tick it when watered today, and clear the ticks the next morning. I do not want reminders, accounts, a network connection, or plant advice.",
+      "must": [
+        "work offline"
+      ],
+      "must_not": [
+        "include reminders",
+        "include accounts",
+        "require a network connection",
+        "provide plant advice"
+      ],
+      "deferred": []
+    },
+    {
+      "id": "mandatory-only",
+      "words": "I want a household repair log to find our past repair attempts. It is useful when we can record three attempts and find the relevant one. Accounts must not be required.",
+      "must": [],
+      "must_not": [
+        "require accounts"
+      ],
+      "deferred": [],
+      "provenance": "New synthetic contrast case for #479."
+    },
+    {
+      "id": "optional-allowed",
+      "words": "I want a household repair log to find our past repair attempts. It is useful when we can record three attempts and find the relevant one. Accounts may be optional.",
+      "must": [
+        "keep accounts optional"
+      ],
+      "must_not": [],
+      "deferred": [],
+      "provenance": "New synthetic contrast case for #479."
+    },
+    {
+      "id": "later-feature",
+      "words": "I want a household repair log to find our past repair attempts. It is useful when we can record three attempts and find the relevant one. No accounts in the first version. Add optional accounts in a later version.",
+      "must": [],
+      "must_not": [
+        "include accounts in the first version"
+      ],
+      "deferred": [
+        "Add optional accounts in a later version"
+      ],
+      "provenance": "New synthetic contrast case for #479."
+    },
+    {
+      "id": "scoped-ban",
+      "words": "I want a household repair log to find our past repair attempts. It is useful when we can record three attempts and find the relevant one. No accounts in the first version.",
+      "must": [],
+      "must_not": [
+        "include accounts in the first version"
+      ],
+      "deferred": [],
+      "provenance": "New synthetic contrast case for #479."
+    }
+  ]
+}
