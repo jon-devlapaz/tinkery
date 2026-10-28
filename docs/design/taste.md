@@ -142,8 +142,9 @@ The explicit `r` read also reads that file through `gh api` at the displayed hea
 404 means “No preview declared” with the format above; authentication, invalid files
 and other failures remain read refusals, not invented absence. Detail shows the exact
 command, full commit and URL before execution; Details does not repeat that commit.
-Missing-declaration guidance appears once, without a duplicate notice. List `v` opens detail, just like Enter;
-detail `v` runs the disclosed command. Reading, navigation, help and copying never
+Missing-declaration guidance appears once, without a duplicate notice. The list labels
+Enter/`v` as “open result”; `v` opens detail, just like Enter. Detail labels `v` as
+“run preview” because it runs the disclosed command. Reading, navigation, help and copying never
 execute it; repeated or modified v is ignored.
 
 Execution fetches that exact head into a temporary Git checkout, checks HEAD and
