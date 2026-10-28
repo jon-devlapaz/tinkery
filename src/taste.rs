@@ -368,6 +368,12 @@ impl Taste {
         );
         let actions = if self.preview.is_some() {
             "Preview · Esc stops and returns · F10 Home\narrows/PgUp/PgDn scroll  ? help"
+        } else if self.rows.get(self.selected).is_none() {
+            if self.root.is_some() && self.reading.is_none() && self.opening.is_none() {
+                "r read results  ? help  Esc back"
+            } else {
+                "? help  Esc back"
+            }
         } else if self.evidence {
             "e review  a/c copy  arrows/PgUp/PgDn scroll\nHome/End  ? help  Esc back"
         } else if self.detail && self.pause.is_some() {

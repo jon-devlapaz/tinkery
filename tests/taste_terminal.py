@@ -75,7 +75,7 @@ def confirmed_seed(base, goal=GOAL):
     return session / 'seed-contract.md'
 
 
-def journey(width, height, no_color, mapping_case='valid', next_case=None):
+def journey(width, height, no_color, mapping_case='valid', next_case=None, empty_case=None):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-taste-') as directory:
         base = Path(directory).resolve()
         checkout = base / 'TEST-checkout'
@@ -90,6 +90,8 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
         record = {'source': str(seed), 'path': 'runs/TEST-result/seed-contract.md',
                   'sha256': hashlib.sha256(seed.read_bytes()).hexdigest()}
         state = fixture(record)
+        if empty_case == 'no-results':
+            state['list']['runs'] = []
         if next_case == 'merged':
             state['pr']['state'] = 'MERGED'
         state['detail']['run']['checklist'][0]['check']['cwd'] = './'
@@ -126,7 +128,9 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
         if no_color:
             env['NO_COLOR'] = '1'
         args = [str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--home',
-                '--sdlc-root', str(checkout), '--seed-session-root', str(base / 'TEST-sessions')]
+                '--seed-session-root', str(base / 'TEST-sessions')]
+        if empty_case != 'missing-root':
+            args += ['--sdlc-root', str(checkout)]
         if mapping_case != 'missing':
             mapped_id = OTHER_ID if mapping_case == 'other-run' else RUN_ID
             args += ['--taste-result', f'{mapped_id}={URL}']
@@ -165,9 +169,34 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             payloads = re.findall(rb'\x1b\]52;[^;]*;([A-Za-z0-9+/=]+)(?:\x07|\x1b\\)', raw)
             return [base64.b64decode(p).decode() for p in payloads]
 
+        def footer_text():
+            return next(line for line in screen.text().splitlines() if '? help' in line and 'Esc back' in line)
+
         try:
             wait(lambda: '1  think' in screen.text())
-            send(b'6', 'Press r to read results')
+            send(b'6', '--sdlc-root' if empty_case == 'missing-root' else 'Press r to read results')
+            footer = footer_text()
+            assert all(label not in footer for label in ['open result', 'run preview', 'accepted externally', 'a/c copy', 'open PR']), footer
+            assert ('r read results' in footer) == (empty_case != 'missing-root'), footer
+            if empty_case:
+                if empty_case == 'no-results':
+                    send(b'r', 'No open or merged results')
+                    assert len(calls()) == 1
+                before = len(calls())
+                os.write(master, b'\rvlaco')
+                time.sleep(.1)
+                send(b'?', 'What Taste reads')
+                send(b'\x1b', '? help')
+                footer = footer_text()
+                assert all(label not in footer for label in ['open result', 'run preview', 'accepted externally', 'a/c copy', 'open PR']), footer
+                assert len(calls()) == before and not copied(), 'empty result actions launched or copied'
+                # The existing hidden v key can still enter detail; F10 leaves either state.
+                send(b'\x1b[21~', '1  think')
+                os.write(master, b'q')
+                process.wait(timeout=5)
+                assert process.returncode == 0 and tree(checkout) == original and seed.read_bytes() == original_seed
+                print(json.dumps(dict(journey='Taste empty controls', case=empty_case, width=width, height=height, no_color=no_color, provider_calls=0, verdicts=0)))
+                return
             assert not calls(), 'opening Taste must disclose reads, not perform them'
             send(b'?', 'What Taste reads')
             os.write(master, b'oacr')
@@ -175,6 +204,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             assert not calls(), 'help leaked actions'
             send(b'\x1b', 'Press r to read results')
             send(b'r', '›  TEST café')
+            assert 'enter/v open result' in screen.text() and 'a/c copy' in screen.text()
             if mapping_case != 'valid':
                 assert len(calls()) == 2 and not any('pr' in call for call in calls()), calls()
                 send(b'\r', 'Checks')
@@ -430,7 +460,9 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             state['slow'] = True
             update()
             os.write(master, b'r')
-            wait(lambda: len(calls()) > before_reopen)
+            wait(lambda: len(calls()) > before_reopen and 'Reading results from' in screen.text())
+            footer = footer_text()
+            assert 'r read results' not in footer and 'open result' not in footer and 'a/c copy' not in footer, footer
             send(b'\x1b', '1  think')
             deadline = time.monotonic() + 3
             while time.monotonic() < deadline:
@@ -461,6 +493,10 @@ if __name__ == '__main__':
     for dimensions in [(100, 30), (80, 24)]:
         for no_color in (False, True):
             journey(*dimensions, no_color)
+    for dimensions in [(80, 24), (100, 30)]:
+        for no_color in (False, True):
+            for empty_case in ['missing-root', 'no-results']:
+                journey(*dimensions, no_color, empty_case=empty_case)
     # Both palettes of the next line are covered in src/taste/tests.rs.
     for dimensions in [(80, 24)]:
         for no_color in (False,):
