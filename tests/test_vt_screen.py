@@ -5,7 +5,7 @@ from vt_screen import Screen
 
 class FrameTests(unittest.TestCase):
     def test_only_a_complete_expected_view_can_finish_an_action(self):
-        for expected in ('┌ Right now ', '1  Copy the reading',
+        for expected in ('┌ Right now ', 'PgUp/PgDn scroll reading', '1  Copy the reading',
                          '↑↓←→ move   enter open   l link   esc back'):
             with self.subTest(expected=expected):
                 screen = Screen(100, 30)

@@ -128,7 +128,13 @@ def journey(width, height, no_color):
                 send(b'\x1b[6~')
             else:
                 raise AssertionError('How it works does not document reading scrolling')
-            send(b'\x1b'); send(b'\x1b')
+            before = screen.frames
+            os.write(master, b'\x1b')
+            wait_for(lambda: '┌ Right now ' in screen.text(), 'Contextual help missing', before)
+            before = screen.frames
+            os.write(master, b'\x1b')
+            wait_for(lambda: HINT in right() and '┌ Right now ' not in screen.text(),
+                     'Reading did not return after Help', before)
             assert reading() == before_help
             send(b'\x01')
             assert copy(b'\x03') == draft
