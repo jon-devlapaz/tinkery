@@ -103,7 +103,8 @@ require navigation, panning or zooming, not simultaneous labels. Moving, panning
 and zooming write nothing. Refresh preserves positions and viewport for an unchanged
 graph. Changed nodes, labels or links rebuild slots and reset manual positions but
 keep zoom and pan. Resize reflows slots with relative zoom and pan retained.
-Following selection may pan again.
+Following selection may pan again. Session reads, scope changes and needs-link reads or
+edits prepare the path-bound nodes and links; unchanged repaints reuse those inputs.
 
 Detail uses the receipt's shared renderer for the exact stored goal, without
 `Saved.`. ↑↓, `j k`, PgUp or PgDn scroll (a page moves the view less one row); `s` opens Shape on permitted stages, and `r` opens history. Esc goes detail → garden →
