@@ -412,7 +412,7 @@ fn opening_reads_attention_before_offering_any_quiet_run() {
     ));
     let dir = checkout(&list, 0.0);
     let source = format!(
-        "import json,sys\nvalue=json.loads({list:?})\nif len(sys.argv)==4:\n    value=json.loads({detail:?} if sys.argv[2]=='observe' else {quiet:?})\nprint(json.dumps(value))\n",
+        "import json,sys\nvalue=json.loads({list:?})\nif len(sys.argv)==4:\n    value=json.loads({detail:?} if sys.argv[2]=='observe' else {quiet:?})\n    value['run'].update(slug=sys.argv[2],run_id='x')\nprint(json.dumps(value))\n",
         detail = detail(vec![item("pending", false, false)]).to_string(),
         quiet = detail(vec![]).to_string()
     );
