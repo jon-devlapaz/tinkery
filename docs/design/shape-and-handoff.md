@@ -105,6 +105,8 @@ graph. Changed nodes, labels or links rebuild slots and reset manual positions b
 keep zoom and pan. Resize reflows slots with relative zoom and pan retained.
 Following selection may pan again. Session reads, scope changes and needs-link reads or
 edits prepare the path-bound nodes and links; unchanged repaints reuse those inputs.
+The adapter rebuilds Graf’s cached node colors and labels only for new graph data,
+changed ink/jade colors or a changed marked source. Geometry still updates each frame.
 
 Detail uses the receipt's shared renderer for the exact stored goal, without
 `Saved.`. ↑↓, `j k`, PgUp or PgDn scroll (a page moves the view less one row); `s` opens Shape on permitted stages, and `r` opens history. Esc goes detail → garden →
