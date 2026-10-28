@@ -60,8 +60,8 @@ class Terminal:
         if hasattr(self, 'process'):
             os.kill(self.process.pid, signal.SIGWINCH)
 
-    def wait(self, predicate):
-        deadline = time.monotonic() + 5
+    def wait(self, predicate, seconds=5):
+        deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
             if select.select([self.master], [], [], .02)[0]:
                 try:

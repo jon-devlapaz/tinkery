@@ -105,7 +105,10 @@ stay unknown. No browser opens, no goal is inferred and no records are written.
 F1 or ? toggles Measure help. Esc closes help, then details, then returns to the
 menu; q returns to the menu with help closed. F10 or Ctrl-C quits Tinkery. Leaving
 cancels and reaps the owned process group. One read runs at a time, with a 30-second
-deadline and bounded output. There are no watchers, provider calls or disk caches.
+deadline and bounded output. Pipe collection stops on cancellation or deadline even when
+an unowned detached writer keeps a pipe open; Measure closes its readers without signalling
+that writer’s process group. This policy stays inside the existing reader (architecture diagnostics 3 and 6).
+There are no watchers, provider calls or disk caches.
 
 [Terminal tests](../../tests) use fake `gh` in TEST roots at 80×24, 100×30, 160×40
 and 320×40, with and without NO_COLOR. They cover states, details, empty/partial
