@@ -28,6 +28,10 @@ if len(sys.argv) == 4:
     slug = sys.argv[2]
     row = next(r for r in state['list']['runs'] if r['slug'] == slug)
     detail = state.get('details', {}).get(slug, state['detail'])
+    detail['run']['slug'] = row['slug']
+    detail['run']['run_id'] = row.get('run_id')
+    for field, value in state.get('identity', {}).items():
+        detail['run'][field] = value
     detail['run']['verification_status'] = row['verification_status']
     detail['run']['next_action'] = row['next_action']
     detail['run']['seed_contract'] = row.get('seed_contract')
@@ -184,6 +188,25 @@ def journey(width, height, no_color, configured=True):
                              'not-run': 'not verified yet', 'stale': 'verification out of date',
                              'invalid': "can't be read"}
                     send(b'r', words[status])
+                # Both attention inspection and reopening detail retain the list's identity.
+                for identity in ({'slug': 'TEST-another-run'}, {'run_id': 'TEST-changed'},
+                                 {'run_id': None}, {'slug': None}):
+                    row = run('TEST-selected', 'current')
+                    set_state(list=envelope(runs=[row]))
+                    send(b'r', 'TEST-selected')
+                    set_state(list=envelope(runs=[row]), identity=identity)
+                    send(b'\r', 'Run identity changed or is missing.')
+                    assert 'Next:' not in screen.text() and 'Checklist:' not in screen.text(), screen.text()
+                    send(b'\x1b', 'TEST-selected')
+                    send(b'r', "Couldn't read the runs.")
+                    assert 'Run identity changed or is missing.' in screen.text(), screen.text()
+                    assert 'TEST next for' not in screen.text(), screen.text()
+                # A missing list ID cannot establish attention either.
+                row = run('TEST-selected', 'current')
+                row.pop('run_id')
+                set_state(list=envelope(runs=[row]))
+                send(b'r', "Couldn't read the runs.")
+                assert 'identity' in screen.text(), screen.text()
                 # Scaffold upgrades can reject old metadata; Watch names that gap without migration.
                 older = {'slug': 'TEST-older', 'verification_status': 'invalid',
                          'error': 'Run run_id must be a canonical UUIDv4 string; create runs with sdlc.py new.',

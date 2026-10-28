@@ -14,7 +14,11 @@ Watch reads with that checkout's own `python3 _system/scripts/sdlc.py status --j
 checkout's folder, when Watch opens and when the operator presses `r`. It then reads each valid
 run's `status <slug> --json`, serially, before offering the list (except older runs below): the summary cannot identify owed
 attestations or gates during a running verification. An unreadable detail refuses the list rather
-than claiming that run is quiet. Enter reads the selected run's detail again. The screen names the checkout and the exact command behind what it
+than claiming that run is quiet. Enter reads the selected run's detail again. Both reads require the detail's slug and run ID
+to match the original list row. A changed or missing identity refuses the facts and asks for
+an explicit list refresh; it never borrows another run's status, goal or attention.
+The Watch reader owns this comparison for both paths (architecture diagnostics 3 and 6);
+callers cannot accidentally choose a weaker detail parser. The screen names the checkout and the exact command behind what it
 shows, with how long ago it was read, to the minute. Watch never runs `verify`, `mark`, `decide`,
 `stage` or any other command, and never polls, refreshes by itself, notifies or badges anything:
 unchanged state makes no new demand on the operator's attention.
