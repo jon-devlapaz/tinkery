@@ -10,3 +10,6 @@ Modified for Tinkery on 2026-10-08:
 - src/render.rs: floating editor uses the host text color as well as its background.
 
 The scratchpad host exposes draft text notes, not a decision graph. It reuses upstream text-note creation, editing, selection, dragging, panning, zooming, resizing, deletion, and undo/redo. It does not expose file, external-editor, clipboard, raw-editor, or edge creation actions.
+
+Modified for Tinkery on 2026-10-28:
+- Cargo.toml: the hosted copy defaults to no optional features, keeping image dependencies out of text-only workspace checks. The images API and standalone image support remain available with --features images; verify the library with cargo test -p pinstar --lib --features images.

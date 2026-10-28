@@ -18,7 +18,7 @@ name = "pinstar"
 path = "src/main.rs"
 
 [features]
-default = ["images"]
+default = []
 images = ["dep:image", "dep:ratatui-image", "dep:lru"]
 
 [dependencies]
