@@ -311,3 +311,61 @@ fn confirming_preserves_seed_mode_and_refuses_a_busy_writer() {
         0o640
     );
 }
+
+#[test]
+fn confirmation_keeps_fenced_heading_and_closing_rules() {
+    for (name, example, accepted) in [
+        ("backticks", "```rust\n# Seed: example\n```\n", true),
+        ("tildes", "~~~rust\n# Seed: example\n~~~\n", true),
+        ("longer close", "```\n# Seed: example\n`````\n", true),
+        (
+            "indented close",
+            "   ~~~lang\n# Seed: example\n   ~~~~\t \n",
+            true,
+        ),
+        (
+            "short close stays open",
+            "````\n```\n# Seed: example\n",
+            true,
+        ),
+        (
+            "wrong close stays open",
+            "```\n~~~\n# Seed: example\n",
+            true,
+        ),
+        (
+            "four spaces stay open",
+            "~~~\n    ~~~\n# Seed: example\n",
+            true,
+        ),
+        (
+            "close prose stays open",
+            "```\n``` not a close\n# Seed: example\n",
+            true,
+        ),
+        ("unterminated example", "~~~\n# Seed: example\n", true),
+        (
+            "heading after close",
+            "```\nexample\n```\n# Seed: injected\n",
+            false,
+        ),
+        ("backtick in info", "```bad`info\n# Seed: injected\n", false),
+    ] {
+        let root = draft();
+        let path = root.path().join(FILE);
+        let goal = ledger::load(root.path()).unwrap()["goal"].clone();
+        let original = fs::read_to_string(&path).unwrap();
+        fs::write(&path, format!("{original}\n{example}")).unwrap();
+        let before = saved_files(root.path());
+        let result = ledger::confirm_seed(root.path(), "r1", "TEST fence example", STAMP);
+        assert_eq!(result.is_ok(), accepted, "{name}: {result:?}");
+        assert_eq!(ledger::load(root.path()).unwrap()["goal"], goal, "{name}");
+        if !accepted {
+            assert_eq!(
+                saved_files(root.path()),
+                before,
+                "{name}: refusal wrote files"
+            );
+        }
+    }
+}
