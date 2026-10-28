@@ -373,9 +373,9 @@ impl Taste {
         } else if self.detail && self.pause.is_some() {
             "t edit in Think (unsent)  e evidence  a/c copy\narrows/PgUp/PgDn scroll  ? help  Esc list"
         } else if self.detail {
-            "v view it  l accepted externally  e evidence  a/c copy  o open PR\narrows/PgUp/PgDn scroll  n/p result  r reread  ? help  Esc list"
+            "v run preview  l accepted externally  e evidence  a/c copy  o open PR\narrows/PgUp/PgDn scroll  n/p result  r reread  ? help  Esc list"
         } else {
-            "arrows move  enter review  v view it  l accepted externally\na/c copy  o open PR  r reread  ? help  Esc back"
+            "arrows move  enter/v open result  l accepted externally\na/c copy  o open PR  r reread  ? help  Esc back"
         };
         frame.render_widget(Paragraph::new(actions).style(palette.muted), footer);
         let body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(3));

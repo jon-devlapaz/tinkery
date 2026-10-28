@@ -61,7 +61,9 @@ fn preview_disclosure_says_each_fact_once_without_running_on_navigation() {
             "url": "http://127.0.0.1:5173/"
         }))
         .unwrap());
+        assert!(screen(&mut taste, width, height).contains("enter/v open result"));
         taste.key(KeyEvent::from(KeyCode::Enter));
+        assert!(screen(&mut taste, width, height).contains("v run preview"));
         let detail = result_lines(&taste.rows[0]).join("\n");
         assert_eq!(detail.matches(&"a".repeat(40)).count(), 1);
         assert!(taste.preview.is_none(), "navigation ran the command");

@@ -182,7 +182,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 send(b'\x1b[F', 'Commit: unknown')
                 send(b'a', 'Result identity unknown')
                 assert not copied(), 'unmapped or conflicting result was copied'
-                send(b'\x1b', 'enter review')
+                send(b'\x1b', 'enter/v open result')
                 send(b'\x1b', '1  think')
                 os.write(master, b'q')
                 process.wait(timeout=5)
@@ -210,7 +210,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                     assert GOAL in payload and HEAD in payload
                     assert 'pending (matching evidence missing)' not in payload
                 assert len(calls()) == 3, calls()
-                send(b'\x1b', 'enter review')
+                send(b'\x1b', 'enter/v open result')
                 send(b'\x1b', '1  think')
                 os.write(master, b'q')
                 process.wait(timeout=5)
@@ -395,7 +395,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 with replaced_seed(seed, kind):
                     started = time.monotonic()
                     send(b'r', 'Goal unknown')
-                    send(b'\x1b', 'enter review')
+                    send(b'\x1b', 'enter/v open result')
                     assert time.monotonic() - started < 2, 'non-regular seed delayed Taste or Escape'
                     send(b'\r', 'Goal unknown')
                 send(b'r', 'TEST café')
@@ -413,7 +413,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             update()
             send(b'r', 'waiting: revision unknown')
             send(b'\x1b[F', 'Commit: unknown')
-            send(b'\x1b', 'enter review')
+            send(b'\x1b', 'enter/v open result')
             assert "Couldn't read GitHub" not in screen.text(), 'source diagnostics leaked out of detail'
             send(b'\r', 'Checks')
             send(b'e', 'Evidence')
@@ -421,7 +421,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             del state['gh_fail']
             update()
             send(b'\x1b', 'e evidence')
-            send(b'\x1b', 'enter review')
+            send(b'\x1b', 'enter/v open result')
             send(b'\x1b', '1  think')
             before_reopen = len(calls())
             send(b'6', 'Press r to read results')
