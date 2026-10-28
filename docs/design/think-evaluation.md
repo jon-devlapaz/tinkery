@@ -25,7 +25,9 @@ The dataset has a `provenance` (`kind`: `synthetic_test_data` or
 `operator_supplied`, plus a description), ordered `steps`, and ordered `replies`.
 A step is `{"action":"send","text":"exact words"}` or
 `{"action":"retry"}` after a failed reading. Each send has at most 4,096 bytes,
-the existing input limit. Replies have `kind` (`shaping` or `decision_review`)
+the evaluation runner's per-send cap ([owning check](../../examples/think_eval.rs)).
+Production has a separate [encoded request limit](think.md#sending-and-leaving).
+Replies have `kind` (`shaping` or `decision_review`)
 and either `text` (a raw JSON response string) or `failure` (an error string).
 There are no commands, model names, or executable paths in this format. Sending
 while a question is focused uses the existing answer behavior; this slice does
