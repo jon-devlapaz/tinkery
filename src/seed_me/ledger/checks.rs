@@ -122,8 +122,8 @@ pub(crate) fn keeps_criterion(statement: &str, criterion: &str, ignore_case: boo
 /// Keep each explicit confirmed success line in one whole statement; never infer semantic coverage.
 /// A statement may keep the line's words in the clause form the goal block joined.
 /// Unstructured goals and missing criteria add no requirements. This does not prove a check works.
-/// A new draft's provisional never proposes a command another check runs (#469); stored seeds
-/// keep reading.
+/// A new draft's provisional never proposes a command another check runs in the same `cwd`
+/// (#469); stored seeds keep reading.
 pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
     validate_checks(records)?;
     for criterion in goal_criteria(goal) {
@@ -141,18 +141,25 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
     let commands: Vec<_> = records
         .items()
         .iter()
-        .map(|record| record.get("cmd").and_then(Value::string))
+        .map(|record| {
+            let field = |key| record.get(key).and_then(Value::string);
+            field("cmd").map(|cmd| (cmd, field("cwd")))
+        })
         .collect();
     for (index, record) in records.items().iter().enumerate() {
-        let Some(cmd) = commands[index].filter(|_| record["kind"].string() == Some("provisional"))
+        let Some((cmd, cwd)) =
+            commands[index].filter(|_| record["kind"].string() == Some("provisional"))
         else {
             continue;
         };
-        if let Some(other) = (0..commands.len()).find(|&i| i != index && commands[i] == Some(cmd)) {
+        if let Some(other) =
+            (0..commands.len()).find(|&i| i != index && commands[i] == Some((cmd, cwd)))
+        {
             return Err(format!(
-                "No seed was drafted: check {} proposes `{cmd}`, which check {} also uses. A provisional's proposed command must select its missing regression by name; otherwise leave cmd out.",
+                "No seed was drafted: check {} proposes `{cmd}`, which check {} also uses in cwd `{}`. A provisional's proposed command must select its missing regression by name; otherwise leave cmd out.",
                 index + 1,
-                other + 1
+                other + 1,
+                cwd.unwrap_or(".")
             ));
         }
     }

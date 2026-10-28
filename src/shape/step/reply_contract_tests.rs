@@ -14,7 +14,7 @@ const RECHECKS: [&str; 3] = [
 
 /// #296 call 8's provisionals all proposed the whole suite (#469).
 const SHARED_SUITE: &str =
-    "check 1 proposes `python3 -m unittest discover`, which check 2 also uses.";
+    "check 1 proposes `python3 -m unittest discover`, which check 2 also uses in cwd `.`.";
 
 fn valid_reply() -> Value {
     let checks: Value =
@@ -842,12 +842,12 @@ fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason
         (
             "suite",
             suite,
-            "check 2 proposes `./TEST-check`, which check 1 also uses.",
+            "check 2 proposes `./TEST-check`, which check 1 also uses in cwd `.`.",
         ),
         (
             "twin",
             twin,
-            "check 2 proposes `./TEST-new-check`, which check 3 also uses.",
+            "check 2 proposes `./TEST-new-check`, which check 3 also uses in cwd `.`.",
         ),
     ];
     for (name, change, expected) in cases {
@@ -874,14 +874,24 @@ fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason
         assert!(!session.join("seed-checks.json").exists());
     }
 
-    // A command that selects only the missing regression drafts.
-    let session = root.path().join("targeted").join("TEST-session");
-    fs::create_dir_all(&session).unwrap();
-    fs::write(
-        session.join("ledger.json"),
-        include_str!("../../../tests/fixtures/shape-296/ledger.json"),
-    )
-    .unwrap();
-    let agent = provider(root.path(), &valid_reply().to_string(), 1);
-    assert_eq!(look_again(&session, root.path(), &agent), Ok(Done::Drafted));
+    // A command that selects only the missing regression drafts, and so does the same command
+    // run from another directory, which selects a different test.
+    let mut elsewhere = valid_reply();
+    elsewhere["checks"][2] = json!({"statement":"TEST other package","kind":"provisional",
+        "cmd":"./TEST-new-check","expect":"TEST","cwd":"TEST-package-b","missing":"TEST","source":"TEST"});
+    for (name, reply) in [("targeted", valid_reply()), ("elsewhere", elsewhere)] {
+        let session = root.path().join(name).join("TEST-session");
+        fs::create_dir_all(&session).unwrap();
+        fs::write(
+            session.join("ledger.json"),
+            include_str!("../../../tests/fixtures/shape-296/ledger.json"),
+        )
+        .unwrap();
+        let agent = provider(root.path(), &reply.to_string(), 1);
+        assert_eq!(
+            look_again(&session, root.path(), &agent),
+            Ok(Done::Drafted),
+            "{name}"
+        );
+    }
 }
