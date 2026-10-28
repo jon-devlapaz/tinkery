@@ -3285,11 +3285,14 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                 shape.open.as_ref().unwrap().typed.text(),
                 "TEST exact words café  "
             );
+            shape.key(key(KeyCode::F(2)));
+            let refusal = screen(&mut shape, width, height, no_color);
+            assert!(refusal.contains(READ_FIRST), "{refusal}");
             let mut text = String::new();
             for _ in 0..30 {
                 shape.key(key(KeyCode::PageDown));
                 text = screen(&mut shape, width, height, no_color);
-                if shape.open.as_ref().unwrap().read_end.is_some() {
+                if text.lines().any(|line| line.trim() == "End of seed") {
                     break;
                 }
             }
@@ -3298,6 +3301,10 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             assert!(
                 text.lines().last().unwrap().contains("F2 confirm seed r1"),
                 "{text}"
+            );
+            assert!(
+                !text.contains(READ_FIRST),
+                "first end frame kept the obsolete refusal: {text}"
             );
             assert!(!text.contains("read to end"), "{text}");
             shape.key(key(KeyCode::PageUp));
@@ -3332,6 +3339,12 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             assert!(
                 text.lines().last().unwrap().contains("F2 confirm seed r1"),
                 "{text}"
+            );
+            empty.key(key(KeyCode::F(2)));
+            let refusal = screen(&mut empty, width, height, no_color);
+            assert!(
+                refusal.contains("Type your words first; nothing was confirmed."),
+                "unrelated refusal was cleared: {refusal}"
             );
         }
     }

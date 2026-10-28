@@ -1879,7 +1879,7 @@ fn render_open(
         open.typing().filter(|_| agent).map(|t| t.label)
     };
     let split = label.and_then(|label| input.lines.iter().position(|l| l.to_string() == label));
-    let (before, after) = match split {
+    let (before, mut after) = match split {
         Some(i) => (
             Text::from(input.lines[..=i].to_vec()),
             Text::from(input.lines[i + 1..].to_vec()),
@@ -1928,6 +1928,7 @@ fn render_open(
             .is_some_and(|(said, _)| said == READ_FIRST)
     {
         open.notice = None;
+        after.lines.retain(|line| line.to_string() != READ_FIRST);
     }
     frame.render_widget(
         Paragraph::new(reading)
