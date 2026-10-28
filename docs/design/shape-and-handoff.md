@@ -253,8 +253,12 @@ navigation launches nothing and writes no session. Approve and verified Shape se
 still copy manual intake commands through [OSC 52](../terminal-setup.md#clipboard-osc-52).
 
 Default sessions live in `~/.local/share/tinkery/sessions`. On the first default-root
-launch, move the old sessions folder once and show a notice. If both roots exist,
-refuse rather than merge or read the old root. Explicit roots never trigger the move.
+ordinary launch, move the old sessions folder once and show a notice.
+Snapshots never move sessions: when only the old root exists, refuse before writes and explain
+how to migrate with an ordinary launch before retrying. New-only or absent-root snapshots
+render normally. If both roots exist, refuse rather than merge or read the old root.
+Explicit roots never trigger the move. Startup chooses whether a move is allowed; migration
+retains its root checks (architecture diagnostic 6).
 The migration renames only the sessions folder, never parses its ledgers and never reads or
 writes Think records. Old-format session folders move byte-for-byte too. History uses the
 identity rule above; no old-root session reader remains.

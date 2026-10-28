@@ -48,15 +48,57 @@ class SessionRootTests(unittest.TestCase):
     def live_args(self):
         return ['--shape-pi', '--model', 'test/model', '--pi-command', self.host]
 
+    def tree(self, root):
+        return {str(p.relative_to(root)): None if p.is_dir() else p.read_bytes()
+                for p in root.rglob('*')}
+
+    def test_snapshots_never_migrate_or_create_session_data(self):
+        for old_exists, new_exists in ((True, False), (False, True), (True, True), (False, False)):
+            for menu in (False, True):
+                with self.subTest(old=old_exists, new=new_exists, menu=menu):
+                    home = self.root / f'TEST-home-{old_exists}-{new_exists}-{menu}'
+                    home.mkdir()
+                    if old_exists:
+                        self.ledger(home / '.local/share/seed-me/sessions')
+                    if new_exists:
+                        self.ledger(home / '.local/share/tinkery/sessions')
+                    before = self.tree(home)
+                    result = self.run_cli(['--operator', 'agent', '--snapshot'] + (['--home'] if menu else []), str(home))
+                    self.assertEqual(self.tree(home), before)
+                    if old_exists:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(result.stdout, '')
+                        expected = 'Both old and new sessions roots exist' if new_exists else 'Snapshot mode does not move saved sessions'
+                        self.assertIn(expected, result.stderr)
+                        if not new_exists:
+                            self.assertIn('Open Tinkery normally', result.stderr)
+                            self.assertIn('retry --snapshot', result.stderr)
+                    else:
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertTrue(result.stdout.strip())
+                        self.assertNotIn('Moved saved sessions', result.stderr)
+        self.assertFalse(self.called.exists())
+
+    def test_explicit_snapshot_root_never_migrates_default_sessions(self):
+        home = self.root / 'TEST-home'
+        self.ledger(home / '.local/share/seed-me/sessions')
+        self.ledger(home / '.local/share/tinkery/sessions')
+        selected = self.root / 'TEST-selected'
+        self.ledger(selected)
+        before = self.tree(self.root)
+        result = self.run_cli(['--operator', 'agent', '--home', '--snapshot', '--seed-session-root', selected], str(home))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.has_count(result.stdout, 1), result.stdout)
+        self.assertEqual(self.tree(self.root), before)
+        self.assertNotIn('Moved saved sessions', result.stderr)
+
     def test_one_time_move_preserves_session_bytes_and_reports_it(self):
         home = self.root / 'TEST-home'
         old = home / '.local/share/seed-me/sessions'
         new = home / '.local/share/tinkery/sessions'
         sentinel = self.ledger(old)
         before = sentinel.read_bytes()
-        result = self.run_cli(['--operator', 'agent', '--home', '--snapshot'], str(home))
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('Moved saved sessions', result.stderr)
+        self.run_ordinary(home)
         self.assertFalse(old.exists())
         self.assertEqual((new / sentinel.relative_to(old)).read_bytes(), before)
         again = self.run_cli(['--operator', 'agent', '--home', '--snapshot'], str(home))
@@ -108,9 +150,7 @@ class SessionRootTests(unittest.TestCase):
         malformed = records / 'TEST-broken.json'
         malformed.write_text('TEST not JSON')
         before = sentinel.read_bytes()
-        result = self.run_cli(['--home', '--snapshot'], str(home))
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('Moved saved sessions', result.stderr)
+        self.run_ordinary(home)
         self.assertFalse(old.exists())
         moved = home / '.local/share/tinkery/sessions' / sentinel.relative_to(old)
         self.assertEqual(moved.read_bytes(), before)
@@ -132,8 +172,7 @@ class SessionRootTests(unittest.TestCase):
         (session / 'TEST-originals').mkdir()
         (session / 'TEST-originals/bytes').write_bytes(b'\\x00TEST original\\xff')
         before = {p.relative_to(session): p.read_bytes() for p in session.rglob('*') if p.is_file()}
-        result = self.run_cli(['--home', '--snapshot'], str(home))
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.run_ordinary(home)
         self.assertFalse(old.exists())
         moved = home / '.local/share/tinkery/sessions' / session.name
         self.assertEqual({p.relative_to(moved): p.read_bytes() for p in moved.rglob('*') if p.is_file()}, before)
@@ -142,15 +181,13 @@ class SessionRootTests(unittest.TestCase):
         self.assertIn('invalid stored ledger fields', refused.stderr)
         self.assertEqual({p.relative_to(moved): p.read_bytes() for p in moved.rglob('*') if p.is_file()}, before)
 
-    def test_move_notice_is_visible_in_the_terminal_before_navigation(self):
+    def run_ordinary(self, home):
         import fcntl
         import select
         import struct
         import termios
         import time
         from vt_screen import Screen
-        home = self.root / 'TEST-home'
-        self.ledger(home / '.local/share/seed-me/sessions')
         master, slave = os.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
         screen = Screen(80, 24)
@@ -185,6 +222,11 @@ class SessionRootTests(unittest.TestCase):
                 process.wait()
             os.close(master)
             os.close(slave)
+
+    def test_move_notice_is_visible_in_the_terminal_before_navigation(self):
+        home = self.root / 'TEST-home'
+        self.ledger(home / '.local/share/seed-me/sessions')
+        self.run_ordinary(home)
 
     def test_removed_skill_flag_is_not_an_alias_or_requirement(self):
         home = str(self.root / 'TEST-home')
