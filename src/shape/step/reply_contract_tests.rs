@@ -37,6 +37,23 @@ fn ordered_reply(raw: &str) -> Value {
     reply
 }
 
+fn attached_reply() -> Value {
+    let mut reply = valid_reply();
+    reply["review"]
+        .as_object_mut()
+        .unwrap()
+        .remove("failure_cases");
+    for (index, check) in reply["checks"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        check["failure_case"] = format!("TEST failure {index} café\r\n  ").into();
+    }
+    reply
+}
+
 fn provider(root: &Path, reply: &str, calls: usize) -> Agent {
     let program = root.join("TEST-pi");
     fs::write(root.join("TEST-reply.json"), reply).unwrap();
@@ -524,9 +541,8 @@ fn reply_framing_repairs_only_complete_objects_and_names_remaining_errors() {
 }
 
 #[test]
-fn prompt_361_example_pairs_provisional_and_judge_checks_without_inventing_coverage() {
+fn prompt_example_pairs_provisional_and_judge_checks_without_inventing_coverage() {
     let prompt = prompt();
-    assert!(prompt.contains("two checks need two case strings"));
     assert!(prompt.contains("one complete JSON object with no extra closing brace"));
     let example = PROMPT
         .lines()
@@ -547,7 +563,6 @@ fn prompt_361_example_pairs_provisional_and_judge_checks_without_inventing_cover
 
 #[test]
 fn ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases() {
-    assert!(prompt().contains("one string per check in checks order"));
     let mut reply = valid_reply();
     reply["checks"] =
         json!([{"statement":"TEST café check\r\n  ", "kind":"judge", "source":"TEST goal"}]);
@@ -893,5 +908,127 @@ fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason
             Ok(Done::Drafted),
             "{name}"
         );
+    }
+}
+
+#[test]
+fn each_check_keeps_its_case_when_statements_repeat_without_changing_saved_formats() {
+    for attached in [false, true] {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-469-paired-")
+            .tempdir()
+            .unwrap();
+        let session = root.path().join("TEST-session");
+        fs::create_dir(&session).unwrap();
+        let before = include_str!("../../../tests/fixtures/shape-296/ledger.json");
+        fs::write(session.join("ledger.json"), before).unwrap();
+        let mut reply = attached_reply();
+        reply["checks"][1]["statement"] = reply["checks"][0]["statement"].clone();
+        let mut canonical = reply["checks"].clone();
+        let cases: Vec<_> = canonical
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .map(|check| {
+                check
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("failure_case")
+                    .unwrap()
+            })
+            .collect();
+        if !attached {
+            reply["checks"] = canonical.clone();
+            reply["review"]["failure_cases"] = json!(cases);
+        }
+        let agent = provider(root.path(), &reply.to_string(), 1);
+        assert_eq!(look_again(&session, root.path(), &agent), Ok(Done::Drafted));
+        let saved: Value =
+            serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
+        assert_eq!(
+            saved, canonical,
+            "model-only cases never reach canonical check records"
+        );
+        let state: Value =
+            serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap();
+        let old: Value = serde_json::from_str(before).unwrap();
+        assert_eq!(state["goal"], old["goal"]);
+        let receipt = state["nodes"][0]["evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["artifact"] == "tinkery:review/completed")
+            .unwrap();
+        let review: Value = serde_json::from_str(receipt["observed"].as_str().unwrap()).unwrap();
+        for (index, case) in cases.iter().enumerate() {
+            assert_eq!(
+                review["failure_cases"][index],
+                json!({"statement":canonical[index]["statement"], "case":case})
+            );
+        }
+        assert!(!session.join("seed-confirmation.json").exists());
+        assert_eq!(agent.remaining(), 0);
+    }
+}
+
+#[test]
+fn attached_cases_refuse_missing_malformed_or_mixed_coverage_without_writes() {
+    let mut replies = Vec::new();
+    for bad in [Value::Null, json!(42), json!([]), json!("  ")] {
+        let mut reply = attached_reply();
+        reply["checks"][1]["failure_case"] = bad;
+        replies.push((reply, "Check 2 needs a non-empty failure_case"));
+    }
+    let mut partial = attached_reply();
+    partial["checks"][1]
+        .as_object_mut()
+        .unwrap()
+        .remove("failure_case");
+    replies.push((partial, "Check 2 needs a non-empty failure_case"));
+    for legacy in [Value::Null, json!([]), json!(["TEST extra case"])] {
+        let mut mixed = attached_reply();
+        mixed["review"]["failure_cases"] = legacy;
+        replies.push((mixed, "not also in review.failure_cases"));
+    }
+    let mut foreign = attached_reply();
+    foreign["checks"][0]["foreign"] = "TEST extra field".into();
+    replies.push((foreign, "check 1 has unknown fields: foreign"));
+    let mut shared = attached_reply();
+    shared["checks"][1]["cmd"] = shared["checks"][0]["cmd"].clone();
+    shared["checks"][1]["failure_case"] = Value::Null;
+    replies.push((
+        shared,
+        "check 2 proposes `./TEST-check`, which check 1 also uses",
+    ));
+    for (reply, reason) in replies {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-469-cases-")
+            .tempdir()
+            .unwrap();
+        let session = root.path().join("TEST-session");
+        fs::create_dir(&session).unwrap();
+        let before = include_str!("../../../tests/fixtures/shape-296/ledger.json");
+        fs::write(session.join("ledger.json"), before).unwrap();
+        let agent = provider(root.path(), &reply.to_string(), 1);
+        let failure = look_again(&session, root.path(), &agent).unwrap_err();
+        let detail = match &failure.why {
+            Why::Model(detail) | Why::Refused(detail) => detail,
+            other => panic!("{other:?}"),
+        };
+        assert!(detail.contains(reason), "{detail}");
+        if reason.starts_with("check 2 proposes") {
+            assert!(
+                detail.contains("Also: Check 2 needs a non-empty failure_case"),
+                "{detail}"
+            );
+        }
+        assert!(failure.feedback.is_some());
+        assert_eq!(
+            fs::read_to_string(session.join("ledger.json")).unwrap(),
+            before
+        );
+        assert!(!session.join("seed-contract.md").exists());
+        assert!(!session.join("seed-checks.json").exists());
+        assert_eq!(agent.remaining(), 0, "no automatic retry");
     }
 }

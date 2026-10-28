@@ -68,7 +68,7 @@ impl CompletionReview {
             .collect()
     }
 
-    /// Refuse blockers, blank review entries or missing, repeated and foreign failure cases.
+    /// Refuse blockers, blank entries or failure-case counts that differ from check statements.
     /// This checks the review's structure and coverage, not the truth of model judgments.
     pub fn validate(&self, checks: &Value) -> Result<(), String> {
         require(
@@ -99,15 +99,14 @@ impl CompletionReview {
         }
         for (index, statement) in statements.iter().enumerate() {
             require(
-                statements.iter().filter(|s| *s == statement).count() == 1
-                    && self
+                statements.iter().filter(|s| *s == statement).count()
+                    == self
                         .failure_cases
                         .iter()
                         .filter(|f| Some(f.statement.as_str()) == *statement)
-                        .count()
-                        == 1,
+                        .count(),
                 format!(
-                    "Completion review needs exactly one failure case for check {}. Its statement was changed or repeated; return case strings in check order instead of copying statements.",
+                    "Completion review needs matching failure-case coverage for check {}. Its statement or number of cases differs from the checks.",
                     index + 1
                 ),
             )?;

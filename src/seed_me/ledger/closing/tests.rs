@@ -90,6 +90,12 @@ fn repeated_check_statements_cannot_hide_a_foreign_failure_case() {
         case: "TEST must not pass".into(),
     });
     assert!(review.validate(&checks).is_err());
+    // A statement is descriptive text, not an ID: two checks may assert the same outcome.
+    review.failure_cases[1].statement = "TEST exact words  ".into();
+    review.validate(&checks).unwrap();
+    // Equal totals still cannot replace a different check with another repeated case.
+    let checks = value(r#"[{"statement":"TEST exact words  "},{"statement":"TEST other check"}]"#);
+    assert!(review.validate(&checks).is_err());
 }
 
 fn draft() -> (tempfile::TempDir, String) {
