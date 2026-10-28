@@ -21,8 +21,6 @@ pub struct Shaping {
     pub decided: Vec<Decided>,
     /// Open questions in ledger order, naming the earlier answers each held question waits for.
     pub open: Vec<String>,
-    /// A one-line, shell-quoted intake command only for a verified seed; never executed.
-    pub intake: Option<String>,
     /// Confirmation attribution and consumer requirements for a verified seed; not permission.
     pub confirmation_note: Option<String>,
     /// Ledger-computed risks and byte-bound drafting guesses, displayed without recomputing them.
@@ -116,16 +114,9 @@ pub enum Shaped {
 }
 
 /// Read `session` through Tinkery's ledger and verifier; run disk reads off the paint path.
-/// Copying names this running executable; unavailable copy paths never hide a verified seed.
+/// It offers no intake command: Approve owns the one that starts a build.
 pub fn read(session: &Path) -> Result<Shaping, String> {
-    let mut shaping =
-        read_session(session).map_err(|reason| format!("Tinkery refused: {reason}"))?;
-    if matches!(shaping.stage, Shaped::Ready { .. }) {
-        shaping.intake = std::env::current_exe()
-            .ok()
-            .and_then(|executable| intake(session, &executable, "<run>", None));
-    }
-    Ok(shaping)
+    read_session(session).map_err(|reason| format!("Tinkery refused: {reason}"))
 }
 
 fn read_session(session: &Path) -> Result<Shaping, String> {
@@ -175,33 +166,6 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
         }
     }
     Ok(shaping)
-}
-
-// Copy availability never changes Tinkery's reading of the seed.
-/// Format the shared, shell-quoted handoff; a named checkout adds run creation and a directory change.
-pub(super) fn intake(
-    session: &Path,
-    executable: &Path,
-    run: &str,
-    root: Option<&Path>,
-) -> Option<String> {
-    let quote = |path: &Path| {
-        let path = path.canonicalize().ok()?;
-        let path = path.to_str()?;
-        (!path.chars().any(char::is_control)).then(|| format!("'{}'", path.replace('\'', "'\\''")))
-    };
-    let stage = format!(
-        "python3 _system/scripts/sdlc.py stage {run} 1 --seed-contract {} --tinkery {}",
-        quote(&session.join("seed-contract.md"))?,
-        quote(executable)?,
-    );
-    Some(match root {
-        Some(root) => format!(
-            "cd {} && python3 _system/scripts/sdlc.py new {run} && {stage}",
-            quote(root)?,
-        ),
-        None => stage,
-    })
 }
 
 /// Where the seed stands, from the ledger and its verified `status`. An open question comes
@@ -258,7 +222,6 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         version,
         decided: decided.clone(),
         open: open_questions(nodes, &status["waiting_on"]),
-        intake: None,
         confirmation_note: None,
         confirmation: Vec::new(),
         teach_back: Vec::new(),
@@ -555,73 +518,6 @@ mod tests {
                 hard: false,
             }
         );
-    }
-
-    #[test]
-    fn copy_paths_are_canonical_and_share_shell_quoting() {
-        let temp = tempfile::Builder::new()
-            .prefix("TEST-intake-'quoted-")
-            .tempdir()
-            .unwrap();
-        let session = temp.path().join("session");
-        let scripts = temp.path().join("TEST executable's folder");
-        std::fs::create_dir(&session).unwrap();
-        std::fs::create_dir(&scripts).unwrap();
-        let seed = session.join("seed-contract.md");
-        let helper = scripts.join("tinkery");
-        std::fs::write(&seed, "TEST seed").unwrap();
-        std::fs::write(&helper, "TEST helper").unwrap();
-        let quote = |path: &Path| {
-            format!(
-                "'{}'",
-                path.canonicalize()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .replace('\'', "'\\''")
-            )
-        };
-        assert_eq!(
-            intake(&session, &helper, "<run>", None),
-            Some(format!(
-                "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract {} --tinkery {}",
-                quote(&seed),
-                quote(&helper)
-            ))
-        );
-        let alias = temp.path().join("TEST-linked-executable");
-        std::os::unix::fs::symlink(&helper, &alias).unwrap();
-        assert_eq!(
-            intake(&session, &alias, "<run>", None),
-            intake(&session, &helper, "<run>", None)
-        );
-    }
-
-    #[test]
-    fn unreadable_copy_paths_do_not_hide_a_verified_seed() {
-        for case in ["missing-helper", "control-seed", "control-helper"] {
-            let temp = tempfile::Builder::new()
-                .prefix("TEST-intake-read-")
-                .tempdir()
-                .unwrap();
-            let session = temp.path().join(if case == "control-seed" {
-                "session\n"
-            } else {
-                "session"
-            });
-            std::fs::create_dir(&session).unwrap();
-            super::super::ledger::fixtures::confirmed(&session, "TEST goal", "r2");
-            let shaped = read(&session).unwrap();
-            assert_eq!(shaped.goal.as_deref(), Some("TEST goal"));
-            assert_eq!(
-                shaped.stage,
-                Shaped::Ready {
-                    revision: Some("r2".into()),
-                    ended: false,
-                }
-            );
-            assert_eq!(shaped.intake.is_none(), case == "control-seed", "{case}");
-        }
     }
 
     #[test]

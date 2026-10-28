@@ -454,11 +454,11 @@ def full_journey(width, height):
             run.choose('End this session', 'Next: F2 ends it; Esc keeps it open.')
             run.send(F2, 'Session completed. It\'s read-only now.')
             run.wait('This session is completed, so nothing in it can change.')
-            # Intake needs only the verified seed, so copying it stays available.
-            run.wait('c copy intake')
+            # Intake needs only the verified seed, so Approve still offers it.
+            run.wait('Approve copies the command that starts the build.')
             run.send(F1, 'F1 close')
             assert 'End this session' not in run.flat(), run.screen.text()
-            run.send(ESC, 'c copy intake')
+            run.send(ESC, 'Approve copies the command that starts the build.')
             assert helper.load(session)['status'] == 'completed'
             assert helper.status(session)['handoff']['verified'] is True
             assert helper.load(session)['goal'] == goal, 'Ending changed the confirmed goal'
@@ -1293,6 +1293,25 @@ def read_end_revision(width, height):
             run.close()
 
 
+def sdlc_root_read_folder(width, height):
+    """Without a Think origin, Shape reads the named SDLC checkout's repository, not the launch folder (#467)."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-sdlc-root-folder-') as directory:
+        cwd = Path(directory).resolve()
+        make(cwd / 'TEST-sessions')
+        checkout = cwd / 'TEST-checkout'
+        (checkout / '.git').mkdir(parents=True)
+        (checkout / 'TEST-sub').mkdir()
+        before = files(cwd / 'TEST-sessions')
+        run = Run(cwd, width, height, budget=1, sdlc_root=checkout / 'TEST-sub')
+        try:
+            run.open_shape()
+            run.wait('The step reads files in TEST-checkout. F1 picks another folder.')
+            assert files(cwd / 'TEST-sessions') == before and run.calls() == [], 'Shape wrote or called before F2'
+            print(f'Shape reads the --sdlc-root repository at {width}x{height}; 0 stub calls')
+        finally:
+            run.close()
+
+
 def teach_back(width, height, exhausted=False):
     """Capture is explicit and budget-gated; even reported mismatches leave confirming available."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-teach-back-') as directory:
@@ -1576,6 +1595,7 @@ if __name__ == '__main__':
     for name in ['settled prerequisites', 'unknown prerequisite', 'cyclic prerequisite']:
         case(name)
     for size in both:
+        sdlc_root_read_folder(*size)
         answer_actions(*size)
     for size in small:
         typed_findings_review(*size)

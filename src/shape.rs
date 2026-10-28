@@ -80,7 +80,6 @@ pub struct Shape {
     agent: Option<Arc<Agent>>,
     /// An agent launch without --shape-pi: Shape only reads.
     held: bool,
-    copy: Option<String>,
     /// F1's Model and calls row asked for the Model panel, which the launch owns.
     model: bool,
 }
@@ -208,13 +207,12 @@ impl Shape {
             page: 1,
             agent: None,
             held: false,
-            copy: None,
             model: false,
         }
     }
 
     /// The same Shape, able to answer and confirm through `agent`. Without one, it cannot save
-    /// answers, confirm seeds or call a model; verified intake copying and ending remain available.
+    /// answers, confirm seeds or call a model; ending remains available.
     pub fn with_agent(mut self, agent: Option<Arc<Agent>>) -> Self {
         self.agent = agent.filter(|_| !self.held);
         self
@@ -230,29 +228,9 @@ impl Shape {
         self
     }
 
-    /// Take the requested intake line once; the terminal owns OSC 52, never execution.
-    pub fn take_copy_request(&mut self) -> Option<String> {
-        self.copy.take()
-    }
-
     /// Whether F1's Model and calls row was picked since the last ask. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         std::mem::take(&mut self.model)
-    }
-
-    /// Report the terminal write, not host clipboard acceptance, with retryable feedback.
-    pub fn copy_result(&mut self, sent: bool) {
-        if let Some(open) = &mut self.open {
-            open.notice = Some((
-                if sent {
-                    "Copied."
-                } else {
-                    "Couldn't copy; try again."
-                }
-                .into(),
-                None,
-            ));
-        }
     }
 
     /// Whether keys now type words (an answer, seed confirmation or folder), so letters aren't
@@ -302,7 +280,6 @@ impl Shape {
             page: 1,
             agent: None,
             held: false,
-            copy: None,
             model: false,
         }
     }
@@ -552,13 +529,6 @@ impl Shape {
                 }
                 return Leave::Stay;
             }
-            if key.code == KeyCode::Char('c')
-                && key.modifiers.is_empty()
-                && let Some(command) = open.intake()
-            {
-                self.copy = Some(command.to_owned());
-                return Leave::Stay;
-            }
             if let (Some(agent), Some(typing)) = (&self.agent, open.typing()) {
                 match key.code {
                     KeyCode::F(2) if key.modifiers.is_empty() => {
@@ -742,9 +712,6 @@ impl Shape {
                     }
                     (Some(_), Some(_)) => {
                         "Edit the form. Enter adds a line; Esc cancels without saving."
-                    }
-                    _ if open.intake().is_some() => {
-                        "c copies the intake command. Replace <run> with your SDLC run. Paste it yourself; copying runs nothing and grants no approval to build."
                     }
                     _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
                 };
@@ -937,9 +904,6 @@ impl Shape {
                 }
                 if let Some(action) = action {
                     keys.push(action);
-                }
-                if open.intake().is_some() {
-                    keys.push("c copy intake".to_owned());
                 }
                 if !self.rows().is_empty() {
                     keys.push("F1 more".to_owned());
@@ -1187,15 +1151,6 @@ impl Opened {
                 ..
             }))
         )
-    }
-
-    fn intake(&self) -> Option<&str> {
-        match &self.reading {
-            Reading::Done(Ok(shaping)) if matches!(shaping.stage, Shaped::Ready { .. }) => {
-                shaping.intake.as_deref()
-            }
-            _ => None,
-        }
     }
 
     /// Whether "So far" can show the goal and decisions now: once read, and not while a step runs.
@@ -1714,8 +1669,7 @@ fn render_open(
             let name = open.folder_name();
             let typing = open.typing().filter(|_| agent);
             let words = || typing.as_ref().map(|t| t.label);
-            let acts = open.intake().is_some()
-                || typing.is_some()
+            let acts = typing.is_some()
                 || agent
                     && matches!(
                         shaping,
@@ -1992,7 +1946,7 @@ fn seed_view(seed: &str, revision: Option<&str>, palette: Palette) -> Text<'stat
 fn asked(ending: Ending) -> (String, Option<String>) {
     match ending {
         Ending::Completed => (
-            "End this session as completed? It becomes read-only for good, and tend no longer lists it, so copy the intake command first if you need it.".into(),
+            "End this session as completed? It becomes read-only for good, and tend no longer lists it; Approve still offers its seed.".into(),
             Some("Next: F2 ends it; Esc keeps it open.".into()),
         ),
         Ending::Stopped => (
@@ -2264,7 +2218,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                     palette.muted,
                 ));
             }
-            Some("Next: the seed is ready for intake.".into())
+            Some("Next: Approve copies the command that starts the build.".into())
         }
         Shaped::Unverified { reason } => {
             lines.push(Line::styled(

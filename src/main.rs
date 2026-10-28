@@ -167,6 +167,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !home_menu && (home_inputs || sdlc_root.is_some()) {
         return Err("--sdlc-root and --taste-result require --home".into());
     }
+    let sdlc_root = match sdlc_root {
+        Some(root) if root.is_relative() => Some(std::env::current_dir()?.join(root)),
+        root => root,
+    };
     let confirmation = tinkery::think_record::GoalConfirmation::terminal(operator.as_deref())?;
     let record_root = match record_root {
         Some(root) if root.is_absolute() => Ok(root),
@@ -253,7 +257,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let repo = std::env::current_dir()
         .ok()
         .and_then(|dir| tinkery::repo::Repo::enclosing(&dir));
-    // Shape's agent step reads files where the goal was made, else where Tinkery started.
+    // Shape's agent step reads files where the goal was made, else in the named SDLC checkout's
+    // repository, else where Tinkery started.
     let shape_agent = match &launch {
         Some(launch) => Some(Arc::new(
             tinkery::shape::Agent::new(
@@ -261,7 +266,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 program,
                 launch.model.clone(),
                 launch.thinking.clone(),
-                repo.as_ref()
+                sdlc_root
+                    .as_deref()
+                    .and_then(tinkery::repo::Repo::enclosing)
+                    .or_else(|| repo.clone())
                     .map(|r| r.root().to_path_buf())
                     .or_else(|| std::env::current_dir().ok()),
                 call_budget,
@@ -306,10 +314,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_repo(repo)
             .with_shape_agent(shape_agent)
             .with_shape_held(agent && !live)
-            .with_sdlc_root(match sdlc_root {
-                Some(root) if root.is_relative() => Some(std::env::current_dir()?.join(root)),
-                root => root,
-            })
+            .with_sdlc_root(sdlc_root)
             .with_taste_results(taste_results);
         if let Ok(root) = &record_root {
             menu = menu.with_record_root(root.clone());

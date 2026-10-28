@@ -16,7 +16,6 @@ fn done(stage: Shaped) -> Shape {
         success_open: false,
         stage,
         version: Some(3),
-        intake: None,
         confirmation_note: None,
         confirmation: vec![],
         teach_back: vec![],
@@ -280,36 +279,25 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
 }
 
 #[test]
-fn verified_intake_copy_is_one_shot_and_feedback_can_be_retried_without_an_agent() {
-    let mut shape = done(Shaped::Ready {
-        revision: Some("r2".into()),
-        ended: false,
-    });
-    let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
-        panic!()
-    };
-    let command = "python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '/tmp/TEST-shape/seed-contract.md' --tinkery '/tmp/TEST-shape/tinkery'";
-    shaping.intake = Some(command.into());
-    for sent in [false, true] {
-        let text = screen(&mut shape, 80, 24, false);
-        assert!(text.contains("c copy intake"), "{text}");
+fn seed_ready_points_to_approve_and_copies_nothing() {
+    for ended in [false, true] {
+        let mut shape = done(Shaped::Ready {
+            revision: Some("r2".into()),
+            ended,
+        });
+        for (width, height) in [(80, 24), (100, 30)] {
+            let text = screen(&mut shape, width, height, true);
+            assert!(
+                text.contains("Approve copies the command that starts the build."),
+                "{text}"
+            );
+            assert!(!text.contains("copy intake"), "{text}");
+            assert!(!text.contains("<run>"), "{text}");
+        }
+        let before = screen(&mut shape, 80, 24, true);
         shape.key(key(KeyCode::Char('c')));
-        assert_eq!(shape.take_copy_request().as_deref(), Some(command));
-        assert_eq!(shape.take_copy_request(), None);
-        shape.copy_result(sent);
-        let text = screen(&mut shape, 80, 24, false);
-        assert!(
-            text.contains(if sent {
-                "Copied."
-            } else {
-                "Couldn't copy; try again."
-            }),
-            "{text}"
-        );
+        assert_eq!(screen(&mut shape, 80, 24, true), before);
     }
-    choose(&mut shape, "So far");
-    shape.key(key(KeyCode::Char('c')));
-    assert_eq!(shape.take_copy_request(), None);
 }
 
 #[test]
@@ -2550,8 +2538,10 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         }
     );
     assert!(
-        ended.intake.is_some(),
-        "intake needs only the verified seed"
+        crate::seed_me::ready::read(&session, Some(&session))
+            .unwrap()
+            .is_some_and(|seed| seed.commands.is_some()),
+        "Approve still offers a completed session's verified seed"
     );
     let crate::seed_me::Record::Session(read) = crate::seed_me::read(&session) else {
         panic!("not readable as a session")
