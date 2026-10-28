@@ -925,11 +925,16 @@ time.sleep(10)
             println!(
                 "{harness:?} {mode} startup {startup_ms}ms: elapsed {elapsed:?}, ready response {response:?}, descendant {pid}, survived {survived}"
             );
-            // Preserve the old 650ms - 250ms slack after the configured deadline.
+            // Timeout/exited use observed fake readiness, not the start of process setup.
             let slack = Duration::from_millis(400);
+            let (waited, origin) = if matches!(mode, "timeout" | "exited") {
+                (response, "fake readiness")
+            } else {
+                (elapsed, "call start")
+            };
             assert!(
-                elapsed < call.timeout + slack,
-                "{harness:?} {mode}: waited {elapsed:?}"
+                waited < call.timeout + slack,
+                "{harness:?} {mode}: waited {waited:?} from {origin}"
             );
             if matches!(mode, "cancel" | "overflow") {
                 assert!(
