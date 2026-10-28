@@ -48,14 +48,14 @@ def journey(limit, home, width, height):
                 terminal.wait(lambda screen: "What's on your mind?" in screen)
             assert calls() == []
             terminal.send(b'TEST budget words', 'TEST budget words')
-            terminal.send(b'\x1bOQ', "Reading failed: Call limit" if not limit else 'Which TEST reason?')
+            terminal.send(b'\x1bOQ', "Reading failed: Drafting run limit" if not limit else 'Which TEST reason?')
             assert len(calls()) == (limit or 0), calls()
             assert 'TEST budget words' in terminal.screen.text()
             # #435: the allowance is shown where a retry is decided, and in Right now help.
-            left = f'Model calls left this run: 0 of {limit or 0}.'
+            left = f'Drafting runs left this launch: 0 of {limit or 0}.'
 
             def shows(text):
-                return terminal.wait(lambda screen: text in ' '.join(screen.split()))
+                return terminal.wait(lambda screen: text in ' '.join(screen.replace('│', ' ').split()))
             if not limit:
                 shows(left)
             terminal.send(b'\x1bOP', 'Right now')
@@ -67,7 +67,7 @@ def journey(limit, home, width, height):
 
             # Another submission cannot borrow a fresh allowance.
             terminal.send(b'TEST another answer', 'TEST another answer')
-            terminal.send(b'\x1bOQ', "Reading failed: Call limit")
+            terminal.send(b'\x1bOQ', "Reading failed: Drafting run limit")
             assert len(calls()) == (limit or 0), calls()
             shows(left)
 
@@ -76,7 +76,7 @@ def journey(limit, home, width, height):
                 terminal.send(b'y', '1  think')
                 terminal.send(b'1', "What's on your mind?")
                 terminal.send(b'TEST new goal', 'TEST new goal')
-                terminal.send(b'\x1bOQ', "Reading failed: Call limit")
+                terminal.send(b'\x1bOQ', "Reading failed: Drafting run limit")
                 assert len(calls()) == (limit or 0), 'New goal reset the launch allowance'
                 terminal.send(b'\x1b', 'lose this draft?')
                 terminal.send(b'y', '1  think')
@@ -85,7 +85,7 @@ def journey(limit, home, width, height):
                 terminal.send(b'3', 'enter open')
                 terminal.send(b'\r', 'Keep records local or synced?')
                 terminal.send(b'Local TEST records', 'Local TEST records')
-                terminal.send(b'\x1bOQ', 'No model calls are left')
+                terminal.send(b'\x1bOQ', 'No drafting runs are left')
                 assert len(calls()) == (limit or 0), 'Shape reset the launch allowance'
             print(f'Think budget {limit!r}, home={home}, {width}x{height}: {len(calls())} fake Pi starts')
         finally:

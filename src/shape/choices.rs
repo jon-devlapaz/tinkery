@@ -78,7 +78,7 @@ impl Shape {
             }
         }
         if self.agent.is_some() && matches!(open.reading, Reading::Done(Ok(_))) {
-            rows.push(Row::new("Model and calls", Choice::Model));
+            rows.push(Row::new("Model and runs", Choice::Model));
         }
         rows
     }

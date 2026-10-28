@@ -84,7 +84,7 @@ def pick(terminal, label):
 
 def recipient(terminal, harness, model):
     """Read the current destination beside the separately labeled later settings."""
-    pick(terminal, 'Model and calls')
+    pick(terminal, 'Model and runs')
     shown = terminal.screen.text()
     for text in (f'F2 sends to {harness}: {model}.', 'For later launches', 's save', 'esc close'):
         assert text in shown, (text, shown)
@@ -150,12 +150,12 @@ def journey(no_color):
         # A later plain launch drafts with the saved setup; launching starts nothing, F2 sends.
         with Launch(root, home, colour) as terminal:
             terminal.wait(lambda screen: "What's on your mind?" in screen)
-            assert '5 calls left' in header(terminal), header(terminal)
+            assert '5 runs left' in header(terminal), header(terminal)
             assert calls(root) == []
             terminal.send(b'TEST saved words', 'TEST saved words')
             terminal.send(F2, 'Which TEST reason?')
             assert calls(root) and all(c == dict(model='test/saved', thinking='medium') for c in calls(root)), calls(root)
-            terminal.wait(lambda _: f'{5 - len(calls(root))} calls left' in header(terminal))
+            terminal.wait(lambda _: f'{5 - len(calls(root))} runs left' in header(terminal))
 
         # Flags win for one launch and write nothing.
         before = saved.read_text()
@@ -163,7 +163,7 @@ def journey(no_color):
             for operator in ['human', 'agent']:
                 start = len(calls(root))
                 with Launch(root, home, ['--shape-pi', '--model', 'test/flag', '--shape-budget', '1', *colour], size, operator) as terminal:
-                    terminal.wait(lambda _: '1 call left' in header(terminal))
+                    terminal.wait(lambda _: '1 run left' in header(terminal))
                     recipient(terminal, 'Pi', 'test/flag')
                     assert len(calls(root)) == start, 'opening the panel started a request'
                     terminal.send(b'TEST flag words', 'TEST flag words')
@@ -176,31 +176,31 @@ def journey(no_color):
         # Out of calls: words stay, nothing starts; F1's row adds calls for this launch only.
         start = len(calls(root))
         with Launch(root, home, ['--shape-pi', '--model', 'test/flag', '--shape-budget', '0', *colour]) as terminal:
-            terminal.wait(lambda _: '0 calls left' in header(terminal))
+            terminal.wait(lambda _: '0 runs left' in header(terminal))
             terminal.send(b'TEST topped up words', 'TEST topped up words')
             os.write(terminal.master, F2)
-            terminal.wait(lambda screen: 'Add calls to keep going.' in ' '.join(screen.split()))
+            terminal.wait(lambda screen: 'Add runs to keep going.' in ' '.join(screen.split()))
             assert len(calls(root)) == start
             assert 'TEST topped up words' in terminal.screen.text()
-            pick(terminal, 'Model and calls')
+            pick(terminal, 'Model and runs')
             terminal.send(DOWN * 4 + b'\r', '5 left · enter adds 5')
             terminal.send(ESC, 'TEST topped up words')
-            assert '5 calls left' in header(terminal), header(terminal)
+            assert '5 runs left' in header(terminal), header(terminal)
             terminal.send(F2, 'Which TEST reason?')
             assert len(calls(root)) > start
         assert saved.read_text() == before, 'adding calls saved them'
 
-        # An agent never inherits the saved calls, and can't save a setup or add calls.
+        # An agent never inherits the saved calls, and can't save a setup or add runs.
         with Launch(root, home, colour, operator='agent') as terminal:
             terminal.wait(lambda screen: "What's on your mind?" in screen)
             assert 'practice' in header(terminal), header(terminal)
         with Launch(root, home, ['--shape-pi', '--shape-budget', '0', *colour], operator='agent') as terminal:
-            terminal.wait(lambda _: '0 calls left' in header(terminal))
+            terminal.wait(lambda _: '0 runs left' in header(terminal))
             terminal.send(b'TEST agent words', 'TEST agent words')
-            pick(terminal, 'Model and calls')
-            terminal.send(b's', "can't save a setup or add calls")
+            pick(terminal, 'Model and runs')
+            terminal.send(b's', "can't save a setup or add runs")
             terminal.send(DOWN * 4 + b'\r', '0 left · enter adds 5')
-            assert '0 calls left' in header(terminal)
+            assert '0 runs left' in header(terminal)
             terminal.send(ESC, 'TEST agent words')
         assert saved.read_text() == before, 'an agent changed the setup'
 
@@ -248,7 +248,7 @@ def claude_code(root, colour):
 
     # A later launch drafts through Claude Code: no tools, an empty folder, a clean environment.
     with Launch(root, home, colour) as terminal:
-        terminal.wait(lambda _: '5 calls left' in header(terminal))
+        terminal.wait(lambda _: '5 runs left' in header(terminal))
         terminal.send(b'TEST claude words', 'TEST claude words')
         terminal.send(F2, 'Which TEST claude reason?')
     assert started(), 'Claude Code never started'
@@ -263,7 +263,7 @@ def claude_code(root, colour):
         for operator in ['human', 'agent']:
             start = len(started())
             with Launch(root, home, ['--shape-pi', '--model', 'claude-haiku-5-5', '--thinking', 'max', '--shape-budget', '1', *colour], size, operator) as terminal:
-                terminal.wait(lambda _: '1 call left' in header(terminal))
+                terminal.wait(lambda _: '1 run left' in header(terminal))
                 recipient(terminal, 'Claude Code', 'claude-haiku-5-5')
                 assert len(started()) == start, 'opening the panel started a request'
                 terminal.send(b'TEST flag words', 'TEST flag words')

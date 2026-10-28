@@ -1,9 +1,9 @@
 //! The model setup Think and Shape draft with: the harness (Pi or Claude Code), the model, its
-//! thinking level and the calls each launch allows. One parser checks the saved file (`~/.config/tinkery/model.json`) and the launch
+//! thinking level and the drafting runs each launch allows. One parser checks the saved file (`~/.config/tinkery/model.json`) and the launch
 //! flags alike, so neither can hold a value the other would refuse. Flags win for one launch and
 //! write nothing. A missing file means practice; an unreadable or invalid one is refused with its
 //! path and Tinkery stays in practice rather than guessing. Only `s` in the Model panel writes the
-//! file. Opening, reading or changing the panel starts no request; calls added there count for
+//! file. Opening, reading or changing the panel starts no request; runs added there count for
 //! this launch alone. Names no phase.
 
 mod panel;
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 pub use crate::pi::Harness;
 pub use panel::Controls;
 
-/// The per-launch call allowances the panel offers. Zero is practice.
+/// The per-launch drafting-run allowances the panel offers. Zero is practice.
 pub const CALLS: [usize; 4] = [0, 5, 10, 25];
 
 /// A checked model setup. With calls it drafts with `model`; with none it is practice.
@@ -33,7 +33,7 @@ pub struct Setup {
     pub model: String,
     /// One of the harness's thinking levels.
     pub thinking: String,
-    /// Requests each launch allows, shared by Think and Shape.
+    /// Drafting attempts each launch allows, shared by Think and Shape; the stored key stays `calls`.
     pub calls: usize,
 }
 
@@ -51,7 +51,7 @@ impl Setup {
             harness.check_model(&model)?;
         }
         if model.is_empty() && calls > 0 {
-            return Err("Choose a model before allowing calls.".into());
+            return Err("Choose a model before allowing drafting runs.".into());
         }
         Ok(Self {
             harness,

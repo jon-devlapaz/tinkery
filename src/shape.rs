@@ -81,7 +81,7 @@ pub struct Shape {
     agent: Option<Arc<Agent>>,
     /// An agent launch without --shape-pi: Shape only reads.
     held: bool,
-    /// F1's Model and calls row asked for the Model panel, which the launch owns.
+    /// F1's Model and runs row asked for the Model panel, which the launch owns.
     model: bool,
 }
 
@@ -235,7 +235,7 @@ impl Shape {
         self
     }
 
-    /// Whether F1's Model and calls row was picked since the last ask. Asking clears it.
+    /// Whether F1's Model and runs row was picked since the last ask. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         std::mem::take(&mut self.model)
     }
@@ -645,9 +645,9 @@ impl Shape {
                     },
                     |a| {
                         let step = if open.offers_teach_back() {
-                            "Each teach-back comparison is one call, without repository access."
+                            "Each teach-back comparison uses one drafting run, without repository access."
                         } else {
-                            "Each F2 step is one call, with read-only tools."
+                            "Asking the model uses one drafting run. Read-only tools may need several provider requests; manual actions may use none."
                         };
                         format!(
                             "{} {step}\n\
@@ -687,7 +687,7 @@ impl Shape {
                             ..
                         }),
                     ) => {
-                        "Say what will and won't be built in your own words. F2 saves and compares (one model call); Esc cancels. Mismatches are guesses and never block confirming."
+                        "Say what will and won't be built in your own words. F2 saves and compares (one drafting run); Esc cancels. Mismatches are guesses and never block confirming."
                     }
                     (
                         Some(_),
@@ -706,7 +706,7 @@ impl Shape {
                         }),
                     ) => {
                         concat!(
-                            "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call). ",
+                            "Type your answer. Enter adds a line. F2 saves it and looks into the next question. A model step uses one drafting run. ",
                             "PgUp/PgDn scroll the reading."
                         )
                     }
@@ -761,7 +761,7 @@ impl Shape {
                 .to_owned()
         } else {
             "Shape reads and calls no model; its only write is ending a session, from F1, which asks once more first. \
-                 To set up Shape, press Esc until the menu, then m: choose a model and calls, and s saves them. \
+                 To set up Shape, press Esc until the menu, then m: choose a model and runs, and s saves them. \
                  Then q quits; start Tinkery again, keeping the same --seed-session-root if you supplied one. \
                  Open Tend (2), select this saved goal, press Enter, then s to reopen Shape."
                 .to_owned()
@@ -2052,10 +2052,10 @@ fn said(
         ),
         Why::Budget(limit) => (
             format!(
-                "{saved}No model calls are left: this run's budget is {limit}. Nothing {}was saved.",
+                "{saved}No drafting runs are left: this launch's allowance is {limit}. Nothing {}was saved.",
                 if answer_saved { "more " } else { "" }
             ),
-            Some("Next: add calls from F1, Model and calls, then send again.".into()),
+            Some("Next: add runs from F1, Model and runs, then send again.".into()),
         ),
         Why::Model(error) => (
             format!(
@@ -2071,7 +2071,7 @@ fn said(
         Why::Refused(reason) => (format!("{saved}{reason}{left}"), None),
         Why::Stopped => (
             format!(
-                "{saved}Stopped before the next step finished. The model call it started still counts against this run's budget.{left}"
+                "{saved}Stopped before the next step finished. The drafting attempt still counts against this launch's allowance.{left}"
             ),
             None,
         ),

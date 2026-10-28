@@ -164,8 +164,8 @@ pub struct Attempt {
     pub error: Option<String>,
 }
 
-/// A hard limit on Pi requests, shared by every host that holds it. A request is counted
-/// before anything starts, whatever happens after; once the limit is reached the next request is
+/// A hard limit on drafting attempts, shared by every host that holds it. An attempt is counted
+/// before preparing or starting the harness, whatever happens after; once the limit is reached the next request is
 /// refused unstarted. The count never resets, so a new session on the same budget can't spend
 /// it twice. Only an explicit [`CallBudget::add`] raises the limit, for this launch alone.
 #[derive(Debug)]
@@ -208,7 +208,7 @@ impl CallBudget {
     /// The allowance in the words both phases show: requests left out of the limit.
     pub fn left(&self) -> String {
         format!(
-            "Model calls left this run: {} of {}.",
+            "Drafting runs left this launch: {} of {}.",
             self.remaining(),
             self.limit()
         )
@@ -221,7 +221,7 @@ impl CallBudget {
         let limit = self.limit();
         if used >= limit {
             let error = format!(
-                "Call limit of {limit} reached; the next request was refused before it started. Add calls to keep going."
+                "Drafting run limit of {limit} reached; the next drafting run was refused before it started. Add runs to keep going."
             );
             attempts.push(Attempt {
                 kind,

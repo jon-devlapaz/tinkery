@@ -162,7 +162,7 @@ fn a_budget_refuses_before_pi_starts_and_counts_failures_and_retries() {
     assert!(
         call(&pi, Request::Shaping)
             .unwrap_err()
-            .contains("Call limit of 1 reached")
+            .contains("Drafting run limit of 1 reached")
     );
     assert_eq!(started(&starts), 1);
     assert_eq!(budget.attempts()[0].outcome, "failure");
