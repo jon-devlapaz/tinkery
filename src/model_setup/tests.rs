@@ -196,7 +196,7 @@ fn a_harness_flag_keeps_the_saved_calls_but_never_another_harness_s_model_or_thi
 }
 
 #[test]
-fn a_missing_file_is_practice_and_a_bad_one_is_refused_with_its_path() {
+fn saved_file_errors_name_the_path_without_claiming_a_launch_mode() {
     let home = tempfile::tempdir().unwrap();
     let path = path(Some(home.path().as_os_str())).unwrap();
     assert_eq!(path, home.path().join(".config/tinkery/model.json"));
@@ -215,10 +215,18 @@ fn a_missing_file_is_practice_and_a_bad_one_is_refused_with_its_path() {
         std::fs::write(&path, bad).unwrap();
         let refused = load(&path).unwrap_err();
         assert!(
-            refused.contains(&path.display().to_string()) && refused.contains("using practice"),
+            refused.contains(&path.display().to_string()) && !refused.contains("practice"),
             "{bad}: {refused}"
         );
     }
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    let refused = load(&path).unwrap_err();
+    assert!(refused.contains(&path.display().to_string()), "{refused}");
+    assert!(
+        refused.contains("Cannot read") && !refused.contains("practice"),
+        "{refused}"
+    );
 }
 
 #[test]
