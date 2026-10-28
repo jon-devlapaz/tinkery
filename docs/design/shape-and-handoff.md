@@ -480,7 +480,8 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   [The ledger](shape-ledger.md#2-what-shape-writes) owns eligibility, history and reopening;
   model coverage judgments are not semantic proofs. A question may include optional `prerequisites`, a list
   of existing decision IDs, preserved unchanged (absent means `[]`). Facts belong in `supported_by`,
-  not prerequisites. The ledger alone refuses unknown IDs, cycles and invalid lists, saving no
+  not prerequisites. The ledger alone refuses unknown IDs, cycles, invalid lists and deferred
+  prerequisites (a deferral is not a settled answer), saving no
   findings, question or assumptions from a refused reply. A held question stays open without
   becoming current; the ledger selects the next ready decision. Once its prerequisites settle,
   the held question is promoted before any model call. No reply can settle, skip or reorder
