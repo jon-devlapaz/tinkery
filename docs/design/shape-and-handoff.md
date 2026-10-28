@@ -642,9 +642,9 @@ Shape uses Think's
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. A model failure, refusal or stop also
-  says `Model calls left this run: N of M.`, Think's wording, so a retry is chosen knowing
+  says `Drafting runs left this launch: N of M.`, Think's wording, so a retry is chosen knowing
   its cost (#435). Budget exhaustion points to
-  F1's Model and calls row, which adds calls for this launch; a model error or stop offers F2 retry, or F1's teach-back again
+  F1's Model and runs row, which adds runs for this launch; a model error or stop offers F2 retry, or F1's teach-back again
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
   Review refusals name the mismatched check or case/check counts; a reply that also splits a
