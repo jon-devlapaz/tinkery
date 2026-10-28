@@ -1,6 +1,178 @@
 use super::tests::settle;
 use super::*;
 
+#[test]
+fn review_row_tracks_public_edit_reading_held_reply_and_retry_transitions() {
+    use std::{
+        sync::atomic::{AtomicUsize, Ordering},
+        time::{Duration, Instant},
+    };
+    struct Host {
+        calls: AtomicUsize,
+        release: AtomicBool,
+        fail: AtomicBool,
+    }
+    impl BoardHost for Host {
+        fn reshape(&self, request: BoardRequest, cancelled: &AtomicBool) -> Result<Guess, String> {
+            let call = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+            while call == 2 && !self.release.load(Ordering::SeqCst) {
+                if cancelled.load(Ordering::Relaxed) {
+                    return Err("TEST cancelled".into());
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            if self.fail.load(Ordering::SeqCst) {
+                return Err("TEST reading failed".into());
+            }
+            Guess::decode(
+                &serde_json::json!({"parts":{"who":"I", "outcome":"keep a repair log",
+                    "why":"I forget repairs", "done_when":"I find earlier attempts"}})
+                .to_string(),
+                &request,
+                &mut vec![],
+            )
+        }
+    }
+    fn key(app: &mut BrainDump, code: KeyCode) {
+        app.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+    }
+    fn finish(app: &mut BrainDump) {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while app.running() && Instant::now() < deadline {
+            app.tick();
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(!app.running());
+    }
+    fn offered(app: &mut BrainDump, w: u16, h: u16, mono: bool) -> bool {
+        key(app, KeyCode::F(1));
+        snapshot(w, h, app, mono)
+            .unwrap()
+            .contains("1  Review the goal")
+    }
+    for (w, h) in [(80, 24), (100, 30)] {
+        for mono in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let host = Arc::new(Host {
+                calls: AtomicUsize::new(0),
+                release: AtomicBool::new(false),
+                fail: AtomicBool::new(false),
+            });
+            let mut app = BrainDump::with_host(host.clone())
+                .with_sessions(Some(root.path().join("TEST-sessions")));
+            let words = "My exact original repair-log words.";
+            app.paste(words);
+            key(&mut app, KeyCode::F(2));
+            finish(&mut app);
+            assert!(offered(&mut app, w, h, mono));
+            key(&mut app, KeyCode::Esc);
+
+            app.paste("my unsent answer");
+            assert!(
+                !offered(&mut app, w, h, mono),
+                "unsent words must hide Review"
+            );
+            key(&mut app, KeyCode::F(2));
+            assert!(!app.running() && host.calls.load(Ordering::SeqCst) == 1);
+            assert!(
+                snapshot(w, h, &mut app, mono)
+                    .unwrap()
+                    .contains("my unsent answer")
+            );
+            app.review_goal();
+            assert_eq!(
+                app.notice(),
+                "Send (F2) or clear your unsent words, then review."
+            );
+            key(&mut app, KeyCode::Esc);
+            app.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+            assert!(offered(&mut app, w, h, mono));
+            key(&mut app, KeyCode::Esc);
+
+            app.paste("Read this refinement.");
+            key(&mut app, KeyCode::F(2));
+            assert!(app.running());
+            assert!(!offered(&mut app, w, h, mono));
+            app.review_goal();
+            assert_eq!(
+                app.notice(),
+                "Still thinking; review once the reading is back."
+            );
+            key(&mut app, KeyCode::Esc);
+            app.paste("keep this local draft");
+            host.release.store(true, Ordering::SeqCst);
+            finish(&mut app);
+            assert!(app.notice().contains("Reply ready"));
+            assert!(
+                snapshot(w, h, &mut app, mono)
+                    .unwrap()
+                    .contains("keep this local draft")
+            );
+            app.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+            assert!(
+                !offered(&mut app, w, h, mono),
+                "a held reply blocks even after clearing typing"
+            );
+            app.review_goal();
+            assert_eq!(
+                app.notice(),
+                "A reply is waiting; F2 applies it, then review."
+            );
+            key(&mut app, KeyCode::Esc);
+            key(&mut app, KeyCode::F(2));
+            finish(&mut app);
+            assert_eq!(
+                host.calls.load(Ordering::SeqCst),
+                2,
+                "applying a held reply must not send again"
+            );
+            assert!(offered(&mut app, w, h, mono));
+            key(&mut app, KeyCode::Esc);
+
+            host.fail.store(true, Ordering::SeqCst);
+            app.paste("Keep this submitted refinement too.");
+            key(&mut app, KeyCode::F(2));
+            finish(&mut app);
+            assert!(!app.conversation().caught_up());
+            assert!(
+                !offered(&mut app, w, h, mono),
+                "an unapplied reading hides Review"
+            );
+            app.review_goal();
+            assert_eq!(
+                app.notice(),
+                "The reading is behind your words; F2 retries, then review."
+            );
+            key(&mut app, KeyCode::Esc);
+            host.fail.store(false, Ordering::SeqCst);
+            key(&mut app, KeyCode::F(2));
+            finish(&mut app);
+            assert!(offered(&mut app, w, h, mono));
+            key(&mut app, KeyCode::Char('1'));
+            assert!(
+                snapshot(w, h, &mut app, mono)
+                    .unwrap()
+                    .contains("You are confirming")
+            );
+            assert_eq!(app.conversation().sources()[0].text, words);
+            assert_eq!(
+                app.conversation()
+                    .sources()
+                    .iter()
+                    .map(|source| source.text.as_str())
+                    .collect::<Vec<_>>(),
+                [
+                    words,
+                    "Read this refinement.",
+                    "Keep this submitted refinement too."
+                ]
+            );
+            assert_eq!(host.calls.load(Ordering::SeqCst), 4);
+            assert!(app.saved().is_none() && !root.path().join("TEST-sessions").exists());
+        }
+    }
+}
+
 pub(super) fn parts() -> GoalParts {
     GoalParts {
         who: Some("I".into()),

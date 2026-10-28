@@ -80,9 +80,12 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    if literals:dump += ' Accept "A  B" and "A B"; use IT and use it.'
    os.write(master,b'\x1b[200~'+dump.encode()+b'\x1b[201~');await_text('compound.')
    send(b'\x1bOQ','Which UI');assert not root.exists() and not records.exists()
-   # Unsent words block review, and the screen says why; clearing them clears the reason.
-   send(b'x\x1bOP','Review the goal');send(screen.pick('Review the goal'),'unsent');assert 'Send (F2) or clear your unsent words, then review.' in right(),screen.text()
-   os.write(master,b'\x7f');absent('unsent')
+   # Unsent words hide Review. Help navigation neither sends nor changes that draft.
+   before_calls=(run/'provider-calls').read_bytes()
+   send(b'x\x1bOP','Right now');assert '1  Review the goal' not in screen.text(),screen.text()
+   os.write(master,b'\x1bOQ');time.sleep(.1)
+   assert (run/'provider-calls').read_bytes()==before_calls and not root.exists() and not records.exists()
+   send(b'\x1b','F1 more');assert (run/'provider-calls').read_bytes()==before_calls;os.write(master,b'\x7f')
    if literals:
     await_text('Must: accept "A  B".')
     assert 'Must: accept "A B".' in screen.text(),screen.text()

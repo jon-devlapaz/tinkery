@@ -139,10 +139,12 @@ review and recovery mechanics, not model quality;
 [#401](https://github.com/jon-devlapaz/tinkery/issues/401) retains that evaluation work.
 
 Without a composed goal, omit the review invitation. F1 uses the same first sentence
-and offers review only with a saveable goal. In practice or without a sessions folder, help says
+and offers review only with a saveable current goal: no unsent words, held reply or unfinished
+reading. Listing and entry share these prerequisites; direct entry keeps its refusal messages.
+In practice or without a sessions folder, help says
 saving needs real mode and a sessions folder. With no goal, offer adding words then F2,
 without a missing-field interview. If the first reading was unapplied or cancelled,
-offer an F2 retry. State depends only on goal
+offer an F2 retry. Readiness text depends only on goal
 content, including sent-but-unapplied words and unanswered skips, never recording
 or unsent text. Review lists all open intent.
 
