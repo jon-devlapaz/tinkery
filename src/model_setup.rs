@@ -74,7 +74,7 @@ impl Setup {
     /// The setup this launch drafts with, or `None` for practice. `--shape-pi` (`live`) drafts
     /// even with zero calls; each flag replaces its saved value for this launch only, and the
     /// saved model and thinking apply only to the saved harness. Without `--shape-pi`, a saved
-    /// setup with calls drafts and one without is practice.
+    /// setup with calls drafts, unless an explicit zero-call limit selects practice.
     pub fn launch(
         live: bool,
         harness: Option<Harness>,
@@ -84,7 +84,7 @@ impl Setup {
         saved: Option<&Setup>,
     ) -> Result<Option<Self>, String> {
         if !live {
-            return Ok(saved.filter(|s| s.calls > 0).cloned());
+            return Ok(saved.filter(|s| calls != Some(0) && s.calls > 0).cloned());
         }
         let harness = harness.or(saved.map(|s| s.harness)).unwrap_or_default();
         let same = saved.filter(|s| s.harness == harness);

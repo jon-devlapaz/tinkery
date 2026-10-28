@@ -82,6 +82,20 @@ def pick(terminal, label):
     terminal.send(terminal.screen.pick(label), 'Model ')
 
 
+def zero_override(root, home, colour, started):
+    """An explicit zero without --shape-pi keeps submitted words in practice."""
+    saved = home / '.config/tinkery/model.json'
+    before, starts = saved.read_bytes(), started()
+    with Launch(root, home, ['--shape-budget', '0', *colour]) as terminal:
+        terminal.wait(lambda screen: "What's on your mind?" in screen)
+        assert 'practice' in header(terminal), header(terminal)
+        terminal.send(b'TEST zero-budget words', 'TEST zero-budget words')
+        terminal.send(F2, 'Simulated sensemaking')
+        assert 'TEST zero-budget words' in terminal.screen.text()
+    assert started() == starts, 'explicit zero started a provider'
+    assert saved.read_bytes() == before, 'explicit zero changed the saved setup'
+
+
 def journey(no_color):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-model-') as directory:
         root = Path(directory)
@@ -121,6 +135,8 @@ def journey(no_color):
             terminal.quit()
         assert calls(root) == []
         assert len((root / 'TEST-lists.jsonl').read_text().splitlines()) == 1, 'Pi listed more than once'
+
+        zero_override(root, home, colour, lambda: calls(root))
 
         # A later plain launch drafts with the saved setup; launching starts nothing, F2 sends.
         with Launch(root, home, colour) as terminal:
@@ -214,6 +230,8 @@ def claude_code(root, colour):
         terminal.send(ESC, '1  think')
         terminal.quit()
     assert started() == []
+
+    zero_override(root, home, colour, started)
 
     # A later launch drafts through Claude Code: no tools, an empty folder, a clean environment.
     with Launch(root, home, colour) as terminal:
