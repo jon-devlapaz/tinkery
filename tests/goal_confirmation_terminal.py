@@ -21,10 +21,10 @@ import session_fixture as fixture
 def helper(*args):
  if args[0]=='init':return {'session':str(fixture.create(args[2]))}
  return getattr(fixture, {'read':'load'}.get(args[0],args[0]))(*args[1:])
-def journey(width,height,home=False,menu_only=False,home_case='absolute',session_case='explicit',in_repo=False):
+def journey(width,height,home=False,menu_only=False,home_case='absolute',session_case='explicit',in_repo=False,literals=False):
  with tempfile.TemporaryDirectory(prefix='tinkery-TEST-goal-') as directory:
   cwd=Path(directory);root=cwd/'TEST-sessions' if session_case!='default' else cwd/'TEST-home/.local/share/tinkery/sessions'
-  records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST);host.chmod(0o755)
+  records=cwd/'TEST-records';host=cwd/'pi';host.write_text(HOST.replace("must=['human taste']", "must=['human taste', 'accept \"A  B\"', 'accept \"A B\"', 'must Accept \"A B\"', 'use IT', 'use it']") if literals else HOST);host.chmod(0o755)
   # Inside a repository, start from a nested folder: Tinkery names the root; stores stay outside it.
   repo=cwd/'TEST-repo';run=repo/'nested' if in_repo else cwd
   if in_repo:(repo/'.git').mkdir(parents=True);run.mkdir()
@@ -77,12 +77,18 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    else: await_text("What's on your mind?")
    assert not root.exists() and not records.exists()
    dump='  PR ready for human review. restaurateur, not cook. Café 👩‍💻; harness and codebase both compound. Cost only when it\'s way off; no dashboard.  '
+   if literals:dump += ' Accept "A  B" and "A B"; use IT and use it.'
    os.write(master,b'\x1b[200~'+dump.encode()+b'\x1b[201~');await_text('compound.')
    send(b'\x1bOQ','Which UI');assert not root.exists() and not records.exists()
    # Unsent words block review, and the screen says why; clearing them clears the reason.
    send(b'x\x1bOP','Review the goal');send(screen.pick('Review the goal'),'unsent');assert 'Send (F2) or clear your unsent words, then review.' in right(),screen.text()
    os.write(master,b'\x7f');absent('unsent')
+   if literals:
+    await_text('Must: accept "A  B".')
+    assert 'Must: accept "A B".' in screen.text(),screen.text()
    review();assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists() and not records.exists()
+   if literals:
+    assert 'Must: accept "A  B".' in screen.text() and 'Must: accept "A B".' in screen.text(),screen.text()
    # A refused Enter says why where the confirm prompt was: scroll first, or type the word.
    send(b'\r','Enter.');shown=' '.join(right().split());assert 'Read to the end first: PgDn scrolls. Then type confirm and Enter.' in shown or 'Type confirm, then Enter. Nothing saved.' in shown,screen.text()
    os.write(master,b'\x1bOQ');time.sleep(.1);assert not root.exists() and not records.exists(),'Opening/Enter/F2 implied consent'
@@ -100,10 +106,10 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert not any(k in status for k in ('viewer','snapshot','snapshot_current'))
    origin=next(n for n in ledger['nodes'] if n['id']==ledger['origin'])
    assert origin['status']=='settled' and origin['kind']=='decision' and origin['authority']=='user'
-   assert origin['answer']==ledger['goal']=='I judge a PR ready for human review as restaurateur while both the harness and codebase compound.\nWhy: I retain final judgment.\nDone when: a PR is ready for human review.\nMust: human taste.\nMust not: cook.\nMust not: show cost unless it is way off.\nMust not: build a dashboard.'
+   assert origin['answer']==ledger['goal']=='I judge a PR ready for human review as restaurateur while both the harness and codebase compound.\nWhy: I retain final judgment.\nDone when: a PR is ready for human review.\nMust: human taste.'+('\nMust: accept \"A  B\".\nMust: accept \"A B\".\nMust: use IT.\nMust: use it.' if literals else '')+'\nMust not: cook.\nMust not: show cost unless it is way off.\nMust not: build a dashboard.'
    context=json.loads(origin['evidence'][-1]['observed'])
    assert ledger['draft']['outcome']==context['success']==context['goal_parts']['done_when']=='a PR is ready for human review'
-   assert context['constraints']==dict(must=['human taste'],must_not=['cook','show cost unless it is way off','build a dashboard'])
+   assert context['constraints']==dict(must=(['human taste', 'accept \"A  B\"', 'accept \"A B\"', 'use IT', 'use it'] if literals else ['human taste']),must_not=['cook','show cost unless it is way off','build a dashboard'])
    assert context['problem']==context['goal_parts']['why']=='I retain final judgment'
    assert any(e.get('observed')==dump and e.get('checked')=='Tinkery original 1' for e in origin['evidence']);assert 'unresolved' in origin['evidence'][-1]['observed']
    assert not (session/'seed-contract.md').exists()
@@ -144,7 +150,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
    os.write(master,b'\x1b[6~'*30);await_text('Must not: build a dashboard.')
    assert 'Next: shape it into a seed in Shape.' in right(),screen.text()
-   for line in ledger['goal'].splitlines(): assert line in first_goal or line in right(),(line,first_goal,screen.text())
+   for line in ledger['goal'].splitlines(): assert ' '.join(line.split()) in first_goal or ' '.join(line.split()) in right(),(line,first_goal,screen.text())
    send(b'\x1bOP','Right now');send(b'h','How it works')
    # Page down one step at a time: the record path follows Seed Me's, and its length varies by platform.
    seen=[right()]
@@ -171,7 +177,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     assert 'Saved.' not in screen.text() and 'any harness' not in screen.text()
     assert str(root) not in screen.text() and session.name not in screen.text()
     tend_block=' '.join(screen.text().split())
-    for line in ledger['goal'].splitlines(): assert line in tend_block,(line,screen.text())
+    for line in ledger['goal'].splitlines(): assert ' '.join(line.split()) in tend_block,(line,screen.text())
     os.write(master,b'c');time.sleep(.1)
     assert not re.findall(rb'\x1b\]52;c;',bytes(raw))
     send(b'\x1b','↑↓←→ move   enter open   l link   esc back')
@@ -204,3 +210,6 @@ for home in [False,True]:
  for size in [(80,24),(100,30),(160,40),(320,40)]:journey(*size,home=home)
  journey(80,24,home=home,menu_only=True)
  for size in [(80,24),(100,30)]:journey(*size,home=home,in_repo=True)
+
+# Literal spacing survives public input, review, typed confirmation and session saving.
+journey(100,30,literals=True)
