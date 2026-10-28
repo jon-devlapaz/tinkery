@@ -368,9 +368,10 @@ flagged node as the current question, its unchanged answer and the ledger's reas
 `F2 keep with reason` publishes the operator's typed justification without a model call.
 `F2 revise` opens replacement words only for an operator-answered decision; see
 [answering](#answering-and-confirming). Each remaining flag holds confirmation and completion.
-Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
-F1 for setup: quit, restart at the menu with a model and a chosen call limit (default zero),
-retain any explicit session root, then reopen the same goal through Tend.
+Open questions precede older drafts. Without configured drafting, one `Next:` points to
+F1 for [Model setup](menu.md#model-setup). Configure a model and an explicitly authorized
+call allowance (default zero), restart, then reopen the same goal through Tend,
+retaining any explicit session root.
 Unverifiable or unknown seeds point to inspecting the session files at the path in F1.
 With a model, the key bar names the available action.
 Ledger refusals say `Tinkery refused` with the first reason line; other failures
@@ -420,7 +421,8 @@ creating an SDLC run stays outside Shape.
 
 ### Answering and confirming
 
-With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Think's
+Configured drafting enables these actions; see [Model setup](menu.md#model-setup).
+Shape uses Think's
 [one key map](think.md#help): F2 runs the action in the key bar, F1 numbers the rest.
 
 | Stage | Words | Key/action |
