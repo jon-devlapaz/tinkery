@@ -12,6 +12,10 @@ const RECHECKS: [&str; 3] = [
     include_str!("../../../tests/fixtures/shape-296/call-8.json"),
 ];
 
+/// #296 call 8's provisionals all proposed the whole suite (#469).
+const SHARED_SUITE: &str =
+    "check 1 proposes `python3 -m unittest discover`, which check 2 also uses in cwd `.`.";
+
 fn valid_reply() -> Value {
     let checks: Value =
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
@@ -192,8 +196,17 @@ fn captured_rechecks_refuse_without_changing_saved_answers_then_recover() {
         let agent = provider(root.path(), reply, 2);
         let error = look_again(&session, root.path(), &agent).unwrap_err();
         eprintln!("#296 call-{}: {error:?}", index + 6);
+        let review = "failure_cases must be a list of strings in check order";
+        // #469: call 8 proposed the whole suite for three provisionals; both faults are heard.
         assert!(
-            matches!(error.why, Why::Model(ref reason) if reason.contains("failure_cases must be a list of strings in check order")),
+            match &error.why {
+                Why::Refused(reason) if index == 2 =>
+                    reason.contains(SHARED_SUITE)
+                        && reason.contains("Also: The seed reply needs a typed completion review")
+                        && reason.contains(review),
+                Why::Model(reason) => index != 2 && reason.contains(review),
+                _ => false,
+            },
             "{error:?}"
         );
         assert_eq!(
@@ -297,8 +310,13 @@ fn ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_stric
                 "received 3 for 4 checks"
             };
             assert!(
-                matches!(error.why, Why::Model(ref reason) if reason.contains(counts)
-                    && reason.contains("failure mode") == (index == 1)),
+                match &error.why {
+                    Why::Refused(reason) if index == 2 =>
+                        reason.contains(SHARED_SUITE) && reason.contains(counts),
+                    Why::Model(reason) =>
+                        index == 1 && reason.contains(counts) && reason.contains("failure mode"),
+                    _ => false,
+                },
                 "{error:?}"
             );
             assert_eq!(
@@ -806,4 +824,74 @@ fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_resul
         .is_err(),
         "a level Claude Code doesn't name is refused before anything starts"
     );
+}
+
+#[test]
+fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason() {
+    // #469: pi-skimmer and humanize provisionals proposed the whole suite another check ran.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-469-shared-")
+        .tempdir()
+        .unwrap();
+    let suite: fn(&mut Value) = |reply| reply["checks"][1]["cmd"] = "./TEST-check".into();
+    let twin: fn(&mut Value) = |reply| {
+        reply["checks"][2] = json!({"statement":"TEST other behavior","kind":"provisional",
+            "cmd":"./TEST-new-check","expect":"TEST","cwd":".","missing":"TEST","source":"TEST"})
+    };
+    let cases = [
+        (
+            "suite",
+            suite,
+            "check 2 proposes `./TEST-check`, which check 1 also uses in cwd `.`.",
+        ),
+        (
+            "twin",
+            twin,
+            "check 2 proposes `./TEST-new-check`, which check 3 also uses in cwd `.`.",
+        ),
+    ];
+    for (name, change, expected) in cases {
+        let session = root.path().join(name).join("TEST-session");
+        fs::create_dir_all(&session).unwrap();
+        fs::write(
+            session.join("ledger.json"),
+            include_str!("../../../tests/fixtures/shape-296/ledger.json"),
+        )
+        .unwrap();
+        let mut reply = valid_reply();
+        change(&mut reply);
+        let agent = provider(root.path(), &reply.to_string(), 1);
+        let error = look_again(&session, root.path(), &agent).unwrap_err();
+        let Why::Refused(reason) = &error.why else {
+            panic!("{error:?}")
+        };
+        assert!(reason.contains(expected), "{reason}");
+        assert!(
+            reason.contains("must select its missing regression by name; otherwise leave cmd out"),
+            "{reason}"
+        );
+        assert!(error.feedback.is_some(), "a retry hears the refusal");
+        assert!(!session.join("seed-checks.json").exists());
+    }
+
+    // A command that selects only the missing regression drafts, and so does the same command
+    // run from another directory, which selects a different test.
+    let mut elsewhere = valid_reply();
+    elsewhere["checks"][2] = json!({"statement":"TEST other package","kind":"provisional",
+        "cmd":"./TEST-new-check","expect":"TEST","cwd":"TEST-package-b","missing":"TEST","source":"TEST"});
+    for (name, reply) in [("targeted", valid_reply()), ("elsewhere", elsewhere)] {
+        let session = root.path().join(name).join("TEST-session");
+        fs::create_dir_all(&session).unwrap();
+        fs::write(
+            session.join("ledger.json"),
+            include_str!("../../../tests/fixtures/shape-296/ledger.json"),
+        )
+        .unwrap();
+        let agent = provider(root.path(), &reply.to_string(), 1);
+        assert_eq!(
+            look_again(&session, root.path(), &agent),
+            Ok(Done::Drafted),
+            "{name}"
+        );
+    }
 }
