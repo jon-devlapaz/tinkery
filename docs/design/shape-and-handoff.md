@@ -450,6 +450,15 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
 - **Defer:** F1's **Defer** opens the reason; F2 advances to the revisit condition; Tab switches
   between them. The form shows the question's gate: the operator alone decides it can wait.
   F2 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
+- **Answer deferred prerequisite:** an active Waiting session may offer one named deferred
+  blocker in F1, selected by the ledger in its existing order. Its own prerequisites and
+  predicate must be ready; the goal and flagged sessions never qualify. The form shows the
+  original question, exact deferral reason and revisit condition. Opening, typing and Esc
+  save nothing. F2 saves the exact answer with existing authorization, locking and stale-state
+  checks, without a model call. Existing history preserves the prior deferral unchanged;
+  dependent questions stay unanswered and follow ordinary ready ordering. No picker or
+  automatic repair is provided. This keeps dependency selection and transitions in the
+  ledger (architecture diagnostic 6).
 - **Delegate:** F1's **Delegate** row is one choice, quoting that row as the authority source, saving the
   recorded suggestion unchanged with `delegated` authority and its supporting facts as evidence.
   Reply confidence is not appended to the recommendation or answer; the ledger never parses

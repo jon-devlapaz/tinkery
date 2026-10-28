@@ -27,6 +27,8 @@ pub struct Shaping {
     pub confirmation: Vec<String>,
     /// The ledger's latest completed teach-back for the exact draft, with display labels.
     pub teach_back: Vec<String>,
+    /// The single eligible deferred prerequisite, offered only while Waiting.
+    pub deferred: Option<super::ledger::DeferredPrerequisite>,
 }
 
 /// One settled decision: what was decided, the answer as recorded, and who settled it.
@@ -152,6 +154,9 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
     status["waiting_on"] = Value::Object(waits);
     let mut shaping = classify(&ledger, &status);
     shaping.confirmation = confirmation;
+    if matches!(shaping.stage, Shaped::Waiting) {
+        shaping.deferred = super::ledger::deferred_prerequisite(&saved)?;
+    }
     if matches!(shaping.stage, Shaped::Ready { .. }) && status["handoff"]["operator"] == "agent" {
         shaping.confirmation_note = Some("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0 or newer; this is not operator confirmation or implementation approval.".into());
     }
@@ -225,6 +230,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         confirmation_note: None,
         confirmation: Vec::new(),
         teach_back: Vec::new(),
+        deferred: None,
     };
     let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
     let Some(state) = text(status, "status") else {

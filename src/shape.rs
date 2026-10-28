@@ -137,6 +137,11 @@ struct Opened {
 /// A change Shape asks of the ledger without a model.
 #[derive(Clone)]
 enum Write {
+    Revisit {
+        id: String,
+        expected: u64,
+        words: String,
+    },
     End(Ending),
     Object(String),
     Keep {
@@ -359,6 +364,11 @@ impl Shape {
             if let Some(result) = result {
                 open.writing = None;
                 open.notice = Some(match (result, write) {
+                    (Ok(()), Write::Revisit { .. }) => {
+                        open.form = None;
+                        open.typed.clear();
+                        ("Deferred prerequisite answered. No model ran.".into(), None)
+                    }
                     (Ok(()), Write::End(Ending::Completed)) => {
                         ("Session completed. It's read-only now.".into(), None)
                     }
@@ -1133,6 +1143,18 @@ impl Opened {
         )
     }
 
+    /// F1 actions are unavailable while another form, view or operation owns the session.
+    fn offers_choices(&self) -> bool {
+        self.running.is_none()
+            && self.writing.is_none()
+            && self.form.is_none()
+            && self.choosing.is_none()
+            && self.teach_back.is_none()
+            && !self.objecting
+            && self.asking.is_none()
+            && self.so_far.is_none()
+    }
+
     fn offers_answers(&self) -> bool {
         matches!(
             &self.reading,
@@ -1263,6 +1285,21 @@ impl Opened {
                 (Write::Keep { id, reason }, Some(expected)) => {
                     answering::keep(&session, expected, &id, &reason, actor)
                 }
+                (
+                    Write::Revisit {
+                        id,
+                        expected,
+                        words,
+                    },
+                    _,
+                ) => answering::respond(
+                    &session,
+                    expected,
+                    &id,
+                    &AnswerAction::Revisit(words),
+                    actor,
+                )
+                .map(|_| ()),
                 (Write::End(ending), _) => answering::end(&session, ending, actor),
                 (Write::Object(text), Some(expected)) => {
                     answering::object(&session, expected, &text, actor).map(|_| ())
@@ -1339,6 +1376,22 @@ impl Opened {
     /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget, a folder
     /// not yet known and a seed not yet read to the end before anything is written or called.
     fn act(&mut self, act: Act, agent: &Arc<Agent>) {
+        if let Act::Respond {
+            id,
+            expected,
+            action: AnswerAction::Revisit(words),
+        } = &act
+        {
+            self.write(
+                Write::Revisit {
+                    id: id.clone(),
+                    expected: *expected,
+                    words: words.clone(),
+                },
+                "Saving your answer. No model runs.",
+            );
+            return;
+        }
         let words = self
             .teach_back
             .as_ref()
@@ -1391,7 +1444,7 @@ impl Opened {
                 let doing = match &action {
                     AnswerAction::Defer { .. } => Doing::Defer,
                     AnswerAction::Delegate => Doing::Delegate,
-                    AnswerAction::Revise(_) => Doing::Revise,
+                    AnswerAction::Revise(_) | AnswerAction::Revisit(_) => Doing::Revise,
                 };
                 (
                     Work::Respond {
@@ -1756,7 +1809,13 @@ fn render_open(
                     instinct: open.instinct_first(),
                 },
             };
-            let (said, mut input) = standing(shaping, stand, palette);
+            let (mut said, mut input) = standing(shaping, stand, palette);
+            if agent && !held && open.offers_choices() && shaping.deferred.is_some() {
+                said.lines.push(Line::styled(
+                    "F1 offers an explicit answer; no model runs.",
+                    palette.muted,
+                ));
+            }
             if let Some(note) = &shaping.confirmation_note {
                 input.lines.push(Line::styled(note.clone(), palette.muted));
             }
@@ -2163,6 +2222,12 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             })
         }
         Shaped::Waiting => {
+            if let Some(target) = &shaping.deferred {
+                lines.push(Line::styled(
+                    format!("Deferred prerequisite: {}", target.title),
+                    palette.ink,
+                ));
+            }
             if !calm {
                 lines.push(Line::styled(
                     if shaping.success_open {
