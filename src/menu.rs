@@ -29,25 +29,13 @@ use ratatui::{
 
 /// Name, one-line purpose, and whether the place exists yet.
 pub const PLACES: [(&str, &str, bool); 7] = [
-    ("think", "Make your intention a clear goal.", true),
-    ("tend", "Choose a saved goal and open its detail.", true),
-    (
-        "shape",
-        "Answer Shape's questions and confirm a seed.",
-        true,
-    ),
-    ("approve", "Start a shaped goal in tink-sdlc.", true),
-    (
-        "watch",
-        "See the runs in your tink-sdlc checkout, read-only.",
-        true,
-    ),
-    (
-        "taste",
-        "Review one result against your unchanged goal.",
-        true,
-    ),
-    ("measure", "See this repo's pull requests.", true),
+    ("think", "Clarify a goal", true),
+    ("tend", "Open saved goals", true),
+    ("shape", "Prepare a brief", true),
+    ("approve", "Prepare work for approval", true),
+    ("watch", "See work status", true),
+    ("taste", "Review a result", true),
+    ("measure", "Browse recent pull requests", true),
 ];
 
 const FIRST_ROW: u16 = 4;
@@ -1006,7 +994,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
     }
     match &mut home.view {
         View::Menu => {
-            for (i, (name, _, built)) in PLACES.iter().enumerate() {
+            for (i, (name, description, built)) in PLACES.iter().enumerate() {
                 let y = FIRST_ROW + i as u16 * ROW_GAP;
                 if y >= area.height.saturating_sub(2) {
                     break;
@@ -1019,28 +1007,30 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                     palette.muted
                 };
                 let mut spans = vec![Span::styled(format!("{}  {name}", i + 1), style)];
-                if let Some(count) = home.count(i) {
-                    spans.push(Span::styled(
-                        format!("{:>width$}", count, width = 15 - name.len()),
-                        palette.muted,
-                    ));
-                }
+                spans.push(Span::styled(
+                    format!(
+                        "{:>width$}  {description}",
+                        home.count(i).unwrap_or_default(),
+                        width = 15 - name.len()
+                    ),
+                    palette.muted,
+                ));
                 frame.render_widget(
                     Paragraph::new(Line::from(spans)),
                     Rect::new(2, y, area.width.saturating_sub(4), 1),
                 );
             }
-            let note = home.receipts.last().map(|r| r.label().to_owned());
-            let line = note.unwrap_or_else(|| PLACES[home.selected].1.to_string());
-            frame.render_widget(
-                Paragraph::new(line).style(palette.muted),
-                Rect::new(
-                    5,
-                    FIRST_ROW + PLACES.len() as u16 * ROW_GAP + 1,
-                    area.width.saturating_sub(7),
-                    1,
-                ),
-            );
+            if let Some(receipt) = home.receipts.last() {
+                frame.render_widget(
+                    Paragraph::new(receipt.label()).style(palette.muted),
+                    Rect::new(
+                        5,
+                        FIRST_ROW + PLACES.len() as u16 * ROW_GAP + 1,
+                        area.width.saturating_sub(7),
+                        1,
+                    ),
+                );
+            }
             if home.help {
                 render_menu_help(frame, palette);
             } else {
@@ -1208,7 +1198,7 @@ mod tests {
     }
 
     #[test]
-    fn home_key_bar_shows_only_immediate_controls_without_replacing_the_description() {
+    fn home_key_bar_keeps_inline_descriptions_and_receipt_space() {
         let tmp = tempfile::tempdir().unwrap();
         let bar = "↑↓ move   enter open   ? help   q quit";
         for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
@@ -1217,16 +1207,10 @@ mod tests {
                 let screen = snapshot(width, height, &mut h, no_color).unwrap();
                 assert_eq!(screen.lines().last().unwrap().trim(), bar, "{screen}");
                 assert_eq!(screen.matches(bar).count(), 1);
-                assert_eq!(
-                    screen.lines().nth(19).unwrap(),
-                    format!("     {}", PLACES[0].1)
-                );
+                assert!(screen.lines().nth(19).unwrap().is_empty());
                 h.handle_key(key(KeyCode::Down));
                 let screen = snapshot(width, height, &mut h, no_color).unwrap();
-                assert_eq!(
-                    screen.lines().nth(19).unwrap(),
-                    format!("     {}", PLACES[1].1)
-                );
+                assert!(screen.lines().nth(19).unwrap().is_empty());
                 assert!(screen.lines().nth(height as usize - 3).unwrap().is_empty());
                 assert_eq!(screen.lines().last().unwrap().trim(), bar);
                 h.handle_key(key(KeyCode::F(1)));
@@ -1258,7 +1242,8 @@ mod tests {
                 for (index, (name, _, _)) in PLACES.iter().enumerate() {
                     assert!(rows[4 + index * 2].starts_with(&format!("  {}  {name}", index + 1)));
                 }
-                assert_eq!(rows[19], format!("     {}", PLACES[0].1));
+                assert!(rows[19].is_empty());
+                assert_eq!(screen.contains("Browse recent pull requests"), width >= 100);
                 assert!(screen.contains("Choose a place") && screen.contains("Esc     Close help"));
                 let panel_content = |row: &str| {
                     row.chars()
@@ -1279,6 +1264,7 @@ mod tests {
                 assert!(!screen.contains("Inside think"));
                 h.handle_key(key(KeyCode::Esc));
                 let closed = snapshot(width, height, &mut h, no_color).unwrap();
+                assert!(closed.contains("Browse recent pull requests"));
                 assert!(!closed.contains('┌') && closed.contains("↑↓ move   enter open"));
             }
         }
@@ -1415,24 +1401,45 @@ mod tests {
     fn menu_descriptions_distinguish_outputs_without_granting_permission() {
         let tmp = tempfile::tempdir().unwrap();
         let descriptions = [
-            "Make your intention a clear goal.",
-            "Choose a saved goal and open its detail.",
-            "Answer Shape's questions and confirm a seed.",
-            "Start a shaped goal in tink-sdlc.",
-            "See the runs in your tink-sdlc checkout, read-only.",
-            "Review one result against your unchanged goal.",
-            "See this repo's pull requests.",
+            "Clarify a goal",
+            "Open saved goals",
+            "Prepare a brief",
+            "Prepare work for approval",
+            "See work status",
+            "Review a result",
+            "Browse recent pull requests",
         ];
         for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             for no_color in [false, true] {
                 let mut h = home(tmp.path());
-                for description in descriptions {
+                for _ in 0..PLACES.len() {
                     let screen = snapshot(width, height, &mut h, no_color).unwrap();
-                    assert_eq!(screen.lines().nth(19).unwrap().trim(), description);
-                    assert_eq!(screen.matches(description).count(), 1);
+                    for (index, description) in descriptions.iter().enumerate() {
+                        assert_eq!(
+                            screen.lines().nth(4 + index * 2).unwrap().find(description),
+                            Some(22)
+                        );
+                        assert_eq!(screen.matches(description).count(), 1);
+                    }
+                    assert!(screen.lines().nth(19).unwrap().is_empty());
                     assert!(matches!(h.view, View::Menu));
                     assert!(!h.quit && h.take_copy_request().is_none());
                     h.handle_key(key(KeyCode::Down));
+                }
+                let saved = tmp.path().join("TEST-saved");
+                let mut dump = BrainDump::default();
+                dump.set_saved(seed_me::Receipt::test(saved.clone()));
+                let mut h = Home::from_receipt(
+                    dump,
+                    &saved,
+                    false,
+                    Ok(tmp.path().join("TEST-links")),
+                    None,
+                );
+                let screen = snapshot(width, height, &mut h, no_color).unwrap();
+                assert_eq!(screen.lines().nth(19).unwrap().trim(), "Saved.");
+                for description in descriptions {
+                    assert_eq!(screen.matches(description).count(), 1);
                 }
             }
         }
@@ -1457,12 +1464,13 @@ mod tests {
                 let screen = snapshot(width, height, &mut h, no_color).unwrap();
                 let rows: Vec<_> = screen.split('\n').collect();
                 assert_eq!(rows[1].find("tinkery"), Some(2));
-                assert_eq!(rows[4], "  1  think");
-                assert_eq!(rows[6], "  2  tend         10");
-                assert_eq!(rows[8], "  3  shape");
-                assert_eq!(rows[16], "  7  measure");
+                assert!(rows[4].starts_with("  1  think"));
+                assert!(rows[6].starts_with("  2  tend         10"));
+                assert_eq!(rows[6].find("Open saved goals"), Some(22));
+                assert!(rows[8].starts_with("  3  shape"));
+                assert!(rows[16].starts_with("  7  measure"));
                 assert!(rows[17].is_empty() && rows[18].is_empty());
-                assert_eq!(rows[19], format!("     {}", PLACES[0].1));
+                assert!(rows[19].is_empty());
                 assert_eq!(rows[height as usize - 2].find('↑'), Some(2));
                 assert!(
                     rows[height as usize - 1].is_empty(),
