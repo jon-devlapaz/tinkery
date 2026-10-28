@@ -82,17 +82,11 @@ pub(super) fn identity(text: &str) -> String {
         .join(" ")
         .to_lowercase()
 }
-/// Constraint identity for de-duplication: like `identity`, but only the first letter is
-/// case-folded, so "Upload logs" matches "upload logs" while "use IT" stays distinct
-/// from "use it".
+/// Constraint identity preserves internal whitespace and case after the first letter.
+/// "Upload logs" matches "upload logs" while "use IT" stays distinct from "use it".
 fn constraint_identity(text: &str) -> String {
-    let joined = text
-        .trim()
-        .trim_end_matches(['.', ',', ';', '!', '?'])
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    let mut chars = joined.chars();
+    let trimmed = text.trim().trim_end_matches(['.', ',', ';', '!', '?']);
+    let mut chars = trimmed.chars();
     chars.next().map_or_else(String::new, |c| {
         c.to_lowercase().collect::<String>() + chars.as_str()
     })
