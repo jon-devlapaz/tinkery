@@ -169,6 +169,9 @@ def journey(width, height, case, no_color):
                 success = case in ('target-ready', 'target-different-repo')
                 send(b'1', 'Seed 1 of 1' if success else 'Ready seeds unavailable.')
                 assert 'TEST oldest café' not in flat(), 'targeted visit substituted an unrelated seed'
+                send(b'\x1bOP', 'Esc returns to Shape.')
+                assert 'Esc returns to the menu.' not in flat(), screen.text()
+                send(b'\x1b', 'Seed 1 of 1' if success else 'Ready seeds unavailable.')
                 if success:
                     assert 'TEST newest' in flat() and 'TEST original goal.' in flat()
                     if case == 'target-different-repo':

@@ -370,9 +370,11 @@ impl Approve {
             lines.push(Line::raw(
                 "n/p choose seed · ↑↓ or PgUp/PgDn read · c copy command",
             ));
-            lines.push(Line::raw(
-                "Esc returns to the menu. F10 returns to the menu even from help.",
-            ));
+            lines.push(Line::raw(if self.target.is_some() {
+                "Esc returns to Shape. F10 returns to the menu even from help."
+            } else {
+                "Esc returns to the menu. F10 returns to the menu even from help."
+            }));
             lines.push(Line::default());
             lines.push(Line::raw("Copying starts nothing and grants no approval. Run creation and intake happen outside Tinkery; tink-sdlc keeps its definition approval gate."));
             lines.push(Line::raw("Return to the menu and reopen Approve for a fresh read. Seeds are oldest first by the session update time."));

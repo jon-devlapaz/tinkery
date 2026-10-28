@@ -92,7 +92,7 @@ agent attribution still refuses verification.
 | Up / Down, `k` / `j`, PgUp / PgDn, Home / End | Read wrapped content. |
 | `c` | Copy the combined command, only when available. |
 | F1 / `?` | Help and bounded unreadable-session details; no underlying actions. |
-| Esc | Close help or return to the menu. |
+| Esc | Close help, or return to the originating Shape session for a targeted visit; otherwise return to the menu. |
 | F10 | Return to the menu. |
 
 The footer always retains navigation. When the reading doesn't fit, its last row says
