@@ -126,7 +126,7 @@ pub fn read(session: &Path) -> Result<Shaping, String> {
 fn read_session(session: &Path) -> Result<Shaping, String> {
     let ledger = super::ledger::load(session)?;
     let flags = super::ledger::review_flags(&ledger["nodes"]);
-    let status = super::ledger::status(session)?;
+    let status = super::ledger::status_from_ledger(session, &ledger)?;
     let revisable: Vec<_> = ledger["nodes"]
         .array()
         .unwrap_or(&[])

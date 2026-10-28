@@ -344,7 +344,7 @@ fn headings(
     let setext = Regex::new(r"^(?:=+|-+)[ \t]*$").unwrap();
     let container = Regex::new(r"^(?:>[ \t]*|(?:[-+*]|\d+[.)])[ \t]+)").unwrap();
     let heading = Regex::new(r"^#{1,6}(?:[ \t]+|$)").unwrap();
-    let (mut headings, mut fence, mut comment, mut offset) = (vec![], None::<String>, false, 0);
+    let (mut headings, mut fence, mut comment, mut offset) = (vec![], None::<Regex>, false, 0);
     for (index, line) in body.split_inclusive('\n').enumerate() {
         let raw = super::seed::split_terminator(line).0;
         let refusal = |rule, prose_rule| HeadingError {
@@ -355,9 +355,8 @@ fn headings(
         };
         let start = offset;
         offset += line.len();
-        if let Some(ref f) = fence {
-            let close = format!(r"^ {{0,3}}{}{{{},}}[ \t]*$", &f[..1], f.len());
-            if Regex::new(&close).unwrap().is_match(raw) {
+        if let Some(ref close) = fence {
+            if close.is_match(raw) {
                 fence = None;
             }
             continue;
@@ -366,7 +365,9 @@ fn headings(
             && let Some(c) = opening.captures(raw)
             && (c[1].starts_with('~') || !c[2].contains('`'))
         {
-            fence = Some(c[1].into());
+            let f = &c[1];
+            let close = format!(r"^ {{0,3}}{}{{{},}}[ \t]*$", &f[..1], f.len());
+            fence = Some(Regex::new(&close).unwrap());
             continue;
         }
         let visible = if !comment && goal_lines.iter().any(|line| line == raw) {

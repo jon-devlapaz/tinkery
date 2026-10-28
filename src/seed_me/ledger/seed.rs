@@ -417,6 +417,11 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
 /// Read today's intake JSON, deliberately omitting viewer state and never opening a network connection.
 pub fn status(directory: &Path) -> Result<Value> {
     let ledger = load(directory)?;
+    status_from_ledger(directory, &ledger)
+}
+
+/// Derive status from one validated ledger while rechecking seed and handoff artifacts.
+pub(crate) fn status_from_ledger(directory: &Path, ledger: &Value) -> Result<Value> {
     let nodes = ledger["nodes"].items();
     Ok(object(&[
         ("status", ledger["status"].clone()),
@@ -435,7 +440,7 @@ pub fn status(directory: &Path) -> Result<Value> {
         ),
         ("current_question", ledger["current_question"].clone()),
         ("seed", seed_summary(directory)?),
-        ("handoff", verify_handoff(directory, &ledger)?),
+        ("handoff", verify_handoff(directory, ledger)?),
     ]))
 }
 

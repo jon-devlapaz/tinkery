@@ -341,6 +341,9 @@ with evidence and a suggestion, ending in an operator-confirmed seed.
 
 ### Reading where a seed stands
 
+Each session read derives ledger fields and status from the same validated snapshot.
+Seed and confirmation artifacts are still checked separately.
+
 Tend detail offers `s shape` on goal-saved, seed-drafted and
 seed-needs-checking stages; Esc returns there. Menu place 3 lists only goal-saved
 or seed-drafted sessions. Enter opens one; Esc returns to the list. Held `s` or Enter

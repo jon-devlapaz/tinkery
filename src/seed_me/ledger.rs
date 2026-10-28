@@ -22,6 +22,7 @@ mod storage;
 pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, document_headings, read_checks, validate_checks};
 pub(crate) use checks::{goal_criteria, keeps_criterion, validate_goal_checks};
+pub(crate) use seed::status_from_ledger;
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub use storage::{
     PublishError, SaveState, confirm_as, confirm_displayed_as, confirm_seed,
