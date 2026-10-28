@@ -181,11 +181,25 @@ def journey(width, height, no_color, configured=True):
                 send(b'\x1b[6~', 'TEST evidence')
                 assert len(calls()) == before_detail + 1, 'scrolling launched a read'
                 send(b'\x1b', 'Needs you')
+                # Fixed near-cap bodies plus small metadata remain readable through End.
+                for fill in ('x', '\n'):
+                    accepted = json.loads(json.dumps(DETAIL))
+                    accepted['run']['checklist'][0]['mark'] = {
+                        'evidence': fill * 59000 + '\nTEST-ACCEPTED-TAIL'}
+                    set_state(list=envelope(runs=[run('TEST-near-bound', 'blocked')]),
+                              details={'TEST-near-bound': accepted})
+                    send(b'r', 'TEST-near-bound')
+                    send(b'\r', 'TEST executable check')
+                    send(b'\x1b[F', 'TEST-ACCEPTED-TAIL')
+                    assert 'too long' not in screen.text(), screen.text()
+                    send(b'\x1b', 'Needs you')
                 # Reader-sized payloads can still exceed the renderer's scroll range.
-                for large in ('short evidence lines', 'empty evidence lines', 'appended error labels'):
+                for large in ('60000 source bytes', 'short evidence lines', 'empty evidence lines', 'appended error labels'):
                     oversized = json.loads(json.dumps(DETAIL))
                     if large == 'appended error labels':
                         oversized['run']['errors'] = [''] * 21000
+                    elif large == '60000 source bytes':
+                        oversized['run']['checklist'][0]['mark'] = {'evidence': 'x' * 60000}
                     else:
                         oversized['run']['checklist'][0]['mark'] = {
                             'evidence': ('x\n' if large == 'short evidence lines' else '\n') * 70000 + 'TEST-UNREACHABLE-TAIL'}
