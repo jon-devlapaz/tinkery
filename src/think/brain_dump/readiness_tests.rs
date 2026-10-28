@@ -45,10 +45,18 @@ fn review_row_tracks_public_edit_reading_held_reply_and_retry_transitions() {
         assert!(!app.running());
     }
     fn offered(app: &mut BrainDump, w: u16, h: u16, mono: bool) -> bool {
+        let instruction = super::goal_tests::right_text(&snapshot(w, h, app, mono).unwrap(), w);
         key(app, KeyCode::F(1));
-        snapshot(w, h, app, mono)
-            .unwrap()
-            .contains("1  Review the goal")
+        let help = snapshot(w, h, app, mono).unwrap();
+        let offered = help.contains("1  Review the goal");
+        assert_eq!(
+            instruction.contains("Ready for your review. F1, then 1: Review the goal."),
+            offered,
+            "{instruction}\n{help}"
+        );
+        let help_words = super::goal_tests::right_text(&help, w);
+        assert!(!help_words.contains("F1, then 1"), "{help_words}");
+        offered
     }
     for (w, h) in [(80, 24), (100, 30)] {
         for mono in [false, true] {
@@ -65,6 +73,14 @@ fn review_row_tracks_public_edit_reading_held_reply_and_retry_transitions() {
             key(&mut app, KeyCode::F(2));
             finish(&mut app);
             assert!(offered(&mut app, w, h, mono));
+            key(&mut app, KeyCode::Char('1'));
+            assert!(
+                snapshot(w, h, &mut app, mono)
+                    .unwrap()
+                    .contains("You are confirming")
+            );
+            assert_eq!(host.calls.load(Ordering::SeqCst), 1);
+            assert!(app.saved().is_none() && !root.path().join("TEST-sessions").exists());
             key(&mut app, KeyCode::Esc);
 
             app.paste("my unsent answer");

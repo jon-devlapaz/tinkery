@@ -171,7 +171,9 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
         None => match (open_intent(app), app.conversation.board()) {
             (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
-                if g.goal().is_none() || line == READY_FOR_REVIEW {
+                if line == READY_FOR_REVIEW && app.can_review() {
+                    format!("{line} F1, then 1: Review the goal.")
+                } else if g.goal().is_none() || line == READY_FOR_REVIEW {
                     line
                 } else {
                     format!("{line} Review when you're ready.")
@@ -448,9 +450,9 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         open_now = format!(
             "{}\n{}",
             open_intent(app).unwrap_or_else(|| "No question left.".into()),
-            if composed && app.can_save() {
-                "Review the goal from the list above."
-            } else if composed {
+            if app.can_review() {
+                "1: Review the goal."
+            } else if composed && !app.can_save() {
                 SAVE_NEEDS_REAL
             } else {
                 "You can add words, then F2 sends."

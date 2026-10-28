@@ -392,10 +392,7 @@ fn ready_invites_review_without_claiming_complete_intent() {
         assert!(!screen.contains("Still missing") && !screen.contains("remain open"));
     }
     a.screen.help = true;
-    assert!(
-        layout::help_text(&a)
-            .contains("Ready for your review.\nReview the goal from the list above.")
-    );
+    assert!(layout::help_text(&a).contains("Ready for your review.\n1: Review the goal."));
 }
 #[test]
 fn skipped_why_names_only_the_missing_part() {
