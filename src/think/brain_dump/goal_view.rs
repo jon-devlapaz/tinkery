@@ -465,23 +465,23 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         }
     );
     let message = if app.screen.refused.is_some() {
-        app.notice.clone()
+        Some(app.notice.clone())
     } else if app.handoff.job.is_some() {
-        "Saving…".into()
+        Some("Saving…".into())
     } else if app.notice.starts_with(HANDOFF_FAILED) {
-        HANDOFF_FAILED_TEXT.into()
+        Some(HANDOFF_FAILED_TEXT.into())
     } else {
-        instruction.clone()
+        None
     };
-    let prompt = format!("{message}\n{}", review.input);
     let line_count = |text: &str| {
         Paragraph::new(text)
             .wrap(Wrap { trim: false })
             .line_count(inner.width)
     };
     // Neither an empty input nor a shorter refusal may move an already-read end.
-    let prompt_rows =
-        (line_count(&message).max(line_count(&instruction)) + line_count(&review.input)) as u16;
+    let prompt_rows = (line_count(message.as_deref().unwrap_or(&instruction))
+        .max(line_count(&instruction))
+        + line_count(&review.input)) as u16;
     let rows =
         Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
     let heading = match &review.affirmation.confirmation {
@@ -555,6 +555,18 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         app.screen.reading_visible = layout::visible_content(frame, content);
     }
 
+    // Choose guidance after this frame's bound is known, keeping the normal instruction's
+    // reserved height: a shorter cue must not move the end while the operator reads or types.
+    let guidance = if review.scroll < review.max {
+        "PgDn: read to the end first."
+    } else {
+        &instruction
+    };
+    let prompt = format!(
+        "{}\n{}",
+        message.as_deref().unwrap_or(guidance),
+        review.input
+    );
     frame.render_widget(
         Paragraph::new(prompt.clone())
             .wrap(Wrap { trim: false })

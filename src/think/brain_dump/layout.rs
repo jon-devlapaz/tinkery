@@ -412,6 +412,13 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         }
     } else if app.handoff.job.is_some() {
         "Saving your goal. Wait a moment."
+    } else if app
+        .handoff
+        .review
+        .as_ref()
+        .is_some_and(|review| review.scroll < review.max)
+    {
+        "Esc closes help; then PgDn reads the rest.\nNothing is saved yet."
     } else if app.handoff.review.is_some() && app.records() {
         "Type confirm, then Enter, to save this goal and its think record.\nEsc goes back without saving."
     } else if app.handoff.review.is_some() {
@@ -503,7 +510,10 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         vec![]
     } else if app.handoff.receipt.is_some() {
         vec![("s", "open in tend"), ("esc", "menu")]
-    } else if app.handoff.review.is_some() {
+    } else if let Some(review) = &app.handoff.review {
+        if review.scroll < review.max {
+            return vec![("PgDn", "read to end"), ("esc", "back")];
+        }
         let save = if app.records() {
             "save goal and record"
         } else {

@@ -68,7 +68,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     if text not in screen.text():return
    raise AssertionError(f'Stale modal still visible: {text}')
   def send(data,text):os.write(master,data);await_text(text)
-  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'type confirm')
+  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'You are confirming')
   try:
    if home:
     await_text('think');title=screen.text().splitlines()[1]
@@ -86,7 +86,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    if literals:
     await_text('Must: accept "A  B".')
     assert 'Must: accept "A B".' in screen.text(),screen.text()
-   review();assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists() and not records.exists()
+   review();assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in right() or "PgDn: read to the end first." in right(),screen.text();assert not root.exists() and not records.exists()
    if literals:
     assert 'Must: accept "A  B".' in screen.text() and 'Must: accept "A B".' in screen.text(),screen.text()
    # A refused Enter says why where the confirm prompt was: scroll first, or type the word.

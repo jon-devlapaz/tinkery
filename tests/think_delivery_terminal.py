@@ -104,7 +104,7 @@ def journey(width, height, no_color):
             run.read_until(READY)  # The numbered rows come first; the state follows.
             assert "Nothing I'm unsure" not in run.flat(), run.screen.text()
             run.send(b'\x1b', READY)
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             assert "Operator's original request" in run.flat()
             read_right('Must not: Provide financial/legal advice.')
             no_save()
@@ -126,7 +126,7 @@ def journey(width, height, no_color):
             assert sent[2]['sources'][1]['text'] == fixture['correction']
             no_save()
 
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             read_right('Must not: Change tool configuration.')
             no_save()
             run.send(b'confirm\r', 'Saved.')

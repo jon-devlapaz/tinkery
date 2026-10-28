@@ -135,7 +135,7 @@ def journey(width, height, no_color):
             assert len(rows('requests.jsonl')) == 2
             send(b'\x15')
             send(b'\x1bOP', 'Review the goal')
-            send(screen.pick('Review the goal'), 'type confirm to save')
+            send(screen.pick('Review the goal'), 'You are confirming')
             before = len(rows('voice-calls.jsonl'))
             send(b'\x1b[17~' + 'Ω'.encode())
             time.sleep(.1)

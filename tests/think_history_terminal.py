@@ -114,7 +114,7 @@ def confirm_goals(root, width, height, no_color):
             terminal.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'gardez les mots exacts.')
             terminal.send(b'\x1bOQ', "Ready for your review")
             terminal.send(b'\x1bOP', 'Review the goal')
-            terminal.send(terminal.screen.pick('Review the goal'), 'type confirm')
+            terminal.send(terminal.screen.pick('Review the goal'), 'You are confirming')
             terminal.send(b'confirm\r', 'Saved.')
             matches = [json.loads(path.read_text()) for path in records.glob('*.json')
                        if marker in path.read_text()]

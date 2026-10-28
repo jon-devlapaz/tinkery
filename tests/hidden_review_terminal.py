@@ -10,7 +10,7 @@ import termios
 import time
 from pathlib import Path
 from agent_operation_terminal import ACTOR, LONG_WHY
-from shape_answer_terminal import Run, F2, helper
+from shape_answer_terminal import Run, F1, F2, helper
 from vt_screen import Screen
 
 GOAL = f'I keep refusals calm.\nWhy: {LONG_WHY}.\nDone when: Refusals never show private text.'
@@ -63,7 +63,7 @@ def journey(width, height, read=False, supported=False):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             if read:
                 run.send(b'\x1b[6~' * 200, 'Done when: Refusals never show')
             word = 'confirm' if read else 'conf'
@@ -119,7 +119,7 @@ def stale_mouse(input_first):
             run.send(F2, 'May refusals show private text?')
             run.type('never')
             run.send(F2, "Ready for your review")
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             os.write(run.master, b'confirm')
             input_is(run, 'confirm')
             assert run.screen.text().splitlines()[27][50:54] == 'Back'
@@ -142,7 +142,83 @@ def stale_mouse(input_first):
             run.close()
 
 
+def guidance(width, height, long):
+    """Fresh, fitting and resized review guidance follows the same guarded read bound."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-review-guidance-') as directory:
+        root = Path(directory)
+        why = LONG_WHY if long else 'the work is stuck'
+        goal = f'I keep refusals calm.\nWhy: {why}.\nDone when: Refusals never show private text.'
+        run = Run(root, width, height, 4, agent=True, why=why)
+        try:
+            run.wait('1  think')
+            run.send(b'1', "What's on your mind?")
+            run.type('Refusals feel noisy.')
+            run.send(F2, 'May refusals show private text?')
+            run.type('never')
+            run.send(F2, 'Ready for your review')
+            calls = (root / 'think-calls.jsonl').read_bytes()
+            assert len(calls.splitlines()) == 4
+            run.choose('Review the goal', 'You are confirming')
+            prompt = 'PgDn: read to the end first.'
+            if long:
+                run.wait(prompt)
+                assert 'type confirm' not in run.flat(), run.screen.text()
+                assert 'PgDn read to end' in run.flat()
+                run.send(F1, 'Esc closes help')
+                assert 'Type confirm' not in run.flat()
+                run.send(b'\x1b', prompt)
+                run.send(b'confirm\r', 'Read to the end first:')
+                no_save(run)
+                input_is(run, 'confirm')
+                run.send(b'\x1b[6~' * 200, 'type confirm')
+                assert prompt not in run.flat()
+                run.send(b'\x1b[5~', prompt)
+                run.send(b'\x1b[6~' * 200, 'type confirm')
+                # Width/height changes reuse the newly measured bound before Enter runs.
+                if width == 100:
+                    resize_with_input(run, 80, 24)
+                    run.wait(prompt)
+                    input_is(run, 'confirm')
+                    run.send(b'\r', 'Read to the end first:')
+                    no_save(run)
+                    run.send(b'\x1b[6~' * 200, 'type confirm')
+                    resize_with_input(run, 100, 30)
+                    run.wait('type confirm')
+                    assert prompt not in run.flat()
+                # Correcting the typed word cannot move an already-read end (#316).
+                run.send(b'\x7f\x1b[200~m\x1b[201~', 'confirm')
+                run.send(b'\r', 'Saved.')
+            else:
+                run.wait('type confirm')
+                assert prompt not in run.flat()
+                run.send(F1, 'Type confirm, then Enter')
+                run.send(b'\x1b', 'type confirm')
+                run.send(b'confirm\r', 'Saved.')
+            written = list(run.records.iterdir())
+            assert len(written) == len(list(run.sessions.iterdir())) == 1
+            record = json.loads(written[0].read_text())
+            ledger = helper.load(run.sessions / record['seed_me_session'])
+            assert record['goal'] == ledger['goal'] == goal
+            assert record['turns'][0]['text'] == 'Refusals feel noisy.'
+            assert record['goal_confirmation'] == ACTOR
+            assert (root / 'think-calls.jsonl').read_bytes() == calls
+            assert not run.calls()
+            print(f'review guidance {width}×{height}, long={long}, mono={bool(os.environ.get("NO_COLOR"))}: '
+                  'cue matches read gate; exact goal and input retained; no extra requests')
+        finally:
+            run.close()
+
+
 if __name__ == '__main__':
+    for mono in [False, True]:
+        if mono:
+            os.environ['NO_COLOR'] = '1'
+        else:
+            os.environ.pop('NO_COLOR', None)
+        for size in [(80, 24), (100, 30)]:
+            for long in [False, True]:
+                guidance(*size, long)
+    os.environ.pop('NO_COLOR', None)
     journey(40, 12, read=False)
     journey(40, 12, read=True)
     # One run per just-too-small edge, width and height.
