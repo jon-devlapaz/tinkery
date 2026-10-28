@@ -567,7 +567,7 @@ def case(name, width=100, height=30):
                     time.sleep(.05)
                 run.send(b'\x1b', 'Your answer is saved. Stopped before the next step finished.')
                 run.wait('Next: F2 looks into the next question.')
-                run.wait("still counts against this run's budget.")
+                run.wait("still counts against this launch's allowance.")
                 assert helper.load(session)['nodes'][1]['answer'] == 'Local.'
                 assert not (session / 'seed-contract.md').exists()
             elif name == 'end the interview':
