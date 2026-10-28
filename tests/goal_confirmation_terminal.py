@@ -92,7 +92,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    # A refused Enter says why where the confirm prompt was: scroll first, or type the word.
    send(b'\r','Enter.');shown=' '.join(right().split());assert 'Read to the end first: PgDn scrolls. Then type confirm and Enter.' in shown or 'Type confirm, then Enter. Nothing saved.' in shown,screen.text()
    os.write(master,b'\x1bOQ');time.sleep(.1);assert not root.exists() and not records.exists(),'Opening/Enter/F2 implied consent'
-   os.write(master,b'\x1b');absent('type confirm');assert not root.exists() and not records.exists()
+   os.write(master,b'\x1b');absent('You are confirming');assert not root.exists() and not records.exists()
    review()
    os.write(master,b'\x1b[6~'*30);await_text('remain unresolved?')
    send(b'confirm\r','Saved.');await_text('Next:')
