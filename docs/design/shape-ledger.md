@@ -181,7 +181,8 @@ slice 8 moves only their location. Each slice had its own PR and approval:
    Old-format ledgers move with all their folder bytes untouched, even when today's ledger
    reader refuses their stored fields; the move never parses or repairs sessions.
    Differential tests retire; Rust-only protections remain. Receipt times now require
-   RFC 3339; Unicode categories replace the Python table, and JSON adaptation is typed.
+   RFC 3339; Unicode categories replace the Python table, and JSON publication adaptation
+   is typed. Editable reads retain their numeric and refusal compatibility.
    The installed launcher's removed flag is a separate held edit after merge.
 
 ## Design score and limits

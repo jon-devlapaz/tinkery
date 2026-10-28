@@ -492,6 +492,7 @@ pub fn read(session: &Path) -> Result<Ledger, Refusal> {
         .map_err(|_| unreadable("the ledger has no usable version".into()))?;
     Ok(Ledger {
         version,
+        // Preserve legacy numeric rounding and exact refusal messages.
         state: json(&state.pretty().map_err(unreadable)?)?,
     })
 }
@@ -526,7 +527,7 @@ fn publish_at(
     at: &str,
 ) -> Result<u64, Refusal> {
     // Shape edits sorted serde_json maps, just as the former helper input did.
-    let state = ledger_value(state)?;
+    let state = ledger::Value::from(state.clone());
     let saved = ledger::publish(
         session,
         &state,
