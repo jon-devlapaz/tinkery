@@ -25,6 +25,7 @@ type Topology = (Vec<(String, String)>, Vec<(usize, usize)>);
 pub(super) struct GraphView {
     topology: Topology,
     pending: Option<Topology>,
+    appearance: Option<(Color, Color, String)>,
     pub(super) state: Option<Arc<RwLock<GraphState>>>,
     mouse: GraphMouseState,
     area: Rect,
@@ -363,11 +364,20 @@ impl GraphView {
         let theme = ThemeColors::resolve(&settings);
         {
             let mut cache = state.render_cache.lock();
-            cache.rebuild_topology(state.simulation.get_graph(), &settings, &theme, false);
-            if let Some(index) = source_index {
-                cache
-                    .node_own_color
-                    .insert(index, palette.jade.fg.unwrap_or(Color::Reset));
+            let ink = palette.ink.fg.unwrap_or(Color::Reset);
+            let jade = palette.jade.fg.unwrap_or(Color::Reset);
+            let appearance_changed =
+                self.appearance
+                    .as_ref()
+                    .is_none_or(|(old_ink, old_jade, old_source)| {
+                        *old_ink != ink || *old_jade != jade || old_source != source
+                    });
+            if cache.topology_dirty || appearance_changed {
+                cache.rebuild_topology(state.simulation.get_graph(), &settings, &theme, false);
+                if let Some(index) = source_index {
+                    cache.node_own_color.insert(index, jade);
+                }
+                self.appearance = Some((ink, jade, source.to_owned()));
             }
         }
         draw_graph_view(
