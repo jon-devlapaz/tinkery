@@ -1,6 +1,7 @@
 //! The header's model label and the Model panel it opens. The label shows real state: calls left
-//! when this launch drafts with a model, else `practice`. The panel changes a draft of the saved
-//! setup; `s` saves it, `esc` drops it. `enter` on Model picks the next model the harness offers:
+//! when this launch drafts with a model, else `practice`. The panel names this launch's recipient
+//! and edits settings for later launches; `s` saves them, `esc` drops them.
+//! `enter` on Model picks the next model the harness offers:
 //! Claude Code's fixed list, or the list Pi prints (asked once, off the paint path, with no model
 //! request); `t` types any model instead. When this launch drafts, its Now row adds calls at once,
 //! for this launch only. Nothing here starts a model request.
@@ -12,7 +13,7 @@ use std::{
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent};
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
+    layout::{Alignment, Constraint, Layout, Rect},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Padding, Paragraph, Wrap},
 };
@@ -32,7 +33,7 @@ const LISTING: &str = "Listing Pi's models…";
 pub struct Controls {
     path: Option<PathBuf>,
     saved: Result<Option<Setup>, String>,
-    budget: Option<Arc<CallBudget>>,
+    active: Option<(Setup, Arc<CallBudget>)>,
     panel: Option<Panel>,
     agent: bool,
     /// The Pi executable that lists models; `None` types Pi models.
@@ -51,16 +52,17 @@ struct Panel {
 
 impl Controls {
     /// Controls saving to `path` (none without an absolute HOME), starting from what launch read
-    /// there, with `budget` when this launch drafts with a model.
+    /// there. `active` pairs this launch's resolved setup with its shared budget, or is `None`
+    /// for practice. Editing or saving later settings never changes the active recipient.
     pub fn new(
         path: Option<PathBuf>,
         saved: Result<Option<Setup>, String>,
-        budget: Option<Arc<CallBudget>>,
+        active: Option<(Setup, Arc<CallBudget>)>,
     ) -> Self {
         Self {
             path,
             saved,
-            budget,
+            active,
             panel: None,
             agent: false,
             pi: None,
@@ -83,9 +85,9 @@ impl Controls {
 
     /// The header label: calls left when this launch drafts, else `practice`.
     pub fn label(&self) -> String {
-        match &self.budget {
-            Some(budget) if budget.remaining() == 1 => "1 call left".into(),
-            Some(budget) => format!("{} calls left", budget.remaining()),
+        match &self.active {
+            Some((_, budget)) if budget.remaining() == 1 => "1 call left".into(),
+            Some((_, budget)) => format!("{} calls left", budget.remaining()),
             None => "practice".into(),
         }
     }
@@ -99,9 +101,6 @@ impl Controls {
     pub fn open(&mut self) {
         let note = match &self.saved {
             Err(why) => why.clone(),
-            Ok(_) if self.budget.is_some() => {
-                "Harness, model and thinking changes start with the next launch.".into()
-            }
             Ok(_) => "Saved changes start with the next launch.".into(),
         };
         self.panel = Some(Panel {
@@ -196,7 +195,7 @@ impl Controls {
                 3 => draft.calls = next(&CALLS, &draft.calls),
                 _ if self.agent => panel.note = AGENT.into(),
                 _ => {
-                    if let Some(budget) = &self.budget {
+                    if let Some((_, budget)) = &self.active {
                         budget.add(TOP_UP);
                     }
                 }
@@ -267,14 +266,20 @@ impl Controls {
             None if panel.draft.model.is_empty() => "none".into(),
             None => panel.draft.model.clone(),
         };
+        let recipient = match &self.active {
+            Some((setup, _)) => format!("F2 sends to {}: {}.", setup.harness.label(), setup.model),
+            None => "This launch: practice; no model requests.".into(),
+        };
         let mut lines = vec![
+            Line::styled(recipient, palette.ink),
             Line::default(),
+            Line::styled("For later launches", palette.muted),
             row(0, "Harness", panel.draft.harness.label().into()),
             row(1, "Model", model),
             row(2, "Thinking", panel.draft.thinking.clone()),
             row(3, "Calls", format!("{} each launch", panel.draft.calls)),
         ];
-        if let Some(budget) = &self.budget {
+        if let Some((_, budget)) = &self.active {
             lines.push(row(
                 4,
                 "Now",
@@ -283,24 +288,23 @@ impl Controls {
         }
         lines.extend([
             Line::default(),
-            Line::styled("F2 sends your words to this model.", palette.ink),
             Line::styled("The cap is on requests, not dollars.", palette.ink),
             Line::styled(self.note(panel), palette.muted),
             Line::default(),
-            Line::styled(
-                match (&panel.typing, panel.row) {
-                    (Some(_), _) => "enter done   esc undo",
-                    (None, 1) => "↑↓ choose   enter next   t type   s save   esc",
-                    (None, _) => "↑↓ choose   enter change   s save   esc close",
-                },
-                palette.muted,
-            ),
         ]);
         let width = 50.min(area.width.saturating_sub(4));
+        let keys = Paragraph::new(match (&panel.typing, panel.row) {
+            (Some(_), _) => "enter done   esc undo",
+            (None, 1) => "↑↓ choose   enter next   t type   s save   esc",
+            (None, _) => "↑↓ choose   enter change   s save   esc close",
+        })
+        .style(palette.muted)
+        .wrap(Wrap { trim: false });
+        let keys_height = keys.line_count(width.saturating_sub(4)) as u16;
         let text = Paragraph::new(lines)
             .style(palette.ink)
             .wrap(Wrap { trim: false });
-        let height = (text.line_count(width.saturating_sub(4)) as u16 + 2)
+        let height = (text.line_count(width.saturating_sub(4)) as u16 + keys_height + 2)
             .min(area.height.saturating_sub(4));
         let at =
             Rect::new(area.width.saturating_sub(width + 2), 3, width, height).intersection(area);
@@ -309,8 +313,13 @@ impl Controls {
             .borders(Borders::ALL)
             .border_style(palette.muted)
             .padding(Padding::new(1, 1, 0, 0));
+        let [body, footer] =
+            Layout::vertical([Constraint::Min(0), Constraint::Length(keys_height)])
+                .areas(block.inner(at));
         frame.render_widget(Clear, at);
-        frame.render_widget(text.block(block), at);
+        frame.render_widget(block, at);
+        frame.render_widget(text, body);
+        frame.render_widget(keys, footer);
     }
 
     /// The panel's note, saying how listing Pi's models went once it has.
@@ -327,7 +336,7 @@ impl Controls {
     }
 
     fn rows(&self) -> usize {
-        if self.budget.is_some() { 5 } else { 4 }
+        if self.active.is_some() { 5 } else { 4 }
     }
 
     fn save(&mut self) {

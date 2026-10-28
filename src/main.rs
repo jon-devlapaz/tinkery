@@ -213,8 +213,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         record_root.as_ref().map_err(Clone::clone)?;
     }
     let call_budget = tinkery::pi::CallBudget::new(launch.as_ref().map_or(0, |l| l.calls));
-    let controls =
-        tinkery::model_setup::Controls::new(setup_path, saved, live.then(|| call_budget.clone()));
+    let controls = tinkery::model_setup::Controls::new(
+        setup_path,
+        saved,
+        launch.clone().map(|setup| (setup, call_budget.clone())),
+    );
     let controls = controls.listing_pi(
         pi_command
             .clone()

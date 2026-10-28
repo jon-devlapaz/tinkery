@@ -82,6 +82,15 @@ def pick(terminal, label):
     terminal.send(terminal.screen.pick(label), 'Model ')
 
 
+def recipient(terminal, harness, model):
+    """Read the current destination beside the separately labeled later settings."""
+    pick(terminal, 'Model and calls')
+    shown = terminal.screen.text()
+    for text in (f'F2 sends to {harness}: {model}.', 'For later launches', 's save', 'esc close'):
+        assert text in shown, (text, shown)
+    terminal.send(ESC, 'F2 send')
+
+
 def zero_override(root, home, colour, started):
     """An explicit zero without --shape-pi keeps submitted words in practice."""
     saved = home / '.config/tinkery/model.json'
@@ -150,14 +159,18 @@ def journey(no_color):
 
         # Flags win for one launch and write nothing.
         before = saved.read_text()
-        start = len(calls(root))
-        with Launch(root, home, ['--shape-pi', '--model', 'test/flag', '--shape-budget', '1', *colour]) as terminal:
-            terminal.wait(lambda _: '1 call left' in header(terminal))
-            terminal.send(b'TEST flag words', 'TEST flag words')
-            terminal.send(F2, 'Which TEST reason?')
-            assert [c['model'] for c in calls(root)[start:]] == ['test/flag'], calls(root)
-            # The thinking flag was not given, so the saved level applies.
-            assert calls(root)[-1]['thinking'] == 'medium'
+        for size in [(80, 24), (100, 30)]:
+            for operator in ['human', 'agent']:
+                start = len(calls(root))
+                with Launch(root, home, ['--shape-pi', '--model', 'test/flag', '--shape-budget', '1', *colour], size, operator) as terminal:
+                    terminal.wait(lambda _: '1 call left' in header(terminal))
+                    recipient(terminal, 'Pi', 'test/flag')
+                    assert len(calls(root)) == start, 'opening the panel started a request'
+                    terminal.send(b'TEST flag words', 'TEST flag words')
+                    terminal.send(F2, 'Which TEST reason?')
+                    assert [c['model'] for c in calls(root)[start:]] == ['test/flag'], calls(root)
+                    # The thinking flag was not given, so the saved level applies.
+                    assert calls(root)[-1]['thinking'] == 'medium'
         assert saved.read_text() == before
 
         # Out of calls: words stay, nothing starts; F1's row adds calls for this launch only.
@@ -245,12 +258,17 @@ def claude_code(root, colour):
     assert len(calls(root)) == pi_calls, 'Pi started for a Claude Code setup'
 
     # Flags win for one launch; Pi's own levels and --pi-command are refused for Claude Code.
-    before, start = saved.read_text(), len(started())
-    with Launch(root, home, ['--shape-pi', '--model', 'claude-haiku-5-5', '--thinking', 'max', *colour]) as terminal:
-        terminal.wait(lambda _: '5 calls left' in header(terminal))
-        terminal.send(b'TEST flag words', 'TEST flag words')
-        terminal.send(F2, 'Which TEST claude reason?')
-    assert {(c['model'], c['thinking']) for c in started()[start:]} == {('claude-haiku-5-5', 'max')}, started()
+    before = saved.read_text()
+    for size in [(80, 24), (100, 30)]:
+        for operator in ['human', 'agent']:
+            start = len(started())
+            with Launch(root, home, ['--shape-pi', '--model', 'claude-haiku-5-5', '--thinking', 'max', '--shape-budget', '1', *colour], size, operator) as terminal:
+                terminal.wait(lambda _: '1 call left' in header(terminal))
+                recipient(terminal, 'Claude Code', 'claude-haiku-5-5')
+                assert len(started()) == start, 'opening the panel started a request'
+                terminal.send(b'TEST flag words', 'TEST flag words')
+                terminal.send(F2, 'Which TEST claude reason?')
+            assert [(c['model'], c['thinking']) for c in started()[start:]] == [('claude-haiku-5-5', 'max')], started()
     assert saved.read_text() == before
     for args, refusal in [(['--thinking', 'minimal'], 'with Claude Code'),
                           (['--pi-command', 'pi'], '--pi-command applies to Pi'),

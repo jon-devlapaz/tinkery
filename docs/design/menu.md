@@ -59,8 +59,10 @@ owns the file, parser, label and panel; the terminal loop draws them over every 
 
 `s` saves Harness, Model, Thinking and Calls to `~/.config/tinkery/model.json`; `esc` closes and drops
 unsaved changes. Nothing else writes the file, and saving changes later launches, not this
-one. Calls need a model. The panel says F2 sends words to this model and the cap counts
-requests, not dollars. Nothing in it starts a request.
+one. Calls need a model. The panel names this launch's actual harness and model, including
+flag overrides, or says it is practice with no model requests. Editable settings are marked
+for later launches; editing or saving them does not change the displayed recipient. The cap
+counts requests, not dollars. Nothing in the panel starts a request.
 
 One parser checks the file and the `--harness`, `--model`, `--thinking` and `--shape-budget`
 flags. A file without a harness is Pi. Claude Code takes only full `claude-` ids, never an alias

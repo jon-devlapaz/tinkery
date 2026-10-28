@@ -17,14 +17,19 @@ fn typed(controls: &mut Controls, text: &str) {
 }
 
 fn screen(controls: &Controls) -> String {
-    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+    screen_at(controls, 100, 30)
+}
+
+fn screen_at(controls: &Controls, width: u16, height: u16) -> String {
+    let mut terminal =
+        ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
     terminal
         .draw(|frame| controls.render(frame, crate::Palette::new(true)))
         .unwrap();
     let buffer = terminal.backend().buffer();
-    (0..30)
+    (0..height)
         .map(|y| {
-            (0..100)
+            (0..width)
                 .map(|x| buffer[(x, y)].symbol())
                 .collect::<String>()
         })
@@ -275,6 +280,85 @@ fn only_s_writes_the_file_and_esc_leaves_it_alone() {
 }
 
 #[test]
+fn active_recipient_survives_editing_and_saving_later_settings() {
+    for active in [
+        setup("p/active", "low", 0),
+        Setup::new(
+            Harness::ClaudeCode,
+            "claude-haiku-5-5".into(),
+            "low".into(),
+            0,
+        )
+        .unwrap(),
+    ] {
+        for (width, height) in [(80, 24), (100, 30)] {
+            let home = tempfile::tempdir().unwrap();
+            let file = home.path().join("TEST-model.json");
+            let saved = setup("p/saved", "low", 5);
+            save(&file, &saved).unwrap();
+            let mut controls = Controls::new(
+                Some(file.clone()),
+                Ok(Some(saved.clone())),
+                Some((active.clone(), CallBudget::new(0))),
+            );
+            let recipient = format!("F2 sends to {}: {}.", active.harness.label(), active.model);
+            controls.open();
+            assert!(screen_at(&controls, width, height).contains(&recipient));
+            press(&mut controls, KeyCode::Enter); // Change only the later harness/model.
+            assert_eq!(load(&file), Ok(Some(saved)));
+            for save_changes in [false, true] {
+                if save_changes {
+                    press(&mut controls, KeyCode::Char('s'));
+                    assert_eq!(load(&file).unwrap().unwrap().model, "claude-sonnet-5-5");
+                }
+                let shown = screen_at(&controls, width, height);
+                for text in [
+                    &recipient,
+                    "For later launches",
+                    "claude-sonnet-5-5",
+                    "s save",
+                    "esc close",
+                ] {
+                    assert!(shown.contains(text), "Missing {text}:\n{shown}");
+                }
+                assert_eq!(controls.label(), "0 calls left");
+            }
+        }
+    }
+}
+
+#[test]
+fn long_active_model_keeps_controls_visible_at_minimum_size() {
+    let active = setup(&format!("p/{}END", "a".repeat(120)), "low", 0);
+    let mut controls = Controls::new(
+        None,
+        Ok(Some(active.clone())),
+        Some((active, CallBudget::new(0))),
+    );
+    controls.open();
+    let shown = screen_at(&controls, 80, 24);
+    for text in ["F2 sends to Pi:", "END.", "s save", "esc close"] {
+        assert!(shown.contains(text), "Missing {text}:\n{shown}");
+    }
+}
+
+#[test]
+fn practice_disclosure_never_names_the_saved_model_as_the_recipient() {
+    let mut controls = Controls::new(None, Ok(Some(setup("p/saved", "high", 5))), None);
+    controls.open();
+    let shown = screen_at(&controls, 80, 24);
+    assert!(
+        shown.contains("This launch: practice; no model requests."),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("For later launches") && shown.contains("p/saved"),
+        "{shown}"
+    );
+    assert!(!shown.contains("F2 sends"), "{shown}");
+}
+
+#[test]
 fn saving_refuses_calls_without_a_model_and_typing_refuses_a_loose_model() {
     let home = tempfile::tempdir().unwrap();
     let file = path(Some(home.path().as_os_str())).unwrap();
@@ -317,7 +401,11 @@ fn adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap() {
     assert!(refused.contains("Add calls to keep going."), "{refused}");
     let home = tempfile::tempdir().unwrap();
     let file = path(Some(home.path().as_os_str())).unwrap();
-    let mut controls = Controls::new(Some(file.clone()), Ok(None), Some(budget.clone()));
+    let mut controls = Controls::new(
+        Some(file.clone()),
+        Ok(None),
+        Some((setup("p/active", "low", 1), budget.clone())),
+    );
     assert_eq!(controls.label(), "0 calls left");
     controls.open();
     for _ in 0..4 {
@@ -341,8 +429,12 @@ fn an_agent_sees_the_setup_but_cannot_save_it_or_add_calls() {
     let home = tempfile::tempdir().unwrap();
     let file = path(Some(home.path().as_os_str())).unwrap();
     let budget = CallBudget::new(0);
-    let mut controls =
-        Controls::new(Some(file.clone()), Ok(None), Some(budget.clone())).for_agent();
+    let mut controls = Controls::new(
+        Some(file.clone()),
+        Ok(None),
+        Some((setup("p/active", "low", 0), budget.clone())),
+    )
+    .for_agent();
     controls.open();
     press(&mut controls, KeyCode::Char('s'));
     assert!(screen(&controls).contains("An agent can't save a setup or add calls"));
