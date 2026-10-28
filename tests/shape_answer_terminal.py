@@ -218,13 +218,33 @@ class Run:
         self.wait(text)
 
     def menu(self):
-        """Esc back one level at a time until the menu shows; Esc never leaves a draft unasked."""
+        """Return through completed screens; never answer a draft-discard prompt."""
+        deadline = time.monotonic() + 12
         for _ in range(4):
+            # A caller may have stopped reading in the middle of a synchronized frame.
+            while self.screen.synchronized and time.monotonic() < deadline:
+                if select.select([self.master], [], [], .02)[0]:
+                    self.screen.feed(os.read(self.master, 65536))
+            before = self.screen.text()
+            if self.screen.synchronized or 'lose this draft?' in self.flat():
+                break
+            if '4 approve' in self.flat():
+                return
             os.write(self.master, ESC)
-            try:
-                return self.wait('4  approve', timeout=3)
-            except AssertionError:
-                pass
+            transition_deadline = min(deadline, time.monotonic() + 3)
+            while time.monotonic() < transition_deadline:
+                if select.select([self.master], [], [], .02)[0]:
+                    self.screen.feed(os.read(self.master, 65536))
+                if not self.screen.synchronized and self.screen.text() != before:
+                    if 'lose this draft?' in self.flat():
+                        break
+                    if '4 approve' in self.flat():
+                        return
+                    break
+                if self.process.poll() is not None:
+                    break
+            else:
+                break
         raise AssertionError(f'Esc never reached the menu:\n{self.screen.text()}')
 
     def choose(self, label, text):
