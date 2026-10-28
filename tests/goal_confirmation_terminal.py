@@ -159,9 +159,12 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    seen=[right()]
    for _ in range(16):
     if 'Think record:' in seen[-1]:break
-    os.write(master,b'\x1b[6~');deadline=time.monotonic()+.5
+    previous=right();before=screen.frames
+    os.write(master,b'\x1b[6~');deadline=time.monotonic()+5
     while time.monotonic()<deadline:
      if select.select([master],[],[],.02)[0]:feed()
+     if screen.ready(before) and right()!=previous and '┌ How it works ' in screen.text():break
+    else:raise AssertionError(f'Help page did not advance before Think record:\n{screen.text()}')
     seen.append(right())
    assert 'Think record:' in seen[-1],screen.text()
    assert any('Session:' in page for page in seen),seen
