@@ -406,10 +406,7 @@ fn skipped_why_names_only_the_missing_part() {
         );
         assert!(!screen.contains("Ready for your review") && !screen.contains("remain open"));
     }
-    assert!(
-        layout::help_text(&a)
-            .contains("\n\nStill missing: Why.\n1: Review the goal.")
-    );
+    assert!(layout::help_text(&a).contains("\n\nStill missing: Why.\n1: Review the goal."));
     review_lists_and_saves(&mut a, &["Why — Which check 1?"]);
     assert_eq!(
         a.conversation.sources()[0].text.as_bytes(),
