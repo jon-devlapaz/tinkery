@@ -621,7 +621,7 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, F2 says
   `PgDn to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
-  `End of seed` marker after the last section clears that. The saved seed is unchanged.
+  `End of seed` marker after the last section clears that in the same frame. The saved seed is unchanged.
   Before that marker is reached, the key bar says `pgup/dn read to end` instead of
   offering to confirm; the confirmation hint appears on the same frame that reaches the end.
   Notices keep their own recovery instructions without repeating the key bar's action.
