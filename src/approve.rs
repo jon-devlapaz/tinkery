@@ -45,6 +45,7 @@ struct Reading {
 
 #[derive(Default)]
 struct Found {
+    target_failure: Option<String>,
     seeds: Vec<Reading>,
     unavailable: usize,
     reasons: Vec<String>,
@@ -82,7 +83,9 @@ impl Reader {
         let cancelled = stop.load(Ordering::SeqCst);
         self.running = None;
         if !cancelled && let Some(view) = view {
-            view.found = Some(result);
+            view.found = Some(
+                result.and_then(|mut found| found.target_failure.take().map_or(Ok(found), Err)),
+            );
         }
     }
 
@@ -92,6 +95,7 @@ impl Reader {
         root: Option<PathBuf>,
         record_root: Result<PathBuf, String>,
         mut found: Found,
+        target: Option<ready::SeedTarget>,
     ) -> bool {
         if self.running.is_some() {
             return false;
@@ -120,16 +124,32 @@ impl Reader {
                 found.start_unknown = Some(reason.clone());
             }
             // Discovery owns chronological sorting. Reverse its newest-first order, not timestamps.
+            let mut target_failure =
+                "This seed is missing or unavailable in the current sessions root.".to_owned();
             for (session, origin) in sessions.into_iter().zip(origins).rev() {
                 if cancelled.load(Ordering::SeqCst) {
                     return;
                 }
+                if target
+                    .as_ref()
+                    .is_some_and(|target| target.session != session.path)
+                {
+                    continue;
+                }
                 if !matches!(session.stage, Stage::SeedUnchecked | Stage::Ended) {
+                    target_failure =
+                        "This seed is no longer verified ready. Return to Shape to read it again."
+                            .into();
                     continue;
                 }
                 if let Ok(runs) = &runs {
                     match sdlc::started(runs, &ready::path(&session.path)) {
-                        Ok(true) => continue,
+                        Ok(true) => {
+                            target_failure =
+                                "This seed has already started. Open Watch to inspect its run."
+                                    .into();
+                            continue;
+                        }
                         Ok(false) => {}
                         Err(reason) => {
                             found.changed += 1;
@@ -143,6 +163,10 @@ impl Reader {
                 }
                 match ready::read(&session.path, root.as_deref()) {
                     Ok(Some(mut seed)) => {
+                        if target.as_ref().is_some_and(|target| seed.target.as_ref() != Some(target)) {
+                            target_failure = "This seed changed since Shape read it. Return to Shape to read it again.".into();
+                            continue;
+                        }
                         let origin_note = root.as_deref().and_then(|root| {
                             let origin = if resolved_root.is_some() {
                                 origin
@@ -153,8 +177,9 @@ impl Reader {
                         });
                         found.seeds.push(Reading { seed, origin_note });
                     }
-                    Ok(None) => {}
+                    Ok(None) => target_failure = "This seed is missing or no longer verified ready. Return to Shape to read it again.".into(),
                     Err(reason) => {
+                        target_failure = format!("This seed is unavailable: {reason}");
                         found.unavailable += 1;
                         if found.reasons.len() < crate::seed_me::MAX_READ_FAILURES {
                             found
@@ -163,6 +188,9 @@ impl Reader {
                         }
                     }
                 }
+            }
+            if target.is_some() && found.seeds.is_empty() {
+                found.target_failure = Some(target_failure);
             }
             let _ = tx.send(found);
         });
@@ -179,6 +207,7 @@ impl Drop for Reader {
 
 /// A visit shows only verified seeds. Navigation and copying use the same immutable reading.
 pub(crate) struct Approve {
+    target: Option<ready::SeedTarget>,
     root: Option<PathBuf>,
     waiting: bool,
     found: Option<Result<Found, String>>,
@@ -194,6 +223,7 @@ impl Approve {
     /// Wait for the menu's fresh session scan. Starts no helper and reads no files.
     pub(crate) fn open(root: Option<PathBuf>) -> Self {
         Self {
+            target: None,
             root,
             waiting: true,
             found: None,
@@ -204,6 +234,12 @@ impl Approve {
             copy: None,
             notice: "",
         }
+    }
+
+    /// Select only this exact verified seed after the normal worker checks; never substitute.
+    pub(crate) fn for_seed(mut self, target: ready::SeedTarget) -> Self {
+        self.target = Some(target);
+        self
     }
 
     /// Whether this visit still needs the menu's fresh discovery result.
@@ -235,6 +271,7 @@ impl Approve {
                     reasons,
                     ..Found::default()
                 },
+                self.target.clone(),
             ) {
                 Ok(())
             } else {

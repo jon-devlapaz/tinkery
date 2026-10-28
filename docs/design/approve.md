@@ -32,6 +32,26 @@ reads; the current origin scan or file read finishes before the verifier is reus
 finishes refuses a replacement worker and asks the operator to reopen later. Late
 results never reopen a view or populate a different visit.
 
+## From a confirmed Shape seed
+
+Ready Shape offers `F1`, then `1`: Open this seed in Approve. F1 alone only opens
+its actions. The menu carries one ephemeral checked target: canonical session path,
+session ID, ledger version and confirmed seed hash. These come from the existing
+verified reading; no input or paint path reads files. This navigation is available
+without model runs and neither copies nor grants approval.
+
+The normal verifier checks the target's current source, eligibility and repository
+origin. A targeted visit offers only that exact seed. Changed, missing, unavailable
+or already-started targets explain why; another eligible seed is never substituted.
+Repository mismatch still leaves the goal readable with no command or copy action.
+There is no new command builder, registry, worker or durable routing record.
+
+Esc returns to the originating Shape session through its existing asynchronous
+read, preserving local words and its Tend return context. Changed or missing source
+therefore does not retain a stale Ready hint. F10 returns Home and drops that origin.
+Ordinary Approve visits retain their existing menu return. Copy remains a separate
+explicit action with the same exact command and approval boundary.
+
 ## One seed at a time
 
 The goal and acceptance checks precede the manual handoff explanation and commands:

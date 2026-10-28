@@ -1,13 +1,27 @@
 //! A verified seed's exact goal and acceptance section for read-only handoff. Tinkery's ledger
 //! verifies confirmation; changing source files refuse the read. This module never writes or runs intake.
 
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use super::shaping::{self, Shaped};
+
+/// The exact verified seed selected for a read-only visit; not copy or execution permission.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeedTarget {
+    pub(crate) session: PathBuf,
+    pub(crate) session_id: String,
+    pub(crate) version: u64,
+    pub(crate) sha256: String,
+}
 
 /// One consistent, ledger-verified seed reading; commands are text, never execution permission.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReadySeed {
+    /// Identity of the verified reading, when the source supplies it completely.
+    pub target: Option<SeedTarget>,
     /// The confirmed goal exactly as recorded.
     pub goal: String,
     /// The confirmed seed revision.
@@ -72,6 +86,7 @@ fn read_with(
         return Ok(None);
     };
     Ok(Some(ReadySeed {
+        target: shaped.ready_target,
         goal: shaped
             .goal
             .filter(|g| !g.trim().is_empty())

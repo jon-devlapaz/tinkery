@@ -8,6 +8,7 @@ use crate::actions::Row;
 /// An action F1 can run on the open session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Choice {
+    Approve,
     Reveal,
     Defer,
     Delegate,
@@ -32,6 +33,9 @@ impl Shape {
             return vec![];
         }
         let mut rows = vec![];
+        if matches!(&open.reading, Reading::Done(Ok(shaping)) if shaping.ready_target.is_some()) {
+            rows.push(Row::new("Open this seed in Approve", Choice::Approve));
+        }
         let agent = self.agent.is_some() && !self.held;
         if open.instinct_first() {
             rows.push(Row::new("Show the options and suggestion", Choice::Reveal));
@@ -108,6 +112,11 @@ impl Shape {
         };
         open.notice = None;
         match choice {
+            Choice::Approve => {
+                if let Reading::Done(Ok(shaping)) = &open.reading {
+                    self.approve = shaping.ready_target.clone();
+                }
+            }
             Choice::Reveal => open.reveal(),
             Choice::Object => {
                 open.objecting = true;

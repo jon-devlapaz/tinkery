@@ -323,6 +323,10 @@ attestations are TEST fixtures, never the operator's.
 
 ## Shape
 
+A verified Ready seed offers the deliberate [Approve route](approve.md#from-a-confirmed-shape-seed)
+in F1's first row. Opening the list starts nothing; choosing the row navigates
+through the menu and normal verification, with copying still separate.
+
 Think settles intent; Shape investigates facts, then asks one decision at a time
 with evidence and a suggestion, ending in an operator-confirmed seed.
 

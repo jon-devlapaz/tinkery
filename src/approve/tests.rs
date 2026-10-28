@@ -4,6 +4,7 @@ use ratatui::{Terminal, backend::TestBackend};
 fn seed(goal: &str) -> Reading {
     Reading {
         seed: ReadySeed {
+            target: None,
             goal: goal.into(),
             revision: "r1".into(),
             acceptance: "## Acceptance criteria\n- TEST exact check  \n".into(),
@@ -160,7 +161,8 @@ fn abandoned_read_cannot_publish_or_spawn_a_second_worker() {
         Vec::new(),
         None,
         Err("TEST no records".into()),
-        Found::default()
+        Found::default(),
+        None
     ));
     tx.send(Found {
         seeds: vec![seed("TEST stale")],
