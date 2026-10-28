@@ -13,14 +13,17 @@ import termios
 import time
 
 from vt_screen import Screen
+from support.seed_file_fixture import replaced_seed
 from shape_terminal import make as make_session, seed as make_seed
 
 REPO = Path(__file__).resolve().parents[1]
 FAKE = '''import json, os, sys, time
 from pathlib import Path
+pid = Path(os.environ['TEST_WATCH_PID'])
+pid.with_suffix('.tmp').write_text(str(os.getpid()))
+pid.with_suffix('.tmp').replace(pid)
 with open(os.environ['TEST_WATCH_LOG'], 'a') as log:
     log.write(' '.join(sys.argv[1:]) + '\\n')
-Path(os.environ['TEST_WATCH_PID']).write_text(str(os.getpid()))
 state = json.loads(Path(os.environ['TEST_WATCH_STATE']).read_text())
 if state.get('slow'):
     time.sleep(30)
@@ -28,6 +31,10 @@ if len(sys.argv) == 4:
     slug = sys.argv[2]
     row = next(r for r in state['list']['runs'] if r['slug'] == slug)
     detail = state.get('details', {}).get(slug, state['detail'])
+    detail['run']['slug'] = row['slug']
+    detail['run']['run_id'] = row.get('run_id')
+    for field, value in state.get('identity', {}).items():
+        detail['run'][field] = value
     detail['run']['verification_status'] = row['verification_status']
     detail['run']['next_action'] = row['next_action']
     detail['run']['seed_contract'] = row.get('seed_contract')
@@ -174,6 +181,39 @@ def journey(width, height, no_color, configured=True):
                 send(b'\x1b[6~', 'TEST evidence')
                 assert len(calls()) == before_detail + 1, 'scrolling launched a read'
                 send(b'\x1b', 'Needs you')
+                # Fixed near-cap bodies plus small metadata remain readable through End.
+                for fill in ('x', '\n'):
+                    accepted = json.loads(json.dumps(DETAIL))
+                    accepted['run']['checklist'][0]['mark'] = {
+                        'evidence': fill * 59000 + '\nTEST-ACCEPTED-TAIL'}
+                    set_state(list=envelope(runs=[run('TEST-near-bound', 'blocked')]),
+                              details={'TEST-near-bound': accepted})
+                    send(b'r', 'TEST-near-bound')
+                    send(b'\r', 'TEST executable check')
+                    send(b'\x1b[F', 'TEST-ACCEPTED-TAIL')
+                    assert 'too long' not in screen.text(), screen.text()
+                    send(b'\x1b', 'Needs you')
+                # Reader-sized payloads can still exceed the renderer's scroll range.
+                for large in ('60000 source bytes', 'short evidence lines', 'empty evidence lines', 'appended error labels'):
+                    oversized = json.loads(json.dumps(DETAIL))
+                    if large == 'appended error labels':
+                        oversized['run']['errors'] = [''] * 21000
+                    elif large == '60000 source bytes':
+                        oversized['run']['checklist'][0]['mark'] = {'evidence': 'x' * 60000}
+                    else:
+                        oversized['run']['checklist'][0]['mark'] = {
+                            'evidence': ('x\n' if large == 'short evidence lines' else '\n') * 70000 + 'TEST-UNREACHABLE-TAIL'}
+                    set_state(list=envelope(runs=[run('TEST-big', 'blocked'), run('TEST-readable', 'current')]),
+                              details={'TEST-big': oversized})
+                    send(b'r', 'TEST-big')
+                    send(b'\r', 'Detail is too long to show completely.')
+                    assert 'status <slug> --json' in screen.text(), screen.text()
+                    assert 'TEST-UNREACHABLE-TAIL' not in screen.text()
+                    assert 'Checklist:' not in screen.text(), 'oversized detail looked complete'
+                    send(b'\x1b', 'TEST-readable')
+                    send(b'\x1b[B', '› TEST-readable')
+                    send(b'\r', 'No confirmed seed was recorded for this run.')
+                    send(b'\x1b', 'TEST-readable')
                 for status in ['blocked', 'failed', 'interrupted', 'running', 'not-run', 'stale', 'invalid']:
                     row = run('TEST-state', status)
                     if status == 'invalid':
@@ -184,6 +224,25 @@ def journey(width, height, no_color, configured=True):
                              'not-run': 'not verified yet', 'stale': 'verification out of date',
                              'invalid': "can't be read"}
                     send(b'r', words[status])
+                # Both attention inspection and reopening detail retain the list's identity.
+                for identity in ({'slug': 'TEST-another-run'}, {'run_id': 'TEST-changed'},
+                                 {'run_id': None}, {'slug': None}):
+                    row = run('TEST-selected', 'current')
+                    set_state(list=envelope(runs=[row]))
+                    send(b'r', 'TEST-selected')
+                    set_state(list=envelope(runs=[row]), identity=identity)
+                    send(b'\r', 'Run identity changed or is missing.')
+                    assert 'Next:' not in screen.text() and 'Checklist:' not in screen.text(), screen.text()
+                    send(b'\x1b', 'TEST-selected')
+                    send(b'r', "Couldn't read the runs.")
+                    assert 'Run identity changed or is missing.' in screen.text(), screen.text()
+                    assert 'TEST next for' not in screen.text(), screen.text()
+                # A missing list ID cannot establish attention either.
+                row = run('TEST-selected', 'current')
+                row.pop('run_id')
+                set_state(list=envelope(runs=[row]))
+                send(b'r', "Couldn't read the runs.")
+                assert 'identity' in screen.text(), screen.text()
                 # Scaffold upgrades can reject old metadata; Watch names that gap without migration.
                 older = {'slug': 'TEST-older', 'verification_status': 'invalid',
                          'error': 'Run run_id must be a canonical UUIDv4 string; create runs with sdlc.py new.',
@@ -251,6 +310,23 @@ def journey(width, height, no_color, configured=True):
                     assert ('TEST exact goal tail' in screen.text()) == (seed_case == 'matched')
                     assert not any(word in screen.text() for word in ('seed_contract', 'sha256', 'API'))
                     send(b'\x1b', 'Needs you')
+                # Invalid originals are unknown promptly, including a regular path replaced by a FIFO.
+                seed.write_bytes(original)
+                ledger.write_bytes(original_ledger)
+                receipt.write_bytes(original_receipt)
+                row = {**run('TEST-replaced-seed', 'blocked'), 'seed_contract': record}
+                set_state(list=envelope(runs=[row]))
+                for kind in ('fifo', 'directory'):
+                    send(b'r', 'TEST café')
+                    with replaced_seed(seed, kind):
+                        started = time.monotonic()
+                        send(b'r', "Goal unknown: the original seed changed or can't be found.")
+                        assert time.monotonic() - started < 2, 'non-regular seed delayed Watch'
+                        send(b'\r', 'Stage 3 gate: pending')
+                        send(b'\x1b', 'Needs you')
+                        assert time.monotonic() - started < 2, 'non-regular seed delayed Watch or Escape'
+                        assert 'TEST café' not in screen.text()
+                    send(b'r', 'TEST café')
                 # A matched quiet run stays exactly one row, immediately followed by its neighbour.
                 seed.write_bytes(original)
                 ledger.write_bytes(original_ledger)

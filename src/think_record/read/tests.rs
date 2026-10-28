@@ -193,7 +193,7 @@ fn default_root_move_preserves_history_bytes_and_matches_ledger_identity() {
         let original = fs::read(&record_path).unwrap();
         let original_ledger = fs::read(selected.join("ledger.json")).unwrap();
         assert!(
-            crate::seed_me::migration::migrate(Some(home.as_os_str()))
+            crate::seed_me::migration::migrate(Some(home.as_os_str()), true)
                 .unwrap()
                 .is_some()
         );
@@ -216,7 +216,7 @@ fn default_root_move_preserves_history_bytes_and_matches_ledger_identity() {
         assert_eq!(fs::read(record_path).unwrap(), original);
         assert!(!old.exists());
         assert!(
-            crate::seed_me::migration::migrate(Some(home.as_os_str()))
+            crate::seed_me::migration::migrate(Some(home.as_os_str()), true)
                 .unwrap()
                 .is_none()
         );

@@ -611,7 +611,8 @@ fn garden_test_session_plain_text_renders() {
     let View::Tend(tend) = &mut h.view else {
         panic!()
     };
-    for (session, goal) in tend.sessions.iter_mut().zip([
+    let mut sessions = tend.sessions.clone();
+    for (session, goal) in sessions.iter_mut().zip([
         "Find invoices",
         "Read a calm theme",
         "Keep goals intact",
@@ -622,6 +623,7 @@ fn garden_test_session_plain_text_renders() {
     ]) {
         session.goal = goal.into();
     }
+    tend.apply(&found(sessions), true, tend.seen + 1);
     for (width, height) in [(100, 30), (80, 24)] {
         let screen = snapshot(width, height, &mut h, true).unwrap();
         println!("TEST garden {width}×{height}:\n{screen}");

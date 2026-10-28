@@ -196,6 +196,12 @@ pub fn respond(
     })?;
     let expected = super::value::int(expected);
     super::require(ledger["version"] == expected, "stale publication version")?;
+    if matches!(action, super::AnswerAction::Revisit(_)) {
+        super::require(
+            !directory.join(super::seed::FILE).exists(),
+            "A seed is already recorded. Reopen Shape before answering a deferred prerequisite.",
+        )?;
+    }
     let (mut state, mut reviewed) = super::answers::change(&ledger, id, action)?;
     if let Some(context) = actor.context()
         && let Some(node) = state["nodes"]
@@ -225,6 +231,7 @@ pub fn respond(
         super::AnswerAction::Defer { .. } => "deferred",
         super::AnswerAction::Delegate => "delegated",
         super::AnswerAction::Revise(_) => "revised",
+        super::AnswerAction::Revisit(_) => "answered deferred prerequisite",
     };
     let reason: Value = actor
         .reason(&format!("{verb} {id} in Tinkery Shape."))
@@ -635,7 +642,7 @@ pub fn end(
             )?;
         }
         super::seed::require_seed_decisions(directory, &ledger, "cannot complete")?;
-        super::checks::require_seed_checks(directory, true)?;
+        super::checks::require_seed_checks(directory, &ledger, true)?;
     }
     let bytes = result.pretty()?;
     commit(

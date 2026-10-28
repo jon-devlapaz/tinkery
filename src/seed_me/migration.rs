@@ -8,7 +8,8 @@ use std::{
 
 /// Rename the default sessions folder once without reading or rewriting its contents.
 /// Existing destinations and linked roots refuse; Think records are never opened or changed.
-pub fn migrate(home: Option<&OsStr>) -> Result<Option<String>, String> {
+/// When `allow_move` is false, a pending move refuses before any filesystem writes.
+pub fn migrate(home: Option<&OsStr>, allow_move: bool) -> Result<Option<String>, String> {
     let Some(home) = home.map(Path::new).filter(|p| p.is_absolute()) else {
         return Ok(None);
     };
@@ -26,6 +27,9 @@ pub fn migrate(home: Option<&OsStr>) -> Result<Option<String>, String> {
         Ok(_) => return Err("Both old and new sessions roots exist. Tinkery will not merge or read the old root. Move the leftover old root aside before reopening.".into()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {},
         Err(_) => return Err("Cannot inspect the new sessions folder. Check its permissions before reopening Tinkery.".into()),
+    }
+    if !allow_move {
+        return Err("Snapshot mode does not move saved sessions. Open Tinkery normally to migrate them, then retry --snapshot.".into());
     }
     fs::create_dir_all(new.parent().unwrap())
         .map_err(|_| "Cannot create Tinkery's data folder. Check its permissions.")?;

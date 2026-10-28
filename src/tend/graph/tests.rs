@@ -32,6 +32,16 @@ fn fixture(count: usize) -> (tempfile::TempDir, Tend) {
     );
     (tmp, tend)
 }
+fn refresh(tend: &mut Tend) {
+    tend.apply(
+        &Ok(Found {
+            sessions: tend.all_sessions.clone(),
+            ..Found::default()
+        }),
+        true,
+        tend.seen + 1,
+    );
+}
 fn body() -> Rect {
     Rect::new(2, 3, 96, 26)
 }
@@ -120,12 +130,12 @@ fn forty_short_goal_labels_keep_spacing_without_overlap() {
             let (_tmp, mut tend) = fixture(40);
             if chain {
                 for i in 0..39 {
-                    tend.links = Ok(tend
-                        .needs
+                    tend.needs
                         .toggle(&format!("id-{i}"), &format!("id-{}", i + 1))
-                        .unwrap());
+                        .unwrap();
                 }
             }
+            refresh(&mut tend);
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             let mut paint = |tend: &mut Tend| {
                 terminal
@@ -203,13 +213,14 @@ fn crowded_views_preserve_selected_identity_and_never_overlap_labels() {
         for linking in [false, true] {
             let (_tmp, mut tend) = fixture(count);
             if count == 60 {
-                for (i, session) in tend.sessions.iter_mut().enumerate() {
+                for (i, session) in tend.all_sessions.iter_mut().enumerate() {
                     session.goal = format!(
                         "Garden {i:02} {}",
                         ["very long words ", "界👩‍💻e\u{301}", "العربية עברית "][i % 3].repeat(20)
                     );
                 }
             }
+            refresh(&mut tend);
             if linking {
                 tend.start_link();
             }
@@ -310,7 +321,8 @@ fn static_graph_never_starts_a_physics_worker() {
     }
     // The view keys above cancel out; the graph returns to where it began.
     assert_eq!(first, paint(&mut tend, true));
-    tend.links = Ok(tend.needs.toggle("id-0", "id-1").unwrap());
+    tend.needs.toggle("id-0", "id-1").unwrap();
+    refresh(&mut tend);
     let linked = paint(&mut tend, true);
     for _ in 0..3 {
         assert_eq!(linked, paint(&mut tend, true));
@@ -480,7 +492,8 @@ fn selection_follows_offscreen_goal_without_resetting_zoom_and_link_relayout_kee
         shared.read().viewport.center_x,
         shared.read().viewport.center_y,
     );
-    tend.links = Ok(tend.needs.toggle("id-0", "id-1").unwrap());
+    tend.needs.toggle("id-0", "id-1").unwrap();
+    refresh(&mut tend);
     paint(&mut tend, true);
     let new = tend.graph.state.as_ref().unwrap().read();
     assert_eq!(new.viewport.zoom, zoom);
@@ -549,7 +562,8 @@ fn a_quiet_line_is_painted_only_for_visible_active_ends() {
 #[test]
 fn dense_graphs_keep_rings_and_needs_lines_above_grafs_lod_threshold() {
     let (_tmp, mut tend) = fixture(1001);
-    tend.links = Ok(tend.needs.toggle("id-0", "id-1").unwrap());
+    tend.needs.toggle("id-0", "id-1").unwrap();
+    refresh(&mut tend);
     tend.sync_graph(body());
     // Zoom far enough out to put every node in view, exercising the visible-count threshold.
     tend.graph.state.as_ref().unwrap().write().viewport.zoom *= 0.1;
@@ -567,7 +581,8 @@ fn a_three_goal_edge_does_not_paint_through_the_unrelated_middle_ring() {
     tend.selected = 1;
     let before = paint(&mut tend, true);
     let center = point(&tend, 1);
-    tend.links = Ok(tend.needs.toggle("id-0", "id-2").unwrap());
+    tend.needs.toggle("id-0", "id-2").unwrap();
+    refresh(&mut tend);
     let after = paint(&mut tend, true);
     for x in center.0.saturating_sub(1)..=center.0 + 1 {
         for y in center.1.saturating_sub(1)..=center.1 + 1 {
@@ -580,7 +595,8 @@ fn a_three_goal_edge_does_not_paint_through_the_unrelated_middle_ring() {
 fn reciprocal_needs_keep_one_edge_per_record() {
     let (_tmp, mut tend) = fixture(2);
     tend.needs.toggle("id-0", "id-1").unwrap();
-    tend.links = Ok(tend.needs.toggle("id-1", "id-0").unwrap());
+    tend.needs.toggle("id-1", "id-0").unwrap();
+    refresh(&mut tend);
     tend.sync_graph(body());
     assert_eq!(
         tend.graph

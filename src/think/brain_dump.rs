@@ -96,10 +96,11 @@ struct Screen {
     /// Help (F1), the originals and why cover the right side.
     help: bool,
     how: bool,
+    actions: crate::actions::Page,
     original: bool,
     details: bool,
     leave_prompt: bool,
-    /// F1's Model and calls row asked for the Model panel, which the launch owns.
+    /// F1's Model and runs row asked for the Model panel, which the launch owns.
     model: bool,
     /// The notice says why the last action did nothing; drawn until the next input.
     refused: Option<Refusal>,
@@ -133,6 +134,7 @@ impl Default for Screen {
             reading_visible: false,
             help: false,
             how: false,
+            actions: crate::actions::Page::default(),
             original: false,
             details: false,
             leave_prompt: false,
@@ -796,7 +798,7 @@ impl BrainDump {
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()
     }
-    /// Whether F1's Model and calls row was picked since the last ask; the launch opens the
+    /// Whether F1's Model and runs row was picked since the last ask; the launch opens the
     /// panel. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         std::mem::take(&mut self.screen.model)
@@ -897,6 +899,7 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::F(1) {
+            self.screen.actions.reset();
             self.screen.help = true;
             self.screen.how = false;
             self.screen.original = false;
@@ -1208,6 +1211,7 @@ impl BrainDump {
             && event.column == area.width.saturating_sub(3)
         {
             self.screen.help = !self.screen.help;
+            self.screen.actions.reset();
             self.screen.how = false;
             self.screen.original = false;
             self.screen.details = false;

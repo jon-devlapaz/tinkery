@@ -1,9 +1,9 @@
 //! Input handling: host-facing action API (`PinstarAction` + `apply_action`),
-//! the merged mouse handler, and the standalone bin's default-keymap router.
+//! the merged mouse handler, and the retained upstream default-keymap router.
 //!
 //! Routing model (graf precedent): hosts that own a keybind system resolve
 //! keys to [`PinstarAction`] themselves and drive [`apply_action`]; the
-//! standalone bin keeps [`handle_pinstar_event`] with its hardcoded keys.
+//! retained [`handle_pinstar_event`] offers the upstream hardcoded keys.
 
 use crate::data::EdgeStyle;
 use crate::formats::SupportedFormat;

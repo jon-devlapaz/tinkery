@@ -6,7 +6,7 @@ file runs in both tiers. The default tier is `full`, which runs every file.
 Every launch passes the shared guard, so the runner refuses a non-TEST HOME.
 Each file is its own process; a failed file's output is printed whole.
 """
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from pathlib import Path
 import subprocess
@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 import test_launch
 # Helper modules, not tests.
-HELPERS = {'vt_screen.py'}
+HELPERS = {'vt_screen.py', 'session_fixture.py', 'test_launch.py'}
 # Slow terminal journeys that pull requests skip; pushes to main and nightly runs keep them.
 POST_MERGE = {
     'hidden_review_terminal.py',
@@ -64,7 +64,9 @@ def main():
     print(f'Python tests: tier {tier}, {len(files)} files, {workers} workers', flush=True)
     failed = []
     with ThreadPoolExecutor(workers) as pool:
-        for path, code, seconds, output in pool.map(lambda path: run(path, env), files):
+        futures = [pool.submit(run, path, env) for path in files]
+        for future in as_completed(futures):
+            path, code, seconds, output = future.result()
             name = path.relative_to(ROOT)
             print(f'== {name} {"ok" if code == 0 else f"FAILED ({code})"} {seconds:.1f}s', flush=True)
             if code:

@@ -5,6 +5,7 @@ import runpy
 import shutil
 import sys
 import tempfile
+import threading
 import test_launch as subprocess
 import unittest
 
@@ -19,13 +20,17 @@ class TierTests(unittest.TestCase):
         self.names = lambda tier: [p.name for p in self.selected(tier)]
 
     def test_full_runs_every_test_file_once(self):
-        files = sorted(p.name for p in (ROOT / 'tests').glob('*.py') if p.name != 'vt_screen.py')
+        helpers = {'vt_screen.py', 'session_fixture.py', 'test_launch.py'}
+        files = sorted(p.name for p in (ROOT / 'tests').glob('*.py') if p.name not in helpers)
         self.assertEqual(sorted(self.names('full')), files)
 
     def test_pr_skips_exactly_the_post_merge_journeys(self):
         self.assertEqual(set(self.names('full')) - set(self.names('pr')), self.post_merge)
         self.assertIn('goal_confirmation_terminal.py', self.names('pr'))
         self.assertIn('agent_operation_terminal.py', self.names('pr'))
+        for tier in ('pr', 'full'):
+            self.assertNotIn('session_fixture.py', self.names(tier))
+            self.assertNotIn('test_launch.py', self.names(tier))
 
     def test_unknown_tier_and_stale_names_are_refused(self):
         with self.assertRaises(SystemExit):
@@ -143,6 +148,91 @@ assert session_fixture.call('read')['fixture'] == 'prepared'
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('TEST worker failure evidence', result.stdout)
         self.assertIn('agent_operation_terminal.py FAILED (3)', result.stdout)
+
+    def test_fast_failure_is_reported_before_blocked_worker_finishes(self):
+        wait = """
+import time
+from pathlib import Path
+root = Path.cwd()
+def wait_for(name):
+    deadline = time.monotonic() + 20
+    while not (root / name).exists():
+        assert time.monotonic() < deadline, name
+        time.sleep(.01)
+Path(__file__ + '.started').touch(exist_ok=False)
+"""
+        workers = {
+            'agent_operation_terminal.py': wait + """
+(root / 'TEST-blocked-ready').touch()
+wait_for('TEST-release')
+(root / 'TEST-blocked-done').touch()
+""",
+            'goal_confirmation_terminal.py': wait + """
+import sys
+wait_for('TEST-blocked-ready')
+print('TEST fast failure first line')
+print('TEST fast failure last line', file=sys.stderr)
+raise SystemExit(3)
+""",
+            'test_second_failure.py': wait + """
+print('TEST second failure first line')
+print('TEST second failure last line')
+raise SystemExit(4)
+""",
+            'test_later_success.py': wait + """
+(root / 'TEST-later-done').touch()
+""",
+        }
+        for name, source in workers.items():
+            (self.root / 'tests' / name).write_text(source)
+        selected = runpy.run_path(str(self.root / 'scripts/python-tests.py'),
+                                  run_name='test_selection')['selected']('full')
+        process = subprocess.Popen([sys.executable, 'scripts/python-tests.py'], cwd=self.root,
+                                   env=self.env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True)
+        lines = []
+        reported = threading.Event()
+
+        def read_output():
+            for line in process.stdout:
+                lines.append(line)
+                if 'TEST fast failure last line' in line:
+                    reported.set()
+
+        reader = threading.Thread(target=read_output)
+        reader.start()
+        try:
+            self.assertTrue(reported.wait(5), 'fast failure hidden behind blocked worker')
+            self.assertTrue((self.root / 'TEST-blocked-ready').exists())
+            self.assertFalse((self.root / 'TEST-blocked-done').exists())
+        finally:
+            (self.root / 'TEST-release').touch()
+            try:
+                process.wait(timeout=10)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=5)
+                reader.join(timeout=5)
+                process.stdout.close()
+        self.assertFalse(reader.is_alive())
+        output = ''.join(lines)
+        self.assertIn(f'Python tests: tier full, {len(selected)} files, 2 workers', output)
+        self.assertNotIn('== tests/session_fixture.py ', output)
+        self.assertNotIn('== tests/test_launch.py ', output)
+        self.assertNotEqual(process.returncode, 0, output)
+        self.assertTrue((self.root / 'TEST-blocked-done').exists())
+        self.assertTrue((self.root / 'TEST-later-done').exists())
+        for name in workers:
+            self.assertTrue((self.root / 'tests' / (name + '.started')).exists())
+        for path in selected:
+            self.assertEqual(output.count(f'== tests/{path.name} '), 1, output)
+        for evidence in ('TEST fast failure first line', 'TEST fast failure last line',
+                         'TEST second failure first line', 'TEST second failure last line'):
+            self.assertIn(evidence, output)
+        self.assertIn('2 Python test file(s) failed:', output)
+        self.assertIn('goal_confirmation_terminal.py FAILED (3)', output)
+        self.assertIn('test_second_failure.py FAILED (4)', output)
 
     def test_standalone_helper_prepares_its_own_fixture(self):
         # A marker from another worktree cannot skip this helper's preparation.

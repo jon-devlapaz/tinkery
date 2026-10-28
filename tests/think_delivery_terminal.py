@@ -104,7 +104,7 @@ def journey(width, height, no_color):
             run.read_until(READY)  # The numbered rows come first; the state follows.
             assert "Nothing I'm unsure" not in run.flat(), run.screen.text()
             run.send(b'\x1b', READY)
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             assert "Operator's original request" in run.flat()
             read_right('Must not: Provide financial/legal advice.')
             no_save()
@@ -126,7 +126,7 @@ def journey(width, height, no_color):
             assert sent[2]['sources'][1]['text'] == fixture['correction']
             no_save()
 
-            run.choose('Review the goal', 'type confirm')
+            run.choose('Review the goal', 'You are confirming')
             read_right('Must not: Change tool configuration.')
             no_save()
             run.send(b'confirm\r', 'Saved.')
@@ -162,7 +162,7 @@ def journey(width, height, no_color):
             run.send(b'r', 'Recorded sequence')
             first_history = run.screen.text()
             sequence = ['Original words 1', 'Reading 1 shown',
-                        'Answer 2 · after reading 1', 'Reading 2 shown']
+                        'Submission 2 · after reading 1', 'Reading 2 shown']
             positions = [first_history.index(label) for label in sequence]
             assert positions == sorted(positions), first_history
             for event in events:
@@ -191,8 +191,8 @@ def journey(width, height, no_color):
             else:
                 raise AssertionError('History did not reach its end')
             compact = lambda text: ''.join(text.split())
-            assert 'Answer 2' in visible
-            headers = ['Answer 2', "Readings · Tinkery's guesses",
+            assert 'Submission 2' in visible
+            headers = ['Submission 2', "Readings · Tinkery's guesses",
                        'Reading 1 · shown ', 'Reading 2 · shown ', 'Confirmed goal']
             assert [visible.index(h) for h in headers] == sorted(visible.index(h) for h in headers)
             first_reading = visible.split('Reading 1 · shown ', 1)[1].split(

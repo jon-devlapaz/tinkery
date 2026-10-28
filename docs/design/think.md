@@ -99,18 +99,20 @@ Existing records remain readable; older readers may refuse the new event rather
 than mistake a proposal for original words. Tend history labels the offered draft
 separately. The prior goal remains unchanged; no suggestion confirms a goal or seed.
 
-### Model calls
+### Drafting runs
 
-Each live send makes at most two calls: shaping, then decision review. While a call
-is in flight, the initial reading or refinement status says `Thinking… (call 1 of up
-to 2)`, then `Reviewing decisions… (call 2 of up to 2)`. These name phases, not a
-claim that both calls ran; unreadable shaping skips review. Practice claims no
-model calls. Scope questions may use none. No calls follow display, and nothing
+Each live send uses at most two drafting runs: shaping, then decision review. While a run
+is in flight, the initial reading or refinement status says `Thinking… (run 1 of up
+to 2)`, then `Reviewing decisions… (run 2 of up to 2)`. These name phases, not a
+claim that both runs ran; unreadable shaping skips review. Practice claims no
+drafting runs. Scope questions may use none. No runs follow display, and nothing
 retries automatically. With a model, Right now help and a failed reading say
-`Model calls left this run: N of M.`, the launch allowance Shape shares (#435). The
-header label shows the calls left; F1's Model and calls row opens the
-[Model panel](menu.md#model-setup), where Now adds calls for this launch only. Exhaustion
-keeps the words and starts nothing; the refusal says to add calls.
+`Drafting runs left this launch: N of M.`, the launch allowance Shape shares (#435). The
+header label shows the runs left; F1's Model and runs row opens the
+[Model panel](menu.md#model-setup), where Now adds runs for this launch only. Exhaustion
+keeps the words and starts nothing; the refusal says to add runs. The
+[Model panel contract](menu.md#model-setup) defines what a run counts and why it does
+not cap spending.
 Practice and verification use fakes; [historical evals](#decision-review-evidence-34)
 promise no general quality.
 
@@ -125,7 +127,8 @@ With no focused question (none left, skipped or a part asked twice), show one mu
 | State | Line |
 | --- | --- |
 | No composed goal | No goal yet. |
-| Ready | Ready for your review. |
+| Ready, review available | Ready for your review. F1, then 1: Review the goal. |
+| Ready, review unavailable | Ready for your review. |
 | Required part missing | Still missing: Done when. Review when you're ready. (Name the first missing part: who, outcome, why, done when.) |
 | Required parts present, other intent open | Some parts remain open for the seed. Review when you're ready. |
 
@@ -137,10 +140,12 @@ review and recovery mechanics, not model quality;
 [#401](https://github.com/jon-devlapaz/tinkery/issues/401) retains that evaluation work.
 
 Without a composed goal, omit the review invitation. F1 uses the same first sentence
-and offers review only with a saveable goal. In practice or without a sessions folder, help says
+and names “1: Review the goal” only with a saveable current goal: no unsent words, held reply or unfinished
+reading. Listing and entry share these prerequisites; direct entry keeps its refusal messages.
+In practice or without a sessions folder, help says
 saving needs real mode and a sessions folder. With no goal, offer adding words then F2,
 without a missing-field interview. If the first reading was unapplied or cancelled,
-offer an F2 retry. State depends only on goal
+offer an F2 retry. Readiness text depends only on goal
 content, including sent-but-unapplied words and unanswered skips, never recording
 or unsent text. Review lists all open intent.
 
@@ -150,6 +155,8 @@ and questions may travel to the seed. Readiness is not required to save; saving
 is neither seed nor implementation approval.
 Review reserves the confirmation input row and normal instruction height, so typing
 or correcting `confirm` does not move an already-read end. Unread content still prevents saving.
+Until the current review reaches its end, ordinary instructions, the key bar and review help
+name PgDn before confirmation. Once it fits or reaches the end, they offer the existing typed confirmation.
 Below 80×24, the size warning holds review input and scrolling; no new save can start.
 Resize is painted before queued keys and paste resume; mouse events from the old layout are ignored.
 Existing input, goal and attribution stay intact;
@@ -327,6 +334,8 @@ F1 opens bounded reading-side help without changing originals or drafts. Right n
 with the numbered rows (a digit runs its row once and closes help), then the state; `h`
 opens How it works and F1 closes. Labels fit one line of an 80-column panel; a short
 panel drops its blank rows and packs its keys so the rows stay above the writing box.
+Lists longer than nine actions show a fixed page hint: Left/Right changes pages;
+1–9 chooses from the displayed page. Reopening F1 starts at the first page.
 The layer title is jade, headings and keys bold ink, and labels and borders muted.
 Short pages fit; long pages scroll under a fixed title and navigation. Show the
 scroll hint only on overflow. Empty technical sections add no gap before Last result.
@@ -334,7 +343,7 @@ scroll hint only on overflow. Empty technical sections add no gap before Last re
 Esc first cancels voice, otherwise closes or backs from technical help. Reading
 cancellation remains after help closes. Help blocks typing, paste and hidden send,
 review or voice actions. Ctrl-C cancellation stays, and `b` changes the preference without revealing the hidden bar. `?` remains
-text while writing. The review bar says `type confirm save goal and record` when recording.
+text while writing. Once the review reaches its end, its bar says `type confirm save goal and record` when recording.
 
 ### Editing and focus
 

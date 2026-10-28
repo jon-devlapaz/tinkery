@@ -19,6 +19,71 @@ pub enum AnswerAction {
     Delegate,
     /// Replace an operator-answered decision; settled dependents must be answered again.
     Revise(String),
+    /// Explicitly answer the one eligible deferred prerequisite without running a model.
+    Revisit(String),
+}
+
+/// One deferred prerequisite the operator may deliberately answer; originals remain unchanged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeferredPrerequisite {
+    /// The exact decision being answered.
+    pub id: String,
+    /// Its recorded label, or ID.
+    pub title: String,
+    /// Its original question.
+    pub question: String,
+    /// The operator's exact reason for deferring.
+    pub reason: String,
+    /// The operator's exact condition for revisiting.
+    pub revisit: String,
+}
+
+/// The first ready deferred blocker in an active session with no current or ready question.
+/// Review flags, the goal and unmet prerequisites or predicates never qualify.
+pub fn deferred_prerequisite(ledger: &Value) -> Result<Option<DeferredPrerequisite>, String> {
+    if !ledger["status"].is("active")
+        || ledger["origin"] == Value::Null
+        || ledger["current_question"] != Value::Null
+        || review_flags(&ledger["nodes"]).truth()
+        || super::next_question(&editable(ledger)?)?.is_some()
+    {
+        return Ok(None);
+    }
+    for node in ledger["nodes"].items() {
+        let id = node["id"].string().unwrap();
+        if !node["kind"].is("decision")
+            || !node["status"].is("deferred")
+            || node["id"] == ledger["origin"]
+            || !ledger["nodes"].items().iter().any(|n| {
+                n["kind"].is("decision")
+                    && n["status"].is("unresolved")
+                    && n["prerequisites"]
+                        .items()
+                        .iter()
+                        .any(|parent| parent.is(id))
+            })
+        {
+            continue;
+        }
+        let mut state = editable(ledger)?;
+        state["nodes"]
+            .list_mut()
+            .iter_mut()
+            .find(|n| n["id"].is(id))
+            .unwrap()
+            .set("status", "unresolved".into());
+        if !validate(&state)?.iter().any(|ready| ready == id) {
+            continue;
+        }
+        return Ok(Some(DeferredPrerequisite {
+            id: id.into(),
+            title: node["label"].string().unwrap_or(id).into(),
+            question: node["question"].string().unwrap_or(id).into(),
+            reason: node["defer_reason"].string().unwrap().into(),
+            revisit: node["revisit_condition"].string().unwrap().into(),
+        }));
+    }
+    Ok(None)
 }
 
 /// Whether a settled answer is the operator's revisable decision, never a finding or goal.
@@ -77,6 +142,23 @@ pub(super) fn change(
             node.set("evidence", evidence);
             state.set("current_question", Value::Null);
         }
+        AnswerAction::Revisit(words) => {
+            require(
+                deferred_prerequisite(ledger)?.is_some_and(|target| target.id == id),
+                "This is no longer the deferred prerequisite to answer. Reopen Shape.",
+            )?;
+            require(
+                text(&words.as_str().into()),
+                "Type your answer first; nothing was saved.",
+            )?;
+            node.set("status", "settled".into());
+            node.set("answer", words.as_str().into());
+            node.set("authority", "user".into());
+            node.set(
+                "authority_source",
+                "the operator explicitly answered a deferred prerequisite in Tinkery Shape".into(),
+            );
+        }
         AnswerAction::Revise(words) => {
             require(
                 can_revise(ledger, id),
@@ -129,6 +211,12 @@ pub(super) fn change(
             reason
         }
     })?;
+    if matches!(action, AnswerAction::Revisit(_)) {
+        state.set(
+            "current_question",
+            super::next_question(&state)?.map_or(Value::Null, |id| id.as_str().into()),
+        );
+    }
     if matches!(action, AnswerAction::Revise(_)) {
         let affected = descendants(&state["nodes"], &[id.to_owned()]);
         let current = ready

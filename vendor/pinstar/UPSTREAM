@@ -10,3 +10,11 @@ Modified for Tinkery on 2026-10-08:
 - src/render.rs: floating editor uses the host text color as well as its background.
 
 The scratchpad host exposes draft text notes, not a decision graph. It reuses upstream text-note creation, editing, selection, dragging, panning, zooming, resizing, deletion, and undo/redo. It does not expose file, external-editor, clipboard, raw-editor, or edge creation actions.
+
+Modified for Tinkery on 2026-10-28:
+- Cargo.toml: the hosted copy defaults to no optional features, keeping image dependencies out of text-only workspace checks. The images API remains available with --features images; verify the library with cargo test -p pinstar --lib --features images.
+
+Modified for Tinkery on 2026-10-28 (hosted library only):
+- Omit src/main.rs (56 lines) and src/app.rs (274 lines): only main called app::run_pinstar; Tinkery supplies its own in-memory host. This removes 330 Rust lines and the [[bin]] and RPM packaging declarations.
+- README.md and API.md: remove local executable installation/usage guidance and identify the retained default-keymap API as a library helper. Source module comments identify the hosted copy.
+- Retain every public library function, module and test, including optional images; retain LICENSE, attribution and upstream CHANGELOG.md. Normal dependency counts stay 107 by default and 214 with explicit images; no dependency or lockfile change, and no measured speed claim.

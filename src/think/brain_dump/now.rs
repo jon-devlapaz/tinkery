@@ -33,13 +33,11 @@ impl BrainDump {
         }
         let mut rows = vec![];
         let board = self.conversation.board();
-        if !self.running() {
-            if board.is_some_and(|b| b.goal().is_some()) && self.can_save() {
-                rows.push(Row::new("Review the goal", Act::Review));
-            }
-            if self.can_use_suggestion() {
-                rows.push(Row::new("Use the suggested answer", Act::UseSuggestion));
-            }
+        if self.can_review() {
+            rows.push(Row::new("Review the goal", Act::Review));
+        }
+        if self.can_use_suggestion() {
+            rows.push(Row::new("Use the suggested answer", Act::UseSuggestion));
         }
         if board.is_some() && self.conversation.focused_question().is_some() {
             rows.push(Row::new("Skip this question", Act::Skip));
@@ -73,7 +71,7 @@ impl BrainDump {
             }
         }
         if self.host.calls_left().is_some() {
-            rows.push(Row::new("Model and calls", Act::Model));
+            rows.push(Row::new("Model and runs", Act::Model));
         }
         rows
     }

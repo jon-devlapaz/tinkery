@@ -87,7 +87,7 @@ impl RetryFeedback {
     }
 }
 
-/// Reply fields decoded here or delegated unchanged to Tinkery's record validator.
+/// Current reply fields decoded here or delegated unchanged to Tinkery's record validator.
 /// The prompt's examples name the same fields.
 #[cfg(test)]
 pub(super) const FIELDS: &[&str] = &[
@@ -124,7 +124,7 @@ pub(super) const FIELDS: &[&str] = &[
     "contradictions",
     "decided",
     "done",
-    "failure_cases",
+    "failure_case",
     "checks",
     "statement",
     "kind",
@@ -310,7 +310,7 @@ impl Failure {
 pub(super) enum Why {
     /// Another writer changed the session first; nothing more was written.
     Stale,
-    /// No model calls are left.
+    /// No drafting runs are left.
     Budget(usize),
     /// The model call failed or its reply couldn't be used.
     Model(String),
@@ -785,9 +785,10 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                     "Seed reply field checks must be a non-empty list of check records.".to_owned()
                 })?;
             restore_case(goal, &mut checks);
+            let review = review_reply::decode(value["review"].clone(), &mut checks);
             let checks = Value::Array(checks);
             Ok(Next::Seed {
-                review: review_reply::decode(value["review"].clone(), &checks),
+                review,
                 confirming: value.get("confirming").cloned().ok_or_else(||
                     "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
                 checks,

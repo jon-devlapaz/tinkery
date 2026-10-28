@@ -68,7 +68,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     if text not in screen.text():return
    raise AssertionError(f'Stale modal still visible: {text}')
   def send(data,text):os.write(master,data);await_text(text)
-  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'type confirm')
+  def review():send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'You are confirming')
   try:
    if home:
     await_text('think');title=screen.text().splitlines()[1]
@@ -80,19 +80,22 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    if literals:dump += ' Accept "A  B" and "A B"; use IT and use it.'
    os.write(master,b'\x1b[200~'+dump.encode()+b'\x1b[201~');await_text('compound.')
    send(b'\x1bOQ','Which UI');assert not root.exists() and not records.exists()
-   # Unsent words block review, and the screen says why; clearing them clears the reason.
-   send(b'x\x1bOP','Review the goal');send(screen.pick('Review the goal'),'unsent');assert 'Send (F2) or clear your unsent words, then review.' in right(),screen.text()
-   os.write(master,b'\x7f');absent('unsent')
+   # Unsent words hide Review. Help navigation neither sends nor changes that draft.
+   before_calls=(run/'provider-calls').read_bytes()
+   send(b'x\x1bOP','Right now');assert '1  Review the goal' not in screen.text(),screen.text()
+   os.write(master,b'\x1bOQ');time.sleep(.1)
+   assert (run/'provider-calls').read_bytes()==before_calls and not root.exists() and not records.exists()
+   send(b'\x1b','F1 more');assert (run/'provider-calls').read_bytes()==before_calls;os.write(master,b'\x7f')
    if literals:
     await_text('Must: accept "A  B".')
     assert 'Must: accept "A B".' in screen.text(),screen.text()
-   review();assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in ' '.join(l[width*48//100:].strip() for l in screen.text().splitlines()),screen.text();assert not root.exists() and not records.exists()
+   review();assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in right() or "PgDn: read to the end first." in right(),screen.text();assert not root.exists() and not records.exists()
    if literals:
     assert 'Must: accept "A  B".' in screen.text() and 'Must: accept "A B".' in screen.text(),screen.text()
    # A refused Enter says why where the confirm prompt was: scroll first, or type the word.
    send(b'\r','Enter.');shown=' '.join(right().split());assert 'Read to the end first: PgDn scrolls. Then type confirm and Enter.' in shown or 'Type confirm, then Enter. Nothing saved.' in shown,screen.text()
    os.write(master,b'\x1bOQ');time.sleep(.1);assert not root.exists() and not records.exists(),'Opening/Enter/F2 implied consent'
-   os.write(master,b'\x1b');absent('type confirm');assert not root.exists() and not records.exists()
+   os.write(master,b'\x1b');absent('You are confirming');assert not root.exists() and not records.exists()
    review()
    os.write(master,b'\x1b[6~'*30);await_text('remain unresolved?')
    send(b'confirm\r','Saved.');await_text('Next:')

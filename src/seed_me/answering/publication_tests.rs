@@ -40,6 +40,10 @@ fn publication_clock_matches_python_including_zero_microseconds() {
 }
 
 pub(super) fn session(root: &Path) -> PathBuf {
+    session_with_goal(root, "TEST goal")
+}
+
+fn session_with_goal(root: &Path, goal: &str) -> PathBuf {
     let session = root.join("TEST-session");
     fs::create_dir(&session).unwrap();
     let initial = ledger::Value::parse(r#"{
@@ -51,10 +55,10 @@ pub(super) fn session(root: &Path) -> PathBuf {
     fs::write(session.join("ledger.json"), initial.pretty().unwrap()).unwrap();
     let mut state: Value =
         serde_json::from_str(&ledger::editable(&initial).unwrap().pretty().unwrap()).unwrap();
-    state["goal"] = "TEST goal".into();
+    state["goal"] = goal.into();
     state["origin"] = "goal".into();
     state["nodes"] = json!([{"id":"goal","kind":"decision","status":"settled","prerequisites":[],
-        "evidence":[],"answer":"TEST goal","authority":"user","authority_source":"TEST only",
+        "evidence":[],"answer":goal,"authority":"user","authority_source":"TEST only",
         "owner":"TEST operator","gate":"TEST gate"}]);
     publish_at(&session, 0, "TEST goal", &state, STAMP).unwrap();
     session
@@ -369,4 +373,91 @@ fn success_lines_preserve_unicode_and_bullets_without_inventing_missing_requirem
         &only_first,
     )
     .unwrap();
+}
+
+#[test]
+fn literal_goal_comments_in_headline() {
+    literal_goal_round_trip("TEST <!-- example --> goal");
+}
+
+#[test]
+fn literal_goal_comment_opener_in_headline() {
+    literal_goal_round_trip("TEST <!-- goal");
+}
+
+#[test]
+fn literal_goal_comments_in_must() {
+    literal_goal_round_trip("TEST goal\nMust:\n- Keep <!-- example --> literal");
+}
+
+#[test]
+fn literal_goal_comment_opener_in_must() {
+    literal_goal_round_trip("TEST goal\nMust:\n- Keep <!-- literal");
+}
+
+fn literal_goal_round_trip(goal: &str) {
+    let root = temp();
+    let session = session_with_goal(root.path(), goal);
+    let prose =
+        ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
+    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST"}]);
+    let revision = draft_seed(&session, 1, &prose, &checks, &[], root.path(), None).unwrap();
+    let path = session.join("seed-contract.md");
+    let seed = fs::read_to_string(&path).unwrap();
+    assert_eq!(read(&session).unwrap().goal(), Some(goal));
+    assert!(seed.contains(&format!("# Seed: {}\n", goal.lines().next().unwrap())));
+    assert!(seed.contains(&goal.split_whitespace().collect::<Vec<_>>().join(" ")));
+    let origin = seed
+        .lines()
+        .find(|line| line.starts_with("- goal ["))
+        .unwrap();
+    let mut malformed_seeds = vec![
+        seed.replace("## Open questions", "## Injected\n## Open questions"),
+        seed.replace("## Open questions", "## Missing canonical section"),
+        seed.replace(origin, &format!("{origin} changed")),
+        seed.replace("# Seed:", "<!-- outside comment\n# Seed:"),
+    ];
+    let title = format!("# Seed: {}", goal.lines().next().unwrap());
+    if title.contains("<!--") {
+        malformed_seeds.push(seed.replace(&title, &format!("{title} changed")));
+    }
+    for malformed in malformed_seeds {
+        fs::write(&path, &malformed).unwrap();
+        assert!(
+            confirm_seed(
+                &session,
+                read(&session).unwrap().version(),
+                &revision,
+                &malformed,
+                "TEST seed only",
+                None
+            )
+            .is_err()
+        );
+        assert!(!session.join("seed-confirmation.json").exists());
+    }
+    fs::write(&path, &seed).unwrap();
+    confirm_seed(
+        &session,
+        read(&session).unwrap().version(),
+        &revision,
+        &seed,
+        "TEST seed only",
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        ledger::status(&session).unwrap()["handoff"]["verified"],
+        ledger::Value::Bool(true)
+    );
+    assert_eq!(read(&session).unwrap().goal(), Some(goal));
+    let ledger_path = session.join("ledger.json");
+    let original = fs::read_to_string(&ledger_path).unwrap();
+    let mut changed: Value = serde_json::from_str(&original).unwrap();
+    changed["goal"] = format!("{goal} changed").into();
+    fs::write(&ledger_path, serde_json::to_string(&changed).unwrap()).unwrap();
+    assert!(
+        ledger::status(&session).map_or(true, |status| status["handoff"]["verified"]
+            != ledger::Value::Bool(true))
+    );
 }

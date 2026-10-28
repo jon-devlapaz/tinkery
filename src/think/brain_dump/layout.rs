@@ -30,8 +30,8 @@ pub(super) const STATUS_ROWS: u16 = 2;
 
 fn thinking_status(app: &BrainDump) -> &'static str {
     match app.host.call_in_flight() {
-        Some(Request::Shaping) => "Thinking… (call 1 of up to 2)",
-        Some(Request::DecisionReview) => "Reviewing decisions… (call 2 of up to 2)",
+        Some(Request::Shaping) => "Thinking… (run 1 of up to 2)",
+        Some(Request::DecisionReview) => "Reviewing decisions… (run 2 of up to 2)",
         _ => "Thinking…",
     }
 }
@@ -171,7 +171,9 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
         None => match (open_intent(app), app.conversation.board()) {
             (Some(line), Some(g)) if !app.running() => ratatui::text::Text::styled(
-                if g.goal().is_none() || line == READY_FOR_REVIEW {
+                if line == READY_FOR_REVIEW && app.can_review() {
+                    format!("{line} F1, then 1: Review the goal.")
+                } else if g.goal().is_none() || line == READY_FOR_REVIEW {
                     line
                 } else {
                     format!("{line} Review when you're ready.")
@@ -412,6 +414,13 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         }
     } else if app.handoff.job.is_some() {
         "Saving your goal. Wait a moment."
+    } else if app
+        .handoff
+        .review
+        .as_ref()
+        .is_some_and(|review| review.scroll < review.max)
+    {
+        "Esc closes help; then PgDn reads the rest.\nNothing is saved yet."
     } else if app.handoff.review.is_some() && app.records() {
         "Type confirm, then Enter, to save this goal and its think record.\nEsc goes back without saving."
     } else if app.handoff.review.is_some() {
@@ -441,9 +450,9 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         open_now = format!(
             "{}\n{}",
             open_intent(app).unwrap_or_else(|| "No question left.".into()),
-            if composed && app.can_save() {
-                "Review the goal from the list above."
-            } else if composed {
+            if app.can_review() {
+                "1: Review the goal."
+            } else if composed && !app.can_save() {
                 SAVE_NEEDS_REAL
             } else {
                 "You can add words, then F2 sends."
@@ -453,17 +462,16 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else {
         "Type your answer.\nF2 sends."
     };
-    let left = app
-        .host
-        .calls_left()
-        .map_or_else(String::new, |left| format!("\n{left}"));
+    let left = app.host.calls_left().map_or_else(String::new, |left| {
+        format!("\n{left}\nOne send may use two drafting runs: reading and decision review.")
+    });
     let voice = if app.voice_available() {
         "\nF6 or Ctrl+Alt+Z (⌃⌥Z) speaks; your voice stays on this machine."
     } else {
         ""
     };
     // The numbered actions come first, so even a short panel shows them without scrolling.
-    let rows = crate::actions::text(&app.rows());
+    let rows = app.screen.actions.text(&app.rows());
     let rows = if rows.is_empty() {
         rows
     } else {
@@ -503,7 +511,10 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         vec![]
     } else if app.handoff.receipt.is_some() {
         vec![("s", "open in tend"), ("esc", "menu")]
-    } else if app.handoff.review.is_some() {
+    } else if let Some(review) = &app.handoff.review {
+        if review.scroll < review.max {
+            return vec![("PgDn", "read to end"), ("esc", "back")];
+        }
         let save = if app.records() {
             "save goal and record"
         } else {

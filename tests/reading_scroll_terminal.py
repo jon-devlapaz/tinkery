@@ -49,11 +49,11 @@ def journey(width, height, no_color):
                 if select.select([master], [], [], 0.01)[0]:
                     screen.feed(os.read(master, 65536))
 
-        def wait_for(condition, description):
+        def wait_for(condition, description, after=0):
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 pump(0.02)
-                if condition() and not screen.synchronized:
+                if condition() and screen.ready(after):
                     return
                 if process.poll() is not None:
                     break
@@ -91,7 +91,9 @@ def journey(width, height, no_color):
             calls = (cwd / 'calls.jsonl').read_bytes()
             requests = [json.loads(line) for line in calls.splitlines()]
             assert len(requests) == 2 and requests[0]['sources'][0]['text'] == DUMP
-            send(b'\x1bOP')
+            before = screen.frames
+            os.write(master, b'\x1bOP')
+            wait_for(lambda: 'Copy the reading' in screen.text(), 'Reading actions missing', before)
             copied = copy(screen.pick('Copy the reading'))
             assert '\n## I think this is about… / guess\n\n' + GOAL + '\n\n' in copied, copied
             assert DUMP in copied
@@ -126,7 +128,13 @@ def journey(width, height, no_color):
                 send(b'\x1b[6~')
             else:
                 raise AssertionError('How it works does not document reading scrolling')
-            send(b'\x1b'); send(b'\x1b')
+            before = screen.frames
+            os.write(master, b'\x1b')
+            wait_for(lambda: '┌ Right now ' in screen.text(), 'Contextual help missing', before)
+            before = screen.frames
+            os.write(master, b'\x1b')
+            wait_for(lambda: HINT in right() and '┌ Right now ' not in screen.text(),
+                     'Reading did not return after Help', before)
             assert reading() == before_help
             send(b'\x01')
             assert copy(b'\x03') == draft
@@ -137,7 +145,7 @@ def journey(width, height, no_color):
 
             # Review still needs its own explicit action; exiting starts and saves nothing.
             send(b'\x7f'); send(b'\x1bOP'); send(screen.pick('Review the goal'))
-            wait_for(lambda: 'type confirm' in screen.text(), 'Review missing')
+            wait_for(lambda: 'You are confirming' in screen.text(), 'Review missing')
             send(b'\x1b'); send(b'\x1b')
             wait_for(lambda: 'Back to menu and lose this draft?' in screen.text(), 'Exit guard missing')
             send(b'n')

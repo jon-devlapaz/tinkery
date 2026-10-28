@@ -13,6 +13,7 @@ pub(super) enum Choice {
     Delegate,
     Object,
     Revise,
+    Revisit,
     TeachBack,
     Folder,
     SoFar,
@@ -27,15 +28,7 @@ impl Shape {
         let Some(open) = &self.open else {
             return vec![];
         };
-        if open.running.is_some()
-            || open.writing.is_some()
-            || open.form.is_some()
-            || open.choosing.is_some()
-            || open.teach_back.is_some()
-            || open.objecting
-            || open.asking.is_some()
-            || open.so_far.is_some()
-        {
+        if !open.offers_choices() {
             return vec![];
         }
         let mut rows = vec![];
@@ -54,6 +47,13 @@ impl Shape {
         }
         if agent && open.revisable() {
             rows.push(Row::new("Revise the answer", Choice::Revise));
+        }
+        if agent
+            && let Reading::Done(Ok(Shaping {
+                deferred: Some(_), ..
+            })) = &open.reading
+        {
+            rows.push(Row::new("Answer deferred prerequisite", Choice::Revisit));
         }
         if agent && open.offers_teach_back() {
             rows.push(Row::new("Teach back what will be built", Choice::TeachBack));
@@ -78,14 +78,19 @@ impl Shape {
             }
         }
         if self.agent.is_some() && matches!(open.reading, Reading::Done(Ok(_))) {
-            rows.push(Row::new("Model and calls", Choice::Model));
+            rows.push(Row::new("Model and runs", Choice::Model));
         }
         rows
     }
 
     /// Runs the row F1 numbers with this digit, if any; the caller closes help when it does.
     pub fn pick(&mut self, key: KeyEvent) -> bool {
-        let Some(choice) = crate::actions::pick(&self.rows(), key) else {
+        let rows = self.rows();
+        if self.actions.turn(rows.len(), key) {
+            self.help_scroll = 0;
+            return false;
+        }
+        let Some(choice) = self.actions.pick(&rows, key) else {
             return false;
         };
         self.run(choice);
@@ -121,6 +126,16 @@ impl Shape {
             Choice::End(ending) => {
                 open.asking = Some(ending);
                 open.notice = Some(asked(ending));
+            }
+            Choice::Revisit => {
+                if let Reading::Done(Ok(Shaping {
+                    deferred: Some(target),
+                    version: Some(expected),
+                    ..
+                })) = &open.reading
+                {
+                    open.form = Some(Form::revisit(target.clone(), *expected));
+                }
             }
             Choice::Model => {}
             Choice::Defer | Choice::Delegate | Choice::Revise => {

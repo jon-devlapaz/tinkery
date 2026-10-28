@@ -72,6 +72,7 @@ pub struct Shape {
     unreadable: usize,
     failures: Vec<crate::seed_me::ReadFailure>,
     help_scroll: u16,
+    actions: crate::actions::Page,
     selected: usize,
     open: Option<Opened>,
     scroll: u16,
@@ -80,7 +81,7 @@ pub struct Shape {
     agent: Option<Arc<Agent>>,
     /// An agent launch without --shape-pi: Shape only reads.
     held: bool,
-    /// F1's Model and calls row asked for the Model panel, which the launch owns.
+    /// F1's Model and runs row asked for the Model panel, which the launch owns.
     model: bool,
 }
 
@@ -136,6 +137,11 @@ struct Opened {
 /// A change Shape asks of the ledger without a model.
 #[derive(Clone)]
 enum Write {
+    Revisit {
+        id: String,
+        expected: u64,
+        words: String,
+    },
     End(Ending),
     Object(String),
     Keep {
@@ -201,6 +207,7 @@ impl Shape {
             unreadable: 0,
             failures: Vec::new(),
             help_scroll: 0,
+            actions: crate::actions::Page::default(),
             selected: 0,
             open: Some(Opened::start(session)),
             scroll: 0,
@@ -228,7 +235,7 @@ impl Shape {
         self
     }
 
-    /// Whether F1's Model and calls row was picked since the last ask. Asking clears it.
+    /// Whether F1's Model and runs row was picked since the last ask. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         std::mem::take(&mut self.model)
     }
@@ -274,6 +281,7 @@ impl Shape {
             unreadable: 0,
             failures: Vec::new(),
             help_scroll: 0,
+            actions: crate::actions::Page::default(),
             selected: 0,
             open: None,
             scroll: 0,
@@ -356,6 +364,11 @@ impl Shape {
             if let Some(result) = result {
                 open.writing = None;
                 open.notice = Some(match (result, write) {
+                    (Ok(()), Write::Revisit { .. }) => {
+                        open.form = None;
+                        open.typed.clear();
+                        ("Deferred prerequisite answered. No model ran.".into(), None)
+                    }
                     (Ok(()), Write::End(Ending::Completed)) => {
                         ("Session completed. It's read-only now.".into(), None)
                     }
@@ -632,9 +645,9 @@ impl Shape {
                     },
                     |a| {
                         let step = if open.offers_teach_back() {
-                            "Each teach-back comparison is one call, without repository access."
+                            "Each teach-back comparison uses one drafting run, without repository access."
                         } else {
-                            "Each F2 step is one call, with read-only tools."
+                            "Asking the model uses one drafting run. Read-only tools may need several provider requests; manual actions may use none."
                         };
                         format!(
                             "{} {step}\n\
@@ -674,7 +687,7 @@ impl Shape {
                             ..
                         }),
                     ) => {
-                        "Say what will and won't be built in your own words. F2 saves and compares (one model call); Esc cancels. Mismatches are guesses and never block confirming."
+                        "Say what will and won't be built in your own words. F2 saves and compares (one drafting run); Esc cancels. Mismatches are guesses and never block confirming."
                     }
                     (
                         Some(_),
@@ -693,7 +706,7 @@ impl Shape {
                         }),
                     ) => {
                         concat!(
-                            "Type your answer. Enter adds a line. F2 saves it and looks into the next question (one model call). ",
+                            "Type your answer. Enter adds a line. F2 saves it and looks into the next question. A model step uses one drafting run. ",
                             "PgUp/PgDn scroll the reading."
                         )
                     }
@@ -748,7 +761,7 @@ impl Shape {
                 .to_owned()
         } else {
             "Shape reads and calls no model; its only write is ending a session, from F1, which asks once more first. \
-                 To set up Shape, press Esc until the menu, then m: choose a model and calls, and s saves them. \
+                 To set up Shape, press Esc until the menu, then m: choose a model and runs, and s saves them. \
                  Then q quits; start Tinkery again, keeping the same --seed-session-root if you supplied one. \
                  Open Tend (2), select this saved goal, press Enter, then s to reopen Shape."
                 .to_owned()
@@ -760,7 +773,7 @@ impl Shape {
             ""
         };
         // The numbered actions come first, so even a short panel shows them without scrolling.
-        let rows = crate::actions::text(&self.rows());
+        let rows = self.actions.text(&self.rows());
         let rows = if rows.is_empty() {
             rows
         } else {
@@ -1130,6 +1143,18 @@ impl Opened {
         )
     }
 
+    /// F1 actions are unavailable while another form, view or operation owns the session.
+    fn offers_choices(&self) -> bool {
+        self.running.is_none()
+            && self.writing.is_none()
+            && self.form.is_none()
+            && self.choosing.is_none()
+            && self.teach_back.is_none()
+            && !self.objecting
+            && self.asking.is_none()
+            && self.so_far.is_none()
+    }
+
     fn offers_answers(&self) -> bool {
         matches!(
             &self.reading,
@@ -1260,6 +1285,21 @@ impl Opened {
                 (Write::Keep { id, reason }, Some(expected)) => {
                     answering::keep(&session, expected, &id, &reason, actor)
                 }
+                (
+                    Write::Revisit {
+                        id,
+                        expected,
+                        words,
+                    },
+                    _,
+                ) => answering::respond(
+                    &session,
+                    expected,
+                    &id,
+                    &AnswerAction::Revisit(words),
+                    actor,
+                )
+                .map(|_| ()),
                 (Write::End(ending), _) => answering::end(&session, ending, actor),
                 (Write::Object(text), Some(expected)) => {
                     answering::object(&session, expected, &text, actor).map(|_| ())
@@ -1336,6 +1376,22 @@ impl Opened {
     /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget, a folder
     /// not yet known and a seed not yet read to the end before anything is written or called.
     fn act(&mut self, act: Act, agent: &Arc<Agent>) {
+        if let Act::Respond {
+            id,
+            expected,
+            action: AnswerAction::Revisit(words),
+        } = &act
+        {
+            self.write(
+                Write::Revisit {
+                    id: id.clone(),
+                    expected: *expected,
+                    words: words.clone(),
+                },
+                "Saving your answer. No model runs.",
+            );
+            return;
+        }
         let words = self
             .teach_back
             .as_ref()
@@ -1388,7 +1444,7 @@ impl Opened {
                 let doing = match &action {
                     AnswerAction::Defer { .. } => Doing::Defer,
                     AnswerAction::Delegate => Doing::Delegate,
-                    AnswerAction::Revise(_) => Doing::Revise,
+                    AnswerAction::Revise(_) | AnswerAction::Revisit(_) => Doing::Revise,
                 };
                 (
                     Work::Respond {
@@ -1753,7 +1809,13 @@ fn render_open(
                     instinct: open.instinct_first(),
                 },
             };
-            let (said, mut input) = standing(shaping, stand, palette);
+            let (mut said, mut input) = standing(shaping, stand, palette);
+            if agent && !held && open.offers_choices() && shaping.deferred.is_some() {
+                said.lines.push(Line::styled(
+                    "F1 offers an explicit answer; no model runs.",
+                    palette.muted,
+                ));
+            }
             if let Some(note) = &shaping.confirmation_note {
                 input.lines.push(Line::styled(note.clone(), palette.muted));
             }
@@ -1817,7 +1879,7 @@ fn render_open(
         open.typing().filter(|_| agent).map(|t| t.label)
     };
     let split = label.and_then(|label| input.lines.iter().position(|l| l.to_string() == label));
-    let (before, after) = match split {
+    let (before, mut after) = match split {
         Some(i) => (
             Text::from(input.lines[..=i].to_vec()),
             Text::from(input.lines[i + 1..].to_vec()),
@@ -1866,6 +1928,7 @@ fn render_open(
             .is_some_and(|(said, _)| said == READ_FIRST)
     {
         open.notice = None;
+        after.lines.retain(|line| line.to_string() != READ_FIRST);
     }
     frame.render_widget(
         Paragraph::new(reading)
@@ -1989,10 +2052,10 @@ fn said(
         ),
         Why::Budget(limit) => (
             format!(
-                "{saved}No model calls are left: this run's budget is {limit}. Nothing {}was saved.",
+                "{saved}No drafting runs are left: this launch's allowance is {limit}. Nothing {}was saved.",
                 if answer_saved { "more " } else { "" }
             ),
-            Some("Next: add calls from F1, Model and calls, then send again.".into()),
+            Some("Next: add runs from F1, Model and runs, then send again.".into()),
         ),
         Why::Model(error) => (
             format!(
@@ -2008,7 +2071,7 @@ fn said(
         Why::Refused(reason) => (format!("{saved}{reason}{left}"), None),
         Why::Stopped => (
             format!(
-                "{saved}Stopped before the next step finished. The model call it started still counts against this run's budget.{left}"
+                "{saved}Stopped before the next step finished. The drafting attempt still counts against this launch's allowance.{left}"
             ),
             None,
         ),
@@ -2160,6 +2223,12 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             })
         }
         Shaped::Waiting => {
+            if let Some(target) = &shaping.deferred {
+                lines.push(Line::styled(
+                    format!("Deferred prerequisite: {}", target.title),
+                    palette.ink,
+                ));
+            }
             if !calm {
                 lines.push(Line::styled(
                     if shaping.success_open {

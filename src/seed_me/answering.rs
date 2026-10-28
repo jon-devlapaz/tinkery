@@ -581,6 +581,8 @@ mod prerequisite_tests;
 #[cfg(test)]
 mod publication_tests;
 #[cfg(test)]
+mod recovery_tests;
+#[cfg(test)]
 mod resolution_tests;
 #[cfg(test)]
 mod typed_tests;

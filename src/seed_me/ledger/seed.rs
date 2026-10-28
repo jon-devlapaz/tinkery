@@ -36,7 +36,7 @@ pub(super) fn seed_lines(directory: &Path) -> Result<Vec<String>> {
             path.display()
         ),
     )?;
-    Ok(fs::read_to_string(path)
+    Ok(super::super::read_seed_text(&path)
         .map_err(|e| e.to_string())?
         .split_inclusive('\n')
         .map(str::to_owned)
@@ -225,6 +225,24 @@ fn decisions_lines(ledger: &Value) -> Result<Vec<(String, String)>> {
     Ok(rows)
 }
 
+/// Only complete goal projections are literal: their originals remain unchanged.
+pub(super) fn goal_lines(ledger: &Value) -> Result<Vec<String>> {
+    let title = ledger["goal"]
+        .string()
+        .unwrap_or("")
+        .lines()
+        .next()
+        .unwrap_or("");
+    let mut lines = vec![format!("# Seed: {title}")];
+    lines.extend(
+        decisions_lines(ledger)?
+            .into_iter()
+            .filter(|(id, _)| Some(id.as_str()) == ledger["origin"].string())
+            .map(|(_, line)| line),
+    );
+    Ok(lines)
+}
+
 /// The ledger-owned Decisions and Assumed sections, verbatim and read-only.
 pub fn decisions_block(ledger: &Value) -> Result<String> {
     Ok(decisions_lines(ledger)?
@@ -264,7 +282,7 @@ pub fn seed_summary(directory: &Path) -> Result<Value> {
     if !path.is_file() {
         return Ok(Value::Null);
     }
-    let data = fs::read(path).map_err(|e| e.to_string())?;
+    let data = super::super::read_seed(&path).map_err(|e| e.to_string())?;
     let text = String::from_utf8_lossy(&data);
     let lines: Vec<_> = text.split('\n').collect();
     let label = lines.iter().skip(1).find_map(|s| revision(s));
@@ -378,7 +396,7 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
             "the decisions changed after revision {label} was confirmed"
         ));
     }
-    let Ok(records) = checks::require_seed_checks(directory, true) else {
+    let Ok(records) = checks::require_seed_checks(directory, ledger, true) else {
         return refused("checks are missing, invalid or differ from the rendered seed".into());
     };
     if record["checks_sha256"].string() != Some(&checks::digest(&records)?) {
@@ -517,7 +535,7 @@ pub(super) fn confirmed_as(
     )?;
     require_seed_body(directory, "cannot confirm")?;
     require_seed_decisions(directory, ledger, "cannot confirm")?;
-    let records = checks::require_seed_checks(directory, false)?;
+    let records = checks::require_seed_checks(directory, ledger, false)?;
     let first_end = split_terminator(&lines[0]).1;
     let first_end = if first_end.is_empty() {
         "\n"

@@ -312,6 +312,18 @@ fn active_recipient_survives_editing_and_saving_later_settings() {
                     assert_eq!(load(&file).unwrap().unwrap().model, "claude-sonnet-5-5");
                 }
                 let shown = screen_at(&controls, width, height);
+                let without_border = shown.replace('│', " ");
+                let words = without_border
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                for definition in [
+                    "Runs count drafting attempts, including failures and cancellations.",
+                    "Tools or retries may make several provider requests.",
+                    "No spending cap.",
+                ] {
+                    assert!(words.contains(definition), "Missing {definition}:\n{shown}");
+                }
                 for text in [
                     &recipient,
                     "For later launches",
@@ -321,7 +333,7 @@ fn active_recipient_survives_editing_and_saving_later_settings() {
                 ] {
                     assert!(shown.contains(text), "Missing {text}:\n{shown}");
                 }
-                assert_eq!(controls.label(), "0 calls left");
+                assert_eq!(controls.label(), "0 runs left");
             }
         }
     }
@@ -378,7 +390,7 @@ fn saving_refuses_calls_without_a_model_and_typing_refuses_a_loose_model() {
     press(&mut controls, KeyCode::Down);
     press(&mut controls, KeyCode::Enter);
     press(&mut controls, KeyCode::Char('s'));
-    assert!(screen(&controls).contains("Choose a model before allowing calls."));
+    assert!(screen(&controls).contains("Choose a model before allowing drafting runs."));
     assert!(!file.exists());
 }
 
@@ -398,7 +410,7 @@ fn adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap() {
     let budget = CallBudget::new(1);
     assert!(budget.reserve(Request::Shaping).is_ok());
     let refused = budget.reserve(Request::Shaping).unwrap_err();
-    assert!(refused.contains("Add calls to keep going."), "{refused}");
+    assert!(refused.contains("Add runs to keep going."), "{refused}");
     let home = tempfile::tempdir().unwrap();
     let file = path(Some(home.path().as_os_str())).unwrap();
     let mut controls = Controls::new(
@@ -406,14 +418,14 @@ fn adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap() {
         Ok(None),
         Some((setup("p/active", "low", 1), budget.clone())),
     );
-    assert_eq!(controls.label(), "0 calls left");
+    assert_eq!(controls.label(), "0 runs left");
     controls.open();
     for _ in 0..4 {
         press(&mut controls, KeyCode::Down);
     }
     press(&mut controls, KeyCode::Enter);
     assert_eq!(budget.remaining(), 5);
-    assert_eq!(controls.label(), "5 calls left");
+    assert_eq!(controls.label(), "5 runs left");
     assert!(screen(&controls).contains("5 left · enter adds 5"));
     press(&mut controls, KeyCode::Esc);
     assert!(!file.exists(), "adding calls saved nothing");
@@ -437,7 +449,7 @@ fn an_agent_sees_the_setup_but_cannot_save_it_or_add_calls() {
     .for_agent();
     controls.open();
     press(&mut controls, KeyCode::Char('s'));
-    assert!(screen(&controls).contains("An agent can't save a setup or add calls"));
+    assert!(screen(&controls).contains("An agent can't save a setup or add runs"));
     for _ in 0..4 {
         press(&mut controls, KeyCode::Down);
     }

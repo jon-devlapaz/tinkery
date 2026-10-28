@@ -26,6 +26,15 @@ pub fn queue_question(state: &mut Value, question: Value) -> Result<()> {
             .all(|parent| find(&state["nodes"], parent.string().unwrap())["kind"].is("decision")),
         "A question can wait only for earlier decisions, not findings. Cite findings in supported_by and retry the step.",
     )?;
+    for parent in node["prerequisites"].items() {
+        let parent = parent.string().unwrap();
+        require(
+            !find(&state["nodes"], parent)["status"].is("deferred"),
+            format!(
+                "Question {id} cannot wait for deferred decision {parent}. A deferral is not a settled answer. Choose a question that does not depend on it and retry the step."
+            ),
+        )?;
+    }
     if state["current_question"] == Value::Null {
         let current = first_question(state, &ready).map_or(Value::Null, Value::from);
         state.set("current_question", current);

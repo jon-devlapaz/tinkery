@@ -14,6 +14,7 @@ class Screen:
         self.pending = ""
         self.clipboards = []
         self.synchronized = False
+        self.frames = 0
         self.decoder = codecs.getincrementaldecoder("utf-8")()
 
     def feed(self, data):
@@ -42,6 +43,8 @@ class Screen:
                     continue
                 if arguments == "?2026" and command in ("h", "l"):
                     self.synchronized = command == "h"
+                    if command == "l":
+                        self.frames += 1
                     continue
                 if arguments.startswith("?") or command == "m":
                     continue
@@ -83,6 +86,10 @@ class Screen:
 
     def text(self):
         return "\n".join("".join(row) for row in self.cells)
+
+    def ready(self, after=0):
+        """A newer complete frame is available; callers must also identify their expected view."""
+        return self.frames > after and not self.synchronized and not self.pending
 
     def pick(self, label):
         """The digit F1's open list shows beside `label`, as the bytes that choose it."""

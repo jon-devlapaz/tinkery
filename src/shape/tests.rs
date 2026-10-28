@@ -19,6 +19,7 @@ fn done(stage: Shaped) -> Shape {
         confirmation_note: None,
         confirmation: vec![],
         teach_back: vec![],
+        deferred: None,
         open: vec![],
         decided: vec![
             Decided {
@@ -648,14 +649,14 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     );
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(
-        flat.contains("No model calls are left: this run's budget is 0."),
+        flat.contains("No drafting runs are left: this launch's allowance is 0."),
         "{text}"
     );
     assert!(
-        flat.contains("Next: add calls from F1, Model and calls, then send again."),
+        flat.contains("Next: add runs from F1, Model and runs, then send again."),
         "{text}"
     );
-    choose(&mut shape, "Model and calls");
+    choose(&mut shape, "Model and runs");
     assert!(
         shape.take_model_request() && !shape.take_model_request(),
         "the row asks the launch for the panel once"
@@ -1746,7 +1747,7 @@ fn prompt_recovery_separates_existing_checks_from_missing_assertions() {
         "not provisional merely because setup",
         "state those prerequisites and intended red separately",
         "Use provisional when the needed test/assertion or invocation is missing",
-        "never invent a command or substitute an existing generic runner for a missing regression",
+        "never invent a runner or substitute an existing generic suite for a missing regression",
         "under a targeted reversion of an already-present fix",
     ] {
         assert!(
@@ -3284,11 +3285,14 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                 shape.open.as_ref().unwrap().typed.text(),
                 "TEST exact words café  "
             );
+            shape.key(key(KeyCode::F(2)));
+            let refusal = screen(&mut shape, width, height, no_color);
+            assert!(refusal.contains(READ_FIRST), "{refusal}");
             let mut text = String::new();
             for _ in 0..30 {
                 shape.key(key(KeyCode::PageDown));
                 text = screen(&mut shape, width, height, no_color);
-                if shape.open.as_ref().unwrap().read_end.is_some() {
+                if text.lines().any(|line| line.trim() == "End of seed") {
                     break;
                 }
             }
@@ -3297,6 +3301,10 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             assert!(
                 text.lines().last().unwrap().contains("F2 confirm seed r1"),
                 "{text}"
+            );
+            assert!(
+                !text.contains(READ_FIRST),
+                "first end frame kept the obsolete refusal: {text}"
             );
             assert!(!text.contains("read to end"), "{text}");
             shape.key(key(KeyCode::PageUp));
@@ -3331,6 +3339,12 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             assert!(
                 text.lines().last().unwrap().contains("F2 confirm seed r1"),
                 "{text}"
+            );
+            empty.key(key(KeyCode::F(2)));
+            let refusal = screen(&mut empty, width, height, no_color);
+            assert!(
+                refusal.contains("Type your words first; nothing was confirmed."),
+                "unrelated refusal was cleared: {refusal}"
             );
         }
     }

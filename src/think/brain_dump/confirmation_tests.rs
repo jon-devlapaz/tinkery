@@ -1,6 +1,85 @@
 //! Confirmation provenance controls: declared identity is not authentication or permission.
 use super::readiness_tests::{app, parts};
 use super::*;
+
+#[test]
+fn first_review_frame_names_the_current_read_requirement() {
+    use std::time::{Duration, Instant};
+    struct Host(bool);
+    impl BoardHost for Host {
+        fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+            Guess::decode(
+                &serde_json::json!({"parts": {
+                    "who":"I", "outcome":"keep a repair log",
+                    "why": if self.0 { "Long TEST review. ".repeat(100) } else { "I forget repairs".into() },
+                    "done_when":"I find an earlier repair"
+                }}).to_string(),
+                &request,
+                &mut vec![],
+            )
+        }
+    }
+    for (width, height) in [(80, 24), (100, 30)] {
+        for mono in [false, true] {
+            for long in [false, true] {
+                let root = tempfile::tempdir().unwrap();
+                let mut app = BrainDump::with_host(Arc::new(Host(long)))
+                    .with_sessions(Some(root.path().join("TEST-sessions")));
+                app.paste("These exact TEST words stay mine.");
+                app.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE));
+                let deadline = Instant::now() + Duration::from_secs(5);
+                while app.running() && Instant::now() < deadline {
+                    app.tick();
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                assert!(!app.running());
+                app.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
+                app.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+                // The first draw must use its freshly measured bound, not the initial unmeasured bound.
+                let first = snapshot(width, height, &mut app, mono).unwrap();
+                assert_eq!(
+                    first.contains("PgDn: read to the end first."),
+                    long,
+                    "{first}"
+                );
+                assert_eq!(first.contains("type confirm"), !long, "{first}");
+                if long {
+                    app.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+                    app.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
+                    let help = snapshot(width, height, &mut app, mono).unwrap();
+                    assert!(
+                        help.split_whitespace()
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                            .contains("Esc closes help"),
+                        "{help}"
+                    );
+                    assert!(!help.contains("Type confirm"), "{help}");
+                    app.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+                    for _ in 0..200 {
+                        app.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+                    }
+                    let end = snapshot(width, height, &mut app, mono).unwrap();
+                    assert!(
+                        end.contains("type confirm") && !end.contains("read to end"),
+                        "{end}"
+                    );
+                    app.handle_key(KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE));
+                    assert!(
+                        snapshot(width, height, &mut app, mono)
+                            .unwrap()
+                            .contains("PgDn: read to the end first.")
+                    );
+                }
+                assert_eq!(
+                    app.conversation().sources()[0].text,
+                    "These exact TEST words stay mine."
+                );
+                assert!(app.saved().is_none() && !root.path().join("TEST-sessions").exists());
+            }
+        }
+    }
+}
 use crate::think_record::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
 
 fn terminal(declaration: &str) -> GoalConfirmation {

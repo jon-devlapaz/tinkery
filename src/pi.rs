@@ -164,8 +164,8 @@ pub struct Attempt {
     pub error: Option<String>,
 }
 
-/// A hard limit on Pi requests, shared by every host that holds it. A request is counted
-/// before anything starts, whatever happens after; once the limit is reached the next request is
+/// A hard limit on drafting attempts, shared by every host that holds it. An attempt is counted
+/// before preparing or starting the harness, whatever happens after; once the limit is reached the next request is
 /// refused unstarted. The count never resets, so a new session on the same budget can't spend
 /// it twice. Only an explicit [`CallBudget::add`] raises the limit, for this launch alone.
 #[derive(Debug)]
@@ -208,7 +208,7 @@ impl CallBudget {
     /// The allowance in the words both phases show: requests left out of the limit.
     pub fn left(&self) -> String {
         format!(
-            "Model calls left this run: {} of {}.",
+            "Drafting runs left this launch: {} of {}.",
             self.remaining(),
             self.limit()
         )
@@ -221,7 +221,7 @@ impl CallBudget {
         let limit = self.limit();
         if used >= limit {
             let error = format!(
-                "Call limit of {limit} reached; the next request was refused before it started. Add calls to keep going."
+                "Drafting run limit of {limit} reached; the next drafting run was refused before it started. Add runs to keep going."
             );
             attempts.push(Attempt {
                 kind,
@@ -807,7 +807,22 @@ mod tests {
 
     #[test]
     fn stopped_requests_kill_descendants_without_extending_the_deadline() {
+        // Failure assertions must not leave this fixture's group running.
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                if let Ok(text) = std::fs::read_to_string(&self.0)
+                    && let Ok(pid) = text.parse::<i32>()
+                    && pid > 0
+                {
+                    // SAFETY: the fake atomically records its own group leader before forking.
+                    unsafe { libc::kill(-pid, libc::SIGKILL) };
+                }
+            }
+        }
         let mut failures = Vec::new();
+        // Include the reproduced slow startup without doubling the deadline cases.
+        let startup_ms = 400;
         for (harness, mode) in Harness::ALL.into_iter().flat_map(|harness| {
             ["timeout", "exited", "cancel", "overflow"].map(|mode| (harness, mode))
         }) {
@@ -815,12 +830,16 @@ mod tests {
                 .prefix("tinkery-TEST-pi-")
                 .tempdir()
                 .unwrap();
+            let _cleanup = Cleanup(directory.path().join("TEST-group-pid"));
             let program = directory.path().join("pi");
             std::fs::write(
                 &program,
                 format!(
                     r#"#!/usr/bin/env python3
-import pathlib, subprocess, sys, time
+import os, pathlib, subprocess, sys, time
+pathlib.Path('TEST-group-pid.tmp').write_text(str(os.getpid()))
+pathlib.Path('TEST-group-pid.tmp').rename('TEST-group-pid')
+time.sleep({startup_ms} / 1000)
 child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'])
 pathlib.Path('TEST-child-pid.tmp').write_text(str(child.pid))
 pathlib.Path('TEST-child-pid.tmp').rename('TEST-child-pid')
@@ -842,25 +861,23 @@ time.sleep(10)
                 // With tools, both start in the folder that the fake writes its PID file to.
                 read_only_tools: true,
                 folder: Some(directory.path().into()),
-                timeout: if matches!(mode, "cancel" | "overflow") {
-                    Duration::from_secs(3)
-                } else {
-                    Duration::from_millis(250)
-                },
+                timeout: Duration::from_secs(3),
             };
             let cancelled = Arc::new(AtomicBool::new(false));
-            let cancel = if mode == "cancel" {
+            let ready = {
                 let cancelled = cancelled.clone();
                 let ready = directory.path().join("TEST-child-pid");
-                Some(thread::spawn(move || {
+                thread::spawn(move || {
                     let until = Instant::now() + Duration::from_secs(2);
                     while !ready.exists() && Instant::now() < until {
                         thread::sleep(Duration::from_millis(10));
                     }
-                    cancelled.store(true, Ordering::Relaxed);
-                }))
-            } else {
-                None
+                    let observed = ready.exists().then(Instant::now);
+                    if mode == "cancel" {
+                        cancelled.store(true, Ordering::Relaxed);
+                    }
+                    observed
+                })
             };
             let budget = CallBudget::new(1);
             let started = Instant::now();
@@ -871,14 +888,16 @@ time.sleep(10)
                 "TEST".into(),
                 &cancelled,
             );
-            let elapsed = started.elapsed();
-            if let Some(cancel) = cancel {
-                cancel.join().unwrap();
-            }
+            let returned = Instant::now();
+            let elapsed = returned.duration_since(started);
+            let ready = ready.join().unwrap().unwrap_or_else(|| {
+                panic!("{harness:?} {mode} startup {startup_ms}ms: fake never published its descendant PID; result {result:?}; waited {elapsed:?}")
+            });
             let pid: i32 = std::fs::read_to_string(directory.path().join("TEST-child-pid"))
-                .expect("fake Pi started its descendant")
+                .unwrap_or_else(|error| panic!("{harness:?} {mode} startup {startup_ms}ms: cannot read ready descendant: {error}"))
                 .parse()
                 .unwrap();
+            assert!(pid > 0);
             // An orphan may briefly remain a zombie until init reaps it. It cannot run.
             let running = || {
                 let output = Command::new("ps")
@@ -898,12 +917,26 @@ time.sleep(10)
                 unsafe {
                     libc::kill(pid, libc::SIGKILL);
                 }
-                failures.push(format!("{harness:?} {mode}: descendant survived"));
+                failures.push(format!(
+                    "{harness:?} {mode} startup {startup_ms}ms: descendant survived"
+                ));
             }
+            let response = returned.saturating_duration_since(ready);
+            println!(
+                "{harness:?} {mode} startup {startup_ms}ms: elapsed {elapsed:?}, ready response {response:?}, descendant {pid}, survived {survived}"
+            );
+            // Preserve the old 650ms - 250ms slack after the configured deadline.
+            let slack = Duration::from_millis(400);
             assert!(
-                elapsed < Duration::from_millis(650),
+                elapsed < call.timeout + slack,
                 "{harness:?} {mode}: waited {elapsed:?}"
             );
+            if matches!(mode, "cancel" | "overflow") {
+                assert!(
+                    response < slack,
+                    "{harness:?} {mode}: response waited {response:?}"
+                );
+            }
             let error = result.unwrap_err();
             let host = harness.label();
             let expected = match mode {

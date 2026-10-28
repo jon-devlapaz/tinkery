@@ -12,14 +12,14 @@ a skill is not the correct method for that crucial step of fact finding and shap
 making for tinkery prior to tink sdlc." Yohaku agrees: *move each correction left*,
 make the mistake impossible in the code, and write a rule only when code can't hold it.
 
-Seed Me's robustness lives in two places. Shape initially inherited only the helper's
-publication protections; shipped rows below now reach more of its rules:
+The former Seed Me helper is a historical reference, pinned above to 2026-10-19.
+Tinkery's shared Rust ledger now owns these protections:
 
-| Seed Me protection | Where it lives | Shape today |
+| Seed Me protection | Reference (helper: 2026-10-19) | Rust ledger today |
 | --- | --- | --- |
-| Stale writes refused, origin pinned, nodes never deleted | `session.py` `transition` (L320) | Inherited: Shape publishes through the helper. |
-| Confirmation bound to seed bytes, decisions and checks | `confirm_seed` (L950), `verify_handoff` (L916) | Inherited. |
-| Check records and the seed's heading sequence | `validate_checks` (L732), `document_headings` (L846) | Inherited. |
+| Stale writes refused, origin pinned, nodes never deleted | `session.py` `transition` (L320) | Shipped: shared Rust publication. |
+| Confirmation bound to seed bytes, decisions and checks | `confirm_seed` (L950), `verify_handoff` (L916) | Shipped: Rust seed confirmation and handoff verification. |
+| Check records and the seed's heading sequence | `validate_checks` (L732), `document_headings` (L846) | Shipped: Rust check and heading validation. |
 | Typed facts; an inference cites its observations | `validate_claim` (L78) | Shipped: typed fact nodes and `supported_by`, validated by the Rust ledger. |
 | Prerequisites, cycles, dependents wait | `validate` (L132) | Shipped: question replies preserve prerequisite decision IDs; the Rust ledger refuses invalid dependencies and holds questions until ready. |
 | Changed evidence or answers flag dependents for review | `review_flags` (L288), `transition` | Shipped: contradictory facts flag review; answer revision reopens settled dependents. |
@@ -48,7 +48,7 @@ the pinned `session.py` on the same fixtures and require identical refusals and 
 Seed Me's own suite (`tests/`, about 5,400 lines, mostly epistemics, session and checks)
 supplies the fixtures. Slice 8 retired that differential harness and fixture; Rust-only regressions now own the protections.
 
-The module promises what the helper promises today:
+The Rust ledger preserves these former helper protections:
 - **Validation:** node schema and statuses; prerequisites exist, are acyclic, and settle first;
   authority kinds; evidence behind `evidence` and `delegated` settlements; deferrals carry a
   reason and a revisit condition; inferences cite settled observations; `contradicts` only on facts.

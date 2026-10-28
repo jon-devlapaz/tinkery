@@ -15,6 +15,7 @@ import time
 import test_launch as subprocess
 from shape_terminal import make as make_session, seed as make_seed
 from vt_screen import Screen
+from support.seed_file_fixture import replaced_seed
 
 REPO = Path(__file__).resolve().parents[1]
 RUN_ID = '00000000-0000-4000-8000-000000000114'
@@ -31,9 +32,11 @@ if len(sys.argv) > 1 and sys.argv[1] == 'api':
         log.write(json.dumps(sys.argv[1:]) + '\\n')
     print('HTTP 404', file=sys.stderr)
     sys.exit(1)
+pid = Path(os.environ['TEST_TASTE_PID'])
+pid.with_suffix('.tmp').write_text(str(os.getpid()))
+pid.with_suffix('.tmp').replace(pid)
 with open(os.environ['TEST_TASTE_CALLS'], 'a') as log:
     log.write(json.dumps(sys.argv[1:]) + '\\n')
-Path(os.environ['TEST_TASTE_PID']).write_text(str(os.getpid()))
 state = json.loads(Path(os.environ['TEST_TASTE_STATE']).read_text())
 if state.get('slow'):
     time.sleep(30)
@@ -179,7 +182,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                 send(b'\x1b[F', 'Commit: unknown')
                 send(b'a', 'Result identity unknown')
                 assert not copied(), 'unmapped or conflicting result was copied'
-                send(b'\x1b', 'enter review')
+                send(b'\x1b', 'enter/v open result')
                 send(b'\x1b', '1  think')
                 os.write(master, b'q')
                 process.wait(timeout=5)
@@ -207,7 +210,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                     assert GOAL in payload and HEAD in payload
                     assert 'pending (matching evidence missing)' not in payload
                 assert len(calls()) == 3, calls()
-                send(b'\x1b', 'enter review')
+                send(b'\x1b', 'enter/v open result')
                 send(b'\x1b', '1  think')
                 os.write(master, b'q')
                 process.wait(timeout=5)
@@ -386,6 +389,16 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
                     assert len(copied()) == count
                 ledger.write_bytes(original_ledger)
                 receipt.write_bytes(original_receipt)
+            # A seed path replaced by a FIFO/directory becomes unknown without trapping Escape.
+            for kind in ('fifo', 'directory'):
+                send(b'r', 'TEST café')
+                with replaced_seed(seed, kind):
+                    started = time.monotonic()
+                    send(b'r', 'Goal unknown')
+                    send(b'\x1b', 'enter/v open result')
+                    assert time.monotonic() - started < 2, 'non-regular seed delayed Taste or Escape'
+                    send(b'\r', 'Goal unknown')
+                send(b'r', 'TEST café')
             # Handoff prose is irrelevant, including conflicting links: only launch inputs bind.
             handoff.write_text(f'{URL}\nhttps://github.com/TEST/decoy/pull/999\n')
             update()
@@ -400,7 +413,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             update()
             send(b'r', 'waiting: revision unknown')
             send(b'\x1b[F', 'Commit: unknown')
-            send(b'\x1b', 'enter review')
+            send(b'\x1b', 'enter/v open result')
             assert "Couldn't read GitHub" not in screen.text(), 'source diagnostics leaked out of detail'
             send(b'\r', 'Checks')
             send(b'e', 'Evidence')
@@ -408,7 +421,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None):
             del state['gh_fail']
             update()
             send(b'\x1b', 'e evidence')
-            send(b'\x1b', 'enter review')
+            send(b'\x1b', 'enter/v open result')
             send(b'\x1b', '1  think')
             before_reopen = len(calls())
             send(b'6', 'Press r to read results')

@@ -26,7 +26,7 @@ Digits and aliases still work without bar clutter. Open places and help hide thi
 Help overlays the upper-right (38×14), leaving choices and descriptions visible at
 all supported sizes. It has a thin muted border, jade title, bold ink headings and
 keys, and muted action labels. A blank row follows the title. Key and action columns
-align, with `Esc Close help` separate below; `m Model and calls` sits under `q`, then with colour `Ctrl-T Dark or light`. There is no ambiguous Leave heading,
+align, with `Esc Close help` separate below; `m Model and runs` sits under `q`, then with colour `Ctrl-T Dark or light`. There is no ambiguous Leave heading,
 new colour or background. NO_COLOR keeps the hierarchy. Help blocks underlying
 digits, Enter, movement and row clicks; paste still does nothing. Esc closes help;
 ?, F1 or the corner click toggles it. q, Ctrl-C and F10 retain quit routes.
@@ -44,8 +44,8 @@ Digits or arrows followed by Enter open a place; home `q` quits.
 ## Model setup
 
 The header's muted label, left of the light/dark switch (or `?` without colour), shows real
-state: `practice`, or the calls this launch has left. Clicking it, `m` on the menu, or the
-Model and calls row in Think's or Shape's F1 list (offered when the launch drafts) opens the
+state: `practice`, or the drafting runs this launch has left. Clicking it, `m` on the menu, or the
+Model and runs row in Think's or Shape's F1 list (offered when the launch drafts) opens the
 Model panel in Help's upper-right spot and frame. [model_setup.rs](../../src/model_setup.rs)
 owns the file, parser, label and panel; the terminal loop draws them over every screen.
 
@@ -54,25 +54,28 @@ owns the file, parser, label and panel; the terminal loop draws them over every 
 | Harness | Cycles Pi and Claude Code. Changing it resets Model and any level the new one lacks. |
 | Model | Picks the next model. Pi: the first `enter` lists Pi's models once with `pi --list-models --offline` (no model request), then each `enter` picks the next; if Pi can't list, it types. Claude Code: cycles `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`. `t` types any model, such as one an extension adds that Pi doesn't list. Tinkery can't confirm the account may use it. |
 | Thinking | Cycles the harness's levels: Pi `off` to `max`, Claude Code's effort `low` to `max`. |
-| Calls | Cycles 0, 5, 10, 25 requests each launch, shared by Think and Shape; 0 is practice. |
-| Now | Only when this launch drafts: adds 5 calls at once, for this launch only. |
+| Runs | Cycles 0, 5, 10, 25 drafting runs each launch, shared by Think and Shape; 0 is practice. |
+| Now | Only when this launch drafts: adds 5 runs at once, for this launch only. |
 
-`s` saves Harness, Model, Thinking and Calls to `~/.config/tinkery/model.json`; `esc` closes and drops
+`s` saves Harness, Model, Thinking and Runs to `~/.config/tinkery/model.json`; `esc` closes and drops
 unsaved changes. Nothing else writes the file, and saving changes later launches, not this
-one. Calls need a model. The panel names this launch's actual harness and model, including
+one. Drafting runs need a model. The panel names this launch's actual harness and model, including
 flag overrides, or says it is practice with no model requests. Editable settings are marked
-for later launches; editing or saving them does not change the displayed recipient. The cap
-counts requests, not dollars. Nothing in the panel starts a request.
+for later launches; editing or saving them does not change the displayed recipient.
+A run counts a drafting attempt, including failures and cancellations. Tools or retries
+may make several provider requests within one run; this allowance is not a spending cap.
+Input too large to send, or cancellation before Tinkery accepts the run, uses none. Tinkery does not automatically
+retry a failed run. Stored `calls` and CLI names remain unchanged. Nothing in the panel starts a request.
 
 One parser checks the file and the `--harness`, `--model`, `--thinking` and `--shape-budget`
 flags. A file without a harness is Pi. Claude Code takes only full `claude-` ids, never an alias
 whose meaning changes, so records name the model used. A launch's saved model and thinking
-apply only to the saved harness. A later plain launch drafts when the saved setup allows calls;
+apply only to the saved harness. A later plain launch drafts when the saved setup allows drafting runs;
 `--shape-budget 0` alone selects practice without changing that file. `--shape-pi` drafts for one
 launch, each flag replacing its saved value, and writes nothing. A missing file is practice.
 An unreadable or invalid file is refused with its path in the panel and the launch stays
-practice; Tinkery never guesses. An `--operator agent` launch never inherits saved calls,
-and its panel refuses to save or add calls: an agent's allowance is `--shape-budget` alone,
+practice; Tinkery never guesses. An `--operator agent` launch never inherits saved runs,
+and its panel refuses to save or add runs: an agent's allowance is `--shape-budget` alone,
 given by the operator. No credentials and no Pi config are read; Claude Code uses its own
 login. [pi.rs](../../src/pi.rs) starts either harness with the same isolation, caps and budget
 ([#449](https://github.com/jon-devlapaz/tinkery/issues/449)). There is no build harness row:
@@ -105,7 +108,10 @@ stay unknown. No browser opens, no goal is inferred and no records are written.
 F1 or ? toggles Measure help. Esc closes help, then details, then returns to the
 menu; q returns to the menu with help closed. F10 or Ctrl-C quits Tinkery. Leaving
 cancels and reaps the owned process group. One read runs at a time, with a 30-second
-deadline and bounded output. There are no watchers, provider calls or disk caches.
+deadline and bounded output. Pipe collection stops on cancellation or deadline even when
+an unowned detached writer keeps a pipe open; Measure closes its readers without signalling
+that writer’s process group. This policy stays inside the existing reader (architecture diagnostics 3 and 6).
+There are no watchers, provider calls or disk caches.
 
 [Terminal tests](../../tests) use fake `gh` in TEST roots at 80×24, 100×30, 160×40
 and 320×40, with and without NO_COLOR. They cover states, details, empty/partial

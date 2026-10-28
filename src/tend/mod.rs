@@ -180,6 +180,7 @@ impl Tend {
                 }
             }
         }
+        self.prepare_graph();
     }
     fn filter_sessions(&mut self) {
         let visible = |s: &&Session| {
@@ -259,6 +260,7 @@ impl Tend {
         let keep = self.current().map(|s| s.path.clone());
         self.show_all = !self.show_all;
         self.filter_sessions();
+        self.prepare_graph();
         self.selected = keep
             .and_then(|path| self.sessions.iter().position(|s| s.path == path))
             .unwrap_or(0);

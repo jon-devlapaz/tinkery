@@ -1,8 +1,8 @@
 //! A bounded, cancellable GitHub CLI read. No shell, provider, writes or implicit retries.
 
 use std::{
-    io::Read as _,
-    os::unix::process::CommandExt,
+    io,
+    os::{fd::AsRawFd, unix::process::CommandExt},
     path::Path,
     process::{Child, Command, Stdio},
     sync::{
@@ -84,15 +84,9 @@ fn run(
         .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped())
         .process_group(0).spawn()
         .map_err(|_| "Couldn't start gh. Install GitHub CLI and check repo access, then press r.".to_owned())?;
-    let drain = |pipe: Box<dyn std::io::Read + Send>, limit: u64| {
-        thread::spawn(move || {
-            let mut bytes = Vec::new();
-            let ok = pipe.take(limit + 1).read_to_end(&mut bytes).is_ok();
-            (ok && bytes.len() as u64 <= limit, bytes)
-        })
-    };
-    let out = drain(Box::new(child.stdout.take().unwrap()), LIMIT);
-    let err = drain(Box::new(child.stderr.take().unwrap()), 64 * 1024);
+    let stop_drains = Arc::new(AtomicBool::new(false));
+    let out = drain(child.stdout.take().unwrap(), LIMIT, stop_drains.clone());
+    let err = drain(child.stderr.take().unwrap(), 64 * 1024, stop_drains.clone());
     let until = Instant::now() + deadline;
     let result = loop {
         if cancel.load(Ordering::SeqCst) {
@@ -108,6 +102,7 @@ fn run(
         }
     };
     stop(&mut child);
+    stop_drains.store(true, Ordering::SeqCst);
     let (ok, bytes) = out.join().unwrap_or_default();
     let _ = err.join();
     let status = result?;
@@ -126,6 +121,39 @@ fn run(
     }
     String::from_utf8(bytes)
         .map_err(|_| "GitHub returned invalid UTF-8. Results unknown; press r to retry.".into())
+}
+
+// Each owned reader closes its pipe on cancellation, even if an unowned writer stays alive.
+fn drain(
+    mut pipe: impl io::Read + AsRawFd + Send + 'static,
+    limit: u64,
+    stop: Arc<AtomicBool>,
+) -> JoinHandle<(bool, Vec<u8>)> {
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        // SAFETY: fcntl changes flags only on this reader's live, owned pipe descriptor.
+        let flags = unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_GETFL) };
+        if flags == -1
+            || unsafe { libc::fcntl(pipe.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
+                == -1
+        {
+            return (false, bytes);
+        }
+        let mut chunk = [0; 8192];
+        while !stop.load(Ordering::SeqCst) && bytes.len() as u64 <= limit {
+            let remaining = chunk.len().min((limit + 1 - bytes.len() as u64) as usize);
+            match pipe.read(&mut chunk[..remaining]) {
+                Ok(0) => return (true, bytes),
+                Ok(count) => bytes.extend_from_slice(&chunk[..count]),
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(_) => break,
+            }
+        }
+        (false, bytes)
+    })
 }
 
 fn stop(child: &mut Child) {

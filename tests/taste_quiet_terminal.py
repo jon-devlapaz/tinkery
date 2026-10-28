@@ -191,7 +191,7 @@ def run(base, width, height, mono, binary, legacy=False, long_checks=False):
         assert transport() == copies, 'evidence view copy bytes differ'
         if not legacy:
             send(b'\x1b', 'e evidence')
-        send(b'\x1b', 'Results waiting on you' if legacy else 'enter review')
+        send(b'\x1b', 'Results waiting on you' if legacy else 'enter/v open result')
         if not legacy:
             list_only()
         send(b'\x1b', '1  think')

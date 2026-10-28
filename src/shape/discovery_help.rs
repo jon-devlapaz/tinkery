@@ -39,6 +39,7 @@ impl Shape {
 
     /// A newly opened help view starts at its first row, without changing the discovery read.
     pub(crate) fn reset_help(&mut self) {
+        self.actions.reset();
         self.help_scroll = 0;
     }
 
@@ -67,8 +68,13 @@ impl Shape {
             .saturating_sub(usize::from(body.height));
         self.help_scroll = self.help_scroll.min(max.min(usize::from(u16::MAX)) as u16);
         frame.render_widget(paragraph.scroll((self.help_scroll, 0)), body);
+        let pages = self
+            .actions
+            .hint(self.rows().len())
+            .map_or(String::new(), |hint| format!("←/→ {hint} · "));
         frame.render_widget(
-            Paragraph::new("PgUp/PgDn scroll · F1 close · Esc back").style(palette.muted),
+            Paragraph::new(format!("{pages}PgUp/PgDn scroll · F1 close · Esc back"))
+                .style(palette.muted),
             Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
         );
     }

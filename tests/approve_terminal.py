@@ -168,7 +168,7 @@ def journey(width, height, case, no_color):
                     if line.strip():
                         assert ' '.join(line.split()) in flat(), (line, screen.text())
                 assert not copies()
-                send(b'c', 'Copied.')
+                send(b'c', 'Copied. Run it in a terminal; after it succeeds, open Watch.')
                 wait(lambda: len(copies()) == 1)
                 commands = copies()[0].splitlines()
                 assert len(commands) == 1 and '<run>' not in commands[0], commands
@@ -185,6 +185,7 @@ def journey(width, height, case, no_color):
                 send(b'\x1b', '--tinkery')
                 assert len(copies()) == 1, 'help leaked a copy key'
                 send(b'n', 'TEST newest')
+                assert 'Copied.' not in flat(), 'selection kept stale copy feedback'
                 send(b'p', 'TEST oldest café')
                 send(b'\x1b', '4 approve')
                 send(b'4', 'Seed 1 of 2')

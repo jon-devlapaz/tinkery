@@ -1,9 +1,9 @@
 //! pinstar — terminal canvas/diagram editor library.
 //!
 //! Host-agnostic engine for Obsidian-compatible `.canvas` files plus Mermaid,
-//! DOT and PlantUML flowcharts. Hosts (the `pinstar` binary, clin-rs's
-//! canvas view) own keybinds, status lines, dialogs and the system clipboard;
-//! everything canvas-related lives here.
+//! DOT and PlantUML flowcharts. Hosts own keybinds, status lines, dialogs and
+//! the system clipboard; everything canvas-related lives here. This hosted copy
+//! omits the standalone executable.
 
 pub mod camera;
 pub mod data;

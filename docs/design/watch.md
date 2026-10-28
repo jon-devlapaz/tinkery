@@ -14,7 +14,11 @@ Watch reads with that checkout's own `python3 _system/scripts/sdlc.py status --j
 checkout's folder, when Watch opens and when the operator presses `r`. It then reads each valid
 run's `status <slug> --json`, serially, before offering the list (except older runs below): the summary cannot identify owed
 attestations or gates during a running verification. An unreadable detail refuses the list rather
-than claiming that run is quiet. Enter reads the selected run's detail again. The screen names the checkout and the exact command behind what it
+than claiming that run is quiet. Enter reads the selected run's detail again. Both reads require the detail's slug and run ID
+to match the original list row. A changed or missing identity refuses the facts and asks for
+an explicit list refresh; it never borrows another run's status, goal or attention.
+The Watch reader owns this comparison for both paths (architecture diagnostics 3 and 6);
+callers cannot accidentally choose a weaker detail parser. The screen names the checkout and the exact command behind what it
 shows, with how long ago it was read, to the minute. Watch never runs `verify`, `mark`, `decide`,
 `stage` or any other command, and never polls, refreshes by itself, notifies or badges anything:
 unchanged state makes no new demand on the operator's attention.
@@ -85,6 +89,11 @@ summary separates passed results from checking methods: `Checklist: 0/4 passed.
 How each is checked: 0 automated, 4 by you.` describes how checks are done,
 not how many attestations have been given. Individual
 items retain their reported status, including `pending (attested)`.
+Complete detail text must be under 60,000 bytes, counting span text plus one byte per
+line, including blank lines, labels, separators and appended errors. Larger detail refuses
+before wrapping, with the external `status <slug> --json` command and Esc available;
+source data and other runs stay unchanged. This conservative bound keeps accepted text
+inside the existing scroll range (architecture diagnostics 2 and 6), without a second wrapper.
 ↑↓, PgUp/PgDn and Home/End scroll wrapped content,
 including long evidence and error tails. Opening or rereading detail resets to the top. One run
 at a time; Esc returns to the list. F10 returns to Home from Watch, including help,

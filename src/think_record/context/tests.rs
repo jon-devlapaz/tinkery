@@ -58,7 +58,7 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
             "1 Jan 1970",
             "00:01:40  Reading 1 shown",
             "24 Oct 2026",
-            "23:16:53  Answer 2 · after reading 1",
+            "23:16:53  Submission 2 · after reading 1",
             "1 Jan 1970",
             "00:00:50  Reading 2 shown",
             "Shown means it reached the screen, not that it was read.",
@@ -67,7 +67,7 @@ fn context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_tex
     assert!(!sequence.contains("TEST exact frozen wording"));
     assert_eq!(sequence.matches("Shown means").count(), 1);
     assert!(text.contains("Original words 1 at 2026-10-24T23:16:53Z."));
-    assert!(text.contains("Answer 2 · after reading 1 at 2026-10-24T23:16:53Z."));
+    assert!(text.contains("Submission 2 · after reading 1 at 2026-10-24T23:16:53Z."));
     assert!(text.contains("TEST exact frozen wording"));
     assert!(text.contains("Presented reading 2 at 1970-01-01T00:00:50.000Z"));
     assert_eq!(
@@ -111,17 +111,17 @@ fn source_labels_follow_event_kinds_and_only_presentations_add_relations() {
         [
             "Recorded sequence · 27 Oct 2026, UTC",
             "23:59:58  Original words 1",
-            "23:59:58  Answer 2",
+            "23:59:58  Submission 2",
             "23:59:59  Reading 1 shown",
             "28 Oct 2026",
-            "00:00:00  Answer 4 · after reading 1",
+            "00:00:00  Submission 4 · after reading 1",
             "00:00:00  Reading 2 shown",
             "Shown means it reached the screen, not that it was read.",
         ]
     );
     for (event, label) in events
         .iter()
-        .zip(["Original words 1", "Answer 2", "Answer 4"])
+        .zip(["Original words 1", "Submission 2", "Submission 4"])
     {
         assert_eq!(event.source_label().as_deref(), Some(label));
         assert!(result.sequence.contains(label));
@@ -133,7 +133,7 @@ fn source_labels_follow_event_kinds_and_only_presentations_add_relations() {
         "Reading 2 · shown 00:00:00, 28 Oct 2026"
     );
     assert_eq!(result.sequence.matches("after reading").count(), 1);
-    assert!(!result.sequence.contains("no earlier") && !result.sequence.contains("Submission"));
+    assert!(!result.sequence.contains("no earlier") && !result.sequence.contains("Answer "));
 }
 
 #[test]
@@ -238,7 +238,7 @@ fn sequence_converts_offsets_to_utc_and_retains_exact_times_in_details() {
             "24 Oct 2026",
             "23:00:00  Reading 1 shown",
             "25 Oct 2026",
-            "04:16:53  Answer 2 · after reading 1",
+            "04:16:53  Submission 2 · after reading 1",
             "Shown means it reached the screen, not that it was read.",
         ]
     );

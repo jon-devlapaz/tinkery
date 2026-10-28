@@ -13,12 +13,8 @@ homepage = "https://github.com/reekta92/clin"
 name = "pinstar"
 path = "src/lib.rs"
 
-[[bin]]
-name = "pinstar"
-path = "src/main.rs"
-
 [features]
-default = ["images"]
+default = []
 images = ["dep:image", "dep:ratatui-image", "dep:lru"]
 
 [dependencies]
@@ -36,8 +32,3 @@ ratatui-image = { version = "11.0.6", optional = true, default-features = false,
 
 [dev-dependencies]
 tempfile = "3"
-
-[package.metadata.generate-rpm]
-assets = [
-    { source = "target/release/pinstar", dest = "/usr/bin/pinstar", mode = "0755" },
-]

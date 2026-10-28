@@ -148,6 +148,42 @@ impl BrainDump {
     pub(super) fn can_save(&self) -> bool {
         self.real && self.handoff.config.is_some()
     }
+    /// Whether normal Think can open review now. Opening help or observing this starts nothing;
+    /// the entry point still checks and explains each blocker when called directly.
+    pub(super) fn can_review(&self) -> bool {
+        !self.voice_active()
+            && self.handoff.receipt.is_none()
+            && self.handoff.job.is_none()
+            && self.handoff.review.is_none()
+            && self.review_candidate().is_ok()
+    }
+
+    /// The current board and its displayed goal, or the same refusal review entry uses.
+    fn review_candidate(&self) -> Result<(&board::Board, &str), &'static str> {
+        if !self.can_save() {
+            return Err(layout::SAVE_NEEDS_REAL);
+        }
+        if self.running() {
+            return Err("Still thinking; review once the reading is back.");
+        }
+        if !self.input.text.is_empty() {
+            return Err("Send (F2) or clear your unsent words, then review.");
+        }
+        if self.shaping.ready.is_some() {
+            return Err("A reply is waiting; F2 applies it, then review.");
+        }
+        if !self.conversation.caught_up() {
+            return Err("The reading is behind your words; F2 retries, then review.");
+        }
+        let board = self
+            .conversation
+            .board()
+            .ok_or("No reading to review yet; F2 sends your words.")?;
+        let goal = board
+            .goal()
+            .ok_or("No goal to review yet; parts remain open.")?;
+        Ok((board, goal))
+    }
     /// True when confirming also writes a think record.
     pub(super) fn records(&self) -> bool {
         self.handoff.record_root.is_some()
@@ -205,36 +241,29 @@ impl BrainDump {
         if self.handoff.receipt.is_some() || self.handoff.job.is_some() {
             return;
         }
-        if !self.can_save() {
-            self.refuse(layout::SAVE_NEEDS_REAL);
-            return;
-        }
-        // Each blocker names itself, so the person knows which one to clear.
-        if self.running() {
-            self.refuse("Still thinking; review once the reading is back.");
-            return;
-        }
-        if !self.input.text.is_empty() {
-            self.refuse("Send (F2) or clear your unsent words, then review.");
-            return;
-        }
-        if self.shaping.ready.is_some() {
-            self.refuse("A reply is waiting; F2 applies it, then review.");
-            return;
-        }
-        if !self.conversation.caught_up() {
-            self.refuse("The reading is behind your words; F2 retries, then review.");
-            return;
-        }
-        let Some(g) = self.conversation.board() else {
-            self.refuse("No reading to review yet; F2 sends your words.");
-            return;
+        let (g, goal) = match self.review_candidate() {
+            Ok(candidate) => candidate,
+            Err(reason) => {
+                self.refuse(reason);
+                return;
+            }
         };
-        let Some(goal) = g.goal().map(str::to_owned) else {
-            self.refuse("No goal to review yet; parts remain open.");
-            return;
-        };
+        let goal = goal.to_owned();
         let (unresolved, unresolved_notes) = self.conversation.review_context();
+        let affirmation = Affirmation {
+            goal,
+            parts: g.parts.clone(),
+            other_goals: g.other_goals.clone(),
+            deferred: g.deferred.clone(),
+            outcome: g.parts.done_when.clone().unwrap_or_default(),
+            options: g.alternatives.iter().map(board::Candidate::wire).collect(),
+            sources: self.conversation.sources().to_vec(),
+            answered: self.conversation.settled().to_vec(),
+            decisions: g.decisions.clone(),
+            unresolved,
+            unresolved_notes,
+            confirmation: self.handoff.confirmation.clone(),
+        };
         self.screen.original = false;
         self.screen.help = false;
         self.screen.details = false;
@@ -245,20 +274,7 @@ impl BrainDump {
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
         self.handoff.review = Some(Review {
-            affirmation: Affirmation {
-                goal,
-                parts: g.parts.clone(),
-                other_goals: g.other_goals.clone(),
-                deferred: g.deferred.clone(),
-                outcome: g.parts.done_when.clone().unwrap_or_default(),
-                options: g.alternatives.iter().map(board::Candidate::wire).collect(),
-                sources: self.conversation.sources().to_vec(),
-                answered: self.conversation.settled().to_vec(),
-                decisions: g.decisions.clone(),
-                unresolved,
-                unresolved_notes,
-                confirmation: self.handoff.confirmation.clone(),
-            },
+            affirmation,
             input: String::new(),
             scroll: 0,
             max: u16::MAX,
@@ -465,23 +481,23 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         }
     );
     let message = if app.screen.refused.is_some() {
-        app.notice.clone()
+        Some(app.notice.clone())
     } else if app.handoff.job.is_some() {
-        "Saving…".into()
+        Some("Saving…".into())
     } else if app.notice.starts_with(HANDOFF_FAILED) {
-        HANDOFF_FAILED_TEXT.into()
+        Some(HANDOFF_FAILED_TEXT.into())
     } else {
-        instruction.clone()
+        None
     };
-    let prompt = format!("{message}\n{}", review.input);
     let line_count = |text: &str| {
         Paragraph::new(text)
             .wrap(Wrap { trim: false })
             .line_count(inner.width)
     };
     // Neither an empty input nor a shorter refusal may move an already-read end.
-    let prompt_rows =
-        (line_count(&message).max(line_count(&instruction)) + line_count(&review.input)) as u16;
+    let prompt_rows = (line_count(message.as_deref().unwrap_or(&instruction))
+        .max(line_count(&instruction))
+        + line_count(&review.input)) as u16;
     let rows =
         Layout::vertical([Constraint::Min(1), Constraint::Length(prompt_rows + 1)]).split(inner);
     let heading = match &review.affirmation.confirmation {
@@ -555,6 +571,18 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         app.screen.reading_visible = layout::visible_content(frame, content);
     }
 
+    // Choose guidance after this frame's bound is known, keeping the normal instruction's
+    // reserved height: a shorter cue must not move the end while the operator reads or types.
+    let guidance = if review.scroll < review.max {
+        "PgDn: read to the end first."
+    } else {
+        &instruction
+    };
+    let prompt = format!(
+        "{}\n{}",
+        message.as_deref().unwrap_or(guidance),
+        review.input
+    );
     frame.render_widget(
         Paragraph::new(prompt.clone())
             .wrap(Wrap { trim: false })

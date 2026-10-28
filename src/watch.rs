@@ -90,6 +90,7 @@ impl State {
 #[derive(Debug, Clone, PartialEq)]
 struct Run {
     slug: String,
+    id: Option<String>,
     state: State,
     /// tink-sdlc's next action, or the reason an invalid run can't be read.
     next: String,
@@ -164,6 +165,10 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
             };
             Ok(Run {
                 slug: text(run, "slug")?,
+                id: run["run_id"]
+                    .as_str()
+                    .filter(|id| !id.is_empty())
+                    .map(str::to_owned),
                 next: if state == State::Older {
                     OLDER_REASON.into()
                 } else {
@@ -187,9 +192,13 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
 }
 
 /// One run's detail.
+#[cfg(test)]
 fn parse_detail(output: &str) -> Result<Detail, String> {
     let value = sdlc::envelope(output)?;
-    let run = &value["run"];
+    parse_run_detail(&value["run"])
+}
+
+fn parse_run_detail(run: &Value) -> Result<Detail, String> {
     let gates: Vec<_> = run["gates"]
         .as_array()
         .ok_or("The run has no gates list.")?
@@ -286,6 +295,30 @@ fn parse_detail(output: &str) -> Result<Detail, String> {
             })
             .collect::<Result<_, _>>()?,
     })
+}
+
+/// Read only details with the list's original slug and ID; refresh is always explicit.
+fn read_run(root: &Path, run: Run, deadline: Duration) -> Load<Detail> {
+    let root = root.to_path_buf();
+    Load::Reading(Read::task(move |cancel| {
+        let output = sdlc::status(
+            &root,
+            &["status".into(), run.slug.clone(), "--json".into()],
+            cancel,
+            deadline,
+        )?;
+        let value = sdlc::envelope(&output)?;
+        let detail = &value["run"];
+        if run.id.is_none()
+            || detail["slug"].as_str() != Some(run.slug.as_str())
+            || detail["run_id"].as_str() != run.id.as_deref()
+        {
+            return Err(
+                "Run identity changed or is missing. Press r on the runs screen to refresh.".into(),
+            );
+        }
+        parse_run_detail(detail)
+    }))
 }
 
 /// Runs that need a person first, then the rest, each group in tink-sdlc's order.
@@ -421,15 +454,7 @@ impl Watch {
             })
             && let Some(root) = &self.root
         {
-            self.inspection = Some((
-                index,
-                Load::start(
-                    root,
-                    vec!["status".into(), runs[index].slug.clone(), "--json".into()],
-                    self.deadline,
-                    parse_detail,
-                ),
-            ));
+            self.inspection = Some((index, read_run(root, runs[index].clone(), self.deadline)));
         }
     }
 
@@ -520,13 +545,12 @@ impl Watch {
                     at,
                 ),
             ));
-        } else if let Some(root) = &self.root {
-            let read = Load::start(
-                root,
-                vec!["status".into(), slug.clone(), "--json".into()],
-                self.deadline,
-                parse_detail,
-            );
+        } else if let Some(root) = &self.root
+            && let Some(run) = self
+                .runs()
+                .and_then(|runs| runs.iter().find(|run| run.slug == slug))
+        {
+            let read = read_run(root, run.clone(), self.deadline);
             self.detail = Some((slug, read));
         }
     }
@@ -819,6 +843,26 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
                 lines.push(Line::styled(format!("! {error}"), palette.rust));
             }
         }
+    }
+    // Each line costs at least one row, even with no spans; rendered labels count too.
+    let bytes: usize = lines
+        .iter()
+        .map(|line| {
+            1 + line
+                .spans
+                .iter()
+                .map(|span| span.content.len())
+                .sum::<usize>()
+        })
+        .sum();
+    if bytes >= 60_000 {
+        return Text::from(vec![
+            Line::styled("! Detail is too long to show completely.", palette.rust),
+            Line::raw("Read it in the named tink-sdlc checkout:"),
+            Line::raw(format!("python3 {SCRIPT} status <slug> --json")),
+            Line::raw("Replace <slug> with the selected run's name."),
+            Line::raw("Esc returns to the runs."),
+        ]);
     }
     Text::from(lines)
 }

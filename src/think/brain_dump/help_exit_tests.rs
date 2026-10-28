@@ -51,7 +51,7 @@ fn help_leads_with_numbered_actions_then_context() {
     assert!(layout::help_text(&a).contains("\n\nType a new dump"));
     a.add_more = false;
     a.review_goal();
-    assert!(layout::help_text(&a).starts_with("Right now\nType confirm"));
+    assert!(layout::help_text(&a).starts_with("Right now\nEsc closes help"));
     assert!(a.rows().is_empty(), "reviewing offers only confirm or back");
     let frozen = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
     key(&mut a, KeyCode::F(1));

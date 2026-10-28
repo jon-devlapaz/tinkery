@@ -103,7 +103,10 @@ require navigation, panning or zooming, not simultaneous labels. Moving, panning
 and zooming write nothing. Refresh preserves positions and viewport for an unchanged
 graph. Changed nodes, labels or links rebuild slots and reset manual positions but
 keep zoom and pan. Resize reflows slots with relative zoom and pan retained.
-Following selection may pan again.
+Following selection may pan again. Session reads, scope changes and needs-link reads or
+edits prepare the path-bound nodes and links; unchanged repaints reuse those inputs.
+The adapter rebuilds Graf’s cached node colors and labels only for new graph data,
+changed ink/jade colors or a changed marked source. Geometry still updates each frame.
 
 Detail uses the receipt's shared renderer for the exact stored goal, without
 `Saved.`. ↑↓, `j k`, PgUp or PgDn scroll (a page moves the view less one row); `s` opens Shape on permitted stages, and `r` opens history. Esc goes detail → garden →
@@ -137,8 +140,9 @@ views offer only `esc back`; an empty repo view also offers `a toggle goals`.
 Detail's `r history` starts with **Recorded sequence · 27 Oct 2026, UTC** (the first
 event's UTC date). Rows show `HH:MM:SS` in UTC, converting recorded offsets, with a date
 line whenever the date changes. List order stays the truth even when clocks go backward.
-**Original words N** and **Answer N** use the source number and event kind, matching the
-conversation headings below; answers include scope answers. Only a preceding presentation
+**Original words N** labels original-word events; **Submission N** labels recorded
+answers and scope answers without claiming a question was asked. Source numbers match
+the conversation headings below. Only a preceding presentation
 adds ` · after reading R`. Presentations say **Reading R shown**. One notice says
 `Shown means it reached the screen, not that it was read.` Missing context says
 `Reading sequence was not recorded.` Rejected context says
@@ -169,7 +173,9 @@ and its folder; outside repositories or schema-2 records, omit it. F1 then `h`
 shows the full path, `none` or `not recorded`, plus model information, checks and
 [recorded reading context](think.md#presented-readings-and-subsequent-words).
 Labels are muted; operator words use ink. Display escapes unsafe terminal controls
-without changing stored words.
+without changing stored words. History keeps whitespace-delimited words together when
+they fit the view; longer tokens wrap at grapheme boundaries. Explicit line breaks,
+whitespace and tones remain, and scrolling reaches every row.
 
 ↑↓, `j k`, PgUp, PgDn (a view less one row), Home and End scroll width-wrapped history, including Unicode
 beyond 65,535 rows. Help scrolls independently. Esc goes details → help → history
@@ -253,8 +259,12 @@ navigation launches nothing and writes no session. Approve and verified Shape se
 still copy manual intake commands through [OSC 52](../terminal-setup.md#clipboard-osc-52).
 
 Default sessions live in `~/.local/share/tinkery/sessions`. On the first default-root
-launch, move the old sessions folder once and show a notice. If both roots exist,
-refuse rather than merge or read the old root. Explicit roots never trigger the move.
+ordinary launch, move the old sessions folder once and show a notice.
+Snapshots never move sessions: when only the old root exists, refuse before writes and explain
+how to migrate with an ordinary launch before retrying. New-only or absent-root snapshots
+render normally. If both roots exist, refuse rather than merge or read the old root.
+Explicit roots never trigger the move. Startup chooses whether a move is allowed; migration
+retains its root checks (architecture diagnostic 6).
 The migration renames only the sessions folder, never parses its ledgers and never reads or
 writes Think records. Old-format session folders move byte-for-byte too. History uses the
 identity rule above; no old-root session reader remains.
@@ -270,6 +280,11 @@ a goal to a run. Before a match supplies the session's exact saved goal
 the shared seed verifier must also confirm that the ledger decisions and seed still
 match their confirmation receipt. The seed and ledger must remain byte-identical
 through that read; missing or invalid confirmation keeps the goal unknown.
+Seed-byte reads open without waiting for a FIFO writer, then require the opened file to be
+regular before reading. This includes repeat reads during confirmation; a path replacement
+cannot bypass the file-type check. Symlink resolution and exact path/hash matching stay
+unchanged. Ledger, receipt and check files retain their existing readers. This rule lives in
+`seed_me`, shared by the run join and verifier (architecture diagnostics 3 and 6).
 [Watch](watch.md#reading) owns its compact list and full-detail presentation.
 An explicit null record means no confirmed seed was used, distinct from an
 unmatchable or malformed record ([Evidence](../yohaku.md#3-claims-stop-where-evidence-stops)).
@@ -359,9 +374,10 @@ flagged node as the current question, its unchanged answer and the ledger's reas
 `F2 keep with reason` publishes the operator's typed justification without a model call.
 `F2 revise` opens replacement words only for an operator-answered decision; see
 [answering](#answering-and-confirming). Each remaining flag holds confirmation and completion.
-Open questions precede older drafts. Without `--shape-pi`, one `Next:` points to
-F1 for setup: quit, restart at the menu with a model and a chosen call limit (default zero),
-retain any explicit session root, then reopen the same goal through Tend.
+Open questions precede older drafts. Without configured drafting, one `Next:` points to
+F1 for [Model setup](menu.md#model-setup). Configure a model and an explicitly authorized
+call allowance (default zero), restart, then reopen the same goal through Tend,
+retaining any explicit session root.
 Unverifiable or unknown seeds point to inspecting the session files at the path in F1.
 With a model, the key bar names the available action.
 Ledger refusals say `Tinkery refused` with the first reason line; other failures
@@ -411,7 +427,8 @@ creating an SDLC run stays outside Shape.
 
 ### Answering and confirming
 
-With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Think's
+Configured drafting enables these actions; see [Model setup](menu.md#model-setup).
+Shape uses Think's
 [one key map](think.md#help): F2 runs the action in the key bar, F1 numbers the rest.
 
 | Stage | Words | Key/action |
@@ -445,6 +462,15 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
 - **Defer:** F1's **Defer** opens the reason; F2 advances to the revisit condition; Tab switches
   between them. The form shows the question's gate: the operator alone decides it can wait.
   F2 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
+- **Answer deferred prerequisite:** an active Waiting session may offer one named deferred
+  blocker in F1, selected by the ledger in its existing order. Its own prerequisites and
+  predicate must be ready; the goal and flagged sessions never qualify. The form shows the
+  original question, exact deferral reason and revisit condition. Opening, typing and Esc
+  save nothing. F2 saves the exact answer with existing authorization, locking and stale-state
+  checks, without a model call. Existing history preserves the prior deferral unchanged;
+  dependent questions stay unanswered and follow ordinary ready ordering. No picker or
+  automatic repair is provided. This keeps dependency selection and transitions in the
+  ledger (architecture diagnostic 6).
 - **Delegate:** F1's **Delegate** row is one choice, quoting that row as the authority source, saving the
   recorded suggestion unchanged with `delegated` authority and its supporting facts as evidence.
   Reply confidence is not appended to the recommendation or answer; the ledger never parses
@@ -480,7 +506,8 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   [The ledger](shape-ledger.md#2-what-shape-writes) owns eligibility, history and reopening;
   model coverage judgments are not semantic proofs. A question may include optional `prerequisites`, a list
   of existing decision IDs, preserved unchanged (absent means `[]`). Facts belong in `supported_by`,
-  not prerequisites. The ledger alone refuses unknown IDs, cycles and invalid lists, saving no
+  not prerequisites. The ledger alone refuses unknown IDs, cycles, invalid lists and deferred
+  prerequisites (a deferral is not a settled answer), saving no
   findings, question or assumptions from a refused reply. A held question stays open without
   becoming current; the ledger selects the next ready decision. Once its prerequisites settle,
   the held question is promoted before any model call. No reply can settle, skip or reorder
@@ -521,23 +548,29 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   Acceptance criteria, Decisions, Assumed and Evidence and uncertainty come only from
   recorded checks, decisions, assumptions and findings, in their canonical positions.
   Host-owned headings use LF; prose keeps its line endings. Ledger-owned blocks remain
-  verbatim, with no extra wrappers. Findings and question transport are unchanged.
+  verbatim, with no extra wrappers. The exact generated title and origin-decision
+  line treat goal comment markers as literal data during seed verification, only
+  outside an existing comment. Their text and the confirmed goal remain unchanged;
+  general heading and prose validation still refuse injected structure.
+  Findings and question transport are unchanged.
 - **Completion review runs within drafting**, with no extra call. Before producing a seed,
-  the step compares settled decisions for contradictions, separates choices (`decided`)
-  from observed completed work (`done`), and supplies one failure-case string per check,
-  in `checks` order (including provisional and judge checks). Tinkery pairs each string
-  with the check's exact statement; the model never copies statements. A new blocker
-  returns as a question, not a seed. The typed `review` object requires
-  `contradictions`, `decided`, `done` and `failure_cases`. Model replies accept only
-  case strings, never statement/case objects. Saved reviews keep their existing paired
-  statement/case records; the ledger's `CompletionReview::validate` remains their strict
-  validation boundary. Missing or malformed reviews refuse; the ledger refuses nonempty
-  contradictions, blank review entries and incomplete failure-case coverage before seed writes. This
-  validates transport and coverage, not whether the model found every real conflict.
-  The prompt finalizes checks before cases and shows two cases for a provisional and
-  a judge check. Count mismatches still refuse: Tinkery never duplicates, drops or
-  invents cases to make coverage fit. The recorded clinic replies in #361 retain
-  their four-for-two and one-for-two refusals; only their unambiguous framing is repaired.
+  the step compares settled decisions for contradictions and separates choices (`decided`)
+  from observed completed work (`done`). Each model check carries its own non-empty
+  `failure_case` string, including provisional and judge checks. The decoder removes this
+  model-only field before canonical check validation and pairs it with that check's exact
+  final statement; the model need not count a second list or copy statements (#469).
+  A new blocker returns as a question, not a seed. The typed `review` object requires
+  `contradictions`, `decided` and `done`. Older replies with ordered `review.failure_cases`
+  strings still work strictly; mixed formats, missing cases and malformed cases refuse.
+  Tinkery never duplicates, drops or invents cases to make coverage fit. Recorded clinic
+  count mismatches and statement/case-object replies remain refusals.
+  Saved check and review formats are unchanged. The ledger's `CompletionReview::validate`
+  remains the validation boundary: it refuses nonempty contradictions, blank review
+  entries and failure-case counts that differ from the exact check statements. Statements
+  are descriptions, not unique IDs; repeated statements require the same number of cases,
+  and a foreign case cannot replace a required occurrence. This keeps transport adaptation
+  separate from saved coverage rules (architecture diagnostics 3 and 6), without new UI
+  states or persistent fields. It checks structure and coverage, not semantic adequacy.
   The validated review is preserved verbatim in append-only confirmed-goal receipts
   (`tinkery:review/completed`), using teach-back's revision and draft SHA-256 binding
   and recording path. These receipts are interview records, not changed goal evidence.
@@ -570,13 +603,15 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   to fail before the change or under targeted reversion. Inspection is not observed
   red or green. Routine setup or an unperformed reversion probe does not make an
   existing check provisional; missing assertions, tests or invocations do, with
-  `missing` naming the gap. Never invent commands or substitute a generic runner
-  for a missing regression. A provisional's optional `cmd` proposes how its missing
-  regression will run: after inspecting existing test names, propose a new test name
+  `missing` naming the gap. Never invent a runner or substitute a generic suite
+  for a missing regression. When the runner and a selection form
+  that fails when the test is absent are established, a provisional proposes how
+  its missing regression will run: after inspecting existing test names, propose a new test name
   and its assertions, then select that exact test with the repository's runner in a
   form that fails when it is absent. Selecting existing tests that pass without the
-  requested behavior does not cover the missing regression. Leave `cmd` out when the
-  runner's selection or missing-test behavior is unknown. A new draft whose provisional
+  requested behavior does not cover the missing regression. A missing test makes
+  the check provisional, not its invocation unknown. Leave `cmd` out when a suitable
+  selection form is unknown or unavailable, naming the gap in `missing`. A new draft whose provisional
   proposes a command another check also uses in the same `cwd` is refused with both check numbers (#469);
   stored seeds are read unchanged. Taste stays `judge` with what the operator inspects.
   If requested behavior appears present, propose verification and repairs only for
@@ -598,7 +633,7 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, F2 says
   `PgDn to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
-  `End of seed` marker after the last section clears that. The saved seed is unchanged.
+  `End of seed` marker after the last section clears that in the same frame. The saved seed is unchanged.
   Before that marker is reached, the key bar says `pgup/dn read to end` instead of
   offering to confirm; the confirmation hint appears on the same frame that reaches the end.
   Notices keep their own recovery instructions without repeating the key bar's action.
@@ -613,9 +648,9 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. A model failure, refusal or stop also
-  says `Model calls left this run: N of M.`, Think's wording, so a retry is chosen knowing
+  says `Drafting runs left this launch: N of M.`, Think's wording, so a retry is chosen knowing
   its cost (#435). Budget exhaustion points to
-  F1's Model and calls row, which adds calls for this launch; a model error or stop offers F2 retry, or F1's teach-back again
+  F1's Model and runs row, which adds runs for this launch; a model error or stop offers F2 retry, or F1's teach-back again
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
   Review refusals name the mismatched check or case/check counts; a reply that also splits a

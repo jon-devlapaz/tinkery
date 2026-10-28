@@ -24,6 +24,8 @@ type Topology = (Vec<(String, String)>, Vec<(usize, usize)>);
 #[derive(Default)]
 pub(super) struct GraphView {
     topology: Topology,
+    pending: Option<Topology>,
+    appearance: Option<(Color, Color, String)>,
     pub(super) state: Option<Arc<RwLock<GraphState>>>,
     mouse: GraphMouseState,
     area: Rect,
@@ -58,7 +60,8 @@ fn identity(session: &super::Session) -> String {
 }
 
 impl Tend {
-    pub(super) fn sync_graph(&mut self, body: Rect) {
+    /// Prepare path-bound inputs when sessions, scope or needs links change.
+    pub(super) fn prepare_graph(&mut self) {
         let mut counts = HashMap::new();
         for session in &self.all_sessions {
             if let Some(id) = &session.id {
@@ -94,10 +97,16 @@ impl Tend {
                     .collect()
             })
             .unwrap_or_default();
-        self.graph.sync(
-            (nodes, edges),
-            Rect::new(body.x, body.y, body.width, body.height.saturating_sub(3)),
-        );
+        self.graph.pending = Some((nodes, edges));
+    }
+
+    pub(super) fn sync_graph(&mut self, body: Rect) {
+        self.graph.sync(Rect::new(
+            body.x,
+            body.y,
+            body.width,
+            body.height.saturating_sub(3),
+        ));
     }
 
     pub(crate) fn step_selection(&mut self, forward: bool) {
@@ -134,12 +143,22 @@ impl Tend {
 }
 
 impl GraphView {
-    fn sync(&mut self, topology: Topology, area: Rect) {
+    fn sync(&mut self, area: Rect) {
         let resized = self.area.width != area.width || self.area.height != area.height;
         self.area = area;
-        if self.state.is_some() && self.topology == topology && !resized {
+        let pending = self.pending.take();
+        if self.state.is_some()
+            && !resized
+            && pending
+                .as_ref()
+                .is_none_or(|inputs| *inputs == self.topology)
+        {
             return;
         }
+        if let Some(inputs) = pending {
+            self.topology = inputs;
+        }
+        let topology = &self.topology;
         let settings = settings();
         let specs: Vec<_> = topology
             .0
@@ -204,7 +223,6 @@ impl GraphView {
             }
         }
         self.state = Some(Arc::new(RwLock::new(state)));
-        self.topology = topology;
         self.error = None;
         self.followed = None;
         self.mouse = GraphMouseState::default();
@@ -346,11 +364,20 @@ impl GraphView {
         let theme = ThemeColors::resolve(&settings);
         {
             let mut cache = state.render_cache.lock();
-            cache.rebuild_topology(state.simulation.get_graph(), &settings, &theme, false);
-            if let Some(index) = source_index {
-                cache
-                    .node_own_color
-                    .insert(index, palette.jade.fg.unwrap_or(Color::Reset));
+            let ink = palette.ink.fg.unwrap_or(Color::Reset);
+            let jade = palette.jade.fg.unwrap_or(Color::Reset);
+            let appearance_changed =
+                self.appearance
+                    .as_ref()
+                    .is_none_or(|(old_ink, old_jade, old_source)| {
+                        *old_ink != ink || *old_jade != jade || old_source != source
+                    });
+            if cache.topology_dirty || appearance_changed {
+                cache.rebuild_topology(state.simulation.get_graph(), &settings, &theme, false);
+                if let Some(index) = source_index {
+                    cache.node_own_color.insert(index, jade);
+                }
+                self.appearance = Some((ink, jade, source.to_owned()));
             }
         }
         draw_graph_view(

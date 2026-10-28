@@ -42,7 +42,7 @@ def journey(width, height, case):
             assert not (session / 'seed-confirmation.json').exists()
             assert len(run.calls()) == 1, 'No automatic or manual retry'
             assert json.loads((root / 'shape-replies.json').read_text()) == []
-            run.send(F1, 'Model calls left this run: 0 of 1.')
+            run.send(F1, 'Drafting runs left this launch: 0 of 1.')
             assert len(run.calls()) == 1
             print(json.dumps(dict(size=[width, height], case=case, stub_calls=1,
                                   live_calls=0, retries=0, confirmed=False)))

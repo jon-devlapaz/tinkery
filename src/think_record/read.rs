@@ -30,7 +30,7 @@ impl Event {
         match self {
             Self::Words { source, .. } => Some(format!("Original words {source}")),
             Self::Answered { source, .. } | Self::ScopeAnswered { source, .. } => {
-                Some(format!("Answer {source}"))
+                Some(format!("Submission {source}"))
             }
             _ => None,
         }

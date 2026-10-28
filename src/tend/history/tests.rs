@@ -140,7 +140,7 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
     assert!(body.contains("  Café 👩‍💻"));
     assert!(body.contains("Keep my words.  "));
     assert!(body.contains("Original words 1"));
-    assert!(body.contains("Answer 4"));
+    assert!(body.contains("Submission 4"));
     assert!(body.contains("  TEST scope answer Café  "));
     assert!(body.contains("Goal exactly.") && body.contains("Must not: rewrite."));
     assert!(!body.contains("MODEL") && !body.contains("/TEST"));
@@ -312,7 +312,7 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
         let entries = [
             "Original words 1",
             "Reading 1 shown",
-            "Answer 2 · after reading 1",
+            "Submission 2 · after reading 1",
             "Reading 2 shown",
         ];
         let positions: Vec<_> = entries
@@ -321,7 +321,7 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
             .collect();
         assert!(positions.windows(2).all(|p| p[0] < p[1]), "{first}");
         assert!(first.contains("Recorded sequence · 1 Jan 1970, UTC"));
-        assert!(first.contains("00:00:03  Answer 2 · after reading 1"));
+        assert!(first.contains("00:00:03  Submission 2 · after reading 1"));
         assert!(first.contains("Shown means it reached the screen, not that it was read."));
         assert!(!first.contains("1970-01-01T"));
         assert!(!first.contains("framings") && !first.contains("structure-spans-history"));
@@ -341,9 +341,9 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
             all.push_str(next.lines().nth(usize::from(size.1 - 2)).unwrap());
             previous = next;
         }
-        assert!(all.contains("Answer 2"));
+        assert!(all.contains("Submission 2"));
         let headings = [
-            "Answer 2",
+            "Submission 2",
             "Readings · Tinkery's guesses",
             "Reading 1 · shown 00:00:02",
             "Reading 2 · shown 00:00:04",

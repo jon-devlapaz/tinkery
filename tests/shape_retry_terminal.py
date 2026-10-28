@@ -84,14 +84,14 @@ def retry_journey(width, height, case):
             saved = reject(run, session, bounded=case == 'bounded')
             if case != 'bounded':
                 # #435: the refusal says what a retry has left, without opening help.
-                run.wait(f'Model calls left this run: {budget - 1} of {budget}.')
+                run.wait(f'Drafting runs left this launch: {budget - 1} of {budget}.')
             # Looking at recovery information, then closing it, neither writes nor calls.
-            run.send(F1, 'Model calls left this run:')
+            run.send(F1, 'Drafting runs left this launch:')
             run.send(F1, 'Next: F2 looks into the next question.')
             assert len(run.calls()) == 1 and files(session) == saved
 
             if case == 'budget':
-                run.send(F2, 'No model calls are left:')
+                run.send(F2, 'No drafting runs are left:')
                 assert len(run.calls()) == 1 and files(session) == saved
                 print(json.dumps(dict(size=[width, height], case=case, stub_calls=1, live_calls=0)))
                 return
@@ -186,7 +186,7 @@ def retry_journey(width, height, case):
             assert not (session / 'seed-confirmation.json').exists()
             assert 'previous_refusal' not in (session / 'ledger.json').read_text()
             assert 'previous_refusal' not in (session / 'seed-contract.md').read_text()
-            run.send(F1, 'Model calls left this run: 0 of')
+            run.send(F1, 'Drafting runs left this launch: 0 of')
             assert len(run.calls()) == budget, 'Recovery display called a model'
             print(json.dumps(dict(size=[width, height], case=case, stub_calls=len(calls),
                                   live_calls=0, confirmed=False)))

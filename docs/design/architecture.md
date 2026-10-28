@@ -142,7 +142,7 @@ No architecture limit or recorded score changes.
 | --- | --- |
 | Phase reaches across phases | none allowed |
 | `BrainDump` fields / `pub` fields | 13 / 0 |
-| Non-test source lines over 200 characters | 8 |
+| Long non-test source lines | See `LONG_LINE` and `LONG_LINES` in [the owning check](../../tests/architecture.rs) |
 | Test calls to `Conversation`'s test-only accessors | 77 |
 | Library files without a `//!` comment, `pub` items without a doc comment | none allowed |
 
