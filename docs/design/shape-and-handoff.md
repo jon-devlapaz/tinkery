@@ -521,7 +521,11 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   Acceptance criteria, Decisions, Assumed and Evidence and uncertainty come only from
   recorded checks, decisions, assumptions and findings, in their canonical positions.
   Host-owned headings use LF; prose keeps its line endings. Ledger-owned blocks remain
-  verbatim, with no extra wrappers. Findings and question transport are unchanged.
+  verbatim, with no extra wrappers. The exact generated title and origin-decision
+  line treat goal comment markers as literal data during seed verification, only
+  outside an existing comment. Their text and the confirmed goal remain unchanged;
+  general heading and prose validation still refuse injected structure.
+  Findings and question transport are unchanged.
 - **Completion review runs within drafting**, with no extra call. Before producing a seed,
   the step compares settled decisions for contradictions, separates choices (`decided`)
   from observed completed work (`done`), and supplies one failure-case string per check,
