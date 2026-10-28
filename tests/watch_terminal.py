@@ -181,6 +181,39 @@ def journey(width, height, no_color, configured=True):
                 send(b'\x1b[6~', 'TEST evidence')
                 assert len(calls()) == before_detail + 1, 'scrolling launched a read'
                 send(b'\x1b', 'Needs you')
+                # Fixed near-cap bodies plus small metadata remain readable through End.
+                for fill in ('x', '\n'):
+                    accepted = json.loads(json.dumps(DETAIL))
+                    accepted['run']['checklist'][0]['mark'] = {
+                        'evidence': fill * 59000 + '\nTEST-ACCEPTED-TAIL'}
+                    set_state(list=envelope(runs=[run('TEST-near-bound', 'blocked')]),
+                              details={'TEST-near-bound': accepted})
+                    send(b'r', 'TEST-near-bound')
+                    send(b'\r', 'TEST executable check')
+                    send(b'\x1b[F', 'TEST-ACCEPTED-TAIL')
+                    assert 'too long' not in screen.text(), screen.text()
+                    send(b'\x1b', 'Needs you')
+                # Reader-sized payloads can still exceed the renderer's scroll range.
+                for large in ('60000 source bytes', 'short evidence lines', 'empty evidence lines', 'appended error labels'):
+                    oversized = json.loads(json.dumps(DETAIL))
+                    if large == 'appended error labels':
+                        oversized['run']['errors'] = [''] * 21000
+                    elif large == '60000 source bytes':
+                        oversized['run']['checklist'][0]['mark'] = {'evidence': 'x' * 60000}
+                    else:
+                        oversized['run']['checklist'][0]['mark'] = {
+                            'evidence': ('x\n' if large == 'short evidence lines' else '\n') * 70000 + 'TEST-UNREACHABLE-TAIL'}
+                    set_state(list=envelope(runs=[run('TEST-big', 'blocked'), run('TEST-readable', 'current')]),
+                              details={'TEST-big': oversized})
+                    send(b'r', 'TEST-big')
+                    send(b'\r', 'Detail is too long to show completely.')
+                    assert 'status <slug> --json' in screen.text(), screen.text()
+                    assert 'TEST-UNREACHABLE-TAIL' not in screen.text()
+                    assert 'Checklist:' not in screen.text(), 'oversized detail looked complete'
+                    send(b'\x1b', 'TEST-readable')
+                    send(b'\x1b[B', '› TEST-readable')
+                    send(b'\r', 'No confirmed seed was recorded for this run.')
+                    send(b'\x1b', 'TEST-readable')
                 for status in ['blocked', 'failed', 'interrupted', 'running', 'not-run', 'stale', 'invalid']:
                     row = run('TEST-state', status)
                     if status == 'invalid':
