@@ -572,13 +572,15 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   to fail before the change or under targeted reversion. Inspection is not observed
   red or green. Routine setup or an unperformed reversion probe does not make an
   existing check provisional; missing assertions, tests or invocations do, with
-  `missing` naming the gap. Never invent commands or substitute a generic runner
-  for a missing regression. A provisional's optional `cmd` proposes how its missing
-  regression will run: after inspecting existing test names, propose a new test name
+  `missing` naming the gap. Never invent a runner or substitute a generic suite
+  for a missing regression. When the runner and a selection form
+  that fails when the test is absent are established, a provisional proposes how
+  its missing regression will run: after inspecting existing test names, propose a new test name
   and its assertions, then select that exact test with the repository's runner in a
   form that fails when it is absent. Selecting existing tests that pass without the
-  requested behavior does not cover the missing regression. Leave `cmd` out when the
-  runner's selection or missing-test behavior is unknown. A new draft whose provisional
+  requested behavior does not cover the missing regression. A missing test makes
+  the check provisional, not its invocation unknown. Leave `cmd` out when a suitable
+  selection form is unknown or unavailable, naming the gap in `missing`. A new draft whose provisional
   proposes a command another check also uses in the same `cwd` is refused with both check numbers (#469);
   stored seeds are read unchanged. Taste stays `judge` with what the operator inspects.
   If requested behavior appears present, propose verification and repairs only for

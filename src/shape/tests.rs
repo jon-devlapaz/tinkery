@@ -1746,7 +1746,7 @@ fn prompt_recovery_separates_existing_checks_from_missing_assertions() {
         "not provisional merely because setup",
         "state those prerequisites and intended red separately",
         "Use provisional when the needed test/assertion or invocation is missing",
-        "never invent a command or substitute an existing generic runner for a missing regression",
+        "never invent a runner or substitute an existing generic suite for a missing regression",
         "under a targeted reversion of an already-present fix",
     ] {
         assert!(
