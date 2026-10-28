@@ -74,7 +74,7 @@ fn review_blocked_by_unsent_words_says_so_on_the_normal_screen_and_keeps_them() 
             let goal = a.conversation.board().unwrap().parts.compose();
             a.input = Note::new("one more constraint");
             assert!(!shown(&mut a, w, h, no_color).contains(WHY));
-            super::tests::choose(&mut a, "Review the goal");
+            a.review_goal();
             assert!(a.handoff.review.is_none() && !a.running());
             assert!(shown(&mut a, w, h, no_color).contains(WHY), "{w}x{h}");
             assert_eq!(a.input.text, "one more constraint");
@@ -106,14 +106,14 @@ fn other_review_refusals_name_their_own_reason() {
     for (w, h) in SIZES {
         let mut a = board();
         ready(&mut a);
-        super::tests::choose(&mut a, "Review the goal");
+        a.review_goal();
         assert!(
             shown(&mut a, w, h, false).contains("A reply is waiting; F2 applies it, then review.")
         );
 
         let mut a = board();
         a.conversation.set_applied(0);
-        super::tests::choose(&mut a, "Review the goal");
+        a.review_goal();
         let screen = shown(&mut a, w, h, false);
         assert!(
             screen.contains("The reading is behind your words; F2 retries, then review.")

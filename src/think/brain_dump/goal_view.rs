@@ -148,6 +148,42 @@ impl BrainDump {
     pub(super) fn can_save(&self) -> bool {
         self.real && self.handoff.config.is_some()
     }
+    /// Whether normal Think can open review now. Opening help or observing this starts nothing;
+    /// the entry point still checks and explains each blocker when called directly.
+    pub(super) fn can_review(&self) -> bool {
+        !self.voice_active()
+            && self.handoff.receipt.is_none()
+            && self.handoff.job.is_none()
+            && self.handoff.review.is_none()
+            && self.review_candidate().is_ok()
+    }
+
+    /// The current board and its displayed goal, or the same refusal review entry uses.
+    fn review_candidate(&self) -> Result<(&board::Board, &str), &'static str> {
+        if !self.can_save() {
+            return Err(layout::SAVE_NEEDS_REAL);
+        }
+        if self.running() {
+            return Err("Still thinking; review once the reading is back.");
+        }
+        if !self.input.text.is_empty() {
+            return Err("Send (F2) or clear your unsent words, then review.");
+        }
+        if self.shaping.ready.is_some() {
+            return Err("A reply is waiting; F2 applies it, then review.");
+        }
+        if !self.conversation.caught_up() {
+            return Err("The reading is behind your words; F2 retries, then review.");
+        }
+        let board = self
+            .conversation
+            .board()
+            .ok_or("No reading to review yet; F2 sends your words.")?;
+        let goal = board
+            .goal()
+            .ok_or("No goal to review yet; parts remain open.")?;
+        Ok((board, goal))
+    }
     /// True when confirming also writes a think record.
     pub(super) fn records(&self) -> bool {
         self.handoff.record_root.is_some()
@@ -205,36 +241,29 @@ impl BrainDump {
         if self.handoff.receipt.is_some() || self.handoff.job.is_some() {
             return;
         }
-        if !self.can_save() {
-            self.refuse(layout::SAVE_NEEDS_REAL);
-            return;
-        }
-        // Each blocker names itself, so the person knows which one to clear.
-        if self.running() {
-            self.refuse("Still thinking; review once the reading is back.");
-            return;
-        }
-        if !self.input.text.is_empty() {
-            self.refuse("Send (F2) or clear your unsent words, then review.");
-            return;
-        }
-        if self.shaping.ready.is_some() {
-            self.refuse("A reply is waiting; F2 applies it, then review.");
-            return;
-        }
-        if !self.conversation.caught_up() {
-            self.refuse("The reading is behind your words; F2 retries, then review.");
-            return;
-        }
-        let Some(g) = self.conversation.board() else {
-            self.refuse("No reading to review yet; F2 sends your words.");
-            return;
+        let (g, goal) = match self.review_candidate() {
+            Ok(candidate) => candidate,
+            Err(reason) => {
+                self.refuse(reason);
+                return;
+            }
         };
-        let Some(goal) = g.goal().map(str::to_owned) else {
-            self.refuse("No goal to review yet; parts remain open.");
-            return;
-        };
+        let goal = goal.to_owned();
         let (unresolved, unresolved_notes) = self.conversation.review_context();
+        let affirmation = Affirmation {
+            goal,
+            parts: g.parts.clone(),
+            other_goals: g.other_goals.clone(),
+            deferred: g.deferred.clone(),
+            outcome: g.parts.done_when.clone().unwrap_or_default(),
+            options: g.alternatives.iter().map(board::Candidate::wire).collect(),
+            sources: self.conversation.sources().to_vec(),
+            answered: self.conversation.settled().to_vec(),
+            decisions: g.decisions.clone(),
+            unresolved,
+            unresolved_notes,
+            confirmation: self.handoff.confirmation.clone(),
+        };
         self.screen.original = false;
         self.screen.help = false;
         self.screen.details = false;
@@ -245,20 +274,7 @@ impl BrainDump {
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
         self.handoff.review = Some(Review {
-            affirmation: Affirmation {
-                goal,
-                parts: g.parts.clone(),
-                other_goals: g.other_goals.clone(),
-                deferred: g.deferred.clone(),
-                outcome: g.parts.done_when.clone().unwrap_or_default(),
-                options: g.alternatives.iter().map(board::Candidate::wire).collect(),
-                sources: self.conversation.sources().to_vec(),
-                answered: self.conversation.settled().to_vec(),
-                decisions: g.decisions.clone(),
-                unresolved,
-                unresolved_notes,
-                confirmation: self.handoff.confirmation.clone(),
-            },
+            affirmation,
             input: String::new(),
             scroll: 0,
             max: u16::MAX,
