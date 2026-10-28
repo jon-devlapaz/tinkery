@@ -523,21 +523,23 @@ With `--shape-pi` and `--model`, only these stages accept actions. Shape uses Th
   Host-owned headings use LF; prose keeps its line endings. Ledger-owned blocks remain
   verbatim, with no extra wrappers. Findings and question transport are unchanged.
 - **Completion review runs within drafting**, with no extra call. Before producing a seed,
-  the step compares settled decisions for contradictions, separates choices (`decided`)
-  from observed completed work (`done`), and supplies one failure-case string per check,
-  in `checks` order (including provisional and judge checks). Tinkery pairs each string
-  with the check's exact statement; the model never copies statements. A new blocker
-  returns as a question, not a seed. The typed `review` object requires
-  `contradictions`, `decided`, `done` and `failure_cases`. Model replies accept only
-  case strings, never statement/case objects. Saved reviews keep their existing paired
-  statement/case records; the ledger's `CompletionReview::validate` remains their strict
-  validation boundary. Missing or malformed reviews refuse; the ledger refuses nonempty
-  contradictions, blank review entries and incomplete failure-case coverage before seed writes. This
-  validates transport and coverage, not whether the model found every real conflict.
-  The prompt finalizes checks before cases and shows two cases for a provisional and
-  a judge check. Count mismatches still refuse: Tinkery never duplicates, drops or
-  invents cases to make coverage fit. The recorded clinic replies in #361 retain
-  their four-for-two and one-for-two refusals; only their unambiguous framing is repaired.
+  the step compares settled decisions for contradictions and separates choices (`decided`)
+  from observed completed work (`done`). Each model check carries its own non-empty
+  `failure_case` string, including provisional and judge checks. The decoder removes this
+  model-only field before canonical check validation and pairs it with that check's exact
+  final statement; the model need not count a second list or copy statements (#469).
+  A new blocker returns as a question, not a seed. The typed `review` object requires
+  `contradictions`, `decided` and `done`. Older replies with ordered `review.failure_cases`
+  strings still work strictly; mixed formats, missing cases and malformed cases refuse.
+  Tinkery never duplicates, drops or invents cases to make coverage fit. Recorded clinic
+  count mismatches and statement/case-object replies remain refusals.
+  Saved check and review formats are unchanged. The ledger's `CompletionReview::validate`
+  remains the validation boundary: it refuses nonempty contradictions, blank review
+  entries and failure-case counts that differ from the exact check statements. Statements
+  are descriptions, not unique IDs; repeated statements require the same number of cases,
+  and a foreign case cannot replace a required occurrence. This keeps transport adaptation
+  separate from saved coverage rules (architecture diagnostics 3 and 6), without new UI
+  states or persistent fields. It checks structure and coverage, not semantic adequacy.
   The validated review is preserved verbatim in append-only confirmed-goal receipts
   (`tinkery:review/completed`), using teach-back's revision and draft SHA-256 binding
   and recording path. These receipts are interview records, not changed goal evidence.
