@@ -127,7 +127,8 @@ With no focused question (none left, skipped or a part asked twice), show one mu
 | State | Line |
 | --- | --- |
 | No composed goal | No goal yet. |
-| Ready | Ready for your review. |
+| Ready, review available | Ready for your review. F1, then 1: Review the goal. |
+| Ready, review unavailable | Ready for your review. |
 | Required part missing | Still missing: Done when. Review when you're ready. (Name the first missing part: who, outcome, why, done when.) |
 | Required parts present, other intent open | Some parts remain open for the seed. Review when you're ready. |
 
@@ -139,7 +140,7 @@ review and recovery mechanics, not model quality;
 [#401](https://github.com/jon-devlapaz/tinkery/issues/401) retains that evaluation work.
 
 Without a composed goal, omit the review invitation. F1 uses the same first sentence
-and offers review only with a saveable current goal: no unsent words, held reply or unfinished
+and names “1: Review the goal” only with a saveable current goal: no unsent words, held reply or unfinished
 reading. Listing and entry share these prerequisites; direct entry keeps its refusal messages.
 In practice or without a sessions folder, help says
 saving needs real mode and a sessions folder. With no goal, offer adding words then F2,

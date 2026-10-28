@@ -392,10 +392,7 @@ fn ready_invites_review_without_claiming_complete_intent() {
         assert!(!screen.contains("Still missing") && !screen.contains("remain open"));
     }
     a.screen.help = true;
-    assert!(
-        layout::help_text(&a)
-            .contains("Ready for your review.\nReview the goal from the list above.")
-    );
+    assert!(layout::help_text(&a).contains("Ready for your review.\n1: Review the goal."));
 }
 #[test]
 fn skipped_why_names_only_the_missing_part() {
@@ -409,10 +406,7 @@ fn skipped_why_names_only_the_missing_part() {
         );
         assert!(!screen.contains("Ready for your review") && !screen.contains("remain open"));
     }
-    assert!(
-        layout::help_text(&a)
-            .contains("\n\nStill missing: Why.\nReview the goal from the list above.")
-    );
+    assert!(layout::help_text(&a).contains("\n\nStill missing: Why.\n1: Review the goal."));
     review_lists_and_saves(&mut a, &["Why — Which check 1?"]);
     assert_eq!(
         a.conversation.sources()[0].text.as_bytes(),

@@ -249,7 +249,8 @@ class Run:
 
     def choose(self, label, text):
         """Opens F1, picks the row naming `label` by its number, then waits for `text`."""
-        self.send(F1, label)
+        self.send(F1, 'Right now')
+        self.wait(label)
         self.send(self.screen.pick(label), text)
 
     def read_until(self, text, timeout=20, *, whole_line=False, wrapped_path=False):
