@@ -242,7 +242,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 # Approve owns the one command that starts a build; Shape points there (#466).
                 assert 'c copy intake' not in flat() and '<run>' not in flat(), screen.text()
                 if case == 'ready':
-                    assert 'Next: Approve copies the command that starts the build.' in flat(), screen.text()
+                    assert 'Next: F1, then 1: Open this seed in Approve.' in flat(), screen.text()
                 if case != 'unreadable':
                     so_far()
                 else:

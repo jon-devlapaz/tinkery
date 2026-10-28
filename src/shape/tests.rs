@@ -12,6 +12,7 @@ fn done(stage: Shaped) -> Shape {
     let mut shape = Shape::session(Path::new("/tmp/TEST-shape/session"));
     let open = shape.open.as_mut().unwrap();
     open.reading = Reading::Done(Ok(Shaping {
+        ready_target: None,
         goal: Some(GOAL.into()),
         success_open: false,
         stage,
@@ -289,7 +290,7 @@ fn seed_ready_points_to_approve_and_copies_nothing() {
         for (width, height) in [(80, 24), (100, 30)] {
             let text = screen(&mut shape, width, height, true);
             assert!(
-                text.contains("Approve copies the command that starts the build."),
+                text.contains("open Approve from the menu to inspect this seed."),
                 "{text}"
             );
             assert!(!text.contains("copy intake"), "{text}");

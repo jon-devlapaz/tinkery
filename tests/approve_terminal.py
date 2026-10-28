@@ -25,7 +25,7 @@ def journey(width, height, case, no_color):
         root = Path(directory).resolve()
         sessions = root / "TEST sessions' folder"
         expected = []
-        if case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout', 'different-repo'):
+        if case.startswith('target-') or case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout', 'different-repo'):
             for name, date in [('TEST oldest café', '2026-01-01T00:00:00Z'),
                                ('TEST newest', '2026-02-01T00:00:00Z')]:
                 # #434: a ready goal tall enough to push the command below the fold at both sizes.
@@ -51,7 +51,7 @@ def journey(width, height, case, no_color):
         elif case == 'unreadable':
             sessions.write_text('TEST not a directory')
         checkout = root / "TEST checkout's folder"
-        configured = case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'different-repo')
+        configured = case.startswith('target-') or case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'different-repo')
         if configured:
             script = checkout / '_system/scripts/sdlc.py'
             script.parent.mkdir(parents=True)
@@ -59,7 +59,7 @@ def journey(width, height, case, no_color):
             record = {'path': 'runs/TEST-other/seed-contract.md', 'source': str(original.resolve()),
                       'sha256': hashlib.sha256(original.read_bytes()).hexdigest()}
             report = {'protocol': 'tink-sdlc', 'api_version': 1, 'runs': [
-                {'slug': 'TEST-unrelated-name', 'seed_contract': record}] if case not in ('ready', 'different-repo') else []}
+                {'slug': 'TEST-unrelated-name', 'seed_contract': record}] if not case.startswith('target-') and case not in ('ready', 'different-repo') else []}
             script.write_text('print(' + repr(json.dumps(report)) + ')\n'
                               if case != 'runs-unreadable' else 'raise SystemExit("TEST unreadable runs")\n')
             if case == 'edited':
@@ -68,7 +68,7 @@ def journey(width, height, case, no_color):
                 moved = sessions / 'TEST moved session'
                 expected[0].rename(moved)
                 expected[0] = moved
-        if case == 'different-repo':
+        if case in ('different-repo', 'target-different-repo'):
             (checkout / '.git').mkdir()
             other = root / 'TEST-other-repo'
             (other / '.git').mkdir(parents=True)
@@ -82,6 +82,11 @@ def journey(width, height, case, no_color):
                     seed_me_session_id=ledger['session_id'], repo=str(other),
                     turns=[], checks=[], goal=ledger['goal'])
                 (records / f'TEST-{index}.json').write_text(json.dumps(record))
+        if case.startswith('target-'):
+            for folder in sessions.iterdir():
+                if folder not in expected:
+                    ledger = folder / 'ledger.json'; value = json.loads(ledger.read_text())
+                    value['updated_at'] = '2025-01-01T00:00:00Z'; ledger.write_text(json.dumps(value))
         host = root / 'pi'
         host.write_text('#!/bin/sh\ntouch TEST-provider-was-run\nexit 86\n')
         host.chmod(0o755)
@@ -127,6 +132,81 @@ def journey(width, height, case, no_color):
 
         try:
             wait(lambda: '4  approve' in screen.text())
+            if case.startswith('target-'):
+                target = expected[1]
+                send(b'2', '↑↓←→ move')
+                send(b'\r', 's shape')
+                assert 'TEST newest' in flat(), screen.text()
+                send(b's', 'Seed ready:')
+                assert 'F1, then 1: Open this seed in Approve.' in flat(), screen.text()
+                assert files(root) == before
+                # F1 opens only the actions list; the deliberate first choice navigates.
+                send(b'\x1bOP', '1 Open this seed in Approve')
+                assert 'tinkery › shape' in flat() and not copies(), screen.text()
+                seedpath = target / 'seed-contract.md'
+                ledgerpath = target / 'ledger.json'
+                recordpath = target / 'seed-confirmation.json'
+                if case == 'target-stale':
+                    seedpath.write_text(seedpath.read_text() + '\nTEST changed after Shape read.\n')
+                elif case == 'target-missing':
+                    seedpath.unlink()
+                elif case == 'target-started':
+                    report['runs'] = [{'slug':'TEST-started', 'seed_contract':{'source':str(seedpath.resolve()), 'sha256':hashlib.sha256(seedpath.read_bytes()).hexdigest(), 'path':'runs/TEST-started/seed-contract.md'}}]
+                    script.write_text('print(' + repr(json.dumps(report)) + ')\n')
+                elif case == 'target-version':
+                    ledger = json.loads(ledgerpath.read_text());ledger['version'] += 1
+                    ledgerpath.write_text(json.dumps(ledger))
+                elif case == 'target-recreated':
+                    ledger = json.loads(ledgerpath.read_text());ledger['session_id'] = 'TEST-recreated-id'
+                    ledgerpath.write_text(json.dumps(ledger))
+                    record = json.loads(recordpath.read_text());record['session_id'] = ledger['session_id']
+                    recordpath.write_text(json.dumps(record))
+                elif case == 'target-hash':
+                    seedpath.write_text(seedpath.read_text() + '\nTEST newly confirmed bytes at the same revision.\n')
+                    record = json.loads(recordpath.read_text());record['seed_sha256'] = hashlib.sha256(seedpath.read_bytes()).hexdigest()
+                    recordpath.write_text(json.dumps(record))
+                before = files(root)  # Only the authored TEST mutation above is allowed.
+                success = case in ('target-ready', 'target-different-repo')
+                send(b'1', 'Seed 1 of 1' if success else 'Ready seeds unavailable.')
+                assert 'TEST oldest café' not in flat(), 'targeted visit substituted an unrelated seed'
+                send(b'\x1bOP', 'Esc returns to Shape.')
+                assert 'Esc returns to the menu.' not in flat(), screen.text()
+                send(b'\x1b', 'Seed 1 of 1' if success else 'Ready seeds unavailable.')
+                if success:
+                    assert 'TEST newest' in flat() and 'TEST original goal.' in flat()
+                    if case == 'target-different-repo':
+                        send(b'\x1b[F', 'Made in TEST-other-repo,')
+                        assert 'c copy command' not in flat()
+                        os.write(master,b'c');time.sleep(.1);assert not copies()
+                    else:
+                        send(b'c', 'Copied. Run it in a terminal; after it succeeds, open Watch.')
+                        wait(lambda: len(copies()) == 1)
+                        words = shlex.split(copies()[0])
+                        assert words[6] == 'test-newest' and words[11] == 'test-newest', words
+                        assert words[words.index('--seed-contract')+1] == str(seedpath.resolve())
+                else:
+                    if case == 'target-started':assert 'already started' in flat(), screen.text()
+                    if case in ('target-version','target-recreated','target-hash'):assert 'changed since Shape read it' in flat(), screen.text()
+                    os.write(master,b'cnp');time.sleep(.1);assert not copies()
+                send(b'\x1b', 'tinkery › shape')
+                wait(lambda: 'TEST newest' in flat())
+                if case in ('target-stale','target-missing'):assert 'Seed ready:' not in flat(), screen.text()
+                else:wait(lambda: 'Seed ready:' in flat())
+                if case in ('target-version','target-recreated','target-hash'):
+                    # Back rereads the now-valid replacement identity, never reuses the old one.
+                    send(b'\x1bOP','1 Open this seed in Approve');send(b'1','Seed 1 of 1')
+                    assert 'TEST newest' in flat() and 'TEST oldest café' not in flat()
+                    send(b'\x1b','Seed ready:')
+                if case == 'target-ready':
+                    send(b'\x1bOP','1 Open this seed in Approve');send(b'1','Seed 1 of 1')
+                    send(b'\x1b[21~','4 approve')  # F10 drops the route-specific origin.
+                    send(b'2','↑↓←→ move');send(b'\r','s shape');send(b's','Seed ready:')
+                send(b'\x1b','s shape')
+                wait(lambda: 'tinkery › tend' in flat() and 'TEST newest' in flat())
+                send(b'\x1b[21~','4 approve')
+                assert files(root) == before and not (root/'TEST-provider-was-run').exists()
+                print(json.dumps(dict(width=width,height=height,no_color=no_color,journey='approve/'+case,provider_calls=0,session_writes=0,copy_actions=int(case=='target-ready'))))
+                return
             os.write(master, b'4')
             if case in ('started', 'edited'):
                 wait(lambda: 'Seed 1 of 1' in flat())
@@ -217,3 +297,8 @@ if __name__ == '__main__':
         for no_color in [False, True]:
             for case in ['ready', 'empty', 'incomplete', 'unreadable', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout', 'different-repo']:
                 journey(*size, case, no_color)
+            for case in ['target-ready','target-stale','target-missing','target-started','target-different-repo']:
+                journey(*size,case,no_color)
+
+    for case in ['target-version','target-recreated','target-hash']:
+        journey(80,24,case,True)

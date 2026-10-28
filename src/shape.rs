@@ -83,6 +83,7 @@ pub struct Shape {
     held: bool,
     /// F1's Model and runs row asked for the Model panel, which the launch owns.
     model: bool,
+    approve: Option<crate::seed_me::ready::SeedTarget>,
 }
 
 /// What a key asks of whoever holds Shape.
@@ -215,6 +216,7 @@ impl Shape {
             agent: None,
             held: false,
             model: false,
+            approve: None,
         }
     }
 
@@ -238,6 +240,18 @@ impl Shape {
     /// Whether F1's Model and runs row was picked since the last ask. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         std::mem::take(&mut self.model)
+    }
+
+    /// Take the deliberate Ready action's exact seed once; routing starts no write or model.
+    pub(crate) fn take_approve_request(&mut self) -> Option<crate::seed_me::ready::SeedTarget> {
+        self.approve.take()
+    }
+
+    /// Reenter this same session through its normal asynchronous read, keeping words and context.
+    pub(crate) fn reread(&mut self) {
+        if let Some(open) = &mut self.open {
+            open.reading = Reading::NotStarted;
+        }
     }
 
     /// Whether keys now type words (an answer, seed confirmation or folder), so letters aren't
@@ -289,6 +303,7 @@ impl Shape {
             agent: None,
             held: false,
             model: false,
+            approve: None,
         }
     }
 
@@ -2287,7 +2302,11 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                     palette.muted,
                 ));
             }
-            Some("Next: Approve copies the command that starts the build.".into())
+            Some(if shaping.ready_target.is_some() {
+                "Next: F1, then 1: Open this seed in Approve.".into()
+            } else {
+                "Next: open Approve from the menu to inspect this seed.".into()
+            })
         }
         Shaped::Unverified { reason } => {
             lines.push(Line::styled(

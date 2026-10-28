@@ -9,6 +9,8 @@ use std::path::Path;
 /// One session as Shape shows it: the confirmed goal exactly as recorded, and where its seed stands.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Shaping {
+    /// Exact confirmed-seed identity from this verified read; navigation only, never permission.
+    pub ready_target: Option<super::ready::SeedTarget>,
     /// The ledger's confirmed goal, byte for byte; `None` when the session records none.
     pub goal: Option<String>,
     /// The saved record explicitly lacks a success criterion; unknown older records are not absence.
@@ -153,6 +155,19 @@ fn read_session(session: &Path) -> Result<Shaping, String> {
     status["revisable"] = serde_json::json!(revisable);
     status["waiting_on"] = Value::Object(waits);
     let mut shaping = classify(&ledger, &status);
+    if matches!(shaping.stage, Shaped::Ready { .. }) {
+        shaping.ready_target = (|| {
+            Some(super::ready::SeedTarget {
+                session: session.canonicalize().ok()?,
+                session_id: ledger["session_id"]
+                    .as_str()
+                    .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))?
+                    .to_owned(),
+                version: shaping.version?,
+                sha256: status["seed"]["sha256"].as_str()?.to_owned(),
+            })
+        })();
+    }
     shaping.confirmation = confirmation;
     if matches!(shaping.stage, Shaped::Waiting) {
         shaping.deferred = super::ledger::deferred_prerequisite(&saved)?;
@@ -221,6 +236,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             })
         });
     let shaping = |goal: Option<String>, stage| Shaping {
+        ready_target: None,
         goal,
         success_open,
         stage,

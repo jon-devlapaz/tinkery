@@ -15,7 +15,9 @@ Name the purpose without borrowing another place's name. Taste can explicitly op
 one [unsent next-dump draft](taste.md#after-external-acceptance) in a fresh Think
 visit; the menu alone connects those phases, and starts no request. [Tend](shape-and-handoff.md)
 owns the garden and handoff. Unbuilt places authorize nothing. Goal confirmation,
-intake approval and implementation permission remain separate.
+intake approval and implementation permission remain separate. The menu also owns
+the deliberate [Ready Shape-to-Approve route](approve.md#from-a-confirmed-shape-seed),
+including its exact Shape/Tend Back context and F10 Home.
 
 The muted key bar `↑↓ move   enter open   ? help   q quit` has one blank row below.
 The latest receipt keeps its row two blank rows below the list, aligned with place

@@ -149,7 +149,7 @@ def journey(width, height):
             assert 'c copy intake' not in run.flat(), run.screen.text()
             before = files(root)
             os.write(run.master, b'c')
-            run.read_until('Approve copies the command that starts the build.')
+            run.read_until('F1, then 1: Open this seed in Approve.')
             assert copies() == [], 'Shape copied a command'
             assert 'declared: agent' in (session / 'seed-contract.md').read_text()
             assert len(run.calls()) == 2

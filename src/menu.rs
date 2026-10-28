@@ -66,6 +66,7 @@ pub struct Home {
     /// An agent launch without --shape-pi: Shape only reads.
     shape_held: bool,
     approve_reader: approve::Reader,
+    approve_origin: Option<ApproveOrigin>,
     /// `m` on the menu asked for the Model panel, which the launch owns.
     model_request: bool,
 }
@@ -81,6 +82,13 @@ enum View {
     Watch(Box<Watch>),
     Taste(Box<Taste>),
     Soon(usize),
+}
+
+/// Only the deliberate Shape-to-Approve visit returns here; F10 discards it for Home.
+struct ApproveOrigin {
+    shape: Box<Shape>,
+    tend: Option<Box<Tend>>,
+    selected: usize,
 }
 
 impl Home {
@@ -115,6 +123,7 @@ impl Home {
             taste_results: crate::taste::ResultLinks::default(),
             shape_held: false,
             approve_reader: approve::Reader::default(),
+            approve_origin: None,
             model_request: false,
         }
     }
@@ -447,6 +456,7 @@ impl Home {
         }
         self.history_reader.cancel();
         self.approve_reader.cancel();
+        self.approve_origin = None;
         self.selected = index;
         self.help = false;
         self.view = match index {
@@ -481,6 +491,28 @@ impl Home {
         };
         self.sync_tend();
         self.sync_shape();
+        self.sync_approve();
+    }
+
+    /// Open only the chosen seed through normal verification, keeping this Ready return context.
+    fn open_ready_seed(&mut self, target: crate::seed_me::ready::SeedTarget) {
+        let View::Shape(shape, tend) = std::mem::replace(&mut self.view, View::Menu) else {
+            return;
+        };
+        let origin = ApproveOrigin {
+            shape,
+            tend,
+            selected: self.selected,
+        };
+        self.history_reader.cancel();
+        self.approve_reader.cancel();
+        self.request_sessions();
+        self.selected = 3;
+        self.help = false;
+        self.view = View::Approve(Box::new(
+            approve::Approve::open(self.sdlc_root.clone()).for_seed(target),
+        ));
+        self.approve_origin = Some(origin);
         self.sync_approve();
     }
 
@@ -607,7 +639,14 @@ impl Home {
             } else if key.modifiers == KeyModifiers::NONE && view.key(key, &mut self.help) {
                 self.approve_reader.cancel();
                 self.help = false;
-                self.view = View::Menu;
+                self.view = match self.approve_origin.take() {
+                    Some(mut origin) if key.code != KeyCode::F(10) => {
+                        self.selected = origin.selected;
+                        origin.shape.reread();
+                        View::Shape(origin.shape, origin.tend)
+                    }
+                    _ => View::Menu,
+                };
             }
             return;
         }
@@ -826,6 +865,13 @@ impl Home {
                     }
                 }
             }
+        }
+        let target = match &mut self.view {
+            View::Shape(shape, _) => shape.take_approve_request(),
+            _ => None,
+        };
+        if let Some(target) = target {
+            self.open_ready_seed(target);
         }
     }
 
