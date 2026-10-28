@@ -264,7 +264,7 @@ impl Approve {
     /// Show clipboard transport feedback, not a claim of host clipboard verification.
     pub(crate) fn copy_result(&mut self, sent: bool) {
         self.notice = if sent {
-            "Copied."
+            "Copied. Run it in a terminal; after it succeeds, open Watch."
         } else {
             "Couldn't copy; try again."
         };

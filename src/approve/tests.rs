@@ -52,10 +52,19 @@ fn one_seed_at_a_time_and_copy_never_runs_a_command() {
         view.seeds()[0].seed.commands.clone().unwrap()
     );
     assert!(view.take_copy_request().is_none());
+    view.copy_result(true);
+    for (width, height) in [(80, 24), (100, 30)] {
+        let shown = screen(&mut view, width, height, false);
+        assert!(shown.contains("Copied. Run it in a terminal; after it succeeds, open Watch."));
+        assert!(shown.contains("c copy command") && shown.contains("esc back"));
+    }
+    assert!(view.take_copy_request().is_none());
     view.copy_result(false);
     assert!(screen(&mut view, 80, 24, false).contains("Couldn't copy; try again."));
     view.key(KeyEvent::from(KeyCode::Char('n')), &mut help);
-    assert!(screen(&mut view, 80, 24, false).contains("TEST newest"));
+    let shown = screen(&mut view, 80, 24, false);
+    assert!(shown.contains("TEST newest"));
+    assert!(!shown.contains("Copied.") && !shown.contains("Couldn't copy"));
     view.key(KeyEvent::from(KeyCode::F(1)), &mut help);
     view.key(KeyEvent::from(KeyCode::Char('c')), &mut help);
     view.key(KeyEvent::from(KeyCode::Char('p')), &mut help);

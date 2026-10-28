@@ -56,7 +56,9 @@ leave the origin unknown; a muted note says so without adding a copy refusal.
 A known origin outside any repository likewise keeps copy with a muted note.
 These readings establish where Think ran, not what the goal concerns or whether it
 has started elsewhere. Without `--sdlc-root`, origin handling changes nothing.
-Copy uses the existing OSC 52 transport and feedback. For
+Copy uses the existing OSC 52 transport. Success says “Copied. Run it in a terminal;
+after it succeeds, open Watch.” Failure keeps its retry notice; selecting another
+seed clears feedback. For
 [agent-confirmed seeds](think.md#confirmation-attribution-185), show
 `Agent-confirmed seed` and the tink-sdlc 1.38.0-or-newer intake requirement alongside
 the same copy action. This prepares text without checking the consumer version or
