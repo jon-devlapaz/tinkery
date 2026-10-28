@@ -146,11 +146,11 @@ def journey(width, height):
             assert receipt['actor'] == ACTOR
             assert status(session)['handoff']['verified'] is True
             run.read_until(NOTE)
-            assert 'c copy intake' in run.flat()
+            assert 'c copy intake' not in run.flat(), run.screen.text()
             before = files(root)
-            run.send(b'c', 'Copied')
-            assert len(copies()) == 1 and '--seed-contract' in copies()[0]
-            assert files(root) == before, 'Shape copy changed files'
+            os.write(run.master, b'c')
+            run.read_until('Approve copies the command that starts the build.')
+            assert copies() == [], 'Shape copied a command'
             assert 'declared: agent' in (session / 'seed-contract.md').read_text()
             assert len(run.calls()) == 2
             # Both views disclose agent confirmation; copying never creates a run or approves.
@@ -159,8 +159,8 @@ def journey(width, height):
             run.read_until(NOTE)
             assert 'c copy command' in run.flat()
             run.send(b'c', 'Copied.')
-            assert len(copies()) == 2
-            words = shlex.split(copies()[1])
+            assert len(copies()) == 1
+            words = shlex.split(copies()[0])
             assert words[:6] == ['cd', str(checkout), '&&', 'python3',
                                  '_system/scripts/sdlc.py', 'new'], words
             assert words[7:12] == ['&&', 'python3', '_system/scripts/sdlc.py',

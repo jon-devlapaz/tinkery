@@ -21,7 +21,7 @@ an incomplete scan cannot claim there are no waiting seeds.
 
 `seed_me::ready` owns the handoff reading: exact confirmed goal, revision and the
 seed's Acceptance criteria section, including original whitespace. It uses the
-same ledger verification and canonical, shell-quoted intake formatter as Shape.
+same ledger verification as Shape and owns the one canonical, shell-quoted intake command.
 Seed and ledger bytes are checked before and after verification; observed changes
 refuse the reading. This is a snapshot, not a live freshness claim. Return to the
 menu and reopen to read again. Unsafe terminal controls are escaped only for display.
@@ -86,7 +86,7 @@ verified seed or justifies a complete empty-waiting claim.
 
 ## Verification
 
-Shared-boundary tests prove verified-only selection, exact bytes, shared intake
+Shared-boundary tests prove verified-only selection, exact bytes, canonical intake
 quoting and refusal on changed sources. View tests cover copying, help isolation,
 scrolling and abandoned reads. [PTY journeys](../../tests/approve_terminal.py)
 use the actual Rust ledger and temporary TEST roots at 80×24 and 100×30,

@@ -344,7 +344,7 @@ The screen starts with the confirmed goal's first line in ink:
 | Current question | Show a muted label, jade question, `What I found:` for only the first supported finding (or legacy question receipt), and italic `Suggestion:`. So far holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
 | No question or seed | If the saved record explicitly lacks a success criterion: `The saved goal leaves Done when open.` Otherwise: `Shape hasn't asked its next question yet.` |
 | Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
-| Confirmed seed verified by `status`, active or completed | `Seed ready` and revision; `c copy intake` when both paths are usable; completed adds a muted note that nothing can change |
+| Confirmed seed verified by `status`, active or completed | `Seed ready` and revision, then `Next: Approve copies the command that starts the build.`; completed adds a muted note that nothing can change |
 | Unverifiable confirmation | Tinkery's reason, e.g. changed seed |
 | Practice, stopped, unrecognised | Name that state plainly. |
 
@@ -371,19 +371,10 @@ unchanged. Status ignores viewer records and snapshots; it opens no network conn
 `tinkery seed status --json DIR` prints the intake status without `viewer`, `snapshot` or
 `snapshot_current`; `tinkery seed checks DIR` prints the strict check records. Both are read-only.
 
-Only Seed ready with an external-intake-compatible confirmation offers `c copy intake`: one line,
-`python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract '<absolute seed path>' --tinkery '<absolute Tinkery executable>'`.
-Both paths are canonical and shell-quoted; the executable is this running Tinkery binary.
-Tinkery verifies the seed itself. Run from the tink-sdlc repository
-root after replacing the visible `<run>` placeholder. If either copy path cannot
-be resolved or represented on one safe line, the verified seed stays readable but
-offers no copy. It uses Tend's OSC 52 route and `Copied.` / `Couldn't
-copy; try again.` feedback, not verified host-clipboard success. Drafts, unverifiable
-seeds and stopped sessions offer no intake copy. Verified agent-confirmed seeds offer
-the same copy action with the [attribution and consumer requirement](think.md#confirmation-attribution-185).
-Copying writes no files, calls no model, runs no intake and grants no approval to build;
-choosing or creating an SDLC
-run stays outside Shape.
+Shape copies no intake command. [Approve](approve.md) owns the one command that
+creates a run in the named checkout and imports the seed, so a seed has one handoff
+line and no placeholder to replace (#466). Seed ready points there; choosing or
+creating an SDLC run stays outside Shape.
 
 ### The screen
 
@@ -702,15 +693,14 @@ which Tend's readiness needs. It needs no model or budget.
 
 - F1's **End this session** on an active Seed ready completes it; **Stop this session** on a question,
   waiting or draft stops it, keeping open questions recorded and typed words unsaved.
-- Choosing it asks and says what ending costs, including copying intake first;
+- Choosing it asks and says what ending costs; Approve still offers a completed seed;
   F2 then ends, Esc says `Nothing was ended.` Other keys and a held F2 do nothing while asked.
 - Tinkery ends through its ledger with a stated reason, the shared writer lock and atomic save.
   Completion needs the verified seed, not a viewer or `--no-viewer`. Tinkery refuses an unverified
   seed or a conflicting ended status; an identical ending is a no-op. Shape shows the ledger's
   refusal or uncertain-save message without claiming nothing changed. Every ending is followed by a fresh read.
-- A completed session's verified seed stays Seed ready with `c copy intake`, since intake checks
-  only the verified handoff. Tend doesn't list ended sessions, so this stays reachable only from
-  the open view.
+- A completed session's verified seed stays Seed ready, and Approve still offers it, since intake
+  checks only the verified handoff. Tend doesn't list ended sessions.
 
 ### Not adopted from Seed Me
 
@@ -729,7 +719,8 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 ### Grounding in the repository
 
 - Before F2 is offered, the session read finds the folder: recorded Think repo,
-  else launch repo, else launch folder. Show `The step reads files in NAME. F1 picks
+  else the repository enclosing `--sdlc-root` when one is named (#467), else launch repo,
+  else launch folder. Show `The step reads files in NAME. F1 picks
   another folder.` above words; F1 has the path. F1's **Choose the folder** opens `Folder:` with the current
   path. Enter inserts newline; F2 accepts an existing absolute folder or `~/…`.
   Try exact bytes first, including breaks and trailing whitespace; only if absent,

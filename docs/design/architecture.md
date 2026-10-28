@@ -62,7 +62,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `seed_me/ledger` | Validation, transitions, explicit answer actions and cascading reopen, confirmation risks and completion-review coverage, byte-bound teach-back records, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
 | `seed_me/shaping.rs` | Classifying ledger-owned status and review flags for display, with optional Tinkery-executable intake text; no subprocess or mutation. |
 | `approve.rs` | One verified seed at a time, read-only commands and a retained verifier; no approval or launch. |
-| `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the shared intake commands; no mutation. |
+| `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and the one intake command; no mutation. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words, draft reading and next step. Reads and steps stay off the paint path. |
 | `shape/forms.rs` | Unsaved deferral and replacement-answer fields, navigation and cancellation; no validation or publication policy. |
 | `shape/words.rs` | Shape's in-memory textarea adapter: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |

@@ -81,10 +81,26 @@ fn read_with(
         commands: root.and_then(|root| {
             let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
             let run = slug(title.strip_prefix("Seed: ").unwrap_or(title))?;
-            shaping::intake(session, &std::env::current_exe().ok()?, &run, Some(root))
+            intake(session, &std::env::current_exe().ok()?, &run, root)
         }),
         confirmation_note: shaped.confirmation_note,
     }))
+}
+
+/// The one shell line that starts a build: change to `root`, create run `run` and import the seed
+/// through `executable`. Paths are canonical and shell-quoted; unsafe paths offer no command.
+fn intake(session: &Path, executable: &Path, run: &str, root: &Path) -> Option<String> {
+    let quote = |path: &Path| {
+        let path = path.canonicalize().ok()?;
+        let path = path.to_str()?;
+        (!path.chars().any(char::is_control)).then(|| format!("'{}'", path.replace('\'', "'\\''")))
+    };
+    Some(format!(
+        "cd {} && python3 _system/scripts/sdlc.py new {run} && python3 _system/scripts/sdlc.py stage {run} 1 --seed-contract {} --tinkery {}",
+        quote(root)?,
+        quote(&session.join("seed-contract.md"))?,
+        quote(executable)?,
+    ))
 }
 
 fn slug(title: &str) -> Option<String> {
@@ -141,6 +157,56 @@ mod tests {
     }
 
     #[test]
+    fn copy_paths_are_canonical_and_shell_quoted() {
+        let temp = tempfile::Builder::new()
+            .prefix("TEST-intake-'quoted-")
+            .tempdir()
+            .unwrap();
+        let session = temp.path().join("session");
+        let scripts = temp.path().join("TEST executable's folder");
+        fs::create_dir(&session).unwrap();
+        fs::create_dir(&scripts).unwrap();
+        let seed = session.join("seed-contract.md");
+        let helper = scripts.join("tinkery");
+        fs::write(&seed, "TEST seed").unwrap();
+        fs::write(&helper, "TEST helper").unwrap();
+        let quote = |path: &Path| {
+            format!(
+                "'{}'",
+                path.canonicalize()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .replace('\'', "'\\''")
+            )
+        };
+        assert_eq!(
+            intake(&session, &helper, "test-run", temp.path()),
+            Some(format!(
+                "cd {} && python3 _system/scripts/sdlc.py new test-run && python3 _system/scripts/sdlc.py stage test-run 1 --seed-contract {} --tinkery {}",
+                quote(temp.path()),
+                quote(&seed),
+                quote(&helper)
+            ))
+        );
+        let alias = temp.path().join("TEST-linked-executable");
+        std::os::unix::fs::symlink(&helper, &alias).unwrap();
+        assert_eq!(
+            intake(&session, &alias, "test-run", temp.path()),
+            intake(&session, &helper, "test-run", temp.path())
+        );
+        assert_eq!(
+            intake(
+                &session,
+                &helper,
+                "test-run",
+                &temp.path().join("TEST-missing")
+            ),
+            None
+        );
+    }
+
+    #[test]
     fn only_verified_seeds_supply_exact_words_and_shared_intake_commands() {
         for verified in [false, true] {
             let (_root, session) = fixture(verified);
@@ -155,11 +221,11 @@ mod tests {
                 );
                 assert_eq!(
                     seed.commands.unwrap(),
-                    shaping::intake(
+                    intake(
                         &session,
                         &std::env::current_exe().unwrap(),
                         "test",
-                        Some(&session),
+                        &session,
                     )
                     .unwrap()
                 );
@@ -212,22 +278,22 @@ mod tests {
         assert_eq!(receipt["actor"], serde_json::to_value(&actor).unwrap());
         // Agent and human receipts use the same formatter and safely representable paths.
         assert!(
-            shaping::intake(
+            intake(
                 &session,
                 &std::env::current_exe().unwrap(),
                 "test",
-                Some(root.path())
+                root.path()
             )
             .is_some()
         );
         let ready = read(&session, Some(root.path())).unwrap().unwrap();
         assert_eq!(
             ready.commands,
-            shaping::intake(
+            intake(
                 &session,
                 &std::env::current_exe().unwrap(),
                 "test",
-                Some(root.path())
+                root.path()
             )
         );
         assert!(
@@ -236,9 +302,7 @@ mod tests {
                 .unwrap()
                 .contains("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0")
         );
-        let shaped = shaping::read(&session).unwrap();
-        assert!(shaped.intake.is_some());
-        assert!(shaped.confirmation_note.is_some());
+        assert!(shaping::read(&session).unwrap().confirmation_note.is_some());
         let before = fs::read(&seed_path).unwrap();
         for invalid in [
             serde_json::Value::Null,
@@ -260,7 +324,10 @@ mod tests {
             }
             fs::write(session.join("seed-confirmation.json"), changed.to_string()).unwrap();
             assert!(read(&session, Some(root.path())).unwrap().is_none());
-            assert!(shaping::read(&session).unwrap().intake.is_none());
+            assert!(!matches!(
+                shaping::read(&session).unwrap().stage,
+                Shaped::Ready { .. }
+            ));
         }
         fs::write(session.join("seed-confirmation.json"), receipt.to_string()).unwrap();
         assert!(

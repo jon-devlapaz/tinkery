@@ -1,7 +1,7 @@
 """Shape reading journeys: real Rust ledger sessions in TEST roots, a Pi that must never run, no model calls.
 Opening and reading write nothing; answering (F2) is covered by shape_answer_terminal.py. Under an agent
 launch declaration Shape only reads: F2 and every writing F1 action are held and say why (#247)."""
-import base64, fcntl, importlib.util, os, re, select, shlex, struct, tempfile, termios, time
+import base64, fcntl, importlib.util, os, re, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
@@ -207,10 +207,9 @@ def journey(width, height, case, no_color=False, operator='human'):
                 keys = {'question': 'F2 save + look   ' + SHAPE_KEYS,
                         'p051': 'F2 save + look   ' + SHAPE_KEYS,
                         'drafted': 'pgup/dn read to end   ' + SHAPE_KEYS,
-                        'ready': 'c copy intake   ' + SHAPE_KEYS,
                         'unreadable': 'esc back'}.get(case, SHAPE_KEYS)
                 if held:
-                    keys = {'ready': 'c copy intake   ' + SHAPE_KEYS}.get(case, SHAPE_KEYS)
+                    keys = SHAPE_KEYS
                 # Scrolling is offered only on overflow; arrows belong to an active editor.
                 acts = case in ('question', 'p051', 'drafted') and not held
                 scroll_keys = ('pgup/dn read   ' + keys
@@ -219,7 +218,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 # A bar too wide for the terminal closes up rather than lose Esc.
                 assert bar in [k.replace('   ', gap) for k in (keys, scroll_keys) for gap in ('   ', '  ')], screen.text()
                 # The key bar names the next action, so no Next line repeats it.
-                assert flat().count('Next:') == (1 if held else 0 if acts or case == 'ready' else 1), screen.text()
+                assert flat().count('Next:') == (1 if held else 0 if acts else 1), screen.text()
                 if held:
                     assert HELD in flat(), screen.text()
                     # F2 and the retired function keys write nothing; F1 offers no writing action.
@@ -240,31 +239,17 @@ def journey(width, height, case, no_color=False, operator='human'):
                 assert copies() == [], 'Opening Shape copied without a key'
                 copy_before = files(cwd)
                 os.write(master, b'c')
+                # Approve owns the one command that starts a build; Shape points there (#466).
+                assert 'c copy intake' not in flat() and '<run>' not in flat(), screen.text()
                 if case == 'ready':
-                    seed_path = str((session / 'seed-contract.md').resolve())
-                    tinkery_path = str((REPO / 'target/debug/tinkery').resolve())
-                    quote = lambda path: "'" + path.replace("'", "'\\''") + "'"
-                    expected_command = ('python3 _system/scripts/sdlc.py stage <run> 1 --seed-contract ' +
-                        quote(seed_path) + ' --tinkery ' + quote(tinkery_path))
-                    wait(lambda: copies() == [expected_command] and 'Copied.' in flat())
-                    assert shlex.split(copies()[0]) == ['python3', '_system/scripts/sdlc.py',
-                        'stage', '<run>', '1', '--seed-contract', seed_path,
-                        '--tinkery', tinkery_path]
-                    send(b'c', 'Copied.')
-                    wait(lambda: copies() == [expected_command, expected_command])
-                else:
-                    assert 'c copy intake' not in flat(), screen.text()
+                    assert 'Next: Approve copies the command that starts the build.' in flat(), screen.text()
                 if case != 'unreadable':
                     so_far()
                 else:
                     send(b'\x1bOP', 'What went wrong')
                     send(b'\x1b', keys)
-                assert len(copies()) == (2 if case == 'ready' else 0), copies()
+                assert copies() == [], copies()
                 assert files(cwd) == copy_before, 'Copy/navigation wrote files'
-                if case == 'ready':
-                    send(b'\x1bOP', 'Replace <run> with your SDLC run.')
-                    assert 'grants no approval to build' in flat(), screen.text()
-                    send(b'\x1b', keys)
                 if case == 'p051':
                     assert flat().count('What I found:') == 1, screen.text()
                     assert ' '.join(P051_FINDINGS[0].split()) in flat(), screen.text()
