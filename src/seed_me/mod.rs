@@ -55,6 +55,11 @@ pub fn resolve_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 /// Read only an opened regular seed file; symlinks keep their existing target semantics.
 /// Nonblocking open prevents a replaced path or FIFO from waiting for a writer.
 pub(crate) fn read_seed(path: &Path) -> std::io::Result<Vec<u8>> {
+    read_regular(path, "original seed")
+}
+
+// Check the opened file, so a path replacement cannot turn the read into a FIFO wait.
+fn read_regular(path: &Path, name: &str) -> std::io::Result<Vec<u8>> {
     use std::io::Read;
     use std::os::unix::fs::OpenOptionsExt;
 
@@ -65,7 +70,7 @@ pub(crate) fn read_seed(path: &Path) -> std::io::Result<Vec<u8>> {
     if !file.metadata()?.is_file() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "The original seed is not a regular file.",
+            format!("The {name} is not a regular file."),
         ));
     }
     let mut bytes = Vec::new();

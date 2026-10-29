@@ -1,4 +1,4 @@
-"""Non-regular TEST seeds with a timed FIFO release, so a reverted reader cannot hang QA."""
+"""Non-regular TEST session files with a timed FIFO release, so reverted readers cannot hang QA."""
 from contextlib import contextmanager
 import os
 import threading
@@ -6,7 +6,7 @@ import threading
 
 @contextmanager
 def replaced_seed(seed, kind):
-    """Replace a real seed; release any blocking readers after three seconds until cleanup."""
+    """Replace a session file; release blocking readers after three seconds until cleanup."""
     original = seed.read_bytes()
     seed.unlink()
     stopped = threading.Event()

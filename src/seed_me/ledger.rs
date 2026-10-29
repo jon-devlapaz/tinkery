@@ -597,12 +597,18 @@ fn visit(
     Ok(())
 }
 
-/// Read today's ledger without rewriting it. Unknown schemas, inconsistent frontiers and
+/// Read exact ledger bytes from an opened regular file without waiting for a FIFO writer.
+/// Symlinks to regular files remain readable; the bytes are never normalized or rewritten.
+pub(super) fn read_bytes(directory: &Path) -> std::io::Result<Vec<u8>> {
+    super::read_regular(&directory.join("ledger.json"), "ledger")
+}
+
+/// Read today's regular ledger without rewriting it. Unknown schemas, inconsistent frontiers and
 /// malformed helper history refuse; duplicate JSON keys keep their first position and last value.
 pub fn load(directory: &Path) -> Result<Value> {
     super::migration::refuse_old_root(directory)?;
-    let input =
-        std::fs::read_to_string(directory.join("ledger.json")).map_err(|e| e.to_string())?;
+    let input = String::from_utf8(read_bytes(directory).map_err(|e| e.to_string())?)
+        .map_err(|_| "stream did not contain valid UTF-8".to_owned())?;
     let input = input.replace("\r\n", "\n").replace('\r', "\n");
     let ledger = Value::parse(&input)?;
     validate_stored(&ledger)?;
