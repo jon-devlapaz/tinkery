@@ -149,7 +149,8 @@ def journey(width, height, no_color):
             send(b'\x1b'); send(b'\x1b')
             wait_for(lambda: 'Back to menu and lose this draft?' in screen.text(), 'Exit guard missing')
             send(b'n')
-            assert process.poll() is None and 'lose this draft?' not in screen.text()
+            wait_for(lambda: 'lose this draft?' not in screen.text(), 'Exit guard stayed open')
+            assert process.poll() is None
             send(b'\x1b'); send(b'y')
             process.wait(timeout=5)
             assert process.returncode == 0
