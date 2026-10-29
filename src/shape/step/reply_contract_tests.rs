@@ -555,6 +555,15 @@ fn prompt_example_pairs_provisional_and_judge_checks_without_inventing_coverage(
     let review = review.unwrap();
     assert_eq!(checks.as_array().unwrap().len(), 2);
     assert_eq!(checks[0]["kind"], "provisional");
+    assert_eq!(
+        checks[0]["cmd"],
+        "python -m pytest 'tests/test_<new_behavior>.py'"
+    );
+    assert_eq!(checks[0]["source"], "pyproject.toml:<runner config lines>");
+    assert_eq!(
+        checks[0]["missing"],
+        "tests/test_<new_behavior>.py does not exist yet; add an assertion that the requested behavior holds"
+    );
     assert_eq!(checks[1]["kind"], "judge");
     let checks = crate::seed_me::ledger::Value::from(checks);
     crate::seed_me::ledger::validate_checks(&checks).unwrap();

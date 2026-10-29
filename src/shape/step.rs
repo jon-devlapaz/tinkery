@@ -130,6 +130,7 @@ pub(super) const FIELDS: &[&str] = &[
     "kind",
     "source",
     "how_to_judge",
+    "cmd",
     "expect",
     "cwd",
     "missing",
