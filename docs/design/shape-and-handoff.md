@@ -620,14 +620,15 @@ Shape uses Think's
   red or green. Routine setup or an unperformed reversion probe does not make an
   existing check provisional; missing assertions, tests or invocations do, with
   `missing` naming the gap. Never invent a runner or substitute a generic suite
-  for a missing regression. When the runner and a selection form
-  that fails when the test is absent are established, a provisional proposes how
-  its missing regression will run: after inspecting existing test names, propose a new test name
-  and its assertions, then select that exact test with the repository's runner in a
-  form that fails when it is absent. Selecting existing tests that pass without the
-  requested behavior does not cover the missing regression. A missing test makes
-  the check provisional, not its invocation unknown. Leave `cmd` out when a suitable
-  selection form is unknown or unavailable, naming the gap in `missing`. A new draft whose provisional
+  for a missing regression. For missing behavior, read the runner configuration and
+  existing test names, then prefer a new behavior-named test file whose path does not exist yet.
+  A provisional's proposed `cmd` runs only that file with the repository's runner; cite the
+  runner configuration in `source` and name the absent test and its assertion in `missing`.
+  An exact new test id is also suitable when the runner fails on an unknown id.
+  Use only forms established to fail when absent; name-pattern filters can pass on no match,
+  so do not rely on them.
+  If no such form is known or available, omit `cmd` and explain why in `missing`.
+  Keep suite runs as separate `cmd` checks. A new draft whose provisional
   proposes a command another check also uses in the same `cwd` is refused with both check numbers (#469);
   stored seeds are read unchanged. Taste stays `judge` with what the operator inspects.
   If requested behavior appears present, propose verification and repairs only for
