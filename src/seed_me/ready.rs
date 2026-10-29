@@ -1,10 +1,7 @@
 //! A verified seed's exact goal and acceptance section for read-only handoff. Tinkery's ledger
 //! verifies confirmation; changing source files refuse the read. This module never writes or runs intake.
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use super::shaping::{self, Shaped};
 
@@ -72,11 +69,11 @@ fn read_with(
     if seed.lines().next() != Some("status: confirmed for intake") {
         return Ok(None);
     }
-    let ledger_path = session.join("ledger.json");
-    let ledger = fs::read(&ledger_path).map_err(|e| format!("Cannot read the ledger: {e}"))?;
+    let ledger =
+        super::ledger::read_bytes(session).map_err(|e| format!("Cannot read the ledger: {e}"))?;
     let shaped = inspect()?;
     if super::read_seed(&seed_path).map_err(|e| e.to_string())? != seed.as_bytes()
-        || fs::read(&ledger_path).map_err(|e| e.to_string())? != ledger
+        || super::ledger::read_bytes(session).map_err(|e| e.to_string())? != ledger
     {
         return Err(
             "The session changed while being read. Return to the menu and reopen Approve.".into(),
@@ -156,6 +153,7 @@ fn acceptance(seed: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     fn fixture(verified: bool) -> (tempfile::TempDir, std::path::PathBuf) {
         let root = tempfile::Builder::new()
@@ -372,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn a_seed_replaced_during_verification_is_refused_without_waiting() {
+    fn a_seed_or_ledger_replaced_during_verification_is_refused_without_waiting() {
         use std::{
             ffi::CString,
             os::unix::fs::OpenOptionsExt,
@@ -380,39 +378,41 @@ mod tests {
             time::{Duration, Instant},
         };
 
-        let (_root, session) = fixture(true);
-        let seed = path(&session);
-        let (cancel, released) = mpsc::channel();
-        let fifo = seed.clone();
-        // A reverted blocking read is released safely; successful refusal cancels the release.
-        let release = std::thread::spawn(move || {
-            if released.recv_timeout(Duration::from_secs(3)).is_err() {
-                drop(
-                    fs::OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .custom_flags(libc::O_NONBLOCK)
-                        .open(fifo)
-                        .unwrap(),
-                );
-            }
-        });
-        let started = Instant::now();
-        let result = read_with(&session, None, || {
-            let shaped = shaping::read(&session)?;
-            fs::remove_file(&seed).unwrap();
-            let name = CString::new(seed.as_os_str().as_encoded_bytes()).unwrap();
-            assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
-            Ok(shaped)
-        });
-        let elapsed = started.elapsed();
-        let _ = cancel.send(());
-        release.join().unwrap();
-        assert!(result.is_err());
-        assert!(
-            elapsed < Duration::from_secs(2),
-            "replacement waited for a FIFO writer: {elapsed:?}"
-        );
+        for file in ["seed-contract.md", "ledger.json"] {
+            let (_root, session) = fixture(true);
+            let seed = session.join(file);
+            let (cancel, released) = mpsc::channel();
+            let fifo = seed.clone();
+            // A reverted blocking read is released safely; successful refusal cancels the release.
+            let release = std::thread::spawn(move || {
+                if released.recv_timeout(Duration::from_secs(3)).is_err() {
+                    drop(
+                        fs::OpenOptions::new()
+                            .read(true)
+                            .write(true)
+                            .custom_flags(libc::O_NONBLOCK)
+                            .open(fifo)
+                            .unwrap(),
+                    );
+                }
+            });
+            let started = Instant::now();
+            let result = read_with(&session, None, || {
+                let shaped = shaping::read(&session)?;
+                fs::remove_file(&seed).unwrap();
+                let name = CString::new(seed.as_os_str().as_encoded_bytes()).unwrap();
+                assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+                Ok(shaped)
+            });
+            let elapsed = started.elapsed();
+            let _ = cancel.send(());
+            release.join().unwrap();
+            assert!(result.is_err());
+            assert!(
+                elapsed < Duration::from_secs(2),
+                "replacement waited for a FIFO writer: {elapsed:?}"
+            );
+        }
     }
 
     #[test]

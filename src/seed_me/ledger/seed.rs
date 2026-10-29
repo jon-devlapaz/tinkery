@@ -8,7 +8,7 @@ use super::{
 };
 use regex::Regex;
 use sha2::{Digest, Sha256};
-use std::{fs, path::Path};
+use std::path::Path;
 
 pub(super) const FILE: &str = "seed-contract.md";
 pub(super) const CONFIRMATION: &str = "seed-confirmation.json";
@@ -293,7 +293,9 @@ pub fn seed_summary(directory: &Path) -> Result<Value> {
     ]))
 }
 fn confirmation_record(directory: &Path) -> Option<Value> {
-    let record = Value::parse(&fs::read_to_string(directory.join(CONFIRMATION)).ok()?).ok()?;
+    let bytes =
+        super::super::read_regular(&directory.join(CONFIRMATION), "confirmation record").ok()?;
+    let record = Value::parse(std::str::from_utf8(&bytes).ok()?).ok()?;
     let fields = [
         "schema_version",
         "checks_sha256",

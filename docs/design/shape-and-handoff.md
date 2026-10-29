@@ -288,11 +288,12 @@ a goal to a run. Before a match supplies the session's exact saved goal
 the shared seed verifier must also confirm that the ledger decisions and seed still
 match their confirmation receipt. The seed and ledger must remain byte-identical
 through that read; missing or invalid confirmation keeps the goal unknown.
-Seed-byte reads open without waiting for a FIFO writer, then require the opened file to be
+These seed, ledger, confirmation-receipt and check reads open without waiting for a FIFO writer,
+then require the opened file to be
 regular before reading. This includes repeat reads during confirmation; a path replacement
 cannot bypass the file-type check. Symlink resolution and exact path/hash matching stay
-unchanged. Ledger, receipt and check files retain their existing readers. This rule lives in
-`seed_me`, shared by the run join and verifier (architecture diagnostics 3 and 6).
+unchanged. This rule lives in
+`seed_me`, shared by the run join and verifier (architecture diagnostics 3, 4 and 6).
 [Watch](watch.md#reading) owns its compact list and full-detail presentation.
 An explicit null record means no confirmed seed was used, distinct from an
 unmatchable or malformed record ([Evidence](../yohaku.md#3-claims-stop-where-evidence-stops)).

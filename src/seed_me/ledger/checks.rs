@@ -6,7 +6,7 @@ use super::{
     require,
 };
 use regex::Regex;
-use std::{fs, path::Path};
+use std::path::Path;
 
 pub(super) const FILE: &str = "seed-checks.json";
 
@@ -167,14 +167,17 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
     Ok(())
 }
 
-/// Read strict check records without writing or running any of them.
+/// Read strict check records from an opened regular file without writing or running any of them.
 pub fn read_checks(directory: &Path) -> Result<Value> {
     let path = directory.join(FILE);
     require(
         path.is_file(),
         "checks are missing: use `seed checks set <session> <input.json>`",
     )?;
-    let records = Value::parse(&fs::read_to_string(path).map_err(|e| e.to_string())?)?;
+    let bytes = super::super::read_regular(&path, "checks file").map_err(|e| e.to_string())?;
+    let input =
+        std::str::from_utf8(&bytes).map_err(|_| "stream did not contain valid UTF-8".to_owned())?;
+    let records = Value::parse(input)?;
     validate_checks(&records)?;
     Ok(records)
 }

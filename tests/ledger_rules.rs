@@ -45,6 +45,63 @@ fn refusal(ledger: &Value, state: serde_json::Value, version: u64) -> String {
 }
 
 #[test]
+fn invalid_utf8_records_keep_their_read_refusal() {
+    let root = tempfile::Builder::new()
+        .prefix("TEST-ledger-utf8-")
+        .tempdir()
+        .unwrap();
+    let session = ledger::initialize(root.path(), STAMP).unwrap();
+    std::fs::write(session.join("ledger.json"), b"TEST invalid \xff").unwrap();
+    assert_eq!(
+        ledger::load(&session).unwrap_err(),
+        "stream did not contain valid UTF-8"
+    );
+    std::fs::write(session.join("seed-checks.json"), b"TEST invalid \xff").unwrap();
+    assert_eq!(
+        ledger::read_checks(&session).unwrap_err(),
+        "stream did not contain valid UTF-8"
+    );
+}
+
+#[test]
+fn a_nonregular_ledger_is_refused_without_waiting_for_a_writer() {
+    use std::{ffi::CString, fs, os::unix::fs::OpenOptionsExt, sync::mpsc, time::Duration};
+
+    let root = tempfile::Builder::new()
+        .prefix("TEST-ledger-fifo-")
+        .tempdir()
+        .unwrap();
+    let session = ledger::initialize(root.path(), STAMP).unwrap();
+    let path = session.join("ledger.json");
+    fs::remove_file(&path).unwrap();
+    let name = CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    let (cancel, released) = mpsc::channel();
+    let release = std::thread::spawn(move || {
+        if released.recv_timeout(Duration::from_secs(3)).is_err() {
+            drop(
+                fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .custom_flags(libc::O_NONBLOCK)
+                    .open(path)
+                    .unwrap(),
+            );
+        }
+    });
+    let started = std::time::Instant::now();
+    let result = ledger::load(&session);
+    let elapsed = started.elapsed();
+    let _ = cancel.send(());
+    release.join().unwrap();
+    assert!(result.is_err());
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "ledger waited for a writer: {elapsed:?}"
+    );
+}
+
+#[test]
 fn stale_versions_goal_drift_deletion_and_kind_changes_refuse() {
     let (_root, saved, state) = fixture();
     let mut stale = state.clone();

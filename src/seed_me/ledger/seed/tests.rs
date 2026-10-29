@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::seed_me::ledger::{self, fixtures};
-use std::os::unix::fs::PermissionsExt;
+use std::{fs, os::unix::fs::PermissionsExt};
 
 const STAMP: &str = "2026-10-19T00:00:00+00:00";
 fn fixture() -> tempfile::TempDir {

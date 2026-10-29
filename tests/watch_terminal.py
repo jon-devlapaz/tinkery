@@ -266,13 +266,17 @@ def journey(width, height, no_color, configured=True):
                 original_ledger = ledger.read_bytes()
                 receipt = session / 'seed-confirmation.json'
                 original_receipt = receipt.read_bytes()
+                checks = session / 'seed-checks.json'
+                original_checks = checks.read_bytes()
                 record = {'path': 'runs/unrelated/seed-contract.md', 'source': str(seed.resolve()),
                           'sha256': hashlib.sha256(original).hexdigest()}
                 for seed_case in ('matched', 'no-seed', 'edited', 'moved', 'missing',
-                                  'changed-goal', 'changed-goal-and-origin', 'missing-confirmation'):
+                                  'changed-goal', 'changed-goal-and-origin', 'missing-confirmation',
+                                  'invalid-confirmation', 'missing-checks', 'invalid-checks'):
                     seed.write_bytes(original)
                     ledger.write_bytes(original_ledger)
                     receipt.write_bytes(original_receipt)
+                    checks.write_bytes(original_checks)
                     if seed_case == 'edited':
                         seed.write_bytes(original + b'TEST edited\n')
                     elif seed_case == 'moved':
@@ -287,6 +291,12 @@ def journey(width, height, no_color, configured=True):
                         ledger.write_text(json.dumps(changed))
                     elif seed_case == 'missing-confirmation':
                         receipt.unlink()
+                    elif seed_case == 'invalid-confirmation':
+                        receipt.write_bytes(b'TEST invalid \xff')
+                    elif seed_case == 'missing-checks':
+                        checks.unlink()
+                    elif seed_case == 'invalid-checks':
+                        checks.write_bytes(b'TEST invalid \xff')
                     row = {**run('TEST-unrelated-slug', 'blocked'),
                            'seed_contract': None if seed_case == 'no-seed' else record,
                            'next_action': f'TEST next for {seed_case} seed case'}
@@ -310,23 +320,41 @@ def journey(width, height, no_color, configured=True):
                     assert ('TEST exact goal tail' in screen.text()) == (seed_case == 'matched')
                     assert not any(word in screen.text() for word in ('seed_contract', 'sha256', 'API'))
                     send(b'\x1b', 'Needs you')
-                # Invalid originals are unknown promptly, including a regular path replaced by a FIFO.
+                # Invalid verified-goal inputs are unknown promptly, even without a FIFO writer.
                 seed.write_bytes(original)
                 ledger.write_bytes(original_ledger)
                 receipt.write_bytes(original_receipt)
+                checks.write_bytes(original_checks)
                 row = {**run('TEST-replaced-seed', 'blocked'), 'seed_contract': record}
                 set_state(list=envelope(runs=[row]))
-                for kind in ('fifo', 'directory'):
-                    send(b'r', 'TEST café')
-                    with replaced_seed(seed, kind):
-                        started = time.monotonic()
-                        send(b'r', "Goal unknown: the original seed changed or can't be found.")
-                        assert time.monotonic() - started < 2, 'non-regular seed delayed Watch'
-                        send(b'\r', 'Stage 3 gate: pending')
+                for file in (seed, ledger, receipt, checks):
+                    for kind in ('fifo', 'directory'):
+                        send(b'r', 'TEST café')
+                        with replaced_seed(file, kind):
+                            started = time.monotonic()
+                            send(b'r', "Goal unknown: the original seed changed or can't be found.")
+                            assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Watch'
+                            send(b'\r', 'Stage 3 gate: pending')
+                            send(b'\x1b', 'Needs you')
+                            send(b'\x1b', '1  think')
+                            assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Escape'
+                            send(b'5', "Goal unknown: the original seed changed or can't be found.")
+                            assert 'TEST café' not in screen.text()
+                        send(b'r', 'TEST café')
+                # Regular symlink targets retain the same exact goal and unchanged bytes.
+                for file in (ledger, receipt, checks):
+                    original_bytes = file.read_bytes()
+                    target = base / ('TEST-target-' + file.name)
+                    file.rename(target)
+                    file.symlink_to(target)
+                    try:
+                        send(b'r', 'TEST café')
+                        send(b'\r', 'TEST exact goal tail')
                         send(b'\x1b', 'Needs you')
-                        assert time.monotonic() - started < 2, 'non-regular seed delayed Watch or Escape'
-                        assert 'TEST café' not in screen.text()
-                    send(b'r', 'TEST café')
+                        assert target.read_bytes() == original_bytes
+                    finally:
+                        file.unlink()
+                        target.rename(file)
                 # A matched quiet run stays exactly one row, immediately followed by its neighbour.
                 seed.write_bytes(original)
                 ledger.write_bytes(original_ledger)
