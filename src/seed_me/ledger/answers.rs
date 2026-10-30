@@ -101,7 +101,7 @@ pub const LEAVES_OPEN: &str = "These words leave the decision open. Answer it, o
 
 /// Whether these words, saved as the answer to decision `id`, would settle it while leaving it
 /// open: empty, or only saying it is not made, as when an agent operator settled an operator
-/// decision with "not decided." (#594). Words that can be a real choice ("later", "skip") and
+/// decision with "not decided." (#594). Words that can be a real choice ("later", "skip", "n/a") and
 /// longer answers are not judged. The pre-mortem probe is exempt: "not sure" is fair there.
 pub fn leaves_open(id: &str, words: &str) -> bool {
     let plain = words
@@ -120,7 +120,6 @@ pub fn leaves_open(id: &str, words: &str) -> bool {
             "tbd later",
             "to be decided",
             "decide later",
-            "n/a",
             "no decision",
             "no decision yet",
             "not sure",

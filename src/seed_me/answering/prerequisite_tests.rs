@@ -293,7 +293,6 @@ fn an_answer_that_leaves_the_decision_open_is_refused_and_defer_still_parks_it()
         "TBD",
         "don\u{2019}t know",
         "not decided?",
-        "n/a",
         "",
         "  ",
     ] {
@@ -341,7 +340,7 @@ fn an_answer_that_only_mentions_undecided_is_saved() {
 
 #[test]
 fn one_word_choices_that_can_be_real_answers_are_saved() {
-    for words in ["later", "skip", "unknown", "defer"] {
+    for words in ["later", "skip", "unknown", "defer", "N/A"] {
         let root = tempfile::Builder::new()
             .prefix("TEST-one-word-choice-")
             .tempdir()

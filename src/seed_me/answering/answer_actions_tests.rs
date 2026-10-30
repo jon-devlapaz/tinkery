@@ -425,7 +425,7 @@ fn delegation_and_revision_refuse_words_that_leave_the_decision_open() {
     let (_root, session) = fixture();
     respond_now(&session, &AnswerAction::Delegate).unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();
-    for words in ["not decided.", "n/a"] {
+    for words in ["not decided.", "TBD"] {
         let refused = respond_now(&session, &AnswerAction::Revise(words.into())).unwrap_err();
         assert!(
             refused.to_string().contains(ledger::LEAVES_OPEN),
