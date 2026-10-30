@@ -1,3 +1,4 @@
+from terminal_process import wait_output
 from pathlib import Path
 import hashlib
 import json
@@ -196,18 +197,14 @@ class SessionRootTests(unittest.TestCase):
                                    stdin=slave, stdout=slave, stderr=slave)
         try:
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]:
-                    screen.feed(os.read(master, 65536))
+            for _ in wait_output(master, process, screen.feed, deadline):
                 if 'Press any key to continue.' in screen.text() and not screen.synchronized:
                     break
             self.assertIn('Moved saved sessions', screen.text())
             self.assertIn('Press any key to continue.', screen.text())
             os.write(master, b'q')
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]:
-                    screen.feed(os.read(master, 65536))
+            for _ in wait_output(master, process, screen.feed, deadline):
                 if '1  think' in screen.text() and not screen.synchronized:
                     break
             self.assertIsNone(process.poll(), 'acknowledging the notice also navigated')

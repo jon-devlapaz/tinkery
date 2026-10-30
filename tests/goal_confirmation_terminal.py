@@ -1,4 +1,5 @@
 """Actual binary + Rust ledger, isolated TEST roots; no provider charge/browser."""
+from terminal_process import wait_output
 import ast, base64, fcntl, json, os, re, select, struct, sys, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -54,17 +55,21 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     found.update(added);children.update(added)
   def await_text(text,timeout=30):
    deadline=time.monotonic()+timeout
-   while time.monotonic()<deadline:
-    if select.select([master],[],[],0.02)[0]:feed()
+   def consume_wait_output(chunk):
+       raw.extend(chunk)
+       screen.feed(chunk)
+   for returncode in wait_output(master, process, consume_wait_output, deadline):
     if text in screen.text() and not screen.synchronized:
      assert screen.cells[1][2:9]==list('tinkery') and screen.cells[1][width-3]=='?',screen.text()
      return
-    if process.poll() is not None:break
+    if returncode is not None:break
    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
   def absent(text):
    deadline=time.monotonic()+5
-   while time.monotonic()<deadline:
-    if select.select([master],[],[],0.02)[0]:feed()
+   def consume_wait_output(chunk):
+       raw.extend(chunk)
+       screen.feed(chunk)
+   for _ in wait_output(master, process, consume_wait_output, deadline):
     if text not in screen.text():return
    raise AssertionError(f'Stale modal still visible: {text}')
   def send(data,text):os.write(master,data);await_text(text)
@@ -161,8 +166,10 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     if 'Think record:' in seen[-1]:break
     previous=right();before=screen.frames
     os.write(master,b'\x1b[6~');deadline=time.monotonic()+5
-    while time.monotonic()<deadline:
-     if select.select([master],[],[],.02)[0]:feed()
+    def consume_wait_output(chunk):
+        raw.extend(chunk)
+        screen.feed(chunk)
+    for _ in wait_output(master, process, consume_wait_output, deadline):
      if screen.ready(before) and right()!=previous and '┌ How it works ' in screen.text():break
     else:raise AssertionError(f'Help page did not advance before Think record:\n{screen.text()}')
     seen.append(right())
@@ -197,12 +204,12 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert not descendants() and (run/'provider-calls').read_bytes()==calls
    assert ((cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b'')==launches
    os.write(master,b'\x1b[21~');deadline=time.monotonic()+10
-   while process.poll() is None and time.monotonic()<deadline:
-    if select.select([master],[],[],.02)[0]:feed()
+   def consume_exit_output(chunk):
+    raw.extend(chunk)
+    screen.feed(chunk)
+   for returncode in wait_output(master,process,consume_exit_output,deadline):
+    if returncode is not None:break
    assert process.poll()==0,screen.text()
-   while select.select([master],[],[],.05)[0]:
-    try:feed()
-    except OSError:break
    assert ('Think record: '+str(written[0])).encode() in bytes(raw),bytes(raw)[-2000:]
    assert not (session/'viewer.json').exists()
    assert helper('read',session)['status']=='active';assert not (session/'seed-contract.md').exists()

@@ -1,5 +1,6 @@
 """Deterministic process-exit interleavings; no application, helper or provider runs."""
 import importlib.util
+import itertools
 import os
 from pathlib import Path
 import unittest
@@ -18,7 +19,8 @@ class ExitWaitTests(unittest.TestCase):
         terminal.screen = JOURNEY.Screen(80, 24)
         terminal.screen.synchronized = synchronized
         terminal.process = mock.Mock()
-        terminal.process.poll.side_effect = polls
+        if polls is not None:
+            terminal.process.poll.side_effect = itertools.chain(polls, itertools.repeat(polls[-1]))
         return terminal
 
     def test_exit_between_frame_checks_is_success_not_an_assertion(self):
@@ -33,7 +35,7 @@ class ExitWaitTests(unittest.TestCase):
 
     def test_exit_wait_drains_pending_output_while_process_is_alive(self):
         terminal = self.terminal([None, 0])
-        with mock.patch.object(JOURNEY.select, 'select', return_value=([-1], [], [])), \
+        with mock.patch.object(JOURNEY.select, 'select', side_effect=itertools.chain([([-1], [], [])], itertools.repeat(([], [], [])))), \
              mock.patch.object(JOURNEY.os, 'read', return_value=b'TEST final output') as read:
             self.assertEqual(terminal.wait_exit(), 0)
         read.assert_called_once_with(-1, 65536)
@@ -47,7 +49,7 @@ class ExitWaitTests(unittest.TestCase):
     def test_frame_wait_still_rejects_incomplete_frames(self):
         terminal = self.terminal(None, synchronized=True)
         terminal.process.poll.return_value = None
-        with mock.patch.object(JOURNEY.time, 'monotonic', side_effect=[0, 0, 11]), \
+        with mock.patch.object(JOURNEY.time, 'monotonic', side_effect=itertools.chain([0, 0], itertools.repeat(11))), \
              mock.patch.object(JOURNEY.select, 'select', return_value=([], [], [])):
             with self.assertRaises(AssertionError):
                 terminal.wait(lambda _: True)
@@ -55,7 +57,7 @@ class ExitWaitTests(unittest.TestCase):
     def test_a_running_process_still_has_a_deadline(self):
         terminal = self.terminal(None)
         terminal.process.poll.return_value = None
-        with mock.patch.object(JOURNEY.time, 'monotonic', side_effect=[0, 0, 11]), \
+        with mock.patch.object(JOURNEY.time, 'monotonic', side_effect=itertools.chain([0, 0], itertools.repeat(11))), \
              mock.patch.object(JOURNEY.select, 'select', return_value=([], [], [])):
             with self.assertRaises(AssertionError):
                 terminal.wait_exit()

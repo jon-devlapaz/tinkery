@@ -1,4 +1,5 @@
 """Node-independent PTY: scripted voice transport and shaping host, no mic/Pi calls."""
+from terminal_process import wait_output
 import ast
 import fcntl
 import json
@@ -73,12 +74,11 @@ def journey(width, height, no_color):
 
         def wait(predicate, label, timeout=5):
             deadline = time.monotonic() + timeout
-            while time.monotonic() < deadline:
-                pump()
+            for returncode in wait_output(master, process, screen.feed, deadline):
                 if predicate() and not screen.synchronized:
                     assert screen.cells[1][2:9] == list('tinkery'), screen.text()
                     return
-                if process.poll() is not None:
+                if returncode is not None:
                     break
             raise AssertionError(f'{label}:\n{screen.text()}')
 
@@ -199,9 +199,7 @@ def retry_after_missing_node():
 
         def text(needle, timeout=5):
             deadline = time.monotonic() + timeout
-            while time.monotonic() < deadline and process.poll() is None:
-                if select.select([master], [], [], .02)[0]:
-                    screen.feed(os.read(master, 65536))
+            for _ in wait_output(master, process, screen.feed, deadline):
                 if needle in screen.text() and not screen.synchronized:
                     return
             raise AssertionError(f'{needle}:\n{screen.text()}')

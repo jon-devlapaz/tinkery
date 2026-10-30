@@ -1,4 +1,5 @@
 """Synthetic PTY regression, not live-model or clipboard-permission evidence."""
+from terminal_process import wait_output
 import fcntl, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -21,13 +22,14 @@ def journey(w,h):
   process=subprocess.Popen([str(BINARY),'--shape-pi', '--shape-budget', '64','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_condition(check):
    end=time.monotonic()+6
-   while time.monotonic()<end:
-    if select.select([master],[],[],.02)[0]:
-     chunk=os.read(master,65536);raw.extend(chunk);screen.feed(chunk)
+   def consume_wait_output(chunk):
+       raw.extend(chunk)
+       screen.feed(chunk)
+   for returncode in wait_output(master, process, consume_wait_output, end):
     if not screen.synchronized and check(screen.text()):
      assert screen.cells[1][2:9]==list('tinkery') and screen.cells[1][screen.width-3]=='?',screen.text()
      return
-    if process.poll() is not None:break
+    if returncode is not None:break
    raise AssertionError(screen.text())
   def send(keys,text):os.write(master,keys);await_condition(lambda s:text in s)
   def choose(label,text):send(b'\x1bOP',label);send(screen.pick(label),text)
@@ -65,7 +67,7 @@ def journey(w,h):
    send(b'\x1b','Back to menu and lose this draft? y / n');assert process.poll() is None
    os.write(master,b'n');await_condition(lambda s:'lose this draft?' not in s)
    send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
-   while select.select([master],[],[],.02)[0]:raw.extend(os.read(master,65536))
+   for _ in wait_output(master,process,raw.extend,time.monotonic()+5):pass
    assert not (cwd/'TEST-sessions').exists(),'Implicit handoff'
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
@@ -82,10 +84,9 @@ def exit_during_shaping(w,h):
   pid=cwd/'shaping.pid'
   def await_condition(check):
    end=time.monotonic()+6
-   while time.monotonic()<end:
-    if select.select([master],[],[],.02)[0]:screen.feed(os.read(master,65536))
+   for returncode in wait_output(master, process, screen.feed, end):
     if check():return
-    if process.poll() is not None:break
+    if returncode is not None:break
    raise AssertionError(screen.text())
   try:
    await_condition(lambda:"What's on your mind?" in screen.text())

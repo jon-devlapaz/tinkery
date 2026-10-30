@@ -1,11 +1,47 @@
 """Own one guarded terminal process, its screen and descriptors; feature waits stay local."""
+import errno
 import fcntl
 import os
+import select
 import signal
 import struct
 import termios
+import time
 import test_launch as subprocess
 from vt_screen import Screen
+
+
+def wait_output(master, process, consume, deadline, *, interval=.02):
+    """Yield the observed return code after reading, draining output on exit.
+
+    The absolute monotonic deadline bounds reads and exit draining. Callers own
+    success, frame readiness and diagnostics. EOF and an exited PTY's EIO finish
+    a read pass; other read errors remain failures. No frame is required here.
+    """
+    def read_pending(timeout):
+        if not select.select([master], [], [], timeout)[0]:
+            return False
+        try:
+            chunk = os.read(master, 65536)
+        except OSError as error:
+            if error.errno != errno.EIO or process.poll() is None:
+                raise
+            return False
+        if not chunk:
+            return False
+        consume(chunk)
+        return True
+
+    while time.monotonic() < deadline:
+        read_pending(min(interval, max(0, deadline - time.monotonic())))
+        returncode = process.poll()
+        if returncode is not None:
+            # Exit is not EOF: unread final output can span many small reads.
+            while time.monotonic() < deadline and read_pending(0):
+                pass
+        yield returncode
+        if returncode is not None:
+            return
 
 
 class TerminalProcess:
