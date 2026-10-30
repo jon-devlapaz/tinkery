@@ -59,6 +59,13 @@ Optional `expected` groups compare exact supplied values with the final reading:
 - `constraints`: `must`, `must_not`.
 - `unresolved_deferred`: `open`, `questions`, `notes`, `deferred`, `other_goals`.
 
+Exact expectations suit scripted fixtures; a live reading in other words fails them. For live
+runs, an optional `meaning` uses the same groups and fields but lists operator-written items of
+key terms, such as `{"constraints": {"must_not": [["account|sign-in"], ["sync"]]}}`. An item is
+found when all its terms (`a|b` accepts either) appear, ignoring case, in one observed entry of
+its field. The check passes when every item is found; it lists missing items and, for reading,
+entries no item matched. Terms show a requirement was kept, not that an entry means the same.
+
 An absent expectation, missing reading, or reading that has not applied every
 supplied send is unknown, not a pass. A local input or request-size refusal is
 reported as a failed step even when Think retains an earlier reading. Matching a
@@ -107,14 +114,16 @@ needs its own data permission and call budget from the operator.
 Before trusting a new Think model with real work, compare it with the old one. `--baseline
 REPORT` reads an earlier `report.json`, refuses one that sent different words, and adds a
 `comparison` to the new report: each check reading and step outcome that changed, and the
-execution, provider (model and harness) and checkout revision of both runs. An empty `changed`
-list means the same readings, not a quality verdict.
+execution, provider (model and harness) and checkout revision of both runs. `changed` compares
+exact values: it shows what was reworded, and is neither a failure nor a quality verdict.
 
 1. Rerun the scripted dataset with `--baseline` set to its last report. It makes zero calls
    and checks mechanics only; it cannot judge a model.
 2. Only within a written operator budget, on operator-supplied words with permission, pilot one
    live run of the new model against the old model's last live report and read it. Then run
-   it at least three times; a reading counts as stable only if all runs agree (pass^k).
+   it at least three times with the case's `meaning` items; the model is stable on that case
+   only if every run passes them (pass^k: all runs succeed, not all runs match word for word).
+   Read the unmatched entries before trusting it.
 
 Keep each report in its own directory outside the repository; the report records the model,
 harness, prompt fingerprints and commit. The latest live report for a model is its next baseline.

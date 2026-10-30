@@ -36,7 +36,21 @@ struct Dataset {
     replies: VecDeque<Reply>,
     #[serde(default)]
     expected: std::collections::BTreeMap<String, Value>,
+    /// Operator-written key terms per field, judged regardless of wording: see `meaning_check`.
+    #[serde(default)]
+    meaning:
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, Vec<Vec<String>>>>,
 }
+
+/// The fields each reading check observes, in report order.
+const FIELDS: [(&str, &[&str]); 3] = [
+    ("actor_outcome", &["who", "outcome"]),
+    ("constraints", &["must", "must_not"]),
+    (
+        "unresolved_deferred",
+        &["open", "questions", "notes", "deferred", "other_goals"],
+    ),
+];
 #[derive(Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 struct Provenance {
@@ -201,6 +215,25 @@ fn validate(dataset: &Dataset, output: &Path, cap: usize, live: bool) -> Result<
                 .into(),
         );
     }
+    for (group, fields) in &dataset.meaning {
+        let Some((_, names)) = FIELDS.iter().find(|(name, _)| name == group) else {
+            return Err(format!("Meaning checks may not name {group}."));
+        };
+        for (field, items) in fields {
+            if !names.contains(&field.as_str())
+                || items.iter().any(|item| {
+                    item.is_empty()
+                        || item
+                            .iter()
+                            .any(|term| term.split('|').any(|word| word.trim().is_empty()))
+                })
+            {
+                return Err(format!(
+                    "Meaning check {group}.{field} must name a known field and list items of nonblank terms."
+                ));
+            }
+        }
+    }
     let parent = output.parent().and_then(|p| p.canonicalize().ok());
     if !output.is_absolute() || output.exists() {
         return Err("Output must be a new absolute directory with an existing parent.".into());
@@ -360,9 +393,17 @@ fn run(options: &Options) -> Result<Value, String> {
         checks.insert(name.into(), json!({"status": match expected {
             Some(value) if board.is_some() && current => if *value == observed[name] { "pass" } else { "fail" },
             _ => "unknown",
-        }, "basis": "Exact match to supplied fixture only; semantic correctness is unknown.",
+        }, "basis": "Exact match to a scripted fixture; a live reading in other words fails it. Judge live runs by meaning.",
             "expected": expected, "observed": observed[name]}));
     }
+    checks.insert(
+        "meaning".into(),
+        if dataset.meaning.is_empty() || board.is_none() || !current {
+            json!({"status": "unknown"})
+        } else {
+            meaning_check(&dataset.meaning, &observed)
+        },
+    );
     checks.insert(
         "originals_exact".into(),
         json!({"status": if exact { "pass" } else { "fail" }}),
@@ -502,6 +543,55 @@ where
     T: Deserialize<'de>,
 {
     Option::deserialize(value)
+}
+
+/// Passes when every operator-written item is found: all of its terms (`a|b` accepts either)
+/// appear, ignoring case, in one observed entry of its field. Wording, order and extra entries
+/// do not fail it; unmatched entries are listed for the operator to read.
+fn meaning_check(
+    meaning: &std::collections::BTreeMap<
+        String,
+        std::collections::BTreeMap<String, Vec<Vec<String>>>,
+    >,
+    observed: &Value,
+) -> Value {
+    let (mut missing, mut unmatched) = (vec![], vec![]);
+    for (group, fields) in meaning {
+        for (field, items) in fields {
+            let entries: Vec<String> = match &observed[group][field] {
+                Value::Array(entries) => entries.iter().map(text).collect(),
+                Value::Null => vec![],
+                one => vec![text(one)],
+            };
+            let found = |item: &Vec<String>, entry: &str| {
+                item.iter().all(|term| {
+                    term.split('|')
+                        .any(|word| entry.contains(&word.trim().to_lowercase()))
+                })
+            };
+            for item in items {
+                if !entries.iter().any(|entry| found(item, entry)) {
+                    missing.push(json!({"field": format!("{group}.{field}"), "item": item}));
+                }
+            }
+            for entry in &entries {
+                if !items.iter().any(|item| found(item, entry)) {
+                    unmatched.push(json!({"field": format!("{group}.{field}"), "entry": entry}));
+                }
+            }
+        }
+    }
+    json!({"status": if missing.is_empty() { "pass" } else { "fail" },
+        "basis": "Operator-written key terms found regardless of wording; terms cannot prove an entry means the same.",
+        "missing": missing, "unmatched": unmatched})
+}
+
+/// An observed entry as lowercase text.
+fn text(value: &Value) -> String {
+    value
+        .as_str()
+        .map_or_else(|| value.to_string(), str::to_owned)
+        .to_lowercase()
 }
 
 /// What changed from the baseline: observed readings and each step's outcome, plus which model,

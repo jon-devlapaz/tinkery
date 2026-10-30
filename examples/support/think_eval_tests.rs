@@ -548,3 +548,74 @@ fn a_live_limit_counts_both_calls_of_a_send_and_records_the_run() {
         assert_eq!(report["session_confirmed"], false);
     }
 }
+
+#[test]
+fn meaning_checks_pass_a_reworded_reading_and_fail_a_dropped_must_not() {
+    let meaning = json!({"actor_outcome": {"outcome": [["find", "note"]]},
+        "constraints": {"must": [["original words|verbatim"]], "must_not": [["delete|deleting"]]}});
+    let mut first = reading();
+    first["parts"]["must"] = json!(["Keep the ORIGINAL WORDS"]);
+    first["parts"]["must_not"] = json!(["Never delete a note", "TEST sync"]);
+    let mut second = reading();
+    second["parts"]["outcome"] = json!("find a saved note again");
+    second["parts"]["must"] = json!(["store each note verbatim"]);
+    second["parts"]["must_not"] = json!(["no deleting notes"]);
+    for shaping in [first, second] {
+        let mut data = dataset();
+        data["replies"][0] = reply("shaping", shaping);
+        data["meaning"] = meaning.clone();
+        let (_root, report) = evaluate(data, 2);
+        let checks = &report["automated_checks"];
+        assert_eq!(
+            checks["constraints"]["status"], "fail",
+            "exact still differs"
+        );
+        assert_eq!(checks["meaning"]["status"], "pass", "{}", checks["meaning"]);
+    }
+    let mut dropped = reading();
+    dropped["parts"]["must_not"] = json!(["TEST sync"]);
+    let mut data = dataset();
+    data["replies"][0] = reply("shaping", dropped);
+    data["meaning"] = meaning;
+    let (_root, report) = evaluate(data, 2);
+    let check = &report["automated_checks"]["meaning"];
+    assert_eq!(check["status"], "fail");
+    assert_eq!(
+        check["missing"],
+        json!([{"field": "constraints.must_not", "item": ["delete|deleting"]}])
+    );
+    assert_eq!(
+        check["unmatched"],
+        json!([{"field": "constraints.must_not", "entry": "test sync"}])
+    );
+}
+
+#[test]
+fn meaning_checks_name_known_fields_and_nonblank_terms_or_are_unknown() {
+    let (_root, report) = evaluate(dataset(), 2);
+    assert_eq!(report["automated_checks"]["meaning"]["status"], "unknown");
+    for meaning in [
+        json!({"constraints": {"should": [["x"]]}}),
+        json!({"reading": {"must": [["x"]]}}),
+        json!({"constraints": {"must": [[]]}}),
+        json!({"constraints": {"must": [["x| "]]}}),
+    ] {
+        let mut data = dataset();
+        data["meaning"] = meaning;
+        let root = tempfile::Builder::new()
+            .prefix("tinkery-TEST-eval-")
+            .tempdir()
+            .unwrap();
+        let path = root.path().join("dataset.json");
+        std::fs::write(&path, data.to_string()).unwrap();
+        let refused = run(&Options {
+            dataset: path,
+            output: root.path().join("output"),
+            cap: 2,
+            live: None,
+            baseline: None,
+        })
+        .unwrap_err();
+        assert!(refused.contains("Meaning check"), "{refused}");
+    }
+}
