@@ -21,7 +21,7 @@ use tinkery::think::{
 use tinkery::think_record::hash;
 
 const USAGE: &str = "Supply --dataset FILE --output NEW_DIRECTORY --max-requests N. Replies are scripted. \
-Add --live --model provider/model-id [--pi-command PATH] [--thinking LEVEL] to call Pi; \
+Add --baseline REPORT to compare with an earlier run of the same dataset. Add --live --model provider/model-id [--pi-command PATH] [--thinking LEVEL] to call Pi; \
 there is no default dataset, model or limit.";
 
 #[derive(Deserialize)]
@@ -116,6 +116,8 @@ struct Options {
     output: PathBuf,
     cap: usize,
     live: Option<Live>,
+    /// An earlier `report.json` of the same dataset to compare against.
+    baseline: Option<PathBuf>,
 }
 
 fn options(args: impl Iterator<Item = String>) -> Result<Options, String> {
@@ -134,6 +136,7 @@ fn options(args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--model",
             "--pi-command",
             "--thinking",
+            "--baseline",
         ];
         let value = args.next().ok_or(USAGE)?;
         if !known.contains(&arg.as_str()) || values.insert(arg, value).is_some() {
@@ -149,6 +152,7 @@ fn options(args: impl Iterator<Item = String>) -> Result<Options, String> {
         .ok_or(USAGE)?
         .parse()
         .map_err(|_| USAGE)?;
+    let baseline = take("--baseline").map(PathBuf::from);
     let live = if live {
         Some(Live {
             model: take("--model").ok_or(USAGE)?,
@@ -166,6 +170,7 @@ fn options(args: impl Iterator<Item = String>) -> Result<Options, String> {
         output: output.into(),
         cap,
         live,
+        baseline,
     })
 }
 
@@ -279,6 +284,12 @@ fn run(options: &Options) -> Result<Value, String> {
     let mut dataset: Dataset =
         serde_json::from_str(&input).map_err(|e| format!("Invalid dataset: {e}"))?;
     validate(&dataset, output, cap, options.live.is_some())?;
+    // The words sent, apart from scripted replies, so a rerun with changed replies stays comparable.
+    let words = hash(&serde_json::from_str::<Value>(&input).unwrap()["steps"].to_string());
+    let baseline = match &options.baseline {
+        Some(path) => Some(baseline(path, &words)?),
+        None => None,
+    };
     let budget = CallBudget::new(cap);
     let fake = Arc::new(Fake {
         budget: budget.clone(),
@@ -388,7 +399,7 @@ fn run(options: &Options) -> Result<Value, String> {
         .map(|o| !o.stdout.is_empty());
     let report = json!({
         "execution": if live { "live" } else { "fake" },
-        "input": {"path": dataset_path, "hash": hash(&input), "provenance": dataset.provenance,
+        "input": {"path": dataset_path, "hash": hash(&input), "words_hash": words, "provenance": dataset.provenance,
             "permission": dataset.permission},
         "provider": provider,
         "revision": {"checkout_at_run": source, "working_tree_dirty": dirty,
@@ -414,12 +425,64 @@ fn run(options: &Options) -> Result<Value, String> {
         },
         "think_record": null, "session_confirmed": false,
     });
+    let mut report = report;
+    if let Some(baseline) = &baseline {
+        report["comparison"] = compare(baseline, &report);
+    }
     std::fs::write(
         output.join("report.json"),
         serde_json::to_string_pretty(&report).unwrap() + "\n",
     )
     .map_err(|e| e.to_string())?;
     Ok(report)
+}
+
+/// Read an earlier report, refusing one of different words before anything starts.
+fn baseline(path: &Path, words: &str) -> Result<Value, String> {
+    let read =
+        std::fs::read_to_string(path).map_err(|e| format!("Read the baseline report: {e}"))?;
+    let report: Value =
+        serde_json::from_str(&read).map_err(|e| format!("Invalid baseline report: {e}"))?;
+    if report["input"]["words_hash"] != words {
+        return Err("The baseline sent different words; compare runs of the same dataset.".into());
+    }
+    Ok(report)
+}
+
+/// What changed from the baseline: observed readings and each step's outcome, plus which model,
+/// harness and revision each side ran. Equal readings are not a quality verdict.
+fn compare(baseline: &Value, report: &Value) -> Value {
+    let mut changed = vec![];
+    for name in ["actor_outcome", "constraints", "unresolved_deferred"] {
+        let (old, new) = (
+            &baseline["automated_checks"][name]["observed"],
+            &report["automated_checks"][name]["observed"],
+        );
+        if old != new {
+            changed.push(json!({"check": name, "baseline": old, "now": new}));
+        }
+    }
+    let empty = vec![];
+    let (old, new) = (
+        baseline["steps"].as_array().unwrap_or(&empty),
+        report["steps"].as_array().unwrap_or(&empty),
+    );
+    for index in 0..old.len().max(new.len()) {
+        let outcome = |steps: &[Value]| {
+            steps.get(index).map(|s| {
+                json!({"input_accepted": s["input_accepted"],
+                "reading_applied": s["reading_applied"], "failure": s["failure"]})
+            })
+        };
+        if outcome(old) != outcome(new) {
+            changed.push(json!({"step": index + 1, "baseline": outcome(old), "now": outcome(new)}));
+        }
+    }
+    let side = |r: &Value| {
+        json!({"execution": r["execution"], "provider": r["provider"],
+        "revision": r["revision"]["checkout_at_run"]})
+    };
+    json!({"baseline": side(baseline), "now": side(report), "changed": changed})
 }
 
 fn main() {

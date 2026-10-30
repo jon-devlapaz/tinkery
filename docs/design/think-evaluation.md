@@ -102,6 +102,23 @@ No session is saved and no goal is confirmed.
 Tests use a fake Pi executable, so the limit checks need no budget. Any real run
 needs its own data permission and call budget from the operator.
 
+## When the model changes
+
+Before trusting a new Think model with real work, compare it with the old one. `--baseline
+REPORT` reads an earlier `report.json`, refuses one that sent different words, and adds a
+`comparison` to the new report: each check reading and step outcome that changed, and the
+execution, provider (model and harness) and checkout revision of both runs. An empty `changed`
+list means the same readings, not a quality verdict.
+
+1. Rerun the scripted dataset with `--baseline` set to its last report. It makes zero calls
+   and checks mechanics only; it cannot judge a model.
+2. Only within a written operator budget, on operator-supplied words with permission, pilot one
+   live run of the new model against the old model's last live report and read it. Then run
+   it at least three times; a reading counts as stable only if all runs agree (pass^k).
+
+Keep each report in its own directory outside the repository; the report records the model,
+harness, prompt fingerprints and commit. The latest live report for a model is its next baseline.
+
 ## Human baseline form
 
 The report's `human_baseline` is a form, separate from `automated_checks`. All

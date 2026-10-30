@@ -27,6 +27,7 @@ fn evaluate(data: Value, cap: usize) -> (tempfile::TempDir, Value) {
         output: root.path().join("output"),
         cap,
         live: None,
+        baseline: None,
     })
     .unwrap();
     (root, report)
@@ -300,6 +301,50 @@ fn readable_invalid_shaping_still_counts_a_review_before_rejection() {
 }
 
 #[test]
+fn a_rerun_against_a_baseline_reports_only_what_the_replies_changed() {
+    let (first, _) = evaluate(dataset(), 2);
+    let baseline = first.path().join("output/report.json");
+    let compare = |data: Value| {
+        let root = tempfile::Builder::new()
+            .prefix("tinkery-TEST-eval-")
+            .tempdir()
+            .unwrap();
+        let path = root.path().join("dataset.json");
+        std::fs::write(&path, data.to_string()).unwrap();
+        let options = Options {
+            dataset: path,
+            output: root.path().join("output"),
+            cap: 2,
+            live: None,
+            baseline: Some(baseline.clone()),
+        };
+        run(&options).map(|report| report["comparison"].clone())
+    };
+    let same = compare(dataset()).unwrap();
+    assert_eq!(same["changed"], json!([]));
+    assert_eq!(same["baseline"]["execution"], "fake");
+
+    let mut data = dataset();
+    let mut changed = reading();
+    changed["parts"]["who"] = json!("TEST librarians");
+    data["replies"][0] = reply("shaping", changed);
+    let report = compare(data).unwrap();
+    assert_eq!(
+        report["changed"],
+        json!([{"check": "actor_outcome",
+            "baseline": {"who": "TEST readers", "outcome": "find saved notes"},
+            "now": {"who": "TEST librarians", "outcome": "find saved notes"}}])
+    );
+
+    let mut other = dataset();
+    other["steps"][0]["text"] = json!("TEST other words");
+    assert_eq!(
+        compare(other).unwrap_err(),
+        "The baseline sent different words; compare runs of the same dataset."
+    );
+}
+
+#[test]
 fn a_local_request_size_refusal_cannot_pass_against_the_old_reading() {
     // 31 sends of the 4 KiB step maximum outgrow the 128 KiB request limit on the last one.
     let mut data = dataset();
@@ -381,6 +426,7 @@ impl FakePi {
                 model: "test/fake-model".into(),
                 thinking: "low".into(),
             }),
+            baseline: None,
         }
     }
 }
