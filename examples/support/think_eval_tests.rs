@@ -550,9 +550,9 @@ fn a_live_limit_counts_both_calls_of_a_send_and_records_the_run() {
 }
 
 #[test]
-fn meaning_checks_pass_a_reworded_reading_and_fail_a_dropped_must_not() {
-    let meaning = json!({"actor_outcome": {"outcome": [["find", "note"]]},
-        "constraints": {"must": [["original words|verbatim"]], "must_not": [["delete|deleting"]]}});
+fn key_terms_pass_a_reworded_reading_per_field_and_fail_a_dropped_must_not() {
+    let key_terms = json!({"actor_outcome": {"outcome": [["find", "note"]]},
+        "constraints": {"must": [["original words|verbatim"]], "must_not": [["delet"]]}});
     let mut first = reading();
     first["parts"]["must"] = json!(["Keep the ORIGINAL WORDS"]);
     first["parts"]["must_not"] = json!(["Never delete a note", "TEST sync"]);
@@ -563,45 +563,51 @@ fn meaning_checks_pass_a_reworded_reading_and_fail_a_dropped_must_not() {
     for shaping in [first, second] {
         let mut data = dataset();
         data["replies"][0] = reply("shaping", shaping);
-        data["meaning"] = meaning.clone();
+        data["key_terms"] = key_terms.clone();
         let (_root, report) = evaluate(data, 2);
         let checks = &report["automated_checks"];
         assert_eq!(
             checks["constraints"]["status"], "fail",
             "exact still differs"
         );
-        assert_eq!(checks["meaning"]["status"], "pass", "{}", checks["meaning"]);
+        assert_eq!(
+            checks["key_terms"]["status"], "pass",
+            "{}",
+            checks["key_terms"]
+        );
     }
     let mut dropped = reading();
-    dropped["parts"]["must_not"] = json!(["TEST sync"]);
+    dropped["parts"]["must_not"] = json!(["TEST undeletable sync"]);
     let mut data = dataset();
     data["replies"][0] = reply("shaping", dropped);
-    data["meaning"] = meaning;
+    data["key_terms"] = key_terms;
     let (_root, report) = evaluate(data, 2);
-    let check = &report["automated_checks"]["meaning"];
+    let check = &report["automated_checks"]["key_terms"];
     assert_eq!(check["status"], "fail");
+    assert_eq!(check["fields"]["constraints.must"]["status"], "pass");
+    assert_eq!(check["fields"]["actor_outcome.outcome"]["status"], "pass");
     assert_eq!(
-        check["missing"],
-        json!([{"field": "constraints.must_not", "item": ["delete|deleting"]}])
-    );
-    assert_eq!(
-        check["unmatched"],
-        json!([{"field": "constraints.must_not", "entry": "test sync"}])
+        check["fields"]["constraints.must_not"],
+        json!({"status": "fail", "missing": [["delet"]], "unmatched": ["test undeletable sync"]}),
+        "a term inside another word is not found"
     );
 }
 
 #[test]
-fn meaning_checks_name_known_fields_and_nonblank_terms_or_are_unknown() {
+fn key_terms_name_known_fields_and_distinct_nonblank_items_or_are_unknown() {
     let (_root, report) = evaluate(dataset(), 2);
-    assert_eq!(report["automated_checks"]["meaning"]["status"], "unknown");
-    for meaning in [
+    assert_eq!(report["automated_checks"]["key_terms"]["status"], "unknown");
+    for key_terms in [
         json!({"constraints": {"should": [["x"]]}}),
         json!({"reading": {"must": [["x"]]}}),
+        json!({"constraints": {}}),
+        json!({"constraints": {"must": []}}),
         json!({"constraints": {"must": [[]]}}),
         json!({"constraints": {"must": [["x| "]]}}),
+        json!({"constraints": {"must": [["x"], ["x"]]}}),
     ] {
         let mut data = dataset();
-        data["meaning"] = meaning;
+        data["key_terms"] = key_terms.clone();
         let root = tempfile::Builder::new()
             .prefix("tinkery-TEST-eval-")
             .tempdir()
@@ -616,6 +622,6 @@ fn meaning_checks_name_known_fields_and_nonblank_terms_or_are_unknown() {
             baseline: None,
         })
         .unwrap_err();
-        assert!(refused.contains("Meaning check"), "{refused}");
+        assert!(refused.contains("Key terms"), "{key_terms}: {refused}");
     }
 }

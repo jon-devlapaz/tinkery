@@ -59,12 +59,14 @@ Optional `expected` groups compare exact supplied values with the final reading:
 - `constraints`: `must`, `must_not`.
 - `unresolved_deferred`: `open`, `questions`, `notes`, `deferred`, `other_goals`.
 
-Exact expectations suit scripted fixtures; a live reading in other words fails them. For live
-runs, an optional `meaning` uses the same groups and fields but lists operator-written items of
-key terms, such as `{"constraints": {"must_not": [["account|sign-in"], ["sync"]]}}`. An item is
-found when all its terms (`a|b` accepts either) appear, ignoring case, in one observed entry of
-its field. The check passes when every item is found; it lists missing items and, for reading,
-entries no item matched. Terms show a requirement was kept, not that an entry means the same.
+Exact expectations suit scripted fixtures; a live reading in other words fails them. Optional
+`key_terms` use the same groups and fields but list operator-written items of key terms, such as
+`{"constraints": {"must_not": [["account|sign-in"], ["sync"]]}}`. An item is found when each of
+its terms (`a|b` accepts either) starts a word, ignoring case, in one observed entry of its field;
+write stems such as `delet` for word forms. Each named field passes when all its items are found,
+and the report lists missing items and the entries no item matched. The check is mechanical: it
+cannot see negation ("never sync" contains "sync") or prove an entry means the same, so read the
+unmatched entries and the readings themselves.
 
 An absent expectation, missing reading, or reading that has not applied every
 supplied send is unknown, not a pass. A local input or request-size refusal is
@@ -121,9 +123,9 @@ exact values: it shows what was reworded, and is neither a failure nor a quality
    and checks mechanics only; it cannot judge a model.
 2. Only within a written operator budget, on operator-supplied words with permission, pilot one
    live run of the new model against the old model's last live report and read it. Then run
-   it at least three times with the case's `meaning` items; the model is stable on that case
-   only if every run passes them (pass^k: all runs succeed, not all runs match word for word).
-   Read the unmatched entries before trusting it.
+   it at least three times with the case's `key_terms`; the model holds on that case only if
+   every run passes them and your reading agrees (pass^k: all runs succeed, not all runs match
+   word for word).
 
 Keep each report in its own directory outside the repository; the report records the model,
 harness, prompt fingerprints and commit. The latest live report for a model is its next baseline.
