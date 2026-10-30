@@ -84,7 +84,7 @@ fn session_sized_step_sends_findings_once_without_changing_saved_context() {
         "fixture must cover the measured dogfood size"
     );
     assert!(
-        after_size <= pi::LIMIT,
+        after_size <= pi::REQUEST_LIMIT,
         "{after_size} exceeds the unchanged request limit"
     );
     assert_eq!(request["goal"], goal);

@@ -91,9 +91,13 @@ fn failures_timeout_overflow_and_cancellation_never_return_output() {
             .contains("rate limit (429)")
     );
     assert!(
-        call(&limited, &"x".repeat(LIMIT + 1), &AtomicBool::new(false))
-            .unwrap_err()
-            .contains("This is too much to send at once.")
+        call(
+            &limited,
+            &"x".repeat(REQUEST_LIMIT + 1),
+            &AtomicBool::new(false)
+        )
+        .unwrap_err()
+        .contains("This is too much to send at once.")
     );
     let (_directory, host) = host("import time; time.sleep(10)");
     let job = Job::launch(move |cancelled| call(&host, "words", cancelled));

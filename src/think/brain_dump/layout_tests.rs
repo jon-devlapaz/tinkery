@@ -358,7 +358,7 @@ fn one_shape_then_one_review_never_auto_repairs_or_withholds() {
             sources: vec![Source {
                 id: 1,
                 text: if mode == "review-cap" {
-                    "original words ".repeat(150)
+                    "original words ".repeat((REQUEST_LIMIT - 24 * 1024) / 15)
                 } else {
                     "the restaurateur judges the result".into()
                 },
@@ -452,7 +452,11 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*3150
                 let raw = decision.raw.as_ref().unwrap();
                 let shape_bytes = serde_json::to_vec(&r).unwrap().len();
                 let review_bytes = review::input(&r, raw).unwrap().len();
-                assert!(shape_bytes <= 32768 && raw.len() <= 32768 && review_bytes > 32768);
+                assert!(
+                    shape_bytes <= REQUEST_LIMIT
+                        && raw.len() <= crate::pi::LIMIT
+                        && review_bytes > REQUEST_LIMIT
+                );
                 eprintln!(
                     "review-only cap: shaping input={shape_bytes}, shaping output={}, review input={review_bytes}, fake starts=1",
                     raw.len()

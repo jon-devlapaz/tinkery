@@ -1041,3 +1041,49 @@ fn attached_cases_refuse_missing_malformed_or_mixed_coverage_without_writes() {
         assert_eq!(agent.remaining(), 0, "no automatic retry");
     }
 }
+
+#[test]
+fn a_goal_past_32_kib_still_reaches_the_model() {
+    // #593: a 59,795-byte goal was refused after seven Shape answers under the old 32 KiB cap.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-593-size-")
+        .tempdir()
+        .unwrap();
+    let session = Config::new(Some(root.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: "TEST book loans".into(),
+            outcome: "TEST two loans survive restart".into(),
+            options: vec![],
+            originals: vec![],
+            context: "TEST Think context: ".to_owned() + &"c".repeat(60_000),
+            source: "TEST fixture".into(),
+        })
+        .unwrap()
+        .session;
+    let agent = provider(root.path(), &valid_reply().to_string(), 1);
+    let program = root.path().join("TEST-pi");
+    fs::write(&program, "#!/usr/bin/env python3\nimport pathlib, sys\nhere = pathlib.Path(__file__)\nhere.with_name('TEST-sent').write_text(str(len(sys.stdin.buffer.read())))\nprint(here.with_name('TEST-reply.json').read_text())\n").unwrap();
+    let version = answering::read(&session).unwrap().version();
+    let version = answering::probe(&session, version).unwrap().unwrap();
+    let step = run(
+        &Work::Answer {
+            id: answering::PROBE.0.into(),
+            words: "TEST the answer".into(),
+            expected: version,
+            folder: root.path().into(),
+        },
+        &session,
+        &agent,
+        &AtomicBool::new(false),
+        &AtomicBool::new(false),
+    );
+    assert_eq!(step, Ok(Done::Drafted));
+    let sent: usize = fs::read_to_string(root.path().join("TEST-sent"))
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(
+        sent > 60_000 && sent <= crate::pi::REQUEST_LIMIT,
+        "{sent} bytes sent"
+    );
+}
