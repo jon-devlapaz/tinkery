@@ -1,0 +1,6 @@
+{
+  "require_tink": false,
+  "checks": [
+    {"argv": ["python3", "scripts/full-check.py"], "timeout_seconds": 3600}
+  ]
+}
