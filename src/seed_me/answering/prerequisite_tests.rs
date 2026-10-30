@@ -287,7 +287,16 @@ fn an_answer_that_leaves_the_decision_open_is_refused_and_defer_still_parks_it()
     let session = publication_tests::session(root.path());
     let version = ask(&session, 1, &proposal("retention", None), root.path()).unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();
-    for words in ["not decided.", "  Undecided ", "TBD", "don\u{2019}t know"] {
+    for words in [
+        "not decided.",
+        "  Undecided ",
+        "TBD",
+        "don\u{2019}t know",
+        "not decided?",
+        "n/a",
+        "",
+        "  ",
+    ] {
         assert!(
             matches!(answer(&session, version, "retention", words, None),
                 Err(Refusal::Refused(ref reason)) if reason.contains("Defer, with a reason")),

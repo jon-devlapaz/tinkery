@@ -96,6 +96,43 @@ pub fn can_revise(ledger: &Value, id: &str) -> bool {
         && node["id"] != ledger["origin"]
 }
 
+/// Why an answer that leaves its decision open is refused, and what to do instead.
+pub const LEAVES_OPEN: &str = "These words leave the decision open. Answer it, or choose \"Defer, with a reason\" to park it until a stated condition.";
+
+/// Whether these words, saved as the answer to decision `id`, would settle it while leaving it
+/// open: empty, or only saying it is not made, as when an agent operator settled an operator
+/// decision with "not decided." (#594). Longer answers are not judged. The pre-mortem probe is
+/// exempt, since "not sure" or "skip" is a fair answer to it.
+pub fn leaves_open(id: &str, words: &str) -> bool {
+    let plain = words
+        .trim()
+        .trim_end_matches(['.', '!', '?'])
+        .trim()
+        .to_lowercase()
+        .replace('\u{2019}', "'");
+    id != crate::seed_me::answering::PROBE.0
+        && [
+            "",
+            "not decided",
+            "not decided yet",
+            "undecided",
+            "tbd",
+            "tbd later",
+            "to be decided",
+            "decide later",
+            "later",
+            "defer",
+            "skip",
+            "n/a",
+            "no decision",
+            "no decision yet",
+            "unknown",
+            "not sure",
+            "don't know",
+        ]
+        .contains(&plain.as_str())
+}
+
 pub(super) fn change(
     ledger: &Value,
     id: &str,
@@ -122,6 +159,10 @@ pub(super) fn change(
             require(
                 text(&before["recommendation"]),
                 "This question has no suggestion to delegate. Type your answer instead.",
+            )?;
+            require(
+                !leaves_open(id, before["recommendation"].string().unwrap_or("")),
+                LEAVES_OPEN,
             )?;
             let mut evidence = array();
             for source in before["supported_by"].items() {
@@ -151,6 +192,7 @@ pub(super) fn change(
                 text(&words.as_str().into()),
                 "Type your answer first; nothing was saved.",
             )?;
+            require(!leaves_open(id, words), LEAVES_OPEN)?;
             node.set("status", "settled".into());
             node.set("answer", words.as_str().into());
             node.set("authority", "user".into());
@@ -168,6 +210,7 @@ pub(super) fn change(
                 text(&words.as_str().into()),
                 "Type the replacement answer first; nothing was saved.",
             )?;
+            require(!leaves_open(id, words), LEAVES_OPEN)?;
             node.set("answer", words.as_str().into());
             node.set("authority", "user".into());
             node.set(

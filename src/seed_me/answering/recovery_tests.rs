@@ -202,3 +202,29 @@ fn deferred_recovery_keeps_existing_agent_authorization_and_writer_lock() {
     );
     refuse(&session, version, "a", "TEST");
 }
+
+#[test]
+fn a_deferred_prerequisite_is_not_answered_with_words_that_leave_it_open() {
+    // #594: answering a parked decision with "TBD" would settle it while it stays open.
+    let (_root, session) = fixture();
+    let version = read(&session).unwrap().version();
+    for words in ["TBD", "not decided?"] {
+        refuse(&session, version, "a", words);
+        let refused = respond(
+            &session,
+            version,
+            "a",
+            &ledger::AnswerAction::Revisit(words.into()),
+            None,
+        )
+        .unwrap_err();
+        assert!(
+            refused.to_string().contains(ledger::LEAVES_OPEN),
+            "{refused}"
+        );
+    }
+    assert_eq!(
+        read(&session).unwrap().state["nodes"][1]["status"],
+        "deferred"
+    );
+}

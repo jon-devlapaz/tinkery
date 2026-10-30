@@ -9,7 +9,9 @@ pub use teach_back::{
 mod closing;
 pub use closing::{CompletionReview, FailureCase, confirmation_summary};
 mod answers;
-pub use answers::{AnswerAction, DeferredPrerequisite, can_revise, deferred_prerequisite};
+pub use answers::{
+    AnswerAction, DeferredPrerequisite, LEAVES_OPEN, can_revise, deferred_prerequisite, leaves_open,
+};
 mod checks;
 mod unknowns;
 pub use unknowns::{resolve_unknowns, resolved_unknown};

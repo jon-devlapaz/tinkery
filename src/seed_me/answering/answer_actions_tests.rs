@@ -405,3 +405,32 @@ fn revision_refuses_findings_goal_blank_words_and_stale_display() {
     );
     assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
 }
+
+#[test]
+fn delegation_and_revision_refuse_words_that_leave_the_decision_open() {
+    // #594: Delegate and Revise settle a decision too, so they refuse "not decided." alike.
+    let (_root, session) = fixture();
+    let mut state = read(&session).unwrap().state;
+    state["nodes"][2]["recommendation"] = "TBD".into();
+    let version = read(&session).unwrap().version();
+    publish(&session, version, "TEST non-answer suggestion", &state).unwrap();
+    let before = fs::read(session.join("ledger.json")).unwrap();
+    let refused = respond_now(&session, &AnswerAction::Delegate).unwrap_err();
+    assert!(
+        refused.to_string().contains(ledger::LEAVES_OPEN),
+        "{refused}"
+    );
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+
+    let (_root, session) = fixture();
+    respond_now(&session, &AnswerAction::Delegate).unwrap();
+    let before = fs::read(session.join("ledger.json")).unwrap();
+    for words in ["not decided.", "n/a"] {
+        let refused = respond_now(&session, &AnswerAction::Revise(words.into())).unwrap_err();
+        assert!(
+            refused.to_string().contains(ledger::LEAVES_OPEN),
+            "{refused}"
+        );
+    }
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+}

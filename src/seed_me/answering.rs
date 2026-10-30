@@ -599,10 +599,8 @@ pub fn answer(
     actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<u64, Refusal> {
     let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
-    if id != PROBE.0 && leaves_open(words) {
-        return Err(Refusal::Refused(
-            "These words leave the decision open. Answer it, or choose \"Defer, with a reason\" to park it until a stated condition.".into(),
-        ));
+    if ledger::leaves_open(id, words) {
+        return Err(Refusal::Refused(ledger::LEAVES_OPEN.into()));
     }
     let mut ledger = read(session)?;
     let node = ledger.state["nodes"]
@@ -632,28 +630,6 @@ pub fn answer(
         &actor.reason(&format!("answered {id} in Tinkery Shape.")),
         &ledger.state,
     )
-}
-
-/// Whether the whole answer only says the decision is not made, as when an agent operator
-/// settled an operator decision with "not decided." (#594). Longer answers are not judged.
-fn leaves_open(words: &str) -> bool {
-    let plain = words
-        .trim()
-        .trim_end_matches(['.', '!'])
-        .to_lowercase()
-        .replace('\u{2019}', "'");
-    [
-        "not decided",
-        "not decided yet",
-        "undecided",
-        "tbd",
-        "to be decided",
-        "decide later",
-        "no decision",
-        "not sure",
-        "don't know",
-    ]
-    .contains(&plain.as_str())
 }
 
 /// Publish an explicit deferral, delegation or replacement answer. Eligibility, required fields
