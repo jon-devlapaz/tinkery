@@ -1,7 +1,7 @@
 //! The one place Tinkery starts a model host, Pi or Claude Code: a bounded, cancellable process
 //! per request, and the call budget every request is counted against.
 //!
-//! A request runs its host with no session, extensions, plugins, MCP servers, skills or context
+//! A request runs its host with no saved session, extensions, plugins, MCP servers, skills or context
 //! files, so the model sees only the prompt, the input and, when a caller asks for them, read-only
 //! tools (Pi's `read`, `grep`, `find`, `ls`; Claude Code's `Read`, `Grep`, `Glob`): it can read
 //! files inside the folder the host starts in, never outside it, and runs no commands. Without
@@ -10,6 +10,8 @@
 //! Input is capped at 128 KiB and replies at 32 KiB. Every completed or cancelled request stops its process
 //! group and reaps the direct child; descendants that leave that group are outside this
 //! ownership. Nothing retries on its own.
+//! Each request reports how many model responses it used when the host says so (Pi's throwaway
+//! session file, deleted when the request ends; Claude Code's `num_turns`); otherwise unknown.
 //! Callers get text back, or one line saying why not. Which phase asks is the caller's business; this module names none.
 
 use std::{
@@ -166,6 +168,8 @@ pub struct Attempt {
     pub outcome: &'static str,
     /// Why it failed or was refused.
     pub error: Option<String>,
+    /// Model responses the host reported for it; `None` when it reported none.
+    pub responses: Option<usize>,
 }
 
 /// A hard limit on drafting attempts, shared by every host that holds it. An attempt is counted
@@ -209,13 +213,31 @@ impl CallBudget {
     pub fn remaining(&self) -> usize {
         self.limit().saturating_sub(self.used())
     }
-    /// The allowance in the words both phases show: requests left out of the limit.
+    /// The allowance in the words both phases show: requests left out of the limit, then the
+    /// model responses the hosts reported, never guessing a run that reported none.
     pub fn left(&self) -> String {
-        format!(
+        let left = format!(
             "Drafting runs left this launch: {} of {}.",
             self.remaining(),
             self.limit()
-        )
+        );
+        let ended: Vec<_> = self
+            .attempts()
+            .into_iter()
+            .filter(|a| matches!(a.outcome, "reply" | "failure"))
+            .collect();
+        if ended.is_empty() {
+            return left;
+        }
+        let known: usize = ended.iter().filter_map(|a| a.responses).sum();
+        let unknown = ended.iter().filter(|a| a.responses.is_none()).count();
+        match unknown {
+            0 => format!("{left} Model responses so far: {known}."),
+            1 => format!("{left} Model responses so far: at least {known}; 1 run didn't report."),
+            n => {
+                format!("{left} Model responses so far: at least {known}; {n} runs didn't report.")
+            }
+        }
     }
     /// Counts one `kind` request, or refuses it when the limit is reached. Returns the slot that
     /// [`CallBudget::finish`] fills in.
@@ -231,6 +253,7 @@ impl CallBudget {
                 kind,
                 outcome: "refused",
                 error: Some(error.clone()),
+                responses: None,
             });
             return Err(error);
         }
@@ -238,14 +261,16 @@ impl CallBudget {
             kind,
             outcome: "started",
             error: None,
+            responses: None,
         });
         Ok(attempts.len() - 1)
     }
-    /// Records how a reserved request ended.
-    pub fn finish<T>(&self, slot: usize, result: &Result<T, String>) {
+    /// Records how a reserved request ended and the model responses its host reported.
+    pub fn finish<T>(&self, slot: usize, result: &Result<T, String>, responses: Option<usize>) {
         if let Some(attempt) = self.attempts.lock().unwrap().get_mut(slot) {
             attempt.outcome = if result.is_ok() { "reply" } else { "failure" };
             attempt.error = result.as_ref().err().cloned();
+            attempt.responses = responses;
         }
     }
 }
@@ -381,23 +406,26 @@ impl Call {
         if cancelled.load(Ordering::Relaxed) {
             return Err("Request cancelled.".into());
         }
+        let mut responses = None;
         let Some(budget) = budget else {
-            return self.run(input, prompt, cancelled);
+            return self.run(input, prompt, cancelled, &mut responses);
         };
         let slot = budget.reserve(kind)?;
-        let result = self.run(input, prompt, cancelled);
-        budget.finish(slot, &result);
+        let result = self.run(input, prompt, cancelled, &mut responses);
+        budget.finish(slot, &result, responses);
         result
     }
 
+    /// Runs the host once, setting `responses` to the model responses it reported, if any.
     fn run(
         &self,
         input: Vec<u8>,
         prompt: String,
         cancelled: &AtomicBool,
+        responses: &mut Option<usize>,
     ) -> Result<String, String> {
         let host = self.harness.label();
-        let (mut command, _held) = match self.harness {
+        let (mut command, held) = match self.harness {
             Harness::Pi => self.pi()?,
             Harness::ClaudeCode => self.claude()?,
         };
@@ -461,6 +489,9 @@ impl Call {
             thread::sleep(Duration::from_millis(20));
         };
         stop(&mut child);
+        if let Some(sessions) = &held.sessions {
+            *responses = pi_responses(sessions.path());
+        }
         // Unfinished pipe workers must not extend a failed call's deadline.
         let status = result?;
         let input_result = writer
@@ -475,7 +506,10 @@ impl Call {
         let diagnostics = String::from_utf8_lossy(&diagnostics);
         let text = match self.harness {
             Harness::Pi => pi_reply(status, &output, &diagnostics)?,
-            Harness::ClaudeCode => claude_reply(status, &output, &diagnostics, &self.model)?,
+            Harness::ClaudeCode => {
+                *responses = claude_responses(&output);
+                claude_reply(status, &output, &diagnostics, &self.model)?
+            }
         };
         input_result.map_err(|error| format!("Cannot send the request to {host}: {error}"))?;
         if cancelled.load(Ordering::Relaxed) {
@@ -484,11 +518,21 @@ impl Call {
         Ok(text)
     }
 
-    /// Pi's command line, and the folder guard it must keep until Pi exits.
+    /// Pi's command line, the folder guard it must keep until Pi exits, and the throwaway folder
+    /// its session goes to, read for the response count and deleted with it.
     fn pi(&self) -> Result<(Command, Held), String> {
         let mut command = Command::new(&self.program);
-        command.args(["--print", "--no-session"]);
-        let mut held: Held = None;
+        let sessions = tempfile::Builder::new()
+            .prefix("tinkery-pi-session-")
+            .tempdir()
+            .map_err(|error| format!("Cannot prepare Pi's session folder: {error}"))?;
+        command
+            .args(["--print", "--session-dir"])
+            .arg(sessions.path());
+        let mut held = Held {
+            sessions: Some(sessions),
+            other: None,
+        };
         if self.read_only_tools {
             let guard = tempfile::Builder::new()
                 .prefix("tinkery-pi-folder-")
@@ -498,7 +542,7 @@ impl Call {
                 .map_err(|error| format!("Cannot prepare Pi's folder guard: {error}"))?;
             command.args(["--tools", "read,grep,find,ls", "--extension"]);
             command.arg(guard.path());
-            held = Some(Box::new(guard));
+            held.other = Some(Box::new(guard));
         } else {
             command.arg("--no-tools");
         }
@@ -553,7 +597,10 @@ impl Call {
             "none",
             "--tools",
         ]);
-        let mut held: Held = None;
+        let mut held = Held {
+            sessions: None,
+            other: None,
+        };
         if self.read_only_tools {
             command.arg("Read,Grep,Glob");
             if let Some(folder) = &self.folder {
@@ -566,7 +613,7 @@ impl Call {
                 .tempdir()
                 .map_err(|error| format!("Cannot prepare an empty folder: {error}"))?;
             command.current_dir(empty.path());
-            held = Some(Box::new(empty));
+            held.other = Some(Box::new(empty));
         }
         if !self.thinking.is_empty() {
             command.arg("--effort").arg(&self.thinking);
@@ -575,8 +622,47 @@ impl Call {
     }
 }
 
-/// What a running host needs kept until it exits: Pi's folder guard or Claude Code's empty folder.
-type Held = Option<Box<dyn std::any::Any>>;
+/// What a running host needs kept until it exits; dropping it deletes the temporary folders.
+struct Held {
+    /// Pi's throwaway session folder.
+    sessions: Option<tempfile::TempDir>,
+    /// Pi's folder guard or Claude Code's empty folder.
+    other: Option<Box<dyn std::any::Any>>,
+}
+
+/// Assistant messages in Pi's session files under `folder`: one per model response. `None` when
+/// Pi wrote no session file, so nothing is known.
+fn pi_responses(folder: &Path) -> Option<usize> {
+    let mut found = false;
+    let mut count = 0;
+    for entry in std::fs::read_dir(folder).ok()?.flatten() {
+        if entry.path().extension().is_none_or(|e| e != "jsonl") {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        found = true;
+        count += text
+            .lines()
+            .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+            .filter(|entry| entry["type"] == "message" && entry["message"]["role"] == "assistant")
+            .count();
+    }
+    found.then_some(count)
+}
+
+/// The model responses Claude Code's JSON result reports, if it reports any.
+fn claude_responses(output: &[u8]) -> Option<usize> {
+    let json: serde_json::Value = serde_json::from_slice(output).ok()?;
+    let result = match json {
+        serde_json::Value::Array(messages) => {
+            messages.into_iter().rev().find(|m| m["type"] == "result")?
+        }
+        other => other,
+    };
+    usize::try_from(result["num_turns"].as_u64()?).ok()
+}
 
 /// Pi's reply text, or why there isn't one.
 fn pi_reply(
@@ -1227,6 +1313,86 @@ openai-codex  gpt-6.1-terra               500K     128K     yes       yes   \n";
         .unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
         (directory, program)
+    }
+
+    fn pi_call(program: PathBuf) -> Call {
+        Call {
+            harness: Harness::Pi,
+            program,
+            model: "TEST/fake".into(),
+            thinking: String::new(),
+            read_only_tools: false,
+            folder: None,
+            timeout: Duration::from_secs(10),
+        }
+    }
+
+    fn send(call: &Call, budget: &CallBudget) -> Result<String, String> {
+        call.complete(
+            Some(budget),
+            Request::Shaping,
+            b"TEST words".to_vec(),
+            "TEST prompt".into(),
+            &AtomicBool::new(false),
+        )
+    }
+
+    #[test]
+    fn each_run_shows_the_model_responses_its_host_reported_and_never_guesses() {
+        // The fake writes a session like Pi's: two assistant responses around a tool result.
+        let (directory, counted) = fake_pi(
+            "import json, pathlib\n\
+             folder = pathlib.Path(sys.argv[sys.argv.index('--session-dir') + 1])\n\
+             assert '--no-session' not in sys.argv and not list(folder.iterdir())\n\
+             open(sys.argv[0] + '.folder', 'w').write(str(folder))\n\
+             entries = [dict(type='session'), dict(type='message', message=dict(role='user')),\n\
+                 dict(type='message', message=dict(role='assistant', stopReason='toolUse')),\n\
+                 dict(type='message', message=dict(role='toolResult')),\n\
+                 dict(type='message', message=dict(role='assistant', stopReason='stop'))]\n\
+             (folder / 'TEST.jsonl').write_text(''.join(json.dumps(e) + '\\n' for e in entries))\n\
+             print('TEST reply')",
+        );
+        let budget = CallBudget::new(3);
+        assert_eq!(budget.left(), "Drafting runs left this launch: 3 of 3.");
+        assert_eq!(
+            send(&pi_call(counted.clone()), &budget).unwrap().trim(),
+            "TEST reply"
+        );
+        assert_eq!(budget.attempts()[0].responses, Some(2));
+        assert_eq!(
+            budget.left(),
+            "Drafting runs left this launch: 2 of 3. Model responses so far: 2."
+        );
+        let folder = std::fs::read_to_string(directory.path().join("pi.folder")).unwrap();
+        assert!(
+            !Path::new(&folder).exists(),
+            "the session folder outlived the run"
+        );
+
+        let (_silent, silent) = fake_pi("print('TEST reply')");
+        send(&pi_call(silent), &budget).unwrap();
+        assert_eq!(budget.attempts()[1].responses, None);
+        assert_eq!(
+            budget.left(),
+            "Drafting runs left this launch: 1 of 3. Model responses so far: at least 2; 1 run didn't report."
+        );
+    }
+
+    #[test]
+    fn claude_code_runs_report_their_turns_as_model_responses() {
+        let fake = FakeClaude::new(
+            &serde_json::json!({"type": "result", "is_error": false, "result": "TEST",
+                "num_turns": 3, "modelUsage": {"claude-TEST": {}}})
+            .to_string(),
+            0,
+        );
+        let budget = CallBudget::new(1);
+        send(&fake.call(false), &budget).unwrap();
+        assert_eq!(budget.attempts()[0].responses, Some(3));
+        let fake = FakeClaude::new(&reply("TEST"), 0);
+        let budget = CallBudget::new(1);
+        send(&fake.call(false), &budget).unwrap();
+        assert_eq!(budget.attempts()[0].responses, None);
     }
 
     #[test]

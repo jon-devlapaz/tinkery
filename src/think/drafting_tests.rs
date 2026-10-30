@@ -26,7 +26,7 @@ fn host(script: &str) -> (tempfile::TempDir, ModelHost) {
 fn pi_process_receives_only_bounded_inputs_and_disabled_resources() {
     let script = r#"
 import json, os, sys
-required = ['--print', '--no-session', '--no-tools', '--no-extensions', '--no-mcp', '--no-skills', '--no-prompt-templates', '--no-themes', '--no-context-files', '--no-approve', '--offline']
+required = ['--print', '--session-dir', '--no-tools', '--no-extensions', '--no-mcp', '--no-skills', '--no-prompt-templates', '--no-themes', '--no-context-files', '--no-approve', '--offline']
 assert all(flag in sys.argv for flag in required)
 assert 'PI_SESSION_FILE' not in os.environ
 assert 'PI_SESSION_ID' not in os.environ

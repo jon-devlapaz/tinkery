@@ -107,7 +107,8 @@ to 2)`, then `Reviewing decisions… (run 2 of up to 2)`. These name phases, not
 claim that both runs ran; unreadable shaping skips review. Practice claims no
 drafting runs. Scope questions may use none. No runs follow display, and nothing
 retries automatically. With a model, Right now help and a failed reading say
-`Drafting runs left this launch: N of M.`, the launch allowance Shape shares (#435). The
+`Drafting runs left this launch: N of M.`, the launch allowance Shape shares (#435), then
+the model responses the hosts reported, or `at least` with the runs that didn't report (#612). The
 header label shows the runs left; F1's Model and runs row opens the
 [Model panel](menu.md#model-setup), where Now adds runs for this launch only. Exhaustion
 keeps the words and starts nothing; the refusal says to add runs. The

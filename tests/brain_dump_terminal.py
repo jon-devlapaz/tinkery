@@ -7,7 +7,7 @@ from vt_screen import Screen
 BINARY=Path(__file__).resolve().parents[1]/'target/debug/tinkery'
 HOST='''#!/usr/bin/env python3
 import json,sys,time
-assert all(f in sys.argv for f in ['--no-session','--no-tools','--no-context-files','--no-extensions','--no-mcp'])
+assert all(f in sys.argv for f in ['--session-dir','--no-tools','--no-context-files','--no-extensions','--no-mcp'])
 r=json.load(sys.stdin)
 if r.get('kind')=='meaning-preservation':
  print(json.dumps(dict(missing=[],false_choice=False)));sys.exit(0)

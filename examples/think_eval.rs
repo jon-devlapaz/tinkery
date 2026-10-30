@@ -99,7 +99,7 @@ impl Fake {
             Some(_) => Err("Fake reply kind does not match the next request.".into()),
             None => Err("No scripted fake reply remains.".into()),
         };
-        self.budget.finish(slot, &result);
+        self.budget.finish(slot, &result, None);
         result
     }
 }
