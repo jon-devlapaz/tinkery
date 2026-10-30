@@ -27,6 +27,8 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
 - Use temporary TEST roots. Never write to `~/.local/share/seed-me` or
   `~/.local/share/tinkery`, or change operator sessions, installs, launcher, Pi,
   Pi Voice or the operator's Seed Me checkout.
+- Fix a bug from its observed cause. After two failed fixes, add logging and collect
+  observations; after three, stop and hand over a fresh brief: problem, goal, failed attempts.
 - Read relevant tests and design before implementation; update changed decisions.
   Add regressions, prove important protections fail when reverted, then restore them.
   Tests assert what users observe through public interfaces; never add test-only access
