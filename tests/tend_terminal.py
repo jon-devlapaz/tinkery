@@ -71,7 +71,7 @@ def journey(width, height, kind='garden'):
             while time.monotonic() < deadline:
                 if select.select([master], [], [], .02)[0]: feed()
                 if predicate() and screen.ready(after): return
-                if process.poll() is not None: break
+                if process.poll() is not None and not select.select([master], [], [], 0)[0]: break
             raise AssertionError(screen.text())
 
         def send(data, text):
