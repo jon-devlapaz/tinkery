@@ -548,3 +548,80 @@ fn a_live_limit_counts_both_calls_of_a_send_and_records_the_run() {
         assert_eq!(report["session_confirmed"], false);
     }
 }
+
+#[test]
+fn key_terms_pass_a_reworded_reading_per_field_and_fail_a_dropped_must_not() {
+    let key_terms = json!({"actor_outcome": {"outcome": [["find", "note"]]},
+        "constraints": {"must": [["original words|verbatim"]], "must_not": [["delet"]]}});
+    let mut first = reading();
+    first["parts"]["must"] = json!(["Keep the ORIGINAL WORDS"]);
+    first["parts"]["must_not"] = json!(["Never delete a note", "TEST sync"]);
+    let mut second = reading();
+    second["parts"]["outcome"] = json!("find a saved note again");
+    second["parts"]["must"] = json!(["store each note verbatim"]);
+    second["parts"]["must_not"] = json!(["no deleting notes"]);
+    for shaping in [first, second] {
+        let mut data = dataset();
+        data["replies"][0] = reply("shaping", shaping);
+        data["key_terms"] = key_terms.clone();
+        let (_root, report) = evaluate(data, 2);
+        let checks = &report["automated_checks"];
+        assert_eq!(
+            checks["constraints"]["status"], "fail",
+            "exact still differs"
+        );
+        assert_eq!(
+            checks["key_terms"]["status"], "pass",
+            "{}",
+            checks["key_terms"]
+        );
+    }
+    let mut dropped = reading();
+    dropped["parts"]["must_not"] = json!(["TEST undeletable sync"]);
+    let mut data = dataset();
+    data["replies"][0] = reply("shaping", dropped);
+    data["key_terms"] = key_terms;
+    let (_root, report) = evaluate(data, 2);
+    let check = &report["automated_checks"]["key_terms"];
+    assert_eq!(check["status"], "fail");
+    assert_eq!(check["fields"]["constraints.must"]["status"], "pass");
+    assert_eq!(check["fields"]["actor_outcome.outcome"]["status"], "pass");
+    assert_eq!(
+        check["fields"]["constraints.must_not"],
+        json!({"status": "fail", "missing": [["delet"]], "unmatched": ["test undeletable sync"]}),
+        "a term inside another word is not found"
+    );
+}
+
+#[test]
+fn key_terms_name_known_fields_and_distinct_nonblank_items_or_are_unknown() {
+    let (_root, report) = evaluate(dataset(), 2);
+    assert_eq!(report["automated_checks"]["key_terms"]["status"], "unknown");
+    for key_terms in [
+        json!({"constraints": {"should": [["x"]]}}),
+        json!({"reading": {"must": [["x"]]}}),
+        json!({"constraints": {}}),
+        json!({"constraints": {"must": []}}),
+        json!({"constraints": {"must": [[]]}}),
+        json!({"constraints": {"must": [["x| "]]}}),
+        json!({"constraints": {"must": [["x"], ["x"]]}}),
+    ] {
+        let mut data = dataset();
+        data["key_terms"] = key_terms.clone();
+        let root = tempfile::Builder::new()
+            .prefix("tinkery-TEST-eval-")
+            .tempdir()
+            .unwrap();
+        let path = root.path().join("dataset.json");
+        std::fs::write(&path, data.to_string()).unwrap();
+        let refused = run(&Options {
+            dataset: path,
+            output: root.path().join("output"),
+            cap: 2,
+            live: None,
+            baseline: None,
+        })
+        .unwrap_err();
+        assert!(refused.contains("Key terms"), "{key_terms}: {refused}");
+    }
+}

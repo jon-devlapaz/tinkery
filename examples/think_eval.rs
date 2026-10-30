@@ -36,7 +36,21 @@ struct Dataset {
     replies: VecDeque<Reply>,
     #[serde(default)]
     expected: std::collections::BTreeMap<String, Value>,
+    /// Operator-written key terms per field, found regardless of wording: see `key_terms_check`.
+    #[serde(default)]
+    key_terms:
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, Vec<Vec<String>>>>,
 }
+
+/// The fields each reading check observes, in report order.
+const FIELDS: [(&str, &[&str]); 3] = [
+    ("actor_outcome", &["who", "outcome"]),
+    ("constraints", &["must", "must_not"]),
+    (
+        "unresolved_deferred",
+        &["open", "questions", "notes", "deferred", "other_goals"],
+    ),
+];
 #[derive(Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 struct Provenance {
@@ -201,6 +215,33 @@ fn validate(dataset: &Dataset, output: &Path, cap: usize, live: bool) -> Result<
                 .into(),
         );
     }
+    for (group, fields) in &dataset.key_terms {
+        let Some((_, names)) = FIELDS.iter().find(|(name, _)| name == group) else {
+            return Err(format!("Key terms may not name {group}."));
+        };
+        if fields.is_empty() {
+            return Err(format!(
+                "Key terms for {group} name no field; remove it or add one."
+            ));
+        }
+        for (field, items) in fields {
+            let mut seen = std::collections::BTreeSet::new();
+            if !names.contains(&field.as_str())
+                || items.is_empty()
+                || items.iter().any(|item| {
+                    item.is_empty()
+                        || !seen.insert(item)
+                        || item
+                            .iter()
+                            .any(|term| term.split('|').any(|word| word.trim().is_empty()))
+                })
+            {
+                return Err(format!(
+                    "Key terms {group}.{field} must name a known field and list distinct items of nonblank terms."
+                ));
+            }
+        }
+    }
     let parent = output.parent().and_then(|p| p.canonicalize().ok());
     if !output.is_absolute() || output.exists() {
         return Err("Output must be a new absolute directory with an existing parent.".into());
@@ -360,9 +401,17 @@ fn run(options: &Options) -> Result<Value, String> {
         checks.insert(name.into(), json!({"status": match expected {
             Some(value) if board.is_some() && current => if *value == observed[name] { "pass" } else { "fail" },
             _ => "unknown",
-        }, "basis": "Exact match to supplied fixture only; semantic correctness is unknown.",
+        }, "basis": "Exact match to a scripted fixture; a live reading in other words fails it. Use key terms for live runs.",
             "expected": expected, "observed": observed[name]}));
     }
+    checks.insert(
+        "key_terms".into(),
+        if dataset.key_terms.is_empty() || board.is_none() || !current {
+            json!({"status": "unknown"})
+        } else {
+            key_terms_check(&dataset.key_terms, &observed)
+        },
+    );
     checks.insert(
         "originals_exact".into(),
         json!({"status": if exact { "pass" } else { "fail" }}),
@@ -502,6 +551,71 @@ where
     T: Deserialize<'de>,
 {
     Option::deserialize(value)
+}
+
+/// Mechanical: passes a field when every operator-written item is found, that is all of its
+/// terms (`a|b` accepts either) start a word, ignoring case, in one observed entry of the
+/// field. Wording, order and extra entries do not fail it; it cannot see negation or tell an
+/// entry means the same, so unmatched entries are listed for the operator to read.
+fn key_terms_check(
+    key_terms: &std::collections::BTreeMap<
+        String,
+        std::collections::BTreeMap<String, Vec<Vec<String>>>,
+    >,
+    observed: &Value,
+) -> Value {
+    let mut fields = serde_json::Map::new();
+    for (group, named) in key_terms {
+        for (field, items) in named {
+            let entries: Vec<String> = match &observed[group][field] {
+                Value::Array(entries) => entries.iter().map(text).collect(),
+                Value::Null => vec![],
+                one => vec![text(one)],
+            };
+            let found = |item: &Vec<String>, entry: &str| {
+                item.iter().all(|term| {
+                    term.split('|')
+                        .any(|word| starts_a_word(entry, &word.trim().to_lowercase()))
+                })
+            };
+            let missing: Vec<_> = items
+                .iter()
+                .filter(|item| !entries.iter().any(|entry| found(item, entry)))
+                .collect();
+            let unmatched: Vec<_> = entries
+                .iter()
+                .filter(|entry| !items.iter().any(|item| found(item, entry)))
+                .collect();
+            fields.insert(
+                format!("{group}.{field}"),
+                json!({"status": if missing.is_empty() { "pass" } else { "fail" },
+                    "missing": missing, "unmatched": unmatched}),
+            );
+        }
+    }
+    let passed = fields.values().all(|field| field["status"] == "pass");
+    json!({"status": if passed { "pass" } else { "fail" },
+        "basis": "Mechanical: operator-written key terms found regardless of wording. Terms cannot see negation or prove an entry means the same; read the unmatched entries.",
+        "fields": fields})
+}
+
+/// Whether `term` appears in `entry` where a word starts, so "sync" finds "sync" and
+/// "syncing" but not "async", and the stem "delet" finds "deleting".
+fn starts_a_word(entry: &str, term: &str) -> bool {
+    entry.match_indices(term).any(|(at, _)| {
+        !entry[..at]
+            .chars()
+            .next_back()
+            .is_some_and(char::is_alphanumeric)
+    })
+}
+
+/// An observed entry as lowercase text.
+fn text(value: &Value) -> String {
+    value
+        .as_str()
+        .map_or_else(|| value.to_string(), str::to_owned)
+        .to_lowercase()
 }
 
 /// What changed from the baseline: observed readings and each step's outcome, plus which model,
