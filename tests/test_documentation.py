@@ -24,12 +24,13 @@ def tracked_files():
 def agent_docs(tracked, read):
     """Our agent-facing pages. Vendored upstream docs, upstream skills and test fixtures
     are not ours to steer agents with, nor is what an installed tink-sdlc scaffold lists
-    in its receipt; CLAUDE.md only imports the entry point and names the skills folder."""
+    in its receipt or the run evidence its runs commit under runs/; CLAUDE.md only imports
+    the entry point and names the skills folder."""
     receipt = "_system/scaffold.json"
     scaffold = set(json.loads(read(receipt))["files"]) if receipt in tracked else set()
     return sorted(path for path in tracked if path.endswith(".md") and path != "CLAUDE.md"
                   and path not in scaffold
-                  and not path.startswith(("vendor/", ".agents/skills/", "tests/fixtures/")))
+                  and not path.startswith(("vendor/", ".agents/skills/", "tests/fixtures/", "runs/")))
 
 
 TRACKED = tracked_files()
@@ -136,7 +137,9 @@ class DocumentationTests(unittest.TestCase):
     def test_an_installed_sdlc_scaffold_steers_only_its_own_docs(self):
         receipt = json.dumps({"files": ["_system/SDLC.md", "stages/01-plan/CONTEXT.md"]})
         tracked = {"AGENTS.md", "docs/yohaku.md", "_system/SDLC.md", "_system/scaffold.json",
-                   "stages/01-plan/CONTEXT.md", "stages/notes.md"}
+                   "stages/01-plan/CONTEXT.md", "stages/notes.md",
+                   "runs/fix-example/brief.md", "runs/fix-example/01-plan/output/seed-contract.md",
+                   "runs/fix-example/04-test/output/test-log.md", "runs/fix-example/review.md"}
         self.assertEqual(["AGENTS.md", "docs/yohaku.md", "stages/notes.md"],
                          agent_docs(tracked, {"_system/scaffold.json": receipt}.get))
         # An untracked receipt excuses nothing.
