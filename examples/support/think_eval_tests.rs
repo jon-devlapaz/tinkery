@@ -27,6 +27,7 @@ fn evaluate(data: Value, cap: usize) -> (tempfile::TempDir, Value) {
         output: root.path().join("output"),
         cap,
         live: None,
+        baseline: None,
     })
     .unwrap();
     (root, report)
@@ -300,6 +301,94 @@ fn readable_invalid_shaping_still_counts_a_review_before_rejection() {
 }
 
 #[test]
+fn a_rerun_against_a_baseline_reports_only_what_the_replies_changed() {
+    let (first, _) = evaluate(dataset(), 2);
+    let baseline = first.path().join("output/report.json");
+    let compare = |data: Value| {
+        let root = tempfile::Builder::new()
+            .prefix("tinkery-TEST-eval-")
+            .tempdir()
+            .unwrap();
+        let path = root.path().join("dataset.json");
+        std::fs::write(&path, data.to_string()).unwrap();
+        let options = Options {
+            dataset: path,
+            output: root.path().join("output"),
+            cap: 2,
+            live: None,
+            baseline: Some(baseline.clone()),
+        };
+        run(&options).map(|report| report["comparison"].clone())
+    };
+    let same = compare(dataset()).unwrap();
+    assert_eq!(same["changed"], json!([]));
+    assert_eq!(same["baseline"]["execution"], "fake");
+
+    let mut data = dataset();
+    let mut changed = reading();
+    changed["parts"]["who"] = json!("TEST librarians");
+    data["replies"][0] = reply("shaping", changed);
+    let report = compare(data).unwrap();
+    assert_eq!(
+        report["changed"],
+        json!([{"check": "actor_outcome",
+            "baseline": {"who": "TEST readers", "outcome": "find saved notes"},
+            "now": {"who": "TEST librarians", "outcome": "find saved notes"}}])
+    );
+
+    let mut other = dataset();
+    other["steps"][0]["text"] = json!("TEST other words");
+    assert_eq!(
+        compare(other).unwrap_err(),
+        "The baseline sent different words; compare runs of the same dataset."
+    );
+
+    let mut old: Value =
+        serde_json::from_str(&std::fs::read_to_string(&baseline).unwrap()).unwrap();
+    for (path, broken) in [
+        ("/automated_checks", json!(null)),
+        (
+            "/automated_checks/constraints/observed",
+            json!("TEST not a reading"),
+        ),
+        ("/steps/0", json!("TEST not a step")),
+    ] {
+        let mut hollow = old.clone();
+        *hollow.pointer_mut(path).unwrap() = broken;
+        std::fs::write(&baseline, hollow.to_string()).unwrap();
+        assert!(
+            compare(dataset())
+                .unwrap_err()
+                .starts_with("The baseline is not a think_eval report: "),
+            "{path}"
+        );
+    }
+    // A null reading or failure is valid; a missing one is not.
+    for (parent, key) in [
+        ("/automated_checks/actor_outcome", "observed"),
+        ("/steps/0", "failure"),
+        ("", "provider"),
+    ] {
+        let mut hollow = old.clone();
+        let fields = hollow.pointer_mut(parent).unwrap().as_object_mut().unwrap();
+        assert!(fields.remove(key).is_some(), "{parent}/{key}");
+        std::fs::write(&baseline, hollow.to_string()).unwrap();
+        assert!(
+            compare(dataset())
+                .unwrap_err()
+                .starts_with("The baseline is not a think_eval report: "),
+            "{parent}/{key}"
+        );
+    }
+    old["input"].as_object_mut().unwrap().remove("words_hash");
+    std::fs::write(&baseline, old.to_string()).unwrap();
+    assert_eq!(
+        compare(dataset()).unwrap_err(),
+        "The baseline report predates this comparison; rerun the old model first."
+    );
+}
+
+#[test]
 fn a_local_request_size_refusal_cannot_pass_against_the_old_reading() {
     // 31 sends of the 4 KiB step maximum outgrow the 128 KiB request limit on the last one.
     let mut data = dataset();
@@ -381,6 +470,7 @@ impl FakePi {
                 model: "test/fake-model".into(),
                 thinking: "low".into(),
             }),
+            baseline: None,
         }
     }
 }
