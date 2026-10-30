@@ -20,19 +20,52 @@ fn ready() -> BrainDump {
     a
 }
 
+/// Where the terminal cursor is drawn, the only on-screen cue for which pane has focus.
+fn cursor(a: &mut BrainDump) -> ratatui::layout::Position {
+    let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+    t.draw(|f| render(f, a, Palette::new(true))).unwrap();
+    t.get_cursor_position().unwrap()
+}
+
+/// Where the original's first character appears on the 100×30 screen.
+fn original_start(a: &mut BrainDump) -> ratatui::layout::Position {
+    let screen = snapshot(100, 30, a, true).unwrap();
+    let (y, line) = screen
+        .lines()
+        .enumerate()
+        .find(|(_, line)| line.contains("PR ready"))
+        .unwrap();
+    let col = line[..line.find("PR ready").unwrap()].chars().count();
+    ratatui::layout::Position::new(col as u16, y as u16)
+}
+
 #[test]
 fn tab_and_shift_tab_move_between_writing_and_the_original_and_back() {
     let mut a = ready();
-    assert!(!a.screen.board_focus);
+    let writing = cursor(&mut a);
+    let original = original_start(&mut a);
+    assert_ne!(writing, original);
     key(&mut a, KeyCode::Tab);
-    assert!(a.screen.board_focus, "Tab enters the original");
+    assert_eq!(
+        cursor(&mut a),
+        original,
+        "Tab puts the cursor in the original"
+    );
     key(&mut a, KeyCode::Tab);
-    assert!(!a.screen.board_focus, "Tab returns to writing");
+    assert_eq!(cursor(&mut a), writing, "Tab returns the cursor to writing");
     key(&mut a, KeyCode::Tab);
     press(&mut a, KeyCode::BackTab, KeyModifiers::SHIFT);
-    assert!(!a.screen.board_focus, "Shift-Tab is the reverse route back");
+    assert_eq!(
+        cursor(&mut a),
+        writing,
+        "Shift-Tab is the reverse route back"
+    );
     press(&mut a, KeyCode::BackTab, KeyModifiers::SHIFT);
-    assert!(a.screen.board_focus, "Shift-Tab also enters the original");
+    assert_eq!(
+        cursor(&mut a),
+        original,
+        "Shift-Tab also enters the original"
+    );
     assert!(
         a.conversation.sources()[0].text.starts_with("PR ready"),
         "originals untouched"
