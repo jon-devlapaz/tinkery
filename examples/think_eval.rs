@@ -461,8 +461,17 @@ fn baseline(path: &Path, words: &str) -> Result<Value, String> {
 #[allow(dead_code)]
 struct BaselineShape {
     execution: String,
+    #[serde(deserialize_with = "present")]
+    provider: Option<serde_json::Map<String, Value>>,
+    revision: BaselineRevision,
     automated_checks: BaselineChecks,
     steps: Vec<BaselineStep>,
+}
+#[derive(Deserialize)]
+#[allow(dead_code)]
+struct BaselineRevision {
+    #[serde(deserialize_with = "present")]
+    checkout_at_run: Option<String>,
 }
 #[derive(Deserialize)]
 #[allow(dead_code)]
@@ -475,6 +484,7 @@ struct BaselineChecks {
 #[derive(Deserialize)]
 #[allow(dead_code)]
 struct Observed {
+    #[serde(deserialize_with = "present")]
     observed: Option<serde_json::Map<String, Value>>,
 }
 #[derive(Deserialize)]
@@ -482,7 +492,16 @@ struct Observed {
 struct BaselineStep {
     input_accepted: bool,
     reading_applied: bool,
+    #[serde(deserialize_with = "present")]
     failure: Option<String>,
+}
+/// A nullable field whose key must still be present: serde treats a missing `Option` as null.
+fn present<'de, D, T>(value: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::deserialize(value)
 }
 
 /// What changed from the baseline: observed readings and each step's outcome, plus which model,

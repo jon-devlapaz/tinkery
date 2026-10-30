@@ -363,6 +363,23 @@ fn a_rerun_against_a_baseline_reports_only_what_the_replies_changed() {
             "{path}"
         );
     }
+    // A null reading or failure is valid; a missing one is not.
+    for (parent, key) in [
+        ("/automated_checks/actor_outcome", "observed"),
+        ("/steps/0", "failure"),
+        ("", "provider"),
+    ] {
+        let mut hollow = old.clone();
+        let fields = hollow.pointer_mut(parent).unwrap().as_object_mut().unwrap();
+        assert!(fields.remove(key).is_some(), "{parent}/{key}");
+        std::fs::write(&baseline, hollow.to_string()).unwrap();
+        assert!(
+            compare(dataset())
+                .unwrap_err()
+                .starts_with("The baseline is not a think_eval report: "),
+            "{parent}/{key}"
+        );
+    }
     old["input"].as_object_mut().unwrap().remove("words_hash");
     std::fs::write(&baseline, old.to_string()).unwrap();
     assert_eq!(
