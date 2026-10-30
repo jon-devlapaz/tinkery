@@ -345,6 +345,12 @@ fn a_rerun_against_a_baseline_reports_only_what_the_replies_changed() {
 
     let mut old: Value =
         serde_json::from_str(&std::fs::read_to_string(&baseline).unwrap()).unwrap();
+    let hollow = json!({"input": {"words_hash": old["input"]["words_hash"]}});
+    std::fs::write(&baseline, hollow.to_string()).unwrap();
+    assert_eq!(
+        compare(dataset()).unwrap_err(),
+        "The baseline is not a think_eval report: it lacks checks or steps."
+    );
     old["input"].as_object_mut().unwrap().remove("words_hash");
     std::fs::write(&baseline, old.to_string()).unwrap();
     assert_eq!(

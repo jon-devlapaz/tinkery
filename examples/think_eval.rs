@@ -451,6 +451,12 @@ fn baseline(path: &Path, words: &str) -> Result<Value, String> {
     if report["input"]["words_hash"] != words {
         return Err("The baseline sent different words; compare runs of the same dataset.".into());
     }
+    let readings = ["actor_outcome", "constraints", "unresolved_deferred"]
+        .iter()
+        .all(|name| report["automated_checks"][name].get("observed").is_some());
+    if !readings || !report["steps"].is_array() {
+        return Err("The baseline is not a think_eval report: it lacks checks or steps.".into());
+    }
     Ok(report)
 }
 
