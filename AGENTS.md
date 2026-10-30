@@ -119,7 +119,8 @@ Unapproved work stays `needs-approval`. `approved` records scoped operator permi
 never grants it; material scope changes return to `needs-approval`. Publication, design
 acceptance, implementation, data use and budget are separate decisions.
 
-Use one branch and PR per approved slice; link the issue and stay within its scope. Close with
+Use one branch and PR per approved slice; link the issue, stay within its scope and fill in the
+[PR template](.github/pull_request_template.md). Close with
 completion evidence or an explicit reason. Report Rust, Node and Python counts, PTY
 journeys and sizes, failures and reversion probes separately from operator dogfood:
 stubs prove mechanics, not real-dump goal quality.
