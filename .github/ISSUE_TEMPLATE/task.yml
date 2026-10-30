@@ -37,6 +37,11 @@ body:
     validations:
       required: true
   - type: textarea
+    id: cause
+    attributes:
+      label: Cause (bugs)
+      description: What is wrong, and the observation that shows it (a log, a failing test or a reproduction). Write "unknown" if no observation shows it yet; then investigation comes before any fix.
+  - type: textarea
     id: scope
     attributes:
       label: Scope and boundaries
