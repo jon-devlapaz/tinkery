@@ -342,6 +342,15 @@ fn a_rerun_against_a_baseline_reports_only_what_the_replies_changed() {
         compare(other).unwrap_err(),
         "The baseline sent different words; compare runs of the same dataset."
     );
+
+    let mut old: Value =
+        serde_json::from_str(&std::fs::read_to_string(&baseline).unwrap()).unwrap();
+    old["input"].as_object_mut().unwrap().remove("words_hash");
+    std::fs::write(&baseline, old.to_string()).unwrap();
+    assert_eq!(
+        compare(dataset()).unwrap_err(),
+        "The baseline report predates this comparison; rerun the old model first."
+    );
 }
 
 #[test]

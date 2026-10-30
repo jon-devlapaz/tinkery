@@ -443,6 +443,11 @@ fn baseline(path: &Path, words: &str) -> Result<Value, String> {
         std::fs::read_to_string(path).map_err(|e| format!("Read the baseline report: {e}"))?;
     let report: Value =
         serde_json::from_str(&read).map_err(|e| format!("Invalid baseline report: {e}"))?;
+    if report["input"]["words_hash"].is_null() {
+        return Err(
+            "The baseline report predates this comparison; rerun the old model first.".into(),
+        );
+    }
     if report["input"]["words_hash"] != words {
         return Err("The baseline sent different words; compare runs of the same dataset.".into());
     }
