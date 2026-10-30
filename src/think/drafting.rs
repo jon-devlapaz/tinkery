@@ -20,7 +20,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-pub use crate::pi::{Attempt, CallBudget, Harness, LIMIT, Request};
+pub use crate::pi::{Attempt, CallBudget, Harness, REQUEST_LIMIT, Request};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

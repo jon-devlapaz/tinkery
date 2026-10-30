@@ -14,8 +14,11 @@ if r.get('kind') in ('meaning-preservation','question-continuity'):
 if r.get('kind')=='decision-review':
  print(json.dumps(dict(decisions=[])));sys.exit(0)
 with open('requests.jsonl','a') as f: f.write(json.dumps(r)+'\\n')
-anchors=[dict(source=s['id'],quote=s['text'],occurrence=0) for s in r['sources']]
-print(json.dumps(dict(parts=dict(who='I',outcome='keep selection exact',why='Copies must match',done_when='bytes match'),open=['outcome'],supports=anchors,misfits=[],questions=[dict(id='q1',text='Which words matter?')],alternatives=[])))
+# The large fitting answer is quoted briefly and the reading padded, so retained context outgrows
+# the request limit while the reply stays under its own cap.
+big=any(s['text'].startswith('answer ') for s in r['sources'])
+anchors=[dict(source=s['id'],quote=s['text'][:6] if s['text'].startswith('answer ') else s['text'],occurrence=0) for s in r['sources']]
+print(json.dumps(dict(parts=dict(who='I',outcome='keep selection exact',why='w'*20000 if big else 'Copies must match',done_when='bytes match'),open=['outcome'],supports=anchors,misfits=[],questions=[dict(id='q1',text='Which words matter?')],alternatives=[])))
 '''
 CONTROL_SENTINEL = '\x1b]2;PASTE-TITLE-SENTINEL\x07\x1b]52;c;UEFTVEUtU0VOVElORUw=\x07'
 PAYLOAD = CONTROL_SENTINEL + '\n' + ''.join(f'row {i:03d}: e\u0301 中 👩‍💻\r\nCR\rTAB\tESC\x1b[31m BEL\x07 NUL\0\n' for i in range(120))
@@ -178,13 +181,13 @@ def journey(width, height):
             assert len(requests()) == sent, 'navigation/copy invoked the provider'
             assert len(starts()) == 2, 'navigation/copy started a process'
             # Draft-only overflow is copied intact, then deliberately replaced and sent once.
-            huge = 'overflow 中\r\n\t\0' * 4000
+            huge = 'overflow 中\r\n\t\0' * 6000
             os.write(master, b'\x01'); pump(0.1); paste(huge)
             os.write(master, b'\x01'); pump(0.1); copy(huge)
             os.write(master, b'\x1bOQ'); await_text('Too long to send')
             assert len(starts()) == 2 and len(requests()) == 1
             copy(huge)
-            fitting = 'answer ' * 1400
+            fitting = 'answer ' * 14000
             paste(fitting)
             assert len(starts()) == 2
             os.write(master, b'\x1bOQ')

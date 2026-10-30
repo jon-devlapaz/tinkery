@@ -301,26 +301,27 @@ fn readable_invalid_shaping_still_counts_a_review_before_rejection() {
 
 #[test]
 fn a_local_request_size_refusal_cannot_pass_against_the_old_reading() {
+    // 31 sends of the 4 KiB step maximum outgrow the 128 KiB request limit on the last one.
     let mut data = dataset();
     data["steps"] = json!(
-        (0..8)
+        (0..31)
             .map(|_| json!({"action": "send", "text": "T".repeat(4096)}))
             .collect::<Vec<_>>()
     );
     data["replies"] = json!(
-        (0..8)
+        (0..31)
             .flat_map(|_| [
                 reply("shaping", reading()),
                 reply("decision_review", json!({"decisions": []}))
             ])
             .collect::<Vec<_>>()
     );
-    let (_, report) = evaluate(data, 16);
-    assert_eq!(report["requests"]["used"], 14);
-    assert_eq!(report["steps"][7]["input_accepted"], false);
-    assert_eq!(report["steps"][7]["reading_applied"], false);
+    let (_, report) = evaluate(data, 62);
+    assert_eq!(report["requests"]["used"], 60);
+    assert_eq!(report["steps"][30]["input_accepted"], false);
+    assert_eq!(report["steps"][30]["reading_applied"], false);
     assert!(
-        report["steps"][7]["failure"]
+        report["steps"][30]["failure"]
             .as_str()
             .unwrap()
             .to_ascii_lowercase()

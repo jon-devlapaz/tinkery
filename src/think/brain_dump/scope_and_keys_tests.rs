@@ -442,7 +442,7 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
     let mut a = BrainDump::with_host(host.clone());
     *a.conversation.sources_mut() = vec![Source {
         id: 1,
-        text: "x".repeat(4000),
+        text: "x".repeat(16000),
         in_reply_to: None,
     }];
     *a.conversation.fragments_mut() = (0..7)
@@ -450,16 +450,16 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
             id: format!("f{i}"),
             source: 1,
             start: 0,
-            end: 4000,
-            text: "x".repeat(4000),
+            end: 16000,
+            text: "x".repeat(16000),
         })
         .collect();
     a.input = Note::new("new words stay local");
-    assert!(a.encoded_bytes().unwrap() >= 28 * 1024);
+    assert!(a.encoded_bytes().unwrap() >= REQUEST_LIMIT * 7 / 8);
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
-            .contains("/ 32768 bytes")
+            .contains(&format!("/ {REQUEST_LIMIT} bytes"))
     );
     let first = a.conversation.fragments()[0].clone();
     a.conversation.fragments_mut().push(first);
@@ -590,7 +590,7 @@ fn encoded(a: &BrainDump, text: &str) -> usize {
 
 #[test]
 fn encoded_under_at_over_boundary_counts_json_and_preserves_refused_selection() {
-    for target in [32767usize, 32768, 32769] {
+    for target in [REQUEST_LIMIT - 1, REQUEST_LIMIT, REQUEST_LIMIT + 1] {
         let host = Arc::new(Counting::default());
         let mut a = BrainDump::with_host(host.clone());
         let prefix = "\"\\\n\0e\u{301}中👩‍💻".repeat(120);
@@ -605,7 +605,7 @@ fn encoded_under_at_over_boundary_counts_json_and_preserves_refused_selection() 
         a.submit();
         wait(&mut a);
         let requests = host.requests.lock().unwrap();
-        if target > 32768 {
+        if target > REQUEST_LIMIT {
             assert!(requests.is_empty());
             assert_eq!(
                 (a.input.text.clone(), a.input.cursor, a.input.selection()),
@@ -633,7 +633,7 @@ fn draft_overflow_copies_completely_then_one_explicit_fitting_resend() {
     wait(&mut a);
     let old = a.conversation.board().unwrap().reading.clone();
     let source = a.conversation.sources()[0].text.clone();
-    let large = "中\r\n\t\0".repeat(6000);
+    let large = "中\r\n\t\0".repeat(24000);
     a.paste(&large);
     a.input.select_all();
     a.submit();
@@ -658,12 +658,12 @@ fn context_only_overflow_offers_copy_out_without_pruning_or_false_resend() {
     a.paste("initial");
     a.submit();
     wait(&mut a);
-    a.conversation.sources_mut()[0].text = "retained\r\n\t\0".repeat(4000);
+    a.conversation.sources_mut()[0].text = "retained\r\n\t\0".repeat(16000);
     let original = a.conversation.sources()[0].text.clone();
     a.paste("local words");
     a.input.select_all();
     let old = a.conversation.board().unwrap().reading.clone();
-    assert!(encoded(&a, "") > 32768);
+    assert!(encoded(&a, "") > REQUEST_LIMIT);
     a.submit();
     assert!(a.notice.starts_with("Earlier words"));
     assert!(layout::help_text(&a).contains("Shortening new words cannot"));
@@ -738,7 +738,7 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     assert!(a.conversation.awaiting_scope());
     a.paste("include these words");
     let initial_bytes = encoded(&a, &a.input.text);
-    assert!(initial_bytes <= 32768);
+    assert!(initial_bytes <= REQUEST_LIMIT);
     a.submit();
     super::tests::choose(&mut a, "Bring back");
     a.paste("next answer");
@@ -751,7 +751,7 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     assert!(a.conversation.focused_question().is_some());
     // Derive padding from the actual staged serialization, including source metadata.
     let base = encoded(&a, "x");
-    a.input = Note::new(&"x".repeat(32769 - base + 1));
+    a.input = Note::new(&"x".repeat(REQUEST_LIMIT + 1 - base + 1));
     a.input.select_all();
     let words = a.input.text.clone();
     let staged = a
@@ -765,8 +765,8 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     let stale_bytes = encoded(&a, &words);
     let final_bytes = a.encoded_bytes().unwrap();
     let prepared = a.preview_send(&words).unwrap().request;
-    assert_eq!(stale_bytes, 32769);
-    assert!(final_bytes <= 32768 && final_bytes < stale_bytes);
+    assert_eq!(stale_bytes, REQUEST_LIMIT + 1);
+    assert!(final_bytes <= REQUEST_LIMIT && final_bytes < stale_bytes);
     assert_eq!(host.calls.requests.lock().unwrap().len(), 2);
     a.submit();
     wait(&mut a);
@@ -810,11 +810,11 @@ fn waiting_reply_overflow_is_transactional_before_committing_local_words() {
     let mut guess = host.reshape(r.clone(), &AtomicBool::new(false)).unwrap();
     guess.parts.why = Some("w".repeat(32000));
     a.shaping.ready = Some((r, Ok(guess)));
-    a.paste(&"x".repeat(1500));
+    a.paste(&"x".repeat(REQUEST_LIMIT - 31000));
     a.input.select_all();
-    assert!(encoded(&a, &a.input.text) < 32768);
+    assert!(encoded(&a, &a.input.text) < REQUEST_LIMIT);
     assert!(
-        a.encoded_bytes().unwrap() > 32768,
+        a.encoded_bytes().unwrap() > REQUEST_LIMIT,
         "preview includes the waiting reading"
     );
     let before = (a.input.text.clone(), a.input.cursor, a.input.selection());

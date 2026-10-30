@@ -7,7 +7,7 @@
 //! files inside the folder the host starts in, never outside it, and runs no commands. Without
 //! tools, Claude Code starts in an empty folder. Claude Code gets a clean environment, so a
 //! parent session's settings never leak in, and Tinkery reads no credentials of either host.
-//! Input and replies are capped at 32 KiB. Every completed or cancelled request stops its process
+//! Input is capped at 128 KiB and replies at 32 KiB. Every completed or cancelled request stops its process
 //! group and reaps the direct child; descendants that leave that group are outside this
 //! ownership. Nothing retries on its own.
 //! Callers get text back, or one line saying why not. Which phase asks is the caller's business; this module names none.
@@ -29,7 +29,11 @@ use serde::{Deserialize, Serialize};
 
 const FOLDER_GUARD: &str = include_str!("../pi/folder.mjs");
 
-/// Maximum encoded request, instructions or reply bytes accepted by the host boundary.
+/// Maximum encoded request bytes sent to a host. About 32K tokens: room for a long goal's whole
+/// ledger, well inside current context windows and at the low end of where long-context quality
+/// is reported to fall off.
+pub const REQUEST_LIMIT: usize = 128 * 1024;
+/// Maximum reply or diagnostic bytes accepted from a host.
 pub const LIMIT: usize = 32 * 1024;
 
 /// The thinking levels Pi names, in the order a panel cycles them.
@@ -369,7 +373,7 @@ impl Call {
         prompt: String,
         cancelled: &AtomicBool,
     ) -> Result<String, String> {
-        if input.len() > LIMIT {
+        if input.len() > REQUEST_LIMIT {
             return Err(
                 "This is too much to send at once. Nothing was sent; your words are kept. Start a smaller goal, keeping this one as a reference.".into(),
             );
@@ -786,7 +790,7 @@ mod tests {
             timeout: Duration::from_secs(1),
         };
         let budget = CallBudget::new(1);
-        let words = vec![b'x'; LIMIT + 1];
+        let words = vec![b'x'; REQUEST_LIMIT + 1];
         let error = call
             .complete(
                 Some(&budget),
@@ -800,7 +804,7 @@ mod tests {
             error,
             "This is too much to send at once. Nothing was sent; your words are kept. Start a smaller goal, keeping this one as a reference."
         );
-        assert_eq!(words.len(), LIMIT + 1);
+        assert_eq!(words.len(), REQUEST_LIMIT + 1);
         assert!(words.iter().all(|b| *b == b'x'));
         assert!(budget.attempts().is_empty());
     }

@@ -533,7 +533,7 @@ fn cards_covering_the_original_hide_its_selection_but_not_the_writing_box() {
 #[test]
 fn encoded_send_refusal_is_visible_at_every_size_and_next_input_clears_it() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
-        let mut a = writing(&"z".repeat(32768));
+        let mut a = writing(&"z".repeat(REQUEST_LIMIT));
         a.input.select_all();
         let before = (a.input.text.clone(), a.input.cursor, a.input.selection());
         a.submit();
@@ -682,8 +682,8 @@ fn large_paste_is_local_and_encoded_refusal_shows_before_the_first_send() {
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = BrainDump::default();
         snapshot(w, h, &mut a, false).unwrap();
-        a.paste(&"a".repeat(32768));
-        assert_eq!(a.input.text.len(), 32768);
+        a.paste(&"a".repeat(REQUEST_LIMIT));
+        assert_eq!(a.input.text.len(), REQUEST_LIMIT);
         assert!(a.conversation.sources().is_empty() && !a.running());
         a.submit();
         let shown = snapshot(w, h, &mut a, true).unwrap();
@@ -691,7 +691,7 @@ fn large_paste_is_local_and_encoded_refusal_shows_before_the_first_send() {
             shown.contains("Too long to send") && shown.contains("replace, F2"),
             "{w}x{h}\n{shown}"
         );
-        assert_eq!(a.input.text.len(), 32768);
+        assert_eq!(a.input.text.len(), REQUEST_LIMIT);
         assert!(a.conversation.sources().is_empty() && !a.running());
     }
 }

@@ -376,8 +376,11 @@ sentinels: bytes survive sending and copying, never execute on display.
 
 ### Sending and leaving
 
-- The encoded shaping request limit is 32 KiB, including metadata, history and the
-  waiting reply's refreshed reading. One shared preview measures the final payload
+- The encoded request limit for Think and Shape is 128 KiB (`pi::REQUEST_LIMIT`), including
+  metadata, history and the waiting reply's refreshed reading. It was 32 KiB, about 8K
+  tokens, until a long goal's Shape step was refused at 59,795 bytes (#593). 128 KiB is about
+  32K tokens, well inside current context windows and at the low end of where long-context
+  quality is reported to fall off. Replies stay capped at 32 KiB (`pi::LIMIT`). One shared preview measures the final payload
   as it grows or shrinks. Idle frames reuse it until input, extraction, voice or
   a reply arrives. Unapplicable replies make size unknown; F2 preserves the old
   reading and sends one retry. Transactional preflight refusal starts no host and
