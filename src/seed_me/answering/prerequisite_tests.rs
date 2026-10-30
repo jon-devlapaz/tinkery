@@ -338,3 +338,17 @@ fn an_answer_that_only_mentions_undecided_is_saved() {
         "settled"
     );
 }
+
+#[test]
+fn one_word_choices_that_can_be_real_answers_are_saved() {
+    for words in ["later", "skip", "unknown", "defer"] {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-one-word-choice-")
+            .tempdir()
+            .unwrap();
+        let session = publication_tests::session(root.path());
+        let version = ask(&session, 1, &proposal("when", None), root.path()).unwrap();
+        answer(&session, version, "when", words, None).unwrap();
+        assert_eq!(read(&session).unwrap().state["nodes"][1]["answer"], words);
+    }
+}
