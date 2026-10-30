@@ -1,4 +1,5 @@
 """Concern text is a synthetic regression, not a new operator dump or live model run."""
+from terminal_process import wait_output
 import fcntl, json, os, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -17,13 +18,14 @@ def journey(w,h):
   process=subprocess.Popen([str(BINARY),'--shape-pi', '--shape-budget', '64','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_condition(condition,after=0):
    deadline=time.monotonic()+5
-   while time.monotonic()<deadline:
-    if select.select([master],[],[],.02)[0]:
-     chunk=os.read(master,65536);raw.extend(chunk);screen.feed(chunk)
+   def consume_wait_output(chunk):
+       raw.extend(chunk)
+       screen.feed(chunk)
+   for returncode in wait_output(master, process, consume_wait_output, deadline):
     if condition(screen.text()) and screen.ready(after):
      assert screen.cells[1][2:9]==list('tinkery') and screen.cells[1][screen.width-3]=='?',screen.text()
      return
-    if process.poll() is not None:break
+    if returncode is not None:break
    raise AssertionError(screen.text())
   def wait(text,after=0):await_condition(lambda s:text in s,after)
   def send(data,text):
@@ -51,7 +53,7 @@ def journey(w,h):
    await_condition(lambda s:'┌ Right now ' not in s and 'type confirm' in s,before)
    os.write(master,b'\x1b');await_condition(lambda s:'type confirm' not in s)
    send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
-   while select.select([master],[],[],.02)[0]:raw.extend(os.read(master,65536))
+   for _ in wait_output(master,process,raw.extend,time.monotonic()+5):pass
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw and b'\x1b[>0s' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
    assert {p.name for p in cwd.iterdir()}=={'pi'},'Unexpected persistence'

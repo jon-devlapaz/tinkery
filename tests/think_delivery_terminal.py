@@ -1,4 +1,5 @@
 """Replay #401's recorded omission and correction through keys; zero real model calls."""
+from terminal_process import wait_output
 import json
 from datetime import datetime, timezone
 import os
@@ -51,9 +52,7 @@ def journey(width, height, no_color):
             run.send(F1, 'Copy the reading')
             os.write(run.master, run.screen.pick('Copy the reading'))
             deadline = time.monotonic() + 8
-            while time.monotonic() < deadline:
-                if select.select([run.master], [], [], .02)[0]:
-                    run.screen.feed(os.read(run.master, 65536))
+            for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
                 if len(run.screen.clipboards) > count and not run.screen.synchronized:
                     paper = run.screen.clipboards[-1]
                     goal = paper.split('## I think this is about… / guess\n\n', 1)[1]
@@ -73,9 +72,7 @@ def journey(width, height, no_color):
                     return
                 before = run.screen.text()
                 os.write(run.master, b'\x1b[6~')
-                while time.monotonic() < deadline:
-                    if select.select([run.master], [], [], .02)[0]:
-                        run.screen.feed(os.read(run.master, 65536))
+                for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
                     if not run.screen.synchronized and run.screen.text() != before:
                         break
                 else:
@@ -178,9 +175,7 @@ def journey(width, height, no_color):
             for _ in range(180):
                 os.write(run.master, b'\x1b[B')
                 deadline = time.monotonic() + .5
-                while time.monotonic() < deadline:
-                    if select.select([run.master], [], [], .02)[0]:
-                        run.screen.feed(os.read(run.master, 65536))
+                for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
                     if not run.screen.synchronized and run.screen.text() != previous:
                         break
                 current = run.screen.text()

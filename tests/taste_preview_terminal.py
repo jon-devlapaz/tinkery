@@ -1,4 +1,5 @@
 """Exact-commit Taste previews: local Git fixture, fake server, stub opener, no providers."""
+from terminal_process import wait_output
 import fcntl
 import hashlib
 import json
@@ -210,12 +211,10 @@ os.execv({git!r}, [{git!r}, *args])
 
         def wait(predicate, seconds=10):
             until = time.monotonic() + seconds
-            while time.monotonic() < until:
-                if select.select([master], [], [], .02)[0]:
-                    screen.feed(os.read(master, 65536))
+            for returncode in wait_output(master, process, screen.feed, until):
                 if predicate() and not screen.synchronized:
                     return
-                assert process.poll() is None, screen.text()
+                assert returncode is None, screen.text()
             events = base / 'http-events'
             raise AssertionError(screen.text() + '\nHTTP fixture events:\n' +
                                  (events.read_text() if events.exists() else 'not started'))
@@ -292,9 +291,9 @@ os.execv({git!r}, [{git!r}, *args])
                 wait(lambda: '1  think' in screen.text())
                 os.write(master, b'q')
                 until = time.monotonic() + 5
-                while process.poll() is None and time.monotonic() < until:
-                    if select.select([master], [], [], .02)[0]:
-                        os.read(master, 65536)
+                for returncode in wait_output(master, process, lambda chunk: None, until):
+                    if returncode is not None:
+                        break
                 process.wait(timeout=1)
             os.close(master)
             os.close(slave)

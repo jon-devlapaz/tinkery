@@ -1,4 +1,5 @@
 """Watch over a fake tink-sdlc checkout in TEST roots; no real checkout, providers or writes."""
+from terminal_process import wait_output
 import fcntl
 import hashlib
 import json
@@ -107,12 +108,10 @@ def journey(width, height, no_color, configured=True):
 
         def wait(predicate, seconds=5):
             deadline = time.monotonic() + seconds
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]:
-                    screen.feed(os.read(master, 65536))
+            for returncode in wait_output(master, process, screen.feed, deadline):
                 if predicate() and not screen.synchronized:
                     return
-                assert process.poll() is None, screen.text()
+                assert returncode is None, screen.text()
             raise AssertionError((width, height, no_color, screen.text()))
 
         def send(key, expected):

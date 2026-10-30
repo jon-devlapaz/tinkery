@@ -1,4 +1,5 @@
 """Tend journeys with synthetic sessions and explicit TEST links; no model calls."""
+from terminal_process import wait_output
 import base64, fcntl, json, os, re, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from datetime import datetime, timedelta, timezone
@@ -68,10 +69,12 @@ def journey(width, height, kind='garden'):
 
         def wait(predicate, after=0):
             deadline = time.monotonic()+5
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]: feed()
+            def consume_wait_output(chunk):
+                raw.extend(chunk)
+                screen.feed(chunk)
+            for returncode in wait_output(master, process, consume_wait_output, deadline):
                 if predicate() and screen.ready(after): return
-                if process.poll() is not None and not select.select([master], [], [], 0)[0]: break
+                if returncode is not None: break
             raise AssertionError(screen.text())
 
         def send(data, text):

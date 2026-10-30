@@ -1,4 +1,5 @@
 """Two confirmed goals in one real CLI process; fake Pi and isolated TEST roots only."""
+from terminal_process import wait_output
 import fcntl, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -35,12 +36,9 @@ def journey(w,h,home):
   p=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi', '--shape-budget', '64','--model','test/model','--pi-command',str(host),'--seed-session-root',str(root),'--record-root',str(records)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def drain(until,timeout=20):
    end=time.monotonic()+timeout
-   while time.monotonic()<end:
-    if select.select([master],[],[],.02)[0]:
-     try:screen.feed(os.read(master,65536))
-     except OSError:break
+   for returncode in wait_output(master, p, screen.feed, end):
     if not screen.synchronized and until(screen.text()):return
-    if p.poll() is not None:break
+    if returncode is not None:break
    # The binary can exit between the check above and poll(); look once more before failing.
    if not screen.synchronized and until(screen.text()):return
    raise AssertionError(screen.text())

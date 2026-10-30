@@ -1,4 +1,5 @@
 """Repo-first Tend and cross-repo needs; synthetic TEST records, no provider calls."""
+from terminal_process import wait_output
 import fcntl
 import json
 import os
@@ -34,26 +35,19 @@ class Terminal:
 
     def wait(self, predicate):
         deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            if select.select([self.master], [], [], .02)[0]:
-                self.screen.feed(os.read(self.master, 65536))
+        for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
             if not self.screen.synchronized and predicate(self.screen.text()):
                 return self.screen.text()
-            if self.process.poll() is not None:
+            if returncode is not None:
                 break
         raise AssertionError(self.screen.text())
 
     def wait_exit(self):
         deadline = time.monotonic() + 10
-        while True:
-            returncode = self.process.poll()
+        for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
             if returncode is not None:
                 return returncode
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise AssertionError('Process did not exit within 10 seconds:\n' + self.screen.text())
-            if select.select([self.master], [], [], min(.02, remaining))[0]:
-                self.screen.feed(os.read(self.master, 65536))
+        raise AssertionError('Process did not exit within 10 seconds:\n' + self.screen.text())
 
     def send(self, key, text):
         os.write(self.master, key)

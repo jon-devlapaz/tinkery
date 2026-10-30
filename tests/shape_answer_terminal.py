@@ -6,6 +6,7 @@ finding, and confirms the drafted seed with the ledger's canonical sections. Sho
 model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
 seed finding that looks like a secret, a practice session's confirmation, a citation that isn't in the folder,
 and steps that found nothing."""
+from terminal_process import wait_output
 import fcntl, hashlib, importlib.util, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -204,12 +205,10 @@ class Run:
         deadline = time.monotonic() + timeout
         normalize = (lambda value: ''.join(value.split())) if wrapped_path else (lambda value: ' '.join(value.split()))
         want = normalize(text)
-        while time.monotonic() < deadline:
-            if select.select([self.master], [], [], .02)[0]:
-                self.screen.feed(os.read(self.master, 65536))
+        for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
             if want in normalize(self.screen.text()) and not self.screen.synchronized:
                 return
-            if self.process.poll() is not None:
+            if returncode is not None:
                 break
         raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
 
@@ -222,9 +221,10 @@ class Run:
         deadline = time.monotonic() + 12
         for _ in range(4):
             # A caller may have stopped reading in the middle of a synchronized frame.
-            while self.screen.synchronized and time.monotonic() < deadline:
-                if select.select([self.master], [], [], .02)[0]:
-                    self.screen.feed(os.read(self.master, 65536))
+            if self.screen.synchronized:
+                for _ in wait_output(self.master, self.process, self.screen.feed, deadline):
+                    if not self.screen.synchronized:
+                        break
             before = self.screen.text()
             if self.screen.synchronized or 'lose this draft?' in self.flat():
                 break
@@ -232,16 +232,14 @@ class Run:
                 return
             os.write(self.master, ESC)
             transition_deadline = min(deadline, time.monotonic() + 3)
-            while time.monotonic() < transition_deadline:
-                if select.select([self.master], [], [], .02)[0]:
-                    self.screen.feed(os.read(self.master, 65536))
+            for returncode in wait_output(self.master, self.process, self.screen.feed, transition_deadline):
                 if not self.screen.synchronized and self.screen.text() != before:
                     if 'lose this draft?' in self.flat():
                         break
                     if '4 approve' in self.flat():
                         return
                     break
-                if self.process.poll() is not None:
+                if returncode is not None:
                     break
             else:
                 break
@@ -267,15 +265,13 @@ class Run:
                 return
             before = self.screen.text()
             os.write(self.master, b'\x1b[6~')
-            while time.monotonic() < deadline:
-                if select.select([self.master], [], [], .02)[0]:
-                    self.screen.feed(os.read(self.master, 65536))
+            for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
                 if not self.screen.synchronized:
                     if shown():
                         return
                     if self.screen.text() != before:
                         break
-                if self.process.poll() is not None:
+                if returncode is not None:
                     raise AssertionError(f'Exited while reading {text!r}:\n{self.screen.text()}')
             else:
                 break
@@ -1485,12 +1481,10 @@ def exit_hint(width, height, stage):
             os.write(run.master, b'q')
             output = bytearray()
             deadline = time.monotonic() + 10
-            while time.monotonic() < deadline:
-                if select.select([run.master], [], [], .02)[0]:
-                    output.extend(os.read(run.master, 65536))
-                if run.process.poll() is not None:
-                    while select.select([run.master], [], [], .02)[0]:
-                        output.extend(os.read(run.master, 65536))
+            def consume_wait_output(chunk):
+                output.extend(chunk)
+            for returncode in wait_output(run.master, run.process, consume_wait_output, deadline):
+                if returncode is not None:
                     break
             assert run.process.poll() == 0, output
             text = output.decode().replace('\r\n', '\n')

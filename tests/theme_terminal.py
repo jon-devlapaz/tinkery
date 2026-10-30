@@ -1,5 +1,6 @@
 """Practice-only PTY journey: Ctrl-T and the header label flip light and dark on every screen,
 typed Think words stay exact, every launch starts light, and NO_COLOR keeps the monochrome screen."""
+from terminal_process import wait_output
 import fcntl
 import json
 import os
@@ -47,12 +48,13 @@ def journey(width, height, no_color=False):
 
         def wait(check):
             deadline = time.monotonic() + 6
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]:
-                    read()
+            def consume_wait_output(chunk):
+                raw.extend(chunk)
+                screen.feed(chunk)
+            for returncode in wait_output(master, process, consume_wait_output, deadline):
                 if not screen.synchronized and check(screen.text()):
                     return
-                if process.poll() is not None:
+                if returncode is not None:
                     break
             raise AssertionError(screen.text())
 

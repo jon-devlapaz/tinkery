@@ -1,4 +1,5 @@
 """Approve's read-only handoff over official Seed Me TEST fixtures; no provider or real approval."""
+from terminal_process import wait_output
 import base64
 import fcntl
 import hashlib
@@ -111,14 +112,13 @@ def journey(width, height, case, no_color):
 
         def wait(predicate):
             until = time.monotonic() + 15
-            while time.monotonic() < until:
-                if select.select([master], [], [], .02)[0]:
-                    data = os.read(master, 65536)
-                    output.extend(data)
-                    screen.feed(data)
+            def consume_wait_output(chunk):
+                output.extend(chunk)
+                screen.feed(chunk)
+            for returncode in wait_output(master, proc, consume_wait_output, until):
                 if predicate() and not screen.synchronized:
                     return
-                if proc.poll() is not None:
+                if returncode is not None:
                     break
             raise AssertionError(screen.text())
 

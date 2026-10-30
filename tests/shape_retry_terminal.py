@@ -1,4 +1,5 @@
 """#400: explicit retries carry one current host diagnostic, never accepted facts or consent."""
+from terminal_process import wait_output
 import copy
 import json
 import os
@@ -27,19 +28,15 @@ def replies(criterion=CRITERION):
 
 def wait_calls(run, count):
     deadline = time.monotonic() + 15
-    while time.monotonic() < deadline:
+    for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
         if len(run.calls()) >= count:
             return
-        if select.select([run.master], [], [], .02)[0]:
-            run.screen.feed(os.read(run.master, 65536))
     raise AssertionError(f'Expected {count} stub calls; got {run.calls()}')
 
 
 def wait_either(run, *texts):
     deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        if select.select([run.master], [], [], .02)[0]:
-            run.screen.feed(os.read(run.master, 65536))
+    for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
         if not run.screen.synchronized:
             for text in texts:
                 if text in run.flat():

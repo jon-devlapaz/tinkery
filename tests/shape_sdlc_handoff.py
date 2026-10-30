@@ -4,6 +4,7 @@ No product model calls: one stub reply. All installs, Git commits, synthetic
 attestations and the reversible consumer mutation live under a short /tmp TEST root.
 Locked checks protect the agreement, not the strength of the agreed checks.
 """
+from terminal_process import wait_output
 import base64
 import fcntl
 import hashlib
@@ -108,12 +109,10 @@ def shape(root, env):
 
     def wait(text):
         deadline = time.monotonic() + 25
-        while time.monotonic() < deadline:
-            if select.select([master], [], [], .02)[0]:
-                screen.feed(os.read(master, 65536))
+        for returncode in wait_output(master, process, screen.feed, deadline):
             if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
                 return
-            if process.poll() is not None:
+            if returncode is not None:
                 break
         raise AssertionError(f'{text!r} not shown:\n{screen.text()}')
 
@@ -187,14 +186,14 @@ def approve_watch(root, env, session, project):
 
     def wait(text):
         deadline = time.monotonic() + 25
-        while time.monotonic() < deadline:
-            if select.select([master], [], [], .02)[0]:
-                data = os.read(master, 65536)
-                screen.feed(data)
-                output.extend(data)
+        def consume_wait_output(chunk):
+            data = chunk
+            screen.feed(chunk)
+            output.extend(chunk)
+        for returncode in wait_output(master, process, consume_wait_output, deadline):
             if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
                 return
-            assert process.poll() is None, screen.text()
+            assert returncode is None, screen.text()
         raise AssertionError(f'{text!r} not shown:\n{screen.text()}')
 
     def send(keys, text):

@@ -1,5 +1,6 @@
 """Original selection by keyboard and mouse: Tab, Shift-arrows, Ctrl-C, exact OSC 52 bytes.
 Plain POSIX PTY, stub provider (counts invocations), temporary cwd. No audio, no live calls."""
+from terminal_process import wait_output
 import fcntl, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -50,11 +51,13 @@ def journey(width, height):
 
         def await_text(text, timeout=5):
             deadline = time.monotonic() + timeout
-            while time.monotonic() < deadline:
-                pump(0.02)
+            def consume_wait_output(chunk):
+                terminal_output.extend(chunk)
+                screen.feed(chunk)
+            for returncode in wait_output(master, process, consume_wait_output, deadline):
                 if text in screen.text() and not screen.synchronized:
                     return
-                if process.poll() is not None:
+                if returncode is not None:
                     break
             raise AssertionError(f'Missing {text!r} at {width}x{height}:\n{screen.text()}')
 
@@ -87,8 +90,13 @@ def journey(width, height):
             before = len(screen.clipboards)
             os.write(master, b'\x03')
             deadline = time.monotonic() + 3
-            while len(screen.clipboards) == before and time.monotonic() < deadline:
-                pump(0.02)
+            def consume_copy_output(chunk):
+                terminal_output.extend(chunk)
+                screen.feed(chunk)
+            if len(screen.clipboards) == before:
+                for _ in wait_output(master, process, consume_copy_output, deadline):
+                    if len(screen.clipboards) != before:
+                        break
             assert len(screen.clipboards) == before + 1, f'No OSC 52 copy at {width}x{height}'
             assert screen.clipboards[-1] == expected, (screen.clipboards[-1], expected)
 
@@ -192,7 +200,13 @@ def journey(width, height):
             assert len(starts()) == 2
             os.write(master, b'\x1bOQ')
             deadline = time.monotonic() + 5
-            while len(starts()) < 4 and time.monotonic() < deadline: pump(0.03)
+            def consume_start_output(chunk):
+                terminal_output.extend(chunk)
+                screen.feed(chunk)
+            if len(starts()) < 4:
+                for _ in wait_output(master, process, consume_start_output, deadline, interval=.03):
+                    if len(starts()) >= 4:
+                        break
             pump(0.4)
             assert len(starts()) == 4 and len(requests()) == 2
             assert json.loads(requests()[1])['sources'][1]['text'] == fitting

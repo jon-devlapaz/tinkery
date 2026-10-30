@@ -11,7 +11,7 @@ import tempfile
 import time
 import test_launch as subprocess
 from shape_terminal import make as make_session, seed as make_seed
-from terminal_process import TerminalProcess
+from terminal_process import wait_output, TerminalProcess
 from support.seed_file_fixture import replaced_seed
 
 REPO = Path(__file__).resolve().parents[1]
@@ -139,12 +139,13 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
 
         def wait(predicate, seconds=8):
             deadline = time.monotonic() + seconds
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]:
-                    terminal.feed()
+            def consume_wait_output(chunk):
+                terminal.raw.extend(chunk)
+                screen.feed(chunk)
+            for returncode in wait_output(master, process, consume_wait_output, deadline):
                 if predicate() and not screen.synchronized:
                     return
-                assert process.poll() is None, screen.text()
+                assert returncode is None, screen.text()
             raise AssertionError((width, height, no_color, screen.text()))
 
         def send(key, expected):

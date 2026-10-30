@@ -59,6 +59,8 @@ with pathlib.Path('calls').open('a') as out:
 
                         def poll(*_):
                             nonlocal polls
+                            if _[-1] == 0:
+                                return [], [], []
                             polls += 1
                             if polls == 2:
                                 writer.stdin.write('release\n')

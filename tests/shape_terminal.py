@@ -1,6 +1,7 @@
 """Shape reading journeys: real Rust ledger sessions in TEST roots, a Pi that must never run, no model calls.
 Opening and reading write nothing; answering (F2) is covered by shape_answer_terminal.py. Under an agent
 launch declaration Shape only reads: F2 and every writing F1 action are held and say why (#247)."""
+from terminal_process import wait_output
 import base64, fcntl, importlib.util, os, re, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -123,14 +124,13 @@ def journey(width, height, case, no_color=False, operator='human'):
 
         def wait(predicate):
             deadline = time.monotonic() + 10
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]:
-                    data = os.read(master, 65536)
-                    output.extend(data)
-                    screen.feed(data)
+            def consume_wait_output(chunk):
+                output.extend(chunk)
+                screen.feed(chunk)
+            for returncode in wait_output(master, process, consume_wait_output, deadline):
                 if predicate() and not screen.synchronized:
                     return
-                if process.poll() is not None:
+                if returncode is not None:
                     break
             raise AssertionError(screen.text())
 

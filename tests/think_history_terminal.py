@@ -1,4 +1,5 @@
 """Confirmed Think history survives restart; reads use temporary TEST roots and stub Pi only."""
+from terminal_process import wait_output
 import fcntl
 import json
 import os
@@ -50,15 +51,10 @@ class Terminal:
 
     def wait(self, predicate, timeout=20):
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            if select.select([self.master], [], [], .02)[0]:
-                try:
-                    self.screen.feed(os.read(self.master, 65536))
-                except OSError:
-                    break
+        for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
             if not self.screen.synchronized and predicate(self.screen.text()):
                 return self.screen.text()
-            if self.process.poll() is not None:
+            if returncode is not None:
                 break
         if not self.screen.synchronized and predicate(self.screen.text()):
             return self.screen.text()

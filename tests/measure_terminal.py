@@ -7,7 +7,7 @@ import test_launch as subprocess
 import tempfile
 import time
 
-from terminal_process import TerminalProcess
+from terminal_process import wait_output, TerminalProcess
 
 REPO = Path(__file__).resolve().parents[1]
 UNKNOWN = 'No launch repository.'
@@ -50,16 +50,13 @@ class Terminal(TerminalProcess):
 
     def wait(self, predicate, seconds=5):
         deadline = time.monotonic() + seconds
-        while time.monotonic() < deadline:
-            if select.select([self.master], [], [], .02)[0]:
-                try:
-                    self.feed()
-                except OSError:
-                    if self.process.poll() is None:
-                        raise
+        def consume_wait_output(chunk):
+            self.raw.extend(chunk)
+            self.screen.feed(chunk)
+        for returncode in wait_output(self.master, self.process, consume_wait_output, deadline):
             if predicate() and not self.screen.synchronized:
                 return
-            if self.process.poll() is not None:
+            if returncode is not None:
                 break
         raise AssertionError(self.screen.text())
 

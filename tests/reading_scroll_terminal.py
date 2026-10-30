@@ -1,4 +1,5 @@
 """Long Think exclusions stay reachable before review; fake replies, isolated TEST roots."""
+from terminal_process import wait_output
 import fcntl, json, os, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -51,11 +52,10 @@ def journey(width, height, no_color):
 
         def wait_for(condition, description, after=0):
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                pump(0.02)
+            for returncode in wait_output(master, process, screen.feed, deadline):
                 if condition() and screen.ready(after):
                     return
-                if process.poll() is not None:
+                if returncode is not None:
                     break
             raise AssertionError(f'{description} at {width}x{height}, NO_COLOR={no_color}:\n{screen.text()}')
 

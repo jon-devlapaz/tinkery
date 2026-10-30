@@ -1,4 +1,5 @@
 """Recorded #360 replay: quoted IDs apply answers and refinements without retry."""
+from terminal_process import wait_output
 import fcntl
 import json
 import os
@@ -55,12 +56,10 @@ def journey(width, height):
 
         def wait(check):
             deadline = time.monotonic() + 10
-            while time.monotonic() < deadline:
-                if select.select([master], [], [], .02)[0]:
-                    screen.feed(os.read(master, 65536))
+            for returncode in wait_output(master, process, screen.feed, deadline):
                 if not screen.synchronized and check(screen.text()):
                     return
-                if process.poll() is not None:
+                if returncode is not None:
                     break
             raise AssertionError(screen.text())
 

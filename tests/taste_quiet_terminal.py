@@ -1,4 +1,5 @@
 """Quiet Taste and unchanged detail/copy transport, using synthetic API 1 and gh only."""
+from terminal_process import wait_output
 import base64
 import fcntl
 import hashlib
@@ -79,14 +80,13 @@ def run(base, width, height, mono, binary, legacy=False, long_checks=False):
 
     def wait(predicate, seconds=8):
         deadline = time.monotonic() + seconds
-        while time.monotonic() < deadline:
-            if select.select([master], [], [], .02)[0]:
-                chunk = os.read(master, 65536)
-                raw.extend(chunk)
-                screen.feed(chunk)
+        def consume_wait_output(chunk):
+            raw.extend(chunk)
+            screen.feed(chunk)
+        for returncode in wait_output(master, process, consume_wait_output, deadline):
             if predicate() and not screen.synchronized:
                 return
-            assert process.poll() is None, screen.text()
+            assert returncode is None, screen.text()
         raise AssertionError((width, height, mono, screen.text()))
 
     def send(key, expected):
