@@ -144,6 +144,20 @@ class ExitDrainTests(unittest.TestCase):
                 self.assertEqual(list(wait_output(123, process, self.fail,
                                                   time.monotonic() + 1)), [7])
 
+    def test_live_eof_paces_predicate_checks_until_deadline(self):
+        reader, writer = os.pipe()
+        self.addCleanup(os.close, reader)
+        os.close(writer)
+        process = mock.Mock()
+        process.poll.return_value = None
+        started = time.monotonic()
+        checks = sum(1 for _ in wait_output(reader, process, self.fail,
+                                           started + .06, interval=.01))
+        self.assertGreaterEqual(time.monotonic() - started, .05)
+        self.assertLess(time.monotonic() - started, 1)
+        self.assertGreater(checks, 0)
+        self.assertLessEqual(checks, 20, 'EOF caused unpaced predicate polling')
+
     def test_unexpected_read_errors_are_not_hidden(self):
         for code, returncode in ((errno.EIO, None), (errno.EBADF, 7)):
             process = mock.Mock()

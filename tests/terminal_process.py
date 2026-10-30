@@ -33,8 +33,13 @@ def wait_output(master, process, consume, deadline, *, interval=.02):
         return True
 
     while time.monotonic() < deadline:
-        read_pending(min(interval, max(0, deadline - time.monotonic())))
+        started = time.monotonic()
+        read_output = read_pending(min(interval, max(0, deadline - started)))
         returncode = process.poll()
+        if not read_output and returncode is None:
+            remaining = min(started + interval, deadline) - time.monotonic()
+            if remaining > 0:
+                time.sleep(remaining)
         if returncode is not None:
             # Exit is not EOF: unread final output can span many small reads.
             while time.monotonic() < deadline and read_pending(0):
