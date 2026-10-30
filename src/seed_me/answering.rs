@@ -599,6 +599,9 @@ pub fn answer(
     actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<u64, Refusal> {
     let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
+    if ledger::leaves_open(id, words) {
+        return Err(Refusal::Refused(ledger::LEAVES_OPEN.into()));
+    }
     let mut ledger = read(session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
