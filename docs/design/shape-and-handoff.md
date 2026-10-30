@@ -478,6 +478,8 @@ Shape uses Think's
 - **Defer:** F1's **Defer** opens the reason; F2 advances to the revisit condition; Tab switches
   between them. The form shows the question's gate: the operator alone decides it can wait.
   F2 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
+  An F2 answer that only says the decision is open ("not decided.", "TBD") is refused,
+  keeping the words, and points here (#594).
 - **Answer deferred prerequisite:** an active Waiting session may offer one named deferred
   blocker in F1, selected by the ledger in its existing order. Its own prerequisites and
   predicate must be ready; the goal and flagged sessions never qualify. The form shows the

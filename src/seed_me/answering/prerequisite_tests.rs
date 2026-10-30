@@ -276,3 +276,56 @@ fn revising_an_answer_reopens_its_model_proposed_dependent() {
     assert_eq!(saved.state["current_question"], "b");
     assert_eq!(promote(&session, version).unwrap(), None);
 }
+
+#[test]
+fn an_answer_that_leaves_the_decision_open_is_refused_and_defer_still_parks_it() {
+    // #594: an agent operator answered a content-retention decision with "not decided.".
+    let root = tempfile::Builder::new()
+        .prefix("TEST-leaves-open-")
+        .tempdir()
+        .unwrap();
+    let session = publication_tests::session(root.path());
+    let version = ask(&session, 1, &proposal("retention", None), root.path()).unwrap();
+    let before = fs::read(session.join("ledger.json")).unwrap();
+    for words in ["not decided.", "  Undecided ", "TBD", "don\u{2019}t know"] {
+        assert!(
+            matches!(answer(&session, version, "retention", words, None),
+                Err(Refusal::Refused(ref reason)) if reason.contains("Defer, with a reason")),
+            "{words:?}"
+        );
+    }
+    assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
+    let defer = ledger::AnswerAction::Defer {
+        reason: "TEST operator settles retention".into(),
+        revisit: "TEST before any destructive cleanup".into(),
+    };
+    respond(&session, version, "retention", &defer, None).unwrap();
+    let saved = read(&session).unwrap();
+    assert_eq!(saved.state["nodes"][1]["status"], "deferred");
+    assert_eq!(
+        saved.state["nodes"][1]["revisit_condition"],
+        "TEST before any destructive cleanup"
+    );
+}
+
+#[test]
+fn an_answer_that_only_mentions_undecided_is_saved() {
+    let root = tempfile::Builder::new()
+        .prefix("TEST-leaves-open-real-")
+        .tempdir()
+        .unwrap();
+    let session = publication_tests::session(root.path());
+    let version = ask(&session, 1, &proposal("retention", None), root.path()).unwrap();
+    answer(
+        &session,
+        version,
+        "retention",
+        "Keep content; not decided is not an option.",
+        None,
+    )
+    .unwrap();
+    assert_eq!(
+        read(&session).unwrap().state["nodes"][1]["status"],
+        "settled"
+    );
+}
