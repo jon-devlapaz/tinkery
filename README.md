@@ -47,7 +47,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   waiting draft or verified ready seed. With real drafting set up
   ([terminal setup](docs/terminal-setup.md#launch)), the saved calls or `--shape-budget CALLS` (default zero)
   set the launch allowance shared by Think and Shape. `F2` saves an answer and lets an agent investigate the next with
-  read-only tools, and confirms the seed in your words once you've read it to the end.
+  read-only tools, and confirms the seed when you type `confirm` after reading it to the end; F1 Revise the draft
+  sends a correction back for a new draft.
   Agents operate Think and Shape with `--operator agent`; their saves are
   [recorded as the agent's](docs/design/think.md#confirmation-attribution-185). `F1` lists
   every other action allowed now by number: So far (the whole goal and decisions), objecting

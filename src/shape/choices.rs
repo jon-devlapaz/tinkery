@@ -16,6 +16,7 @@ pub(super) enum Choice {
     Revise,
     Revisit,
     TeachBack,
+    Change,
     Folder,
     SoFar,
     End(Ending),
@@ -24,7 +25,7 @@ pub(super) enum Choice {
 
 impl Shape {
     /// The actions allowed now, most likely first. Empty without an open, idle session, or
-    /// while a form, folder, teach-back, objection or ending is in progress.
+    /// while a form, folder, teach-back, change, objection or ending is in progress.
     pub(super) fn rows(&self) -> Vec<Row<Choice>> {
         let Some(open) = &self.open else {
             return vec![];
@@ -60,6 +61,7 @@ impl Shape {
             rows.push(Row::new("Answer deferred prerequisite", Choice::Revisit));
         }
         if agent && open.offers_teach_back() {
+            rows.push(Row::new("Revise the draft", Choice::Change));
             rows.push(Row::new("Teach back what will be built", Choice::TeachBack));
         }
         if agent && open.offers_step() && matches!(open.folder, Folder::Known(_)) {
@@ -125,7 +127,14 @@ impl Shape {
                     Some("Next: press its number; Esc keeps them all.".into()),
                 ));
             }
-            Choice::TeachBack => open.teach_back = Some(Words::new(open.typed.text())),
+            Choice::TeachBack => {
+                open.aside = Some((Aside::TeachBack, Words::new(open.typed.text())));
+            }
+            Choice::Change => {
+                let typed = open.typed.text();
+                let words = if typed == CONFIRM { "" } else { typed };
+                open.aside = Some((Aside::Change, Words::new(words)));
+            }
             Choice::Folder => {
                 if let Folder::Known(folder) = &open.folder {
                     open.choosing = Some(Words::new(&folder.display().to_string()));

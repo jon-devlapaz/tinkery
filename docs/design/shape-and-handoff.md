@@ -429,7 +429,7 @@ creating an SDLC run stays outside Shape.
   It accepts no words, appears after a read, never during a step; F1 lists it.
 - Say the next step once: omit `Next:` when the key bar names the stage action;
   other states and failure notices keep exactly one.
-- Words boxes use ratatui-textarea, titled `your answer`, `your words`, `your teach-back` or `Folder:`.
+- Words boxes use ratatui-textarea, titled `your answer`, `your words`, `your teach-back`, `your change` or `Folder:`.
   Arrows, Home, End, Ctrl+Left and Ctrl+Right move the cursor; Shift selects.
   Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline except at seed confirmation; Ctrl+U undoes
   and Ctrl+R redoes. PgUp and PgDn scroll only the reading, a view less one row. Pasted CR and CRLF
@@ -455,7 +455,8 @@ Shape uses Think's
 | Current question | Reason, then revisit condition after F1 **Defer** | `F2 next field`, then `F2 save deferral`: publish deferred, then one step |
 | Current question | None required | F1 **Delegate**: accept the grounded suggestion, then one step |
 | No question or seed | None | `F2 look into the next question`: one step |
-| Draft replacing goal | `your words` | `F2 confirm seed rN`: confirm displayed revision with typed words |
+| Draft replacing goal | `your words` | `F2 confirm seed rN`: confirm displayed revision when the words are exactly `confirm` |
+| Draft replacing goal | `your change` after F1 **Revise the draft** | `F2 save + redraft`: save the change as your settled decision, then one step |
 | Draft replacing goal | `your teach-back` after F1 **Teach back** | `F2 save + compare`: capture words and compare with the draft, one call; Esc restores confirmation words |
 
 - **Before confirmation:** the ledger computes the risk summary above confirming, including
@@ -475,6 +476,12 @@ Shape uses Think's
   confirmation digests cover them. They retain the existing receipt format and are
   interview records, not evidence changes or permission.
   F1 offers teach-back only on a draft.
+- **Revise the draft (#614):** on a draft, F1's **Revise the draft** opens `your change`,
+  prefilled with the confirmation words unless they are `confirm`, so a correction typed where
+  `confirm` goes is never lost. F2 saves the words verbatim as a settled `change-to-rN` decision
+  with the operator's authority, never a confirmation, then takes one drafting step behind F2's
+  budget gate; the redraft lists the change under Decisions. Empty words or words that leave the
+  change open are refused, saving nothing. Esc keeps the confirmation words untouched.
 - **Defer:** F1's **Defer** opens the reason; F2 advances to the revisit condition; Tab switches
   between them. The form shows the question's gate: the operator alone decides it can wait.
   F2 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
@@ -646,8 +653,10 @@ Shape uses Think's
 - Agent actions require `--operator agent` and [are recorded as the agent's](think.md#confirmation-attribution-185);
   seed confirmation never claims a human keypress.
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
-  The receipt and its `Confirmed by:` line retain those words exactly, including surrounding
-  whitespace. Existing receipts keep the words they recorded; reads never rewrite them.
+  As in Think, only the exact word `confirm` confirms (#614): anything else may be a correction,
+  so F2 says `Type confirm, or F1 Revise the draft. Nothing was confirmed.`, keeping the words.
+  The receipt and its `Confirmed by:` line record the word. Existing receipts keep the words
+  they recorded; reads never rewrite them.
   Under its writer lock, the ledger rechecks the exact displayed draft bytes and ledger version
   before recording anything. A change keeps the typed words, refreshes the reading and requires
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
@@ -659,12 +668,10 @@ Shape uses Think's
   Notices keep their own recovery instructions without repeating the key bar's action.
   The exact revision and draft bytes retain that satisfaction through typing, box growth,
   resize and rereads, including teach-back. A new revision or changed bytes require reading again.
-  F2 refuses CR or LF with `Put your confirming words on one line; nothing was confirmed.`
   Changing the words clears a refusal about them.
-  It retains words and neither writes nor calls. The empty `your words` field shows
-  the muted hint `a line saying you confirm, then F2` once the seed is read; typing hides it. Enter says
+  A refusal retains the words and neither writes nor calls. The empty `your words` field shows
+  the muted hint `type confirm, then F2` once the seed is read; typing hides it. Enter says
   `F2 confirms the seed; Enter does not add a line.` without changing the words.
-  Pasted breaks remain intact, but confirmation is one `Confirmed by:` line.
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. A model failure, refusal or stop also
