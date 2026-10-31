@@ -171,7 +171,8 @@ waits for the operator to review the evidence rather than a hidden automatic tri
 
 Verification logs label seed checks separately; receipts report `seed_checks`
 (`proven`, `attested`, `pending`, or `not-run` on failure) separately from worker
-`checklist_items`. Pending proposals are not passing acceptance evidence. Manual
+`checklist_items`. Pending proposals are not passing acceptance evidence; a passing verify and `next_action` name
+each one still pending, even beside proven seed checks. Manual
 observations still need rechecking when candidate changes affect them.
 
 ## Implementation and verification
@@ -318,7 +319,10 @@ stored pin and absolute report path regardless of caller cwd or changed defaults
 agent prompt must identify the run's approved input files: `runs/<run>/brief.md` for
 light runs, or `runs/<run>/01-plan/output/intent.md`, `02-design/output/spec.md` and
 `03-build/output/plan.md` for full runs, plus `stages/03-build/CONTEXT.md`. It names the
-exact report destination and prohibits running `sdlc.py step`, `stage` or `decide`. The
+exact report destination and prohibits running `sdlc.py step`, `stage` or `decide`. It
+limits writes to the checkout and that report, and lets the agent read, never change, what the
+approved inputs name outside the checkout (never secrets); an unreadable named fact goes in the
+report rather than being built around. The
 adapter marks the child environment with
 `TINK_SDLC_STEP_SESSION=1`; while set, `sdlc.py step` refuses `prepare`, `launch`,
 `resume` and `complete` (read-only `show` remains available), preventing recursive
@@ -328,7 +332,9 @@ session. The adapter owns delivering the contract/report instructions to the age
 `complete` requires an active step, a nonempty regular report at the exact
 recorded path and the adapter's offline confirmation that the agent finished its
 latest turn on the pin, then stores the report digest. A paused, stopped, failed or
-still-running agent leaves the step `active`: resume it, then complete. Missing reports refuse completion: no root
+still-running agent leaves the step `active`: resume it, then complete. For an active step, `show` adds
+`observed_turn` from the same offline probe (`ended`, `not ended` or `unknown` with the reason); it is
+read now, never stored, and makes no provider request. Missing reports refuse completion: no root
 fallback, copying or invented report. A report is not proof of passing checks,
 authenticated authorship, approval, or release; existing `verify` and forge gates
 remain independent. API 1 status and capabilities are unchanged.
