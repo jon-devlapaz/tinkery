@@ -105,7 +105,7 @@ Each live send uses at most two drafting runs: shaping, then decision review. Wh
 is in flight, the initial reading or refinement status says `Thinking… (run 1 of up
 to 2)`, then `Reviewing decisions… (run 2 of up to 2)`. These name phases, not a
 claim that both runs ran; unreadable shaping skips review. Practice claims no
-drafting runs. Scope questions may use none. No runs follow display, and nothing
+drafting runs: its status says `Simulating… (practice: no model)` (#614). Scope questions may use none. No runs follow display, and nothing
 retries automatically. With a model, Right now help and a failed reading say
 `Drafting runs left this launch: N of M.`, the launch allowance Shape shares (#435). The
 header label shows the runs left; F1's Model and runs row opens the

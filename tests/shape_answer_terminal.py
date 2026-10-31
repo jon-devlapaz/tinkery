@@ -440,7 +440,7 @@ def full_journey(width, height):
             run.send(b'\x1b', 'Indeed, I confirm r1.')
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held F2 wrote or called'
             # F2 waits until the whole draft has been on screen (#250), and says so.
-            run.send(b'\x1b[H' + F2, "PgDn to 'End of seed' first. Nothing was confirmed.")
+            run.send(b'\x1b[H' + F2, "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
             assert files(run.sessions) == before, 'F2 confirmed an unread draft'
             run.read_until('This is not implementation approval.')
             run.read_until('End of seed', whole_line=True)
@@ -1277,7 +1277,7 @@ def read_end_revision(width, height):
             assert 'F2 confirm' not in run.screen.text(), run.screen.text()
             seed_before = (session / 'seed-contract.md').read_bytes()
             before = files(session)
-            run.send(F2, "PgDn to 'End of seed' first. Nothing was confirmed.")
+            run.send(F2, "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
             assert files(session) == before and len(run.calls()) == 1
             assert b'End of seed' not in seed_before
             assert 'Next: type your own words' not in run.screen.text()

@@ -57,7 +57,7 @@ const HELD: &str = "An agent answers Shape with --shape-pi. Shape only reads; Es
 /// The only words that confirm a seed draft, as in Think: anything else may be a correction.
 const CONFIRM: &str = "confirm";
 /// Confirming before the whole seed draft has been on screen.
-const READ_FIRST: &str = "PgDn to 'End of seed' first. Nothing was confirmed.";
+const READ_FIRST: &str = "PgDn or Down to 'End of seed' first. Nothing was confirmed.";
 /// Refusals about the typed words; changing the words clears them.
 const WORD_REFUSALS: [&str; 3] = [
     "Type your answer first; nothing was saved.",
@@ -571,6 +571,16 @@ impl Shape {
                 match key.code {
                     KeyCode::F(2) if key.modifiers.is_empty() => {
                         open.act(typing.act, agent);
+                        return Leave::Stay;
+                    }
+                    // Confirmation words are one line, so Up and Down scroll the seed being
+                    // read, for terminals that take PgUp/PgDn (#614).
+                    KeyCode::Down if matches!(typing.act, Act::Confirm { .. }) => {
+                        self.scroll = self.scroll.saturating_add(1);
+                        return Leave::Stay;
+                    }
+                    KeyCode::Up if matches!(typing.act, Act::Confirm { .. }) => {
+                        self.scroll = self.scroll.saturating_sub(1);
                         return Leave::Stay;
                     }
                     KeyCode::Enter if matches!(typing.act, Act::Confirm { .. }) => {
