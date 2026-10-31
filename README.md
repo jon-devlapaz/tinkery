@@ -120,6 +120,8 @@ provider/model-id` and `--shape-budget CALLS` override them for one launch and s
 nothing. Out of calls, F1's Model and calls row adds more for this launch only.
 `--help` lists options. See [the Model panel](docs/design/menu.md#model-setup).
 [Terminal setup](docs/terminal-setup.md#launch) gives an isolated trial.
+[First task](docs/first-task.md) is the one path from install to a running build worker, with a
+readiness check that makes no model calls.
 
 ## Read next
 

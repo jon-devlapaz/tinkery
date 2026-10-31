@@ -8,6 +8,7 @@ to the smallest relevant reference.
 
 | If you are working on… | Read |
 | --- | --- |
+| A first real task, from install to a running worker | [First task](first-task.md) |
 | Terminal setup or a real drafting trial | [Terminal setup](terminal-setup.md) |
 | CLI, rendering, input, graph or presentation | [Principles](design/principles.md), plus the [Pinstar API](../vendor/pinstar/API.md) or [Graf API](../vendor/graf/API.md) when changing those libraries or adapters |
 | Module boundaries or shared code | [Architecture](design/architecture.md) |
