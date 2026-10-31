@@ -818,6 +818,57 @@ pub fn object(
     )
 }
 
+/// The operator asks for a change to seed draft `revision`, from `expected`: their `words`, exactly
+/// as typed, become a settled decision with their authority, so the next drafting step redrafts
+/// with it. Never confirms. Refuses words that leave the change open. Returns the new version.
+pub fn change_draft(
+    session: &Path,
+    expected: u64,
+    revision: &str,
+    words: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<u64, Refusal> {
+    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
+    let mut ledger = read(session)?;
+    let taken: Vec<String> = nodes(&ledger.state)
+        .iter()
+        .filter_map(|n| n["id"].as_str().map(str::to_owned))
+        .collect();
+    let id = unique_id(&format!("change-to-{revision}"), &taken);
+    if ledger::leaves_open(&id, words) {
+        return Err(Refusal::Refused(
+            "These words don't say what to change; nothing was saved.".into(),
+        ));
+    }
+    let mut node = json!({
+        "id": id, "kind": "decision", "status": "settled", "prerequisites": [],
+        "evidence": [], "owner": "User", "gate": format!("Your change to seed draft {revision}"),
+        "label": format!("{CHANGE} {revision}"),
+        "question": format!("What should change in seed draft {revision}?"),
+        "answer": words, "authority": actor.authority(),
+        "authority_source": actor.reason("asked for this change to the draft in Tinkery Shape."),
+    });
+    if let Some(context) = actor.context() {
+        node["evidence"] = json!([{"checked":"Caller-declared authorization, not authenticated identity",
+            "at":publication_time(SystemTime::now())?, "observed":context.details()}]);
+    }
+    ledger.state["nodes"]
+        .as_array_mut()
+        .ok_or_else(|| Refusal::Refused("The session has no decisions list.".into()))?
+        .push(node);
+    publish(
+        session,
+        expected,
+        &actor.reason(&format!(
+            "asked for a change to seed draft {revision} in Tinkery Shape; it is {id}."
+        )),
+        &ledger.state,
+    )
+}
+
+/// The label of a decision recorded from a change the operator asked for in a seed draft.
+pub const CHANGE: &str = "Change to seed draft";
+
 /// The label of a decision recorded from an objection to an assumption.
 pub const OBJECTION: &str = "Instead of assuming";
 

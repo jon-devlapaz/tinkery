@@ -17,9 +17,8 @@ def journey(width, height, changed):
             run.open_shape()
             run.wait('Seed draft r1')
             run.read_until('End of seed', whole_line=True)
-            words = ('  TEST confirm only what I read  ' if width == 80
-                     else '\u2003\tTEST confirm only what I read\u00a0')
-            run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', words)
+            words = 'confirm'
+            run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', 'your words confirm')
             path = session / 'seed-contract.md'
             if changed == 'seed':
                 path.write_text(path.read_text().replace('TEST draft.', 'TEST unseen replacement.'))
@@ -33,7 +32,7 @@ def journey(width, height, changed):
                 refusal = ('The draft changed. Read it again before confirming.' if changed == 'seed'
                            else 'Another writer changed this session first, so nothing was saved.')
                 run.send(F2, refusal)
-                run.wait('your words ' + words)
+                run.wait('your words confirm')
                 assert files(session) == before, 'Stale confirmation wrote a skip, receipt or seed'
                 assert not (session / 'seed-confirmation.json').exists()
                 if changed == 'seed':
@@ -49,7 +48,7 @@ def journey(width, height, changed):
             assert note.startswith(f'Confirmed by: "{words}; caller-declared declared: agent;'), repr(note)
             assert run.calls() == [], 'Confirmation or a refusal called a model'
             print(f'Shape displayed confirmation passed at {width}x{height}: '
-                  f'{changed or "unchanged"}, exact words retained, zero calls')
+                  f'{changed or "unchanged"}, confirm recorded, zero calls')
         finally:
             run.close()
 

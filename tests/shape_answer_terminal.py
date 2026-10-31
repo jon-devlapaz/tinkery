@@ -436,7 +436,7 @@ def full_journey(width, height):
             run.type('Yes, I reject r1.')
             run.send(b'\x1b[D' * 4 + b'\x17confirm', 'Yes, I confirm r1.')
             run.send(b'\x1b[H' + b'\x1b[1;2C' * 3 + b'Indeed', 'Indeed, I confirm r1.')
-            run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Read the seed, type your confirming words on one line')
+            run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Read the seed, type confirm, then F2')
             run.send(b'\x1b', 'Indeed, I confirm r1.')
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held F2 wrote or called'
             # F2 waits until the whole draft has been on screen (#250), and says so.
@@ -445,12 +445,16 @@ def full_journey(width, height):
             run.read_until('This is not implementation approval.')
             run.read_until('End of seed', whole_line=True)
             run.wait('Indeed, I confirm r1.')
+            # Only the word confirm confirms; other words are kept and may be a correction (#614).
+            run.send(F2, 'Type confirm, or F1 Revise the draft. Nothing was confirmed.')
+            assert files(run.sessions) == before, 'F2 confirmed with words other than confirm'
+            run.send(b'\x01\x0b' + b'confirm', 'your words confirm')
             run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
             assert status['seed']['line_1'] == 'status: confirmed for intake', status
             assert status['handoff']['verified'] is True, status
             confirmation = json.loads((session / 'seed-confirmation.json').read_text())
-            assert confirmation['source'] == 'Indeed, I confirm r1.', confirmation
+            assert confirmation['source'] == 'confirm', confirmation
             assert helper.load(session)['goal'] == goal, 'The confirmed goal changed'
             assert len(run.calls()) == 2, 'Confirmation called a model'
             before_return = files(cwd)
@@ -661,18 +665,18 @@ def case(name, width=100, height=30):
                 # F2 needs the whole draft read first (#250); these cases are about the words.
                 os.write(run.master, b'\x1b[6~' * 10)
                 if name == 'confirmation hint':
-                    run.wait('a line saying you confirm, then F2')
+                    run.wait('type confirm, then F2')
                 run.wait('Confirming the seed is not approval to build.')
                 before = files(cwd)
                 run.send(b'\r', 'F2 confirms the seed; Enter does not add a line.')
-                run.wait('a line saying you confirm, then F2')
-                run.type('TEST I confirm r1.')
-                assert 'a line saying you confirm, then F2' not in run.flat(), run.screen.text()
-                run.send(b'\r' + F1, 'Read the seed, type your confirming words on one line')
-                run.send(b'\x1b', 'your words TEST I confirm r1.')
-                # F2 reaches Seed Me, not the multiline refusal: neither Enter inserted a break.
+                run.wait('type confirm, then F2')
+                run.type('confirm')
+                assert 'type confirm, then F2' not in run.flat(), run.screen.text()
+                run.send(b'\r' + F1, 'Read the seed, type confirm, then F2')
+                run.send(b'\x1b', 'your words confirm')
+                # F2 reaches the ledger, not the word refusal: neither Enter inserted a break.
                 run.send(F2, 'Tinkery refused:')
-                assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
+                assert 'Type confirm, or F1' not in run.flat(), run.screen.text()
                 assert files(cwd) == before, 'Hint, Enter or refused F2 wrote a file'
                 assert run.calls() == [], 'Confirmation guidance called a model'
             elif name == 'multiline confirmation':
@@ -682,20 +686,20 @@ def case(name, width=100, height=30):
                 # Pasted LF/CR/CRLF still refuse without normalizing the words.
                 for ending in ('\n', '\r', '\r\n'):
                     run.send(b'\x1b[200~' + ('I confirm' + ending + 'r1.').encode() + b'\x1b[201~', 'r1.')
-                    run.send(F2, 'Put your confirming words on one line; nothing was confirmed.')
+                    run.send(F2, 'Type confirm, or F1 Revise the draft. Nothing was confirmed.')
                     assert files(cwd) == before, 'Multiline F2 wrote a file'
                     assert run.calls() == [], 'Multiline F2 called a model'
                     run.wait('your words I confirm r1.')
                     # CRLF is one editor newline, like CR and LF.
                     # Changed words clear the refusal about the old ones (#249).
-                    run.send(b'\x7f' * 13, 'a line saying you confirm, then F2')
-                    assert 'Put your confirming words on one line' not in run.flat(), run.screen.text()
-                    run.send(F1, 'Read the seed, type your confirming words on one line')
+                    run.send(b'\x7f' * 13, 'type confirm, then F2')
+                    assert 'Type confirm, or F1' not in run.flat(), run.screen.text()
+                    run.send(F1, 'Read the seed, type confirm, then F2')
                     run.send(b'\x1b', 'your words')
                 assert not (session / 'seed-confirmation.json').exists()
             elif name == 'practice confirmation':
                 run.wait('Seed draft r1')
-                run.type('I confirm r1.')
+                run.type('confirm')
                 run.read_until('End of seed')
                 before = files(sessions)
                 run.send(F2, 'Tinkery refused: a simulated session cannot be confirmed')
@@ -917,7 +921,7 @@ def typed_findings_review(width, height):
             assert kept['answer'] == 'TEST keep local' and kept['authority'] == 'user', kept
             assert kept['history'][-1]['reason'] == 'TEST the scope still fits', kept
             assert not helper.review_flags(ledger['nodes']), ledger
-            run.type('TEST confirm only r1')
+            run.type('confirm')
             run.read_until('This is not implementation approval.')
             # The handoff paragraph is not the end: confirmation rows follow it.
             run.read_until('End of seed', whole_line=True)
@@ -1093,7 +1097,7 @@ def closing_summary(width, height):
             prompt = argv[argv.index('--system-prompt') + 1]
             for rule in ['Before drafting in this same step', 'Separate decided', 'one case that must fail']:
                 assert rule in prompt, rule
-            run.type('TEST confirm only this seed')
+            run.type('confirm')
             run.read_until('End of seed', whole_line=True)
             run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
@@ -1161,7 +1165,7 @@ def completion_review_display(width, height, done=False, replay_299=False):
                     assert case_row < check_row, run.screen.text()
                     assert rows[check_row].index('Check:') > rows[case_row].index('Must fail:'), run.screen.text()
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
-            run.type('TEST confirm review')
+            run.type('confirm')
             run.read_until('End of seed', whole_line=True)
             run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
@@ -1299,9 +1303,11 @@ def read_end_revision(width, height):
             run.wait('F2 confirm seed r1')
             assert (session / 'seed-contract.md').read_bytes() == seed_before
             # No page key after typing or the fresh read of the same revision.
+            run.send(F2, 'Type confirm, or F1 Revise the draft. Nothing was confirmed.')
+            run.send(b'\x01\x1b[1;2F' + b'confirm', 'your words confirm')
             run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             confirmation = json.loads((session / 'seed-confirmation.json').read_text())
-            assert confirmation['source'] == words
+            assert confirmation['source'] == 'confirm'
             assert helper.load(session)['goal'] == GOAL
             assert helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == 2
@@ -1346,15 +1352,15 @@ def teach_back(width, height, exhausted=False):
             run.send(b'/TEST-repository' + F2, 'The step reads files in TEST-repository.')
             run.send(F2, 'Seed draft r1')
             run.wait('F1 more')
-            run.type('TEST I confirm r1')
+            run.type('confirm')
             before = files(run.sessions)
             run.choose('Teach back', 'your teach-back')
-            run.wait('TEST I confirm r1')
+            run.wait('your teach-back confirm')
             run.send(b'\x01cancel me\x1b', 'Teach-back cancelled. Nothing was saved.')
-            run.wait('TEST I confirm r1')
+            run.wait('your words confirm')
             assert files(run.sessions) == before and len(run.calls()) == 1
             run.choose('Teach back', 'your teach-back')
-            run.wait('TEST I confirm r1')
+            run.wait('your teach-back confirm')
             words = 'TEST build sync.\r\nNo deletes.  '
             # Select the prefill and replace it; the separate confirmation editor stays intact.
             run.send(b'\x01\x1b[1;2F\x1b[200~' + words.encode() + b'\x1b[201~', 'No deletes.')
@@ -1368,7 +1374,7 @@ def teach_back(width, height, exhausted=False):
             else:
                 run.send(b'\x1b[1;1:2Q' + F2, 'Teach-back compared. Mismatches never block confirming.')
                 run.wait('pgup/dn read to end')
-                run.wait('TEST I confirm r1')
+                run.wait('your words confirm')
                 run.read_until('Teach-back mismatch (guess): TEST sync is outside the draft.')
                 saved = helper.load(session)
                 origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
@@ -1397,6 +1403,38 @@ def teach_back(width, height, exhausted=False):
             run.close()
 
 
+def revise_the_draft(width, height):
+    """Words typed where confirm goes never confirm; F1 Revise the draft saves them and redrafts (#614)."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-revise-draft-') as directory:
+        cwd = Path(directory).resolve()
+        session = make(cwd / 'TEST-sessions', question=False)
+        run = Run(cwd, width, height, budget=2, replies=[{**SEED, 'found': []}, {**SEED, 'found': []}])
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            run.send(F2, 'Seed draft r1')
+            run.read_until('End of seed', whole_line=True)
+            change = 'TEST keep the cache local, not shared'
+            run.type(change)
+            before = files(run.sessions)
+            run.send(F2, 'Type confirm, or F1 Revise the draft. Nothing was confirmed.')
+            assert files(run.sessions) == before and len(run.calls()) == 1, 'A correction confirmed or called'
+            assert not (session / 'seed-confirmation.json').exists()
+            run.choose('Revise the draft', 'your change ' + change)
+            run.wait('F2 save + redraft')
+            run.send(F2, 'Seed draft r2')
+            ledger = helper.load(session)
+            node = next(n for n in ledger['nodes'] if n['id'] == 'change-to-r1')
+            assert (node['status'], node['answer'], node['authority']) == ('settled', change, 'user'), node
+            assert ledger['goal'] == GOAL and len(run.calls()) == 2
+            assert change in json.dumps(run.calls()[1]['input']), 'The redraft step never saw the change'
+            assert f'- change-to-r1 [user] {change}' in (session / 'seed-contract.md').read_text()
+            assert not (session / 'seed-confirmation.json').exists(), 'Revising confirmed the seed'
+            print(f'Shape revise the draft passed at {width}x{height}: refused correction, 2 stub calls, r2 records the change')
+        finally:
+            run.close()
+
+
 def teach_back_retry(width, height):
     """A malformed comparison spends one call, keeps words, and retries only on another key."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-teach-back-retry-') as directory:
@@ -1408,9 +1446,9 @@ def teach_back_retry(width, height):
             run.open_shape()
             run.wait('F2 look into the next question')
             run.send(F2, 'Seed draft r1')
-            run.type('TEST confirm r1')
+            run.type('confirm')
             run.choose('Teach back', 'your teach-back')
-            run.wait('TEST confirm r1')
+            run.wait('your teach-back confirm')
             run.send(b'\x01\x1b[1;2F', 'your teach-back')
             run.type('TEST first teach-back')
             run.send(F2, 'The teach-back reply needs a mismatches list.')
@@ -1424,7 +1462,7 @@ def teach_back_retry(width, height):
             run.send(b'\x1b', 'F1 more')
             assert len(run.calls()) == 2, 'A failed comparison retried on its own'
             run.choose('Teach back', 'your teach-back')
-            run.wait('TEST confirm r1')
+            run.wait('your teach-back confirm')
             run.send(b'\x01\x1b[1;2F', 'your teach-back')
             run.type('TEST corrected teach-back')
             run.send(F2, 'Teach-back compared. Mismatches never block confirming.')
@@ -1601,6 +1639,7 @@ if __name__ == '__main__':
         completion_review_display(*size, done=True)
         completion_review_display(*size, replay_299=True)
         teach_back_retry(*size)
+        revise_the_draft(*size)
         closing_summary(*size)
         completion_reviews(*size)
         captured_reply_recovery(*size)

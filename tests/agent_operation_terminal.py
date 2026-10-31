@@ -129,7 +129,7 @@ def journey(width, height):
             run.type('Local only.')
             run.send(F2, 'pgup/dn read to end')
             os.write(run.master, b'\x1b[6~' * 20)
-            run.type('TEST I confirm r1 for this isolated run.')
+            run.type('confirm')
             run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             ledger = helper.load(session)
             assert ledger['operator'] == 'agent'

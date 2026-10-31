@@ -274,7 +274,7 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
     let text = screen(&mut writable, 80, 24, true);
     assert!(text.contains("F2 keep with reason"), "{text}");
     writable.key(key(KeyCode::F(2)));
-    assert!(screen(&mut writable, 80, 24, true).contains(WORD_REFUSALS[3]));
+    assert!(screen(&mut writable, 80, 24, true).contains(WORD_REFUSALS[2]));
     assert!(writable.open.as_ref().unwrap().writing.is_none());
     assert!(writable.open.as_ref().unwrap().running.is_none());
     assert_eq!(writable.agent.as_ref().unwrap().remaining(), 0);
@@ -670,6 +670,61 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
 }
 
 #[test]
+fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
+    let dir = tempfile::tempdir().unwrap();
+    let words = "TEST keep the cache local, not shared";
+    let mut shape = reading(
+        done(Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
+        })
+        .with_agent(Some(agent(1))),
+        dir.path(),
+    );
+    screen(&mut shape, 80, 24, true);
+    shape.paste(words);
+    shape.key(key(KeyCode::F(2)));
+    assert!(shape.open.as_ref().unwrap().running.is_none());
+    assert!(screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
+    choose(&mut shape, "Revise the draft");
+    let text = screen(&mut shape, 80, 24, true);
+    assert!(
+        text.contains("your change") && text.contains(words),
+        "{text}"
+    );
+    assert!(
+        text.lines().last().unwrap().contains("F2 save + redraft"),
+        "{text}"
+    );
+    shape.key(key(KeyCode::Esc));
+    assert!(screen(&mut shape, 80, 24, true).contains("Change cancelled. Nothing was saved."));
+    assert_eq!(shape.open.as_ref().unwrap().typed.text(), words);
+    choose(&mut shape, "Revise the draft");
+    shape.key(key(KeyCode::F(2)));
+    assert!(
+        shape.open.as_ref().unwrap().running.is_some(),
+        "F2 did not save the change and redraft"
+    );
+    // The word that confirms is never carried in as a change.
+    let mut shape = reading(
+        done(Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
+        })
+        .with_agent(Some(agent(1))),
+        dir.path(),
+    );
+    shape.paste("confirm");
+    choose(&mut shape, "Revise the draft");
+    shape.key(key(KeyCode::F(2)));
+    assert!(shape.open.as_ref().unwrap().running.is_none());
+    assert!(
+        screen(&mut shape, 80, 24, true)
+            .contains("Type what should change first; nothing was saved.")
+    );
+}
+
+#[test]
 fn teach_back_prefills_exact_confirmation_words_without_sharing_edits() {
     let dir = tempfile::tempdir().unwrap();
     for words in ["", "  TEST café\r\nkeep these words.  "] {
@@ -684,21 +739,22 @@ fn teach_back_prefills_exact_confirmation_words_without_sharing_edits() {
         shape.paste(words);
         choose(&mut shape, "Teach back");
         let open = shape.open.as_ref().unwrap();
-        assert_eq!(open.teach_back.as_ref().unwrap().text(), words);
+        assert_eq!(open.aside.as_ref().unwrap().1.text(), words);
         assert_eq!(open.typed.text(), words);
         shape.paste("TEST changed teach-back");
         let open = shape.open.as_ref().unwrap();
         assert!(
-            open.teach_back
+            open.aside
                 .as_ref()
                 .unwrap()
+                .1
                 .text()
                 .contains("TEST changed teach-back")
         );
         assert_eq!(open.typed.text(), words);
         shape.key(key(KeyCode::Esc));
         let open = shape.open.as_ref().unwrap();
-        assert!(open.teach_back.is_none() && open.running.is_none());
+        assert!(open.aside.is_none() && open.running.is_none());
         assert_eq!(open.typed.text(), words);
     }
 }
@@ -838,14 +894,12 @@ fn a_draft_shows_the_seed_and_f2_needs_the_operators_own_words() {
         assert!(!text.contains(raw), "{raw} shown:\n{text}");
     }
     assert!(
-        text.contains("  your words\n  a line saying you confirm, then F2\n\n  Confirming the seed is not approval to build."),
+        text.contains("  your words\n  type confirm, then F2\n\n  Confirming the seed is not approval to build."),
         "{text}"
     );
     shape.key(key(KeyCode::F(2)));
     assert!(shape.open.as_ref().unwrap().running.is_none());
-    assert!(
-        screen(&mut shape, 100, 30, true).contains("Type your words first; nothing was confirmed.")
-    );
+    assert!(screen(&mut shape, 100, 30, true).contains(WORD_REFUSALS[1]));
 }
 
 #[test]
@@ -1231,6 +1285,113 @@ fn missing_intake_sections(seed: &str, consumer: &str) -> Vec<String> {
         .filter(|section| !seed.lines().any(|line| line == format!("## {section}")))
         .map(str::to_owned)
         .collect()
+}
+
+#[cfg(unix)]
+#[test]
+fn a_change_to_the_draft_is_the_operators_decision_and_the_redraft_carries_it() {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config, shaping},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-614-")
+        .tempdir()
+        .unwrap();
+    let goal = "TEST I can check a seed.\nWhy: Intake needs an eval.\nDone when: Existing output is correct.\n- New output is correct.\n- The result feels calm.\nMust: Keep my words; existing check is ./TEST-check with expected output TEST existing output in cwd .\nMust not: Build without approval.";
+    let receipt = Config::new(Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: goal.into(),
+            outcome: "TEST checks".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap();
+    let confirming = prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt"));
+    let confirming_json = serde_json::to_string(&confirming).unwrap();
+    let checks = include_str!("../../tests/fixtures/shape-checks.json");
+    fs::write(
+        receipt.session.join("seed-contract.md"),
+        "status: draft\n# TEST\nrevision: r1\n\n## You are confirming\nTEST old draft.\n",
+    )
+    .unwrap();
+    let words = "  TEST keep the cache local, not shared café  ";
+    let program = temp.path().join("TEST-pi");
+    fs::write(
+        &program,
+        format!(
+            r##"#!/usr/bin/env python3
+import json, pathlib, sys
+request = sys.stdin.read()
+pathlib.Path('TEST-request.json').write_text(request)
+print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?}), 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in json.loads({checks:?})]}}, 'found': []}}))
+"##
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let version = answered_probe(&receipt.session);
+    let agent = Arc::new(
+        step::Agent::new(
+            crate::pi::Harness::Pi,
+            program,
+            "test/stub".into(),
+            String::new(),
+            Some(temp.path().into()),
+            CallBudget::new(1),
+            None,
+        )
+        .unwrap(),
+    );
+    let running = step::Running::start(
+        step::Work::Change {
+            revision: "r1".into(),
+            words: words.into(),
+            expected: version,
+            folder: temp.path().into(),
+        },
+        receipt.session.clone(),
+        agent.clone(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let result = loop {
+        if let Some(result) = running.poll() {
+            break result;
+        }
+        assert!(Instant::now() < deadline, "stub step timed out");
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert_eq!(result, Ok(step::Done::Drafted));
+    assert_eq!(agent.remaining(), 0);
+    let request = fs::read_to_string(temp.path().join("TEST-request.json")).unwrap();
+    assert!(
+        request.contains(&serde_json::to_string(words).unwrap()),
+        "the drafting step never saw the change: {request}"
+    );
+    let Shaped::Drafted {
+        revision,
+        text: Some(text),
+    } = shaping::read(&receipt.session).unwrap().stage
+    else {
+        panic!("not a draft")
+    };
+    assert_eq!(revision.as_deref(), Some("r2"));
+    let decisions = text
+        .split("## Decisions (from the ledger)")
+        .nth(1)
+        .unwrap_or_default();
+    assert!(
+        decisions.contains(&format!("- change-to-r1 [user] {}", words.trim())),
+        "the redraft's decisions lack the operator's change:\n{text}"
+    );
 }
 
 #[cfg(unix)]
@@ -2327,14 +2488,17 @@ fn enter_at_seed_confirmation_guides_without_editing_or_starting_a_step() {
 }
 
 #[test]
-fn multiline_confirmation_is_refused_before_a_step_and_keeps_the_words() {
+fn only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed() {
     for words in [
         "TEST yes\nrevision r1",
         "TEST yes\rrevision r1",
-        "TEST yes\r\nrevision r1",
+        "confirm\r\n",
         "\n",
-        "\r",
-        "\r\n",
+        "",
+        " confirm",
+        "Confirm",
+        "I confirm",
+        "keep the cache local, not shared",
     ] {
         let mut shape = done(Shaped::Drafted {
             revision: Some("r1".into()),
@@ -2345,18 +2509,21 @@ fn multiline_confirmation_is_refused_before_a_step_and_keeps_the_words() {
         shape.paste(words);
         shape.key(key(KeyCode::F(2)));
         let open = shape.open.as_ref().unwrap();
-        assert!(
-            open.running.is_none(),
-            "a multiline confirmation started a step"
-        );
+        assert!(open.running.is_none(), "{words:?} started a confirmation");
         assert_eq!(open.typed.text(), words);
         assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
         let shown = screen(&mut shape, 80, 24, true);
-        assert!(
-            shown.contains("Put your confirming words on one line; nothing was confirmed."),
-            "{shown}"
-        );
+        assert!(shown.contains(WORD_REFUSALS[1]), "{shown}");
     }
+    let mut shape = done(Shaped::Drafted {
+        revision: Some("r1".into()),
+        text: Some("TEST seed".into()),
+    })
+    .with_agent(Some(agent(0)));
+    screen(&mut shape, 80, 24, true);
+    shape.paste("confirm");
+    shape.key(key(KeyCode::F(2)));
+    assert!(shape.open.as_ref().unwrap().running.is_some());
 }
 
 #[test]
@@ -3275,10 +3442,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                     "{text}"
                 );
                 assert!(!text.contains("Next: type your own words"), "{text}");
-                assert!(
-                    !text.contains("a line saying you confirm, then F2"),
-                    "{text}"
-                );
+                assert!(!text.contains("type confirm, then F2"), "{text}");
                 assert!(shape.open.as_ref().unwrap().running.is_none());
             }
             shape.paste("TEST exact words café  ");
@@ -3333,10 +3497,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             let mut empty = done(long_draft()).with_agent(Some(agent(0)));
             empty.scroll = u16::MAX;
             let text = screen(&mut empty, width, height, no_color);
-            assert!(
-                text.contains("a line saying you confirm, then F2"),
-                "{text}"
-            );
+            assert!(text.contains("type confirm, then F2"), "{text}");
             assert!(
                 text.lines().last().unwrap().contains("F2 confirm seed r1"),
                 "{text}"
@@ -3344,7 +3505,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             empty.key(key(KeyCode::F(2)));
             let refusal = screen(&mut empty, width, height, no_color);
             assert!(
-                refusal.contains("Type your words first; nothing was confirmed."),
+                refusal.contains(WORD_REFUSALS[1]),
                 "unrelated refusal was cleared: {refusal}"
             );
         }
@@ -3647,7 +3808,7 @@ fn retired_function_keys_do_nothing_and_f1_reaches_every_action() {
         assert!(
             open.form.is_none()
                 && open.choosing.is_none()
-                && open.teach_back.is_none()
+                && open.aside.is_none()
                 && open.asking.is_none()
                 && open.so_far.is_none()
                 && !open.objecting

@@ -251,6 +251,14 @@ pub(super) enum Work {
         expected: u64,
         seed: String,
     },
+    /// Save the operator's change to seed draft `revision` from `expected`, then redraft by looking
+    /// in `folder`. Never confirms.
+    Change {
+        revision: String,
+        words: String,
+        expected: u64,
+        folder: PathBuf,
+    },
     /// Confirm only the draft bytes and ledger version the operator read.
     Confirm {
         revision: String,
@@ -465,6 +473,24 @@ fn run(
             feedback.as_ref(),
         ),
         Work::TeachBack { .. } => teach_back::run(work, session, agent, cancelled, saved),
+        Work::Change {
+            revision,
+            words,
+            expected,
+            folder,
+        } => {
+            if agent.remaining() == 0 {
+                return Err(Failure {
+                    answer_saved: false,
+                    why: Why::Budget(agent.limit()),
+                    feedback: None,
+                });
+            }
+            let version = answering::change_draft(session, *expected, revision, words, actor)
+                .map_err(refused(false))?;
+            saved.store(true, Ordering::Relaxed);
+            look(session, version, folder, agent, cancelled, true, None)
+        }
         Work::Confirm {
             revision,
             words,

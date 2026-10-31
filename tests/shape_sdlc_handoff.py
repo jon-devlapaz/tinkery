@@ -129,7 +129,7 @@ def shape(root, env):
         send(b'TEST The sounds were missing.', 'TEST The sounds were missing.')
         send(b'\x1bOQ', 'Seed draft r1')
         wait('pgup/dn read to end')
-        send(CONFIRMATION.encode(), CONFIRMATION)
+        send(b'confirm', 'your words confirm')
         # F2 confirms only a draft read to the end (#250).
         send(b'\x1bOQ', "PgDn to 'End of seed' first. Nothing was confirmed.")
         os.write(master, b'\x1b[6~' * 40)
@@ -144,7 +144,7 @@ def shape(root, env):
         assert json.loads(command([binary, '--operator', 'agent', 'seed', 'status', '--json', session], root, env).stdout) == status
         assert json.loads(command([binary, '--operator', 'agent', 'seed', 'checks', session], root, env).stdout) == helper.read_checks(session)
         assert {p.name: p.read_bytes() for p in session.iterdir() if p.is_file()} == before
-        assert json.loads((session / 'seed-confirmation.json').read_text())['source'] == CONFIRMATION
+        assert json.loads((session / 'seed-confirmation.json').read_text())['source'] == 'confirm'
         ledger = helper.load(session)
         assert ledger['goal'] == GOAL
         seed_text = (session / 'seed-contract.md').read_text()
