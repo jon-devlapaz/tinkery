@@ -661,8 +661,10 @@ Shape uses Think's
   before recording anything. A change keeps the typed words, refreshes the reading and requires
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, F2 says
-  `PgDn to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
+  `PgDn or Down to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
   `End of seed` marker after the last section clears that in the same frame. The saved seed is unchanged.
+  Confirmation words are one line, so Up and Down scroll the draft while they are typed, for
+  terminals or multiplexers that take PgUp/PgDn (#614).
   Before that marker is reached, the key bar says `pgup/dn read to end` instead of
   offering to confirm; the confirmation hint appears on the same frame that reaches the end.
   Notices keep their own recovery instructions without repeating the key bar's action.

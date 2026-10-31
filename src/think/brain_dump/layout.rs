@@ -25,10 +25,16 @@ const RECEIPTS: [&str; 5] = [
 ];
 /// Why practice, or real mode without a sessions folder, can't review or save a goal.
 pub(super) const SAVE_NEEDS_REAL: &str = "Saving a goal needs real mode and a sessions folder.";
+/// The status while practice prepares its simulated reading: no model runs.
+pub(super) const PRACTICE_STATUS: &str = "Simulating… (practice: no model)";
 /// Rows a refusal may take: every fixed refusal fits in two at the narrowest pane.
 pub(super) const STATUS_ROWS: u16 = 2;
 
+/// What a send in flight is doing. Practice says it simulates, so it never reads as a model call.
 fn thinking_status(app: &BrainDump) -> &'static str {
+    if !app.real {
+        return PRACTICE_STATUS;
+    }
     match app.host.call_in_flight() {
         Some(Request::Shaping) => "Thinking… (run 1 of up to 2)",
         Some(Request::DecisionReview) => "Reviewing decisions… (run 2 of up to 2)",

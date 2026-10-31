@@ -3513,6 +3513,33 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
 }
 
 #[test]
+fn down_reads_a_draft_to_its_end_while_the_confirm_box_has_the_words() {
+    for (width, height) in [(100, 30), (80, 24)] {
+        let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+        screen(&mut shape, width, height, true);
+        shape.paste("confirm");
+        let mut text = String::new();
+        for _ in 0..400 {
+            shape.key(key(KeyCode::Down));
+            text = screen(&mut shape, width, height, true);
+            if text.contains("End of seed") {
+                break;
+            }
+        }
+        assert!(
+            text.contains("End of seed"),
+            "Down never reached the end:\n{text}"
+        );
+        assert!(
+            text.lines().last().unwrap().contains("F2 confirm seed r1"),
+            "{text}"
+        );
+        shape.key(key(KeyCode::Up));
+        assert_eq!(shape.open.as_ref().unwrap().typed.text(), "confirm");
+    }
+}
+
+#[test]
 fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
     for (width, height) in [(100, 30), (80, 24)] {
         let mut shape = done(long_draft()).with_agent(Some(agent(0)));
@@ -3522,7 +3549,7 @@ fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
         assert!(shape.open.as_ref().unwrap().running.is_none());
         let refusal = screen(&mut shape, width, height, true);
         assert!(
-            refusal.contains("PgDn to 'End of seed' first."),
+            refusal.contains("PgDn or Down to 'End of seed' first."),
             "{refusal}"
         );
         for _ in 0..30 {
@@ -3605,7 +3632,7 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
                     assert!(shape.open.as_ref().unwrap().running.is_none());
                     assert!(
                         screen(&mut shape, width, height, no_color)
-                            .contains("PgDn to 'End of seed' first.")
+                            .contains("PgDn or Down to 'End of seed' first.")
                     );
                 }
                 let open = shape.open.as_ref().unwrap();

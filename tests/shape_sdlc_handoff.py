@@ -131,7 +131,7 @@ def shape(root, env):
         wait('pgup/dn read to end')
         send(b'confirm', 'your words confirm')
         # F2 confirms only a draft read to the end (#250).
-        send(b'\x1bOQ', "PgDn to 'End of seed' first. Nothing was confirmed.")
+        send(b'\x1bOQ', "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
         os.write(master, b'\x1b[6~' * 40)
         wait('F2 confirm seed r1')
         send(b'\x1bOQ', 'Seed ready: you confirmed r1, and it still matches.')

@@ -36,7 +36,7 @@ def journey(width, height, changed):
                 assert files(session) == before, 'Stale confirmation wrote a skip, receipt or seed'
                 assert not (session / 'seed-confirmation.json').exists()
                 if changed == 'seed':
-                    run.send(F2, "PgDn to 'End of seed' first. Nothing was confirmed.")
+                    run.send(F2, "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
                     assert files(session) == before, 'The changed draft skipped the reading gate'
                     run.read_until('End of seed', whole_line=True)
             run.send(F2, 'Seed ready:')

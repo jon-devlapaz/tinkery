@@ -617,6 +617,7 @@ else:
             BrainDump::default()
         };
         a.host = host.clone();
+        a.real = true;
         a.paste("TEST words");
         a.submit();
         for (kind, phase, expected) in [
@@ -664,6 +665,40 @@ else:
         );
         assert_eq!(Simulated.call_in_flight(), None);
     }
+}
+
+#[test]
+fn a_practice_send_says_it_simulates_never_thinking() {
+    use std::sync::atomic::Ordering;
+    static RELEASE: AtomicBool = AtomicBool::new(false);
+    struct Held;
+    impl BoardHost for Held {
+        fn reshape(&self, request: BoardRequest, cancel: &AtomicBool) -> Result<Guess, String> {
+            while !RELEASE.load(Ordering::Relaxed) {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Simulated.reshape(request, cancel)
+        }
+    }
+    // Release the held send even when an assertion fails, so a failure never hangs.
+    struct Release;
+    impl Drop for Release {
+        fn drop(&mut self) {
+            RELEASE.store(true, Ordering::Relaxed);
+        }
+    }
+    let mut a = BrainDump::with_mode(Arc::new(Held), false);
+    // Declared after the dump, so it drops first: the dump's held send can finish.
+    let release = Release;
+    a.paste("TEST words");
+    a.submit();
+    for (w, h) in [(80, 24), (100, 30)] {
+        let screen = snapshot(w, h, &mut a, true).unwrap();
+        assert!(screen.contains(super::layout::PRACTICE_STATUS), "{screen}");
+        assert!(!screen.contains("Thinking"), "{screen}");
+    }
+    drop(release);
+    super::tests::settle(&mut a);
 }
 
 #[test]
