@@ -85,17 +85,23 @@ def main():
         # 2. tink-sdlc into a fresh project; the clone is pinned, every other line verbatim.
         [connect] = blocks('2. Connect your project to tink-sdlc')
         clone = 'git clone https://github.com/jon-devlapaz/tink-sdlc ~/dev/tink-sdlc\n'
-        assert connect.startswith(clone)
+        assert clone in connect, connect
         shell(f'mkdir -p ~/dev/my-project && cd ~/dev/my-project && git init -q -b main'
               f' && printf "#!/bin/sh\\necho TEST output\\n" > TEST-check && chmod +x TEST-check'
               f' && git add -A && git commit -qm base\n'
               f'git init -q ~/dev/tink-sdlc && cd ~/dev/tink-sdlc'
               f' && git fetch -q --depth 1 https://github.com/jon-devlapaz/tink-sdlc.git {SDLC_REF}'
               f' && git checkout -q --detach FETCH_HEAD', env, root)
-        out = shell(prelude + connect[len(clone):], env, root, waiting=True)
+        out = shell(prelude + connect.replace(clone, '', 1), env, root, waiting=True)
         assert 'ready: The workflow is connected' in out, out
-        assert out.splitlines()[-1].startswith('Next: Press m on the menu'), out
+        assert out.splitlines()[-1].startswith('Next: Install Pi and log in'), out
         project = home / 'dev/my-project'
+        # An install not yet committed is not connected (the fresh-Pi run read it as ready).
+        out = shell('mkdir ~/dev/uncommitted && git -C ~/dev/uncommitted init -q'
+                    ' && python3 ~/dev/tink-sdlc/scripts/init.py ~/dev/uncommitted >/dev/null\n'
+                    f'python3 {REPO}/scripts/first-task-check.py --sdlc-root ~/dev/uncommitted',
+                    env, root, waiting=True)
+        assert out.splitlines()[-1].startswith('Next: Commit the tink-sdlc install'), out
         # The guide's next instruction: choose real checks in _system/verification.json.
         (project / '_system/verification.json').write_text(json.dumps({'require_tink': False, 'checks': [
             {'argv': ['./TEST-check'], 'timeout_seconds': 10}]}))

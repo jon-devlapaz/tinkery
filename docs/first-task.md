@@ -22,9 +22,11 @@ On Debian or Ubuntu (on macOS, provision Rust, Python 3 and Node first; see
 ```sh
 git clone https://github.com/jon-devlapaz/tinkery "$tinkery_src"
 cd "$tinkery_src" && ./scripts/cloud-setup.sh
+export PATH="$HOME/.cargo/bin:$tinkery_src/.cloud-tools/node/bin:$tinkery_src/target/release:$PATH"
 cargo +stable build --locked --release
-export PATH="$tinkery_src/target/release:$PATH"
 ```
+
+The `export` line lasts for this shell; add it to `~/.profile` to keep it.
 
 Check readiness instead of running the contributor test suite:
 
@@ -41,7 +43,10 @@ Tinkery hands work to [tink-sdlc](https://github.com/jon-devlapaz/tink-sdlc), in
 into the Git checkout you want built. Commit the install, then choose real checks in
 `_system/verification.json` (see its `SDLC.md`); until then, verification fails on purpose.
 
+Git needs your name and email (`git config --global user.name` and `user.email`) to commit.
+
 ```sh
+mkdir -p "$project" && git -C "$project" init -q
 git clone https://github.com/jon-devlapaz/tink-sdlc ~/dev/tink-sdlc
 python3 ~/dev/tink-sdlc/scripts/init.py "$project"
 git -C "$project" add -A && git -C "$project" commit -qm "Install tink-sdlc"
@@ -50,10 +55,13 @@ python3 "$tinkery_src/scripts/first-task-check.py" --sdlc-root "$project"
 
 `ready: The workflow is connected` is this step's result. From now on, launch Tinkery with
 `--sdlc-root "$project"` so Shape reads that repository and Approve and Watch use its runs.
+Saved: the tink-sdlc install, committed in your project. Allowed: nothing. Running: nothing.
 
 ## 3. Choose the drafting model
 
-Install Pi (the `pi` coding agent) and log in. Then:
+Install Pi, the coding agent that drafts, with the Node from step 1:
+`npm install -g --ignore-scripts @earendil-works/pi-coding-agent`. Run `pi`, log in with its
+`/login` command, and quit it. Then open Tinkery:
 
 ```sh
 tinkery --home --sdlc-root "$project"

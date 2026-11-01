@@ -66,6 +66,8 @@ def drafting(root):
     try:
         setup = json.loads(path.read_text())
     except FileNotFoundError:
+        if not shutil.which('pi'):
+            return False, f'Install Pi and log in, so `pi` is on PATH ({GUIDE}, step 3).'
         return False, f'Press m on the menu, choose a model and calls, then s to save ({GUIDE}, step 3).'
     except (OSError, ValueError) as error:
         return False, f'{path} is unreadable: {error}'
@@ -89,6 +91,10 @@ def workflow(root):
                          capture_output=True, text=True)
     if git.stdout.strip() != 'true':
         return False, f'{root} is not a Git checkout; run git init and commit the install.'
+    tracked = subprocess.run(['git', '-C', str(root), 'ls-files', '_system/scripts/sdlc.py'],
+                             capture_output=True, text=True)
+    if not tracked.stdout.strip():
+        return False, f'Commit the tink-sdlc install in {root} ({GUIDE}, step 2).'
     result = subprocess.run(['python3', str(runtime), 'capabilities'], cwd=root, capture_output=True,
                             text=True, timeout=30)
     if result.returncode:
