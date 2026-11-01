@@ -361,7 +361,7 @@ fn boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings
         serde_json::to_value(ignored).unwrap(),
         serde_json::to_value(reading::parse(&json, &r, &mut vec![]).unwrap()).unwrap()
     );
-    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.receipt().is_none());
 }
 #[test]
 fn typing_during_request_is_never_replaced_by_the_result() {

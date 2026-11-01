@@ -75,7 +75,7 @@ fn review_blocked_by_unsent_words_says_so_on_the_normal_screen_and_keeps_them() 
             a.input = Note::new("one more constraint");
             assert!(!shown(&mut a, w, h, no_color).contains(WHY));
             a.review_goal();
-            assert!(a.handoff.review.is_none() && !a.running());
+            assert!(a.handoff.review().is_none() && !a.running());
             assert!(shown(&mut a, w, h, no_color).contains(WHY), "{w}x{h}");
             assert_eq!(a.input.text, "one more constraint");
             assert_eq!(a.conversation.board().unwrap().parts.compose(), goal);
@@ -156,12 +156,12 @@ fn an_unread_review_says_to_scroll_on_enter_and_confirms_only_from_the_end() {
             a.review_goal();
             snapshot(w, h, &mut a, no_color).unwrap();
             assert!(
-                a.handoff.review.as_ref().unwrap().max > 0,
+                a.handoff.review().unwrap().max > 0,
                 "{w}x{h}: review must overflow"
             );
             a.paste("confirm");
             key(&mut a, KeyCode::Enter);
-            assert!(a.handoff.job.is_none() && a.handoff.receipt.is_none());
+            assert!(!a.handoff.saving() && a.handoff.receipt().is_none());
             let screen = snapshot(w, h, &mut a, no_color).unwrap();
             assert!(right_text(&screen, w).contains(WHY), "{w}x{h}\n{screen}");
             let back = a.screen.back_button;
@@ -177,13 +177,8 @@ fn an_unread_review_says_to_scroll_on_enter_and_confirms_only_from_the_end() {
                 "Back",
                 "{w}x{h}: the reason leaves Back in place\n{screen}"
             );
-            assert_eq!(
-                a.handoff.review.as_ref().unwrap().input,
-                "confirm",
-                "typing kept"
-            );
-            while a.handoff.review.as_ref().unwrap().scroll < a.handoff.review.as_ref().unwrap().max
-            {
+            assert_eq!(a.handoff.review().unwrap().input, "confirm", "typing kept");
+            while a.handoff.review().unwrap().scroll < a.handoff.review().unwrap().max {
                 key(&mut a, KeyCode::PageDown);
             }
             let screen = shown(&mut a, w, h, no_color);
@@ -192,10 +187,7 @@ fn an_unread_review_says_to_scroll_on_enter_and_confirms_only_from_the_end() {
                 "{screen}"
             );
             key(&mut a, KeyCode::Enter);
-            assert!(
-                a.handoff.job.is_some(),
-                "{w}x{h}: confirm works from the end"
-            );
+            assert!(a.handoff.saving(), "{w}x{h}: confirm works from the end");
             super::tests::settle(&mut a);
             let receipt = a.saved().expect("the fully read TEST goal was saved");
             assert!(
@@ -215,7 +207,7 @@ fn a_misspelled_confirm_says_what_to_type() {
         snapshot(w, h, &mut a, false).unwrap();
         a.paste("confirn");
         key(&mut a, KeyCode::Enter);
-        assert!(a.handoff.job.is_none());
+        assert!(!a.handoff.saving());
         assert!(shown(&mut a, w, h, false).contains("Type confirm, then Enter. Nothing saved."));
     }
 }

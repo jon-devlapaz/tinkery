@@ -23,12 +23,7 @@ impl BrainDump {
     /// The actions allowed now, most likely first. Empty while saving, reviewing, after saving,
     /// while asking whether to leave, or during a voice take.
     pub(super) fn rows(&self) -> Vec<Row<Act>> {
-        if self.screen.leave_prompt
-            || self.handoff.job.is_some()
-            || self.handoff.review.is_some()
-            || self.handoff.receipt.is_some()
-            || self.voice_active()
-        {
+        if self.screen.leave_prompt || self.handoff.started() || self.voice_active() {
             return vec![];
         }
         let mut rows = vec![];

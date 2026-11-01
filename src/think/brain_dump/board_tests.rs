@@ -491,7 +491,7 @@ fn historical_raw_captures_display_without_inferred_parts_or_provider_helpers() 
                 snapshot(w, h, &mut app, false).unwrap();
             }
             assert!(!app.goal_ready());
-            assert!(app.handoff.receipt.is_none());
+            assert!(app.handoff.receipt().is_none());
         }
     }
 }
@@ -508,7 +508,7 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
     app.conversation.set_applied(1);
     app.conversation.set_board(Some(b));
     app.review_goal();
-    let frozen = app.handoff.review.unwrap();
+    let frozen = app.handoff.review().unwrap();
     assert_eq!(frozen.affirmation.goal, "Must not: no dashboard.");
     assert!(
         frozen
@@ -517,7 +517,7 @@ fn freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal() {
             .iter()
             .any(|s| s == "Unresolved note")
     );
-    assert!(app.handoff.receipt.is_none());
+    assert!(app.handoff.receipt().is_none());
 }
 #[test]
 fn a_typed_decision_keeps_its_part_open_and_can_be_asked_after_required_parts() {
@@ -642,13 +642,7 @@ fn review_shows_a_linked_decision_once_and_keeps_other_choices_on_the_same_part(
     app.conversation.set_applied(1);
     app.conversation.set_board(Some(b));
     app.review_goal();
-    let notes = &app
-        .handoff
-        .review
-        .as_ref()
-        .unwrap()
-        .affirmation
-        .unresolved_notes;
+    let notes = &app.handoff.review().unwrap().affirmation.unresolved_notes;
     assert!(
         !notes.iter().any(|n| n.contains("Whether refusal messages")),
         "question repeated as a note: {notes:?}"
@@ -670,13 +664,13 @@ fn review_shows_a_linked_decision_once_and_keeps_other_choices_on_the_same_part(
             assert!(right.contains("Whether drafts may leave"), "{right}");
         }
     }
-    let saved = app.handoff.review.as_ref().unwrap().affirmation.affirmed();
+    let saved = app.handoff.review().unwrap().affirmation.affirmed();
     assert!(saved.context.contains("local only") && saved.context.contains("may upload"));
     assert!(
         saved.context.contains("omit private text")
             && saved.context.contains("may include private text")
     );
-    assert!(app.handoff.receipt.is_none());
+    assert!(app.handoff.receipt().is_none());
 }
 
 #[test]
@@ -713,7 +707,7 @@ fn unasked_decisions_and_unlinked_notes_remain_visible_in_review_and_handoff() {
     a.conversation.set_applied(1);
     a.conversation.set_board(Some(board));
     a.review_goal();
-    let review = &a.handoff.review.as_ref().unwrap().affirmation;
+    let review = &a.handoff.review().unwrap().affirmation;
     assert_eq!(review.unresolved[0].target, Some(Part::DoneWhen));
     assert!(
         review
@@ -763,7 +757,7 @@ fn approaches_keyed_option_are_kept_through_review_and_saving() {
     app.conversation.set_applied(1);
     app.conversation.set_board(Some(b));
     app.review_goal();
-    let saved = app.handoff.review.as_ref().unwrap().affirmation.affirmed();
+    let saved = app.handoff.review().unwrap().affirmation.affirmed();
     let saved: Vec<_> = saved.options.iter().map(|o| o.label.as_str()).collect();
     assert_eq!(saved, ["Hint first", "Worked example", "Labelled hint"]);
 }

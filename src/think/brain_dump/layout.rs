@@ -157,7 +157,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         frame.render_widget(p.scroll((app.screen.original_scroll, 0)), right);
         return;
     }
-    if app.handoff.review.is_some() || app.handoff.receipt.is_some() {
+    if app.handoff.review().is_some() || app.handoff.receipt().is_some() {
         goal_view::render_goal(frame, app, palette);
         return;
     }
@@ -397,7 +397,7 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
     })
 }
 pub(super) fn help_text(app: &BrainDump) -> String {
-    if app.handoff.receipt.is_some() {
+    if app.handoff.receipt().is_some() {
         return "Right now\nYour goal is saved. Next: shape it into a seed in Shape.\ns open in tend · Esc back to the menu\n\nF1 close".into();
     }
     let open_now;
@@ -418,18 +418,17 @@ pub(super) fn help_text(app: &BrainDump) -> String {
                 "The model may still refuse."
             )
         }
-    } else if app.handoff.job.is_some() {
+    } else if app.handoff.saving() {
         "Saving your goal. Wait a moment."
     } else if app
         .handoff
-        .review
-        .as_ref()
+        .review()
         .is_some_and(|review| review.scroll < review.max)
     {
         "Esc closes help; then PgDn reads the rest.\nNothing is saved yet."
-    } else if app.handoff.review.is_some() && app.records() {
+    } else if app.handoff.review().is_some() && app.records() {
         "Type confirm, then Enter, to save this goal and its think record.\nEsc goes back without saving."
-    } else if app.handoff.review.is_some() {
+    } else if app.handoff.review().is_some() {
         "Type confirm, then Enter, to save this goal.\nEsc goes back without saving."
     } else if app.running() {
         "Reading your words. Keep writing if you like.\nEsc cancels."
@@ -486,7 +485,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     format!("Right now\n{rows}{now}{left}{voice}\n\nF1 close")
 }
 pub(super) fn how_text(app: &BrainDump) -> String {
-    if let Some(receipt) = &app.handoff.receipt {
+    if let Some(receipt) = app.handoff.receipt() {
         return format!(
             "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\n{}{}\n\nCopy puts the prompt on your clipboard; your terminal may ask permission. Paste it into Claude, Codex or Pi yourself. Nothing starts on its own.",
             receipt.text(),
@@ -513,11 +512,11 @@ pub(super) fn how_text(app: &BrainDump) -> String {
 }
 /// Only what's possible right now (C1): key in ink, word muted.
 pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)> {
-    if app.screen.leave_prompt || app.handoff.job.is_some() {
+    if app.screen.leave_prompt || app.handoff.saving() {
         vec![]
-    } else if app.handoff.receipt.is_some() {
+    } else if app.handoff.receipt().is_some() {
         vec![("s", "open in tend"), ("esc", "menu")]
-    } else if let Some(review) = &app.handoff.review {
+    } else if let Some(review) = app.handoff.review() {
         if review.scroll < review.max {
             return vec![("PgDn", "read to end"), ("esc", "back")];
         }
@@ -553,7 +552,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
 pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let area = frame.area();
     if app.screen.help
-        || (!app.screen.key_bar && app.handoff.receipt.is_none())
+        || (!app.screen.key_bar && app.handoff.receipt().is_none())
         || area.width < MIN_WIDTH
         || area.height < MIN_HEIGHT
     {

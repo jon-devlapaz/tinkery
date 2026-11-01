@@ -49,7 +49,7 @@ fn session_with(
 /// Hands the review's save a Seed Me result, as the save thread would.
 fn save(a: &mut BrainDump, result: Result<seed_me::Receipt, String>) {
     let (tx, rx) = std::sync::mpsc::channel();
-    a.handoff.job = Some(rx);
+    a.handoff.begin(rx);
     tx.send(result).unwrap();
     a.goal_tick();
 }
@@ -214,7 +214,7 @@ fn recorded_stacker_done_when_items_survive_reading_review_and_save() {
         visible_items(&mut a, width, height, mono);
         assert!(a.copy_text().contains(&expected));
         a.review_goal();
-        let frozen = &a.handoff.review.as_ref().unwrap().affirmation;
+        let frozen = &a.handoff.review().unwrap().affirmation;
         assert_eq!(frozen.goal, expected);
         assert_eq!(serde_json::to_value(&frozen.parts).unwrap(), *parts);
         assert_eq!(frozen.sources[0].text, original);
@@ -256,10 +256,10 @@ fn a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal()
     a.review_goal();
     assert!(records(&root).is_empty(), "opening review wrote a record");
     key(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
     assert!(records(&root).is_empty(), "Esc wrote a record");
     a.review_goal();
-    let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let shown = a.handoff.review().unwrap().affirmation.goal.clone();
     // A later reading must not leak into the record: only the confirmed block counts.
     amend_board(&mut a, |g| {
         g.parts.outcome = Some("TEST later reading".into())
@@ -313,7 +313,7 @@ fn a_session_that_never_confirms_or_fails_to_save_leaves_no_record() {
     let mut a = session(&root);
     a.review_goal();
     save(&mut a, Err("TEST helper refused".into()));
-    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.receipt().is_none());
     assert!(
         records(&root).is_empty(),
         "a failed Seed Me save wrote a record"
@@ -333,7 +333,7 @@ fn a_record_that_cannot_be_written_leaves_the_saved_goal_standing_and_says_so() 
     std::fs::write(&blocked, "TEST").unwrap();
     let mut a = session(&blocked);
     a.review_goal();
-    let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let shown = a.handoff.review().unwrap().affirmation.goal.clone();
     save(&mut a, Ok(receipt(dir.path(), &shown)));
     assert_eq!(a.saved().unwrap().goal, shown, "the goal save must stand");
     for (w, h) in [(80, 24), (100, 30), (160, 40)] {
@@ -360,7 +360,7 @@ fn an_unresolved_saved_session_leaves_the_goal_standing_without_an_unbound_recor
     let root = dir.path().join("TEST-records");
     let mut a = session(&root);
     a.review_goal();
-    let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let shown = a.handoff.review().unwrap().affirmation.goal.clone();
     let mut saved = seed_me::Receipt::test(dir.path().join("TEST-missing-session"));
     saved.goal = shown.clone();
     save(&mut a, Ok(saved));
@@ -435,7 +435,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='t
     a.submit();
     settle(&mut a);
     a.review_goal();
-    let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let goal = a.handoff.review().unwrap().affirmation.goal.clone();
     save(&mut a, Ok(receipt(dir.path(), &goal)));
     let file = records(&root).pop().unwrap();
     let record: serde_json::Value = serde_json::from_slice(&std::fs::read(file).unwrap()).unwrap();
@@ -487,14 +487,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
     first.submit();
     settle(&mut first);
     first.review_goal();
-    let goal = first
-        .handoff
-        .review
-        .as_ref()
-        .unwrap()
-        .affirmation
-        .goal
-        .clone();
+    let goal = first.handoff.review().unwrap().affirmation.goal.clone();
     save(&mut first, Ok(receipt(dir.path(), &goal)));
     let alpha_file = records(&root).pop().unwrap();
     let alpha_bytes = std::fs::read(&alpha_file).unwrap();
@@ -520,14 +513,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
             "previous goal in F5 history"
         );
         next.review_goal();
-        let goal = next
-            .handoff
-            .review
-            .as_ref()
-            .unwrap()
-            .affirmation
-            .goal
-            .clone();
+        let goal = next.handoff.review().unwrap().affirmation.goal.clone();
         let path = dir.path().join("TEST-sessions").join(name);
         std::fs::create_dir_all(&path).unwrap();
         std::fs::write(
@@ -588,7 +574,7 @@ fn the_repository_is_shown_before_confirm_kept_in_the_record_and_never_sent_to_t
     a.review_goal();
     let screen = snapshot(100, 30, &mut a, true).unwrap();
     assert!(screen.contains("made in TEST-repo-made-here"), "{screen}");
-    let shown = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let shown = a.handoff.review().unwrap().affirmation.goal.clone();
     assert!(
         !shown.contains("TEST-repo"),
         "the goal itself never names the repository"
@@ -652,7 +638,7 @@ print(json.dumps(dict(type='result',is_error=False,result=json.dumps(reply),mode
     a.submit();
     settle(&mut a);
     a.review_goal();
-    let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let goal = a.handoff.review().unwrap().affirmation.goal.clone();
     assert!(goal.contains("TEST claude goal"), "{goal}");
     save(&mut a, Ok(receipt(dir.path(), &goal)));
     let file = records(&root).pop().unwrap();

@@ -53,7 +53,7 @@ fn help_leads_with_numbered_actions_then_context() {
     a.review_goal();
     assert!(layout::help_text(&a).starts_with("Right now\nEsc closes help"));
     assert!(a.rows().is_empty(), "reviewing offers only confirm or back");
-    let frozen = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let frozen = a.handoff.review().unwrap().affirmation.goal.clone();
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::Char('h'));
     assert!(a.screen.how && a.screen.help);
@@ -79,14 +79,13 @@ fn help_leads_with_numbered_actions_then_context() {
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     assert!(screen.contains("How it works"));
     a.paste("confirm");
-    assert!(a.handoff.review.as_ref().unwrap().input.is_empty());
+    assert!(a.handoff.review().unwrap().input.is_empty());
     key(&mut a, KeyCode::Esc);
     assert!(a.screen.help && !a.screen.how);
     key(&mut a, KeyCode::Esc);
     assert!(!a.screen.help);
-    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, frozen);
-    a.handoff.review = None;
-    a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
+    assert_eq!(a.handoff.review().unwrap().affirmation.goal, frozen);
+    a.set_saved(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     let text = layout::help_text(&a);
     assert!(text.starts_with("Right now\nYour goal is saved"));
     assert!(text.contains("Esc back to the menu"));
@@ -144,7 +143,7 @@ fn exit_guard_keeps_unsent_original_and_reply_until_explicit_leave() {
         leave(&mut a);
         key(&mut a, KeyCode::Char('y'));
         assert!(a.quitting());
-        assert!(a.handoff.receipt.is_none());
+        assert!(a.handoff.receipt().is_none());
     }
 }
 #[test]
@@ -164,7 +163,7 @@ fn escape_leaves_empty_think_and_guards_unsaved_words() {
         key(&mut a, KeyCode::Esc);
         key(&mut a, KeyCode::Char('y'));
         assert_eq!(a.exit(), &Exit::Menu);
-        assert!(a.handoff.receipt.is_none() && a.handoff.job.is_none());
+        assert!(a.handoff.receipt().is_none() && !a.handoff.saving());
     }
 }
 #[test]
@@ -173,15 +172,15 @@ fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     leave(&mut a);
     assert!(a.quitting() && !a.screen.leave_prompt);
     let mut a = board();
-    a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
+    a.set_saved(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     leave(&mut a);
-    assert!(a.quitting() && !a.screen.leave_prompt && a.handoff.receipt.is_some());
+    assert!(a.quitting() && !a.screen.leave_prompt && a.handoff.receipt().is_some());
     let mut a = board();
     a.review_goal();
     let (tx, rx) = std::sync::mpsc::channel();
-    a.handoff.job = Some(rx);
+    a.handoff.begin(rx);
     leave(&mut a);
-    assert!(!a.quitting() && a.handoff.exit_after && !a.screen.leave_prompt);
+    assert!(!a.quitting() && a.handoff.leaving() && !a.screen.leave_prompt);
     assert!(a.notice.contains("back to the menu once it's saved"));
     tx.send(Err("TEST missing helper".into())).unwrap();
     a.tick();

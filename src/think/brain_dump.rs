@@ -186,17 +186,122 @@ struct Handoff {
     config: Option<seed_me::Config>,
     /// Visit-scoped named attribution, or the terminal declaration frozen for this session.
     confirmation: crate::think_record::GoalConfirmation,
-    review: Option<goal_view::Review>,
-    job: Option<std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>>,
-    receipt: Option<seed_me::Receipt>,
-    /// Esc during the save: leave once it reads back.
-    exit_after: bool,
+    save: Save,
     /// Where a confirmed session's think record goes; `None` writes none.
     record_root: Option<std::path::PathBuf>,
     /// The think record written with the save, or why it wasn't.
     record: Option<Result<crate::think_record::WrittenRecord, String>>,
     /// The repository Tinkery was started in; the review shows it and the record keeps it.
     repo: Option<crate::repo::Repo>,
+}
+
+type SaveJob = std::sync::mpsc::Receiver<Result<seed_me::Receipt, String>>;
+
+/// Where saving the goal stands. The review stays on screen while its save runs; a failed
+/// save returns to it, and only a receipt ends it.
+#[derive(Default)]
+enum Save {
+    #[default]
+    Idle,
+    Reviewing(goal_view::Review),
+    Saving {
+        review: goal_view::Review,
+        job: SaveJob,
+        /// Esc during the save: leave once it reads back.
+        leave: bool,
+    },
+    Saved(seed_me::Receipt),
+}
+
+impl Save {
+    /// The review on screen, editable while it is open or saving.
+    fn review_mut(&mut self) -> Option<&mut goal_view::Review> {
+        match self {
+            Save::Reviewing(review) | Save::Saving { review, .. } => Some(review),
+            _ => None,
+        }
+    }
+}
+
+impl Handoff {
+    /// The review on screen, including while its save runs.
+    fn review(&self) -> Option<&goal_view::Review> {
+        match &self.save {
+            Save::Reviewing(review) | Save::Saving { review, .. } => Some(review),
+            _ => None,
+        }
+    }
+    /// A save is in flight.
+    fn saving(&self) -> bool {
+        matches!(self.save, Save::Saving { .. })
+    }
+    /// Esc during the save asked to leave once it reads back.
+    fn leaving(&self) -> bool {
+        matches!(self.save, Save::Saving { leave: true, .. })
+    }
+    /// The saved goal's receipt, once the save read back.
+    fn receipt(&self) -> Option<&seed_me::Receipt> {
+        match &self.save {
+            Save::Saved(receipt) => Some(receipt),
+            _ => None,
+        }
+    }
+    /// Anything of the save is on screen: a review, a save or a receipt.
+    fn started(&self) -> bool {
+        !matches!(self.save, Save::Idle)
+    }
+    /// Open `review`; nothing is saved.
+    fn open(&mut self, review: goal_view::Review) {
+        self.save = Save::Reviewing(review);
+    }
+    /// Close an idle review; a running save or receipt stays.
+    fn close(&mut self) {
+        if matches!(self.save, Save::Reviewing(_)) {
+            self.save = Save::Idle;
+        }
+    }
+    /// The open review's save started as `job`; a save never starts without one.
+    fn begin(&mut self, job: SaveJob) {
+        debug_assert!(matches!(self.save, Save::Reviewing(_)), "no review is open");
+        if !matches!(self.save, Save::Reviewing(_)) {
+            return;
+        }
+        if let Save::Reviewing(review) = std::mem::take(&mut self.save) {
+            self.save = Save::Saving {
+                review,
+                job,
+                leave: false,
+            };
+        }
+    }
+    /// Leave once the running save reads back.
+    fn leave_after_save(&mut self) {
+        if let Save::Saving { leave, .. } = &mut self.save {
+            *leave = true;
+        }
+    }
+    /// The running save's result once it reads back. A disconnected worker is a failure.
+    fn poll(&self) -> Option<Result<seed_me::Receipt, String>> {
+        let Save::Saving { job, .. } = &self.save else {
+            return None;
+        };
+        match job.try_recv() {
+            Ok(result) => Some(result),
+            Err(std::sync::mpsc::TryRecvError::Empty) => None,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => Some(Err(
+                "Handoff worker disconnected; inspect the recovery path before retrying.".into(),
+            )),
+        }
+    }
+    /// End the save with its result: a receipt, or back to the review after a failure.
+    fn finish(&mut self, result: &Result<seed_me::Receipt, String>) {
+        if let Save::Saving { review, .. } = std::mem::take(&mut self.save) {
+            self.save = match result {
+                Ok(receipt) => Save::Saved(receipt.clone()),
+                Err(_) => Save::Reviewing(review),
+            };
+        }
+    }
 }
 
 impl Default for BrainDump {
@@ -273,7 +378,7 @@ impl BrainDump {
     }
     /// The goal saved in this visit, if any.
     pub fn saved(&self) -> Option<&seed_me::Receipt> {
-        self.handoff.receipt.as_ref()
+        self.handoff.receipt()
     }
     /// Ask to go back. Never replaces a request to open tend.
     fn leave(&mut self) {
@@ -284,14 +389,14 @@ impl BrainDump {
     /// Stand in for a saved goal, as if the handoff had read back.
     #[cfg(test)]
     pub(crate) fn set_saved(&mut self, receipt: seed_me::Receipt) {
-        self.handoff.receipt = Some(receipt);
+        self.handoff.save = Save::Saved(receipt);
     }
     fn quitting(&self) -> bool {
         self.exit == Exit::Menu
     }
     /// A model call or a save is in flight.
     pub fn running(&self) -> bool {
-        self.shaping.job.is_some() || self.handoff.job.is_some()
+        self.shaping.job.is_some() || self.handoff.saving()
     }
     fn reading_line_style(&self, line: &str, palette: Palette) -> ratatui::style::Style {
         if self
@@ -565,10 +670,7 @@ impl BrainDump {
     /// take it stops the take and sends its text once.
     pub fn submit(&mut self) {
         self.shaping.encoded_bytes = None;
-        if self.handoff.receipt.is_some()
-            || self.handoff.review.is_some()
-            || self.handoff.job.is_some()
-        {
+        if self.handoff.started() {
             return;
         }
         if self.voice_active() {
@@ -740,7 +842,7 @@ impl BrainDump {
     }
     // A size warning hides the review: retain its words and read position until it is visible.
     fn review_below_minimum(&self) -> bool {
-        self.handoff.review.is_some()
+        self.handoff.review().is_some()
             && (self.screen.area.width < MIN_WIDTH || self.screen.area.height < MIN_HEIGHT)
     }
     /// Bracketed paste into whatever has focus. Never sends.
@@ -805,7 +907,7 @@ impl BrainDump {
     }
     /// Whether the copy reached the terminal's clipboard, so the notice can say so.
     pub fn copy_result(&mut self, sent: bool) {
-        self.notice = match (sent, self.handoff.receipt.is_some()) {
+        self.notice = match (sent, self.handoff.receipt().is_some()) {
             (true, true) => "Copied.",
             (true, false) => "Copy sent; host may require clipboard permission.",
             (false, true) => "Clipboard send failed; goal retained.",
@@ -832,14 +934,14 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::Esc
-            && self.handoff.job.is_some()
+            && self.handoff.saving()
             && !self.screen.help
             && key.modifiers.is_empty()
         {
             if let Some(voice) = &mut self.voice {
                 voice.close();
             }
-            self.handoff.exit_after = true;
+            self.handoff.leave_after_save();
             self.notice = "Saving your goal; back to the menu once it's saved.".into();
             return;
         }
@@ -852,7 +954,7 @@ impl BrainDump {
         {
             return;
         }
-        if self.handoff.receipt.is_some() {
+        if self.handoff.receipt().is_some() {
             if key.kind == KeyEventKind::Repeat || !key.modifiers.is_empty() {
                 return;
             }
@@ -908,7 +1010,7 @@ impl BrainDump {
             self.screen.original_scroll = 0;
             return;
         }
-        if self.handoff.review.is_some()
+        if self.handoff.review().is_some()
             && !self.screen.help
             && !self.screen.details
             && !self.screen.original
@@ -1090,7 +1192,7 @@ impl BrainDump {
         if self.screen.board_focus {
             self.focus_writing();
         } else if !self.conversation.sources().is_empty()
-            && self.handoff.review.is_none()
+            && self.handoff.review().is_none()
             && !self.screen.show_extractions
         {
             self.screen.board_focus = true;
@@ -1130,7 +1232,7 @@ impl BrainDump {
             return None;
         }
         if !self.screen.board_focus {
-            if self.handoff.review.is_some() {
+            if self.handoff.review().is_some() {
                 return None;
             }
             return self.input.selected_text().map(str::to_owned);
@@ -1189,7 +1291,7 @@ impl BrainDump {
             voice.close();
         }
         if self.screen.leave_prompt
-            || self.handoff.receipt.is_some()
+            || self.handoff.receipt().is_some()
             || (self.input.text.is_empty() && self.conversation.is_empty() && !self.running())
         {
             self.leave();
@@ -1232,17 +1334,17 @@ impl BrainDump {
             }
             return;
         }
-        if self.handoff.review.is_some() || self.handoff.receipt.is_some() {
+        if self.handoff.review().is_some() || self.handoff.receipt().is_some() {
             self.screen.input_drag = false;
-            if self.handoff.job.is_none()
-                && self.handoff.review.is_some()
+            if !self.handoff.saving()
+                && self.handoff.review().is_some()
                 && event.kind == MouseEventKind::Down(MouseButton::Left)
                 && self
                     .screen
                     .back_button
                     .contains((event.column, event.row).into())
             {
-                self.handoff.review = None;
+                self.handoff.close();
                 self.notice = "Review closed; nothing confirmed.".into();
                 return;
             }
@@ -1256,7 +1358,7 @@ impl BrainDump {
             {
                 self.handle_source_mouse(event);
             }
-            if self.handoff.receipt.is_some()
+            if self.handoff.receipt().is_some()
                 && self
                     .screen
                     .agent_area
@@ -1274,7 +1376,7 @@ impl BrainDump {
             }
             return;
         }
-        if self.handoff.job.is_some() {
+        if self.handoff.saving() {
             return;
         }
         if event.kind == MouseEventKind::Down(MouseButton::Left)
@@ -1567,11 +1669,7 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             }
         }
     }
-    if !app.screen.board_focus
-        && !app.screen.original
-        && !app.screen.help
-        && app.handoff.review.is_none()
-        && app.handoff.receipt.is_none()
+    if !app.screen.board_focus && !app.screen.original && !app.screen.help && !app.handoff.started()
     {
         frame.set_cursor_position((
             app.screen.input_area.x

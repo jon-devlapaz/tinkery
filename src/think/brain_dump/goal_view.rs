@@ -102,10 +102,7 @@ impl BrainDump {
         ) {
             return Err("The launch declaration is frozen for this session.".into());
         }
-        if self.handoff.review.is_some()
-            || self.handoff.job.is_some()
-            || self.handoff.receipt.is_some()
-        {
+        if self.handoff.started() {
             return Err(
                 "Set goal confirmation attribution before review; the displayed context is frozen."
                     .into(),
@@ -117,8 +114,7 @@ impl BrainDump {
     /// Attribution is frozen during review; otherwise it is this visit's supplied context.
     pub(super) fn goal_confirmation(&self) -> &record::GoalConfirmation {
         self.handoff
-            .review
-            .as_ref()
+            .review()
             .map_or(&self.handoff.confirmation, |r| &r.affirmation.confirmation)
     }
     /// Saves confirmed goals under `root` or the checked HOME default,
@@ -151,11 +147,7 @@ impl BrainDump {
     /// Whether normal Think can open review now. Opening help or observing this starts nothing;
     /// the entry point still checks and explains each blocker when called directly.
     pub(super) fn can_review(&self) -> bool {
-        !self.voice_active()
-            && self.handoff.receipt.is_none()
-            && self.handoff.job.is_none()
-            && self.handoff.review.is_none()
-            && self.review_candidate().is_ok()
+        !self.voice_active() && !self.handoff.started() && self.review_candidate().is_ok()
     }
 
     /// The current board and its displayed goal, or the same refusal review entry uses.
@@ -210,8 +202,7 @@ impl BrainDump {
     ) -> Result<record::WrittenRecord, String> {
         let affirmation = &self
             .handoff
-            .review
-            .as_ref()
+            .review()
             .ok_or("No confirmed goal to record.")?
             .affirmation;
         let origin = self.host.origin();
@@ -238,7 +229,7 @@ impl BrainDump {
             self.refuse("Stop or cancel voice before reviewing a goal.");
             return;
         }
-        if self.handoff.receipt.is_some() || self.handoff.job.is_some() {
+        if self.handoff.receipt().is_some() || self.handoff.saving() {
             return;
         }
         let (g, goal) = match self.review_candidate() {
@@ -273,7 +264,7 @@ impl BrainDump {
         self.screen.drag_anchor = None;
         self.notice =
             "Nothing saved. Review the goal and remaining questions before affirming.".into();
-        self.handoff.review = Some(Review {
+        self.handoff.open(Review {
             affirmation,
             input: String::new(),
             scroll: 0,
@@ -281,52 +272,42 @@ impl BrainDump {
         });
     }
     pub(super) fn goal_tick(&mut self) {
-        let result = self
-            .handoff
-            .job
-            .as_ref()
-            .and_then(|rx| match rx.try_recv() {
-                Ok(r) => Some(r),
-                Err(mpsc::TryRecvError::Empty) => None,
-                Err(mpsc::TryRecvError::Disconnected) => Some(Err(
-                    "Handoff worker disconnected; inspect the recovery path before retrying."
-                        .into(),
-                )),
-            });
-        if let Some(result) = result {
-            self.handoff.job = None;
-            if self.handoff.exit_after {
-                self.leave();
+        let Some(result) = self.handoff.poll() else {
+            return;
+        };
+        if self.handoff.leaving() {
+            self.leave();
+        }
+        if let Ok(receipt) = &result {
+            // The record keeps the goal as confirmed on the review, so it is written first.
+            self.handoff.record = self
+                .handoff
+                .record_root
+                .clone()
+                .map(|root| self.write_record(&root, receipt));
+        }
+        self.handoff.finish(&result);
+        match result {
+            Ok(_) => {
+                self.notice = match &self.handoff.record {
+                    Some(Err(_)) => RECORD_FAILED.into(),
+                    Some(Ok(record)) => record.notice().unwrap_or("Saved.").into(),
+                    None => "Saved.".into(),
+                };
+                self.screen.paper_scroll = 0;
             }
-            match result {
-                Ok(receipt) => {
-                    self.handoff.record = self
-                        .handoff
-                        .record_root
-                        .clone()
-                        .map(|root| self.write_record(&root, &receipt));
-                    self.notice = match &self.handoff.record {
-                        Some(Err(_)) => RECORD_FAILED.into(),
-                        Some(Ok(record)) => record.notice().unwrap_or("Saved.").into(),
-                        None => "Saved.".into(),
-                    };
-                    self.handoff.review = None;
-                    self.screen.paper_scroll = 0;
-                    self.handoff.receipt = Some(receipt);
-                }
-                Err(error) => {
-                    self.notice = format!(
-                        "{HANDOFF_FAILED} {error}{}",
-                        self.handoff
-                            .config
-                            .as_ref()
-                            .and_then(Config::recovery_path)
-                            .map_or(String::new(), |p| format!(
-                                " Recovery session: {}",
-                                p.display()
-                            ))
-                    );
-                }
+            Err(error) => {
+                self.notice = format!(
+                    "{HANDOFF_FAILED} {error}{}",
+                    self.handoff
+                        .config
+                        .as_ref()
+                        .and_then(Config::recovery_path)
+                        .map_or(String::new(), |p| format!(
+                            " Recovery session: {}",
+                            p.display()
+                        ))
+                );
             }
         }
     }
@@ -334,7 +315,7 @@ impl BrainDump {
     /// No session is read here: the exit receipt derives its next step when printed.
     /// `None` when nothing was saved or attempted.
     pub fn finish_handoff(&mut self) -> Option<seed_me::ExitReceipt> {
-        if let Some(receipt) = &self.handoff.receipt {
+        if let Some(receipt) = self.handoff.receipt() {
             return Some(seed_me::ExitReceipt::Saved {
                 receipt: receipt.clone(),
                 record: self.record_line(),
@@ -347,14 +328,14 @@ impl BrainDump {
             .map(|session| seed_me::ExitReceipt::Incomplete { session })
     }
     pub(super) fn goal_key(&mut self, key: KeyEvent) -> bool {
-        if self.handoff.job.is_some() {
+        if self.handoff.saving() {
             self.notice = "Saving your goal; this can't be undone. One moment.".into();
             return true;
         }
-        if self.handoff.receipt.is_some() {
+        if self.handoff.receipt().is_some() {
             match key.code {
                 KeyCode::Char('s') if key.modifiers.is_empty() => {
-                    if let Some(receipt) = &self.handoff.receipt {
+                    if let Some(receipt) = self.handoff.receipt() {
                         self.exit = Exit::Tend(receipt.session.clone());
                     }
                 }
@@ -368,11 +349,11 @@ impl BrainDump {
             }
             return true;
         }
-        let Some(review) = self.handoff.review.as_mut() else {
+        let Some(review) = self.handoff.save.review_mut() else {
             return false;
         };
         match key.code {
-            KeyCode::Esc => self.handoff.review = None,
+            KeyCode::Esc => self.handoff.close(),
             KeyCode::PageDown | KeyCode::Down => {
                 review.scroll = review.scroll.saturating_add(5).min(review.max)
             }
@@ -393,7 +374,7 @@ impl BrainDump {
                 std::thread::spawn(move || {
                     let _ = tx.send(config.confirm_as(affirmation, &confirmation));
                 });
-                self.handoff.job = Some(rx);
+                self.handoff.begin(rx);
                 self.notice = "Saving your goal…".into();
             }
             KeyCode::Enter if review.scroll < review.max => {
@@ -405,10 +386,10 @@ impl BrainDump {
         true
     }
     pub(super) fn goal_paste(&mut self, text: &str) -> bool {
-        if self.handoff.job.is_some() || self.handoff.receipt.is_some() {
+        if self.handoff.saving() || self.handoff.receipt().is_some() {
             return true;
         }
-        if let Some(review) = self.handoff.review.as_mut() {
+        if let Some(review) = self.handoff.save.review_mut() {
             if text.chars().all(|c| !c.is_control()) && review.input.len() + text.len() <= 32 {
                 review.input.push_str(text);
             }
@@ -438,7 +419,7 @@ pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Pa
 
 pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let inner = app.screen.agent_area;
-    if let Some(receipt) = &app.handoff.receipt {
+    if let Some(receipt) = app.handoff.receipt() {
         let record_notice = app
             .handoff
             .record
@@ -467,7 +448,8 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         );
         return;
     }
-    let Some(review) = app.handoff.review.as_mut() else {
+    let saving = app.handoff.saving();
+    let Some(review) = app.handoff.save.review_mut() else {
         return;
     };
     // One message row group (a refusal, the save in progress, a failed save, else the
@@ -482,7 +464,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     );
     let message = if app.screen.refused.is_some() {
         Some(app.notice.clone())
-    } else if app.handoff.job.is_some() {
+    } else if saving {
         Some("Saving…".into())
     } else if app.notice.starts_with(HANDOFF_FAILED) {
         Some(HANDOFF_FAILED_TEXT.into())
@@ -589,7 +571,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
             .style(palette.jade),
         rows[1],
     );
-    if app.handoff.job.is_none() {
+    if !app.handoff.saving() {
         app.screen.back_button = Rect::new(rows[1].x, rows[1].bottom() - 1, 4, 1);
         frame.render_widget(
             Paragraph::new("Back").style(palette.muted),

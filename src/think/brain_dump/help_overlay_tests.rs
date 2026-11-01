@@ -29,30 +29,19 @@ fn review_and_receipt_help_cannot_confirm_copy_or_open_tend() {
     app.review_goal();
     snapshot(100, 30, &mut app, true).unwrap();
     app.paste("conf");
-    let frozen = app
-        .handoff
-        .review
-        .as_ref()
-        .unwrap()
-        .affirmation
-        .goal
-        .clone();
+    let frozen = app.handoff.review().unwrap().affirmation.goal.clone();
     key(&mut app, KeyCode::F(1));
     app.paste("irm");
     for code in [KeyCode::Enter, KeyCode::F(2), KeyCode::F(3), KeyCode::F(8)] {
         key(&mut app, code);
     }
-    assert_eq!(app.handoff.review.as_ref().unwrap().input, "conf");
-    assert_eq!(
-        app.handoff.review.as_ref().unwrap().affirmation.goal,
-        frozen
-    );
+    assert_eq!(app.handoff.review().unwrap().input, "conf");
+    assert_eq!(app.handoff.review().unwrap().affirmation.goal, frozen);
     assert!(app.saved().is_none());
     key(&mut app, KeyCode::Esc);
-    assert!(!app.screen.help && app.handoff.review.is_some() && !app.quitting());
-    app.handoff.review = None;
-    app.handoff.receipt = Some(seed_me::Receipt::test("/tmp/tinkery-TEST-overlay".into()));
-    let receipt = app.handoff.receipt.as_ref().unwrap().text();
+    assert!(!app.screen.help && app.handoff.review().is_some() && !app.quitting());
+    app.set_saved(seed_me::Receipt::test("/tmp/tinkery-TEST-overlay".into()));
+    let receipt = app.handoff.receipt().unwrap().text();
     key(&mut app, KeyCode::F(1));
     for code in [
         KeyCode::Char('c'),
@@ -64,7 +53,7 @@ fn review_and_receipt_help_cannot_confirm_copy_or_open_tend() {
     }
     assert!(app.take_copy_request().is_none());
     assert_eq!(app.exit(), &Exit::Stay);
-    assert_eq!(app.handoff.receipt.as_ref().unwrap().text(), receipt);
+    assert_eq!(app.handoff.receipt().unwrap().text(), receipt);
     key(&mut app, KeyCode::Esc);
     key(&mut app, KeyCode::Char('c'));
     assert!(app.take_copy_request().is_none());
@@ -288,7 +277,7 @@ fn help_blocks_hidden_actions_and_typing_without_confirming_or_sending() {
         app.paste("confirm");
         assert!(app.screen.help);
         assert!(!app.screen.original && !app.screen.details && !app.add_more);
-        assert!(!app.running() && app.handoff.review.is_none() && app.saved().is_none());
+        assert!(!app.running() && app.handoff.review().is_none() && app.saved().is_none());
         assert_eq!(app.input.text, input);
         assert!(app.take_copy_request().is_none());
     }
