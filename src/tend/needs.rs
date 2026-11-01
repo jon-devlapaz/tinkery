@@ -101,7 +101,7 @@ impl Links {
             return summary;
         }
         let mut count = 0;
-        let mut all_ended = true;
+        let mut all_completed = true;
         for link in self.entries.iter().filter(|link| link.goal == goal) {
             count += 1;
             let mut found = sessions
@@ -112,16 +112,16 @@ impl Links {
                     summary
                         .titles
                         .push(session.goal.lines().next().unwrap_or("").into());
-                    all_ended &= session.stage == Stage::Ended;
+                    all_completed &= session.stage == Stage::Completed;
                 }
                 _ => {
                     summary.missing += 1;
-                    all_ended = false;
+                    all_completed = false;
                 }
             }
         }
         summary.titles.sort();
-        summary.ready = count > 0 && all_ended;
+        summary.ready = count > 0 && all_completed;
         summary
     }
 }
@@ -531,12 +531,12 @@ mod tests {
     }
 
     #[test]
-    fn readiness_needs_at_least_one_found_ended_session() {
+    fn readiness_needs_at_least_one_found_completed_session() {
         let (_tmp, store, _root) = fixture();
         let mut sessions = vec![session(
             Some("need"),
             "Ended title\nWhy: original",
-            Stage::Ended,
+            Stage::Completed,
         )];
         assert_eq!(
             Links::default().summary("goal", &sessions),
@@ -561,14 +561,21 @@ mod tests {
             Stage::SeedUnchecked,
             Stage::Unknown,
             Stage::Simulated,
+            Stage::Stopped,
         ] {
             sessions[0].stage = stage;
-            assert!(!links.summary("goal", &sessions).ready);
+            assert!(!links.summary("goal", &sessions).ready, "{stage:?}");
         }
-        sessions[0].stage = Stage::Ended;
+        sessions[0].stage = Stage::Completed;
+        let both = store.toggle("goal", "stopped").unwrap();
+        let stopped = session(Some("stopped"), "Stopped title", Stage::Stopped);
+        let summary = both.summary("goal", &[sessions[0].clone(), stopped]);
+        assert_eq!(summary.titles, ["Ended title", "Stopped title"]);
+        assert!(!summary.ready, "a stopped need is not finished");
+        store.toggle("goal", "stopped").unwrap();
         let links = store.toggle("goal", "unknown-id").unwrap();
-        let unknown = session(Some("another-id"), "unknown-id", Stage::Ended);
-        let no_id = session(None, "unknown-id", Stage::Ended);
+        let unknown = session(Some("another-id"), "unknown-id", Stage::Completed);
+        let no_id = session(None, "unknown-id", Stage::Completed);
         sessions.extend([unknown, no_id]);
         assert_eq!(
             links.summary("goal", &sessions),
@@ -589,7 +596,7 @@ mod tests {
     fn duplicate_session_ids_are_not_guessed_and_titles_stay_verbatim() {
         let (_tmp, store, _root) = fixture();
         let links = store.toggle("goal", "need").unwrap();
-        let session = session(Some("need"), "  界 title  \nWhy: intact", Stage::Ended);
+        let session = session(Some("need"), "  界 title  \nWhy: intact", Stage::Completed);
         assert_eq!(
             links.summary("goal", std::slice::from_ref(&session)).titles,
             ["  界 title  "]
@@ -608,11 +615,11 @@ mod tests {
     fn duplicate_source_ids_cannot_supply_a_summary() {
         let (_tmp, store, _root) = fixture();
         let links = store.set("goal", "need", true).unwrap().0;
-        for duplicate_stage in [Stage::GoalSaved, Stage::Ended] {
+        for duplicate_stage in [Stage::GoalSaved, Stage::Completed] {
             let sessions = vec![
                 session(Some("goal"), "First source", Stage::GoalSaved),
                 session(Some("goal"), "Second source", duplicate_stage),
-                session(Some("need"), "Ended dependency", Stage::Ended),
+                session(Some("need"), "Ended dependency", Stage::Completed),
             ];
             assert_eq!(
                 links.summary("goal", &sessions),

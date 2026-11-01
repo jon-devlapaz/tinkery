@@ -18,8 +18,10 @@ pub enum Stage {
     SeedDrafted,
     /// Active, with a seed declaring confirmation; only the helper can verify it.
     SeedUnchecked,
-    /// Completed or stopped; nothing to continue.
-    Ended,
+    /// Finished: the only stage that satisfies a need.
+    Completed,
+    /// Abandoned before finishing; nothing to continue, and no need is met by it.
+    Stopped,
     /// The files say something this module doesn't recognise. Never guessed.
     Unknown,
     /// A practice session's seed, not a real one.
@@ -30,7 +32,8 @@ impl Stage {
     /// it doesn't recognise is `Unknown`, never a guess.
     pub fn from_files(status: &str, seed: Option<&str>) -> Self {
         match (status, seed.and_then(|s| s.lines().next())) {
-            ("completed" | "stopped", _) => Self::Ended,
+            ("completed", _) => Self::Completed,
+            ("stopped", _) => Self::Stopped,
             ("active", None) => Self::GoalSaved,
             ("active", Some("status: draft")) => Self::SeedDrafted,
             ("active", Some("status: confirmed for intake")) => Self::SeedUnchecked,
@@ -44,10 +47,15 @@ impl Stage {
             Self::GoalSaved => "goal saved",
             Self::SeedDrafted => "seed drafted",
             Self::SeedUnchecked => "seed needs checking",
-            Self::Ended => "ended",
+            Self::Completed => "completed",
+            Self::Stopped => "stopped",
             Self::Unknown => "status unknown",
             Self::Simulated => "practice seed",
         }
+    }
+    /// Over, whether completed or stopped: nothing to continue.
+    pub fn ended(self) -> bool {
+        matches!(self, Self::Completed | Self::Stopped)
     }
     /// Whether Shape can open it: only a live session with a real goal.
     pub fn can_shape(self) -> bool {
