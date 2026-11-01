@@ -314,8 +314,13 @@ pub fn pi_models(program: &Path) -> Result<Vec<String>, String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .process_group(0);
-    let mut child =
-        start(&mut command).map_err(|error| format!("Cannot list Pi's models: {error}"))?;
+    let mut child = start(&mut command).map_err(|error| match error.kind() {
+        std::io::ErrorKind::NotFound => format!(
+            "Pi isn't installed: no `{}` on PATH. Install Pi and log in.",
+            program.display()
+        ),
+        _ => format!("Cannot list Pi's models: {error}"),
+    })?;
     let overflow = Arc::new(AtomicBool::new(false));
     let stdout = read_pipe(child.stdout.take().unwrap(), LIMIT, "Pi", overflow);
     let started = Instant::now();
@@ -1250,7 +1255,7 @@ openai-codex  gpt-6.1-terra               500K     128K     yes       yes   \n";
         for (program, why) in [
             (failing, "couldn't list its models"),
             (empty, "listed no models"),
-            (PathBuf::from("/TEST-no-such-pi"), "Cannot list Pi's models"),
+            (PathBuf::from("/TEST-no-such-pi"), "Pi isn't installed"),
         ] {
             let error = pi_models(&program).unwrap_err();
             assert!(error.contains(why), "{error}");
