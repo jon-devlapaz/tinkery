@@ -64,7 +64,8 @@ pub struct Summary {
     pub titles: Vec<String>,
     /// Needs without a uniquely found session id; never guessed from a title or folder.
     pub missing: usize,
-    /// At least one need, with every need uniquely found and ended. No needs is false.
+    /// At least one need, with every need uniquely found and completed. A stopped need,
+    /// or no needs, is false.
     pub ready: bool,
 }
 

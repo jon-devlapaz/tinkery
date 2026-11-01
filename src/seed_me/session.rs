@@ -230,6 +230,18 @@ mod identity_tests {
     use super::*;
 
     #[test]
+    fn completed_and_stopped_are_both_over_but_say_which() {
+        for (status, stage, label) in [
+            ("completed", Stage::Completed, "completed"),
+            ("stopped", Stage::Stopped, "stopped"),
+        ] {
+            let read = Stage::from_files(status, Some("status: confirmed for intake"));
+            assert_eq!((read, read.label()), (stage, label));
+            assert!(read.ended() && !read.can_shape() && read.next().is_none());
+        }
+    }
+
+    #[test]
     fn file_only_seed_status_never_claims_verified_readiness() {
         let root = tempfile::tempdir().unwrap();
         let ledger = root.path().join("ledger.json");
