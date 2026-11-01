@@ -146,8 +146,9 @@ python3 _system/scripts/sdlc.py status "$run"
 ```
 
 `complete` records the report; it proves nothing passed. `status` lists what is still yours:
-checks the worker changed (`Stage 3: stale`, with the `decide` command to fill in) and checks
-marked `operator attestation required` (record each with `mark`, `--reviewer` and `--source`).
+checks the worker changed (`Stage 3: stale`, with the `decide` command to fill in), then each
+`pending` item, recorded with `mark` and `--evidence` (plus `--reviewer` and `--source` when it
+says `operator attestation required`).
 Only you record these; an agent's record is never your approval. Then run the checks:
 
 ```sh

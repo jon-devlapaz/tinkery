@@ -104,6 +104,8 @@ def main():
         assert 'cargo +stable build --locked --release' in install
         # A fresh user with no Git identity learns it here, not from step 2's failing commit.
         anonymous = {k: v for k, v in env.items() if not k.startswith(('GIT_AUTHOR', 'GIT_COMMITTER'))}
+        for host_config in ('XDG_CONFIG_HOME', 'GIT_CONFIG_GLOBAL'):
+            anonymous.pop(host_config, None)
         anonymous.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_COUNT='1',
                          GIT_CONFIG_KEY_0='user.useConfigOnly', GIT_CONFIG_VALUE_0='true')
         out = shell(prelude + check, anonymous, root, waiting=True)
