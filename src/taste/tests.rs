@@ -1,5 +1,5 @@
 use super::*;
-use read::Item;
+use read::{Check, Item};
 
 fn row() -> ResultRow {
     ResultRow {
@@ -17,7 +17,7 @@ fn row() -> ResultRow {
         seed: "TEST-digest".into(),
         items: vec![Item {
             label: "TEST check".into(),
-            state: "pending".into(),
+            state: Check::Pending,
             kind: "automated".into(),
             evidence: "TEST evidence".into(),
         }],
@@ -177,14 +177,20 @@ fn list_uses_counts_and_detail_keeps_every_source_word_with_evidence_behind_e() 
         let mut taste = ready();
         let mut evidence = taste.rows[0].items[0].clone();
         evidence.evidence = "/TEST/log; argv: TEST-command; receipt TEST-hash".into();
-        taste.rows[0].items = ["pass", "fail", "pending", "stale", "unknown"]
-            .into_iter()
-            .map(|state| Item {
-                label: format!("TEST exact {state} wording"),
-                state: state.into(),
-                ..evidence.clone()
-            })
-            .collect();
+        taste.rows[0].items = [
+            Check::Pass,
+            Check::Fail,
+            Check::Pending,
+            Check::Stale,
+            Check::NoneReported,
+        ]
+        .into_iter()
+        .map(|state| Item {
+            label: format!("TEST exact {state} wording"),
+            state,
+            ..evidence.clone()
+        })
+        .collect();
         taste.rows[0].gaps = vec!["TEST gap /TEST/source; argv: TEST-gap-command".into()];
         let full = result_lines(&taste.rows[0]).join("\n");
         let copies = ['a', 'c'].map(|action| handoff(&taste.rows[0], action).unwrap());
@@ -404,8 +410,8 @@ fn next_suggestion_preserves_source_punctuation_without_adding_another_stop() {
         let mut r = row();
         r.gates.clear();
         r.items[0].label = label.into();
-        for (state, verb) in [("stale", "Resolve"), ("pending", "Check")] {
-            r.items[0].state = state.into();
+        for (state, verb) in [(Check::Stale, "Resolve"), (Check::Pending, "Check")] {
+            r.items[0].state = state;
             let pause = next::suggest(&r);
             assert_eq!(pause.next, format!("Guess · Next: {verb} {sentence}"));
             assert_eq!(
@@ -415,7 +421,7 @@ fn next_suggestion_preserves_source_punctuation_without_adding_another_stop() {
             assert_eq!(r.items[0].label, label);
             assert!(pause.draft.text.ends_with(goal(&r.goal)));
         }
-        r.items[0].state = "pass".into();
+        r.items[0].state = Check::Pass;
         r.gates.push(label.into());
         let pause = next::suggest(&r);
         assert_eq!(
@@ -434,20 +440,20 @@ fn next_suggestion_preserves_source_punctuation_without_adding_another_stop() {
 fn pause_prefers_failed_or_stale_checks_and_invents_no_next_feature() {
     let mut r = row();
     r.gates.clear();
-    for state in ["fail", "stale"] {
-        r.items[0].state = state.into();
+    for state in [Check::Fail, Check::Stale] {
+        r.items[0].state = state;
         let pause = next::suggest(&r);
         assert!(pause.next.contains("Resolve TEST check"));
         assert!(pause.lines.join(" ").contains("Decision: stop and repair"));
     }
-    r.items[0].state = "pass".into();
+    r.items[0].state = Check::Pass;
     r.gates.clear();
     let pause = next::suggest(&r);
     assert!(pause.lines.join(" ").contains("Decision: proceed"));
     assert!(pause.next.contains("Observe “TEST café”"));
     assert!(pause.next.contains("choose the next slice from this goal"));
     assert!(!pause.draft.text.contains("Add a feature"));
-    r.items[0].state = "pending".into();
+    r.items[0].state = Check::Pending;
     let pending = next::suggest(&r);
     assert_eq!(pending.next, "Guess · Next: Check TEST check.");
     assert!(pending.lines.join(" ").contains("Decision: proceed"));
@@ -456,11 +462,11 @@ fn pause_prefers_failed_or_stale_checks_and_invents_no_next_feature() {
 #[test]
 fn absent_ci_is_unknown_and_never_stop_when_source_checks_pass_and_nothing_is_owed() {
     let mut r = row();
-    r.items[0].state = "pass".into();
+    r.items[0].state = Check::Pass;
     r.gates.clear();
     r.items.push(Item {
         label: "PR checks".into(),
-        state: "unknown (none reported)".into(),
+        state: Check::NoneReported,
         kind: "GitHub".into(),
         evidence: "No PR-head checks reported".into(),
     });
@@ -521,7 +527,7 @@ fn next_line_stays_single_and_italic_in_both_palettes() {
 fn hanging_check_words_and_final_metadata_remain_reachable_past_u16_rows() {
     let mut taste = ready();
     taste.detail = true;
-    taste.rows[0].items[0].state = "pending (failure revision unknown or different)".into();
+    taste.rows[0].items[0].state = Check::FailureRevisionDiffers;
     taste.rows[0].items[0].label = format!("{}TEST-LAST-CHECK-WORD", "word ".repeat(500_000));
     let rows = view::detail(
         &taste.rows[0],
