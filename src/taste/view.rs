@@ -31,7 +31,15 @@ fn state(item: &Item) -> State {
         Check::Fail => State::Failed,
         Check::Stale => State::Stale,
         Check::NoneReported | Check::ReceiptsMissing => State::Unknown,
-        _ => State::Waiting,
+        Check::Pending
+        | Check::NotSuccessful
+        | Check::MatchingEvidenceMissing
+        | Check::AttestationEvidenceMissing
+        | Check::InspectExternally
+        | Check::NotActivated
+        | Check::RevisionUnknown
+        | Check::FailureRevisionDiffers
+        | Check::EvidenceUnavailable => State::Waiting,
     }
 }
 

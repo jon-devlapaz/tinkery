@@ -68,7 +68,7 @@ impl std::fmt::Display for Check {
 pub(super) struct Item {
     /// Exact source expectation or check name.
     pub(super) label: String,
-    /// pass, fail, stale, pending or unknown with any honest gap.
+    /// Where the condition stands, with any honest gap.
     pub(super) state: Check,
     /// Evidence owner, not an acceptance claim.
     pub(super) kind: String,
@@ -472,6 +472,39 @@ pub(super) fn collect(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn every_check_keeps_its_exact_shown_and_copied_words() {
+        use super::Check::*;
+        for (check, words) in [
+            (Pass, "pass"),
+            (PassRecheck, "pass (may need recheck)"),
+            (Fail, "fail"),
+            (Stale, "stale"),
+            (Pending, "pending"),
+            (NotSuccessful, "pending (not a successful check)"),
+            (
+                MatchingEvidenceMissing,
+                "pending (matching evidence missing)",
+            ),
+            (
+                AttestationEvidenceMissing,
+                "pending (attestation evidence missing)",
+            ),
+            (InspectExternally, "pending (inspect externally)"),
+            (NotActivated, "pending (not activated)"),
+            (RevisionUnknown, "pending (result revision unknown)"),
+            (
+                FailureRevisionDiffers,
+                "pending (failure revision unknown or different)",
+            ),
+            (EvidenceUnavailable, "pending (evidence unavailable)"),
+            (NoneReported, "unknown (none reported)"),
+            (ReceiptsMissing, super::MISSING_RECEIPTS),
+        ] {
+            assert_eq!(check.to_string(), words);
+        }
+    }
+
     use super::*;
     use serde_json::json;
 
