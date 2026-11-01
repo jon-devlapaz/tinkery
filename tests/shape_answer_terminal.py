@@ -672,6 +672,8 @@ def case(name, width=100, height=30):
                 run.send(b'\r', 'F2 confirms the seed; Enter does not add a line.')
                 run.wait('type confirm, then F2')
                 run.type('confirm')
+                # The placeholder already contains "confirm"; wait for the edited field.
+                run.wait('your words confirm')
                 assert 'type confirm, then F2' not in run.flat(), run.screen.text()
                 run.send(b'\r' + F1, 'Read the seed, type confirm, then F2')
                 run.send(b'\x1b', 'your words confirm')
