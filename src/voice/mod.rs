@@ -168,12 +168,18 @@ impl Voice {
     fn command(&mut self, command: Command) {
         if let Err(failure) = self.host.send(command) {
             self.clear_take();
-            self.available = false;
             self.reject(failure);
             self.setup.prompt = false;
-            self.host.shutdown();
-            self.phase = Phase::Closed;
+            self.shut();
         }
+    }
+    /// Stops the helper: Closed, unavailable, with no deadline left to fire. The voice key
+    /// restarts it.
+    fn shut(&mut self) {
+        self.host.shutdown();
+        self.available = false;
+        self.deadline = None;
+        self.phase = Phase::Closed;
     }
     /// The voice key: starts a take, or stops the running one. When voice isn't ready it says
     /// why, or asks to set up, instead.
@@ -236,10 +242,8 @@ impl Voice {
     /// Ends voice for this visit: cancels the take and stops the helper. Also runs on drop.
     pub fn close(&mut self) {
         self.cancel();
-        self.host.shutdown();
+        self.shut();
         self.setup.reset();
-        self.available = false;
-        self.phase = Phase::Closed;
         self.notice.clear();
         self.failure = None;
     }
@@ -341,9 +345,7 @@ impl Voice {
                     self.reject(Failure::new(&kind, &message));
                     if global {
                         self.setup.prompt = false;
-                        self.host.shutdown();
-                        self.available = false;
-                        self.phase = Phase::Closed;
+                        self.shut();
                     }
                 }
                 _ => {}

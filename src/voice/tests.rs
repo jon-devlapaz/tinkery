@@ -329,3 +329,34 @@ fn an_invalid_setup_reply_closes_voice_so_the_key_retries() {
     voice.tick(now);
     assert!(voice.available(), "the restarted helper becomes ready");
 }
+#[test]
+fn a_closed_voice_keeps_its_error_past_the_old_loading_deadline() {
+    for event in [
+        Event::NeedsInstall {
+            size_mb: 0,
+            message: "TEST install".into(),
+        },
+        Event::Ready { version: 99 },
+        Event::Error {
+            take: None,
+            kind: "mic".into(),
+            message: "TEST microphone missing".into(),
+        },
+    ] {
+        let fake = Rc::new(RefCell::new(Fake::default()));
+        fake.borrow_mut().events.push_back(event);
+        let mut voice = Voice::new(Box::new(fake.clone()));
+        let now = Instant::now();
+        voice.tick(now);
+        let notice = voice.notice().to_owned();
+        let shutdowns = fake.borrow().closed;
+        voice.tick(now + Duration::from_secs(31));
+        voice.tick(now + Duration::from_secs(32));
+        assert_eq!(voice.notice(), notice, "the real error stays");
+        assert_eq!(
+            fake.borrow().closed,
+            shutdowns,
+            "no timeout fires after closing"
+        );
+    }
+}
