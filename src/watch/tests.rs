@@ -409,23 +409,15 @@ fn a_run_says_whether_a_worker_is_building_it_and_an_ended_turn_needs_you() {
     let step = |state: &str, turn: Option<&str>| {
         let mut step = serde_json::json!({"name": "build", "state": state});
         if let Some(turn) = turn {
-            step["observed_turn"] = turn.into();
+            step["turn"] = turn.into();
+            step["observed_turn"] = format!("TEST words for {turn}").into();
         }
         step
     };
     let cases = [
         ("idle", Some(vec![])),
-        (
-            "building",
-            Some(vec![step("active", Some("not ended: TEST still going"))]),
-        ),
-        (
-            "ended",
-            Some(vec![step(
-                "active",
-                Some("ended: read the report, then complete the step"),
-            )]),
-        ),
+        ("building", Some(vec![step("active", Some("not-ended"))])),
+        ("ended", Some(vec![step("active", Some("ended"))])),
         ("older-sdlc", None),
     ];
     let slugs: Vec<_> = cases.iter().map(|(slug, _)| run(slug, "not-run")).collect();
@@ -474,7 +466,7 @@ fn a_run_says_whether_a_worker_is_building_it_and_an_ended_turn_needs_you() {
     for bad in [
         step("running", None),
         step("active", None),
-        step("prepared", Some("ended: TEST")),
+        step("prepared", Some("ended")),
         step("active", Some("TEST finished maybe")),
     ] {
         let mut value = detail(vec![]);
