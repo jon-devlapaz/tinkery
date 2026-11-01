@@ -59,7 +59,7 @@ def journey(width,height):
    await_text("What's on your mind?");assert 'I think this is about' not in screen.text();assert not requests()
    text='Typed evidence should appear promptly without waiting for a provider call.'
    start=time.monotonic();send(text.encode(),'call.');burst=time.monotonic()-start;assert burst<1.0,(width,burst)
-   assert not requests();send(b'\x1bOQ','Which evidence gets confused?');assert len(requests())==1
+   assert not requests();send(b'\x1b[13;9u','Which evidence gets confused?');assert len(requests())==1
    assert requests()[0]['sources'][0]['text']==text
    assert not requests()[0]['fragments'];await_text('Typed evidence');await_text('keep review evidence');assert 'Ctrl-O originals' not in screen.text()
    choose('Why: attempts','Success criteria');assert len(requests())==1
@@ -67,7 +67,7 @@ def journey(width,height):
    # Input and F2 submit; the result must not replace text entered during the request.
    answer='A real model capture is different from a stub or a human review.'
    start=time.monotonic();send(answer.encode(),'review.');answer_burst=time.monotonic()-start;assert answer_burst<1.0
-   send(b'\x1bOQ','What would make a handover');assert 'Reading updated.' not in screen.text();assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
+   send(b'\x1b\x13','What would make a handover');assert 'Reading updated.' not in screen.text();assert len(requests())==2;assert requests()[1]['sources'][1]['in_reply_to']=='meaning'
    choose('Why: attempts','Success criteria');send(b'\x1b','keep review evidence');assert len(requests())==2
    # A deliberate source selection extracts one card; neither action calls the provider.
    await_text('Typed evidence');os.write(master,b'\x1b[<0;3;5M\x1b[<0;3;5m');time.sleep(.1);notice(b'\x1b[1;2C'*5+b'\x05','Extracted by you');assert len(requests())==2

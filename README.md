@@ -109,7 +109,7 @@ cargo +stable run --locked -- --home
 ```
 
 Think is practice: no model calls or saved goals. Tend writes needs only when you
-explicitly link or unlink. F2 sends, Enter adds a line, F1 lists what else you can do, Esc returns to the menu.
+explicitly link or unlink. F2 (or Cmd+Enter, Ctrl+Alt+S; see [Function keys](docs/terminal-setup.md#function-keys)) sends, Enter adds a line, F1 lists what else you can do, Esc returns to the menu.
 Add `--snapshot` for text output.
 
 Real drafting needs a model and an explicitly authorized call allowance; provider

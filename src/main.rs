@@ -9,7 +9,8 @@ use crossterm::{
     clipboard::CopyToClipboard,
     event::{
         self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-        Event, KeyCode, KeyModifiers,
+        Event, KeyCode, KeyEvent, KeyModifiers, KeyboardEnhancementFlags,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
     style::Print,
@@ -557,11 +558,33 @@ impl Drop for InputGuard {
         let _ = execute!(
             io::stdout(),
             EndSynchronizedUpdate,
+            PopKeyboardEnhancementFlags,
             Print("\x1b[>0s"),
             DisableMouseCapture,
             DisableBracketedPaste
         );
     }
+}
+
+// F2 runs the named action, but hosts such as herdr or macOS may keep F2. Cmd+Enter (in
+// terminals that report it) and Ctrl+Alt+S are the same key; every screen sees only F2.
+fn send_alias(input: Event) -> Event {
+    let Event::Key(key) = input else {
+        return input;
+    };
+    let alias = match key.code {
+        KeyCode::Enter => key.modifiers == KeyModifiers::SUPER,
+        KeyCode::Char('s' | 'S') => key.modifiers == KeyModifiers::CONTROL | KeyModifiers::ALT,
+        _ => false,
+    };
+    if !alias {
+        return input;
+    }
+    Event::Key(KeyEvent {
+        code: KeyCode::F(2),
+        modifiers: KeyModifiers::NONE,
+        ..key
+    })
 }
 
 // A terminal receipt is truthful only when both frame drawing and ending synchronized
@@ -591,7 +614,9 @@ fn run_shape(
         io::stdout(),
         EnableBracketedPaste,
         EnableMouseCapture,
-        Print("\x1b[>1s")
+        Print("\x1b[>1s"),
+        // Terminals that know this report Cmd+Enter; the rest ignore it.
+        PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
     )?;
     let mut repaint = full_redraw;
     let mut pending_input = None;
@@ -657,7 +682,7 @@ fn run_shape(
                 ) else {
                     break;
                 };
-                match input {
+                match send_alias(input) {
                     // Drain old-layout mouse events, including those queued after Resize.
                     Event::Mouse(_) if discard_mouse => {}
                     Event::Key(_) if migration.is_some() => {
@@ -726,6 +751,26 @@ mod tests {
     use super::*;
     use crossterm::event::KeyEvent;
     use ratatui::layout::Rect;
+
+    #[test]
+    fn cmd_enter_and_ctrl_alt_s_are_f2_and_nothing_else_is() {
+        let key = |code, modifiers| Event::Key(KeyEvent::new(code, modifiers));
+        let f2 = key(KeyCode::F(2), KeyModifiers::NONE);
+        let ctrl_alt = KeyModifiers::CONTROL | KeyModifiers::ALT;
+        assert_eq!(send_alias(key(KeyCode::Enter, KeyModifiers::SUPER)), f2);
+        assert_eq!(send_alias(key(KeyCode::Char('s'), ctrl_alt)), f2);
+        for kept in [
+            key(KeyCode::Enter, KeyModifiers::NONE),
+            key(KeyCode::Enter, KeyModifiers::SHIFT),
+            key(KeyCode::Enter, KeyModifiers::SUPER | KeyModifiers::SHIFT),
+            key(KeyCode::Char('s'), KeyModifiers::NONE),
+            key(KeyCode::Char('s'), KeyModifiers::CONTROL),
+            key(KeyCode::Char('s'), KeyModifiers::ALT),
+            Event::Paste("s".into()),
+        ] {
+            assert_eq!(send_alias(kept.clone()), kept);
+        }
+    }
 
     #[test]
     fn resized_input_waits_for_paint_and_is_delivered_once_unchanged() {
