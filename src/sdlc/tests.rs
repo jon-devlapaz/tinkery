@@ -42,6 +42,42 @@ fn completed_command(exit: u8) {
     }
 }
 
+#[test]
+fn completed_reads_wake_their_owner_with_success_or_failure() {
+    for outcome in [Ok("TEST result"), Err("TEST refusal".to_owned())] {
+        std::thread::spawn(move || {
+            let expected = outcome.clone();
+            let read = Read::task(move |_| {
+                std::thread::sleep(std::time::Duration::from_millis(30));
+                outcome
+            });
+            let started = std::time::Instant::now();
+            std::thread::park_timeout(std::time::Duration::from_secs(2));
+            assert!(started.elapsed() < std::time::Duration::from_secs(1));
+            assert_eq!(read.poll(), Some(expected));
+        })
+        .join()
+        .unwrap();
+    }
+}
+
+#[test]
+fn completion_before_parking_retains_the_wakeup() {
+    std::thread::spawn(|| {
+        let read = Read::task(|_| Ok("TEST ready"));
+        let until = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while read.poll().is_none() {
+            assert!(std::time::Instant::now() < until);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        let started = std::time::Instant::now();
+        std::thread::park_timeout(std::time::Duration::from_secs(2));
+        assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    })
+    .join()
+    .unwrap();
+}
+
 fn fixture() -> (tempfile::TempDir, PathBuf, Value) {
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-join-")

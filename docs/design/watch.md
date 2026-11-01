@@ -31,6 +31,11 @@ result is never shown. Normal success and failure also stop remaining children i
 before returning the result. Descendants that detach into another group are outside this ownership.
 A refused read shows tink-sdlc's own `error.message`.
 
+Completed reads wake the UI after publishing their result, rather than waiting for the
+100-millisecond heartbeat. List and attention reads remain serial; a wake only collects
+requested work, never refreshes or starts an extra read. The terminal owns ordered input
+and waiting; the shared reader owns completion notification (architecture diagnostics 3 and 6).
+
 The shared `sdlc` boundary owns the bounded status process and envelope validation;
 Watch owns attention and presentation. Parsing and original-seed reads run on the
 worker, never during painting or input. The [SDLC handoff](shape-and-handoff.md#sdlc-handoff)
