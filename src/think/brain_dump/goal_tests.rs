@@ -44,16 +44,16 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         let mut a = board();
         a.review_goal();
-        let frozen = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+        let frozen = a.handoff.review().unwrap().affirmation.goal.clone();
         let mut receipt = seed_me::Receipt::test("/tmp/TEST-receipt/session".into());
         receipt.goal = frozen.clone();
         let (tx, rx) = std::sync::mpsc::channel();
-        a.handoff.job = Some(rx);
+        a.handoff.begin(rx);
         tx.send(Ok(receipt)).unwrap();
         a.conversation.set_board(None);
         a.goal_tick();
-        assert!(a.handoff.review.is_none());
-        assert_eq!(a.handoff.receipt.as_ref().unwrap().goal, frozen);
+        assert!(a.handoff.review().is_none());
+        assert_eq!(a.handoff.receipt().unwrap().goal, frozen);
         let text = snapshot(w, h, &mut a, false).unwrap();
         let right = right_text(&text, w);
         assert!(
@@ -94,16 +94,16 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
             a.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL));
         }
         assert!(!a.quitting() && !a.screen.original && !a.screen.details && !a.running());
-        assert!(a.handoff.job.is_none());
+        assert!(!a.handoff.saving());
         assert!(a.take_copy_request().is_none());
         assert_eq!(a.exit(), &Exit::Stay);
-        assert_eq!(a.handoff.receipt.as_ref().unwrap().goal, frozen);
+        assert_eq!(a.handoff.receipt().unwrap().goal, frozen);
     }
 }
 #[test]
 fn receipt_copy_is_exact_and_tend_is_an_explicit_request() {
     let mut a = board();
-    a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/TEST-receipt/session".into()));
+    a.set_saved(seed_me::Receipt::test("/tmp/TEST-receipt/session".into()));
     a.screen.key_bar = false;
     assert_eq!(
         snapshot(100, 30, &mut a, false)
@@ -143,33 +143,33 @@ fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affi
         }
         let scrolled = snapshot(w, h, &mut a, false).unwrap();
         assert!(right_text(&scrolled, w).contains(&q));
-        assert!(a.handoff.job.is_none());
+        assert!(!a.handoff.saving());
         key(&mut a, KeyCode::Enter);
         key(&mut a, KeyCode::F(2));
         assert!(
-            a.handoff.job.is_none(),
+            !a.handoff.saving(),
             "Opening review/Enter/F2 affirmed implicitly"
         );
         a.paste("confirm\n");
-        assert!(a.handoff.review.as_ref().unwrap().input.is_empty());
+        assert!(a.handoff.review().unwrap().input.is_empty());
         key(&mut a, KeyCode::Esc);
-        assert!(a.handoff.review.is_none());
-        assert!(a.handoff.receipt.is_none());
+        assert!(a.handoff.review().is_none());
+        assert!(a.handoff.receipt().is_none());
     }
 }
 #[test]
 fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
     let mut a = BrainDump::default();
     a.review_goal();
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
     let mut a = board();
     a.paste("new local text");
     a.review_goal();
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
     a.input = Note::new("");
     a.conversation.set_applied(0);
     a.review_goal();
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
     a.conversation.set_applied(1);
     a.shaping.ready = Some((
         BoardRequest {
@@ -185,7 +185,7 @@ fn confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text() {
         Err("test".into()),
     ));
     a.review_goal();
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
 }
 #[test]
 fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source() {
@@ -198,11 +198,11 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     let text = snapshot(100, 30, &mut a, false).unwrap();
     assert!(text.contains("Ready for your review."));
     assert!(text.contains("F1 more") && super::tests::offers(&a, "Review the goal"));
-    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.receipt().is_none());
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
     let original = a.conversation.sources()[0].text.clone();
-    let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let goal = a.handoff.review().unwrap().affirmation.goal.clone();
     for _ in 0..30 {
         key(&mut a, KeyCode::PageDown);
     }
@@ -214,10 +214,10 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     assert!(!a.running());
-    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.receipt().is_none());
     assert!(a.notice.contains("Handoff not complete"));
     assert_eq!(a.conversation.sources()[0].text, original);
-    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+    assert_eq!(a.handoff.review().unwrap().affirmation.goal, goal);
     assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
 }
 #[test]
@@ -282,11 +282,10 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
     });
     a.review_goal();
     snapshot(80, 24, &mut a, false).unwrap();
-    assert!(a.handoff.review.as_ref().unwrap().max > 0);
+    assert!(a.handoff.review().unwrap().max > 0);
     assert!(
         a.handoff
-            .review
-            .as_ref()
+            .review()
             .unwrap()
             .affirmation
             .unresolved
@@ -295,7 +294,7 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
     );
     a.paste("confirm");
     key(&mut a, KeyCode::Enter);
-    assert!(a.handoff.job.is_none());
+    assert!(!a.handoff.saving());
     assert!(a.notice.contains("Read to the end first"));
 }
 
@@ -307,10 +306,10 @@ fn lexical_coverage_never_vetoes_the_review() {
     });
     a.review_goal();
     assert!(
-        a.handoff.review.is_some(),
+        a.handoff.review().is_some(),
         "Lexical coverage must not veto the person's review"
     );
-    assert!(a.handoff.job.is_none() && a.handoff.receipt.is_none());
+    assert!(!a.handoff.saving() && a.handoff.receipt().is_none());
 }
 #[test]
 fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates() {
@@ -343,7 +342,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     amend_board(&mut a, |current| *current = g);
     a.review_goal();
     snapshot(100, 30, &mut a, false).unwrap();
-    let frozen = &a.handoff.review.as_ref().unwrap().affirmation;
+    let frozen = &a.handoff.review().unwrap().affirmation;
     for term in [
         "PR ready for human review",
         "restaurateur",
@@ -356,7 +355,7 @@ fn literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates
     assert_eq!(frozen.sources[2].text, a.conversation.sources()[2].text);
     assert!(frozen.options.is_empty());
     assert_eq!(frozen.answered[0].source, 2);
-    assert!(a.handoff.job.is_none());
+    assert!(!a.handoff.saving());
 }
 /// The right-pane text on the row Back is drawn on, from Back's column.
 fn back_row(screen: &str, back: Rect) -> String {
@@ -381,7 +380,7 @@ fn a_failed_save_says_so_whole_above_back_and_retries() {
                 .with_record_root(dir.path().join("TEST-records"))
                 .with_sessions(Some(file));
             a.review_goal();
-            let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+            let goal = a.handoff.review().unwrap().affirmation.goal.clone();
             snapshot(w, h, &mut a, no_color).unwrap();
             for _ in 0..30 {
                 key(&mut a, KeyCode::PageDown);
@@ -413,18 +412,18 @@ fn a_failed_save_says_so_whole_above_back_and_retries() {
                 layout::how_text(&a).contains("Cannot create the sessions folder"),
                 "{w}x{h}: the reason is in How it works"
             );
-            assert!(a.handoff.receipt.is_none(), "no false Saved");
-            assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+            assert!(a.handoff.receipt().is_none(), "no false Saved");
+            assert_eq!(a.handoff.review().unwrap().affirmation.goal, goal);
             key(&mut a, KeyCode::Enter);
-            assert!(a.handoff.job.is_some(), "{w}x{h}: Enter retries");
+            assert!(a.handoff.saving(), "{w}x{h}: Enter retries");
             super::tests::settle(&mut a);
             let mut receipt = seed_me::Receipt::test("/tmp/TEST-retry/session".into());
             receipt.goal = goal.clone();
             let (tx, rx) = std::sync::mpsc::channel();
-            a.handoff.job = Some(rx);
+            a.handoff.begin(rx);
             tx.send(Ok(receipt)).unwrap();
             a.goal_tick();
-            assert_eq!(a.handoff.receipt.as_ref().unwrap().goal, goal);
+            assert_eq!(a.handoff.receipt().unwrap().goal, goal);
         }
     }
 }

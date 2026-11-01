@@ -52,9 +52,9 @@ fn reading_scroll_hint_only_appears_on_overflow_and_clears_after_resize() {
         assert!(expanded.contains("original entry."));
         assert_eq!(a.screen.paper_scroll, 0);
         a.review_goal();
-        assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+        assert_eq!(a.handoff.review().unwrap().affirmation.goal, goal);
         assert!(!snapshot(80, 24, &mut a, mono).unwrap().contains(HINT));
-        assert!(a.handoff.job.is_none() && a.saved().is_none() && !a.running());
+        assert!(!a.handoff.saving() && a.saved().is_none() && !a.running());
     }
 }
 
@@ -121,7 +121,7 @@ fn active_question_is_readable_without_review_and_survives_resize() {
                     sources
                 );
                 assert_eq!(a.conversation.board().unwrap().goal(), Some(goal.as_str()));
-                assert!(a.handoff.review.is_none() && a.handoff.job.is_none());
+                assert!(a.handoff.review().is_none() && !a.handoff.saving());
                 assert!(!a.running() && a.saved().is_none());
                 for _ in 0..30 {
                     key(&mut a, KeyCode::PageUp);
@@ -165,7 +165,7 @@ fn wheel_over_question_uses_the_same_overflow_route() {
         right_text(&last, 80).contains("Last question words?"),
         "{last}"
     );
-    assert!(a.handoff.review.is_none() && !a.running());
+    assert!(a.handoff.review().is_none() && !a.running());
 }
 
 #[test]
@@ -215,8 +215,7 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         l2.pop();
         assert_eq!(l1, l2);
         key(&mut a, KeyCode::Esc);
-        a.handoff.review = None;
-        a.handoff.receipt = Some(seed_me::Receipt::test(
+        a.set_saved(seed_me::Receipt::test(
             "/tmp/Tinkery-TEST/session-id".into(),
         ));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
@@ -248,7 +247,7 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         assert!(a.screen.help);
         key(&mut a, KeyCode::Esc);
         assert!(!a.quitting() && !a.screen.help);
-        assert!(a.handoff.receipt.is_some());
+        assert!(a.handoff.receipt().is_some());
     }
 }
 #[test]
@@ -285,7 +284,7 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
     );
     let mut receipt = seed_me::Receipt::test(path.clone().into());
     receipt.goal = format!("{}\nEND-GOAL", "Long confirmed goal line.\n".repeat(80));
-    a.handoff.receipt = Some(receipt);
+    a.set_saved(receipt);
     for (w, h) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
         a.screen.paper_scroll = 0;
         let first = snapshot(w, h, &mut a, false).unwrap();
@@ -299,15 +298,7 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
         assert!(right_text(&last, w).contains("Next: shape it into a seed in Shape."));
         assert!(!last.contains("END-SESSION-ID"));
         assert!(layout::how_text(&a).contains(&path));
-        assert_eq!(
-            a.handoff
-                .receipt
-                .as_ref()
-                .unwrap()
-                .session
-                .to_string_lossy(),
-            path
-        );
+        assert_eq!(a.handoff.receipt().unwrap().session.to_string_lossy(), path);
     }
 }
 #[test]
@@ -722,7 +713,7 @@ fn empty_send_is_visible_without_a_request_and_typing_clears_it() {
                 assert!(screen.contains(NOTICE), "{w}x{h}: {screen}");
                 assert_eq!(a.input.text, whitespace);
                 assert!(a.conversation.sources().is_empty());
-                assert!(!a.running() && a.handoff.receipt.is_none());
+                assert!(!a.running() && a.handoff.receipt().is_none());
             }
             a.paste("Café 👩‍💻");
             assert!(!snapshot(w, h, &mut a, no_color).unwrap().contains(NOTICE));
@@ -738,7 +729,7 @@ fn empty_send_is_visible_without_a_request_and_typing_clears_it() {
                 original
             );
             assert_eq!(a.conversation.board().unwrap().parts.compose(), goal);
-            assert!(!a.running() && a.handoff.receipt.is_none());
+            assert!(!a.running() && a.handoff.receipt().is_none());
             key(&mut a, KeyCode::Char('x'));
             assert!(!snapshot(w, h, &mut a, no_color).unwrap().contains(NOTICE));
         }

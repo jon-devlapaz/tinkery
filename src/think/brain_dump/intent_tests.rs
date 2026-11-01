@@ -232,7 +232,7 @@ fn explicit_leading_prefixes_normalize_before_composition_and_handoff() {
         let composed = format!("{HEAD}\n{lines}");
         assert_eq!(a.conversation.board().unwrap().goal().unwrap(), composed);
         a.review_goal();
-        let affirmation = &a.handoff.review.as_ref().unwrap().affirmation;
+        let affirmation = &a.handoff.review().unwrap().affirmation;
         assert_eq!(affirmation.goal, composed);
         assert_eq!(affirmation.parts.must, *want_must);
         assert_eq!(affirmation.parts.must_not, *want_not);
@@ -372,15 +372,15 @@ fn review_lists_and_saves(a: &mut BrainDump, open: &[&str]) {
     }
     a.paste("confirm");
     a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(a.handoff.job.is_some(), "readiness was required to save");
+    assert!(a.handoff.saving(), "readiness was required to save");
     // The missing helper fails the save attempt; no session root is written.
     let end = std::time::Instant::now() + std::time::Duration::from_secs(3);
-    while a.handoff.job.is_some() && std::time::Instant::now() < end {
+    while a.handoff.saving() && std::time::Instant::now() < end {
         a.goal_tick();
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
     assert!(a.notice.contains("Handoff not complete"));
-    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.receipt().is_none());
     assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
 }
 #[test]

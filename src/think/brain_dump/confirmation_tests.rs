@@ -125,7 +125,7 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
             .set_board(replay.conversation.board().cloned());
         a.set_goal_confirmation(terminal(declaration)).unwrap();
         a.review_goal();
-        let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+        let goal = a.handoff.review().unwrap().affirmation.goal.clone();
         assert_eq!(goal, expected_goal);
         let screen = snapshot(100, 30, &mut a, true).unwrap();
         assert!(
@@ -136,13 +136,13 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
             screen.contains(&format!("{declaration} (not verified)")),
             "{screen}"
         );
-        let review = a.handoff.review.as_mut().unwrap();
+        let review = a.handoff.save.review_mut().unwrap();
         review.scroll = review.max;
         for c in "confirm".chars() {
             a.goal_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
         }
         a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-        assert!(a.handoff.job.is_some());
+        assert!(a.handoff.saving());
         // Keep the temporary destination alive until the real save has finished.
         super::tests::settle(&mut a);
         let receipt = a.saved().expect("confirmed TEST goal was saved");
@@ -188,7 +188,7 @@ fn terminal_declaration_is_session_frozen_but_never_sent_to_the_model() {
                 .is_err()
         );
         assert_eq!(
-            a.handoff.review.as_ref().unwrap().affirmation.confirmation,
+            a.handoff.review().unwrap().affirmation.confirmation,
             confirmation
         );
         a.goal_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
@@ -259,19 +259,18 @@ fn typing_confirmation_keeps_a_fully_read_goal_at_the_end() {
             a.set_goal_confirmation(context.clone()).unwrap();
             a.review_goal();
             snapshot(w, h, &mut a, no_color).unwrap();
-            assert!(a.handoff.review.as_ref().unwrap().max > 0);
-            while a.handoff.review.as_ref().unwrap().scroll < a.handoff.review.as_ref().unwrap().max
-            {
+            assert!(a.handoff.review().unwrap().max > 0);
+            while a.handoff.review().unwrap().scroll < a.handoff.review().unwrap().max {
                 a.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
             }
             snapshot(w, h, &mut a, no_color).unwrap();
             for c in "confirm".chars() {
                 a.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
                 snapshot(w, h, &mut a, no_color).unwrap();
-                let review = a.handoff.review.as_ref().unwrap();
+                let review = a.handoff.review().unwrap();
                 assert_eq!(review.scroll, review.max, "{w}x{h}: typing moved the end");
                 assert_eq!(review.affirmation.confirmation, context);
-                assert!(a.handoff.job.is_none());
+                assert!(!a.handoff.saving());
             }
             // A shorter wrong-word refusal must not move the end before correction.
             a.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
@@ -282,11 +281,11 @@ fn typing_confirmation_keeps_a_fully_read_goal_at_the_end() {
                 a.notice
                     .contains("Type confirm, then Enter. Nothing saved.")
             );
-            assert!(a.handoff.job.is_none());
+            assert!(!a.handoff.saving());
             // Even a rejected paste clears the refusal and restores the instruction.
             a.paste("ignored\npaste");
             snapshot(w, h, &mut a, no_color).unwrap();
-            let review = a.handoff.review.as_ref().unwrap();
+            let review = a.handoff.review().unwrap();
             assert_eq!(review.input, "confirn");
             assert_eq!(
                 review.scroll, review.max,
@@ -295,7 +294,7 @@ fn typing_confirmation_keeps_a_fully_read_goal_at_the_end() {
             a.handle_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
             a.handle_key(KeyEvent::new(KeyCode::Char('m'), KeyModifiers::NONE));
             snapshot(w, h, &mut a, no_color).unwrap();
-            let review = a.handoff.review.as_ref().unwrap();
+            let review = a.handoff.review().unwrap();
             assert_eq!(
                 review.scroll, review.max,
                 "{w}x{h}: correcting moved the end"
@@ -316,14 +315,12 @@ fn hidden_review_keeps_input_and_read_progress_without_starting_a_save() {
             a.review_goal();
             snapshot(100, 30, &mut a, true).unwrap();
             if read {
-                while a.handoff.review.as_ref().unwrap().scroll
-                    < a.handoff.review.as_ref().unwrap().max
-                {
+                while a.handoff.review().unwrap().scroll < a.handoff.review().unwrap().max {
                     a.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
                 }
             }
             a.paste("confirm");
-            let review = a.handoff.review.as_ref().unwrap();
+            let review = a.handoff.review().unwrap();
             let (scroll, max) = (review.scroll, review.max);
             let goal = review.affirmation.goal.clone();
             let actor = review.affirmation.confirmation.clone();
@@ -345,14 +342,14 @@ fn hidden_review_keeps_input_and_read_progress_without_starting_a_save() {
                 KeyCode::Enter,
             ] {
                 a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
-                let review = a.handoff.review.as_ref().unwrap();
+                let review = a.handoff.review().unwrap();
                 assert_eq!(
                     (review.scroll, review.max),
                     (scroll, max),
                     "hidden key {code:?} moved review"
                 );
                 assert_eq!(review.input, "confirm", "hidden key {code:?} changed input");
-                assert!(a.handoff.job.is_none());
+                assert!(!a.handoff.saving());
             }
             a.paste("hidden paste");
             a.handle_mouse(
@@ -364,26 +361,26 @@ fn hidden_review_keeps_input_and_read_progress_without_starting_a_save() {
                 },
                 Rect::new(0, 0, w, h),
             );
-            let review = a.handoff.review.as_ref().unwrap();
+            let review = a.handoff.review().unwrap();
             assert_eq!(review.input, "confirm");
             assert_eq!(review.affirmation.goal, goal);
             assert_eq!(review.affirmation.confirmation, actor);
             assert_eq!(a.conversation.sources()[0].text, original);
             snapshot(100, 30, &mut a, true).unwrap();
-            let review = a.handoff.review.as_ref().unwrap();
+            let review = a.handoff.review().unwrap();
             assert_eq!((review.scroll, review.max), (scroll, max));
             if !read {
                 a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-                assert!(a.handoff.job.is_none());
+                assert!(!a.handoff.saving());
                 assert!(a.notice.starts_with("Read to the end first:"));
             }
             snapshot(w, h, &mut a, true).unwrap();
             a.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
             assert!(a.screen.help);
             a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-            assert!(!a.screen.help && a.handoff.review.is_some());
+            assert!(!a.screen.help && a.handoff.review().is_some());
             a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-            assert!(a.handoff.review.is_none() && a.handoff.job.is_none());
+            assert!(a.handoff.review().is_none() && !a.handoff.saving());
         }
     }
 }
@@ -394,20 +391,20 @@ fn hidden_review_finishes_an_already_started_save_and_requested_exit() {
         let mut a = declared();
         a.review_goal();
         snapshot(100, 30, &mut a, true).unwrap();
-        let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+        let goal = a.handoff.review().unwrap().affirmation.goal.clone();
         let (tx, rx) = std::sync::mpsc::channel();
-        a.handoff.job = Some(rx);
+        a.handoff.begin(rx);
         snapshot(40, 12, &mut a, true).unwrap();
         if leave {
             a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-            assert!(a.handoff.exit_after && !a.quitting());
+            assert!(a.handoff.leaving() && !a.quitting());
         }
         let mut receipt = seed_me::Receipt::test("/tmp/tinkery-TEST-completed-save/session".into());
         receipt.goal = goal.clone();
         tx.send(Ok(receipt)).unwrap();
         a.tick();
         assert_eq!(a.saved().unwrap().goal, goal);
-        assert!(a.handoff.job.is_none() && a.handoff.review.is_none());
+        assert!(!a.handoff.saving() && a.handoff.review().is_none());
         assert_eq!(a.quitting(), leave);
     }
 }
@@ -416,14 +413,7 @@ fn hidden_review_finishes_an_already_started_save_and_requested_exit() {
 fn unspecified_confirmer_is_not_claimed_as_the_operator() {
     let mut a = app(serde_json::json!({"parts": parts()}));
     a.review_goal();
-    let source = a
-        .handoff
-        .review
-        .as_ref()
-        .unwrap()
-        .affirmation
-        .affirmed()
-        .source;
+    let source = a.handoff.review().unwrap().affirmation.affirmed().source;
     assert!(!source.contains("operator typed confirm"), "{source}");
     assert!(source.contains("unrecorded"), "{source}");
     assert!(source.contains("goal only, not seed or implementation approval"));
@@ -433,7 +423,7 @@ fn unspecified_confirmer_is_not_claimed_as_the_operator() {
 fn declared_agent_source_never_claims_an_operator_keypress_or_implementation_permission() {
     let mut a = declared();
     a.review_goal();
-    let affirmation = &a.handoff.review.as_ref().unwrap().affirmation;
+    let affirmation = &a.handoff.review().unwrap().affirmation;
     let saved = affirmation.affirmed();
     assert!(saved.source.contains("agent") && saved.source.contains("TEST-agent"));
     assert!(saved.source.contains("TEST-person") && saved.source.contains("two-way"));
@@ -455,16 +445,16 @@ fn bare_agent_declaration_saves_as_the_agent() {
         .unwrap();
     assert!(layout::how_text(&a).contains("Only typing confirm saves"));
     a.review_goal();
-    let saved = a.handoff.review.as_ref().unwrap().affirmation.affirmed();
+    let saved = a.handoff.review().unwrap().affirmation.affirmed();
     assert!(saved.source.contains("declared: agent"), "{}", saved.source);
     assert!(!saved.source.contains("declared: human"));
-    let review = a.handoff.review.as_mut().unwrap();
+    let review = a.handoff.save.review_mut().unwrap();
     review.scroll = review.max;
     for c in "confirm".chars() {
         a.goal_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
     }
     a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(a.handoff.job.is_some(), "{}", a.notice);
+    assert!(a.handoff.saving(), "{}", a.notice);
     super::tests::settle(&mut a);
     let receipt = a.saved().expect("confirmed TEST goal was saved");
     assert!(
@@ -494,7 +484,7 @@ fn new_visits_do_not_inherit_goal_authorization_and_review_cannot_be_relabelled(
             .contains("before review")
     );
     assert_eq!(
-        a.handoff.review.as_ref().unwrap().affirmation.confirmation,
+        a.handoff.review().unwrap().affirmation.confirmation,
         agent()
     );
     assert_eq!(a.conversation.sources()[0].text, "An intact original");
@@ -536,7 +526,7 @@ fn a_receipt_records_the_frozen_agent_context_not_a_later_identity() {
     let root = tmp.path().join("TEST-records");
     let mut a = declared().with_record_root(root.clone());
     a.review_goal();
-    let goal = a.handoff.review.as_ref().unwrap().affirmation.goal.clone();
+    let goal = a.handoff.review().unwrap().affirmation.goal.clone();
     a.handoff.confirmation = operator();
     let path = tmp.path().join("TEST-sessions/one");
     std::fs::create_dir_all(&path).unwrap();
@@ -551,7 +541,7 @@ fn a_receipt_records_the_frozen_agent_context_not_a_later_identity() {
     let mut receipt = seed_me::Receipt::test(path);
     receipt.goal = goal.clone();
     let (tx, rx) = std::sync::mpsc::channel();
-    a.handoff.job = Some(rx);
+    a.handoff.begin(rx);
     tx.send(Ok(receipt)).unwrap();
     a.goal_tick();
     let file = std::fs::read_dir(&root)

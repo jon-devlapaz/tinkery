@@ -367,8 +367,8 @@ fn f2_waits_for_final_then_submits_exactly_once_with_intact_source() {
         fake.borrow().commands,
         vec![Command::Start { take: 1 }, Command::Stop { take: 1 }]
     );
-    assert!(a.handoff.receipt.is_none());
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.receipt().is_none());
+    assert!(a.handoff.review().is_none());
 }
 #[test]
 fn direct_submit_uses_the_same_wait_for_final_contract() {
@@ -493,8 +493,8 @@ fn final_preserves_raw_words_and_does_not_grant_confirmation() {
     let shown = snapshot(100, 30, &mut a, true).unwrap();
     assert!(!shown.contains('\u{1b}') && !shown.contains('\u{0}'));
     assert!(a.conversation.sources().is_empty());
-    assert!(a.handoff.receipt.is_none());
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.receipt().is_none());
+    assert!(a.handoff.review().is_none());
 }
 #[test]
 fn leaving_closes_helper_preserves_unsaved_guard_and_can_reload_after_n() {
@@ -536,7 +536,7 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
         serde_json::json!({"parts": super::readiness_tests::parts()}),
     ));
     a.review_goal();
-    assert!(a.handoff.review.is_some());
+    assert!(a.handoff.review().is_some());
     for code in [KeyCode::F(6), KeyCode::Char('Ω')] {
         key(&mut a, code);
     }
@@ -549,12 +549,11 @@ fn review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm() {
         },
     );
     assert!(fake.borrow().commands.is_empty());
-    assert!(a.handoff.review.as_ref().unwrap().input.is_empty());
-    assert!(a.handoff.job.is_none());
+    assert!(a.handoff.review().unwrap().input.is_empty());
+    assert!(!a.handoff.saving());
     assert!(a.input.text.is_empty());
     assert!(!a.voice_available());
-    a.handoff.review = None;
-    a.handoff.receipt = Some(seed_me::Receipt::test("/TEST/voice-receipt".into()));
+    a.set_saved(seed_me::Receipt::test("/TEST/voice-receipt".into()));
     key(&mut a, KeyCode::F(6));
     assert!(fake.borrow().commands.is_empty());
     assert!(!layout::help_text(&a).contains("speak"));
@@ -572,7 +571,7 @@ fn active_voice_blocks_readiness_and_review_even_without_typed_text() {
     start(&mut a, &fake);
     assert!(!a.goal_ready());
     a.review_goal();
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
     assert!(a.notice.contains("Stop or cancel voice"));
     key(&mut a, KeyCode::Esc);
     assert!(a.goal_ready());

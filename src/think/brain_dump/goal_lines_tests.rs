@@ -57,7 +57,7 @@ fn recorded_169_exclusions_and_affirmative_deferrals_keep_their_scripted_categor
             assert!(paper.contains(&format!("for the seed: {request}")));
         }
         a.review_goal();
-        let frozen = &a.handoff.review.as_ref().unwrap().affirmation;
+        let frozen = &a.handoff.review().unwrap().affirmation;
         assert_eq!(frozen.goal, goal);
         assert_eq!(frozen.deferred, later.into_iter().collect::<Vec<_>>());
         assert_eq!(a.conversation.sources()[0].text, source);
@@ -85,7 +85,7 @@ fn possessive_subject_in_stub_outcome_is_composed_once() {
         }
         assert!(a.copy_text().contains(&goal));
         a.review_goal();
-        assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+        assert_eq!(a.handoff.review().unwrap().affirmation.goal, goal);
         assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
     }
 }
@@ -116,7 +116,7 @@ fn known_intent_leads_without_inventing_a_beneficiary() {
             .contains("Turn observed product problems")
     );
     a.review_goal();
-    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, goal);
+    assert_eq!(a.handoff.review().unwrap().affirmation.goal, goal);
     assert_eq!(a.conversation.sources()[0].text, original);
 }
 
@@ -225,10 +225,7 @@ fn standalone_outcomes_keep_spelling_through_display_copy_and_confirmation() {
         }
         assert!(a.copy_text().contains(headline));
         a.review_goal();
-        assert_eq!(
-            a.handoff.review.as_ref().unwrap().affirmation.goal,
-            headline
-        );
+        assert_eq!(a.handoff.review().unwrap().affirmation.goal, headline);
         assert_eq!(a.conversation.sources()[0].text, original);
     }
 }
@@ -360,7 +357,7 @@ fn quiet_asides_survive_paper_review_and_are_not_constraints() {
     let text = snapshot(160, 40, &mut a, false).unwrap();
     assert!(text.contains("anything to add or change?"));
     a.review_goal();
-    let review = a.handoff.review.as_ref().unwrap();
+    let review = a.handoff.review().unwrap();
     assert_eq!(
         review.affirmation.other_goals,
         ["renaming a tab", "release builds"]

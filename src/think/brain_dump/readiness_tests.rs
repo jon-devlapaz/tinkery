@@ -276,7 +276,7 @@ fn why_and_copy_label_success_criteria_without_claiming_experience_is_missing() 
         assert_eq!(a.conversation.sources()[0].text, ORIGINAL);
         assert_eq!(a.conversation.board().unwrap().goal(), Some(goal.as_str()));
         assert_eq!(a.input.text, "Unsent café answer");
-        assert!(a.handoff.job.is_none() && a.saved().is_none() && !a.running());
+        assert!(!a.handoff.saving() && a.saved().is_none() && !a.running());
     }
 }
 
@@ -423,8 +423,7 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
         assert!(
             vague
                 .handoff
-                .review
-                .as_ref()
+                .review()
                 .unwrap()
                 .affirmation
                 .unresolved_notes
@@ -457,13 +456,13 @@ fn coarse_criteria_are_present_and_empty_queue_is_not_completion() {
     assert!(a.goal_ready());
     a.review_goal();
     assert_eq!(
-        a.handoff.review.as_ref().unwrap().affirmation.outcome,
+        a.handoff.review().unwrap().affirmation.outcome,
         parts().done_when.unwrap()
     );
     let mut blank = app(serde_json::json!({"parts":{}}));
     assert!(!blank.goal_ready());
     blank.review_goal();
-    assert!(blank.handoff.review.is_none());
+    assert!(blank.handoff.review().is_none());
 }
 #[test]
 fn review_freezes_the_displayed_block_not_a_recomposition() {
@@ -480,7 +479,7 @@ fn review_freezes_the_displayed_block_not_a_recomposition() {
     a.conversation.set_board(Some(board));
     assert!(a.copy_text().contains(shown));
     a.review_goal();
-    assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, shown);
+    assert_eq!(a.handoff.review().unwrap().affirmation.goal, shown);
 }
 #[test]
 fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
@@ -489,7 +488,7 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
         let reading = a.conversation.board().unwrap().goal().unwrap().to_owned();
         assert!(a.copy_text().contains(&reading));
         a.review_goal();
-        let frozen = a.handoff.review.as_ref().unwrap();
+        let frozen = a.handoff.review().unwrap();
         assert_eq!(frozen.affirmation.goal, reading);
         assert_eq!(frozen.affirmation.parts, parts());
         assert_eq!(frozen.affirmation.outcome, parts().done_when.unwrap());
@@ -509,12 +508,9 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
         }
         assert!(!seen.contains("Not supplied") && !seen.contains("Doesn’t fit yet"));
         super::tests::amend_board(&mut a, |g| g.parts.outcome = Some("different".into()));
-        assert_eq!(a.handoff.review.as_ref().unwrap().affirmation.goal, reading);
-        assert_eq!(
-            a.handoff.review.as_ref().unwrap().affirmation.parts,
-            parts()
-        );
-        assert!(a.handoff.job.is_none());
+        assert_eq!(a.handoff.review().unwrap().affirmation.goal, reading);
+        assert_eq!(a.handoff.review().unwrap().affirmation.parts, parts());
+        assert!(!a.handoff.saving());
     }
     let mut partial = app(
         serde_json::json!({"parts":{"who":"Learners","outcome":"learn","must_not":"new targets"}}),
@@ -523,16 +519,14 @@ fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {
     assert_eq!(
         partial
             .handoff
-            .review
-            .as_ref()
+            .review()
             .unwrap()
             .affirmation
             .unresolved_notes
             .len()
             + partial
                 .handoff
-                .review
-                .as_ref()
+                .review()
                 .unwrap()
                 .affirmation
                 .unresolved
@@ -622,11 +616,11 @@ fn unsent_words_and_unknown_fields_never_grant_authority() {
         serde_json::json!({"parts":parts(),"confirmed":true,"settled":[{}],"open":["unknown"]}),
     );
     assert!(a.goal_ready());
-    assert!(a.conversation.settled().is_empty() && a.handoff.receipt.is_none());
+    assert!(a.conversation.settled().is_empty() && a.handoff.receipt().is_none());
     a.paste("new local words");
     assert!(!a.goal_ready());
     a.review_goal();
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
 }
 #[test]
 fn trailing_commas_normalize_only_outside_strings_and_span_guards_remain() {
@@ -697,7 +691,7 @@ fn typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2() {
             .unwrap()
             .contains("usual week")
     );
-    assert!(a.handoff.receipt.is_none());
+    assert!(a.handoff.receipt().is_none());
 }
 #[test]
 fn open_without_question_refines_but_explicit_add_more_keeps_scope_question() {
@@ -770,7 +764,7 @@ fn captured_evidence_context_stays_in_originals_and_real_choices_stay_open() {
             question_part
         );
         a.review_goal();
-        let review = &a.handoff.review.as_ref().unwrap().affirmation;
+        let review = &a.handoff.review().unwrap().affirmation;
         assert_eq!(review.sources[0].text, source);
         let saved = review.affirmed();
         assert_eq!(saved.originals[0].text, source);
@@ -787,7 +781,7 @@ fn captured_evidence_context_stays_in_originals_and_real_choices_stay_open() {
                     .is_some_and(|v| !v.is_empty())
             );
         }
-        assert!(a.handoff.receipt.is_none() && a.handoff.job.is_none());
+        assert!(a.handoff.receipt().is_none() && !a.handoff.saving());
     }
 }
 
@@ -804,7 +798,7 @@ fn review_and_saved_context_keep_conversations_unresolved_intent() {
     assert!(!questions.is_empty() && !notes.is_empty());
     let goal = a.conversation.board().unwrap().goal().unwrap().to_owned();
     a.review_goal();
-    let review = &a.handoff.review.as_ref().unwrap().affirmation;
+    let review = &a.handoff.review().unwrap().affirmation;
     assert_eq!(
         serde_json::to_value(&review.unresolved).unwrap(),
         serde_json::to_value(&questions).unwrap()

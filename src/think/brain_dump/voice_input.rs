@@ -17,11 +17,7 @@ impl BrainDump {
         self.voice.as_ref().is_some_and(Voice::active)
     }
     pub(super) fn voice_allowed(&self) -> bool {
-        !self.quitting()
-            && !self.screen.leave_prompt
-            && self.handoff.review.is_none()
-            && self.handoff.receipt.is_none()
-            && self.handoff.job.is_none()
+        !self.quitting() && !self.screen.leave_prompt && !self.handoff.started()
     }
     pub(super) fn voice_available(&self) -> bool {
         self.voice_allowed() && self.voice.is_some()

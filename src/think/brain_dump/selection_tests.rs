@@ -638,7 +638,7 @@ fn raw_controls_are_safe_in_sources_titles_cards_and_selections() {
         }];
     });
     a.review_goal();
-    assert!(a.handoff.review.is_some());
+    assert!(a.handoff.review().is_some());
     let shown = snapshot(80, 24, &mut a, true).unwrap();
     assert!(!shown.chars().any(|c| c.is_control() && c != '\n'));
 }

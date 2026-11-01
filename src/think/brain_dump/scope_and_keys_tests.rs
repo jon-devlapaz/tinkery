@@ -95,15 +95,14 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     a.review_goal();
     assert!(
         a.handoff
-            .review
-            .as_ref()
+            .review()
             .unwrap()
             .affirmation
             .unresolved
             .iter()
             .any(|q| q.id == "scope-addition-2")
     );
-    assert!(a.handoff.job.is_none());
+    assert!(!a.handoff.saving());
     key(&mut a, KeyCode::Esc);
     a.paste("keep it separate");
     a.submit();
@@ -117,7 +116,7 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     assert_eq!(requests[1].sources[2].text, "keep it separate");
     assert_eq!(requests[1].settled[0].question.id, "scope-addition-2");
     assert_eq!(requests[1].settled[0].source, 3);
-    assert!(a.conversation.scope_pending().is_none() && a.handoff.receipt.is_none());
+    assert!(a.conversation.scope_pending().is_none() && a.handoff.receipt().is_none());
     assert!(
         a.conversation
             .board()
@@ -159,15 +158,14 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
     a.review_goal();
     assert!(
         a.handoff
-            .review
-            .as_ref()
+            .review()
             .unwrap()
             .affirmation
             .unresolved
             .iter()
             .any(|q| q.id == "scope-addition-2")
     );
-    assert!(a.handoff.job.is_none());
+    assert!(!a.handoff.saving());
     key(&mut a, KeyCode::Esc);
     super::tests::choose(&mut a, "Bring back");
     assert_eq!(
@@ -206,7 +204,7 @@ fn one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing() {
                 && !a.screen.leave_prompt
                 && !a.add_more
                 && a.conversation.skipped().is_empty()
-                && a.handoff.review.is_none()
+                && a.handoff.review().is_none()
                 && a.take_copy_request().is_none()
                 && !a.running()
                 && !a.quitting(),
@@ -241,7 +239,7 @@ fn one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing() {
     assert!(a.screen.details);
     key(&mut a, KeyCode::Esc);
     super::tests::choose(&mut a, "Review the goal");
-    assert!(a.handoff.review.is_some());
+    assert!(a.handoff.review().is_some());
     snapshot(100, 30, &mut a, false).unwrap();
     let back = a.screen.back_button;
     assert!(back.width > 0);
@@ -254,7 +252,7 @@ fn one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing() {
         },
         a.screen.area,
     );
-    assert!(a.handoff.review.is_none() && a.handoff.job.is_none());
+    assert!(a.handoff.review().is_none() && !a.handoff.saving());
     key(&mut a, KeyCode::Esc);
     assert!(a.screen.leave_prompt && !a.quitting());
     key(&mut a, KeyCode::Esc);
@@ -288,15 +286,14 @@ fn undone_skip_survives_a_later_model_result_without_mutating_model_questions() 
     a.review_goal();
     assert!(
         a.handoff
-            .review
-            .as_ref()
+            .review()
             .unwrap()
             .affirmation
             .unresolved
             .iter()
             .any(|q| q.id == original.id)
     );
-    assert!(a.handoff.job.is_none());
+    assert!(!a.handoff.saving());
 }
 #[test]
 fn practice_never_offers_review_it_would_refuse() {
@@ -349,8 +346,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
             bar.contains("type confirm") && bar.contains("esc back"),
             "{bar}"
         );
-        a.handoff.review = None;
-        a.handoff.receipt = Some(seed_me::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
+        a.set_saved(seed_me::Receipt::test("/tmp/Tinkery-TEST/dogfood".into()));
         let receipt = snapshot(w, h, &mut a, false).unwrap();
         assert!(
             super::goal_tests::right_text(&receipt, w)
@@ -433,8 +429,8 @@ fn whole_board_coverage_records_candidate_location_and_never_requires_goal_overl
     );
     amend_board(&mut a, |current| *current = g);
     a.review_goal();
-    assert!(a.handoff.review.is_some());
-    assert!(a.handoff.job.is_none());
+    assert!(a.handoff.review().is_some());
+    assert!(!a.handoff.saving());
 }
 #[test]
 fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
@@ -498,9 +494,9 @@ fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
     a.conversation.set_last_failure(Some(d.reason.clone()));
     a.conversation.set_applied(0);
     a.review_goal();
-    assert!(a.handoff.review.is_none());
+    assert!(a.handoff.review().is_none());
     assert_eq!(d.raw.as_ref().unwrap(), &text);
-    assert!(a.handoff.job.is_none());
+    assert!(!a.handoff.saving());
 }
 #[test]
 fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_discard() {
