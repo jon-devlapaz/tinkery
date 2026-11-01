@@ -41,6 +41,8 @@ class Screen:
                 self.pending = self.pending[match.end():]
                 if arguments in (">0", ">1") and command == "s":
                     continue
+                if arguments in (">1", "<1") and command == "u":  # Keyboard protocol push/pop.
+                    continue
                 if arguments == "?2026" and command in ("h", "l"):
                     self.synchronized = command == "h"
                     if command == "l":

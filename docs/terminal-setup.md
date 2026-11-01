@@ -62,6 +62,10 @@ F6 speaks with local voice. On a Mac keyboard you may need to hold **fn**, or en
 **Use F1, F2, etc. keys as standard function keys** in System Settings → Keyboard.
 The terminal must also pass function keys through rather than binding them itself.
 
+Where a host keeps F2 (herdr, macOS), **Cmd+Enter** does the same in terminals that report it
+(Ghostty, kitty, WezTerm, iTerm2 with its CSI u reporting on), and **Ctrl+Alt+S** does it in any
+terminal that sends Alt (on macOS, set Option to act as Meta or Esc+).
+
 Local voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS), for hosts that capture F6.
 
 **Tab** (or Shift-Tab) switches between writing and the read-only original once
