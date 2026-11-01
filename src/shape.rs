@@ -2271,6 +2271,12 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                         palette.ink,
                     ));
                 }
+                if id == PROBE.0 {
+                    lines.push(Line::styled(
+                        "Answer in your own words, or type skip and send to skip it.",
+                        palette.ink,
+                    ));
+                }
                 if let Some(entry) = found.first() {
                     lines.push(Line::styled(format!("What I found: {entry}"), palette.ink));
                 }
