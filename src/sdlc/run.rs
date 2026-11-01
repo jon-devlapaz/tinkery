@@ -42,17 +42,20 @@ impl<T: Send + 'static> Read<T> {
         Self::task(move |stop| run(&root, &args, stop, deadline).and_then(|out| prepare(&out)))
     }
 
-    /// Own a cancellable read transaction; dropping it waits for its bounded helpers to stop.
+    /// Own a cancellable read transaction. Completion unparks the calling thread after publishing
+    /// its result; dropping the read waits for its bounded helpers to stop.
     pub(crate) fn task(
         work: impl FnOnce(&AtomicBool) -> Result<T, String> + Send + 'static,
     ) -> Self {
         let cancel = Arc::new(AtomicBool::new(false));
         let (send, result) = mpsc::channel();
         let stop = cancel.clone();
+        let owner = thread::current();
         let worker = thread::spawn(move || {
             let outcome = work(&stop);
             if !stop.load(Ordering::SeqCst) {
                 let _ = send.send(outcome);
+                owner.unpark();
             }
         });
         Self {

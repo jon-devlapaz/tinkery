@@ -43,7 +43,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 
 | Module | Owns |
 | --- | --- |
-| `main.rs` | Command-line options and the terminal loop; wires the menu or think to a real or practice host. |
+| `main.rs`, `main/input.rs` | Command-line options, the terminal loop and bounded ordered input. Mouse input after resize waits for a source-level drain acknowledgement for that resize, never an empty transfer queue. Input and read completions wake the UI without shortening its heartbeat. Wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch and the model label's room, the minimum terminal size, paging and the clipped-view `more` cue. |
 | `model_setup.rs`, `model_setup/panel.rs` | The saved model setup's one parser (file and flags), atomic save, header label and Model panel; the terminal loop owns when it shows (shared). |
 | `pi.rs` | The one place a model host starts, Pi or Claude Code: which models and levels each accepts, a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs) for Pi, `dontAsk` for Claude Code), the call budget and prompt-file assembly (shared). |

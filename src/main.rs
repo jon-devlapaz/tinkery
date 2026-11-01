@@ -2,13 +2,16 @@
 //! loop (or prints one `--snapshot`). Everything the screens do lives in the library; this file
 //! owns only the terminal: raw mode, events, the clipboard, and restoring it on the way out.
 
+#[path = "main/input.rs"]
+mod input;
+
 use std::io::{self, IsTerminal};
 use std::{path::PathBuf, sync::Arc};
 
 use crossterm::{
     clipboard::CopyToClipboard,
     event::{
-        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+        DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
         Event, KeyCode, KeyEvent, KeyModifiers, KeyboardEnhancementFlags,
         PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
@@ -618,9 +621,9 @@ fn run_shape(
         // Terminals that know this report Cmd+Enter; the rest ignore it.
         PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
     )?;
+    let mut terminal_input = input::Input::new()?;
     let mut repaint = full_redraw;
     let mut pending_input = None;
-    let mut discard_mouse = false;
     let mut previous_area = None;
     let Header {
         mut theme,
@@ -660,31 +663,32 @@ fn run_shape(
                     app.presented(presentation);
                 }
             })?;
-        frame_painted(drawn_area, &mut previous_area, &mut discard_mouse);
-        repaint = false;
-        let ready = pending_input.is_some() || event::poll(std::time::Duration::ZERO)?;
-        if !ready {
-            discard_mouse = false;
+        let mut resized = false;
+        frame_painted(drawn_area, &mut previous_area, &mut resized);
+        if resized {
+            terminal_input.invalidate_mouse();
         }
-        if ready || event::poll(std::time::Duration::from_millis(100))? {
+        repaint = false;
+        let ready = pending_input.is_some() || terminal_input.poll();
+        if !ready {
+            std::thread::park_timeout(std::time::Duration::from_millis(100));
+        }
+        if ready || terminal_input.poll() {
             for _ in 0..64 {
                 let input = match pending_input.take() {
                     Some(input) => input,
-                    None => event::read()?,
+                    None => terminal_input.read()?,
                 };
                 let area = terminal.size()?.into();
-                let Some(input) = input_for_frame(
-                    input,
-                    drawn_area,
-                    area,
-                    &mut pending_input,
-                    &mut discard_mouse,
-                ) else {
+                let Some(input) =
+                    input_for_frame(input, drawn_area, area, &mut pending_input, &mut resized)
+                else {
+                    terminal_input.invalidate_mouse();
                     break;
                 };
                 match send_alias(input) {
-                    // Drain old-layout mouse events, including those queued after Resize.
-                    Event::Mouse(_) if discard_mouse => {}
+                    // Only the source can acknowledge that old-layout input has drained.
+                    Event::Mouse(_) if !terminal_input.mouse_ready() => {}
                     Event::Key(_) if migration.is_some() => {
                         migration = None;
                     }
@@ -708,8 +712,7 @@ fn run_shape(
                 if app.take_model_request() {
                     controls.open();
                 }
-                if app.quit() || !event::poll(std::time::Duration::ZERO)? {
-                    discard_mouse = false;
+                if app.quit() || !terminal_input.poll() {
                     break;
                 }
             }
