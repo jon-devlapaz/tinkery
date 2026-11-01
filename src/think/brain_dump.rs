@@ -923,7 +923,7 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::Esc
-            && self.running()
+            && self.shaping.job.is_some()
             && !self.screen.original
             && !self.screen.help
             && !self.screen.details

@@ -667,6 +667,7 @@ fn a_compound_item_is_noted_for_why_but_shown_whole() {
         );
     }
 }
+
 #[test]
 fn ctrl_c_during_a_save_claims_no_cancel() {
     let mut a = missing(Part::Why);
