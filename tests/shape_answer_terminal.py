@@ -348,6 +348,7 @@ def full_journey(width, height):
             run.send(F2, 'Probe: pre-mortem Imagine this shipped and turned out wrong. What is the most likely reason?')
             assert run.calls() == [], 'The pre-mortem called a model'
             assert 'What I found' not in run.flat() and 'Nothing found' not in run.flat(), run.screen.text()
+            assert 'or type skip and send to skip it' in run.flat(), run.screen.text()
             run.type('TEST It showed private text.')
             run.send(F2, 'Where records live Keep records local or synced?')
             run.wait('What I found: README.md:3: says local only')
@@ -1505,8 +1506,11 @@ def exit_hint(width, height, stage):
                 run.open_shape()
                 run.wait('F2 look into the next question')
                 run.send(F2, 'Probe: pre-mortem')
-                run.type('TEST private text leaks.')
+                # The skip the screen names is a settled answer, not a deferral (#625).
+                run.type('skip')
                 run.send(F2, 'Seed draft r1')
+                probe = next(n for n in helper.load(session)['nodes'] if n['id'] == 'probe-pre-mortem')
+                assert (probe['status'], probe['answer']) == ('settled', 'skip'), probe
                 if stage in ('ready', 'stale'):
                     helper.confirm_seed(session, 'r1', 'TEST fixture only: confirm r1')
                 if stage == 'stale':
