@@ -5,13 +5,12 @@ Each step names what it saves, what it allows and what is running afterwards. No
 runs on its own: every model call and every launch is a key or command you choose.
 `tests/first_task_path.py` runs the shell blocks below verbatim, with stand-in models.
 
-Set these once in your shell. The model pins are examples; use ones your Pi account can run.
+Set these once in your shell:
 
 ```sh
 tinkery_src=~/dev/tinkery
 project=~/dev/my-project
 notes=~/dev/run-notes
-worker_model=openai-codex/gpt-5.6-luna:low
 ```
 
 ## 1. Install Tinkery
@@ -42,8 +41,6 @@ Saved: nothing. Allowed: nothing. Running: nothing.
 Tinkery hands work to [tink-sdlc](https://github.com/jon-devlapaz/tink-sdlc), installed
 into the Git checkout you want built. Commit the install, then choose real checks in
 `_system/verification.json` (see its `SDLC.md`); until then, verification fails on purpose.
-
-Git needs your name and email (`git config --global user.name` and `user.email`) to commit.
 
 ```sh
 mkdir -p "$project" && git -C "$project" init -q
@@ -118,8 +115,9 @@ Saved: the stage. Allowed: a build on this run. Running: nothing.
 
 ## 8. Start the worker
 
-This is the step that spends model calls on building. Check the pin first, then prepare
-and launch one pinned build step:
+This is the step that spends model calls on building. Set `worker_model` to a model that
+`pi --list-models --offline` shows, with a thinking level (`worker_model=provider/model-id:low`).
+Check the pin first, then prepare and launch one pinned build step:
 
 ```sh
 python3 "$tinkery_src/scripts/first-task-check.py" --sdlc-root "$project" --worker-model "$worker_model"
@@ -144,9 +142,18 @@ report, then:
 
 ```sh
 cd "$project" && python3 _system/scripts/sdlc.py step "$run" build complete
-python3 _system/scripts/sdlc.py verify "$run"
+python3 _system/scripts/sdlc.py status "$run"
 ```
 
-`complete` records the report; it proves nothing passed. `verify` runs the checks. Review
-and merging stay with you and your forge. Saved: the report digest, then verification.
+`complete` records the report; it proves nothing passed. `status` lists what is still yours:
+checks the worker changed (`Stage 3: stale`, with the `decide` command to fill in) and checks
+marked `operator attestation required` (record each with `mark`, `--reviewer` and `--source`).
+Only you record these; an agent's record is never your approval. Then run the checks:
+
+```sh
+cd "$project" && python3 _system/scripts/sdlc.py verify "$run"
+```
+
+A green `verify` ends this guide. Review and merging follow tink-sdlc's stage 5
+(`stages/05-deploy/CONTEXT.md` in your project). Saved: the report digest, then verification.
 Running: nothing.
