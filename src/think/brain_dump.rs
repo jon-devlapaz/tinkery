@@ -214,7 +214,7 @@ enum Save {
 }
 
 impl Save {
-    /// The review on screen, including while its save runs; borrows only the save.
+    /// The review on screen, editable while it is open or saving.
     fn review_mut(&mut self) -> Option<&mut goal_view::Review> {
         match self {
             Save::Reviewing(review) | Save::Saving { review, .. } => Some(review),
@@ -239,6 +239,7 @@ impl Handoff {
     fn leaving(&self) -> bool {
         matches!(self.save, Save::Saving { leave: true, .. })
     }
+    /// The saved goal's receipt, once the save read back.
     fn receipt(&self) -> Option<&seed_me::Receipt> {
         match &self.save {
             Save::Saved(receipt) => Some(receipt),
@@ -259,8 +260,12 @@ impl Handoff {
             self.save = Save::Idle;
         }
     }
-    /// The review's save started as `job`.
+    /// The open review's save started as `job`; a save never starts without one.
     fn begin(&mut self, job: SaveJob) {
+        debug_assert!(matches!(self.save, Save::Reviewing(_)), "no review is open");
+        if !matches!(self.save, Save::Reviewing(_)) {
+            return;
+        }
         if let Save::Reviewing(review) = std::mem::take(&mut self.save) {
             self.save = Save::Saving {
                 review,
