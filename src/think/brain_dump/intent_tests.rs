@@ -667,3 +667,25 @@ fn a_compound_item_is_noted_for_why_but_shown_whole() {
         );
     }
 }
+#[test]
+fn ctrl_c_during_a_save_claims_no_cancel() {
+    let mut a = missing(Part::Why);
+    let blocked = tempfile::tempdir().unwrap();
+    let file = blocked.path().join("TEST-not-a-folder");
+    std::fs::write(&file, "TEST blocker").unwrap();
+    a.handoff.config = Some(seed_me::Config::new(Some(file)));
+    a.review_goal();
+    for _ in 0..30 {
+        snapshot(80, 24, &mut a, false).unwrap();
+        a.handle_key(KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+    }
+    snapshot(80, 24, &mut a, false).unwrap();
+    a.paste("confirm");
+    a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert!(a.running(), "the save started");
+    let before = a.notice.clone();
+    a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
+    assert!(!a.notice.contains("Cancelled"), "{}", a.notice);
+    assert_eq!(a.notice, before);
+    assert!(a.running(), "Ctrl-C does not stop a save");
+}
