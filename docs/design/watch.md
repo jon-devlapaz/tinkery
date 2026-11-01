@@ -73,7 +73,7 @@ except provisional (`pending: true`) items awaiting activation. A passed attesta
 only if the change affects it. Automatic pending checks alone do not demand a person.
 
 A worker whose turn ended also leads: tink-sdlc's `steps` report each pinned build step and,
-for an active one, its `observed_turn`, and its next action says to read the report. Rows add
+for an active one, its `turn`, and its next action says to read the report. Rows add
 `worker running`, `worker's turn ended` or `worker state unknown`; a run awaiting building
 with no active step says `no worker running`, so a run that exists is never mistaken for work
 in progress. Detail lists each step. A tink-sdlc without `steps` adds nothing; an unfamiliar

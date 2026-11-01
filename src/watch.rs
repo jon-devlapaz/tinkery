@@ -188,22 +188,20 @@ fn steps(run: &Value) -> Result<Option<(Vec<String>, Worker)>, String> {
     for step in steps.as_array().ok_or_else(refuse)? {
         let name = step["name"].as_str().ok_or_else(refuse)?;
         let state = step["state"].as_str().ok_or_else(refuse)?;
-        let turn = step.get("observed_turn").map(Value::as_str);
+        let turn = step.get("turn").map(Value::as_str);
         let seen = match (state, turn) {
             ("active", Some(Some(turn))) => {
-                let now = if turn.starts_with("ended") {
-                    Worker::Ended
-                } else if turn.starts_with("not ended") {
-                    Worker::Running
-                } else if turn.starts_with("unknown") {
-                    Worker::Unknown
-                } else {
-                    return Err(refuse().into());
+                let now = match turn {
+                    "ended" => Worker::Ended,
+                    "not-ended" => Worker::Running,
+                    "unknown" => Worker::Unknown,
+                    _ => return Err(refuse().into()),
                 };
+                let words = step["observed_turn"].as_str().ok_or_else(refuse)?;
                 if worker == Worker::Idle || now == Worker::Ended {
                     worker = now;
                 }
-                format!(" · {turn}")
+                format!(" · {words}")
             }
             ("prepared" | "completed" | "uncertain" | "unreadable", None) => String::new(),
             _ => return Err(refuse().into()),
