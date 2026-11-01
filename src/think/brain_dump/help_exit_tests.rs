@@ -188,7 +188,7 @@ fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     assert!(a.quitting() && a.notice.contains("TEST missing helper"));
 }
 #[test]
-fn ctrl_c_copies_a_selection_cancels_sending_and_never_leaves() {
+fn ctrl_c_copies_a_selection_and_never_leaves() {
     let mut a = board();
     ctrl_c(&mut a);
     assert!(!a.quitting() && !a.screen.leave_prompt && a.take_copy_request().is_none());
@@ -198,12 +198,23 @@ fn ctrl_c_copies_a_selection_cancels_sending_and_never_leaves() {
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().unwrap(), text[..6]);
     assert!(!a.quitting() && !a.screen.leave_prompt);
-    a.screen.selection = None;
+}
+#[test]
+fn ctrl_c_cancels_a_shaping_call_and_keeps_words() {
+    let mut a = BrainDump::with_host(Arc::new(Simulated));
+    a.paste("These exact words stay mine.");
     a.submit();
-    if a.running() {
-        ctrl_c(&mut a);
-        assert!(!a.running() && a.notice.starts_with("Cancelled"));
-    }
+    assert!(a.running(), "the shaping call started");
+    ctrl_c(&mut a);
+    assert!(
+        !a.running() && a.notice.starts_with("Cancelled"),
+        "{}",
+        a.notice
+    );
+    assert_eq!(
+        a.conversation.sources()[0].text,
+        "These exact words stay mine."
+    );
     assert!(!a.quitting() && !a.screen.leave_prompt);
 }
 #[test]

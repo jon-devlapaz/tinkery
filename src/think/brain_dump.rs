@@ -873,11 +873,12 @@ impl BrainDump {
         if self.screen.leave_prompt && key.kind == KeyEventKind::Repeat {
             return;
         }
-        // Ctrl-C never leaves: it copies a selection, or cancels a running request.
+        // Ctrl-C never leaves: it copies a selection, or cancels a shaping call. A save
+        // cannot be cancelled, so Ctrl-C during one claims nothing.
         if ctrl && key.code == KeyCode::Char('c') {
             if let Some(text) = self.selected_text() {
                 self.copy = Some(text);
-            } else if self.running() && !self.screen.leave_prompt {
+            } else if self.shaping.job.is_some() && !self.screen.leave_prompt {
                 self.shaping.job.take();
                 self.shaping.request = None;
                 self.notice = "Cancelled; original and previous board retained. F2 retries.".into();
@@ -922,7 +923,7 @@ impl BrainDump {
             return;
         }
         if key.code == KeyCode::Esc
-            && self.running()
+            && self.shaping.job.is_some()
             && !self.screen.original
             && !self.screen.help
             && !self.screen.details
