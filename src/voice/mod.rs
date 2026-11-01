@@ -142,8 +142,12 @@ impl Voice {
     pub fn failure(&self) -> Option<&Failure> {
         self.failure.as_ref()
     }
+    /// Ends the take, if there is one, and returns to Idle. Without a take the phase is not
+    /// a take's, so it stays as it is.
     fn clear_take(&mut self) {
-        self.take = None;
+        if self.take.take().is_none() {
+            return;
+        }
         self.partial.clear();
         self.pending_send = false;
         self.deadline = None;
@@ -164,12 +168,18 @@ impl Voice {
     fn command(&mut self, command: Command) {
         if let Err(failure) = self.host.send(command) {
             self.clear_take();
-            self.available = false;
             self.reject(failure);
             self.setup.prompt = false;
-            self.host.shutdown();
-            self.phase = Phase::Closed;
+            self.shut();
         }
+    }
+    /// Stops the helper: Closed, unavailable, with no deadline left to fire. The voice key
+    /// restarts it.
+    fn shut(&mut self) {
+        self.host.shutdown();
+        self.available = false;
+        self.deadline = None;
+        self.phase = Phase::Closed;
     }
     /// The voice key: starts a take, or stops the running one. When voice isn't ready it says
     /// why, or asks to set up, instead.
@@ -232,10 +242,8 @@ impl Voice {
     /// Ends voice for this visit: cancels the take and stops the helper. Also runs on drop.
     pub fn close(&mut self) {
         self.cancel();
-        self.host.shutdown();
+        self.shut();
         self.setup.reset();
-        self.available = false;
-        self.phase = Phase::Closed;
         self.notice.clear();
         self.failure = None;
     }
@@ -248,7 +256,6 @@ impl Voice {
                 "timeout",
                 "Voice timed out. Press the voice key to retry.",
             ));
-            self.phase = Phase::Closed;
             return None;
         }
         for _ in 0..64 {
@@ -270,6 +277,7 @@ impl Voice {
                         ) =>
                 {
                     if size_mb == 0 || message.len() > 1024 {
+                        self.close();
                         self.reject(Failure::new("protocol", "Invalid voice setup response."));
                         continue;
                     }
@@ -298,7 +306,6 @@ impl Voice {
                             "protocol",
                             "Incompatible voice protocol. Restart think.",
                         ));
-                        self.phase = Phase::Closed;
                     } else {
                         self.available = true;
                         self.setup.reset();
@@ -338,9 +345,7 @@ impl Voice {
                     self.reject(Failure::new(&kind, &message));
                     if global {
                         self.setup.prompt = false;
-                        self.host.shutdown();
-                        self.available = false;
-                        self.phase = Phase::Closed;
+                        self.shut();
                     }
                 }
                 _ => {}
