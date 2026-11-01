@@ -105,15 +105,43 @@ struct Attention {
     gate: bool,
     owed: usize,
     recheck: usize,
+    /// What tink-sdlc's pinned build steps say; None when this tink-sdlc doesn't report them.
+    worker: Option<Worker>,
+}
+
+/// Whether a worker is building the run, from tink-sdlc's steps and their observed turns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Worker {
+    Idle,
+    Running,
+    /// Its turn ended: someone has to read the report and complete the step.
+    Ended,
+    Unknown,
+}
+
+impl Worker {
+    fn words(self) -> &'static str {
+        match self {
+            Self::Idle => "no worker running",
+            Self::Running => "worker running",
+            Self::Ended => "worker's turn ended",
+            Self::Unknown => "worker state unknown",
+        }
+    }
 }
 
 impl Run {
     fn needs_you(&self) -> bool {
         self.state.needs_you()
-            || self
-                .attention
-                .as_ref()
-                .is_some_and(|a| a.gate || a.owed > 0 || a.recheck > 0)
+            || self.attention.as_ref().is_some_and(|a| {
+                a.gate || a.owed > 0 || a.recheck > 0 || a.worker == Some(Worker::Ended)
+            })
+    }
+
+    /// The worker words a row shows: an idle worker matters only while the run awaits building.
+    fn worker(&self) -> Option<Worker> {
+        let worker = self.attention.as_ref()?.worker?;
+        (worker != Worker::Idle || self.state == State::NotRun).then_some(worker)
     }
 }
 
@@ -129,6 +157,8 @@ struct Detail {
     attested: usize,
     attention: Attention,
     checklist: Vec<String>,
+    /// One line per pinned build step, or None when this tink-sdlc doesn't report steps.
+    steps: Option<Vec<String>>,
     errors: Vec<String>,
 }
 
@@ -144,6 +174,46 @@ fn text(value: &Value, key: &str) -> Result<String, String> {
         .as_str()
         .map(str::to_owned)
         .ok_or_else(|| format!("A run is missing {key}; nothing is shown rather than a guess."))
+}
+
+/// tink-sdlc's pinned build steps as detail lines, and what they say about a worker.
+/// An older tink-sdlc omits them; anything present but unfamiliar is refused, not guessed.
+fn steps(run: &Value) -> Result<Option<(Vec<String>, Worker)>, String> {
+    let Some(steps) = run.get("steps") else {
+        return Ok(None);
+    };
+    let refuse = || "A worker step Watch doesn't know; nothing is shown rather than a guess.";
+    let mut lines = Vec::new();
+    let mut worker = Worker::Idle;
+    for step in steps.as_array().ok_or_else(refuse)? {
+        let name = step["name"].as_str().ok_or_else(refuse)?;
+        let state = step["state"].as_str().ok_or_else(refuse)?;
+        let turn = step.get("observed_turn").map(Value::as_str);
+        let seen = match (state, turn) {
+            ("active", Some(Some(turn))) => {
+                let now = if turn.starts_with("ended") {
+                    Worker::Ended
+                } else if turn.starts_with("not ended") {
+                    Worker::Running
+                } else if turn.starts_with("unknown") {
+                    Worker::Unknown
+                } else {
+                    return Err(refuse().into());
+                };
+                if worker == Worker::Idle || now == Worker::Ended {
+                    worker = now;
+                }
+                format!(" · {turn}")
+            }
+            ("prepared" | "completed" | "uncertain" | "unreadable", None) => String::new(),
+            _ => return Err(refuse().into()),
+        };
+        lines.push(format!("Worker step {name}: {state}{seen}"));
+    }
+    if lines.is_empty() {
+        lines.push("No worker step has been started for this run.".into());
+    }
+    Ok(Some((lines, worker)))
 }
 
 /// The list summary, in tink-sdlc's order.
@@ -224,8 +294,10 @@ fn parse_run_detail(run: &Value) -> Result<Detail, String> {
             .filter(|i| i[key].as_str() == Some(word))
             .count()
     };
+    let steps = steps(run)?;
     let mut attention = Attention {
         gate: gates.iter().any(|(_, status)| status != "approved"),
+        worker: steps.as_ref().map(|(_, worker)| *worker),
         ..Attention::default()
     };
     let mut checklist = Vec::new();
@@ -284,6 +356,7 @@ fn parse_run_detail(run: &Value) -> Result<Detail, String> {
         attested: count("proof", "attested"),
         attention,
         checklist,
+        steps: steps.map(|(lines, _)| lines),
         errors: run["errors"]
             .as_array()
             .ok_or("The run has no errors list.")?
@@ -540,6 +613,7 @@ impl Watch {
                         attested: 0,
                         attention: Attention::default(),
                         checklist: Vec::new(),
+                        steps: None,
                         errors: Vec::new(),
                     }),
                     at,
@@ -562,8 +636,8 @@ impl Watch {
             "What Watch does\nIt reads the runs in the tink-sdlc checkout you named with --sdlc-root, ",
             "by running that checkout's own `python3 _system/scripts/sdlc.py status --json` when you open ",
             "Watch or press r. It never runs verify, mark, decide or stage, and changes nothing.\n\n",
-            "Needs you lists decisions, owed attestations, possible attestation rechecks and failed, interrupted ",
-            "or unreadable runs. Opening or refreshing also reads each run's status to determine attention.\n",
+            "Needs you lists decisions, owed attestations, possible attestation rechecks, workers whose turn ended, ",
+            "and failed, interrupted or unreadable runs. Opening or refreshing also reads each run's status to determine attention.\n",
             "Checklist counts separate passed results from how each is checked: automated or by you. ",
             "A proof kind does not mean the item passed.\n",
             "In details: ↑↓, PgUp/PgDn and Home/End scroll the whole evidence and errors."
@@ -667,9 +741,12 @@ impl Watch {
                         selected_line = lines.len();
                     }
                     if run.needs_you() {
+                        let worker = run
+                            .worker()
+                            .map_or(String::new(), |w| format!(" · {}", w.words()));
                         lines.push(Line::from(vec![
                             Span::styled(format!("{mark}{}", run.slug), name),
-                            Span::styled(format!("  {}", run.state.words()), palette.ink),
+                            Span::styled(format!("  {}{worker}", run.state.words()), palette.ink),
                         ]));
                         if let Some(a) = &run.attention
                             && (a.owed > 0 || a.recheck > 0)
@@ -692,8 +769,10 @@ impl Watch {
                             Span::styled(format!("{mark}{}", run.slug), name),
                             Span::styled(
                                 format!(
-                                    "  {} · {}/{} checks passed",
+                                    "  {}{} · {}/{} checks passed",
                                     run.state.words(),
+                                    run.worker()
+                                        .map_or(String::new(), |w| format!(" · {}", w.words())),
                                     run.passed,
                                     run.total
                                 ),
@@ -810,6 +889,9 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             lines.push(Line::default());
             lines.push(Line::styled(d.state.words(), palette.ink.bold()));
             lines.push(Line::styled(format!("Next: {}", d.next), palette.ink));
+            for step in d.steps.iter().flatten() {
+                lines.push(Line::styled(step.clone(), palette.ink));
+            }
             lines.push(Line::default());
             for (stage, status) in &d.gates {
                 lines.push(Line::styled(

@@ -404,6 +404,86 @@ fn unknown_attestation_fields_refuse_instead_of_claiming_quiet() {
 }
 
 #[test]
+fn a_run_says_whether_a_worker_is_building_it_and_an_ended_turn_needs_you() {
+    // tinkery#614: an imported run read as being worked on while no worker ran.
+    let step = |state: &str, turn: Option<&str>| {
+        let mut step = serde_json::json!({"name": "build", "state": state});
+        if let Some(turn) = turn {
+            step["observed_turn"] = turn.into();
+        }
+        step
+    };
+    let cases = [
+        ("idle", Some(vec![])),
+        (
+            "building",
+            Some(vec![step("active", Some("not ended: TEST still going"))]),
+        ),
+        (
+            "ended",
+            Some(vec![step(
+                "active",
+                Some("ended: read the report, then complete the step"),
+            )]),
+        ),
+        ("older-sdlc", None),
+    ];
+    let slugs: Vec<_> = cases.iter().map(|(slug, _)| run(slug, "not-run")).collect();
+    let list = envelope(&slugs.join(","));
+    let mut details = serde_json::Map::new();
+    for (slug, steps) in &cases {
+        let mut value = detail(vec![]);
+        value["run"]["verification_status"] = "not-run".into();
+        if let Some(steps) = steps {
+            value["run"]["steps"] = steps.clone().into();
+        }
+        details.insert(slug.to_string(), value);
+    }
+    let dir = checkout(&list, 0.0);
+    let details = Value::Object(details).to_string();
+    fs::write(
+        dir.path().join(SCRIPT),
+        format!(
+            "import json,sys\nvalue=json.loads({list:?})\nif len(sys.argv)==4:\n    value=json.loads({details:?})[sys.argv[2]]\n    value['run'].update(slug=sys.argv[2],run_id='x')\nprint(json.dumps(value))\n"
+        ),
+    )
+    .unwrap();
+    let mut watch = Watch::open(Some(dir.path().to_path_buf()));
+    settle(&mut watch);
+    let order: Vec<_> = ordered(watch.runs().unwrap())
+        .iter()
+        .map(|r| r.slug.clone())
+        .collect();
+    assert_eq!(order, ["ended", "idle", "building", "older-sdlc"]);
+    let text = screen(&mut watch, 100, 30);
+    for (slug, words) in [
+        ("ended", "not verified yet · worker's turn ended"),
+        ("idle", "not verified yet · no worker running ·"),
+        ("building", "not verified yet · worker running ·"),
+        ("older-sdlc", "not verified yet · 0/0 checks passed"),
+    ] {
+        assert!(
+            text.contains(&format!("{slug}  {words}")),
+            "{slug}:\n{text}"
+        );
+    }
+    watch.key(KeyEvent::from(KeyCode::Down));
+    watch.key(KeyEvent::from(KeyCode::Enter));
+    settle(&mut watch);
+    assert!(screen(&mut watch, 100, 30).contains("No worker step has been started for this run."));
+    for bad in [
+        step("running", None),
+        step("active", None),
+        step("prepared", Some("ended: TEST")),
+        step("active", Some("TEST finished maybe")),
+    ] {
+        let mut value = detail(vec![]);
+        value["run"]["steps"] = vec![bad.clone()].into();
+        assert!(parse_detail(&value.to_string()).is_err(), "{bad}");
+    }
+}
+
+#[test]
 fn opening_reads_attention_before_offering_any_quiet_run() {
     let list = envelope(&format!(
         "{},{}",

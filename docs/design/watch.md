@@ -72,6 +72,13 @@ except provisional (`pending: true`) items awaiting activation. A passed attesta
 `needs_recheck` is shown as **may need recheck**, not declared invalid: upstream says to recheck
 only if the change affects it. Automatic pending checks alone do not demand a person.
 
+A worker whose turn ended also leads: tink-sdlc's `steps` report each pinned build step and,
+for an active one, its `observed_turn`, and its next action says to read the report. Rows add
+`worker running`, `worker's turn ended` or `worker state unknown`; a run awaiting building
+with no active step says `no worker running`, so a run that exists is never mistaken for work
+in progress. Detail lists each step. A tink-sdlc without `steps` adds nothing; an unfamiliar
+step state or turn refuses the read.
+
 This interpretation follows API 1's `checklist_view` and `status_state` in
 [tink-sdlc at 1c6ffd59](https://github.com/jon-devlapaz/tink-sdlc/blob/1c6ffd59902a742a2b3bb607ab75c41dc2e95e55/assets/_system/scripts/sdlc.py).
 Watch requires the typed `automatic`, `proof`, `status`, `needs_recheck` and `mark` fields;
