@@ -3,8 +3,8 @@
 
 Promises: four readiness lines (Tinkery runs, the workflow is connected, drafting is set up,
 a worker can launch) and one Next step for the first that is not ready; exit 0 only when all
-four are. Reads local files and runs only `tinkery --snapshot` (in a throwaway HOME) and
-tink-sdlc's read-only `capabilities`.
+four are. Reads local files and runs only `tinkery --snapshot` (in a throwaway HOME), `git var`
+and tink-sdlc's read-only `capabilities`.
 Refuses to claim more than it read: "set up" never means a model answered. The first real
 send proves drafting; the first launch proves the worker.
 """
@@ -100,7 +100,19 @@ def drafting(root):
     return ok, (f"Pi {setup['model']}, {setup['calls']} calls each launch" if ok else why)
 
 
+def git_identity(root):
+    """Git can name the author and committer of step 2's commit, as `git commit` would."""
+    cwd = root if root is not None and root.is_dir() else None
+    for ident in ('GIT_AUTHOR_IDENT', 'GIT_COMMITTER_IDENT'):
+        if subprocess.run(['git', 'var', ident], cwd=cwd, capture_output=True).returncode:
+            return False
+    return True
+
+
 def workflow(root):
+    if not git_identity(root):
+        return False, ('Tell Git who you are so the install can be committed: git config --global user.name '
+                       f'"Your Name" && git config --global user.email "you@example.com" ({GUIDE}, step 2).')
     if root is None:
         return False, f'Name your project with --sdlc-root after installing tink-sdlc there ({GUIDE}, step 2).'
     runtime = root / '_system/scripts/sdlc.py'

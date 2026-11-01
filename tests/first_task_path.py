@@ -91,7 +91,8 @@ def main():
         # The guide's own variable names, with this checkout and a TEST pin as values.
         names = re.search(r'```sh\n(tinkery_src=.*?)```', GUIDE, re.S).group(1)
         assert [line.split('=')[0] for line in names.splitlines()] == [
-            'tinkery_src', 'project', 'notes', 'worker_model'], names
+            'tinkery_src', 'project', 'notes'], names
+        assert '`worker_model=provider/model-id:low`' in GUIDE  # a placeholder, not a real model id
         prelude = f"tinkery_src={REPO}\nproject=~/dev/my-project\nnotes=~/dev/run-notes\nworker_model={PIN}\n"
         subprocess.run(['cargo', '+stable', 'build', '--locked'], cwd=REPO, env=env, check=True,
                        stdout=subprocess.DEVNULL)
@@ -101,6 +102,14 @@ def main():
         # 1. The readiness check, not the contributor suite.
         install, check = blocks('1. Install Tinkery')
         assert 'cargo +stable build --locked --release' in install
+        # A fresh user with no Git identity learns it here, not from step 2's failing commit.
+        anonymous = {k: v for k, v in env.items() if not k.startswith(('GIT_AUTHOR', 'GIT_COMMITTER'))}
+        for host_config in ('XDG_CONFIG_HOME', 'GIT_CONFIG_GLOBAL'):
+            anonymous.pop(host_config, None)
+        anonymous.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_COUNT='1',
+                         GIT_CONFIG_KEY_0='user.useConfigOnly', GIT_CONFIG_VALUE_0='true')
+        out = shell(prelude + check, anonymous, root, waiting=True)
+        assert out.splitlines()[-1].startswith('Next: Tell Git who you are'), out
         out = shell(prelude + check, env, root, waiting=True)
         assert 'ready: Tinkery runs' in out and 'not yet: The workflow is connected' in out, out
         assert out.splitlines()[-1].startswith('Next: Name your project with --sdlc-root'), out
@@ -197,7 +206,7 @@ def main():
         score.append('8 worker')
 
         # 9. The ended turn is observed; the worker's report is recorded; verify runs the checks.
-        show, finish = blocks('9. Watch it, then finish')
+        show, finish, verify = blocks('9. Watch it, then finish')
         for _ in range(50):
             out = shell(run_vars + show, env, root)
             if 'ended: read the report' in out:
@@ -207,6 +216,8 @@ def main():
         (home / 'dev/run-notes/my-run-build.md').write_text('TEST report written by the stand-in worker.\n')
         out = shell(run_vars + finish, env, root)
         assert '"state": "completed"' in out, out
+        assert 'Stage 3: approved' in out, out
+        shell(run_vars + verify, env, root)
         status = json.loads(shell('python3 _system/scripts/sdlc.py status my-run --json', env, project))
         assert status['run']['verification']['passed'] is True, status['run']['verification']
         assert (root / 'pi-calls').read_text().count('--mode json') == 1
