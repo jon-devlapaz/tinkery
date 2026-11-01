@@ -136,7 +136,7 @@ impl Reader {
                 {
                     continue;
                 }
-                if !matches!(session.stage, Stage::SeedUnchecked | Stage::Ended) {
+                if session.stage != Stage::SeedUnchecked && !session.stage.ended() {
                     target_failure =
                         "This seed is no longer verified ready. Return to Shape to read it again."
                             .into();

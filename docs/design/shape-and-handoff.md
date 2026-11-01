@@ -122,7 +122,8 @@ writes nothing and calls no model.
 | Confirmed goal | goal saved | Shape it into a seed in Shape |
 | Draft seed contract | seed drafted | Confirm the seed draft in Shape |
 | Seed declares confirmation for intake | seed needs checking | Check the seed in Shape |
-| Ended session | ended | None; copying unavailable |
+| Completed session | completed | None; copying unavailable |
+| Stopped session | stopped | None; copying unavailable |
 
 File-only discovery never verifies seed confirmation: even a legitimately confirmed,
 unchanged seed says `seed needs checking`. Missing receipts or changed seeds cannot
@@ -257,8 +258,8 @@ from external tools ignoring the lock.
 Readiness uses links and all readable sessions, including ended ones. Found needs
 use first goal lines; unresolved or duplicate IDs are counted without guessing.
 Duplicate source IDs have no attributable needs or positive readiness. Ready means
-at least one need, all uniquely found and ended. No needs, missing needs and unknown
-stages are not ready.
+at least one need, all uniquely found and completed. Stopped needs, no needs, missing
+needs and unknown stages are not ready.
 
 ## Continuation contract
 

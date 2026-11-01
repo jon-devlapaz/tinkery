@@ -16,7 +16,7 @@ use std::{
     time::Instant,
 };
 
-use super::{self as tend, Session, Stage};
+use super::{self as tend, Session};
 use crate::seed_me::{self, Record};
 
 /// What one scan found.
@@ -193,11 +193,7 @@ impl Discovery {
             return false;
         }
         let active = outcome.as_ref().map_or(0, |found| {
-            found
-                .sessions
-                .iter()
-                .filter(|s| s.stage != Stage::Ended)
-                .count()
+            found.sessions.iter().filter(|s| !s.stage.ended()).count()
         });
         self.landed = Some(Landed {
             outcome,
@@ -252,7 +248,7 @@ impl Discovery {
                         .zip(origins)
                         .filter_map(|(session, made_in)| {
                             if made_in == crate::think_record::MadeIn::Unknown
-                                && session.stage != Stage::Ended
+                                && !session.stage.ended()
                             {
                                 repo_unknown += 1;
                             }

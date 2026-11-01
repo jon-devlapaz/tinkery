@@ -171,7 +171,7 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
                 id: Some("TEST-ended".into()),
                 path: "/TEST/ended".into(),
                 goal: "TEST ended".into(),
-                stage: Stage::Ended,
+                stage: Stage::Completed,
                 updated: String::new(),
             },
         ],
@@ -211,7 +211,7 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
     assert_eq!(rendered.matches("saved record").count(), 1, "{rendered}");
     tend.repo_unknown = 0;
     let mut incomplete = outcome;
-    incomplete.sessions.retain(|s| s.stage != Stage::Ended);
+    incomplete.sessions.retain(|s| s.stage != Stage::Completed);
     incomplete.unreadable = 1;
     tend.apply(&Ok(incomplete), true, 3);
     let rendered = screen(&mut tend);

@@ -208,7 +208,7 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
         .enumerate()
         .flat_map(|(i, &stage)| {
             [
-                sess(&format!("ended-{i}"), Stage::Ended, "unknown"),
+                sess(&format!("ended-{i}"), Stage::Completed, "unknown"),
                 sess(&i.to_string(), stage, "unknown"),
             ]
         })
@@ -233,7 +233,7 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
         for _ in 0..7 {
             h.handle_key(key(code));
             let View::Tend(tend) = &h.view else { panic!() };
-            assert_ne!(tend.current().unwrap().stage, Stage::Ended);
+            assert_ne!(tend.current().unwrap().stage, Stage::Completed);
         }
     }
     let now = Instant::now();
@@ -271,7 +271,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
             tend.apply(
                 &Ok(Found {
                     sessions: (0..count)
-                        .map(|i| sess(&format!("ended-{i}"), Stage::Ended, "unknown"))
+                        .map(|i| sess(&format!("ended-{i}"), Stage::Completed, "unknown"))
                         .collect(),
                     unreadable,
                     failures: Vec::new(),
@@ -325,20 +325,20 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
 
 #[test]
 fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
-    for stage in [Stage::GoalSaved, Stage::Ended] {
+    for stage in [Stage::GoalSaved, Stage::Completed] {
         let mut tend = Tend::new(Err("TEST links unavailable".into()));
         tend.want = Some(("/TEST/alias".into(), Some("/TEST/target".into())));
         tend.apply(
             &found(vec![
-                sess("ended", Stage::Ended, "unknown"),
+                sess("ended", Stage::Completed, "unknown"),
                 sess("target", stage, "unknown"),
             ]),
             false,
             1,
         );
         assert!(tend.want.is_none() && !tend.pending && tend.error.is_none());
-        assert_eq!(tend.detail, stage != Stage::Ended);
-        if stage != Stage::Ended {
+        assert_eq!(tend.detail, stage != Stage::Completed);
+        if stage != Stage::Completed {
             assert_eq!(tend.selected, 0);
             assert_eq!(tend.current().unwrap().path, Path::new("/TEST/target"));
         } else {
@@ -1113,7 +1113,7 @@ fn counts_are_exact_only_after_complete_current_reads() {
     let sessions = vec![
         sess("a", Stage::GoalSaved, "2026-10-09T10:00:00Z"),
         sess("b", Stage::SeedUnchecked, "2026-10-08T10:00:00Z"),
-        sess("c", Stage::Ended, "2026-10-07T10:00:00Z"),
+        sess("c", Stage::Completed, "2026-10-07T10:00:00Z"),
     ];
     let tmp = tempfile::Builder::new()
         .prefix("tinkery-TEST-count-notes-")

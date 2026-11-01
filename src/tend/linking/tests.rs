@@ -343,7 +343,7 @@ fn unavailable_root_and_non_directory_are_plain_refusals() {
 fn all_readable_sessions_supply_readiness_missing_needs_stay_unknown() {
     let (_tmp, mut tend) = fixture();
     let mut sessions = tend.all_sessions.clone();
-    sessions[1].stage = Stage::Ended;
+    sessions[1].stage = Stage::Completed;
     sessions[2].stage = Stage::Unknown;
     tend.needs.toggle("id-0", "id-1").unwrap();
     tend.apply(
@@ -391,7 +391,7 @@ fn ambiguous_source_never_inherits_needs_or_readiness() {
     let (_tmp, mut tend) = fixture();
     let mut sessions = tend.all_sessions.clone();
     sessions[1].id = sessions[0].id.clone();
-    sessions[2].stage = Stage::Ended;
+    sessions[2].stage = Stage::Completed;
     tend.needs.set("id-0", "id-2", true).unwrap();
     tend.apply(
         &Ok(Found {

@@ -194,13 +194,13 @@ impl Tend {
             .all_sessions
             .iter()
             .filter(visible)
-            .filter(|s| s.stage == Stage::Ended)
+            .filter(|s| s.stage.ended())
             .count();
         self.sessions = self
             .all_sessions
             .iter()
             .filter(visible)
-            .filter(|s| s.stage != Stage::Ended)
+            .filter(|s| !s.stage.ended())
             .cloned()
             .collect();
     }

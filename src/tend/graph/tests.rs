@@ -336,7 +336,7 @@ fn duplicate_titles_resolve_edges_by_exact_identity_and_ended_missing_ambiguous_
         let mut sessions = tend.sessions.clone();
         sessions[1].goal = "Same title".into();
         sessions[2].goal = "Same title".into();
-        sessions[3].stage = Stage::Ended;
+        sessions[3].stage = Stage::Completed;
         sessions[4].id = Some("id-2".into());
         for (from, to) in needs {
             tend.needs.toggle(from, to).unwrap();
@@ -516,7 +516,7 @@ fn a_quiet_line_is_painted_only_for_visible_active_ends() {
         let (_tmp, mut tend) = fixture(2);
         let mut sessions = tend.sessions.clone();
         if ended {
-            sessions[1].stage = Stage::Ended;
+            sessions[1].stage = Stage::Completed;
         }
         tend.needs.toggle("id-0", "id-1").unwrap();
         tend.apply(

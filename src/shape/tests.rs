@@ -516,7 +516,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
         session("saved", Stage::GoalSaved),
         session("ready", Stage::SeedUnchecked),
         session("drafted", Stage::SeedDrafted),
-        session("ended", Stage::Ended),
+        session("ended", Stage::Completed),
         session("unknown", Stage::Unknown),
     ];
     shape.offer(Ok(&sessions), 0);
@@ -2715,7 +2715,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
     let crate::seed_me::Record::Session(read) = crate::seed_me::read(&session) else {
         panic!("not readable as a session")
     };
-    assert_eq!(read.stage, Stage::Ended, "tend counts it ended");
+    assert_eq!(read.stage, Stage::Completed, "tend counts it ended");
     // Ended is for good: neither ending applies again.
     let reason = refused(answering::end(&session, Ending::Stopped, None));
     assert!(reason.contains("read-only"), "{reason}");

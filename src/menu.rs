@@ -1848,7 +1848,7 @@ mod tests {
                 Stage::GoalSaved,
                 Stage::SeedDrafted,
                 Stage::SeedUnchecked,
-                Stage::Ended
+                Stage::Stopped
             ]
         );
         for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {

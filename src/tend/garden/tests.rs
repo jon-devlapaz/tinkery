@@ -71,7 +71,7 @@ fn needs_suffix_truncates_headline_and_refusals_stay_muted() {
     tend.needs.toggle("session-0", "session-1").unwrap();
     tend.sessions[1].goal = "Quiet garden".into();
     let mut sessions = tend.sessions.clone();
-    sessions[1].stage = Stage::Ended;
+    sessions[1].stage = Stage::Completed;
     tend.apply(
         &Ok(crate::tend::Found {
             sessions,
@@ -138,7 +138,7 @@ fn long_needs_keep_source_and_readiness_visible_with_full_help() {
         for (i, session) in sessions.iter_mut().enumerate().skip(1) {
             session.goal = format!("Dependency {i} {}", "界👩‍💻e\u{301} long ".repeat(25));
             session.stage = if ready {
-                Stage::Ended
+                Stage::Completed
             } else {
                 Stage::GoalSaved
             };
@@ -276,7 +276,7 @@ fn unreadable_links_have_a_persistent_muted_note_with_other_notes() {
         let mut tend = tend(2);
         tend.needs = crate::tend::needs::Store::new(Ok(root.clone()));
         let mut sessions = tend.sessions.clone();
-        sessions[1].stage = Stage::Ended;
+        sessions[1].stage = Stage::Completed;
         tend.apply(
             &Ok(crate::tend::Found {
                 sessions,
@@ -341,7 +341,7 @@ fn read_notes_share_the_muted_row_above_selection_without_changing_it() {
                 id: Some(format!("ended-{i}")),
                 path: format!("/TEST/ended-{i}").into(),
                 goal: "Ended goal must stay hidden".into(),
-                stage: Stage::Ended,
+                stage: Stage::Completed,
                 updated: String::new(),
             }));
             tend.apply(
