@@ -13,13 +13,63 @@ use std::{
 /// An absent receipt set cannot establish checks or gate obligations at this root.
 pub(super) const MISSING_RECEIPTS: &str = "unknown: receipts not found here";
 
+/// Where one condition stands. Decisions match on this; the words are only for display.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Check {
+    Pass,
+    PassRecheck,
+    Fail,
+    Stale,
+    /// A GitHub check that hasn't finished.
+    Pending,
+    NotSuccessful,
+    MatchingEvidenceMissing,
+    AttestationEvidenceMissing,
+    InspectExternally,
+    NotActivated,
+    RevisionUnknown,
+    FailureRevisionDiffers,
+    EvidenceUnavailable,
+    NoneReported,
+    ReceiptsMissing,
+}
+
+impl Check {
+    /// The exact words shown and copied for this state.
+    pub(super) fn word(self) -> &'static str {
+        match self {
+            Self::Pass => "pass",
+            Self::PassRecheck => "pass (may need recheck)",
+            Self::Fail => "fail",
+            Self::Stale => "stale",
+            Self::Pending => "pending",
+            Self::NotSuccessful => "pending (not a successful check)",
+            Self::MatchingEvidenceMissing => "pending (matching evidence missing)",
+            Self::AttestationEvidenceMissing => "pending (attestation evidence missing)",
+            Self::InspectExternally => "pending (inspect externally)",
+            Self::NotActivated => "pending (not activated)",
+            Self::RevisionUnknown => "pending (result revision unknown)",
+            Self::FailureRevisionDiffers => "pending (failure revision unknown or different)",
+            Self::EvidenceUnavailable => "pending (evidence unavailable)",
+            Self::NoneReported => "unknown (none reported)",
+            Self::ReceiptsMissing => MISSING_RECEIPTS,
+        }
+    }
+}
+
+impl std::fmt::Display for Check {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.word())
+    }
+}
+
 /// One condition or observation, never an aggregate verdict.
 #[derive(Clone, Debug)]
 pub(super) struct Item {
     /// Exact source expectation or check name.
     pub(super) label: String,
     /// pass, fail, stale, pending or unknown with any honest gap.
-    pub(super) state: String,
+    pub(super) state: Check,
     /// Evidence owner, not an acceptance claim.
     pub(super) kind: String,
     /// Original evidence, available by scrolling and in the external handoff.
@@ -168,21 +218,21 @@ fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
         let automatic_evidence = automatic.then(|| evidence::automated(root, &row.slug, run, item));
         let old_pass = status == "passed" || (automatic && verification["result"] == "passed");
         let state = match status {
-            _ if row.receipts_missing => MISSING_RECEIPTS,
-            _ if pending => "pending (not activated)",
+            _ if row.receipts_missing => Check::ReceiptsMissing,
+            _ if pending => Check::NotActivated,
             "passed" if !automatic && mark["evidence"].as_str().is_none() => {
-                "pending (attestation evidence missing)"
+                Check::AttestationEvidenceMissing
             }
-            _ if row.head.is_none() => "pending (result revision unknown)",
-            _ if old_pass && (!exact || !current) => "stale",
+            _ if row.head.is_none() => Check::RevisionUnknown,
+            _ if old_pass && (!exact || !current) => Check::Stale,
             "passed" if automatic_evidence.as_ref().is_some_and(Result::is_err) => {
-                "pending (evidence unavailable)"
+                Check::EvidenceUnavailable
             }
-            "passed" if !automatic && recheck => "pass (may need recheck)",
-            "passed" => "pass",
-            "failed" if exact => "fail",
-            "failed" => "pending (failure revision unknown or different)",
-            "pending" | "unknown" => "pending (matching evidence missing)",
+            "passed" if !automatic && recheck => Check::PassRecheck,
+            "passed" => Check::Pass,
+            "failed" if exact => Check::Fail,
+            "failed" => Check::FailureRevisionDiffers,
+            "pending" | "unknown" => Check::MatchingEvidenceMissing,
             _ => return Err("Unknown completion condition status.".into()),
         };
         if !row.receipts_missing && !automatic && (!pending && status != "passed" || recheck) {
@@ -208,7 +258,7 @@ fn local(root: &Path, run: &Value, row: &mut ResultRow) -> Result<(), String> {
         };
         row.items.push(Item {
             label,
-            state: state.into(),
+            state,
             kind: if automatic {
                 "automated"
             } else {
@@ -247,28 +297,28 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
                 text(check, "name")?,
                 if check["status"] == "COMPLETED" {
                     match text(check, "conclusion")? {
-                        "SUCCESS" => "pass",
+                        "SUCCESS" => Check::Pass,
                         "FAILURE" | "TIMED_OUT" | "CANCELLED" | "ACTION_REQUIRED"
-                        | "STARTUP_FAILURE" => "fail",
-                        _ => "pending (not a successful check)",
+                        | "STARTUP_FAILURE" => Check::Fail,
+                        _ => Check::NotSuccessful,
                     }
                 } else {
-                    "pending"
+                    Check::Pending
                 },
             ),
             "StatusContext" => (
                 text(check, "context")?,
                 match text(check, "state")? {
-                    "SUCCESS" => "pass",
-                    "FAILURE" | "ERROR" => "fail",
-                    _ => "pending",
+                    "SUCCESS" => Check::Pass,
+                    "FAILURE" | "ERROR" => Check::Fail,
+                    _ => Check::Pending,
                 },
             ),
             _ => return Err("Unsupported GitHub check type.".into()),
         };
         row.items.push(Item {
             label: name.into(),
-            state: state.into(),
+            state,
             kind: "GitHub check".into(),
             evidence: "GitHub PR-head check, not merge-commit evidence".into(),
         });
@@ -279,14 +329,14 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
     {
         row.items.push(Item {
             label: "PR checks".into(),
-            state: "unknown (none reported)".into(),
+            state: Check::NoneReported,
             kind: "GitHub".into(),
             evidence: "No PR-head checks reported".into(),
         });
     }
     row.items.push(Item {
         label: "Independent review".into(),
-        state: "pending (inspect externally)".into(),
+        state: Check::InspectExternally,
         kind: "review, not acceptance".into(),
         evidence: "No revision-bound independent review receipt is supplied by the run API".into(),
     });
@@ -472,7 +522,7 @@ mod tests {
             target
                 .items
                 .iter()
-                .all(|item| item.state == MISSING_RECEIPTS)
+                .all(|item| item.state == Check::ReceiptsMissing)
         );
         for color in [false, true] {
             let detail = super::super::view::detail(
@@ -522,15 +572,15 @@ mod tests {
     fn a_new_result_commit_stales_earlier_pass_claims_even_if_source_says_current() {
         let mut current = row();
         local(Path::new("/TEST"), &run(), &mut current).unwrap();
-        assert_eq!(current.items[0].state, "pass");
+        assert_eq!(current.items[0].state, Check::Pass);
         let mut changed = row();
         changed.head = Some("b".repeat(40));
         local(Path::new("/TEST"), &run(), &mut changed).unwrap();
-        assert_eq!(changed.items[0].state, "stale");
+        assert_eq!(changed.items[0].state, Check::Stale);
         assert!(changed.items[0].evidence.contains("history"));
         assert!(changed.gates.contains(&"re-approve the plan".into()));
         assert!(changed.gates.contains(&"confirm no clinical claims".into()));
-        assert!(!changed.items.iter().any(|i| i.state == "pass"));
+        assert!(!changed.items.iter().any(|i| i.state == Check::Pass));
     }
 
     #[test]
@@ -538,13 +588,13 @@ mod tests {
         let mut unknown = row();
         unknown.head = None;
         local(Path::new("/TEST"), &run(), &mut unknown).unwrap();
-        assert!(unknown.items[0].state.starts_with("pending"));
+        assert!(unknown.items[0].state.word().starts_with("pending"));
         let mut source = run();
         source["verification_status"] = json!("stale");
         source["verification"]["passed"] = json!(false);
         let mut old = row();
         local(Path::new("/TEST"), &source, &mut old).unwrap();
-        assert_eq!(old.items[0].state, "stale");
+        assert_eq!(old.items[0].state, Check::Stale);
     }
 
     #[test]
@@ -554,11 +604,11 @@ mod tests {
         source["verification"]["result"] = json!("failed");
         let mut failed = row();
         local(Path::new("/TEST"), &source, &mut failed).unwrap();
-        assert_eq!(failed.items[0].state, "fail");
+        assert_eq!(failed.items[0].state, Check::Fail);
         source["checklist"][0]["pending"] = json!(true);
         let mut provisional = row();
         local(Path::new("/TEST"), &source, &mut provisional).unwrap();
-        assert!(provisional.items[0].state.starts_with("pending"));
+        assert!(provisional.items[0].state.word().starts_with("pending"));
         for head in [Some("a".repeat(40)), None] {
             let mut unknown = run();
             unknown["checklist"][0]["status"] = json!("finished");
@@ -592,7 +642,7 @@ mod tests {
         let mut target = row();
         target.goal = Goal::Matched(" TEST original goal  \nDone when: Allocation works.".into());
         local(Path::new("/TEST/checkout"), &run(), &mut target).unwrap();
-        assert_eq!(target.items[0].state, "pass");
+        assert_eq!(target.items[0].state, Check::Pass);
         let pointer = "/TEST/checkout/runs/TEST-result/04-test/output/test-log.md";
         let tail = super::super::result_lines(&target).join("\n");
         assert!(
@@ -625,7 +675,8 @@ mod tests {
             target.goal = Goal::Matched("TEST unchanged goal".into());
             local(Path::new("/TEST"), &source, &mut target).unwrap();
             assert_eq!(
-                target.items[0].state, "pass",
+                target.items[0].state,
+                Check::Pass,
                 "{cwd}: {}",
                 target.items[0].evidence
             );
@@ -651,7 +702,7 @@ mod tests {
             source["log"]["path"] = path;
             let mut target = row();
             local(Path::new("/TEST"), &source, &mut target).unwrap();
-            assert_eq!(target.items[0].state, "pending (evidence unavailable)");
+            assert_eq!(target.items[0].state, Check::EvidenceUnavailable);
             assert!(target.items[0].evidence.contains("unresolved"));
         }
         let mut source = run();
@@ -661,7 +712,7 @@ mod tests {
             .remove("check");
         let mut target = row();
         local(Path::new("/TEST"), &source, &mut target).unwrap();
-        assert_eq!(target.items[0].state, "pending (evidence unavailable)");
+        assert_eq!(target.items[0].state, Check::EvidenceUnavailable);
     }
 
     #[test]
@@ -687,15 +738,15 @@ mod tests {
         let pr = json!({"url":row.url,"headRefOid":"a".repeat(40),"statusCheckRollup":[
             {"__typename":"CheckRun","name":"TEST CI","status":"COMPLETED","conclusion":"NEUTRAL"}]});
         remote(&pr, &mut row).unwrap();
-        assert!(row.items[0].state.starts_with("pending"));
+        assert!(row.items[0].state.word().starts_with("pending"));
         assert_eq!(row.items[1].label, "Independent review");
-        assert!(row.items[1].state.starts_with("pending"));
+        assert!(row.items[1].state.word().starts_with("pending"));
         let mut absent = pr.clone();
         absent["statusCheckRollup"] = json!([]);
         let mut no_checks = row.clone();
         no_checks.items.clear();
         remote(&absent, &mut no_checks).unwrap();
-        assert_eq!(no_checks.items[0].state, "unknown (none reported)");
+        assert_eq!(no_checks.items[0].state, Check::NoneReported);
         let mut conflict = pr;
         conflict["url"] = json!("https://github.com/TEST/example/pull/2");
         assert!(remote(&conflict, &mut row).is_err());

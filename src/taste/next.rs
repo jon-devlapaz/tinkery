@@ -1,7 +1,10 @@
 //! One next step after a report of external acceptance. Missing evidence stays unknown;
 //! only failed/stale checks or owed gates call for repair. No feature or permission is invented.
 
-use super::{read::ResultRow, safe};
+use super::{
+    read::{Check, ResultRow},
+    safe,
+};
 use crate::think_record::DraftSuggestion;
 
 pub(super) struct Pause {
@@ -14,12 +17,12 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
     let failed = row
         .items
         .iter()
-        .find(|i| i.state == "fail" || i.state == "stale");
+        .find(|i| matches!(i.state, Check::Fail | Check::Stale));
     let unmet: Vec<_> = row
         .items
         .iter()
         .filter(|i| {
-            matches!(i.kind.as_str(), "automated" | "human attestation") && i.state != "pass"
+            matches!(i.kind.as_str(), "automated" | "human attestation") && i.state != Check::Pass
         })
         .collect();
     let repair = failed.is_some() || !row.gates.is_empty();
@@ -27,7 +30,7 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
     let condition = unmet
         .iter()
         .copied()
-        .find(|i| i.state == "fail" || i.state == "stale")
+        .find(|i| matches!(i.state, Check::Fail | Check::Stale))
         .or_else(|| unmet.first().copied())
         .or(failed);
     let (target, check) = if let Some(item) = condition {

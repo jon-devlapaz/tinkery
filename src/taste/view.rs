@@ -4,7 +4,7 @@
 use super::{
     goal,
     next::Pause,
-    read::{Item, ResultRow},
+    read::{Check, Item, ResultRow},
     safe,
 };
 use crate::{Palette, sdlc::Goal};
@@ -26,12 +26,12 @@ enum State {
 }
 
 fn state(item: &Item) -> State {
-    match item.state.as_str() {
-        "pass" | "pass (may need recheck)" => State::Passed,
-        "fail" => State::Failed,
-        "stale" => State::Stale,
-        s if s.starts_with("pending") => State::Waiting,
-        _ => State::Unknown,
+    match item.state {
+        Check::Pass | Check::PassRecheck => State::Passed,
+        Check::Fail => State::Failed,
+        Check::Stale => State::Stale,
+        Check::NoneReported | Check::ReceiptsMissing => State::Unknown,
+        _ => State::Waiting,
     }
 }
 
@@ -44,29 +44,24 @@ fn style(state: State, p: Palette) -> Style {
 }
 
 fn status(item: &Item) -> String {
-    match state(item) {
-        State::Passed if item.state == "pass" => "✓ passed".into(),
-        State::Passed => "✓ passed; may need recheck".into(),
-        State::Failed => "! failed".into(),
-        State::Stale => "… stale".into(),
-        State::Unknown if item.state == "unknown (none reported)" => {
-            "? unknown: no CI reported".into()
-        }
-        State::Unknown if item.state == super::read::MISSING_RECEIPTS => {
-            format!("? {}", super::read::MISSING_RECEIPTS)
-        }
-        State::Unknown => "? unknown".into(),
-        State::Waiting => format!(
+    match item.state {
+        Check::Pass => "✓ passed".into(),
+        Check::PassRecheck => "✓ passed; may need recheck".into(),
+        Check::Fail => "! failed".into(),
+        Check::Stale => "… stale".into(),
+        Check::NoneReported => "? unknown: no CI reported".into(),
+        Check::ReceiptsMissing => format!("? {}", super::read::MISSING_RECEIPTS),
+        waiting => format!(
             "… waiting: {}",
-            match item.state.as_str() {
-                "pending (matching evidence missing)"
-                | "pending (attestation evidence missing)" => "no record found",
-                "pending (inspect externally)" => "review externally",
-                "pending (not activated)" => "not activated",
-                "pending (result revision unknown)" => "revision unknown",
-                "pending (failure revision unknown or different)" =>
-                    "failure revision differs or is unknown",
-                "pending (evidence unavailable)" => "evidence unavailable",
+            match waiting {
+                Check::MatchingEvidenceMissing | Check::AttestationEvidenceMissing => {
+                    "no record found"
+                }
+                Check::InspectExternally => "review externally",
+                Check::NotActivated => "not activated",
+                Check::RevisionUnknown => "revision unknown",
+                Check::FailureRevisionDiffers => "failure revision differs or is unknown",
+                Check::EvidenceUnavailable => "evidence unavailable",
                 _ => "not finished",
             }
         ),
@@ -390,8 +385,8 @@ mod tests {
             merged: true, preview: Err("No preview declared".into()), receipts_missing: false, seed: "TEST-seed".into(), gates: vec![human.into()], gaps: vec![],
             items: vec![
                 Item { label: "Every original check word stays intact while this long sentence wraps with a hanging indent and no abbreviation.".into(),
-                    state: "fail".into(), kind: "automated".into(), evidence: "/TEST/log; argv: [TEST]".into() },
-                Item { label: human.into(), state: "pending (matching evidence missing)".into(),
+                    state: Check::Fail, kind: "automated".into(), evidence: "/TEST/log; argv: [TEST]".into() },
+                Item { label: human.into(), state: Check::MatchingEvidenceMissing,
                     kind: "human attestation".into(), evidence: "No operator evidence recorded".into() },
             ],
         }
@@ -532,7 +527,7 @@ mod tests {
         for width in [76, 96] {
             let item = Item {
                 label: text.into(),
-                state: "pending (matching evidence missing)".into(),
+                state: Check::MatchingEvidenceMissing,
                 kind: "automated".into(),
                 evidence: String::new(),
             };
