@@ -61,6 +61,23 @@ def pi_ready(pi, pin, root):
     return True, None
 
 
+def pi_logged_in(root):
+    """Pi has a stored login for some provider (offline; credential values are never shown)."""
+    adapter = launcher(root)
+    try:
+        store = adapter.read_json(adapter.agent_dir() / 'auth.json', "Pi's credential store")
+    except adapter.Refusal:
+        return False
+
+    def stored(provider):
+        try:
+            adapter.check_auth(provider)
+            return True
+        except adapter.Refusal:
+            return False
+    return isinstance(store, dict) and any(stored(provider) for provider in store)
+
+
 def drafting(root):
     path = Path.home() / '.config/tinkery/model.json'
     try:
@@ -68,6 +85,8 @@ def drafting(root):
     except FileNotFoundError:
         if not shutil.which('pi'):
             return False, f'Install Pi and log in, so `pi` is on PATH ({GUIDE}, step 3).'
+        if root is not None and not pi_logged_in(root):
+            return False, f'Log in to Pi: run `pi`, then /login ({GUIDE}, step 3).'
         return False, f'Press m on the menu, choose a model and calls, then s to save ({GUIDE}, step 3).'
     except (OSError, ValueError) as error:
         return False, f'{path} is unreadable: {error}'

@@ -111,9 +111,7 @@ def main():
         # 3. What `s` in the Model panel saves, and a Pi with that model and a login on disk.
         [launch] = blocks('3. Choose the drafting model')
         assert launch.strip() == 'tinkery --home --sdlc-root "$project"'
-        (home / '.config/tinkery').mkdir(parents=True)
-        (home / '.config/tinkery/model.json').write_text(json.dumps(
-            {'harness': 'pi', 'model': PIN.rsplit(':', 1)[0], 'thinking': 'low', 'calls': 4}))
+        readiness = prelude + 'python3 "$tinkery_src/scripts/first-task-check.py" --sdlc-root "$project"'
         pi = home / 'bin/pi'
         pi.write_text(FAKE_PI)
         pi.chmod(0o755)
@@ -121,9 +119,16 @@ def main():
         agent.mkdir(parents=True)
         (agent / 'models-store.json').write_text(json.dumps({'test-provider': {'models': [
             {'id': 'pinned-v1', 'provider': 'test-provider', 'reasoning': True}]}}))
+        # Pi installed but not logged in: log in before the model menu.
+        out = shell(readiness, env, root, waiting=True)
+        assert out.splitlines()[-1].startswith('Next: Log in to Pi'), out
         (agent / 'auth.json').write_text(json.dumps({'test-provider': {'type': 'oauth', 'refresh': 'TEST'}}))
-        out = shell(prelude + 'python3 "$tinkery_src/scripts/first-task-check.py" --sdlc-root "$project"',
-                    env, root, waiting=True)
+        out = shell(readiness, env, root, waiting=True)
+        assert out.splitlines()[-1].startswith('Next: Press m on the menu'), out
+        (home / '.config/tinkery').mkdir(parents=True)
+        (home / '.config/tinkery/model.json').write_text(json.dumps(
+            {'harness': 'pi', 'model': PIN.rsplit(':', 1)[0], 'thinking': 'low', 'calls': 4}))
+        out = shell(readiness, env, root, waiting=True)
         assert 'ready: Drafting is set up' in out and 'not yet: A worker can launch' in out, out
         snapshot = shell(prelude + launch.strip() + ' --snapshot --no-color', env, root)
         assert '1  think' in snapshot, snapshot
