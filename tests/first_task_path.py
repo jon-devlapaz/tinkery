@@ -7,6 +7,8 @@ Only the clone lines change: tink-sdlc comes from a pinned ref, and Tinkery is t
 import json
 from pathlib import Path
 import re
+import shlex
+import shutil
 import sys
 import tempfile
 import time
@@ -55,13 +57,34 @@ def shell(script, env, cwd, waiting=False):
     return result.stdout
 
 
+def isolated_tools(directory, env):
+    """Expose only guide dependencies; Pi comes from this journey's later stand-in install."""
+    for name in ('bash', 'git', 'mkdir', 'chmod'):
+        program = shutil.which(name, path=env['PATH'])
+        if program is None:
+            raise RuntimeError(f'First-task journey requires {name} on PATH.')
+        (directory / name).symlink_to(Path(program).resolve())
+    (directory / 'python3').symlink_to(sys.executable)
+    (directory / 'tinkery').symlink_to(REPO / 'target/debug/tinkery')
+    return {**env, 'PATH': str(directory), 'TINK_SDLC_PI': str(directory / 'pi')}
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-first-task-') as directory:
         root = Path(directory).resolve()
         home = root / 'HOME'
         (home / 'bin').mkdir(parents=True)
         env = subprocess.environment(home=home)
-        env['PATH'] = f"{home / 'bin'}:{REPO / 'target/debug'}:{env['PATH']}"
+        host = root / 'TEST-host-bin'
+        host.mkdir()
+        host_calls = root / 'TEST-host-calls'
+        for name in ('pi', 'tink'):
+            program = host / name
+            program.write_text(f'#!/bin/sh\nprintf {name} >> {shlex.quote(str(host_calls))}\nexit 97\n')
+            program.chmod(0o755)
+        host_originals = {p.name: p.read_bytes() for p in host.iterdir()}
+        env['PATH'] = f"{host}:{env['PATH']}"
+        env['TINK_SDLC_PI'] = str(host / 'pi')
         env['TEST_PI_CALLS'] = str(root / 'pi-calls')
         env.update(GIT_AUTHOR_NAME='TEST', GIT_AUTHOR_EMAIL='test@example.invalid',
                    GIT_COMMITTER_NAME='TEST', GIT_COMMITTER_EMAIL='test@example.invalid')
@@ -72,6 +95,7 @@ def main():
         prelude = f"tinkery_src={REPO}\nproject=~/dev/my-project\nnotes=~/dev/run-notes\nworker_model={PIN}\n"
         subprocess.run(['cargo', '+stable', 'build', '--locked'], cwd=REPO, env=env, check=True,
                        stdout=subprocess.DEVNULL)
+        env = isolated_tools(home / 'bin', env)
         score = []
 
         # 1. The readiness check, not the contributor suite.
@@ -186,6 +210,8 @@ def main():
         status = json.loads(shell('python3 _system/scripts/sdlc.py status my-run --json', env, project))
         assert status['run']['verification']['passed'] is True, status['run']['verification']
         assert (root / 'pi-calls').read_text().count('--mode json') == 1
+        assert not host_calls.exists(), 'the journey invoked a host Pi or tink'
+        assert {p.name: p.read_bytes() for p in host.iterdir()} == host_originals
         score.append('9 finish')
         print(f'First-task guide ran as written: {len(score)} shell steps ({", ".join(score)}), '
               f'1 stand-in Pi launch, 0 model calls')
