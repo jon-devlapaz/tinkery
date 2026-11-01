@@ -302,3 +302,30 @@ fn silence_fillers_are_exact_not_a_semantic_rewrite() {
         assert!(!silence_filler(text));
     }
 }
+#[test]
+fn an_invalid_setup_reply_closes_voice_so_the_key_retries() {
+    let fake = Rc::new(RefCell::new(Fake::default()));
+    fake.borrow_mut().events.push_back(Event::NeedsInstall {
+        size_mb: 0,
+        message: "TEST install".into(),
+    });
+    fake.borrow_mut()
+        .events
+        .push_back(Event::Ready { version: 1 });
+    let mut voice = Voice::new(Box::new(fake.clone()));
+    let now = Instant::now();
+    voice.tick(now);
+    assert_eq!(voice.notice(), "Invalid voice setup response.");
+    assert!(!voice.available());
+    voice.toggle(now);
+    assert_eq!(
+        fake.borrow().restarted,
+        1,
+        "the voice key restarts the helper"
+    );
+    fake.borrow_mut()
+        .events
+        .push_back(Event::Ready { version: 1 });
+    voice.tick(now);
+    assert!(voice.available(), "the restarted helper becomes ready");
+}

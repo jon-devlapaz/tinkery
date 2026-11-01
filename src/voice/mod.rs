@@ -142,8 +142,12 @@ impl Voice {
     pub fn failure(&self) -> Option<&Failure> {
         self.failure.as_ref()
     }
+    /// Ends the take, if there is one, and returns to Idle. Without a take the phase is not
+    /// a take's, so it stays as it is.
     fn clear_take(&mut self) {
-        self.take = None;
+        if self.take.take().is_none() {
+            return;
+        }
         self.partial.clear();
         self.pending_send = false;
         self.deadline = None;
@@ -248,7 +252,6 @@ impl Voice {
                 "timeout",
                 "Voice timed out. Press the voice key to retry.",
             ));
-            self.phase = Phase::Closed;
             return None;
         }
         for _ in 0..64 {
@@ -270,6 +273,7 @@ impl Voice {
                         ) =>
                 {
                     if size_mb == 0 || message.len() > 1024 {
+                        self.close();
                         self.reject(Failure::new("protocol", "Invalid voice setup response."));
                         continue;
                     }
@@ -298,7 +302,6 @@ impl Voice {
                             "protocol",
                             "Incompatible voice protocol. Restart think.",
                         ));
-                        self.phase = Phase::Closed;
                     } else {
                         self.available = true;
                         self.setup.reset();
