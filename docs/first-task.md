@@ -129,8 +129,8 @@ python3 _system/scripts/sdlc.py step "$run" build launch
 ```
 
 Run `launch` from a shell that stays open. A remote runner that ends everything a command
-started when the command returns, such as a plain `hc exec`, stops the worker within a second
-([#650](https://github.com/jon-devlapaz/tinkery/issues/650)).
+started when the command returns, such as `hc exec` or `hc run --no-parent`, stops the worker
+within a second ([#650](https://github.com/jon-devlapaz/tinkery/issues/650)).
 Saved: the step contract. Allowed: this one worker on this pin. Running: Pi, building.
 
 ## 9. Watch it, then finish
