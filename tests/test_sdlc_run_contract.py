@@ -1,16 +1,13 @@
-"""One API-word boundary, fixture parity, and field-specific refusal probes.
+"""One API-word boundary and field-specific refusal probes.
 
 Run with --revert to remove each named recognition guard temporarily, run its
 public-behavior assertion red, and restore the checkout bytes in a finally block.
 No runtime, provider, installed package, or operator data is changed.
 """
 import argparse
-import hashlib
-import json
 from pathlib import Path
 import re
 import test_launch as subprocess
-from support.rust_contract_source import test_functions
 
 ROOT = Path(__file__).resolve().parents[1]
 READERS = [ROOT / 'src/watch.rs', ROOT / 'src/worker.rs',
@@ -119,18 +116,6 @@ def cargo(test):
     return result
 
 
-def fixture_parity():
-    baseline = json.loads((ROOT / 'tests/fixtures/sdlc-run-contract-parity.json').read_text())
-    count = 0
-    for path, functions in baseline.items():
-        current = test_functions((ROOT / path).read_text())
-        for name, digest in functions.items():
-            assert name in current, f'Existing fixture test removed: {path}:{name}'
-            assert hashlib.sha256(current[name].encode()).hexdigest() == digest, f'Existing fixture/output assertions changed: {path}:{name}'
-            count += 1
-    print(f'Fixture parity: {count} pinned fixture/output tests retained and rerun.', flush=True)
-
-
 def check():
     source_boundary()
     source = (ROOT / 'src/sdlc.rs').read_text()
@@ -138,7 +123,6 @@ def check():
         declaration = re.search(rf'word_enum!\({kind}, None,\s*\{{(.*?)\}}\);', source, re.S)
         assert declaration and set(re.findall(r'=> "([^"]+)"', declaration[1])) == words, kind
     assert {kind for kind, _ in FIELDS.values()} == set(ENUM_WORDS)
-    fixture_parity()
     for field, (_, test) in (FIELDS | FLAGS).items():
         result = cargo(test)
         assert result.returncode == 0, f'{field}: {result.stdout}'

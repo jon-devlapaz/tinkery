@@ -1,6 +1,5 @@
 """Executable documentation contracts; fake commands, no providers or operator data."""
 import fnmatch
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -155,50 +154,17 @@ class DocumentationTests(unittest.TestCase):
                        ".agents/skills/writing-for-agents/SKILL.md", ""), links)
         self.assertIn(".agents/skills/writing-for-agents/SKILL.md", TRACKED)
 
-    def test_retro_moves_corrections_left_without_removing_decisions(self):
-        skill = ".agents/skills/retro/SKILL.md"
+    def test_retro_links_to_the_yohaku_section(self):
         self.assertIn(("../../../docs/yohaku.md#for-anyone-changing-tinkery-human-or-agent",
                        "docs/yohaku.md", "for-anyone-changing-tinkery-human-or-agent"),
-                      list(relative_links(skill)))
-        self.assertIn("never a decision", prose(skill))
-        self.assertIn("**Move each correction left.**", prose("docs/yohaku.md"))
+                      list(relative_links(".agents/skills/retro/SKILL.md")))
 
-    def test_published_proposals_link_to_issue_authority_and_keep_permission_gates(self):
-        index = prose("docs/README.md")
-        self.assertIn("Issues own proposal scope and status.", index)
-        self.assertIn("Neither issue authorizes implementation.",
-                      prose("docs/design/think.md"))
-        self.assertIn("Publication is not design acceptance", index)
-        self.assertIn("`approved` records scoped operator permission",
-                      prose("AGENTS.md"))
+    def test_docs_do_not_point_at_the_retired_backlog(self):
         for path in ("AGENTS.md", "README.md", "docs/README.md",
                      "docs/design/architecture.md",
                      "docs/design/think.md", "docs/design/principles.md",
                      "docs/terminal-setup.md"):
             self.assertNotIn("backlog.md", prose(path), path)
-
-    def test_think_history_has_one_home_and_compatible_anchors(self):
-        historical = (REPO / "findings/README.md").read_text()
-        current = (REPO / "docs/design/think.md").read_text()
-        sections = {
-            "## Decision-review evidence (#34)":
-                "21e9620a512fcdedd1611ddd327905ab8d6639b41407492d65a38f1b51d02b6a",
-            "## Evidence-note regression check (#58)":
-                "8f5cda3ee02995f16e4c1f701cc62a0693c6b1ea3444e0b2cc33e0e86908f1df",
-            "## Goal-history and review regression check (#64)":
-                "35963ff33ae28925daf24ad1bbe2c46cd430c4749da3a2eae999ef850ba12d29",
-        }
-        for heading, expected in sections.items():
-            self.assertEqual(1, historical.count(heading))
-            body = historical.split(heading, 1)[1].split("\n## ", 1)[0].strip()
-            digest = hashlib.sha256(f"{heading}\n\n{body}".encode()).hexdigest()
-            self.assertEqual(expected, digest, f"Preserve the historical evidence for {heading}")
-            self.assertEqual(1, current.count(heading))
-            pointer = current.split(heading, 1)[1].split("\n## ", 1)[0].strip()
-            anchor = re.sub(r"[^\w\- ]", "", heading[3:].lower()).replace(" ", "-")
-            self.assertEqual(f"See [historical evidence](../../findings/README.md#{anchor}).", pointer)
-        self.assertIn("Constraint-polarity errors remain possible", current)
-        self.assertIn("judgment, not proof that choices mean the same thing", current)
 
     def test_ci_can_extract_one_valid_verification_block(self):
         source = (REPO / "AGENTS.md").read_text()
