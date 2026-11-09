@@ -25,11 +25,9 @@ import time
 
 from vt_screen import Screen
 from shape_answer_terminal import completion_review, seed_fields
+from first_task_path import SDLC_REF, pinned_sdlc
 
 REPO = Path(__file__).resolve().parents[1]
-# Current tink-sdlc main (scaffold 1.41.0): Tinkery-owned intake (#91), human-reviewed departures (#99).
-SDLC_REF = '6eee1f1d3f2035983c01b3c61b51f0afb5dccf19'
-assert os.environ.get('TINKERY_TEST_SDLC_REF', SDLC_REF) == SDLC_REF
 import session_fixture as helper
 CONFIRMATION = 'TEST confirmation of r1 only; not operator approval or permission to build.'
 # Original copied verbatim from /tmp/tinkery-TEST-stacker-KZcCiq/sessions/
@@ -275,13 +273,8 @@ def approve_watch(root, env, session, project):
 
 def handoff(root, env, session):
     source = root / 'TEST-tink-sdlc'
-    command(['git', 'init', '-q', source], root, env)
-    command(['git', 'fetch', '--depth', '1', 'https://github.com/jon-devlapaz/tink-sdlc.git',
-             SDLC_REF], source, env)
-    command(['git', 'checkout', '--detach', 'FETCH_HEAD'], source, env)
-    head = command(['git', 'rev-parse', 'HEAD'], source, env).stdout.strip()
-    assert head == SDLC_REF, (head, SDLC_REF)
-    print(f'Pinned tink-sdlc: {head}', flush=True)
+    pinned_sdlc(source, env)
+    print(f'Pinned tink-sdlc: {SDLC_REF}', flush=True)
     project = root / 'TEST-project'
     project.mkdir()
     command([sys.executable, source / 'scripts/init.py', project], root, env)

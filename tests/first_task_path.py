@@ -18,8 +18,8 @@ import test_launch as subprocess
 
 REPO = Path(__file__).resolve().parents[1]
 GUIDE = (REPO / 'docs/first-task.md').read_text()
-# tink-sdlc 1.55.0 (per-worktree setup, owed uncertain steps; PRs #162, #164).
-SDLC_REF = '6b89ebdd485de6e984bd8f3ecb6370e9afe5df6f'
+# The one tink-sdlc both cross-repo journeys run; pinned_sdlc refuses it unless its scaffold is ours.
+SDLC_REF = 'ff4b6e7b25dbd1b1a501638ef7577761db5d82b7'
 PIN = 'test-provider/pinned-v1:low'
 # A stand-in for Pi: writes a session the way Pi does and answers once on --model.
 FAKE_PI = '''#!/usr/bin/env python3
@@ -65,6 +65,18 @@ def shell(script, env, cwd, waiting=False):
                             capture_output=True, text=True, timeout=180)
     assert result.returncode == (1 if waiting else 0), (script, result.stdout, result.stderr)
     return result.stdout
+
+
+def pinned_sdlc(source, env):
+    """Check out SDLC_REF at `source`; refuse a scaffold version other than `_system/scaffold.json`'s."""
+    q = shlex.quote(str(source))
+    head = shell(f'git init -q {q} && cd {q}'
+                 f' && git fetch -q --depth 1 https://github.com/jon-devlapaz/tink-sdlc.git {SDLC_REF}'
+                 f' && git checkout -q --detach FETCH_HEAD && git rev-parse HEAD', env, source.parent).strip()
+    assert head == SDLC_REF, (head, SDLC_REF)
+    theirs = json.loads((source / 'assets/manifest.json').read_text())['version']
+    ours = json.loads((REPO / '_system/scaffold.json').read_text())['version']
+    assert theirs == ours, f'tink-sdlc {SDLC_REF} ships scaffold {theirs}; _system/scaffold.json is {ours}'
 
 
 def isolated_tools(directory, env):
@@ -134,10 +146,8 @@ def main():
         assert clone in connect, connect
         shell(f'mkdir -p ~/dev/my-project && cd ~/dev/my-project && git init -q -b main'
               f' && printf "#!/bin/sh\\necho TEST output\\n" > TEST-check && chmod +x TEST-check'
-              f' && git add -A && git commit -qm base\n'
-              f'git init -q ~/dev/tink-sdlc && cd ~/dev/tink-sdlc'
-              f' && git fetch -q --depth 1 https://github.com/jon-devlapaz/tink-sdlc.git {SDLC_REF}'
-              f' && git checkout -q --detach FETCH_HEAD', env, root)
+              f' && git add -A && git commit -qm base', env, root)
+        pinned_sdlc(home / 'dev/tink-sdlc', env)
         out = shell(prelude + connect.replace(clone, '', 1), env, root, waiting=True)
         assert 'ready: The workflow is connected' in out, out
         assert out.splitlines()[-1].startswith(without_pi(REPO)), out
