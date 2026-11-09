@@ -18,7 +18,8 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
 - Navigation and copying never launch agents. Goal confirmation is neither seed
   confirmation nor implementation permission.
 - Work from an issue on a branch and open a PR. Merge it yourself once the issue is approved
-  (or the operator asked for the change), CI is green and there are no conflicts.
+  (or the operator asked for the change), CI is green, there are no conflicts and a reviewer
+  who did not write the change has checked it against the issue.
   If the operator asks for drafts only, create and merge nothing until they say so.
 - Model and provider calls require an explicit budget. The default is zero.
   Eval commands are outside zero-call verification.
