@@ -118,8 +118,9 @@ def journey(width, height, no_color):
             # During a take F1 offers nothing to run, and F1 closes help without cancelling it.
             send(b'\x1bOP', 'Cancel voice')
             assert 'Copy the reading' not in screen.text(), screen.text()
-            send(b'\x1bOP', 'ghost words')
-            assert 'Cancel voice' not in screen.text(), screen.text()
+            # ghost words already shows beside the help, so wait for the help itself to close.
+            send(b'\x1bOP')
+            wait(lambda: 'Cancel voice' not in screen.text() and 'ghost words' in screen.text(), 'help closed, take kept')
             send(b'\x1bOQ', 'What would make a handover')
             requests = rows('requests.jsonl')
             assert len(requests) == 2
