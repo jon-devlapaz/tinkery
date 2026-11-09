@@ -95,8 +95,9 @@ behavior and budget gate, read [Answering and confirming](shape-and-handoff.md#a
 Tinkery is tink-sdlc's sole seed verifier. Intake runs `PATH seed status --json DIR`,
 `PATH seed checks DIR`, then status again for stability, requiring `handoff.verified`.
 Status omits viewer and snapshot records and opens no network connection; completion
-needs no viewer. CI and the handoff journey pin tink-sdlc 1.41.0 at
-`6eee1f1d3f2035983c01b3c61b51f0afb5dccf19`.
+needs no viewer. The cross-repo journeys run the tink-sdlc commit pinned in
+[`tests/first_task_path.py`](../../tests/first_task_path.py), whose scaffold version must match
+`_system/scaffold.json`.
 Think's working-draft guidance and artifact reference remain bundled verbatim from
 Seed Me `c9d766760dbeac0c05c92108165f9e968bec0a66`; no runtime reads an installed skill.
 The intake change shipped in [tink-sdlc #90](https://github.com/jon-devlapaz/tink-sdlc/issues/90)
