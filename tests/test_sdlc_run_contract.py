@@ -5,8 +5,10 @@ public-behavior assertion red, and restore the checkout bytes in a finally block
 No runtime, provider, installed package, or operator data is changed.
 """
 import argparse
+import json
 from pathlib import Path
 import re
+import sys
 import test_launch as subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,10 +16,6 @@ READERS = [ROOT / 'src/watch.rs', ROOT / 'src/worker.rs',
            *sorted((ROOT / 'src/watch').glob('*.rs')), *sorted((ROOT / 'src/worker').glob('*.rs')),
            *sorted((ROOT / 'src/taste').glob('*.rs'))]
 READERS = [path for path in READERS if not path.name.endswith('tests.rs')]
-WORDS = ('blocked', 'running', 'not-run', 'current', 'stale', 'failed', 'interrupted', 'awaiting-attestation',
-         'invalid', 'approved', 'pending', 'changes-requested', 'passed', 'unknown',
-         'automated', 'attested', 'prepared', 'active', 'completed', 'stopped',
-         'unreadable', 'uncertain', 'ended', 'not-ended', 'cap', 'operator')
 FIELDS = {
     'verification_status': ('Verification', 'contract_refuses_verification'),
     'gates[].status': ('GateStatus', 'contract_refuses_gate'),
@@ -30,21 +28,11 @@ FIELDS = {
     'worker contract.state': ('StepState', 'contract_refuses_worker_state'),
     'worker contract.stopped_by': ('StopReason', 'contract_refuses_worker_stop'),
     'worker active turn': ('TurnStatus', 'contract_refuses_worker_turn'),
-    'preview verification.result': ('ReceiptResult', 'contract_refuses_receipt_result'),
+    'verification.result': ('ReceiptResult', 'contract_refuses_receipt_result'),
 }
 FLAGS = {
     'checklist[].pending': ('A checklist item has an invalid pending flag.', 'contract_refuses_pending'),
     'checklist[].needs_recheck': ('A checklist item has no readable needs_recheck flag.', 'contract_refuses_needs_recheck'),
-}
-ENUM_WORDS = {
-    'Verification': {'blocked', 'running', 'not-run', 'current', 'stale', 'failed', 'interrupted', 'invalid', 'awaiting-attestation'},
-    'ReceiptResult': {'passed', 'failed', 'awaiting-attestation'},
-    'GateStatus': {'approved', 'pending', 'stale', 'changes-requested'},
-    'CheckStatus': {'passed', 'pending', 'failed', 'unknown'},
-    'Proof': {'automated', 'attested'},
-    'StepState': {'prepared', 'active', 'uncertain', 'completed', 'stopped', 'unreadable'},
-    'TurnStatus': {'ended', 'not-ended', 'unknown'},
-    'StopReason': {'cap', 'operator'},
 }
 COMPATIBILITY = {
     'summary': 'Watch requires verification, slug, next/error and counts; Taste skips invalid IDs/states and does not require detail.',
@@ -75,8 +63,20 @@ def production(path):
     return source.split('#[cfg(test)]\nmod tests {')[0]
 
 
+def published_words(script=ROOT / '_system/scripts/sdlc.py'):
+    """tink-sdlc's capabilities word table, and each word only it or Tinkery's matching enum holds."""
+    table = json.loads(subprocess.check_output([sys.executable, str(script), 'capabilities', '--json'],
+                                               cwd=ROOT, env=subprocess.environment(), text=True))['words']
+    source = (ROOT / 'src/sdlc.rs').read_text()
+    ours = {kind: set(re.findall(r'=> "([^"]+)"', body))
+            for kind, body in re.findall(r'word_enum!\((\w+), [^,]+,\s*\{(.*?)\}\);', source, re.S)}
+    gaps = [f'{field}: {word!r} is only in {"tink-sdlc" if word in words else "Tinkery " + FIELDS[field][0]}'
+            for field, words in table.items() for word in sorted(set(words) ^ ours.pop(FIELDS[field][0]))]
+    return table, gaps + [f'Tinkery {kind}: no published field' for kind in ours]
+
+
 def source_boundary(revision=None):
-    words = '|'.join(map(re.escape, WORDS))
+    words = '|'.join(map(re.escape, set().union(*published_words()[0].values())))
     literal = rf'"(?:{words})"'
     recognition = re.compile(rf'{literal}[^\n]{{0,120}}=>|(?:==|!=)\s*(?:Some\()?{literal}')
     display_only = {'src/taste/view.rs': {'let receipt = if item.kind == "automated" {'}}
@@ -117,12 +117,9 @@ def cargo(test):
 
 
 def check():
+    _, gaps = published_words()
+    assert not gaps, 'Run words differ from tink-sdlc capabilities --json:\n' + '\n'.join(gaps)
     source_boundary()
-    source = (ROOT / 'src/sdlc.rs').read_text()
-    for kind, words in ENUM_WORDS.items():
-        declaration = re.search(rf'word_enum!\({kind}, None,\s*\{{(.*?)\}}\);', source, re.S)
-        assert declaration and set(re.findall(r'=> "([^"]+)"', declaration[1])) == words, kind
-    assert {kind for kind, _ in FIELDS.values()} == set(ENUM_WORDS)
     for field, (_, test) in (FIELDS | FLAGS).items():
         result = cargo(test)
         assert result.returncode == 0, f'{field}: {result.stdout}'

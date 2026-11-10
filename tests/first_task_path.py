@@ -19,7 +19,7 @@ import test_launch as subprocess
 REPO = Path(__file__).resolve().parents[1]
 GUIDE = (REPO / 'docs/first-task.md').read_text()
 # The one tink-sdlc both cross-repo journeys run; pinned_sdlc refuses it unless its scaffold is ours.
-SDLC_REF = 'ff4b6e7b25dbd1b1a501638ef7577761db5d82b7'
+SDLC_REF = '2b1d31a0722ca6f73ea8c9f4725d9e89876b9172'
 PIN = 'test-provider/pinned-v1:low'
 # A stand-in for Pi: writes a session the way Pi does and answers once on --model.
 FAKE_PI = '''#!/usr/bin/env python3

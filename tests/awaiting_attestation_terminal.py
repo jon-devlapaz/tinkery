@@ -106,7 +106,7 @@ def worker(case, width=100, height=30):
 
 def pin():
     value = json.loads((REPO / '_system/scaffold.json').read_text())
-    assert value['version'] == '1.57.0', 'scaffold-pin: ' + value['version']
+    assert value['version'] == '1.58.0', 'scaffold-pin: ' + value['version']
 
 
 def run(case, width=100, height=30):
@@ -154,7 +154,7 @@ def reversion():
          '    let _ = &paths;', 'dirty', 'refusal-dirty:'),
         ('src/taste/preview.rs', '        local.recheck(stop)?;', '        let _ = local;',
          'awaiting-stale-before-v', 'stale reading executed a command'),
-        ('_system/scaffold.json', '"version": "1.57.0"', '"version": "1.55.0"',
+        ('_system/scaffold.json', '"version": "1.58.0"', '"version": "1.55.0"',
          'pin', 'scaffold-pin:'),
     ]
     env = subprocess.environment()
@@ -200,4 +200,4 @@ if __name__ == '__main__':
                     run(case, width, height)
             preview(100, 30, mono=False, case='awaiting')
             preview(case='unknown')
-        print('PASS awaiting-attestation public behavior and 1.57.0 pin', flush=True)
+        print('PASS awaiting-attestation public behavior and 1.58.0 pin', flush=True)
