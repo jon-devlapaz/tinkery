@@ -46,6 +46,21 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   merged branches (`git branch -d`); never force-delete branches, drop stashes or
   remove worktrees for cleanliness.
 
+## Response style
+
+Write replies, issues, PR bodies and docs in plain technical English, modelled on
+[simple-english](https://github.com/arekhalpern/simple-english) (ASD-STE100):
+
+- Lead with the result. Give one fact per sentence: at most 20 words for an instruction,
+  25 for a description.
+- Use active voice and simple tenses. Write "must" for a requirement and "can" for a
+  possibility, never "should", "may" or "might".
+- Put a condition before its instruction: "If CI fails, read the log."
+- Keep one name for one thing through a whole text.
+- Write complete sentences with articles. No contractions, semicolons, arrow chains or filler
+  that states no fact.
+- Never change code, commands, identifiers, quoted errors or the operator's quoted words.
+
 ## Layout and design entry points
 
 Read only the relevant task contract from the
