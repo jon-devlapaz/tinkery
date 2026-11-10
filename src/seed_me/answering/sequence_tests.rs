@@ -96,7 +96,7 @@ fn verified(session: &Path) -> bool {
 }
 
 fn answer_of(session: &Path, id: &str) -> Option<String> {
-    read(session).unwrap().state["nodes"]
+    ledger::load(session).unwrap().to_json().unwrap()["nodes"]
         .as_array()
         .unwrap()
         .iter()
@@ -197,15 +197,33 @@ fn s2_decision_changed_after_draft_refuses_the_old_confirmation() {
         Refusal::Stale
     );
     // With a fresh version but r1's bytes, open decisions still refuse.
-    refused(&session, || confirm(&session, &r1));
+    let why = |r: Refusal| format!("{r:?}");
+    let open = why(refused(&session, || confirm(&session, &r1)));
+    assert!(open.contains("unresolved nodes remain: sync"), "{open}");
     let v = read(&session).unwrap().version();
     answer(&session, v, "sync", "TEST hourly", None).unwrap();
     holds(&session, None);
     // r1 now has every decision settled, but its Decisions block is stale.
-    refused(&session, || confirm(&session, &r1));
+    let stale = why(refused(&session, || confirm(&session, &r1)));
+    assert!(stale.contains("decisions"), "{stale}");
     let r2 = draft(&session, root.path());
     assert_ne!(r1, r2);
+    // The displayed r1 bytes, at the fresh version, are not the saved r2 draft.
+    let v = read(&session).unwrap().version();
+    let changed = why(refused(&session, || {
+        confirm_seed(&session, v, &r1, &old_seed, "TEST yes", None)
+    }));
+    assert!(changed.contains("The draft changed"), "{changed}");
     confirm(&session, &r2).unwrap();
+    holds(&session, Some(("TEST synced", "TEST hourly")));
+    // A confirmed seed edited afterwards neither verifies nor completes.
+    let confirmed = seed(&session);
+    fs::write(session.join(SEED), format!("{confirmed} ")).unwrap();
+    assert!(!verified(&session));
+    let tampered = why(refused(&session, || end(&session, Ending::Completed, None)));
+    assert!(tampered.contains("seed changed"), "{tampered}");
+    fs::write(session.join(SEED), confirmed).unwrap();
+    end(&session, Ending::Completed, None).unwrap();
     holds(&session, Some(("TEST synced", "TEST hourly")));
 }
 
