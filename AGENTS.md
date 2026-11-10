@@ -21,7 +21,7 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   (or the operator asked for the change), CI is green, there are no conflicts and a reviewer
   who did not write the change has checked it against the issue. The one exception is the
   [tink-sdlc bump](.github/workflows/tink-sdlc-bump.yml): it merges itself when CI passes and it
-  changes only scaffold files.
+  is exactly tink-sdlc's own upgrade.
   If the operator asks for drafts only, create and merge nothing until they say so.
 - Model and provider calls require an explicit budget. The default is zero.
   Eval commands are outside zero-call verification.

@@ -1,8 +1,8 @@
 name: tink-sdlc bump
 
 # A tink-sdlc release opens one pull request that upgrades the bundled scaffold with tink-sdlc's
-# own installer. It merges itself only when CI passes and it changes nothing but scaffold files;
-# any other change waits for a reviewer. TINKERY_BUMP_TOKEN lets the pull request run CI.
+# own installer. It merges itself only when CI passes and its tree is exactly that upgrade of its
+# base; any other change waits for a reviewer. TINKERY_BUMP_TOKEN lets the pull request run CI.
 on:
   repository_dispatch:
     types: [tink-sdlc-release]
@@ -45,10 +45,11 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch -c "$branch"
           git add -A
+          git diff --cached --quiet && { echo "::error::init.py --upgrade changed nothing."; exit 1; }
           git commit -qm "Upgrade the bundled tink-sdlc scaffold to $VERSION"
           git push -q origin "$branch"
           gh pr create --head "$branch" --title "Upgrade the bundled tink-sdlc scaffold to $VERSION" \
-            --body "tink-sdlc's \`init.py --upgrade\` at v$VERSION. This merges itself when CI passes and it touches only scaffold files."
+            --body "tink-sdlc's \`init.py --upgrade\` at v$VERSION. It merges itself when CI passes and it is exactly that upgrade."
   merge:
     if: >-
       github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
@@ -63,16 +64,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Merge a green scaffold-only bump
+      - name: Merge a green bump that is exactly tink-sdlc's upgrade of its base
         run: |
           set -euo pipefail
-          if python3 - <<'EOF'; then gh pr merge "$BRANCH" --squash --delete-branch --match-head-commit "$SHA"; fi
-          import json, os, subprocess, sys
-          git = lambda *args: subprocess.check_output(['git', *args], text=True)
-          managed = lambda rev: {'_system/scaffold.json', 'AGENTS.md', *json.loads(git('show', rev + ':_system/scaffold.json'))['files']}
-          head = os.environ['SHA']
-          other = set(git('diff', '--name-only', 'origin/main...' + head).split()) - managed('origin/main') - managed(head)
-          if other:
-              print('::notice::Left for a reviewer; it changes ' + ', '.join(sorted(other)))
-              sys.exit(1)
-          EOF
+          version=${BRANCH#tink-sdlc-}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::notice::Not a bump branch."; exit 0; }
+          git clone -q --depth 1 --branch "v$version" https://github.com/jon-devlapaz/tink-sdlc.git "$RUNNER_TEMP/tink-sdlc"
+          git checkout -q --detach "$(git merge-base origin/main "$SHA")"
+          python3 "$RUNNER_TEMP/tink-sdlc/scripts/init.py" . --upgrade
+          git add -A
+          if ! git diff --cached --quiet "$SHA"; then
+            echo "::notice::Left for a reviewer; it differs from tink-sdlc's upgrade."
+            exit 0
+          fi
+          gh pr merge "$BRANCH" --squash --delete-branch --match-head-commit "$SHA"
