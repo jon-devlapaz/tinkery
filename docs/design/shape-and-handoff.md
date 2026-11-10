@@ -330,6 +330,8 @@ Approve's combined command, pasted unchanged from outside the checkout, starts a
 Watch shows its goal's first line under needs-you runs and the full goal in detail,
 while a run with no seed stays distinct from an unknown match. A failing confirmed command blocks
 verification despite passing worker-written checks, and a passing command completes it.
+After one stand-in Pi step, Watch's `b` opens that verified run's worker panel, `f` finishes it,
+and Taste lists it as a local checked result beside its goal.
 Dropping seed enforcement turns the regression red; restoring it restores blocking. Its confirmations, approvals and
 attestations are TEST fixtures, never the operator's.
 
