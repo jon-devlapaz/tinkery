@@ -1,0 +1,80 @@
+name: tink-sdlc bump
+
+# A tink-sdlc release opens one pull request that upgrades the bundled scaffold with tink-sdlc's
+# own installer. It merges itself only when CI passes and its tree is exactly that upgrade of its
+# base; any other change waits for a reviewer. TINKERY_BUMP_TOKEN lets the pull request run CI.
+on:
+  repository_dispatch:
+    types: [tink-sdlc-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: tink-sdlc release, X.Y.Z
+        required: true
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  open:
+    if: github.event_name != 'workflow_run'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.event.client_payload.version || inputs.version }}
+      GH_TOKEN: ${{ secrets.TINKERY_BUMP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.TINKERY_BUMP_TOKEN }}
+      - name: Open the bump pull request
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN" || { echo "::error::Add the TINKERY_BUMP_TOKEN secret."; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Not a version: $VERSION"; exit 1; }
+          branch="tink-sdlc-$VERSION"
+          if [ "$(jq -r .version _system/scaffold.json)" = "$VERSION" ] || git ls-remote --exit-code origin "$branch"; then
+            echo "Tinkery already has or is getting $VERSION."
+            exit 0
+          fi
+          git clone -q --depth 1 --branch "v$VERSION" https://github.com/jon-devlapaz/tink-sdlc.git "$RUNNER_TEMP/tink-sdlc"
+          python3 "$RUNNER_TEMP/tink-sdlc/scripts/init.py" . --upgrade
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add -A
+          git diff --cached --quiet && { echo "::error::init.py --upgrade changed nothing."; exit 1; }
+          git commit -qm "Upgrade the bundled tink-sdlc scaffold to $VERSION"
+          git push -q origin "$branch"
+          gh pr create --head "$branch" --title "Upgrade the bundled tink-sdlc scaffold to $VERSION" \
+            --body "tink-sdlc's \`init.py --upgrade\` at v$VERSION. It merges itself when CI passes and it is exactly that upgrade."
+  merge:
+    if: >-
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'tink-sdlc-')
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      GH_TOKEN: ${{ secrets.TINKERY_BUMP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Merge a green bump that is exactly tink-sdlc's upgrade of its base
+        run: |
+          set -euo pipefail
+          version=${BRANCH#tink-sdlc-}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::notice::Not a bump branch."; exit 0; }
+          git clone -q --depth 1 --branch "v$version" https://github.com/jon-devlapaz/tink-sdlc.git "$RUNNER_TEMP/tink-sdlc"
+          git checkout -q --detach "$(git merge-base origin/main "$SHA")"
+          python3 "$RUNNER_TEMP/tink-sdlc/scripts/init.py" . --upgrade
+          git add -A
+          if ! git diff --cached --quiet "$SHA"; then
+            echo "::notice::Left for a reviewer; it differs from tink-sdlc's upgrade."
+            exit 0
+          fi
+          gh pr merge "$BRANCH" --squash --delete-branch --match-head-commit "$SHA"
