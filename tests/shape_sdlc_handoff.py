@@ -1,6 +1,6 @@
-"""Shape's real writer → pinned SDLC intake/verify, with TEST-only confirmations.
+"""Shape's real writer → pinned SDLC intake/verify → Worker finish and Taste, with TEST-only confirmations.
 
-No product model calls: one stub reply. All installs, Git commits, synthetic
+No product model calls: one stub reply and one stand-in Pi launch. All installs, Git commits, synthetic
 attestations and the reversible consumer mutation live under a short /tmp TEST root.
 Locked checks protect the agreement, not the strength of the agreed checks.
 """
@@ -25,7 +25,7 @@ import time
 
 from vt_screen import Screen
 from shape_answer_terminal import completion_review, seed_fields
-from first_task_path import SDLC_REF, pinned_sdlc
+from first_task_path import FAKE_PI, PIN, SDLC_REF, pinned_sdlc
 
 REPO = Path(__file__).resolve().parents[1]
 import session_fixture as helper
@@ -421,6 +421,8 @@ def handoff(root, env, session):
     failing_seed_blocks()
     print('Revert probe RESTORED: failing seed blocks again')
     accepted.touch()
+    command(['git', 'add', 'TEST-accepted', '_system/verification.json'], project, env)
+    command(['git', 'commit', '-qm', 'TEST accepted candidate'], project, env)
     result = sdlc('verify', 'test-handoff')
     assert 'Seed checks (operator-confirmed)' in result.stdout and 'Worker-written checks:' in result.stdout
     proof = json.loads(receipt.read_text())
@@ -430,6 +432,68 @@ def handoff(root, env, session):
     assert 'Verification: current' in sdlc('status', 'test-handoff').stdout
     assert {name: (session / name).read_bytes() for name in confirmed} == confirmed
     print('Settled seed PASS completes verify; provisional remains pending; manual judgments are TEST attestations')
+
+    # One stand-in Pi step on this verified run, then real Tinkery's worker panel and Taste read it.
+    sdlc('stage', 'test-handoff', '3', '--here')
+    pi = root / 'TEST-bin/pi'
+    pi.write_text(FAKE_PI)
+    pi.chmod(0o755)
+    agent = Path(env['HOME']) / '.pi/agent'
+    agent.mkdir(parents=True)
+    (agent / 'models-store.json').write_text(json.dumps({'test-provider': {'models': [
+        {'id': 'pinned-v1', 'provider': 'test-provider', 'reasoning': True}]}}))
+    (agent / 'auth.json').write_text(json.dumps({'test-provider': {'type': 'oauth', 'refresh': 'TEST'}}))
+    env = {**env, 'TINK_SDLC_PI': str(pi), 'TEST_PI_CALLS': str(root / 'TEST-pi-calls')}
+    report = root / 'TEST-notes/build.md'
+    report.parent.mkdir()
+    sdlc('step', 'test-handoff', 'build', 'prepare', '--report', report, '--model', PIN,
+         '--max-responses', '2', '--launcher', project / '_system/scripts/pi-launcher')
+    sdlc('step', 'test-handoff', 'build', 'launch')
+    for _ in range(50):
+        if 'ended: read the report' in sdlc('step', 'test-handoff', 'build', 'show').stdout:
+            break
+        time.sleep(0.1)
+    report.write_text('TEST report written by the stand-in worker.\n')
+    master, slave = os.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 100, 0, 0))
+    screen = Screen(100, 30)
+    args = [REPO / 'target/debug/tinkery', '--home', '--operator', 'agent',
+            '--seed-session-root', session.parent,
+            '--record-root', root / 'TEST-records', '--link-root', root / 'TEST-links',
+            '--sdlc-root', project]
+    process = subprocess.Popen([str(a) for a in args], cwd=root, env=subprocess.environment(env, home=env['HOME']),
+                               stdin=slave, stdout=slave, stderr=slave)
+
+    def send(keys, text):
+        os.write(master, keys)
+        for returncode in wait_output(master, process, screen.feed, time.monotonic() + 25):
+            if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
+                return
+            assert returncode is None, screen.text()
+        raise AssertionError(f'{text!r} not shown:\n{screen.text()}')
+
+    try:
+        send(b'', '5  watch')
+        send(b'5', 'test-handoff')
+        send(b'\x1b[B\x1b[B', '› test-handoff')
+        send(b'b', 'Worker: turn ended; completion still unrecorded')
+        assert 'Verification: current' in screen.text(), screen.text()
+        send(b'f', 'Worker: turn completed; verification is separate')
+        send(b't', 'Press r to read results')
+        send(b'r', 'TEST command enforcement')
+        assert 'TEST command enforcement · local' in screen.text() and '✓ 3 passed' in screen.text(), screen.text()
+        send(b'\x1b[B\x1b[B', '› TEST command enforcement')
+        send(b'\r', 'Local checked result')
+        assert 'TEST command enforcement' in screen.text(), screen.text()
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        os.close(master)
+        os.close(slave)
+    assert (root / 'TEST-pi-calls').read_text().count('--mode json') == 1
+    print('Real run test-handoff → Watch b → Worker panel: verification current, f finished → '
+          'Taste: local checked result beside its exact goal; 1 stand-in Pi launch, 0 model calls')
 
 
 def main():
