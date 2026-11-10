@@ -29,6 +29,7 @@ fn row() -> ResultRow {
             "confirm no clinical claims".into(),
         ],
         gaps: Vec::new(),
+        verification_failed: false,
         labelled: Some(false),
         rejection: None,
     }

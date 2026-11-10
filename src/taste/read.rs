@@ -113,6 +113,8 @@ pub(super) struct ResultRow {
     pub(super) gates: Vec<String>,
     /// Unresolved source problems, not concealed by other successes.
     pub(super) gaps: Vec<String>,
+    /// The source reported failed verification, so no verdict is awaited yet.
+    pub(super) verification_failed: bool,
     /// Whether a verdict covers this exact head; unavailable records stay unknown.
     pub(super) labelled: Option<bool>,
     /// Words of the latest rejection only when it identifies this local candidate.
@@ -227,9 +229,13 @@ fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), Str
     }
     row.gates = all_gates;
     match parsed.verification.known() {
-        Some(V::Failed) => row.gaps.push(
-            "Verification failed; inspect the run log externally before reviewing again.".into(),
-        ),
+        Some(V::Failed) => {
+            row.verification_failed = true;
+            row.gaps.push(
+                "Verification failed; inspect the run log externally before reviewing again."
+                    .into(),
+            );
+        }
         Some(V::Interrupted) => row.gaps.push(
             "Verification interrupted; inspect the log and finish verification externally.".into(),
         ),
@@ -501,6 +507,7 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
             receipts_missing: false,
             gates: Vec::new(),
             gaps: Vec::new(),
+            verification_failed: false,
             labelled: None,
             rejection: None,
         };
@@ -768,6 +775,7 @@ mod tests {
             receipts_missing: false,
             gates: vec![],
             gaps: vec![],
+            verification_failed: false,
             labelled: None,
             rejection: None,
         }

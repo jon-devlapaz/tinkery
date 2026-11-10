@@ -510,6 +510,9 @@ def handoff(root, env, session):
         send(b'6', 'Press r to read results')
         send(b'r', 'TEST command enforcement · no recorded PR')
         assert '✓' not in screen.text() and 'TEST command enforcement · local' not in screen.text(), screen.text()
+        rows = screen.text().splitlines()
+        counts = rows[next(i for i, row in enumerate(rows) if 'TEST command enforcement' in row) + 1]
+        assert '! verification failed' in counts and 'awaiting human verdict' not in counts, screen.text()
         send(b'\x1b[B\x1b[B', '› TEST command enforcement')
         send(b'\r', '! Verification failed; inspect the run log externally before reviewing again.')
         assert 'Local checked result' not in screen.text(), screen.text()
