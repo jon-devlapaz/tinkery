@@ -24,12 +24,6 @@ Published task scope and status live in GitHub Issues. Measure's former
 [Taste](taste.md) have separate modules. There are no dependency exceptions: Think hands
 saved goals to Tend only through `seed_me`. The menu alone connects Shape and Tend.
 
-## Module size
-
-A module has at most 1000 production lines. The modules already past it are capped at their
-size on 2026-11-06 ([#747](https://github.com/jon-devlapaz/tinkery/issues/747)) and may only
-shrink; to add to one, split it first. `BIG_MODULES` in the check lists them.
-
 ## Factory boundaries
 
 [Factory principles](https://x.com/zachlloydtweets/status/2110505938604134737) are
@@ -112,33 +106,27 @@ no Tinkery phase or Seed Me format. Each library's `UPSTREAM` records its source
 local edits; [Pinstar API](../../vendor/pinstar/API.md) and
 [Graf API](../../vendor/graf/API.md) describe their boundaries.
 
-## Design score
-
-John Ousterhout's *A Philosophy of Software Design* supplies these eight questions.
-Each pass scores 1.25. Structural PRs name the rows they move.
-
-| # | Question | Recorded assessment |
-| --- | --- | --- |
-| 1 | Can each module be described in one sentence? | Yes: see the module map. |
-| 2 | Are interfaces simpler than implementations? | Yes: status readers consume one typed run instead of recognizing API words independently. |
-| 3 | Can an implementation change without touching callers? | Yes: model contracts live beside decoders; tests align field names. Only `seed_me/` owns Seed Me's format. Only `sdlc.rs` recognizes run-status words; readers retain their own display and refusal wording. Review decodes its reply; reading joins it. |
-| 4 | Do interface comments describe the abstraction? | Yes: modules and `pub` items carry interface comments; the build denies `missing_docs` and `unreachable_pub`. |
-| 5 | Is design discussion part of review? | Yes: [the working guide](../../AGENTS.md#guardrails) requires changeability review and naming affected rows. |
-| 6 | Does each module hide an important decision? | Yes: Conversation hides question, skip and scope rules. |
-| 7 | Can a newcomer see the boundaries without reading code? | Yes: this page |
-| 8 | Is design improvement part of ordinary work? | Yes |
-
-**Recorded score: 10/10** (2026-10-12, after #39). This is not a fresh measurement.
-The remaining debt is `brain_dump.rs`'s narrow interface over substantial routing.
-
-The module map and phase contracts own current boundaries; this score is a dated
-assessment, not proof of current quality.
-
 Design reasons remain with [theme ownership](https://github.com/jon-devlapaz/tinkery/pull/430),
 [presentation receipts](https://github.com/jon-devlapaz/tinkery/pull/451),
 [history sequence](https://github.com/jon-devlapaz/tinkery/pull/458) and
 [typed history](https://github.com/jon-devlapaz/tinkery/pull/462).
 For Shape's typed context, read [Think history](shape-and-handoff.md#think-history).
+
+## Design score
+
+John Ousterhout's *A Philosophy of Software Design* supplies these eight questions.
+Structural PRs name the rows they move.
+
+| # | Question |
+| --- | --- |
+| 1 | Can each module be described in one sentence? |
+| 2 | Are interfaces simpler than implementations? |
+| 3 | Can an implementation change without touching callers? |
+| 4 | Do interface comments describe the abstraction? |
+| 5 | Is design discussion part of review? |
+| 6 | Does each module hide an important decision? |
+| 7 | Can a newcomer see the boundaries without reading code? |
+| 8 | Is design improvement part of ordinary work? |
 
 ## Limits enforced by `tests/architecture.rs`
 
