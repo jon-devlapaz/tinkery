@@ -1,5 +1,7 @@
 """Taste keeps its human-verdict reminder after notes, corrections and unbound verdicts (#714, #781).
 
+A run whose verification failed shows `! verification failed` in place of the reminder (#825).
+
 Synthetic API 1 records exercise the public reader, including unavailable verdict counts.
 Every app launch uses an isolated TEST home and an agent role; no providers or labels run.
 """
@@ -56,8 +58,13 @@ def journey(width, height, no_color):
         if no_color:
             env['NO_COLOR'] = '1'
         failures = []
-        for name, labels, expected in cases():
-            state['detail']['run']['labels'] = labels
+        for name, labels, expected in [*cases(), ('verification failed', None, False)]:
+            failed = name == 'verification failed'
+            state['detail']['run']['labels'] = labels if not failed else {'count': 0, 'kinds': dict.fromkeys(
+                ('none', 'correction', 'accepted', 'rejected'), 0)}
+            state['detail']['run']['verification_status'] = 'failed' if failed else 'current'
+            state['detail']['run']['verification'].update(
+                result='failed' if failed else 'passed', passed=not failed)
             statefile = base / 'TEST-checkout/TEST-state.json'
             statefile.write_text(json.dumps(state))
             records = base / 'TEST-checkout/runs/TEST-result/labels.jsonl'
@@ -90,6 +97,8 @@ def journey(width, height, no_color):
                 observed = REMINDER in screen
                 if observed != expected:
                     failures.append(f'{name}: expected reminder {expected}, saw {observed}\n{screen}')
+                if ('! verification failed' in screen) != failed:
+                    failures.append(f'{name}: expected failed verification {failed}\n{screen}')
                 assert 'Saved your label.' not in screen, screen
                 assert not forbidden.exists(), 'Reading an unrecorded result called GitHub.'
                 assert statefile.read_bytes() == before, 'Taste changed source records.'
