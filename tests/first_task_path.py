@@ -18,8 +18,8 @@ import test_launch as subprocess
 
 REPO = Path(__file__).resolve().parents[1]
 GUIDE = (REPO / 'docs/first-task.md').read_text()
-# The one tink-sdlc both cross-repo journeys run; pinned_sdlc refuses it unless its scaffold is ours.
-SDLC_REF = '932d342fe80a4364bbc90d01f406e33ab3e9cf7d'
+# Both cross-repo journeys run the tink-sdlc release tag of the bundled scaffold, the one pin.
+SDLC_REF = 'v' + json.loads((REPO / '_system/scaffold.json').read_text())['version']
 PIN = 'test-provider/pinned-v1:low'
 # A stand-in for Pi: writes a session the way Pi does and answers once on --model.
 FAKE_PI = '''#!/usr/bin/env python3
@@ -68,15 +68,13 @@ def shell(script, env, cwd, waiting=False):
 
 
 def pinned_sdlc(source, env):
-    """Check out SDLC_REF at `source`; refuse a scaffold version other than `_system/scaffold.json`'s."""
+    """Check out SDLC_REF at `source`; refuse a tag whose scaffold is not the bundled version."""
     q = shlex.quote(str(source))
-    head = shell(f'git init -q {q} && cd {q}'
-                 f' && git fetch -q --depth 1 https://github.com/jon-devlapaz/tink-sdlc.git {SDLC_REF}'
-                 f' && git checkout -q --detach FETCH_HEAD && git rev-parse HEAD', env, source.parent).strip()
-    assert head == SDLC_REF, (head, SDLC_REF)
-    theirs = json.loads((source / 'assets/manifest.json').read_text())['version']
-    ours = json.loads((REPO / '_system/scaffold.json').read_text())['version']
-    assert theirs == ours, f'tink-sdlc {SDLC_REF} ships scaffold {theirs}; _system/scaffold.json is {ours}'
+    shell(f'git init -q {q} && cd {q}'
+          f' && git fetch -q --depth 1 https://github.com/jon-devlapaz/tink-sdlc.git tag {SDLC_REF}'
+          f' && git checkout -q --detach {SDLC_REF}', env, source.parent)
+    theirs = 'v' + json.loads((source / 'assets/manifest.json').read_text())['version']
+    assert theirs == SDLC_REF, f'tink-sdlc tag {SDLC_REF} ships scaffold {theirs}'
 
 
 def isolated_tools(directory, env):

@@ -1,6 +1,5 @@
 """Pending judgment is inspectable, never accepted. Public PTYs and restored guard probes."""
 import argparse
-import json
 import os
 from pathlib import Path
 import tempfile
@@ -104,15 +103,8 @@ def worker(case, width=100, height=30):
     print(f'PASS {case}: {width}x{height}, NO_COLOR, zero providers', flush=True)
 
 
-def pin():
-    value = json.loads((REPO / '_system/scaffold.json').read_text())
-    assert value['version'] == '1.59.0', 'scaffold-pin: ' + value['version']
-
-
 def run(case, width=100, height=30):
-    if case == 'pin':
-        pin()
-    elif case in ('worker', 'watch', 'finish-reread', 'unknown', 'worker-refusals', 'watch-refusals'):
+    if case in ('worker', 'watch', 'finish-reread', 'unknown', 'worker-refusals', 'watch-refusals'):
         worker(case, width, height)
     else:
         preview(width, height, mono=True, case=case)
@@ -120,7 +112,7 @@ def run(case, width=100, height=30):
 
 CASES = ['awaiting', 'worker', 'watch', 'finish-reread', 'worker-refusals', 'watch-refusals',
          'failed', 'person-failed', 'stale', 'dirty',
-         'unknown', 'awaiting-invalid-ids', 'awaiting-stale-before-v', 'pin']
+         'unknown', 'awaiting-invalid-ids', 'awaiting-stale-before-v']
 
 
 def reversion():
@@ -154,8 +146,6 @@ def reversion():
          '    let _ = &paths;', 'dirty', 'refusal-dirty:'),
         ('src/taste/preview.rs', '        local.recheck(stop)?;', '        let _ = local;',
          'awaiting-stale-before-v', 'stale reading executed a command'),
-        ('_system/scaffold.json', '"version": "1.59.0"', '"version": "1.55.0"',
-         'pin', 'scaffold-pin:'),
     ]
     env = subprocess.environment()
     build = ['cargo', '+stable', 'build', '--locked', '--quiet', '--bin', 'tinkery']
@@ -200,4 +190,4 @@ if __name__ == '__main__':
                     run(case, width, height)
             preview(100, 30, mono=False, case='awaiting')
             preview(case='unknown')
-        print('PASS awaiting-attestation public behavior and 1.59.0 pin', flush=True)
+        print('PASS awaiting-attestation public behavior', flush=True)
