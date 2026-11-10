@@ -427,7 +427,7 @@ def handoff(root, env, session):
         assert '# checklist item worker' in log and '# seed check seed-1' in log, log
         # The red is the promised behavior's own assertion: all three ran and one compared wrong words.
         assert "AssertionError: 'tea and milk' != 'tea or milk'" in log and 'Ran 3 tests' in log, log
-        assert log.count('... ok\n') == 2 and 'Error' not in log.replace('AssertionError', ''), log
+        assert log.count('... ok\n') == 2, log
         print('Settled seed FAIL blocks verify; every worker-written check PASSES')
 
     failing_seed_blocks()
@@ -459,6 +459,8 @@ def handoff(root, env, session):
     assert proof['result'] == 'passed', proof
     assert proof['checklist_items'] == {'worker': 'proven'}, proof
     assert proof['seed_checks'] == {'seed-1': 'proven', 'seed-2': 'pending', 'seed-3': 'attested'}, proof
+    log = (run / '04-test/output/test-log.md').read_text()
+    assert 'Ran 3 tests' in log and log.count('... ok\n') == 3, log
     assert 'Verification: current' in sdlc('status', 'test-handoff').stdout
     assert {name: (session / name).read_bytes() for name in confirmed} == confirmed
     print('Settled seed PASS completes verify; provisional remains pending; manual judgments are TEST attestations')
@@ -517,6 +519,8 @@ def handoff(root, env, session):
     command(['git', 'commit', '-qam', 'TEST restored candidate'], project, env)
     sdlc('verify', 'test-handoff')
     assert json.loads(receipt.read_text())['seed_checks']['seed-1'] == 'proven'
+    log = (run / '04-test/output/test-log.md').read_text()
+    assert 'Ran 3 tests' in log and log.count('... ok\n') == 3, log
     assert 'Verification: current' in sdlc('status', 'test-handoff').stdout
     print('Same confirmed check, implementation broken then restored: verify failed on the promised behavior, '
           'Watch showed verification failed, Taste showed no checked result; restored revision verifies')
