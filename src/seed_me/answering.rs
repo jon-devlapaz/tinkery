@@ -578,6 +578,8 @@ mod recovery_tests;
 #[cfg(test)]
 mod resolution_tests;
 #[cfg(test)]
+mod sequence_tests;
+#[cfg(test)]
 mod typed_tests;
 
 /// Settle the open question `id` with the operator's `words`, exactly as typed, from the version
