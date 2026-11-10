@@ -66,7 +66,7 @@ title the goal uses the whole available space. Both excerpts share one line and 
 when shortened. The next line shows counts for passed, waiting, stale, failed and
 unknown observations, plus
 “You owe N” when gates are owed and “awaiting human verdict” when this head has none.
-A run whose verification failed shows a rust “! verification failed” in place of that reminder. No check sentences, PR URLs, paths, hashes, run IDs
+A run whose verification failed always shows a rust “! verification failed” there, and never that reminder. No check sentences, PR URLs, paths, hashes, run IDs
 or commands appear in the list. Jade marks selection; the goal remains ink.
 Counts are observations, never an aggregate done/approved verdict.
 
