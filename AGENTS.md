@@ -46,6 +46,25 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   merged branches (`git branch -d`); never force-delete branches, drop stashes or
   remove worktrees for cleanliness.
 
+## Response style
+
+Each reply spends the operator's attention, so it must earn its place ([Yohaku](docs/yohaku.md)).
+Write in plain technical English, modelled on
+[simple-english](https://github.com/arekhalpern/simple-english) (ASD-STE100):
+
+- Lead with what the operator must decide or do, then the result. Ask at most one question.
+- Cut each line that does not change what the operator does next.
+- Name the state of each claim: proposed, attempted, observed, checked or accepted.
+  Say unknowns and failures plainly, with the next step.
+- Quote the operator's words exactly, and mark your readings as guesses.
+- Give one fact per sentence: at most 20 words for an instruction, 25 for a description.
+  Use active voice and simple tenses.
+- Write "must" for a requirement and "can" for a possibility, never "should", "may" or "might".
+  Put a condition before its instruction: "If CI fails, read the log."
+- Keep one name for one thing. Write complete sentences with articles. No contractions,
+  semicolons, arrow chains or filler that states no fact.
+- Never change code, commands, identifiers or quoted errors.
+
 ## Layout and design entry points
 
 Read only the relevant task contract from the
