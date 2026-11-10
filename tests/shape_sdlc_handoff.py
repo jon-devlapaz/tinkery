@@ -2,7 +2,8 @@
 
 No product model calls: one stub reply and one stand-in Pi launch. All installs, Git commits, synthetic
 attestations and the reversible consumer mutation live under a short /tmp TEST root.
-Locked checks protect the agreement, not the strength of the agreed checks.
+Locked checks protect the agreement, not the strength of the agreed checks. One confirmed command does
+assert a promised behavior: breaking only its implementation fails verify, Watch and Taste (#819).
 """
 from terminal_process import wait_output
 import base64
@@ -34,6 +35,29 @@ CONFIRMATION = 'TEST confirmation of r1 only; not operator approval or permissio
 # 37bc32a6-e13d-4558-ab44-6d00fabbd54a/seed-contract.md; never edit that evidence.
 ORIGINAL = (REPO / 'tests/fixtures/stacker-r1-seed-contract.md').read_text()
 GOAL = ORIGINAL.split('- goal [user] ', 1)[1].split(' (source:', 1)[0]
+# #819: the confirmed command asserts a behavior, modelled on #469's humanize case (a list's last
+# conjunction). PROMISE, the assertions and the command never change; only the implementation does.
+PROMISE = 'TEST natural_list joins the last item with the chosen conjunction.'
+WORKING = """def natural_list(items, conjunction='and'):
+    if len(items) < 3:
+        return f' {conjunction} '.join(items)
+    return ', '.join(items[:-1]) + f' {conjunction} ' + items[-1]
+"""
+BROKEN = WORKING.replace("return f' {conjunction} '.join(items)", "return ' and '.join(items)")
+ASSERTIONS = """import unittest
+from TEST_natural import natural_list
+
+
+class Conjunction(unittest.TestCase):
+    def test_two_items_use_the_chosen_conjunction(self):
+        self.assertEqual(natural_list(['tea', 'milk'], 'or'), 'tea or milk')
+
+    def test_longer_lists_use_the_chosen_conjunction(self):
+        self.assertEqual(natural_list(['tea', 'milk', 'sugar'], 'or'), 'tea, milk or sugar')
+
+    def test_default_is_and(self):
+        self.assertEqual(natural_list(['tea', 'milk']), 'tea and milk')
+"""
 
 
 def command(argv, cwd, env, expected=0):
@@ -280,8 +304,9 @@ def handoff(root, env, session):
     command([sys.executable, source / 'scripts/init.py', project], root, env)
     command(['git', 'init', '-q', '-b', 'main'], project, env)
     check = project / 'TEST-check'
-    check.write_text('#!/bin/sh\necho "TEST existing output"\ntest -f TEST-accepted\n')
+    check.write_text('#!/bin/sh\necho "TEST existing output"\nexec python3 -m unittest -v TEST_natural_check 2>&1\n')
     check.chmod(0o755)
+    (project / 'TEST_natural_check.py').write_text(ASSERTIONS)
     command(['git', 'add', '-A'], project, env)
     command(['git', 'commit', '-qm', 'TEST isolated baseline'], project, env)
     runtime = project / '_system/scripts/sdlc.py'
@@ -317,7 +342,9 @@ def handoff(root, env, session):
         'owner': 'TEST fixture', 'gate': 'TEST only', 'status': 'settled',
         'answer': 'TEST command enforcement', 'authority': 'user', 'authority_source': 'TEST fixture only'}])
     helper.publish(session, state, old['version'], 'TEST command enforcement fixture')
-    helper.set_checks(session, json.loads((REPO / 'tests/fixtures/shape-checks.json').read_text()))
+    checks = json.loads((REPO / 'tests/fixtures/shape-checks.json').read_text())
+    checks[0]['statement'] = PROMISE
+    helper.set_checks(session, checks)
     body = (REPO / 'tests/fixtures/shape-seed-reply.txt').read_text().replace(
         '## Affected users and systems', helper.checks_block(helper.read_checks(session)) + '## Affected users and systems', 1)
     body = body.replace('## Knowledge map', helper.decisions_block(helper.load(session)) + '\n## Knowledge map', 1)
@@ -377,15 +404,15 @@ def handoff(root, env, session):
     # No test fixture attestation may be mistaken for a real person's judgment.
     assert sdlc('mark', 'test-handoff', 'seed-3', 'passed', '--evidence', 'TEST worker guess',
                 expected=None).returncode != 0
-    accepted = project / 'TEST-accepted'
-    accepted.touch()
+    natural = project / 'TEST_natural.py'
+    natural.write_text(WORKING)
     # Command success settles a cmd: check; its expect: is context, never an owed mark.
     # A you judge: check still needs a human mark.
     missing_judgment = sdlc('verify', 'test-handoff', expected=None)
     assert missing_judgment.returncode != 0, missing_judgment.stdout
     assert 'seed-3' in missing_judgment.stderr and 'seed-1-expect' not in missing_judgment.stderr
     attest('seed-3')
-    accepted.unlink()
+    natural.write_text(BROKEN)
     receipt = run / '04-test/output/verification.json'
 
     def failing_seed_blocks():
@@ -398,6 +425,9 @@ def handoff(root, env, session):
         log = (run / '04-test/output/test-log.md').read_text()
         assert log.count('TEST worker check passes\n') == 2, log
         assert '# checklist item worker' in log and '# seed check seed-1' in log, log
+        # The red is the promised behavior's own assertion: all three ran and one compared wrong words.
+        assert "AssertionError: 'tea and milk' != 'tea or milk'" in log and 'Ran 3 tests' in log, log
+        assert log.count('... ok\n') == 2, log
         print('Settled seed FAIL blocks verify; every worker-written check PASSES')
 
     failing_seed_blocks()
@@ -420,8 +450,8 @@ def handoff(root, env, session):
     assert runtime.read_bytes() == original
     failing_seed_blocks()
     print('Revert probe RESTORED: failing seed blocks again')
-    accepted.touch()
-    command(['git', 'add', 'TEST-accepted', '_system/verification.json'], project, env)
+    natural.write_text(WORKING)
+    command(['git', 'add', 'TEST_natural.py', '_system/verification.json'], project, env)
     command(['git', 'commit', '-qm', 'TEST accepted candidate'], project, env)
     result = sdlc('verify', 'test-handoff')
     assert 'Seed checks (operator-confirmed)' in result.stdout and 'Worker-written checks:' in result.stdout
@@ -429,9 +459,71 @@ def handoff(root, env, session):
     assert proof['result'] == 'passed', proof
     assert proof['checklist_items'] == {'worker': 'proven'}, proof
     assert proof['seed_checks'] == {'seed-1': 'proven', 'seed-2': 'pending', 'seed-3': 'attested'}, proof
+    log = (run / '04-test/output/test-log.md').read_text()
+    assert 'Ran 3 tests' in log and log.count('... ok\n') == 3, log
     assert 'Verification: current' in sdlc('status', 'test-handoff').stdout
     assert {name: (session / name).read_bytes() for name in confirmed} == confirmed
     print('Settled seed PASS completes verify; provisional remains pending; manual judgments are TEST attestations')
+
+    def tinkery(env, look):
+        """Real Tinkery on this project in a 100x30 PTY; look(send, screen) drives it."""
+        master, slave = os.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 100, 0, 0))
+        screen = Screen(100, 30)
+        args = [REPO / 'target/debug/tinkery', '--home', '--operator', 'agent',
+                '--seed-session-root', session.parent,
+                '--record-root', root / 'TEST-records', '--link-root', root / 'TEST-links',
+                '--sdlc-root', project]
+        process = subprocess.Popen([str(a) for a in args], cwd=root, env=subprocess.environment(env, home=env['HOME']),
+                                   stdin=slave, stdout=slave, stderr=slave)
+
+        def send(keys, text):
+            os.write(master, keys)
+            for returncode in wait_output(master, process, screen.feed, time.monotonic() + 25):
+                if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
+                    return
+                assert returncode is None, screen.text()
+            raise AssertionError(f'{text!r} not shown:\n{screen.text()}')
+
+        try:
+            look(send, screen)
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+            os.close(master)
+            os.close(slave)
+
+    # #819: the same confirmed command, with only the implementation broken, then restored.
+    natural.write_text(BROKEN)
+    command(['git', 'commit', '-qam', 'TEST broken candidate'], project, env)
+    failing_seed_blocks()
+
+    def broken(send, screen):
+        send(b'', '5  watch')
+        send(b'5', 'test-handoff')
+        send(b'\x1b[B\x1b[B', '› test-handoff  verification failed')
+        send(b'\r', 'SDLC next: Seed check failed: seed-1')
+        assert 'seed-1: pending (automated)' in screen.text(), screen.text()
+        send(b'\x1b', 'Needs you')
+        send(b'\x1b', '6  taste')
+        send(b'6', 'Press r to read results')
+        send(b'r', 'TEST command enforcement · no recorded PR')
+        assert '✓' not in screen.text() and 'TEST command enforcement · local' not in screen.text(), screen.text()
+        send(b'\x1b[B\x1b[B', '› TEST command enforcement')
+        send(b'\r', '! Verification failed; inspect the run log externally before reviewing again.')
+        assert 'Local checked result' not in screen.text(), screen.text()
+
+    tinkery(env, broken)
+    natural.write_text(WORKING)
+    command(['git', 'commit', '-qam', 'TEST restored candidate'], project, env)
+    sdlc('verify', 'test-handoff')
+    assert json.loads(receipt.read_text())['seed_checks']['seed-1'] == 'proven'
+    log = (run / '04-test/output/test-log.md').read_text()
+    assert 'Ran 3 tests' in log and log.count('... ok\n') == 3, log
+    assert 'Verification: current' in sdlc('status', 'test-handoff').stdout
+    print('Same confirmed check, implementation broken then restored: verify failed on the promised behavior, '
+          'Watch showed verification failed, Taste showed no checked result; restored revision verifies')
 
     # One stand-in Pi step on this verified run, then real Tinkery's worker panel and Taste read it.
     sdlc('stage', 'test-handoff', '3', '--here')
@@ -454,25 +546,7 @@ def handoff(root, env, session):
             break
         time.sleep(0.1)
     report.write_text('TEST report written by the stand-in worker.\n')
-    master, slave = os.openpty()
-    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 30, 100, 0, 0))
-    screen = Screen(100, 30)
-    args = [REPO / 'target/debug/tinkery', '--home', '--operator', 'agent',
-            '--seed-session-root', session.parent,
-            '--record-root', root / 'TEST-records', '--link-root', root / 'TEST-links',
-            '--sdlc-root', project]
-    process = subprocess.Popen([str(a) for a in args], cwd=root, env=subprocess.environment(env, home=env['HOME']),
-                               stdin=slave, stdout=slave, stderr=slave)
-
-    def send(keys, text):
-        os.write(master, keys)
-        for returncode in wait_output(master, process, screen.feed, time.monotonic() + 25):
-            if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
-                return
-            assert returncode is None, screen.text()
-        raise AssertionError(f'{text!r} not shown:\n{screen.text()}')
-
-    try:
+    def restored(send, screen):
         send(b'', '5  watch')
         send(b'5', 'test-handoff')
         send(b'\x1b[B\x1b[B', '› test-handoff')
@@ -485,12 +559,8 @@ def handoff(root, env, session):
         send(b'\x1b[B\x1b[B', '› TEST command enforcement')
         send(b'\r', 'Local checked result')
         assert 'TEST command enforcement' in screen.text(), screen.text()
-    finally:
-        if process.poll() is None:
-            process.kill()
-        process.wait()
-        os.close(master)
-        os.close(slave)
+
+    tinkery(env, restored)
     assert (root / 'TEST-pi-calls').read_text().count('--mode json') == 1
     print('Real run test-handoff → Watch b → Worker panel: verification current, f finished → '
           'Taste: local checked result beside its exact goal; 1 stand-in Pi launch, 0 model calls')
