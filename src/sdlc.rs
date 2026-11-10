@@ -143,7 +143,7 @@ word_enum!(CheckStatus, None, {
 });
 word_enum!(Proof, None, { Automated => "automated", Attested => "attested" });
 word_enum!(ReceiptResult, None, {
-    Passed => "passed", Failed => "failed", AwaitingAttestation => "awaiting-attestation"
+    Passed => "passed", Failed => "failed", Running => "running", AwaitingAttestation => "awaiting-attestation"
 });
 word_enum!(StepState, None, {
     Prepared => "prepared", Active => "active", Uncertain => "uncertain", Completed => "completed",

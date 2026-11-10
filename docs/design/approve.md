@@ -249,7 +249,7 @@ Rust view tests also cover matching and canonicalized checkout roots, older, mis
 and unreadable records, outside-repository origins and unresolved checkout paths.
 Reversion probes remove the mismatch refusal and block unknown-origin copying;
 both must fail the corresponding public-interface regressions. The
-[real handoff journey](../../tests/shape_sdlc_handoff.py) proves the move to Watch.
+[real handoff journey](../../tests/shape_sdlc_handoff.py) proves the move to Watch, worker finish and Taste.
 These prove mechanics, not operator acceptance or real-work benefit.
 
 [Worker terminal journeys](../../tests/worker_terminal.py) cover explicit admission,
