@@ -1,5 +1,6 @@
 """Project verification policy and exact-block extraction; no tools, provider or audio calls."""
 from pathlib import Path
+import os
 import runpy
 import tempfile
 import unittest
@@ -59,6 +60,13 @@ class FullCheckTests(unittest.TestCase):
             self.main()
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0][0], 'bash')
+
+    def test_passes_inside_a_build_step_session(self):
+        # tink-sdlc's launcher marks build workers; the check must still run its label tests.
+        self.source('<!-- full-check:start -->\n```bash\ntest -z "${TINK_SDLC_STEP_SESSION:-}"\n```\n'
+                    '<!-- full-check:end -->\n')
+        with patch.dict(os.environ, TINK_SDLC_STEP_SESSION='1'):
+            self.main()
 
 
 if __name__ == '__main__':

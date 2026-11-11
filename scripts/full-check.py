@@ -37,6 +37,8 @@ def main():
         env.setdefault('CARGO_HOME', str(installed_home / '.cargo'))
         env.setdefault('RUSTUP_HOME', str(installed_home / '.rustup'))
         env.pop('SEED_ME_TEST_SKILL', None)
+        # A tink-sdlc build step marks its worker env; label tests run outside that session.
+        env.pop('TINK_SDLC_STEP_SESSION', None)
         env.update(HOME=str(home), PYTHONDONTWRITEBYTECODE='1', TINKERY_NODE='/tinkery-TEST-no-node')
         script = Path(directory) / 'full-check.sh'
         script.write_text(command)
