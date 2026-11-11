@@ -631,6 +631,18 @@ def cap_review(case):
             terminal.close()
 
 
+def write_logs(build, marker, name='build.launch-100.pi.log'):
+    """Fixture Pi log for the worker step: CAP assistant responses, then optionally the launcher's cap marker."""
+    steps = build / 'runs' / 'test-worker' / 'steps'
+    steps.mkdir(parents=True, exist_ok=True)
+    (steps / 'build.json').write_text(json.dumps(dict(schema=1, max_responses=CAP)))
+    message = dict(role='assistant', content=[], stopReason='toolUse')
+    text = ''.join(json.dumps(dict(type='message_end', message=message)) + '\n' for _ in range(CAP))
+    if marker:
+        text += f'pi-launcher: response cap {CAP} reached; stopped process group 123.\n'
+    (steps / name).write_text(text)
+
+
 def journey(width, height, case, mono=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-terminal-') as directory:
         fixture = Fixture(Path(directory).resolve(), scenario=case)
@@ -743,7 +755,8 @@ def journey(width, height, case, mono=False):
                     elif case == 'cap':
                         fixture.change(lambda value: value.update(turn='unknown'))
                         terminal.send(b'r', 'Worker: turn state unknown')
-                        terminal.send(b'c', 'Worker: stopped by response cap')
+                        write_logs(Path(fixture.read()['build']), marker=True)
+                        terminal.send(b's', 'Worker: stopped by response cap')
                         assert 'Verification: not-run' in terminal.flat()
                         assert fixture.read()['step']['state'] == 'stopped'
                         assert fixture.read()['step']['stopped_by'] == 'cap'

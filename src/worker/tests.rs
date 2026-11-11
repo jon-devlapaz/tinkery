@@ -788,7 +788,7 @@ fn current_run_identity_is_required_before_resume_or_verify() {
     for action in [
         Action::Resume(initial.pin.clone().unwrap()),
         Action::Verify,
-        Action::StopOperator,
+        Action::Stop,
     ] {
         assert!(
             wait(Job::act(Gate::new(false, Ok(None)), run.clone(), action))
@@ -1061,7 +1061,8 @@ fn failed_verification_keeps_ended_worker_available_for_same_session_repair() {
 
 #[test]
 fn stopped_turn_is_never_completed_and_changed_seed_does_not_block_stop() {
-    for (action, cap) in [(Action::StopOperator, false), (Action::StopCap, true)] {
+    {
+        let action = Action::Stop;
         let fixture = Fixture::new();
         let initial = fixture.start();
         let run = initial.run;
@@ -1079,7 +1080,7 @@ fn stopped_turn_is_never_completed_and_changed_seed_does_not_block_stop() {
             .is_err()
         );
         let snapshot = wait(Job::act(Gate::new(false, Ok(None)), run, action)).unwrap();
-        assert_eq!(snapshot.state, State::Stopped { cap });
+        assert_eq!(snapshot.state, State::Stopped { cap: false });
         assert!(!snapshot.verification.is(sdlc::Verification::Current));
     }
 }
