@@ -1061,27 +1061,54 @@ fn failed_verification_keeps_ended_worker_available_for_same_session_repair() {
 
 #[test]
 fn stopped_turn_is_never_completed_and_changed_seed_does_not_block_stop() {
-    {
-        let action = Action::Stop;
+    let fixture = Fixture::new();
+    let initial = fixture.start();
+    let run = initial.run;
+    fs::write(
+        ready::path(&fixture.request.target.session),
+        "TEST replaced seed",
+    )
+    .unwrap();
+    assert!(
+        wait(Job::act(
+            Gate::new(false, Ok(None)),
+            run.clone(),
+            Action::Resume(initial.pin.clone().unwrap())
+        ))
+        .is_err()
+    );
+    let snapshot = wait(Job::act(Gate::new(false, Ok(None)), run, Action::Stop)).unwrap();
+    assert_eq!(snapshot.state, State::Stopped { cap: false });
+    assert!(!snapshot.verification.is(sdlc::Verification::Current));
+}
+
+#[test]
+fn stop_records_cap_only_for_a_bound_log_with_the_marker_after_the_cap() {
+    for (marker, answers, cap) in [(true, 3, true), (true, 2, false), (false, 3, false)] {
         let fixture = Fixture::new();
-        let initial = fixture.start();
-        let run = initial.run;
+        let run = fixture.start().run;
+        let steps = run.root.join("runs").join(&run.slug).join("steps");
+        fs::create_dir_all(&steps).unwrap();
         fs::write(
-            ready::path(&fixture.request.target.session),
-            "TEST replaced seed",
+            steps.join("build.json"),
+            json!({"schema": 1, "run_id": run.id, "checkout": run.root,
+                   "session": "TEST-exact-session", "max_responses": 3})
+            .to_string(),
         )
         .unwrap();
-        assert!(
-            wait(Job::act(
-                Gate::new(false, Ok(None)),
-                run.clone(),
-                Action::Resume(initial.pin.clone().unwrap())
-            ))
-            .is_err()
+        let mut log = format!(
+            "{}\n",
+            json!({"type": "session", "version": 3, "id": "TEST-exact-session", "cwd": run.root})
         );
-        let snapshot = wait(Job::act(Gate::new(false, Ok(None)), run, action)).unwrap();
-        assert_eq!(snapshot.state, State::Stopped { cap: false });
-        assert!(!snapshot.verification.is(sdlc::Verification::Current));
+        for _ in 0..answers {
+            log.push_str("{\"type\":\"message_end\",\"message\":{\"role\":\"assistant\"}}\n");
+        }
+        if marker {
+            log.push_str("pi-launcher: response cap 3 reached; stopped process group 1.\n");
+        }
+        fs::write(steps.join("build.launch-100.pi.log"), log).unwrap();
+        let snapshot = wait(Job::act(Gate::new(false, Ok(None)), run, Action::Stop)).unwrap();
+        assert_eq!(snapshot.state, State::Stopped { cap }, "{marker} {answers}");
     }
 }
 

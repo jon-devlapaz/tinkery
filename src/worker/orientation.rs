@@ -8,7 +8,7 @@ use serde_json::Value;
 use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Read},
+    io::{self, BufRead, BufReader, Read},
     os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
     process::Command,
@@ -199,6 +199,88 @@ enum Message {
     Other,
 }
 
+fn cap_marker(cap: Option<u64>, line: &str) -> bool {
+    cap.is_some_and(|n| line.starts_with(&format!("pi-launcher: response cap {n} reached;")))
+}
+
+// The one place a Pi log is checked: contract identity, session header and size caps.
+fn open_log(
+    path: &Path,
+    step: &str,
+    run: &Run,
+) -> Option<(Option<u64>, impl Iterator<Item = io::Result<String>>)> {
+    let contract = regular(&path.with_file_name(format!("{step}.json")))?;
+    if contract.metadata().ok()?.len() > 16 * 1024 {
+        return None;
+    }
+    let contract: Value = serde_json::from_reader(contract.take(16 * 1024)).ok()?;
+    if contract["schema"] != 1
+        || contract["run_id"] != run.id
+        || contract["checkout"].as_str() != run.root.to_str()
+    {
+        return None;
+    }
+    let session = contract["session"].as_str().filter(|s| !s.is_empty())?;
+    let log = regular(path)?;
+    let mut lines = BufReader::new(log.take(MAX_LOG_BYTES)).lines();
+    let header: Value = serde_json::from_str(&lines.next()?.ok()?).ok()?;
+    if header["type"] != "session"
+        || header["version"] != 3
+        || header["id"] != session
+        || header["cwd"] != contract["checkout"]
+    {
+        return None;
+    }
+    let cap = contract["max_responses"].as_u64().filter(|n| *n > 0);
+    Some((cap, lines))
+}
+
+/// True only if the step's launch and resume logs all pass the same checks as cap advice and
+/// the newest ends with the launcher's cap marker after at least the contract's cap of answers.
+/// Any doubt gives false. Never writes.
+pub(crate) fn stopped_at_cap(run: &Run, step: &str) -> bool {
+    let steps = run.root.join("runs").join(&run.slug).join("steps");
+    let mut logs: Vec<(u64, PathBuf)> = entries(&steps)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|entry| {
+            let name = entry.file_name().into_string().ok()?;
+            let rest = name
+                .strip_prefix(step)?
+                .strip_prefix('.')?
+                .strip_suffix(".pi.log")?;
+            let time = rest
+                .strip_prefix("launch-")
+                .or(rest.strip_prefix("resume-"))?;
+            Some((time.parse().ok()?, entry.path()))
+        })
+        .collect();
+    logs.sort();
+    // The launcher's cap is cumulative per session, so answers count across launch and resume logs.
+    let mut responses = 0;
+    for (n, (_, path)) in logs.iter().enumerate() {
+        let Some((cap, lines)) = open_log(path, step, run) else {
+            return false;
+        };
+        for line in lines {
+            let Ok(line) = line else { return false };
+            if n + 1 == logs.len()
+                && cap_marker(cap, &line)
+                && cap.is_some_and(|c| responses as u64 >= c)
+            {
+                return true;
+            }
+            let Ok(Event::End { message }) = serde_json::from_str(&line) else {
+                continue;
+            };
+            if matches!(message, Message::Assistant) {
+                responses += 1;
+            }
+        }
+    }
+    false
+}
+
 fn observe(
     launch: &Launch,
     run: &Run,
@@ -222,44 +304,17 @@ fn observe(
     }
     let stopped_at_cap =
         step.state.is(sdlc::StepState::Stopped) && step.stopped_by.is(sdlc::StopReason::Cap);
-    let contract = regular(&launch.log.with_file_name(format!("{}.json", launch.step)))?;
-    if contract.metadata().ok()?.len() > 16 * 1024 {
-        return None;
-    }
-    let contract: Value = serde_json::from_reader(contract.take(16 * 1024)).ok()?;
-    if contract["schema"] != 1
-        || contract["run_id"] != run.id
-        || contract["checkout"].as_str() != run.root.to_str()
-    {
-        return None;
-    }
-    let session = contract["session"].as_str().filter(|s| !s.is_empty())?;
-    let log = regular(&launch.log)?;
-    let mut lines = BufReader::new(log.take(MAX_LOG_BYTES)).lines();
-    let header: Value = serde_json::from_str(&lines.next()?.ok()?).ok()?;
-    if header["type"] != "session"
-        || header["version"] != 3
-        || header["id"] != session
-        || header["cwd"] != contract["checkout"]
-    {
-        return None;
-    }
-
-    let cap_stop = contract["max_responses"]
-        .as_u64()
-        .filter(|n| *n > 0)
-        .map(|n| (n, format!("pi-launcher: response cap {n} reached;")));
+    let (cap, lines) = open_log(&launch.log, &launch.step, run)?;
     let mut responses = 0;
     for line in lines {
         if cancel.load(Ordering::SeqCst) {
             return None;
         }
         let line = line.ok()?;
-        if stopped_at_cap
-            && let Some((cap, ref marker)) = cap_stop
-            && line.starts_with(marker)
-        {
-            return (responses as u64 >= cap).then_some(Observation::NoEditThrough(responses));
+        if stopped_at_cap && cap_marker(cap, &line) {
+            return cap
+                .is_some_and(|n| responses as u64 >= n)
+                .then_some(Observation::NoEditThrough(responses));
         }
         if let Event::End { message } = serde_json::from_str(&line).ok()? {
             match message {

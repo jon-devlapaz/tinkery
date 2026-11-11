@@ -544,44 +544,14 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
         }
         Action::Stop => {
             let mut args = step("complete");
-            let steps = run.root.join("runs").join(&run.slug).join("steps");
-            let cap = std::fs::read(steps.join(format!("{STEP}.json")))
-                .ok()
-                .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-                .and_then(|contract| contract["max_responses"].as_u64())
-                .filter(|cap| *cap > 0);
-            let mut logs: Vec<(u64, PathBuf)> = std::fs::read_dir(&steps)
-                .into_iter()
-                .flatten()
-                .flatten()
-                .filter_map(|entry| {
-                    let name = entry.file_name().into_string().ok()?;
-                    let rest = name.strip_prefix(STEP)?.strip_suffix(".pi.log")?;
-                    let time = rest
-                        .strip_prefix(".launch-")
-                        .or(rest.strip_prefix(".resume-"))?;
-                    Some((time.parse().ok()?, entry.path()))
-                })
-                .collect();
-            logs.sort();
-            let mut responses = 0;
-            let mut marked = false;
-            for (n, (_, path)) in logs.iter().enumerate() {
-                for line in std::fs::read_to_string(path).unwrap_or_default().lines() {
-                    let event: Value = serde_json::from_str(line).unwrap_or_default();
-                    if event["type"] == "message_end" && event["message"]["role"] == "assistant" {
-                        responses += 1;
-                    }
-                    marked |= n + 1 == logs.len()
-                        && cap.is_some_and(|cap| {
-                            line.starts_with(&format!("pi-launcher: response cap {cap} reached;"))
-                                && responses >= cap
-                        });
-                }
-            }
             args.extend([
                 "--stopped-by".into(),
-                if marked { "cap" } else { "operator" }.into(),
+                if orientation::stopped_at_cap(run, STEP) {
+                    "cap"
+                } else {
+                    "operator"
+                }
+                .into(),
             ]);
             command(&run.root, &args, sdlc::DEADLINE)?;
         }
