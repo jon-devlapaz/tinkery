@@ -141,10 +141,9 @@ pub(crate) enum Action {
     Finish,
     /// Run the checkout's verification commands, separately from worker completion.
     Verify,
-    /// Stop the known step as an operator-directed stop, never normal completion.
-    StopOperator,
-    /// Record a known cap stop, never normal completion.
-    StopCap,
+    /// Stop the known step, never as normal completion. The reason is cap only if the step's
+    /// Pi logs show the launcher's cap marker after at least cap responses; otherwise operator.
+    Stop,
 }
 
 /// The safe follow-up established by the transaction, never inferred from a missing identity.
@@ -543,11 +542,11 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
             }
             command(&run.root, &step("complete"), sdlc::DEADLINE)?;
         }
-        Action::StopOperator | Action::StopCap => {
+        Action::Stop => {
             let mut args = step("complete");
             args.extend([
                 "--stopped-by".into(),
-                if matches!(action, Action::StopCap) {
+                if orientation::stopped_at_cap(run, STEP) {
                     "cap"
                 } else {
                     "operator"

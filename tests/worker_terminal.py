@@ -631,6 +631,22 @@ def cap_review(case):
             terminal.close()
 
 
+def write_logs(build, run_id, marker, name='build.launch-100.pi.log', responses=CAP):
+    """Fixture Pi log for the worker step: a bound header, `responses` assistant responses, then optionally the launcher's cap marker."""
+    steps = build / 'runs' / 'test-worker' / 'steps'
+    steps.mkdir(parents=True, exist_ok=True)
+    session = 'tsdlc-TEST-build'
+    (steps / 'build.json').write_text(json.dumps(dict(schema=1, run_id=run_id, checkout=str(build),
+                                                      session=session, max_responses=CAP)))
+    message = dict(role='assistant', content=[], stopReason='toolUse')
+    text = f"Warning: No project session found with id '{session}'; creating a new session with that id.\n"
+    text += json.dumps(dict(type='session', version=3, id=session, cwd=str(build))) + '\n'
+    text += ''.join(json.dumps(dict(type='message_end', message=message)) + '\n' for _ in range(responses))
+    if marker:
+        text += f'pi-launcher: response cap {CAP} reached; stopped process group 123.\n'
+    (steps / name).write_text(text)
+
+
 def journey(width, height, case, mono=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-terminal-') as directory:
         fixture = Fixture(Path(directory).resolve(), scenario=case)
@@ -743,7 +759,8 @@ def journey(width, height, case, mono=False):
                     elif case == 'cap':
                         fixture.change(lambda value: value.update(turn='unknown'))
                         terminal.send(b'r', 'Worker: turn state unknown')
-                        terminal.send(b'c', 'Worker: stopped by response cap')
+                        write_logs(Path(fixture.read()['build']), fixture.read()['run']['run_id'], marker=True)
+                        terminal.send(b's', 'Worker: stopped by response cap')
                         assert 'Verification: not-run' in terminal.flat()
                         assert fixture.read()['step']['state'] == 'stopped'
                         assert fixture.read()['step']['stopped_by'] == 'cap'

@@ -229,12 +229,11 @@ impl Panel {
                         .map(Action::Launch),
                     KeyCode::Char('f') if self.can_finish() => Some(Action::Finish),
                     KeyCode::Char('v') => Some(Action::Verify),
-                    KeyCode::Char('s') => Some(Action::StopOperator),
-                    KeyCode::Char('c') => Some(Action::StopCap),
+                    KeyCode::Char('s') => Some(Action::Stop),
                     _ => None,
                 };
                 if let (Some(action), Some(run)) = (action, &self.run) {
-                    if !self.fresh && !matches!(action, Action::Refresh | Action::StopOperator) {
+                    if !self.fresh && !matches!(action, Action::Refresh | Action::Stop) {
                         return None;
                     }
                     self.fresh = false;
@@ -277,7 +276,7 @@ impl Panel {
         } else if self.can_resume() {
             "v verify   End to resume   r read   t taste   ? help   esc back"
         } else {
-            "r read   v verify   s stop   c cap stop   t taste   ? help   esc back"
+            "r read   v verify   s stop   t taste   ? help   esc back"
         }
     }
 
@@ -340,7 +339,7 @@ impl Panel {
                  r reads status. l launches a prepared step; u resumes an ended turn on its existing model/session and cumulative cap.\n\
                  v verifies first. Only current passing checks allow f to record the normally ended worker.\n\
                  After a refused request, only r and s work until a read succeeds.\n\
-                 Failed checks keep the ended worker resumable after that read. s stops it; c records that its cap stopped it.\n\
+                 Failed checks keep the ended worker resumable after that read. s stops it. The recorded reason is the response cap only if the worker's log shows the cap marker.\n\
                  w opens Watch; t opens Taste, where r reads and v runs a declared preview.\n\
                  Esc/F10 return Home. b there reopens this worker.\n\
                  Admission finishes before Tinkery exits. The detached worker stays owned by SDLC.\n\
