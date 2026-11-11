@@ -223,7 +223,8 @@ fn open_log(
     let session = contract["session"].as_str().filter(|s| !s.is_empty())?;
     let log = regular(path)?;
     let mut lines = BufReader::new(log.take(MAX_LOG_BYTES)).lines();
-    let header: Value = serde_json::from_str(&lines.next()?.ok()?).ok()?;
+    // Pi may print warnings before the header; the header is the first JSON line.
+    let header: Value = lines.find_map(|line| serde_json::from_str(&line.ok()?).ok())?;
     if header["type"] != "session"
         || header["version"] != 3
         || header["id"] != session

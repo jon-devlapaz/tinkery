@@ -639,7 +639,8 @@ def write_logs(build, run_id, marker, name='build.launch-100.pi.log', responses=
     (steps / 'build.json').write_text(json.dumps(dict(schema=1, run_id=run_id, checkout=str(build),
                                                       session=session, max_responses=CAP)))
     message = dict(role='assistant', content=[], stopReason='toolUse')
-    text = json.dumps(dict(type='session', version=3, id=session, cwd=str(build))) + '\n'
+    text = f"Warning: No project session found with id '{session}'; creating a new session with that id.\n"
+    text += json.dumps(dict(type='session', version=3, id=session, cwd=str(build))) + '\n'
     text += ''.join(json.dumps(dict(type='message_end', message=message)) + '\n' for _ in range(responses))
     if marker:
         text += f'pi-launcher: response cap {CAP} reached; stopped process group 123.\n'

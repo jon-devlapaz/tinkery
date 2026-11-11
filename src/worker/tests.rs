@@ -1097,7 +1097,7 @@ fn stop_records_cap_only_for_a_bound_log_with_the_marker_after_the_cap() {
         )
         .unwrap();
         let mut log = format!(
-            "{}\n",
+            "Warning: No project session found with id 'TEST-exact-session'; creating a new session with that id.\n{}\n",
             json!({"type": "session", "version": 3, "id": "TEST-exact-session", "cwd": run.root})
         );
         for _ in 0..answers {
@@ -1107,8 +1107,16 @@ fn stop_records_cap_only_for_a_bound_log_with_the_marker_after_the_cap() {
             log.push_str("pi-launcher: response cap 3 reached; stopped process group 1.\n");
         }
         fs::write(steps.join("build.launch-100.pi.log"), log).unwrap();
+        let root = run.root.clone();
         let snapshot = wait(Job::act(Gate::new(false, Ok(None)), run, Action::Stop)).unwrap();
         assert_eq!(snapshot.state, State::Stopped { cap }, "{marker} {answers}");
+        if cap {
+            let advice = cap_advice(&root, 3, &AtomicBool::new(false));
+            assert!(
+                advice.contains("no edit/write through response 3"),
+                "{advice}"
+            );
+        }
     }
 }
 
