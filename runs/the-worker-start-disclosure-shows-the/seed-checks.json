@@ -12,7 +12,12 @@
       "id": "seed-1",
       "description": "The worker start disclosure displays the seed's SHA-256 for human starts; the worker start disclosure displays the seed's SHA-256 for agent starts.",
       "origin": "agent-confirmed-seed",
-      "locked": true
+      "locked": true,
+      "activation": {
+        "cmd": "python3 tests/worker_terminal.py\npython3 tests/worker_terminal.py",
+        "cwd": ".",
+        "evidence": "Prerequisite exists at tests/worker_terminal.py (sha_review, human and agent starts, compared with hashlib.sha256 of seed-contract.md); seed-1 activated as confirmed: runs `python3 tests/worker_terminal.py\\npython3 tests/worker_terminal.py`"
+      }
     },
     {
       "cmd": "python3 scripts/full-check.py",
