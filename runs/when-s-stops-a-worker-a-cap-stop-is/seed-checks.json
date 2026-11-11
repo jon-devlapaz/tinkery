@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "cmd": "python3 scripts/full-check.py",
+      "cwd": ".",
+      "expect": "Exits 0 with every step of the AGENTS full-check block passing",
+      "kind": "cmd",
+      "source": "confirmed goal; scripts/full-check.py:17-45; AGENTS.md:99-124",
+      "statement": "a worker whose log shows the cap marker is recorded as stopped by cap on s; a worker whose log does not show the cap marker is recorded as stopped by operator on s; c is gone from the key bar and help and does nothing; a regression test drives the panel input against fixture logs with and without the marker and fails when reverted; python3 scripts/full-check.py passes",
+      "id": "seed-1",
+      "description": "a worker whose log shows the cap marker is recorded as stopped by cap on s; a worker whose log does not show the cap marker is recorded as stopped by operator on s; c is gone from the key bar and help and does nothing; a regression test drives the panel input against fixture logs with and without the marker and fails when reverted; python3 scripts/full-check.py passes",
+      "origin": "agent-confirmed-seed",
+      "locked": true
+    },
+    {
+      "cmd": "cargo +stable build --locked --quiet --bin tinkery --example seed_fixture && TINKERY_TEST_SEED_FIXTURE=\"$PWD/target/debug/examples/seed_fixture\" python3 tests/worker_stop_marker_terminal.py",
+      "cwd": ".",
+      "expect": "Both cases print PASS and the process exits 0; with the log check reverted, the marker case's stopped_by == 'cap' assertion fails",
+      "kind": "provisional",
+      "missing": "tests/worker_stop_marker_terminal.py does not exist yet; it must reuse the worker_terminal fixtures, press s against fixture logs with and without the marker, and assert the recorded stopped_by. The setup mirrors scripts/python-tests.py and is not a verified invocation; run it under a temporary HOME as the full check does.",
+      "source": "scripts/python-tests.py:37-52; tests/worker_terminal.py:535-595",
+      "statement": "pressing s on a fixture worker whose log has the marker records stopped_by cap, and pressing s on one without it records stopped_by operator, driven through panel input",
+      "id": "seed-2",
+      "description": "pressing s on a fixture worker whose log has the marker records stopped_by cap, and pressing s on one without it records stopped_by operator, driven through panel input",
+      "origin": "agent-confirmed-seed",
+      "locked": true
+    },
+    {
+      "cmd": "python3 tests/worker_stop_marker_terminal.py",
+      "cwd": ".",
+      "expect": "After c is pressed the recorded step state is unchanged and no tink-sdlc complete call was made; the screen text contains no 'cap stop' and no 'c records'",
+      "kind": "provisional",
+      "missing": "The same new test file has no c-key assertion yet; it needs one, with the same setup as the check above.",
+      "source": "src/menu/worker.rs:233, 280, 343",
+      "statement": "pressing c does nothing and c appears in neither the worker key bar nor the help",
+      "id": "seed-3",
+      "description": "pressing c does nothing and c appears in neither the worker key bar nor the help",
+      "origin": "agent-confirmed-seed",
+      "locked": true
+    },
+    {
+      "how_to_judge": "Open the worker panel on fixture runs with and without the marker. Press s, then read the reason in the panel and in Watch. The reason should match the log and the wording should be unchanged from before.",
+      "kind": "judge",
+      "source": "operator's supplied human taste judgment",
+      "statement": "a person opens the worker panel on a fixture run with and without the cap marker, presses s, and reads the recorded reason in the panel and in Watch",
+      "id": "seed-4",
+      "description": "a person opens the worker panel on a fixture run with and without the cap marker, presses s, and reads the recorded reason in the panel and in Watch",
+      "origin": "agent-confirmed-seed",
+      "locked": true
+    }
+  ]
+}
