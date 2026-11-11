@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "cwd": ".",
+      "expect": "After the worker screen opens on a fixture seed, the screen text contains hashlib.sha256 of that seed's seed-contract.md, for both a human start and an agent start",
+      "kind": "provisional",
+      "missing": "tests/worker_terminal.py has no assertion that the screen shows the seed's SHA-256 for human or agent starts; add one in each start path comparing to hashlib.sha256 of the seed file",
+      "source": "tests/worker_terminal.py:534 (existing review journey); scripts/python-tests.py:37 (runs every tests/*.py file)",
+      "statement": "The worker start disclosure displays the seed's SHA-256 for human starts; the worker start disclosure displays the seed's SHA-256 for agent starts.",
+      "cmd": "python3 tests/worker_terminal.py\npython3 tests/worker_terminal.py",
+      "id": "seed-1",
+      "description": "The worker start disclosure displays the seed's SHA-256 for human starts; the worker start disclosure displays the seed's SHA-256 for agent starts.",
+      "origin": "agent-confirmed-seed",
+      "locked": true
+    },
+    {
+      "cmd": "python3 scripts/full-check.py",
+      "cwd": ".",
+      "expect": "exit status 0, including the existing worker_terminal.py journeys",
+      "kind": "cmd",
+      "source": "AGENTS.md:99-126; scripts/full-check.py:1-50",
+      "statement": "python3 scripts/full-check.py passes",
+      "id": "seed-2",
+      "description": "python3 scripts/full-check.py passes",
+      "origin": "agent-confirmed-seed",
+      "locked": true
+    },
+    {
+      "how_to_judge": "Open Approve, press b on a fixture seed, read to the end, and compare the displayed SHA-256 with sha256sum on the seed file; inspect that the line is readable and not wrapped confusingly.",
+      "kind": "judge",
+      "source": "confirmed goal (Why) and probe-real-sample answer",
+      "statement": "A person opens the worker start screen on a fixture seed and confirms the shown SHA-256 matches sha256sum of the seed file",
+      "id": "seed-3",
+      "description": "A person opens the worker start screen on a fixture seed and confirms the shown SHA-256 matches sha256sum of the seed file",
+      "origin": "agent-confirmed-seed",
+      "locked": true
+    }
+  ]
+}
