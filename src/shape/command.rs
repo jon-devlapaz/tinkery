@@ -25,7 +25,8 @@ const STALE: &str = "Another writer changed this session first; nothing more was
 /// The one thing a `seed step` call does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
-    /// Look into the next question, or draft the seed, when nothing is being asked.
+    /// Look into the next question, or draft the seed, when nothing is being asked. On a draft
+    /// it redrafts, which is the way on after a saved change whose redraft failed.
     Look,
     /// Save these words as the answer to the current question, then look.
     Answer(String),
@@ -40,15 +41,15 @@ pub enum Action {
 /// Save `goal` as a new session's confirmed goal under `root`, attributed as `confirmation`
 /// declares, and return the session. The words are kept exactly, as the goal and as its one
 /// original; `origin` says where they came from. The record says a command saved the goal and
-/// nobody was shown it. Also returns how many `Done when` lines the goal states: the seed must
-/// keep each one whole, and with none the checks are the model's. Calls no model and confirms
+/// nobody was shown it. Also returns the `Done when` lines the ledger reads from the goal: the
+/// seed must keep each one whole, and with none the checks are the model's. Calls no model and confirms
 /// no seed.
 pub fn new_goal(
     root: PathBuf,
     goal: &str,
     origin: &str,
     confirmation: &GoalConfirmation,
-) -> Result<(PathBuf, usize), String> {
+) -> Result<(PathBuf, Vec<String>), String> {
     if goal.trim().is_empty() {
         return Err("The goal is empty; nothing was saved.".into());
     }
@@ -80,7 +81,11 @@ pub fn new_goal(
         },
         confirmation,
     )?;
-    Ok((receipt.session, seed_me::ledger::goal_criteria(goal).len()))
+    let kept = seed_me::ledger::goal_criteria(goal);
+    Ok((
+        receipt.session,
+        kept.into_iter().map(str::to_owned).collect(),
+    ))
 }
 
 /// What Shape would show for `session`, as JSON for a caller without a screen: the goal exactly as
@@ -184,7 +189,7 @@ pub fn step(
     let folder = base.map_or_else(|| agent.folder(session, goal), |base| base.checkout);
     let reads = format!("A model step reads only this folder: {}", folder.display());
     let work = match (action, shaping.stage) {
-        (Action::Look, Shaped::Waiting) => Work::Look {
+        (Action::Look, Shaped::Waiting | Shaped::Drafted { .. }) => Work::Look {
             expected,
             folder,
             feedback: None,
@@ -245,7 +250,7 @@ pub fn step(
         Err(failure) => Err(format!(
             "{}{}",
             if failure.answer_saved {
-                "Your answer is saved. "
+                "Your words are saved. "
             } else {
                 ""
             },

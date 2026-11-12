@@ -817,8 +817,10 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|revise WORDS|confirm 
   from, for example an approved issue's URL. The record says a command saved the goal and nobody
   was shown it. It calls no model and confirms no seed.
 - To carry an approved issue's checks, put them in the goal file as `Done when:` and one `- `
-  line for each. The ledger keeps each line whole in one seed check and refuses a draft that
-  drops one. `new` says so when the goal states no such lines: the checks are then the model's.
+  line for each: no blank lines between them, one line per check, and no `[ ]` checkbox prefix.
+  The ledger keeps each line whole in one seed check and refuses a draft that drops one. `new`
+  prints each line the ledger read, so a missed or cut line shows before any model call. With no
+  such lines it says the checks are the model's.
 - `show` prints the goal, the `Done when` lines the seed must keep (`must_keep`), the ledger
   version and the one current thing as JSON: a question with
   its findings and suggestion, a draft with its text and SHA-256, or a ready seed. Read-only.
@@ -828,7 +830,9 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|revise WORDS|confirm 
   model and needs no drafting options. It names the SHA-256 of the draft bytes the caller read, and
   the ledger records the command as the source; any other value confirms nothing.
 - `revise` records the words as a change to the current draft and redrafts. It never confirms,
-  and the earlier draft's SHA-256 stops confirming anything.
+  and the earlier draft's SHA-256 stops confirming anything. If the redraft fails, the change
+  stays saved and `show` still prints the earlier draft; `look` redrafts with the saved change.
+  `look` on any draft redrafts for one budgeted call.
 - Each command is one explicit action. Nothing loops, retries or confirms on its own. An action
   that does not fit where the seed stands changes nothing and says so. The ledger refuses what
   it refuses on screen. Flagged answers, deferral and teach-back stay on the screen.

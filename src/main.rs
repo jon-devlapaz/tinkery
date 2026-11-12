@@ -81,11 +81,15 @@ fn seed_write(
                 .map_err(|why| format!("Cannot read the goal file {file}: {why}"))?;
             let origin = origin.first().copied().unwrap_or(file);
             let (session, kept) = command::new_goal(sessions_root?, &goal, origin, confirmation)?;
-            if kept == 0 {
+            // The caller sees what the ledger read, so a dropped or cut line shows before any call.
+            if kept.is_empty() {
                 eprintln!(
                     "This goal states no Done when lines, so the seed's checks will be the model's. \
                      To carry checks unchanged, add `Done when:` and one `- ` line for each."
                 );
+            }
+            for line in &kept {
+                eprintln!("The seed must keep this Done when line whole: {line}");
             }
             println!("{}", session.display());
             return Ok(());
