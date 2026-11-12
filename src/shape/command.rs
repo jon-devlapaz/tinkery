@@ -31,6 +31,8 @@ pub enum Action {
     Answer(String),
     /// Accept the current question's recorded suggestion, then look.
     Delegate,
+    /// Save these words as a change to the current draft, then redraft. Never confirms.
+    Revise(String),
     /// Confirm the draft whose exact bytes have this SHA-256.
     Confirm(String),
 }
@@ -38,13 +40,15 @@ pub enum Action {
 /// Save `goal` as a new session's confirmed goal under `root`, attributed as `confirmation`
 /// declares, and return the session. The words are kept exactly, as the goal and as its one
 /// original; `origin` says where they came from. The record says a command saved the goal and
-/// nobody was shown it. Calls no model and confirms no seed.
+/// nobody was shown it. Also returns how many `Done when` lines the goal states: the seed must
+/// keep each one whole, and with none the checks are the model's. Calls no model and confirms
+/// no seed.
 pub fn new_goal(
     root: PathBuf,
     goal: &str,
     origin: &str,
     confirmation: &GoalConfirmation,
-) -> Result<PathBuf, String> {
+) -> Result<(PathBuf, usize), String> {
     if goal.trim().is_empty() {
         return Err("The goal is empty; nothing was saved.".into());
     }
@@ -76,11 +80,12 @@ pub fn new_goal(
         },
         confirmation,
     )?;
-    Ok(receipt.session)
+    Ok((receipt.session, seed_me::ledger::goal_criteria(goal).len()))
 }
 
 /// What Shape would show for `session`, as JSON for a caller without a screen: the goal exactly as
-/// recorded, the ledger version, and the one current thing (question, draft with the SHA-256
+/// recorded, the `Done when` lines the seed must keep whole, the ledger version, and the one
+/// current thing (question, draft with the SHA-256
 /// that `Action::Confirm` names, ready seed, or a plain other state). Read-only.
 pub fn show(session: &Path) -> Result<serde_json::Value, String> {
     let shaping = shaping::read(session)?;
@@ -121,8 +126,10 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         }
         other => serde_json::json!({"stage": "other", "what": format!("{other:?}")}),
     };
+    let must_keep = seed_me::ledger::goal_criteria(shaping.goal.as_deref().unwrap_or_default());
     Ok(serde_json::json!({
-        "goal": shaping.goal, "version": shaping.version, "open": shaping.open, "now": now,
+        "goal": shaping.goal, "must_keep": must_keep, "version": shaping.version,
+        "open": shaping.open, "now": now,
     }))
 }
 
@@ -196,8 +203,21 @@ pub fn step(
             expected,
             folder,
         },
-        (Action::Answer(_), Shaped::Question { .. }) => {
-            return Err("The answer is empty; nothing was saved.".into());
+        (
+            Action::Revise(words),
+            Shaped::Drafted {
+                revision: Some(revision),
+                ..
+            },
+        ) if !words.trim().is_empty() => Work::Change {
+            revision,
+            words,
+            expected,
+            folder,
+        },
+        (Action::Answer(_), Shaped::Question { .. })
+        | (Action::Revise(_), Shaped::Drafted { .. }) => {
+            return Err("The words are empty; nothing was saved.".into());
         }
         _ => {
             return Err(

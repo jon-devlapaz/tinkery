@@ -54,7 +54,7 @@ fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
 
 const SEED_USAGE: &str = "usage: tinkery seed status --json DIR | tinkery seed checks DIR | tinkery seed show DIR | \
     tinkery [options] seed new GOAL_FILE [ORIGIN] | \
-    tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256";
+    tinkery [options] seed step DIR look|delegate|answer WORDS|revise WORDS|confirm DRAFT_SHA256";
 
 /// `seed new` and `seed step`: one explicit write each, under the options given before `seed`.
 fn seed_write(
@@ -80,7 +80,13 @@ fn seed_write(
             let goal = std::fs::read_to_string(file)
                 .map_err(|why| format!("Cannot read the goal file {file}: {why}"))?;
             let origin = origin.first().copied().unwrap_or(file);
-            let session = command::new_goal(sessions_root?, &goal, origin, confirmation)?;
+            let (session, kept) = command::new_goal(sessions_root?, &goal, origin, confirmation)?;
+            if kept == 0 {
+                eprintln!(
+                    "This goal states no Done when lines, so the seed's checks will be the model's. \
+                     To carry checks unchanged, add `Done when:` and one `- ` line for each."
+                );
+            }
             println!("{}", session.display());
             return Ok(());
         }
@@ -89,6 +95,7 @@ fn seed_write(
                 ["look"] => Action::Look,
                 ["delegate"] => Action::Delegate,
                 ["answer", words] => Action::Answer((*words).to_owned()),
+                ["revise", words] => Action::Revise((*words).to_owned()),
                 ["confirm", sha256] => Action::Confirm((*sha256).to_owned()),
                 _ => return Err(SEED_USAGE.into()),
             };
@@ -249,7 +256,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--help" | "-h" => {
                 println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n       tinkery [options] seed new GOAL_FILE [ORIGIN]\n       tinkery seed show DIR\n       tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm or `seed new` saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model for this launch\n--harness    pi|claude-code: who drafts (default: saved, else pi); Claude Code uses its own login\n--model      Pi: provider/model-id; Claude Code: a claude- model id (required with --shape-pi unless one is saved)\n--thinking   Reasoning level: Pi off|minimal|low|medium|high|xhigh|max, Claude Code low..max (default: saved, else low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi; Claude Code is always claude on PATH)\n--shape-budget CALLS  Drafting runs shared by Think and Shape this launch (default: saved calls, else 0)\n--sdlc-root PATH  The selected tink-sdlc checkout; reads and explicit worker actions stay here\n--worker-model PIN  Exact Pi provider/model:thinking for an explicit worker start\n--worker-responses N  Worker response cap, separate from drafting (default 0); one response may be in flight\n--worker-authorization FILE  Operator's relayed words bound to seed/model/cap; required for agent F2, origin unverified\n--codex-report RUN_UUID:CHAT_ID:PATH  One saved Codex observation for Watch; requires --home and --sdlc-root\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n       tinkery [options] seed new GOAL_FILE [ORIGIN]\n       tinkery seed show DIR\n       tinkery [options] seed step DIR look|delegate|answer WORDS|revise WORDS|confirm DRAFT_SHA256\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm or `seed new` saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's\n--shape-pi   Draft with a real model for this launch\n--harness    pi|claude-code: who drafts (default: saved, else pi); Claude Code uses its own login\n--model      Pi: provider/model-id; Claude Code: a claude- model id (required with --shape-pi unless one is saved)\n--thinking   Reasoning level: Pi off|minimal|low|medium|high|xhigh|max, Claude Code low..max (default: saved, else low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi; Claude Code is always claude on PATH)\n--shape-budget CALLS  Drafting runs shared by Think and Shape this launch (default: saved calls, else 0)\n--sdlc-root PATH  The selected tink-sdlc checkout; reads and explicit worker actions stay here\n--worker-model PIN  Exact Pi provider/model:thinking for an explicit worker start\n--worker-responses N  Worker response cap, separate from drafting (default 0); one response may be in flight\n--worker-authorization FILE  Operator's relayed words bound to seed/model/cap; required for agent F2, origin unverified\n--codex-report RUN_UUID:CHAT_ID:PATH  One saved Codex observation for Watch; requires --home and --sdlc-root\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
                 );
                 return Ok(());
             }

@@ -58,7 +58,10 @@ class Run:
 
 def journey(agent):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
-        run = Run(directory, [QUESTION, SEED], agent=agent)
+        # The second reply drops the goal's Done when line; the third and fourth keep it.
+        dropped = {**SEED, 'checks': [{**SEED['checks'][0], 'statement': 'Refusals are calm.'}]}
+        again = {**SEED, 'found': [{**SEED['found'][0], 'id': 'read-refusal-again'}]}
+        run = Run(directory, [QUESTION, dropped, SEED, again], agent=agent)
         session = run.ok('new', 'goal.txt', 'TEST issue 845', drafting=False).strip()
         ledger = helper.load(Path(session))
         goal = next(node for node in ledger['nodes'] if node['id'] == 'goal')
@@ -71,6 +74,7 @@ def journey(agent):
 
         shown = json.loads(run.ok('show', session, drafting=False))
         assert shown['goal'] == GOAL and shown['now']['stage'] == 'waiting'
+        assert shown['must_keep'] == ['Refusals never show private text.'], shown['must_keep']
 
         # Both probes are asked without a model; neither has a suggestion to delegate.
         asked = json.loads(run.ok('step', session, 'look'))['now']
@@ -84,11 +88,31 @@ def journey(agent):
         asked = json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']
         assert asked['question'] == QUESTION['question'] and asked['suggestion'] == QUESTION['suggestion']
         assert asked['found'], 'The finding behind the question is missing'
-        draft = json.loads(run.ok('step', session, 'delegate'))['now']
-        assert draft['stage'] == 'draft' and draft['revision'] == 'r1'
+        # A draft that drops the goal's Done when line is no draft; the next look keeps it.
+        run.refused('keep this complete Done when line unchanged', 'step', session, 'delegate')
+        assert not (Path(session) / 'seed-contract.md').exists(), 'A draft without the goal check was saved'
+        run.refused('does not fit', 'step', session, 'revise', 'TEST too early')
+        first = json.loads(run.ok('step', session, 'look'))['now']
+        assert first['stage'] == 'draft' and first['revision'] == 'r1'
+
+        # Revising records the words and redrafts; it never confirms, and the old bytes stop counting.
+        before = run.files()
+        run.refused('The words are empty', 'step', session, 'revise', ' ')
+        run.refused('This step needs drafting', 'step', session, 'revise', 'TEST change', drafting=False)
+        run.drafting[-1] = '0'
+        run.refused('No drafting runs are left', 'step', session, 'revise', 'TEST change')
+        run.drafting[-1] = '4'
+        assert run.files() == before, 'A refused revision wrote to the session'
+        draft = json.loads(run.ok('step', session, 'revise', 'TEST name the refusal path'))
+        assert draft['must_keep'] == shown['must_keep']
+        draft = draft['now']
+        assert draft['stage'] == 'draft' and draft['revision'] == 'r2', draft
+        change = next(n for n in helper.load(Path(session))['nodes'] if n['id'] == 'change-to-r1')
+        assert change['answer'] == 'TEST name the refusal path' and (change['authority'] == 'user') != agent
         seed = (Path(session) / 'seed-contract.md').read_text()
         assert draft['text'] == seed and draft['sha256'] == hashlib.sha256(seed.encode()).hexdigest()
-        assert len(run.calls()) == 2
+        assert 'Refusals never show private text.' in seed
+        assert len(run.calls()) == 4
 
         # Confirming names the bytes that were read; anything else confirms nothing.
         before = run.files()
@@ -98,12 +122,12 @@ def journey(agent):
         assert run.files() == before, 'A refused command wrote to the session'
         # Confirming calls no model, so it needs no drafting options; the record names the command.
         ready = json.loads(run.ok('step', session, 'confirm', draft['sha256'], drafting=False))['now']
-        assert ready == {'stage': 'ready', 'revision': 'r1', 'ended': False}
+        assert ready == {'stage': 'ready', 'revision': 'r2', 'ended': False}
         confirmed = json.loads((Path(session) / 'seed-confirmation.json').read_text())
         assert confirmed['source'] == f'tinkery seed step confirm {draft["sha256"]}', confirmed
         assert helper.status(Path(session))['handoff']['verified']
-        assert len(run.calls()) == 2, 'Confirming called a model'
-        print(f'seed command journey passed: {"agent" if agent else "human"}, 6 commands, 2 stub calls, verified seed')
+        assert len(run.calls()) == 4, 'Confirming called a model'
+        print(f'seed command journey passed: {"agent" if agent else "human"}, 9 commands, 4 stub calls, verified seed')
 
 
 def refusals():
@@ -119,7 +143,14 @@ def refusals():
             assert result.returncode != 0 and b'need --operator' in result.stderr, result.stderr.decode()
         run.refused('usage:', 'new', 'goal.txt', '--operator', drafting=False)
         assert not run.sessions.exists(), 'A refused goal created a session'
-        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        created = run.seed('new', 'goal.txt', drafting=False)
+        assert created.returncode == 0 and not created.stderr, created.stderr.decode()
+        session = created.stdout.decode().strip()
+        # A goal with no Done when lines still saves, and says the checks will be the model's.
+        (run.cwd / 'plain.txt').write_text('Fix: TEST one sentence.')
+        plain = run.seed('new', 'plain.txt', drafting=False)
+        assert plain.returncode == 0 and b'states no Done when lines' in plain.stderr, plain.stderr.decode()
+        assert json.loads(run.ok('show', plain.stdout.decode().strip(), drafting=False))['must_keep'] == []
         run.refused('This step needs drafting', 'step', session, 'look', drafting=False)
         # `show` only reads: with no options and a legacy sessions folder in HOME, it moves nothing.
         legacy = run.cwd / 'TEST-home/.local/share/seed-me/sessions'
@@ -131,7 +162,7 @@ def refusals():
         run.ok('step', session, 'look')
         before = run.files()
         run.refused('No drafting runs are left', 'step', session, 'answer', 'TEST no sample')
-        run.refused('The answer is empty', 'step', session, 'answer', ' ')
+        run.refused('The words are empty', 'step', session, 'answer', ' ')
         assert run.files() == before and run.calls() == [], 'A refused step wrote or called a model'
         print('seed command refusals passed: empty goal, undeclared operator, no drafting, zero budget, empty answer; zero stub calls')
 

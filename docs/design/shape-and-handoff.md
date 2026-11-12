@@ -808,7 +808,7 @@ pressing keys). The same ledger and step run from commands. Options go before `s
 ```text
 tinkery [options] seed new GOAL_FILE [ORIGIN]
 tinkery seed show DIR
-tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
+tinkery [options] seed step DIR look|delegate|answer WORDS|revise WORDS|confirm DRAFT_SHA256
 ```
 
 - `new` and `step` refuse without `--operator human|agent`: no screen shows who is acting.
@@ -816,16 +816,22 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
   as `--operator` declares, and prints the session folder. `ORIGIN` records where the words came
   from, for example an approved issue's URL. The record says a command saved the goal and nobody
   was shown it. It calls no model and confirms no seed.
-- `show` prints the goal, the ledger version and the one current thing as JSON: a question with
+- To carry an approved issue's checks, put them in the goal file as `Done when:` and one `- `
+  line for each. The ledger keeps each line whole in one seed check and refuses a draft that
+  drops one. `new` says so when the goal states no such lines: the checks are then the model's.
+- `show` prints the goal, the `Done when` lines the seed must keep (`must_keep`), the ledger
+  version and the one current thing as JSON: a question with
   its findings and suggestion, a draft with its text and SHA-256, or a ready seed. Read-only.
-- `step` takes one action from a fresh read, then prints `show`. `look`, `answer` and `delegate`
-  need `--shape-pi` with a model and name the folder the model reads. `--shape-budget` bounds one
+- `step` takes one action from a fresh read, then prints `show`. `look`, `answer`, `delegate`
+  and `revise` need `--shape-pi` with a model and name the folder the model reads. `--shape-budget` bounds one
   command, not the session: each command is a new launch with a fresh allowance. `confirm` calls no
   model and needs no drafting options. It names the SHA-256 of the draft bytes the caller read, and
   the ledger records the command as the source; any other value confirms nothing.
+- `revise` records the words as a change to the current draft and redrafts. It never confirms,
+  and the earlier draft's SHA-256 stops confirming anything.
 - Each command is one explicit action. Nothing loops, retries or confirms on its own. An action
   that does not fit where the seed stands changes nothing and says so. The ledger refuses what
-  it refuses on screen. Flagged answers, deferral, revision and teach-back stay on the screen.
+  it refuses on screen. Flagged answers, deferral and teach-back stay on the screen.
 
 ### Not adopted from Seed Me
 
