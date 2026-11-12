@@ -19,6 +19,7 @@
 pub use step::Agent;
 
 mod choices;
+pub mod command;
 mod discovery_help;
 mod forms;
 mod help;

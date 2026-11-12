@@ -409,7 +409,8 @@ fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
     }
 }
 
-fn run(
+/// Run `work` to its end on the calling thread.
+pub(super) fn run(
     work: &Work,
     session: &Path,
     agent: &Agent,

@@ -1,0 +1,124 @@
+"""`tinkery seed new|show|step` (#845): a goal to a verified seed with no screen and no keystrokes.
+
+A stub Pi, real Rust ledger sessions in TEST roots, no model calls. One journey runs human and agent
+declared; short cases cover the refusals that keep each command one explicit, budgeted action.
+"""
+import hashlib, json, os, tempfile
+from pathlib import Path
+
+import session_fixture as helper
+import test_launch as subprocess
+from shape_answer_terminal import BINARY, GOAL, HOST, QUESTION, SEED
+
+
+class Run:
+    def __init__(self, directory, replies, budget=4, agent=False):
+        self.cwd = Path(directory).resolve()
+        host = self.cwd / 'pi'
+        host.write_text(HOST)
+        host.chmod(0o755)
+        # The stub's citations: README.md:3 for the question, src/main.rs:12 for the seed.
+        (self.cwd / 'README.md').write_text('# TEST\n\nLocal only.\n')
+        (self.cwd / 'src').mkdir()
+        (self.cwd / 'src/main.rs').write_text('\n' * 11 + 'TEST refusal path\n')
+        (self.cwd / 'shape-replies.json').write_text(json.dumps(list(replies)))
+        (self.cwd / 'goal.txt').write_text(GOAL)
+        self.sessions = self.cwd / 'TEST-sessions'
+        self.options = ['--seed-session-root', str(self.sessions), '--record-root', str(self.cwd / 'TEST-records')]
+        self.drafting = ['--shape-pi', '--model', 'test/model', '--pi-command', str(host), '--shape-budget', str(budget)]
+        if agent:
+            self.options += ['--operator', 'agent']
+
+    def seed(self, *args, drafting=True):
+        """One command with no terminal: stdin is closed and both outputs are pipes."""
+        env = subprocess.environment({**os.environ, 'TINKERY_TEST_DIR': str(self.cwd)})
+        return subprocess.run([str(BINARY), *self.options, *(self.drafting if drafting else []), 'seed', *args],
+                              cwd=self.cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, timeout=60)
+
+    def ok(self, *args, **kwargs):
+        result = self.seed(*args, **kwargs)
+        assert result.returncode == 0, (args, result.stderr.decode())
+        return result.stdout.decode()
+
+    def refused(self, why, *args, **kwargs):
+        result = self.seed(*args, **kwargs)
+        assert result.returncode != 0 and not result.stdout, (args, result.stdout.decode())
+        assert why in result.stderr.decode(), result.stderr.decode()
+
+    def calls(self):
+        path = self.cwd / 'shape-calls.jsonl'
+        return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+    def files(self):
+        return {str(p): p.read_bytes() for p in self.sessions.rglob('*') if p.is_file() and p.name != '.writer.lock'}
+
+
+def journey(agent):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        run = Run(directory, [QUESTION, SEED], agent=agent)
+        session = run.ok('new', 'goal.txt', 'TEST issue 845', drafting=False).strip()
+        ledger = helper.load(Path(session))
+        goal = next(node for node in ledger['nodes'] if node['id'] == 'goal')
+        assert ledger['goal'] == GOAL and goal['answer'] == GOAL, 'The goal words changed'
+        assert any(e['observed'] == GOAL for e in goal['evidence']), 'The original words were not kept'
+        assert 'TEST issue 845' in goal['authority_source']
+        assert (goal['authority'] == 'user') != agent, 'An agent save was recorded as the operator'
+        assert ledger['draft']['outcome'] == 'Refusals never show private text.'
+
+        shown = json.loads(run.ok('show', session, drafting=False))
+        assert shown['goal'] == GOAL and shown['now']['stage'] == 'waiting'
+
+        # Both probes are asked without a model; neither has a suggestion to delegate.
+        asked = json.loads(run.ok('step', session, 'look'))['now']
+        assert asked['stage'] == 'question' and asked['id'] == 'probe-real-sample' and asked['suggestion'] is None
+        run.refused('no suggestion to delegate', 'step', session, 'delegate')
+        asked = json.loads(run.ok('step', session, 'answer', 'TEST no sample: fixture'))['now']
+        assert asked['id'] == 'probe-pre-mortem'
+        assert run.calls() == [], 'A probe called a model'
+
+        # The first model step asks a grounded question; delegation accepts its suggestion.
+        asked = json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']
+        assert asked['question'] == QUESTION['question'] and asked['suggestion'] == QUESTION['suggestion']
+        assert asked['found'], 'The finding behind the question is missing'
+        draft = json.loads(run.ok('step', session, 'delegate'))['now']
+        assert draft['stage'] == 'draft' and draft['revision'] == 'r1'
+        seed = (Path(session) / 'seed-contract.md').read_text()
+        assert draft['text'] == seed and draft['sha256'] == hashlib.sha256(seed.encode()).hexdigest()
+        assert len(run.calls()) == 2
+
+        # Confirming names the bytes that were read; anything else confirms nothing.
+        before = run.files()
+        run.refused('not the current draft', 'step', session, 'confirm', 'a' * 64)
+        run.refused('usage:', 'step', session, 'confirm')
+        run.refused('does not fit', 'step', session, 'look')
+        assert run.files() == before, 'A refused command wrote to the session'
+        ready = json.loads(run.ok('step', session, 'confirm', draft['sha256']))['now']
+        assert ready == {'stage': 'ready', 'revision': 'r1', 'ended': False}
+        assert helper.status(Path(session))['handoff']['verified']
+        assert len(run.calls()) == 2, 'Confirming called a model'
+        print(f'seed command journey passed: {"agent" if agent else "human"}, 6 commands, 2 stub calls, verified seed')
+
+
+def refusals():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        run = Run(directory, [QUESTION], budget=0)
+        (run.cwd / 'empty.txt').write_text(' \n')
+        run.refused('The goal is empty', 'new', 'empty.txt', drafting=False)
+        run.refused('Cannot read the goal file', 'new', 'missing.txt', drafting=False)
+        assert not run.sessions.exists(), 'A refused goal created a session'
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.refused('seed step needs drafting', 'step', session, 'look', drafting=False)
+        # The probes need no model, so a zero allowance still asks them, then stops at the first call.
+        run.ok('step', session, 'look')
+        before = run.files()
+        run.refused('No drafting runs are left', 'step', session, 'answer', 'TEST no sample')
+        run.refused('The answer is empty', 'step', session, 'answer', ' ')
+        assert run.files() == before and run.calls() == [], 'A refused step wrote or called a model'
+        print('seed command refusals passed: empty goal, no drafting, zero budget, empty answer; zero stub calls')
+
+
+if __name__ == '__main__':
+    for agent in [False, True]:
+        journey(agent)
+    refusals()
