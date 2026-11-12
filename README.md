@@ -57,6 +57,9 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   session, which asks once more. Tinkery owns the ledger, seed checks,
   confirmation, verification and ending; no viewer or network read is involved.
   `tinkery seed status --json DIR` and `tinkery seed checks DIR` expose read-only intake JSON.
+  Without a screen, `tinkery seed new GOAL_FILE` saves a goal's exact words and
+  `tinkery seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256` takes one explicit step;
+  see [Shape without a screen](docs/design/shape-and-handoff.md#without-a-screen).
   Its draft guidance and artifact reference are bundled; no external skill is needed.
   The agent's step reads the repository where the goal was made, else the one named by
   `--sdlc-root`, else where Tinkery started. A ready seed points to Approve.

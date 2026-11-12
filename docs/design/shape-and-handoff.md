@@ -800,6 +800,33 @@ which Tend's readiness needs. It needs no model or budget.
 - A completed session's verified seed stays Seed ready, and Approve still offers it, since intake
   checks only the verified handoff. Tend doesn't list ended sessions.
 
+### Without a screen
+
+A key bar is friction for an agent or a script (#845: a driving agent spent 27 and 48 responses
+pressing keys). The same ledger and step run from commands. Options go before `seed`:
+
+```text
+tinkery [options] seed new GOAL_FILE [ORIGIN]
+tinkery seed show DIR
+tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
+```
+
+- `new` and `step` refuse without `--operator human|agent`: no screen shows who is acting.
+- `new` saves the file's words unchanged as the confirmed goal and its one original, attributed
+  as `--operator` declares, and prints the session folder. `ORIGIN` records where the words came
+  from, for example an approved issue's URL. The record says a command saved the goal and nobody
+  was shown it. It calls no model and confirms no seed.
+- `show` prints the goal, the ledger version and the one current thing as JSON: a question with
+  its findings and suggestion, a draft with its text and SHA-256, or a ready seed. Read-only.
+- `step` takes one action from a fresh read, then prints `show`. `look`, `answer` and `delegate`
+  need `--shape-pi` with a model and name the folder the model reads. `--shape-budget` bounds one
+  command, not the session: each command is a new launch with a fresh allowance. `confirm` calls no
+  model and needs no drafting options. It names the SHA-256 of the draft bytes the caller read, and
+  the ledger records the command as the source; any other value confirms nothing.
+- Each command is one explicit action. Nothing loops, retries or confirms on its own. An action
+  that does not fit where the seed stands changes nothing and says so. The ledger refuses what
+  it refuses on screen. Flagged answers, deferral, revision and teach-back stay on the screen.
+
 ### Not adopted from Seed Me
 
 [#235](https://github.com/jon-devlapaz/tinkery/issues/235) compared Shape with Seed Me's interview.

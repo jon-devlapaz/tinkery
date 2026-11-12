@@ -71,6 +71,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words, draft reading and next step. Reads and steps stay off the paint path. |
 | `shape/forms.rs` | Unsaved deferral and replacement-answer fields, navigation and cancellation; no validation or publication policy. |
 | `shape/words.rs` | Shape's in-memory textarea adapter: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
+| `shape/command.rs` | Shape without a screen: saving a goal's exact words, showing where a seed stands as JSON and taking one explicit step; it builds the same work the screen does and adds no ledger rule. |
 | `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or named seed prose fields; `seed_me` alone owns their layout and validation. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
