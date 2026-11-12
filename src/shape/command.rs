@@ -14,10 +14,13 @@ use sha2::{Digest, Sha256};
 use super::step::{self, Agent, Done, Why, Work};
 use crate::seed_me::{
     self,
+    answering::{self, Refusal},
     ledger::AnswerAction,
     shaping::{self, Shaped},
 };
 use crate::think_record::GoalConfirmation;
+
+const STALE: &str = "Another writer changed this session first; nothing more was saved.";
 
 /// The one thing a `seed step` call does.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,9 +37,10 @@ pub enum Action {
 
 /// Save `goal` as a new session's confirmed goal under `root`, attributed as `confirmation`
 /// declares, and return the session. The words are kept exactly, as the goal and as its one
-/// original; `origin` says where they came from. Calls no model and confirms no seed.
+/// original; `origin` says where they came from. The record says a command saved the goal and
+/// nobody was shown it. Calls no model and confirms no seed.
 pub fn new_goal(
-    root: Option<PathBuf>,
+    root: PathBuf,
     goal: &str,
     origin: &str,
     confirmation: &GoalConfirmation,
@@ -44,11 +48,16 @@ pub fn new_goal(
     if goal.trim().is_empty() {
         return Err("The goal is empty; nothing was saved.".into());
     }
-    // A goal that states its own check keeps it; Shape reads the same `Done when:` line.
-    let outcome = goal.split_once("Done when:").map_or("", |(_, rest)| {
-        rest.split("\nMust").next().unwrap_or(rest).trim()
-    });
-    let receipt = seed_me::Config::new(root).confirm_as(
+    // A goal that states its own check keeps it; the ledger reads the same `Done when:` line.
+    let outcome = goal
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("Done when:"))
+        .map_or("", str::trim);
+    let declared = match confirmation.actor()? {
+        crate::think_record::Actor::Agent(_) => "agent",
+        crate::think_record::Actor::Operator => "human",
+    };
+    let receipt = seed_me::Config::new(Some(root)).confirm_as(
         seed_me::Affirmed {
             goal: goal.to_owned(),
             outcome: outcome.to_owned(),
@@ -60,9 +69,9 @@ pub fn new_goal(
             }],
             context: serde_json::json!({"origin": origin, "entry": "tinkery seed new"}).to_string(),
             source: format!(
-                "Goal saved by `tinkery seed new` from {origin}; caller-declared attribution: {}; \
-                 goal only, not seed or implementation approval.",
-                confirmation.details()
+                "Goal saved by the command `tinkery seed new` from {origin}, launched with \
+                 --operator {declared} (a declaration, not verified identity). No goal was \
+                 displayed and nobody typed confirm. Goal only, not seed or implementation approval."
             ),
         },
         confirmation,
@@ -118,19 +127,59 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
 }
 
 /// Take `action` on `session` from a fresh read, through the same step the screen runs. Returns
-/// what the step left unrecorded for the caller to read: assumed defaults and a withheld
-/// suggestion. An action that does not fit where the seed stands changes nothing.
-pub fn step(session: &Path, agent: &Agent, action: Action) -> Result<Vec<String>, String> {
+/// what the caller must read that the ledger does not hold: the folder a model step reads,
+/// assumed defaults and a withheld suggestion. Confirming calls no model and needs no `agent`;
+/// every other action refuses without one. An action that does not fit where the seed stands
+/// changes nothing.
+pub fn step(
+    session: &Path,
+    agent: Option<&Agent>,
+    confirmation: &GoalConfirmation,
+    action: Action,
+) -> Result<Vec<String>, String> {
     let (shaping, base) = shaping::read_with_base(session)?;
     let expected = shaping
         .version
         .ok_or("This session's ledger version is unknown; nothing was changed.")?;
+    if let Action::Confirm(sha256) = &action {
+        let Shaped::Drafted {
+            revision: Some(revision),
+            text: Some(seed),
+        } = &shaping.stage
+        else {
+            return Err("There is no draft to confirm; read `tinkery seed show DIR`. Nothing was confirmed.".into());
+        };
+        if format!("{:x}", Sha256::digest(seed.as_bytes())) != *sha256 {
+            return Err(
+                "That SHA-256 is not the current draft's; read the draft again. Nothing was confirmed."
+                    .into(),
+            );
+        }
+        // The source names the real act: a command, not typed words.
+        let source = format!("tinkery seed step confirm {sha256}");
+        return match answering::confirm_seed(
+            session,
+            expected,
+            revision,
+            seed,
+            &source,
+            Some(confirmation),
+        ) {
+            Ok(()) => Ok(Vec::new()),
+            Err(Refusal::Stale) => Err(STALE.into()),
+            Err(Refusal::Refused(reason) | Refusal::Rejected(reason)) => Err(reason),
+        };
+    }
+    let agent = agent.ok_or(
+        "This step needs drafting: put --shape-pi, --model and --shape-budget before seed. Nothing was changed.",
+    )?;
     let goal = shaping.goal.as_deref().unwrap_or_default();
-    let folder = || base.map_or_else(|| agent.folder(session, goal), |base| base.checkout);
+    let folder = base.map_or_else(|| agent.folder(session, goal), |base| base.checkout);
+    let reads = format!("A model step reads only this folder: {}", folder.display());
     let work = match (action, shaping.stage) {
         (Action::Look, Shaped::Waiting) => Work::Look {
             expected,
-            folder: folder(),
+            folder,
             feedback: None,
         },
         (Action::Answer(words), Shaped::Question { id, .. }) if !words.trim().is_empty() => {
@@ -138,33 +187,15 @@ pub fn step(session: &Path, agent: &Agent, action: Action) -> Result<Vec<String>
                 id,
                 words,
                 expected,
-                folder: folder(),
+                folder,
             }
         }
         (Action::Delegate, Shaped::Question { id, .. }) => Work::Respond {
             id,
             action: AnswerAction::Delegate,
             expected,
-            folder: folder(),
+            folder,
         },
-        (
-            Action::Confirm(sha256),
-            Shaped::Drafted {
-                revision: Some(revision),
-                text: Some(seed),
-            },
-        ) if format!("{:x}", Sha256::digest(seed.as_bytes())) == sha256 => Work::Confirm {
-            revision,
-            words: "confirm".into(),
-            expected,
-            seed,
-        },
-        (Action::Confirm(_), Shaped::Drafted { .. }) => {
-            return Err(
-                "That SHA-256 is not the current draft's; read the draft again. Nothing was confirmed."
-                    .into(),
-            );
-        }
         (Action::Answer(_), Shaped::Question { .. }) => {
             return Err("The answer is empty; nothing was saved.".into());
         }
@@ -177,17 +208,20 @@ pub fn step(session: &Path, agent: &Agent, action: Action) -> Result<Vec<String>
     };
     let (stopped, saved) = (AtomicBool::new(false), AtomicBool::new(false));
     match step::run(&work, session, agent, &stopped, &saved) {
-        Ok(Done::Asked(asked)) => Ok(asked
-            .assumed
-            .into_iter()
-            .map(|a| format!("Assumed: {} ({})", a.text, a.why))
+        Ok(Done::Asked(asked)) => Ok(std::iter::once(reads)
+            .chain(
+                asked
+                    .assumed
+                    .into_iter()
+                    .map(|a| format!("Assumed: {} ({})", a.text, a.why)),
+            )
             .chain(
                 asked
                     .withheld
                     .map(|s| format!("Suggestion, not recorded: {s}")),
             )
             .collect()),
-        Ok(_) => Ok(Vec::new()),
+        Ok(_) => Ok(vec![reads]),
         Err(failure) => Err(format!(
             "{}{}",
             if failure.answer_saved {
@@ -196,8 +230,7 @@ pub fn step(session: &Path, agent: &Agent, action: Action) -> Result<Vec<String>
                 ""
             },
             match failure.why {
-                Why::Stale =>
-                    "Another writer changed this session first; nothing more was saved.".into(),
+                Why::Stale => STALE.into(),
                 Why::Budget(limit) => format!(
                     "No drafting runs are left: this launch's allowance is {limit}. Relaunch with --shape-budget."
                 ),

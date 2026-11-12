@@ -811,14 +811,18 @@ tinkery seed show DIR
 tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
 ```
 
+- `new` and `step` refuse without `--operator human|agent`: no screen shows who is acting.
 - `new` saves the file's words unchanged as the confirmed goal and its one original, attributed
   as `--operator` declares, and prints the session folder. `ORIGIN` records where the words came
-  from, for example an approved issue's URL. It calls no model and confirms no seed.
+  from, for example an approved issue's URL. The record says a command saved the goal and nobody
+  was shown it. It calls no model and confirms no seed.
 - `show` prints the goal, the ledger version and the one current thing as JSON: a question with
   its findings and suggestion, a draft with its text and SHA-256, or a ready seed. Read-only.
 - `step` takes one action from a fresh read, then prints `show`. `look`, `answer` and `delegate`
-  need `--shape-pi` with a model and count against `--shape-budget`, as on screen. `confirm` names
-  the SHA-256 of the draft bytes the caller read; any other value confirms nothing.
+  need `--shape-pi` with a model and name the folder the model reads. `--shape-budget` bounds one
+  command, not the session: each command is a new launch with a fresh allowance. `confirm` calls no
+  model and needs no drafting options. It names the SHA-256 of the draft bytes the caller read, and
+  the ledger records the command as the source; any other value confirms nothing.
 - Each command is one explicit action. Nothing loops, retries or confirms on its own. An action
   that does not fit where the seed stands changes nothing and says so. The ledger refuses what
   it refuses on screen. Flagged answers, deferral, revision and teach-back stay on the screen.

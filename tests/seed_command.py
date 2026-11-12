@@ -26,13 +26,15 @@ class Run:
         self.sessions = self.cwd / 'TEST-sessions'
         self.options = ['--seed-session-root', str(self.sessions), '--record-root', str(self.cwd / 'TEST-records')]
         self.drafting = ['--shape-pi', '--model', 'test/model', '--pi-command', str(host), '--shape-budget', str(budget)]
-        if agent:
-            self.options += ['--operator', 'agent']
+        self.options += ['--operator', 'agent' if agent else 'human']
 
-    def seed(self, *args, drafting=True):
+    def seed(self, *args, drafting=True, options=None, home=None):
         """One command with no terminal: stdin is closed and both outputs are pipes."""
         env = subprocess.environment({**os.environ, 'TINKERY_TEST_DIR': str(self.cwd)})
-        return subprocess.run([str(BINARY), *self.options, *(self.drafting if drafting else []), 'seed', *args],
+        if home:
+            env['HOME'] = str(home)
+        options = self.options if options is None else options
+        return subprocess.run([str(BINARY), *options, *(self.drafting if drafting else []), 'seed', *args],
                               cwd=self.cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, timeout=60)
 
@@ -63,6 +65,7 @@ def journey(agent):
         assert ledger['goal'] == GOAL and goal['answer'] == GOAL, 'The goal words changed'
         assert any(e['observed'] == GOAL for e in goal['evidence']), 'The original words were not kept'
         assert 'TEST issue 845' in goal['authority_source']
+        assert 'nobody typed confirm' in goal['authority_source'], 'A command save claimed a typed confirm'
         assert (goal['authority'] == 'user') != agent, 'An agent save was recorded as the operator'
         assert ledger['draft']['outcome'] == 'Refusals never show private text.'
 
@@ -93,8 +96,11 @@ def journey(agent):
         run.refused('usage:', 'step', session, 'confirm')
         run.refused('does not fit', 'step', session, 'look')
         assert run.files() == before, 'A refused command wrote to the session'
-        ready = json.loads(run.ok('step', session, 'confirm', draft['sha256']))['now']
+        # Confirming calls no model, so it needs no drafting options; the record names the command.
+        ready = json.loads(run.ok('step', session, 'confirm', draft['sha256'], drafting=False))['now']
         assert ready == {'stage': 'ready', 'revision': 'r1', 'ended': False}
+        confirmed = json.loads((Path(session) / 'seed-confirmation.json').read_text())
+        assert confirmed['source'] == f'tinkery seed step confirm {draft["sha256"]}', confirmed
         assert helper.status(Path(session))['handoff']['verified']
         assert len(run.calls()) == 2, 'Confirming called a model'
         print(f'seed command journey passed: {"agent" if agent else "human"}, 6 commands, 2 stub calls, verified seed')
@@ -106,16 +112,28 @@ def refusals():
         (run.cwd / 'empty.txt').write_text(' \n')
         run.refused('The goal is empty', 'new', 'empty.txt', drafting=False)
         run.refused('Cannot read the goal file', 'new', 'missing.txt', drafting=False)
+        # No screen shows who is acting, so an undeclared write is refused, and an option is no origin.
+        undeclared = run.options[:-2]
+        for args in [('new', 'goal.txt'), ('step', 'TEST-missing', 'look')]:
+            result = run.seed(*args, options=undeclared)
+            assert result.returncode != 0 and b'need --operator' in result.stderr, result.stderr.decode()
+        run.refused('usage:', 'new', 'goal.txt', '--operator', drafting=False)
         assert not run.sessions.exists(), 'A refused goal created a session'
         session = run.ok('new', 'goal.txt', drafting=False).strip()
-        run.refused('seed step needs drafting', 'step', session, 'look', drafting=False)
+        run.refused('This step needs drafting', 'step', session, 'look', drafting=False)
+        # `show` only reads: with no options and a legacy sessions folder in HOME, it moves nothing.
+        legacy = run.cwd / 'TEST-home/.local/share/seed-me/sessions'
+        legacy.mkdir(parents=True)
+        result = run.seed('show', session, drafting=False, options=[], home=run.cwd / 'TEST-home')
+        assert result.returncode == 0 and json.loads(result.stdout)['goal'] == GOAL, result.stderr.decode()
+        assert legacy.is_dir() and not (run.cwd / 'TEST-home/.local/share/tinkery').exists(), 'show changed HOME'
         # The probes need no model, so a zero allowance still asks them, then stops at the first call.
         run.ok('step', session, 'look')
         before = run.files()
         run.refused('No drafting runs are left', 'step', session, 'answer', 'TEST no sample')
         run.refused('The answer is empty', 'step', session, 'answer', ' ')
         assert run.files() == before and run.calls() == [], 'A refused step wrote or called a model'
-        print('seed command refusals passed: empty goal, no drafting, zero budget, empty answer; zero stub calls')
+        print('seed command refusals passed: empty goal, undeclared operator, no drafting, zero budget, empty answer; zero stub calls')
 
 
 if __name__ == '__main__':

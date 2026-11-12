@@ -409,7 +409,8 @@ fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
     }
 }
 
-/// Run `work` to its end on the calling thread.
+/// Run `work` to its end on the calling thread. It makes at most the calls the agent's budget
+/// allows and writes nothing after a refusal.
 pub(super) fn run(
     work: &Work,
     session: &Path,
