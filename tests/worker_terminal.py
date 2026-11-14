@@ -85,6 +85,11 @@ if args[0] == 'status':
         print(json.dumps(envelope(run=prior)))
     else:
         assert args == ['status', state['run']['slug'], '--json'], args
+        if state.get('hold_read'):
+            until = time.monotonic() + 15
+            while not Path(os.environ['TEST_WORKER_RELEASE']).exists():
+                assert time.monotonic() < until, 'TEST read release was not supplied'
+                time.sleep(.01)
         print(json.dumps(envelope(run=run())))
 elif args[0] == 'new':
     if state.get('run'):
@@ -524,7 +529,7 @@ def check_cli():
         assert not (fixture.root / 'unexpected-provider').exists()
 
 
-def open_review(terminal):
+def open_review(terminal, read_to_end=True):
     terminal.wait(lambda: '4  approve' in terminal.screen.text())
     terminal.send(b'4', 'Seed 1 of 1')
     assert not terminal.fixture.mutations(), 'reading Approve created work'
@@ -532,7 +537,8 @@ def open_review(terminal):
     assert len(terminal.copies()) == 1
     assert not terminal.fixture.mutations(), 'copying intake executed it'
     terminal.send(b'b', 'Review worker start')
-    terminal.send(END, 'esc back')
+    if read_to_end:
+        terminal.send(END, 'esc back')
 
 
 def cap_review(case):
@@ -654,7 +660,7 @@ def journey(width, height, case, mono=False):
             fixture.change(lambda value: value.update(hold=True))
         terminal = Terminal(fixture, width, height, budget=case != 'no-budget', mono=mono)
         try:
-            open_review(terminal)
+            open_review(terminal, read_to_end=False)
             if case == 'no-budget':
                 assert 'No worker allowance.' in terminal.flat(), terminal.screen.text()
                 terminal.send(F2 + b'?', 'Worker actions')
@@ -662,10 +668,16 @@ def journey(width, height, case, mono=False):
             else:
                 terminal.send(HOME, 'Review worker start')
                 assert MODEL in terminal.flat() and f'Response cap: {CAP}' in terminal.flat(), terminal.screen.text()
+                if case == 'success' and (width, height) == (80, 24):
+                    assert 'F2 start worker' not in terminal.flat(), terminal.screen.text()
+                    assert 'End to start' in terminal.flat(), terminal.screen.text()
+                    terminal.send(F2 + b'?', 'Worker actions')
+                    assert not fixture.mutations(), 'F2 started before the disclosure end was shown'
+                    terminal.send(b'\x1b', 'End to start')
                 terminal.send(END + b'\x1b[1;1:2Q' * 3 + b'?', 'Worker actions')
                 terminal.send(F2 + b'urvfsc', 'Worker actions')
                 assert not fixture.mutations(), 'help or repeated F2 admitted work'
-                terminal.send(b'\x1b', 'F2 start worker')
+                terminal.send(b'\x1b', 'esc back')
                 terminal.send(END, 'F2 start worker')
                 if case == 'changed-seed':
                     path = fixture.session / 'seed-contract.md'
@@ -785,8 +797,24 @@ def journey(width, height, case, mono=False):
                         assert [c['argv'] for c in fixture.calls() if c['argv'][0] == 'verify'] == [['verify', 'test-worker']]
                         terminal.send(F10, '1 think')
                         terminal.send(b'5', 'test-worker')
-                        terminal.send(b'b', 'Worker: turn completed; verification is separate')
+                        fixture.release.unlink()
+                        fixture.change(lambda value: value.update(hold_read=True))
+                        before = len(fixture.calls())
+                        terminal.send(b'b', 'Request in progress')
+                        terminal.wait(lambda: len(fixture.calls()) > before)
+                        pending = terminal.flat()
+                        assert 'r read' not in pending and 's stop' not in pending, pending
+                        calls = fixture.calls()
+                        terminal.send(b'rs?', 'Worker actions')
+                        assert fixture.calls() == calls, 'a pending read admitted another request'
+                        terminal.send(b'\x1b', 'Request in progress')
+                        fixture.release.touch()
+                        terminal.wait(lambda: 'Worker: turn completed; verification is separate' in terminal.flat())
                         assert 'Verification: current' in terminal.flat(), 'Watch recovery lost source evidence'
+                        assert 'r read' in terminal.flat() and 's stop' not in terminal.flat()
+                        calls = fixture.calls()
+                        terminal.send(b's?', 'Worker actions')
+                        assert fixture.calls() == calls, 'Stop acted on a known completed worker'
                         assert len(fixture.admissions()) == 2
             assert not (fixture.root / 'unexpected-provider').exists()
             print(f'PASS worker {case}: {width}x{height}, mono={mono}, explicit fake-boundary actions only')

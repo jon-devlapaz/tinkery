@@ -46,7 +46,11 @@ Step 3d integration:
   false). Tend keeps hollow rings and needs lines even above graf's LOD thresholds;
   existing hosts retain the upstream detail reduction.
 
-Kept unchanged: LICENSE, README.md, CHANGELOG.md, src/graph.rs, src/input.rs,
+Clippy compatibility:
+- src/graph.rs: iterate by index and node together when grouping by degree.
+  This keeps the same groups and satisfies Clippy's needless_range_loop check.
+
+Kept unchanged: LICENSE, README.md, CHANGELOG.md, src/input.rs,
 src/physics.rs, src/theme.rs, src/viewport.rs.
 All upstream tests in the kept modules are retained. None of the omitted
 modules is required by the kept library. The workspace includes graf-rs for
