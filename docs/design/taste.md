@@ -115,7 +115,8 @@ metadata, underlined bold failure cues, glyphs and explicit status words.
 Each source expectation retains its exact wording, method and observed state. A local pass needs both source-current verification and its receipt's exact
 head matching the displayed PR head. A different head makes prior passes stale even
 if SDLC still reports tree-equivalent verification as current. Missing result
-identity stays pending/unknown. Provisional checks stay pending. Failed matching
+identity stays pending/unknown. Provisional checks stay pending until run. Evidence
+shows the reported prerequisite while they wait. Failed matching
 observations say fail; absent evidence never passes. Passed human items with a
 source `needs_recheck` retain “may need recheck,” not an invented invalidation.
 

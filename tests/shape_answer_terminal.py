@@ -59,7 +59,7 @@ print(json.dumps({'parts': {'who': 'I',
 '''
 
 QUESTION = {'next': 'question', 'id': 'Storage', 'label': 'Where records live',
-            'question': 'Keep records local or synced?', 'gate': 'storage choice',
+            'question': 'Keep records local or synced?', 'gate': 'Whether records leave this machine.',
             'found': [{'id': 'read-local', 'claim': {'type': 'observation', 'scope': 'README.md:3'},
                        'checked': 'README.md:3', 'observed': 'says local only'}],
             'supported_by': ['read-local'],
@@ -364,6 +364,7 @@ def full_journey(width, height):
             assert 'or type skip and send to skip it' in run.flat(), run.screen.text()
             run.type('TEST It showed private text.')
             run.send(F2, 'Where records live Keep records local or synced?')
+            run.wait('What your answer changes: Whether records leave this machine.')
             run.wait('What I found: README.md:3: says local only')
             probe = next(n for n in helper.load(session)['nodes'] if n['id'] == 'probe-pre-mortem')
             assert probe['answer'] == 'TEST It showed private text.' and probe['authority'] == 'user', probe

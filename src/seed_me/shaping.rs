@@ -82,7 +82,7 @@ pub enum Shaped {
         id: String,
         /// The node's label, or its id when it has none.
         title: String,
-        /// What this question settles, shown when the operator chooses deferral.
+        /// What this question settles, available before answering or deferring.
         gate: String,
         /// The question, or the decision to make when no question is recorded.
         ask: String,
