@@ -1,0 +1,66 @@
+{
+  "profile": "light",
+  "kind": "feature",
+  "schema": 1,
+  "run_id": "49562700-1235-4896-8717-b17b2820c4c3",
+  "seed_contract": {
+    "path": "runs/the-worker-start-disclosure-shows-the/seed-contract.md",
+    "sha256": "c431dc5e68d919f3182986476968060be1c7b0fe839022497bfeea6b83a31501",
+    "source": "/Users/jondev/dev/archive/run-trace-2/home/.local/share/tinkery/sessions/session-FG03FV/seed-contract.md",
+    "definitions_sha256": "519dfbcb809068118bdec75affc0f9e4a346231b35fd3a0788223fe8c4ccc913",
+    "confirmation": {
+      "schema_version": 3,
+      "checks_sha256": "f97c1a697d1d6f112e14f398efae4a77157ec79dcef7fb23f1dfd0097671bbb5",
+      "session_id": "session-FG03FV",
+      "operator": "agent",
+      "revision": "r1",
+      "source": "confirm",
+      "confirmed_at": "2026-11-11T19:38:20.534253+00:00",
+      "seed_sha256": "c431dc5e68d919f3182986476968060be1c7b0fe839022497bfeea6b83a31501",
+      "decisions_sha256": "31572058684f866d5418c5a01fd43e3441f3d934364e87c3b14a80321bdab703",
+      "actor": {
+        "action": "typed confirm at this terminal",
+        "by": "terminal",
+        "declaration": "declared: agent",
+        "identity": "declaration is not verified identity"
+      }
+    },
+    "definitions": [
+      {
+        "cwd": ".",
+        "expect": "After the worker screen opens on a fixture seed, the screen text contains hashlib.sha256 of that seed's seed-contract.md, for both a human start and an agent start",
+        "kind": "provisional",
+        "missing": "tests/worker_terminal.py has no assertion that the screen shows the seed's SHA-256 for human or agent starts; add one in each start path comparing to hashlib.sha256 of the seed file",
+        "source": "tests/worker_terminal.py:534 (existing review journey); scripts/python-tests.py:37 (runs every tests/*.py file)",
+        "statement": "The worker start disclosure displays the seed's SHA-256 for human starts; the worker start disclosure displays the seed's SHA-256 for agent starts.",
+        "cmd": "python3 tests/worker_terminal.py\npython3 tests/worker_terminal.py",
+        "id": "seed-1",
+        "description": "The worker start disclosure displays the seed's SHA-256 for human starts; the worker start disclosure displays the seed's SHA-256 for agent starts.",
+        "origin": "agent-confirmed-seed",
+        "locked": true
+      },
+      {
+        "cmd": "python3 scripts/full-check.py",
+        "cwd": ".",
+        "expect": "exit status 0, including the existing worker_terminal.py journeys",
+        "kind": "cmd",
+        "source": "AGENTS.md:99-126; scripts/full-check.py:1-50",
+        "statement": "python3 scripts/full-check.py passes",
+        "id": "seed-2",
+        "description": "python3 scripts/full-check.py passes",
+        "origin": "agent-confirmed-seed",
+        "locked": true
+      },
+      {
+        "how_to_judge": "Open Approve, press b on a fixture seed, read to the end, and compare the displayed SHA-256 with sha256sum on the seed file; inspect that the line is readable and not wrapped confusingly.",
+        "kind": "judge",
+        "source": "confirmed goal (Why) and probe-real-sample answer",
+        "statement": "A person opens the worker start screen on a fixture seed and confirms the shown SHA-256 matches sha256sum of the seed file",
+        "id": "seed-3",
+        "description": "A person opens the worker start screen on a fixture seed and confirms the shown SHA-256 matches sha256sum of the seed file",
+        "origin": "agent-confirmed-seed",
+        "locked": true
+      }
+    ]
+  }
+}

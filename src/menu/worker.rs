@@ -67,13 +67,14 @@ impl Panel {
                     .map_or(root.as_path(), |base| base.checkout.as_path());
                 let retry = target.retry.as_ref().map(|base| format!("Required starting commit: {}. Use this checkout with --sdlc-root to find the new run.\n", base.head)).unwrap_or_default();
                 let disclosure = format!(
-                    "Pi model: {}\nResponse cap: {} (one response may already be in flight).\n{cap_advice}\n\
+                    "Seed SHA-256: {}\nPi model: {}\nResponse cap: {} (one response may already be in flight).\n{cap_advice}\n\
                      Checkout: {}\n\
                      {retry}F2 uses committed source, creates the run, imports this seed, prepares an isolated build checkout, \
                      and launches its bounded worker through tink-sdlc.\n\
                      Your goal, confirmed seed and relevant source files go to that provider. \
                      The worker may edit, run commands and commit inside its build checkout.\n\
                      Commit project changes first. Definition gates still apply; passing checks is not your acceptance.",
+                    target.sha256,
                     config.model,
                     config.responses,
                     checkout.display(),

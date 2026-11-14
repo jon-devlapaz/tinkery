@@ -541,6 +541,23 @@ def open_review(terminal, read_to_end=True):
         terminal.send(END, 'esc back')
 
 
+def sha_review(operator):
+    """The start disclosure shows the SHA-256 of the exact seed file, for human and agent starts."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-sha-review-') as directory:
+        fixture = Fixture(Path(directory).resolve())
+        terminal = Terminal(fixture, 100, 30, operator=operator,
+                            authorization='fixture' if operator == 'agent' else None)
+        try:
+            open_review(terminal)
+            terminal.send(HOME, 'Review worker start')
+            digest = hashlib.sha256((fixture.session / 'seed-contract.md').read_bytes()).hexdigest()
+            assert f'Seed SHA-256: {digest}' in terminal.flat(), terminal.screen.text()
+            assert not fixture.mutations() and not (fixture.root / 'unexpected-provider').exists()
+            print(f'PASS worker start shows seed SHA-256: {operator}')
+        finally:
+            terminal.close()
+
+
 def cap_review(case):
     """Real review keys, Pi JSON-mode events and a separate source-reported build checkout."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-cap-review-') as directory:
@@ -824,6 +841,8 @@ def journey(width, height, case, mono=False):
 
 if __name__ == '__main__':
     check_cli()
+    sha_review('human')
+    sha_review('agent')
     for case in ('warn', 'at-minimum', 'cap-only', 'stopped-on-resume', 'unusable'):
         cap_review(case)
     journey(80, 24, 'success')
