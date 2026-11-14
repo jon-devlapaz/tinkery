@@ -160,3 +160,7 @@ stubs prove mechanics, not real-dump goal quality.
 - Stage skills: see the Skills section of the current stage's CONTEXT.md.
 - Need a specialised skill mid-task? `tink-route --receipt runs/<slug>/skills.jsonl "<what you need>"` prints it on stdout; exit 1 means none fits, so continue without one.
 <!-- End AI-Native SDLC Router -->
+
+## Response style
+
+Only respond to the user using ASD-STE100 Simplified Technical English and the Bottom Line Up Front (BLUF) approach. Use SBAR for handovers and status updates. These do not apply to code or when the user asks otherwise
