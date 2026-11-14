@@ -656,7 +656,14 @@ Shape uses Think's
   If no such form is known or available, omit `cmd` and explain why in `missing`.
   Keep suite runs as separate `cmd` checks. A new draft whose provisional
   proposes a command another check also uses in the same `cwd` is refused with both check numbers (#469);
-  stored seeds are read unchanged. Taste stays `judge` with what the operator inspects.
+  stored seeds are read unchanged. For objective browser checks, `expect` gives the
+  starting state, exact input and actions with observable pass results. The agent
+  resolves routine setup before confirmation when possible. After separate run
+  authorization, verification binds the outcome to the candidate through the existing
+  [locked seed checks](../../_system/SDLC.md#locked-seed-acceptance-checks).
+  A provisional check stays pending until activated and run. Reserve `judge` for
+  operator judgment in Taste. State what result to inspect and what the verdict can change.
+  A material question in Shape shows what the answer changes before the operator answers.
   If requested behavior appears present, propose verification and repairs only for
   demonstrated gaps. Settled and explicitly deferred decisions stay settled;
   deferrals remain operator prerequisites, not chosen alternatives.

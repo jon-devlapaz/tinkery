@@ -313,7 +313,12 @@ fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), Str
                 label.clone()
             });
         }
-        let evidence = if let Some(evidence) = automatic_evidence {
+        let evidence = if pending {
+            item["prerequisite"].as_str().map_or_else(
+                || "No run recorded".into(),
+                |why| format!("Needed before running: {why}"),
+            )
+        } else if let Some(evidence) = automatic_evidence {
             match evidence {
                 Ok(pointer) if old_pass && (!exact || !current) => {
                     format!("Earlier verification (history): {pointer}")
@@ -341,6 +346,8 @@ fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), Str
             state,
             kind: if automatic {
                 "automated"
+            } else if pending {
+                "proposed check"
             } else if human {
                 "human attestation"
             } else {
@@ -835,6 +842,31 @@ mod tests {
         }
         let pause = super::super::next::suggest(&target);
         assert!(pause.lines.join(" ").contains("Decision: proceed"));
+    }
+
+    #[test]
+    fn pending_seed_check_shows_its_prerequisite_without_asking_for_judgment() {
+        let mut source = run();
+        source["checklist"] = json!([{
+            "id": "seed-1", "verify": "Check draft clearing", "automatic": false,
+            "operator_attestation": false, "proof": "attested", "status": "pending",
+            "pending": true, "prerequisite": "Browser regression is missing",
+            "needs_recheck": false, "mark": null,
+        }]);
+        source["gates"] = json!([]);
+        let mut target = row();
+        local(Path::new("/TEST"), &source, &mut target).unwrap();
+        assert!(target.gates.is_empty());
+        let detail = super::super::view::details(&target, None, 100, crate::Palette::new(true))
+            .into_iter()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(detail.contains("waiting: not activated"), "{detail}");
+        assert!(
+            detail.contains("Needed before running: Browser regression is missing"),
+            "{detail}"
+        );
     }
 
     #[test]

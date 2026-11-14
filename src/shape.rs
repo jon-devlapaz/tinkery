@@ -2265,6 +2265,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             id,
             title,
             ask,
+            gate,
             found,
             suggestion,
             options,
@@ -2277,6 +2278,17 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 if calm { palette.muted } else { palette.jade },
             ));
             if !calm {
+                if id != PROBE.0
+                    && id != SAMPLE.0
+                    && title != OBJECTION
+                    && !gate.is_empty()
+                    && gate != ask
+                {
+                    lines.push(Line::styled(
+                        format!("What your answer changes: {gate}"),
+                        palette.ink,
+                    ));
+                }
                 lines.push(Line::default());
                 // Tinkery's own probe and objection questions ask for the operator's words, not evidence.
                 if found.is_empty() && id != PROBE.0 && id != SAMPLE.0 && title != OBJECTION {

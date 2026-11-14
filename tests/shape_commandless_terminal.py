@@ -166,6 +166,52 @@ def draft_and_redraft():
             run.close()
 
 
+def objective_browser_check():
+    """A stub proves Shape transports the planned check without turning it into sign-off."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-objective-check-') as directory:
+        root = Path(directory).resolve()
+        criterion = 'Guest browser draft stays isolated'
+        goal = f"Keep unsent chat drafts.\nDone when: {criterion}"
+        session = goal_session(root / 'TEST-sessions', goal=goal, question=False)
+        saved = helper.load(session)
+        state = helper.editable(saved)
+        original = 'Use this exact draft: Draft check: explain fractions.  '
+        state['nodes'][0]['evidence'] = [
+            {'checked': 'Tinkery original 1', 'observed': original, 'at': '2026-11-14T00:00:00Z'}
+        ]
+        helper.publish(session, state, saved['version'], 'TEST browser intent')
+        (root / 'TEST-browser-check.sh').write_text('touch check-ran\n')
+        actions, failure = BROWSER.rsplit(' Fail if ', 1)
+        record = dict(statement=criterion, kind='cmd', source='TEST-browser-check.sh:1',
+                      cmd='sh TEST-browser-check.sh', cwd='.', expect=actions)
+        reply = {**SEED, 'checks': [{**record, 'failure_case': 'Fail if ' + failure}], 'found': []}
+        reply['review'] = {key: value for key, value in completion_review([record]).items()
+                           if key != 'failure_cases'}
+        run = Run(root, 100, 30, budget=1, replies=[reply], agent=True)
+        try:
+            run.open_shape()
+            run.wait('F2 look into the next question')
+            run.send(F2, 'Tink Contract r1')
+            run.wait('Command: sh TEST-browser-check.sh')
+            run.read_until('Draft check: explain fractions.')
+            run.read_until("Pass if B never shows A's draft.")
+            run.read_until('Pass if the box stays empty.')
+            run.read_until('Must fail: Fail if the text changes')
+            run.read_until('End of seed', whole_line=True)
+            run.type('confirm')
+            run.send(F2, 'Seed ready:')
+            assert helper.status(session)['handoff']['verified']
+            assert helper.read_checks(session) == [record]
+            assert not (root / 'check-ran').exists(), 'Shape ran the command without run authorization'
+            request, = run.calls()
+            origin = request['input']['ledger']['nodes'][0]
+            assert origin['evidence'][0]['observed'] == original
+            assert request['input']['goal'] == goal
+            print('Objective browser check passed 100x30: draft and confirmation, 1 stub call, no check execution')
+        finally:
+            run.close()
+
+
 def journey(width, height, agent, repair):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-commandless-') as directory:
         root = Path(directory).resolve()
@@ -228,6 +274,7 @@ def journey(width, height, agent, repair):
 
 if __name__ == '__main__':
     draft_and_redraft()
+    objective_browser_check()
     for size in [(80, 24), (100, 30)]:
         contract_journey(*size, agent=size[0] == 100)
         for agent in [False, True]:

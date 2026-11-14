@@ -1496,6 +1496,9 @@ import json, pathlib, sys
 request = json.load(sys.stdin)
 prompt = sys.argv[sys.argv.index('--system-prompt') + 1]
 rules = ['every Done when', 'Check records', 'checks', 'provisional', 'you judge', 'Do not run',
+         'Tinkery original', 'Resolve routine choices', 'only if a choice changes the intended result',
+         'use cmd for an existing targeted test or provisional', 'complete procedure in expect',
+         'exact sample input including punctuation', 'what the answer can change',
          'Problem statement', 'Proposed outcome', 'Acceptance criteria', 'Constraints and boundaries',
          'Seed reply fields', 'named string fields', 'Section content guidance']
 missing = [rule for rule in rules if rule not in prompt]
