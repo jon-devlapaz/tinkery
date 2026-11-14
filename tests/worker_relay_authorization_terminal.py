@@ -67,8 +67,8 @@ def journey(case, operator='agent', size=(100, 30), mono=True):
                 path.write_text(json.dumps(dict(words='TEST replaced after launch', model='test/other:off',
                                                responses=CAP + 1, seed_sha256='0' * 64)))
             terminal.send(F10, '1 think')
-            terminal.send(b'b', 'F2 start worker')
-            terminal.send(END, 'esc back')
+            terminal.send(b'b', 'esc back')
+            terminal.send(END, 'F2 start worker')
             assert not fixture.mutations(), 'navigation or confirmed seed created work'
             os.write(terminal.master, F2)
             terminal.wait(lambda: 'Request refused or uncertain:' in terminal.flat()

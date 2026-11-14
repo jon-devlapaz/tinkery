@@ -22,6 +22,11 @@ pub(super) enum Destination {
     Taste(PathBuf),
 }
 
+enum Request {
+    Start,
+    Run(Action),
+}
+
 /// One selected start or pinned run, including its finite request across visits.
 pub(super) struct Panel {
     goal: String,
@@ -203,81 +208,119 @@ impl Panel {
                     .as_ref()
                     .map(|r| Destination::Taste(r.root.clone()));
             }
-            KeyCode::F(2) if !self.busy() && self.read_to_end => {
-                if let Some(start) = self.start.take() {
-                    self.starting = Some(start.clone());
-                    self.job = Some(Job::start(start));
-                    self.notice =
-                        "Starting worker… Leaving this screen does not cancel admission.".into();
-                }
+            _ => {}
+        }
+        let request = self
+            .requests()
+            .find(|(code, _, _)| *code == key.code)
+            .and_then(|(_, _, request)| request);
+        match request {
+            Some(Request::Start) => {
+                let start = self.start.take().expect("offered start");
+                self.starting = Some(start.clone());
+                self.job = Some(Job::start(start));
+                self.notice =
+                    "Starting worker… Leaving this screen does not cancel admission.".into();
             }
-            KeyCode::F(2) if !self.read_to_end => {
-                self.notice = "Read the complete start disclosure first (End or PgDn).".into();
+            Some(Request::Run(action)) => {
+                let run = self.run.clone().expect("offered run action");
+                self.fresh = false;
+                self.job = Some(Job::act(self.gate.clone(), run, action));
+                self.notice = "Requesting the named action from tink-sdlc…".into();
             }
-            code if !self.busy() => {
-                let action = match code {
-                    KeyCode::Char('r') => Some(Action::Refresh),
-                    KeyCode::Char('u') if self.read_to_end && self.can_resume() => self
-                        .snapshot
-                        .as_ref()
-                        .and_then(|s| s.pin.clone())
-                        .map(Action::Resume),
-                    KeyCode::Char('l') if self.read_to_end && self.can_launch() => self
-                        .snapshot
-                        .as_ref()
-                        .and_then(|s| s.pin.clone())
-                        .map(Action::Launch),
-                    KeyCode::Char('f') if self.can_finish() => Some(Action::Finish),
-                    KeyCode::Char('v') => Some(Action::Verify),
-                    KeyCode::Char('s') => Some(Action::Stop),
-                    _ => None,
-                };
-                if let (Some(action), Some(run)) = (action, &self.run) {
-                    if !self.fresh && !matches!(action, Action::Refresh | Action::Stop) {
-                        return None;
-                    }
-                    self.fresh = false;
-                    self.job = Some(Job::act(self.gate.clone(), run.clone(), action));
-                    self.notice = "Requesting the named action from tink-sdlc…".into();
-                } else {
-                    self.scroll(code);
-                }
-            }
-            code => self.scroll(code),
+            None => self.scroll(key.code),
         }
         None
     }
 
-    /// The key bar names only keys that act now: `l` and `u` appear once the disclosure end is drawn.
-    fn keys(&self) -> &'static str {
-        let read = self.read_to_end;
-        if self.help {
-            "↑↓ read   esc close help"
-        } else if self.snapshot.is_none() {
-            if self.run.is_some() {
-                "r read   s stop   w watch   t taste   ? help   esc back"
-            } else if self.start.is_some() {
-                "F2 start worker   ↑↓ read   ? help   esc back"
-            } else {
-                "↑↓ read   ? help   esc back"
-            }
-        } else if !self.fresh {
-            "r read   s stop   w watch   t taste   ? help   esc back"
-        } else if self.can_launch() && read {
-            "l launch prepared   r read   w watch   t taste   ? help   esc back"
-        } else if self.can_launch() {
-            "End to launch   r read   w watch   t taste   ? help   esc back"
-        } else if self.can_finish() && read {
-            "f finish   u resume   r read   v verify   t taste   ? help   esc back"
-        } else if self.can_finish() {
-            "f finish   End to resume   r read   v verify   t taste   ? help   esc back"
-        } else if self.can_resume() && read {
-            "v verify   u resume   r read   t taste   ? help   esc back"
-        } else if self.can_resume() {
-            "v verify   End to resume   r read   t taste   ? help   esc back"
-        } else {
-            "r read   v verify   s stop   t taste   ? help   esc back"
+    /// Each row owns its key and label. A disclosure hint stands in for a request
+    /// until the end of that disclosure is on screen.
+    fn requests(&self) -> impl Iterator<Item = (KeyCode, &'static str, Option<Request>)> {
+        let idle = !self.busy() && !self.help;
+        let has_run = idle && self.run.is_some();
+        let current = has_run && self.fresh;
+        let pin = self.snapshot.as_ref().and_then(|s| s.pin.as_ref());
+        let can_stop = has_run
+            && (!current
+                || self
+                    .snapshot
+                    .as_ref()
+                    .is_some_and(|snapshot| matches!(snapshot.state, State::Active { .. })));
+        let run = Request::Run;
+        [
+            (
+                KeyCode::F(2),
+                "F2 start worker",
+                Some("End to start"),
+                (idle && self.start.is_some()).then_some(Request::Start),
+            ),
+            (
+                KeyCode::Char('l'),
+                "l launch prepared",
+                Some("End to launch"),
+                pin.filter(|_| current && self.can_launch())
+                    .map(|pin| run(Action::Launch(pin.clone()))),
+            ),
+            (
+                KeyCode::Char('f'),
+                "f finish",
+                None,
+                (current && self.can_finish()).then(|| run(Action::Finish)),
+            ),
+            (
+                KeyCode::Char('u'),
+                "u resume",
+                Some("End to resume"),
+                pin.filter(|_| current && self.can_resume())
+                    .map(|pin| run(Action::Resume(pin.clone()))),
+            ),
+            (
+                KeyCode::Char('r'),
+                "r read",
+                None,
+                has_run.then(|| run(Action::Refresh)),
+            ),
+            (
+                KeyCode::Char('v'),
+                "v verify",
+                None,
+                current.then(|| run(Action::Verify)),
+            ),
+            (
+                KeyCode::Char('s'),
+                "s stop",
+                None,
+                can_stop.then(|| run(Action::Stop)),
+            ),
+        ]
+        .into_iter()
+        .filter_map(|(key, label, hint, request)| {
+            let request = request?;
+            Some(match hint {
+                Some(hint) if !self.read_to_end => (key, hint, None),
+                _ => (key, label, Some(request)),
+            })
+        })
+    }
+
+    fn keys(&self) -> String {
+        if self.busy() {
+            return "Request in progress; navigation keeps it running.".into();
         }
+        if self.help {
+            return "↑↓ read   esc close help".into();
+        }
+        let mut keys: Vec<_> = self.requests().map(|(_, label, _)| label).collect();
+        if self.run.is_none() {
+            keys.push("↑↓ read");
+        } else {
+            if !self.fresh {
+                keys.push("w watch");
+            }
+            keys.push("t taste");
+        }
+        keys.extend(["? help", "esc back"]);
+        keys.join("  ")
     }
 
     fn can_resume(&self) -> bool {
@@ -389,7 +432,9 @@ impl Panel {
                 );
             }
         } else {
-            add(if self.run.is_some() {
+            add(if self.run.is_some() && self.busy() {
+                "Current worker state unknown."
+            } else if self.run.is_some() {
                 "Worker result unavailable; current state unknown. r reads again"
             } else {
                 "Review worker start"
@@ -421,7 +466,7 @@ impl Panel {
             .saturating_sub(body.height as usize)
             .min(u16::MAX as usize) as u16;
         self.scroll = self.scroll.min(hidden);
-        if !self.help && self.scroll == hidden {
+        if !self.help && !self.busy() && body.height > 0 && self.scroll == hidden {
             self.read_to_end = true;
         }
         let keys = self.keys();
@@ -433,12 +478,7 @@ impl Panel {
         }
         frame.render_widget(text.scroll((self.scroll, 0)), body);
         frame.render_widget(
-            Paragraph::new(if self.busy() {
-                "Request in progress; navigation keeps it running."
-            } else {
-                keys
-            })
-            .style(palette.muted),
+            Paragraph::new(keys).style(palette.muted),
             Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
         );
     }
