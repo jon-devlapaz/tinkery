@@ -16,7 +16,7 @@ pub(super) enum Choice {
     Revise,
     Revisit,
     TeachBack,
-    RepairCheck(bool),
+    EditCheck(usize, CheckMethod),
     Change,
     Folder,
     SoFar,
@@ -62,16 +62,22 @@ impl Shape {
             rows.push(Row::new("Answer deferred prerequisite", Choice::Revisit));
         }
         if agent
-            && matches!(&open.reading, Reading::Done(Ok(shaping)) if shaping.commandless_check.is_some())
+            && open.offers_teach_back()
+            && let Reading::Done(Ok(shaping)) = &open.reading
         {
-            rows.push(Row::new(
-                "Supply a check command",
-                Choice::RepairCheck(false),
-            ));
-            rows.push(Row::new(
-                "Make it a human judgment",
-                Choice::RepairCheck(true),
-            ));
+            for check in &shaping.checks {
+                let number = check.index + 1;
+                rows.push(Row::new(
+                    format!("Edit check {number}"),
+                    Choice::EditCheck(check.index, check.method()),
+                ));
+                if check.gap() == Some(CheckMethod::Command) {
+                    rows.push(Row::new(
+                        format!("Make check {number} a judgment"),
+                        Choice::EditCheck(check.index, CheckMethod::Manual),
+                    ));
+                }
+            }
         }
         if agent && open.offers_teach_back() {
             rows.push(Row::new("Revise the draft", Choice::Change));
@@ -140,20 +146,35 @@ impl Shape {
                     Some("Next: press its number; Esc keeps them all.".into()),
                 ));
             }
-            Choice::RepairCheck(judgment) => {
-                open.aside = Some((Aside::RepairCheck(judgment), Words::new("")));
-                if let Reading::Done(Ok(shaping)) = &open.reading {
-                    open.notice = shaping.commandless_check.as_ref().map(|statement| {
-                        (
-                            format!("Check: {statement}"),
-                            Some(if judgment {
-                                "Next: type how a person judges the built result; agent evidence can't sign it off. F2 saves; Esc cancels.".into()
-                            } else {
-                                "Next: type your words, then F2 saves the check; Esc cancels."
-                                    .into()
-                            }),
-                        )
-                    });
+            Choice::EditCheck(index, method) => {
+                if let Reading::Done(Ok(Shaping {
+                    stage:
+                        Shaped::Drafted {
+                            text: Some(seed), ..
+                        },
+                    checks,
+                    version: Some(expected),
+                    ..
+                })) = &open.reading
+                    && let Some(check) = checks.get(index)
+                {
+                    let words = check.words().filter(|_| method == check.method());
+                    open.aside = Some((
+                        Aside::RepairCheck(CheckEdit {
+                            expected: *expected,
+                            seed: seed.clone(),
+                            target: check.clone(),
+                            method,
+                        }),
+                        Words::new(words.unwrap_or("")),
+                    ));
+                    open.notice = Some((
+                        String::new(),
+                        (method == CheckMethod::Manual).then(|| {
+                            "A person signs off after seeing the built result; agent evidence can't sign it off.".into()
+                        }),
+                    ));
+                    self.scroll = 0;
                 }
             }
             Choice::TeachBack => {

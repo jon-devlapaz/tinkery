@@ -3,6 +3,7 @@
 //! ending verifies that binding. No operation opens or refreshes a browser viewer.
 
 mod teach_back;
+pub(crate) use teach_back::completion_review;
 pub use teach_back::{
     TEACH_BACK_SKIPPED, TeachBackComparison, TeachBackRecord, completion_report, teach_back_report,
 };
@@ -21,19 +22,20 @@ pub use questions::{next_question, queue_question, waiting_on};
 pub(crate) mod fixtures;
 mod seed;
 mod storage;
+pub(crate) use checks::{
+    CheckMethod, DraftCheck, draft_checks, goal_criteria, human_signoff, keeps_criterion,
+    validate_goal_checks,
+};
 pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, read_checks, readable_acceptance, validate_checks};
-pub(crate) use checks::{
-    commandless_check, goal_criteria, human_signoff, keeps_criterion, validate_goal_checks,
-};
 pub(crate) use seed::status_from_ledger;
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub use storage::{
     PublishError, SaveState, confirm_as, confirm_displayed_as, confirm_seed,
-    confirm_with_teach_back, end, initialize, publish, record_teach_back, repair_check, respond,
-    revalidate, set_checks,
+    confirm_with_teach_back, end, initialize, publish, record_teach_back, respond, revalidate,
+    set_checks,
 };
-pub(crate) use storage::{initialize_for, save_draft};
+pub(crate) use storage::{initialize_for, repair_check, save_draft};
 mod python;
 mod value;
 pub use value::Value;

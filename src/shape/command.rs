@@ -113,7 +113,7 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         Shaped::Drafted { revision, text } => serde_json::json!({
             "stage": "draft", "revision": revision,
             "sha256": text.as_ref().map(|text| format!("{:x}", Sha256::digest(text.as_bytes()))),
-            "text": text, "needs_check": shaping.commandless_check, "signoff": shaping.signoff,
+            "text": text, "needs_check": shaping.checks.iter().find(|check| check.gap().is_some()).map(|check| check.statement()), "signoff": shaping.signoff,
             "risks": shaping.confirmation,
         }),
         Shaped::Ready { revision, ended } => {

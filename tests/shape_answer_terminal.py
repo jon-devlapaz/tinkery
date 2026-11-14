@@ -393,7 +393,7 @@ def full_journey(width, height):
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 1, 'Typing, paste, editing or held F2 wrote or called'
             if width == 100:
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             run.wait('Confirming the seed is not approval to build.')
             # The displayed card comes from Seed Me, not model-written criteria.
             run.read_until('you judge: Inspect refusal output for private text.')
@@ -443,7 +443,7 @@ def full_journey(width, height):
             run.send(b'\x1b', 'seed drafted')
             run.send(b'\r', 'Next: confirm the seed draft in Shape.')
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from draft wrote or called'
-            run.send(b's', 'Seed draft r1')
+            run.send(b's', 'Tink Contract r1')
             run.wait('pgup/dn read to end')
             before = files(run.sessions)
             before_all = files(cwd)
@@ -675,7 +675,7 @@ def case(name, width=100, height=30):
                 assert helper.decisions_block(ledger) in (session / 'seed-contract.md').read_text()
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
             elif name in ('confirmation hint', 'confirmation Enter'):
-                run.wait('Seed draft r1')
+                run.wait('Tink Contract r1')
                 # F2 needs the whole draft read first (#250); these cases are about the words.
                 os.write(run.master, b'\x1b[6~' * 10)
                 if name == 'confirmation hint':
@@ -696,7 +696,7 @@ def case(name, width=100, height=30):
                 assert files(cwd) == before, 'Hint, Enter or refused F2 wrote a file'
                 assert run.calls() == [], 'Confirmation guidance called a model'
             elif name == 'multiline confirmation':
-                run.wait('Seed draft r1')
+                run.wait('Tink Contract r1')
                 os.write(run.master, b'\x1b[6~' * 10)
                 before = files(cwd)
                 # Pasted LF/CR/CRLF still refuse without normalizing the words.
@@ -714,7 +714,7 @@ def case(name, width=100, height=30):
                     run.send(b'\x1b', 'your words')
                 assert not (session / 'seed-confirmation.json').exists()
             elif name == 'practice confirmation':
-                run.wait('Seed draft r1')
+                run.wait('Tink Contract r1')
                 run.type('confirm')
                 run.read_until('End of seed')
                 before = files(sessions)
@@ -782,7 +782,7 @@ def real_sample_last_run(width, height):
             run.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'Ignore links inside code.')
             run.wait('Drafting runs left this launch: 1 of 2.')
             assert files(run.sessions) == before and len(run.calls()) == 1
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             ledger = helper.load(session)
             saved = next(n for n in ledger['nodes'] if n['id'] == 'real-sample')
             assert saved['answer'] == answer and saved['authority'] == 'delegated', saved
@@ -915,7 +915,7 @@ def prerequisite_questions(width, height):
             assert 'waits for:' not in run.flat(), run.screen.text()
             run.send(ESC, 'TEST which format after storage?')
             run.type('TEST B is Markdown')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             assert len(run.calls()) == 1 and helper.load(session)['goal'] == GOAL
             print(f'Shape prerequisites passed at {width}x{height}: prepared TEST A/B ledger, '
                   'So far names the held prerequisite, A then B without model calls, 1 final stub reply')
@@ -974,7 +974,7 @@ def typed_findings_review(width, height):
             run.send(b'\x1b[1;1:2Q' + F1, 'F2 keeps it unchanged with your reason; no model runs.')
             run.send(b'\x1b', 'your reason TEST the scope still fits')
             assert files(run.sessions) == before and len(run.calls()) == 2
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             run.wait('Answer kept with your reason. No model ran.')
             ledger = helper.load(session)
             kept = next(n for n in ledger['nodes'] if n['id'] == 'storage')
@@ -1077,7 +1077,7 @@ def answer_actions(width, height):
                         run.wait('TEST revised synced only with permission')
                         assert files(run.sessions) == before and run.calls() == []
                     else:
-                        run.send(F2, 'Seed draft r2')
+                        run.send(F2, 'Tink Contract r2')
                         saved = helper.load(session)
                         assert saved['goal'] == GOAL and saved['current_question'] is None
                         seed = (session / 'seed-contract.md').read_text()
@@ -1098,11 +1098,11 @@ def answer_actions(width, height):
                     run.send(F2, 'TEST answer grandchild again?')
                     assert run.calls() == [], 'Asking a reopened dependent called a model'
                     run.type('TEST new grandchild')
-                    run.send(F2, 'Seed draft r1')
+                    run.send(F2, 'Tink Contract r1')
                     assert len(run.calls()) == 1
                 if action in ['defer', 'delegate']:
                     run.type('TEST answer the next question')
-                    run.send(F2, 'Seed draft r1')
+                    run.send(F2, 'Tink Contract r1')
                     seed = (session / 'seed-contract.md').read_text()
                     decisions = helper.decisions_block(helper.load(session))
                     assert decisions in seed, seed
@@ -1144,7 +1144,7 @@ def closing_summary(width, height):
             run.send(F1, 'F1 close')
             assert 'Teach back' not in run.flat(), run.screen.text()
             run.send(ESC, 'F2 look into the next question')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             for line in ['Before you confirm', 'Accepted as suggested: 2; chosen otherwise: 4.',
                          'changed: TEST remote — reverses an earlier answer',
                          'delegated: TEST suggested — delegated; accepted exactly as suggested',
@@ -1198,7 +1198,7 @@ def completion_review_display(width, height, done=False, replay_299=False):
         try:
             run.open_shape()
             run.wait('F2 look into the next question')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             seed = (session / 'seed-contract.md').read_bytes()
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
@@ -1206,24 +1206,20 @@ def completion_review_display(width, height, done=False, replay_299=False):
             expected_review = {**review, 'failure_cases': [dict(case=case, statement=statement) for case, statement in cases]}
             assert json.loads(receipt['observed']) == expected_review, receipt
             assert receipt['checked'] == 'Review r1 · ' + hashlib.sha256(seed).hexdigest(), receipt
+            for i, (case, statement) in enumerate(cases, 1):
+                run.read_until(f'{i}. {statement}')
+                run.read_until(f'Must fail: {case}')
+                assert 'esc back' in run.flat(), run.screen.text()
+                assert 'Must fail: The list survives closing and reopening.' not in run.flat()
             run.read_until('This is not implementation approval.')
             for line in [
                 'Drafting step guess — decided: TEST café scope. Keep words.',
                 ('Drafting step guess — observed done: TEST README observed. No checks ran.' if done
                  else 'Drafting step guess: Nothing observed done.'),
-            ] + [f'Must fail: {case} Check: {statement}' for case, statement in cases]:
+            ]:
                 run.read_until(line)
                 flat = run.flat()
                 assert flat.index(line) < flat.index('esc back'), run.screen.text()
-                for forbidden in ['Drafting step guess: If ', '., ', '. must fail',
-                                  'Must fail: The list survives closing and reopening.']:
-                    assert forbidden not in flat, run.screen.text()
-                if line.startswith('Must fail:'):
-                    rows = run.screen.text().splitlines()
-                    case_row = next(i for i, row in enumerate(rows) if row.lstrip().startswith('Must fail:'))
-                    check_row = next(i for i, row in enumerate(rows) if row.lstrip().startswith('Check:'))
-                    assert case_row < check_row, run.screen.text()
-                    assert rows[check_row].index('Check:') > rows[case_row].index('Must fail:'), run.screen.text()
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
             run.type('confirm')
             run.read_until('End of seed', whole_line=True)
@@ -1263,7 +1259,7 @@ def completion_reviews(width, height):
                 assert len(run.calls()) == 1 and not (session / 'seed-contract.md').exists()
                 if kind == 'question':
                     run.type('TEST local')
-                    run.send(F2, 'Seed draft r1')
+                    run.send(F2, 'Tink Contract r1')
                     assert len(run.calls()) == 2, 'Completion review added a call per draft'
                 else:
                     assert files(run.sessions) == before, 'Refused review saved part of a seed'
@@ -1309,7 +1305,7 @@ def captured_reply_recovery(width, height):
                 assert len(run.calls()) == 1, 'Refusal retried automatically'
                 assert not (session / 'seed-contract.md').exists()
                 assert not (session / 'seed-checks.json').exists()
-                run.send(F2, 'Seed draft r1')
+                run.send(F2, 'Tink Contract r1')
                 current = helper.load(session)
                 assert next(n for n in current['nodes'] if n['id'] == 'storage') == answer
                 assert current['goal'] == GOAL and len(run.calls()) == 2
@@ -1332,7 +1328,7 @@ def read_end_revision(width, height):
         try:
             run.open_shape()
             run.wait('F2 look into the next question')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             run.wait('pgup/dn read to end')
             assert 'F2 confirm' not in run.screen.text(), run.screen.text()
             seed_before = (session / 'seed-contract.md').read_bytes()
@@ -1419,7 +1415,7 @@ def runnable_as_cloned(width, height):
         try:
             run.open_shape()
             run.wait('The step reads files in TEST-checkout. F1 picks another folder.')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             [call] = run.calls()
             assert call['cwd'] == str(checkout), call['cwd']
             prompt = call['argv'][call['argv'].index('--system-prompt') + 1]
@@ -1448,7 +1444,7 @@ def teach_back(width, height, exhausted=False):
             run.wait('F2 look into the next question')
             run.choose('Choose the folder', 'Next: F2 uses this folder')
             run.send(b'/TEST-repository' + F2, 'The step reads files in TEST-repository.')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             run.wait('F1 more')
             run.type('confirm')
             before = files(run.sessions)
@@ -1510,7 +1506,7 @@ def revise_the_draft(width, height):
         try:
             run.open_shape()
             run.wait('F2 look into the next question')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             run.read_until('End of seed', whole_line=True)
             change = 'TEST keep the cache local, not shared'
             run.type(change)
@@ -1520,7 +1516,7 @@ def revise_the_draft(width, height):
             assert not (session / 'seed-confirmation.json').exists()
             run.choose('Revise the draft', 'your change ' + change)
             run.wait('F2 save + redraft')
-            run.send(F2, 'Seed draft r2')
+            run.send(F2, 'Tink Contract r2')
             ledger = helper.load(session)
             node = next(n for n in ledger['nodes'] if n['id'] == 'change-to-r1')
             assert (node['status'], node['answer'], node['authority']) == ('settled', change, 'user'), node
@@ -1543,7 +1539,7 @@ def teach_back_retry(width, height):
         try:
             run.open_shape()
             run.wait('F2 look into the next question')
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             run.type('confirm')
             run.choose('Teach back', 'your teach-back')
             run.wait('your teach-back confirm')
@@ -1556,7 +1552,8 @@ def teach_back_retry(width, height):
             assert len(run.calls()) == 2
             for parser_text in ['invalid type', 'integer', 'line 1 column']:
                 assert parser_text not in run.flat(), run.screen.text()
-            run.send(F1, 'Drafting runs left this launch: 1 of 3.')
+            run.send(F1, 'Right now')
+            run.read_until('Drafting runs left this launch: 1 of 3.')
             run.send(b'\x1b', 'F1 more')
             assert len(run.calls()) == 2, 'A failed comparison retried on its own'
             run.choose('Teach back', 'your teach-back')
@@ -1607,7 +1604,7 @@ def exit_hint(width, height, stage):
                 run.send(F2, 'Probe: pre-mortem')
                 # The skip the screen names is a settled answer, not a deferral (#625).
                 run.type('skip')
-                run.send(F2, 'Seed draft r1')
+                run.send(F2, 'Tink Contract r1')
                 probe = next(n for n in helper.load(session)['nodes'] if n['id'] == 'probe-pre-mortem')
                 assert (probe['status'], probe['answer']) == ('settled', 'skip'), probe
                 if stage in ('ready', 'stale'):
@@ -1667,7 +1664,7 @@ def complete_scenario_recovery(width, height):
             run.send(F2, 'No seed was drafted')
             assert files(run.sessions) == before
             assert len(run.calls()) == 1, 'Refusal retried automatically'
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             assert helper.read_checks(session) == complete
             assert helper.load(session)['goal'] == goal
             assert scenario in (session / 'seed-contract.md').read_text()

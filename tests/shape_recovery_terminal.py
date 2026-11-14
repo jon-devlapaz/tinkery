@@ -38,7 +38,7 @@ def journey(width, height, drafted):
         before = files(root)
         try:
             run.open_shape()
-            run.wait('Seed draft r1' if drafted else 'your answer')
+            run.wait('Tink Contract r1' if drafted else 'your answer')
             run.send(F1, 'Right now')
             run.read_until('Drafting runs left this launch: 0 of 0.')
             run.read_until(str(session), wrapped_path=True)

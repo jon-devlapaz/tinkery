@@ -108,8 +108,8 @@ def retry_journey(width, height, case):
                 assert helper.load(session)['version'] != state['version']
                 os.write(run.master, F2)
                 outcome = wait_either(run, 'Another writer changed this session first, so nothing was saved.',
-                                      'Seed draft r1')
-                drafted = outcome == 'Seed draft r1'
+                                      'Tink Contract r1')
+                drafted = outcome == 'Tink Contract r1'
                 if not drafted:
                     run.wait('Next: F2 looks into the next question.')
                     assert len(run.calls()) == 1
@@ -161,7 +161,7 @@ def retry_journey(width, height, case):
                 assert 'previous_refusal' in run.calls()[1]['input']
                 run.type('TEST nothing else')
             if not drafted:
-                run.send(F2, 'Seed draft r1')
+                run.send(F2, 'Tink Contract r1')
             calls = run.calls()
             assert len(calls) == budget
             last = calls[-1]['input']
@@ -213,7 +213,7 @@ def inference_journey(width, height):
             assert 'inference-counter-1' not in run.flat(), run.screen.text()
             assert next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')['answer'] == 'TEST local only'
             assert len(run.calls()) == 1, 'Rejection automatically retried'
-            run.send(F2, 'Seed draft r1')
+            run.send(F2, 'Tink Contract r1')
             reason = run.calls()[1]['input']['previous_refusal']['reason']
             assert reason.startswith('Tinkery refused: node inference-counter-1: an inference must state its limits'), reason
             print(json.dumps(dict(size=[width, height], case='inference', stub_calls=2, live_calls=0)))

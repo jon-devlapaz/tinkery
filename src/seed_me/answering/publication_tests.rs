@@ -408,7 +408,7 @@ fn literal_goal_round_trip(goal: &str) {
     let session = session_with_goal(root.path(), goal);
     let prose =
         ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
-    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST"}]);
+    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST", "how_to_judge":"Inspect the TEST result." }]);
     let revision = draft_seed(&session, 1, &prose, &checks, &[], root.path(), None).unwrap();
     let path = session.join("seed-contract.md");
     let seed = fs::read_to_string(&path).unwrap();

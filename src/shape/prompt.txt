@@ -81,7 +81,8 @@ An exact new test id is fine if the runner fails on unknown ids.
 Filters by name pattern can pass on no match, so don't rely on them.
 Use only forms known to fail when absent; otherwise omit cmd and explain why in missing.
 Keep suite runs as separate cmd checks; never duplicate another check's command in the same cwd.
-Keep judge records (you judge) for taste and product judgment, with what the operator must inspect in how_to_judge; do not substitute it for a repository-checkable criterion or weaken any qualifier.
+Keep judge records (you judge) for taste, product judgment and requested manual trials; do not replace a repository-checkable criterion with judgment.
+For a manual trial, write a complete procedure in how_to_judge: starting state, exact sample input including punctuation, ordered actions, observable pass results and what fails. Keep linked actions in one case so a person can run it as written. A sample string alone is not a procedure.
 Do not run the proposed checks; the operator sees and confirms them with the seed, which is not approval to implement.
 
 Reason and write findings and the question in free text as before; emit checks only at the end as one separate structured field on a seed reply.

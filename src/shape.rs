@@ -26,7 +26,7 @@ mod help;
 mod step;
 mod words;
 
-use crate::seed_me::ledger::AnswerAction;
+use crate::seed_me::ledger::{AnswerAction, CheckMethod, DraftCheck};
 use crate::{
     Palette,
     seed_me::{
@@ -98,11 +98,19 @@ pub enum Leave {
 }
 
 /// A words box opened from F1 over a seed draft.
-#[derive(Clone, Copy)]
 enum Aside {
     TeachBack,
     Change,
-    RepairCheck(bool),
+    RepairCheck(CheckEdit),
+}
+
+/// A correction stays bound to what was shown, even if a failed save refreshes the draft.
+#[derive(Clone)]
+struct CheckEdit {
+    expected: u64,
+    seed: String,
+    target: DraftCheck,
+    method: CheckMethod,
 }
 
 struct Opened {
@@ -113,7 +121,7 @@ struct Opened {
     typed: Words,
     /// A deferral or revision form; cancelling restores the untouched answer/reason editor.
     form: Option<Form>,
-    /// Unsaved teach-back or change to the draft; cancelling restores the confirmation words untouched.
+    /// An unsaved form over the draft, with its own words and cancel action.
     aside: Option<(Aside, Words)>,
     /// What the last key or step did, when it needs saying, and its own next step if any.
     notice: Option<(String, Option<String>)>,
@@ -149,10 +157,8 @@ struct Opened {
 #[derive(Clone)]
 enum Write {
     RepairCheck {
-        expected: u64,
-        seed: String,
+        edit: CheckEdit,
         words: String,
-        judgment: bool,
     },
     Revisit {
         id: String,
@@ -396,6 +402,8 @@ impl Shape {
                 open.notice = Some(match (result, write) {
                     (Ok(()), Write::RepairCheck { .. }) => {
                         open.aside = None;
+                        open.read_end = None;
+                        self.scroll = 0;
                         (
                             "Check saved. Read the changed draft, then confirm. No model ran."
                                 .into(),
@@ -548,8 +556,14 @@ impl Shape {
                 let what = match aside {
                     Aside::TeachBack => "Teach-back",
                     Aside::Change => "Change",
-                    Aside::RepairCheck(false) => "Check command",
-                    Aside::RepairCheck(true) => "How to judge",
+                    Aside::RepairCheck(CheckEdit {
+                        method: CheckMethod::Command,
+                        ..
+                    }) => "Check command",
+                    Aside::RepairCheck(CheckEdit {
+                        method: CheckMethod::Manual,
+                        ..
+                    }) => "How to judge",
                 };
                 open.notice = Some((format!("{what} cancelled. Nothing was saved."), None));
                 return Leave::Stay;
@@ -751,7 +765,7 @@ impl Shape {
                     (
                         _,
                         Some(Typing {
-                            act: Act::RepairCheck { .. },
+                            act: Act::RepairCheck(_),
                             ..
                         }),
                         _,
@@ -934,11 +948,7 @@ impl Shape {
 /// What a key asks of an open session.
 #[derive(Clone)]
 enum Act {
-    RepairCheck {
-        expected: u64,
-        seed: String,
-        judgment: bool,
-    },
+    RepairCheck(CheckEdit),
     Respond {
         id: String,
         expected: u64,
@@ -983,6 +993,16 @@ impl Opened {
     /// The words box this stage offers, if any: an answer to the current question, or the words
     /// that confirm a seed draft.
     fn typing(&self) -> Option<Typing> {
+        if let Some((Aside::RepairCheck(edit), _)) = &self.aside {
+            return matches!(self.reading, Reading::Done(Ok(_))).then(|| Typing {
+                act: Act::RepairCheck(edit.clone()),
+                label: if edit.method == CheckMethod::Manual {
+                    "your how-to-judge words"
+                } else {
+                    "your check command"
+                },
+            });
+        }
         let Reading::Done(Ok(shaping)) = &self.reading else {
             return None;
         };
@@ -996,18 +1016,7 @@ impl Opened {
         ) = (&self.aside, &shaping.stage, shaping.version)
         {
             return Some(match aside {
-                Aside::RepairCheck(judgment) => Typing {
-                    act: Act::RepairCheck {
-                        expected,
-                        seed: seed.clone(),
-                        judgment: *judgment,
-                    },
-                    label: if *judgment {
-                        "your how-to-judge words"
-                    } else {
-                        "your check command"
-                    },
-                },
+                Aside::RepairCheck(_) => unreachable!("check edits retain their displayed target"),
                 Aside::TeachBack => Typing {
                     act: Act::TeachBack {
                         revision: revision.clone(),
@@ -1218,16 +1227,12 @@ impl Opened {
         std::thread::spawn(move || {
             let actor = confirmation.as_ref();
             let result = match (work, expected) {
-                (
-                    Write::RepairCheck {
-                        expected,
-                        seed,
-                        words,
-                        judgment,
-                    },
-                    _,
-                ) => crate::seed_me::ledger::repair_check(
-                    &session, expected, &seed, &words, judgment, actor,
+                (Write::RepairCheck { edit, words }, _) => crate::seed_me::ledger::repair_check(
+                    &session,
+                    edit.expected,
+                    &edit.seed,
+                    (&edit.target, edit.method, &words),
+                    actor,
                 )
                 .map_err(Refusal::Refused),
                 (Write::Keep { id, reason }, Some(expected)) => {
@@ -1346,19 +1351,9 @@ impl Opened {
             .map_or(&self.typed, |(_, words)| words)
             .text()
             .to_owned();
-        if let Act::RepairCheck {
-            expected,
-            seed,
-            judgment,
-        } = act
-        {
+        if let Act::RepairCheck(edit) = act {
             self.write(
-                Write::RepairCheck {
-                    expected,
-                    seed,
-                    words,
-                    judgment,
-                },
+                Write::RepairCheck { edit, words },
                 "Saving your check. No model runs.",
             );
             return;
@@ -1409,7 +1404,7 @@ impl Opened {
         let folder = folder.unwrap_or_default();
         let feedback = self.feedback.take();
         let (work, doing) = match act {
-            Act::RepairCheck { .. } => unreachable!("handled before model work"),
+            Act::RepairCheck(_) => unreachable!("handled before model work"),
             Act::Respond {
                 id,
                 expected,
@@ -1695,11 +1690,28 @@ fn render_open(
             Text::default(),
         ),
         Reading::Done(Ok(shaping)) => {
-            let top = match &shaping.stage {
-                Shaped::Drafted {
-                    revision,
-                    text: Some(seed),
-                } => Some(seed_view(seed, revision.as_deref(), palette)),
+            let editing_check = match &open.aside {
+                Some((Aside::RepairCheck(edit), _)) => Some(&edit.target),
+                _ => None,
+            };
+            let top = match (&shaping.stage, editing_check) {
+                (_, Some(check)) => Some(Text::styled(
+                    format!("Edit check {}\n\n{}", check.index + 1, check.statement()),
+                    palette.ink,
+                )),
+                (
+                    Shaped::Drafted {
+                        revision,
+                        text: Some(seed),
+                    },
+                    _,
+                ) => Some(seed_view(
+                    seed,
+                    revision.as_deref(),
+                    shaping,
+                    agent && !held,
+                    palette,
+                )),
                 _ => shaping.goal.as_deref().map(|goal| {
                     Text::styled(goal.lines().next().unwrap_or("").to_owned(), palette.ink)
                 }),
@@ -1814,7 +1826,7 @@ fn render_open(
                 input.lines.push(Line::styled(note.clone(), palette.muted));
             }
             let mut reading = top.unwrap_or_default();
-            if matches!(shaping.stage, Shaped::Drafted { .. }) {
+            if editing_check.is_none() && matches!(shaping.stage, Shaped::Drafted { .. }) {
                 reading.lines.push(Line::default());
                 reading
                     .lines
@@ -1854,7 +1866,9 @@ fn render_open(
                 reading.lines.extend(said.lines);
                 (reading, input)
             };
-            if matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. }) {
+            if editing_check.is_none()
+                && matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. })
+            {
                 reading.lines.push(Line::default());
                 reading
                     .lines
@@ -1885,6 +1899,7 @@ fn render_open(
         ),
         None => (Text::default(), input),
     };
+    let main_draft = open.aside.is_none();
     let editor = split.map(|_| {
         if let Some(folder) = &mut open.choosing {
             folder
@@ -1913,6 +1928,7 @@ fn render_open(
     *scroll = (*scroll).min(read_rows.saturating_sub(height));
     if height > 0
         && open.read_end.is_none()
+        && main_draft
         && *scroll >= read_rows.saturating_sub(height)
         && let Reading::Done(Ok(shaping)) = &open.reading
         && matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. })
@@ -1976,34 +1992,99 @@ fn render_open(
     (read_rows > height, height)
 }
 
-/// The seed draft for reading: a muted `Seed draft rN` header in place of the file's `status:`
-/// and `revision:` lines, headings bold without their `#` marks, and acceptance checks without
-/// Tinkery's Markdown escapes. Every other line is shown as written. Display only: the file is
-/// never changed.
-fn seed_view(seed: &str, revision: Option<&str>, palette: Palette) -> Text<'static> {
+/// Review the proposed checks first. Stored seed bytes and artifact order do not change.
+fn seed_view(
+    seed: &str,
+    revision: Option<&str>,
+    shaping: &Shaping,
+    editable: bool,
+    palette: Palette,
+) -> Text<'static> {
     let mut lines = vec![
         Line::styled(
-            revision.map_or_else(|| "Seed draft".to_owned(), |r| format!("Seed draft {r}")),
+            revision.map_or_else(
+                || "Tink Contract".to_owned(),
+                |r| format!("Tink Contract {r}"),
+            ),
             palette.muted,
         ),
         Line::default(),
     ];
-    let seed = match seed.split_once("\n## Acceptance criteria\n") {
+    let (before, criteria, after) = match seed.split_once("\n## Acceptance criteria\n") {
         Some((before, section)) => {
             let end = section.find("\n## ").map_or(section.len(), |end| end + 1);
-            format!(
-                "{before}\n{}{}",
-                crate::seed_me::ledger::readable_acceptance(&format!(
-                    "## Acceptance criteria\n{}",
-                    &section[..end]
-                )),
-                &section[end..]
-            )
+            (before, Some(&section[..end]), &section[end..])
         }
-        None => seed.to_owned(),
+        None => (seed, None, ""),
     };
+    if let Some(criteria) = criteria {
+        lines.push(Line::styled(
+            "Pass/fail checks (proposed)",
+            palette.ink.bold(),
+        ));
+        if shaping.checks.is_empty() {
+            let readable = crate::seed_me::ledger::readable_acceptance(criteria);
+            lines.extend(Text::styled(readable.trim_end().to_owned(), palette.ink).lines);
+            lines.push(Line::default());
+        } else {
+            for check in &shaping.checks {
+                let n = check.index + 1;
+                lines.extend(
+                    Text::styled(format!("{n}. {}", check.statement()), palette.ink.bold()).lines,
+                );
+                if let Some(gap) = check.gap() {
+                    let edit = if editable {
+                        format!("  F1: Edit check {n}.")
+                    } else {
+                        String::new()
+                    };
+                    lines.push(Line::styled(
+                        format!("{}.{edit}", gap.missing()),
+                        palette.ink,
+                    ));
+                } else if editable {
+                    lines.push(Line::styled(format!("F1: Edit check {n}."), palette.muted));
+                }
+                if let Some(words) = check.words() {
+                    let method = match check.method() {
+                        CheckMethod::Command => "Command",
+                        CheckMethod::Manual => "Manual steps",
+                    };
+                    lines.extend(Text::styled(format!("{method}: {words}"), palette.ink).lines);
+                }
+                if let Some(cwd) = check.cwd() {
+                    lines.push(Line::styled(format!("From: {cwd}"), palette.muted));
+                }
+                if let Some(expected) = check.expected() {
+                    lines.extend(Text::styled(format!("Pass: {expected}"), palette.ink).lines);
+                }
+                if let Some(failure) = shaping
+                    .failure_cases
+                    .get(check.index)
+                    .filter(|case| case.statement == check.statement())
+                {
+                    lines.extend(
+                        Text::styled(format!("Must fail: {}", failure.case), palette.ink).lines,
+                    );
+                }
+                if let Some(prerequisite) = check.prerequisite() {
+                    lines.extend(
+                        Text::styled(
+                            format!("Needed before running: {prerequisite}"),
+                            palette.muted,
+                        )
+                        .lines,
+                    );
+                }
+                lines.push(Line::default());
+            }
+        }
+    }
     let mut header = true;
-    for line in seed.trim_end_matches('\n').split('\n') {
+    for line in before
+        .lines()
+        .chain(after.trim_end_matches('\n').split_terminator('\n'))
+    {
         header &= !line.trim().is_empty();
         if header && (line.starts_with("status:") || line.starts_with("revision:")) {
             continue;
@@ -2297,7 +2378,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             if text.is_none() {
                 lines.push(Line::styled(
                     match revision {
-                        Some(r) => format!("Seed draft {r} is waiting for you to confirm it."),
+                        Some(r) => format!("Tink Contract {r} is waiting for you to confirm it."),
                         None => "A seed draft is waiting for you to confirm it.".into(),
                     },
                     palette.ink,
@@ -2390,7 +2471,8 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
         let style = if calm { palette.muted } else { palette.ink };
         gap(&mut input);
         input.push(Line::styled(label.to_owned(), style));
-        if acts && !calm && matches!(shaping.stage, Shaped::Drafted { .. }) {
+        if label == "your words" && acts && !calm && matches!(shaping.stage, Shaped::Drafted { .. })
+        {
             input.push(Line::default());
             input.push(Line::styled(
                 "Confirming the seed is not approval to build.",

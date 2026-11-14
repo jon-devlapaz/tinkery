@@ -31,8 +31,10 @@ pub struct Shaping {
     pub teach_back: Vec<String>,
     /// The single eligible deferred prerequisite, offered only while Waiting.
     pub deferred: Option<super::ledger::DeferredPrerequisite>,
-    /// First provisional requiring a command or operator judgment before confirmation.
-    pub commandless_check: Option<String>,
+    /// The exact draft checks, in the order shown.
+    pub(crate) checks: Vec<super::ledger::DraftCheck>,
+    /// Proposed failure cases from the review of these exact draft bytes.
+    pub(crate) failure_cases: Vec<super::ledger::FailureCase>,
     /// The human sign-off the draft's or ready seed's judged checks require, if any.
     pub signoff: Option<String>,
 }
@@ -191,23 +193,31 @@ fn read_session(session: &Path) -> Result<(Shaping, Option<super::retry::Base>),
     if matches!(shaping.stage, Shaped::Ready { .. }) && status["handoff"]["operator"] == "agent" {
         shaping.confirmation_note = Some("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0 or newer; this is not operator confirmation or implementation approval.".into());
     }
-    if matches!(shaping.stage, Shaped::Drafted { .. } | Shaped::Ready { .. })
+    if matches!(shaping.stage, Shaped::Ready { .. })
         && let Ok(records) = super::ledger::read_checks(session)
     {
-        if matches!(shaping.stage, Shaped::Drafted { .. }) {
-            shaping.commandless_check =
-                super::ledger::commandless_check(&records).map(str::to_owned);
-        }
         shaping.signoff = super::ledger::human_signoff(&records);
     }
     if let Shaped::Drafted { text, revision } = &mut shaping.stage {
         *text = super::read_seed_text(&session.join("seed-contract.md")).ok();
         if let (Some(seed), Some(revision)) = (text.as_ref(), revision.as_ref()) {
+            if let Ok(records) = super::ledger::read_checks(session)
+                && super::ledger::checks_block(&records).is_ok_and(|block| seed.contains(&block))
+            {
+                shaping.signoff = super::ledger::human_signoff(&records);
+                shaping.checks = super::ledger::draft_checks(&records).collect();
+            }
             shaping.teach_back = super::ledger::teach_back_report(&saved, revision, seed);
-            shaping.confirmation.splice(
-                0..0,
-                super::ledger::completion_report(&saved, revision, seed),
-            );
+            let review = if !shaping.checks.is_empty()
+                && let Some(Ok(typed)) = super::ledger::completion_review(&saved, revision, seed)
+            {
+                let evidence = typed.supporting_lines();
+                shaping.failure_cases = typed.failure_cases;
+                evidence
+            } else {
+                super::ledger::completion_report(&saved, revision, seed)
+            };
+            shaping.confirmation.splice(0..0, review);
         }
     }
     Ok((shaping, retry))
@@ -272,7 +282,8 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         confirmation: Vec::new(),
         teach_back: Vec::new(),
         deferred: None,
-        commandless_check: None,
+        checks: vec![],
+        failure_cases: vec![],
         signoff: None,
     };
     let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
