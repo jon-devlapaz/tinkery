@@ -230,7 +230,9 @@ def journey(width, height, case, no_color=False, operator='human'):
                         assert action not in flat(), screen.text()
                     send(b'\x1b', HELD)
                     send(b'x', HELD)
-                    assert 'your answer' not in flat() and 'your words' not in flat(), screen.text()
+                    # Check the editor titles, not the question's explanatory text.
+                    titles = [line.strip() for line in screen.text().splitlines()]
+                    assert 'your answer' not in titles and 'your words' not in titles, screen.text()
                     assert files(sessions) == before, 'A held Shape wrote'
                 if case == 'drafted':
                     assert 'status: draft' not in screen.text() and 'Tink Contract r1' in screen.text()
