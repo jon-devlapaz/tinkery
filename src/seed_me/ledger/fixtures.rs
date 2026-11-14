@@ -50,7 +50,7 @@ pub(crate) fn confirmed(directory: &Path, goal: &str, revision: &str) {
     ledger.set("nodes", Value::Array(vec![node]));
     fs::write(directory.join("ledger.json"), ledger.pretty().unwrap()).unwrap();
     let records =
-        Value::parse(r#"[{"statement":"TEST exact café  ","kind":"judge","source":"TEST"}]"#)
+        Value::parse(r#"[{"statement":"TEST exact café  ","kind":"judge","source":"TEST","how_to_judge":"TEST exact café  "}]"#)
             .unwrap();
     set_checks(directory, &records).unwrap();
     let mut seed = format!("status: draft\n# TEST\nrevision: {revision}\n\n");

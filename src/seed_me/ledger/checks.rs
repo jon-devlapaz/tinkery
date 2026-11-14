@@ -86,13 +86,113 @@ pub fn validate_checks(records: &Value) -> Result<()> {
     Ok(())
 }
 
-/// The first provisional check needing an operator command or judgment before confirmation.
-pub(crate) fn commandless_check(records: &Value) -> Option<&str> {
+/// The method a draft check needs before confirmation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CheckMethod {
+    Command,
+    Manual,
+}
+
+impl CheckMethod {
+    /// The plain-language warning shared by review and confirmation.
+    pub(crate) fn missing(self) -> &'static str {
+        match self {
+            Self::Command => "Missing command",
+            Self::Manual => "Missing manual steps",
+        }
+    }
+
+    fn field(self) -> &'static str {
+        match self {
+            Self::Command => "cmd",
+            Self::Manual => "how_to_judge",
+        }
+    }
+}
+
+/// One displayed check and the original record it must still match when edited.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct DraftCheck {
+    /// Position in the reviewed record list.
+    pub(crate) index: usize,
+    record: Value,
+}
+
+impl DraftCheck {
+    /// The operator-facing acceptance statement, unchanged.
+    pub(crate) fn statement(&self) -> &str {
+        self.record["statement"].string().unwrap()
+    }
+
+    /// The kind of verification this record calls for.
+    pub(crate) fn method(&self) -> CheckMethod {
+        if self.record["kind"].is("judge") {
+            CheckMethod::Manual
+        } else {
+            CheckMethod::Command
+        }
+    }
+
+    /// The current method words, exactly as recorded.
+    pub(crate) fn words(&self) -> Option<&str> {
+        self.record
+            .get(self.method().field())
+            .and_then(Value::string)
+    }
+
+    /// The missing method that prevents confirmation, if any.
+    pub(crate) fn gap(&self) -> Option<CheckMethod> {
+        self.words().is_none().then(|| self.method())
+    }
+
+    /// What a passing automated check demonstrates.
+    pub(crate) fn expected(&self) -> Option<&str> {
+        self.record.get("expect").and_then(Value::string)
+    }
+
+    /// What must exist before a provisional check can run.
+    pub(crate) fn prerequisite(&self) -> Option<&str> {
+        self.record.get("missing").and_then(Value::string)
+    }
+
+    /// The repository-relative folder for the command.
+    pub(crate) fn cwd(&self) -> Option<&str> {
+        self.record.get("cwd").and_then(Value::string)
+    }
+
+    pub(super) fn edit(&self, record: &mut Value, method: CheckMethod, words: &str) -> Result<()> {
+        require(
+            *record == self.record,
+            "The selected check changed. Read it again before editing.",
+        )?;
+        if method == self.method() {
+            record.set(method.field(), words.into());
+        } else {
+            require(
+                method == CheckMethod::Manual && self.gap() == Some(CheckMethod::Command),
+                "Only a provisional without a command can become a human judgment here.",
+            )?;
+            *record = super::value::object(&[
+                ("statement", record["statement"].clone()),
+                ("kind", "judge".into()),
+                ("source", record["source"].clone()),
+                (method.field(), words.into()),
+            ]);
+        }
+        Ok(())
+    }
+}
+
+/// The editable cards in ledger order, from validated records.
+pub(crate) fn draft_checks(records: &Value) -> impl Iterator<Item = DraftCheck> + '_ {
     records
         .items()
         .iter()
-        .find(|r| r["kind"].is("provisional") && !r.has("cmd"))
-        .and_then(|r| r["statement"].string())
+        .enumerate()
+        .map(|(index, record)| DraftCheck {
+            index,
+            record: record.clone(),
+        })
 }
 
 /// The human sign-off a seed's judged checks require, whatever their how-to-judge words say;

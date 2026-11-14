@@ -22,7 +22,7 @@ def journey(width, height, case):
             if recoverable:
                 run.wait('F2 look into the next question')
                 before = helper.load(session)
-                run.send(F2, 'Seed draft r1')
+                run.send(F2, 'Tink Contract r1')
                 assert helper.read_checks(session) == SEED['checks']
                 assert helper.load(session)['nodes'][1]['answer'] == before['nodes'][1]['answer']
                 assert (session / 'seed-contract.md').exists()

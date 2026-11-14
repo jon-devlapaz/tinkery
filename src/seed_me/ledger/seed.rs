@@ -549,9 +549,13 @@ pub(super) fn confirmed_as(
     require_seed_body(directory, "cannot confirm")?;
     require_seed_decisions(directory, ledger, "cannot confirm")?;
     let records = checks::require_seed_checks(directory, ledger, false)?;
-    if let Some(statement) = checks::commandless_check(&records) {
+    if let Some((check, gap)) =
+        checks::draft_checks(&records).find_map(|check| check.gap().map(|gap| (check, gap)))
+    {
         return Err(format!(
-            "Cannot confirm: \"{statement}\" has no command. F1: Supply a check command, or Make it a human judgment with your how-to-judge words. Nothing was confirmed."
+            "Cannot confirm: check {}. {}. Nothing was confirmed.",
+            check.index + 1,
+            gap.missing()
         ));
     }
 

@@ -43,7 +43,7 @@ fn fixture(goal: &str, body: &str) -> (tempfile::TempDir, PathBuf) {
     )
     .unwrap();
     let checks = Value::from(
-        serde_json::json!([{"statement":"TEST keeps originals", "kind":"judge", "source":"TEST fixture"}]),
+        serde_json::json!([{"statement":"TEST keeps originals", "kind":"judge", "source":"TEST fixture", "how_to_judge":"Check that the originals remain intact."}]),
     );
     ledger::set_checks(&session, &checks).unwrap();
     let seed = format!(
@@ -121,7 +121,7 @@ fn opened(session: &Path) -> Shape {
     loop {
         shape.tick();
         let shown = screen(&mut shape, 80, 24, 20);
-        if shown.contains("Seed draft r1") || shown.contains("Too long to show") {
+        if shown.contains("Tink Contract r1") || shown.contains("Too long to show") {
             break;
         }
         assert!(Instant::now() < deadline, "TEST seed never loaded");

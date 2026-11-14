@@ -472,17 +472,17 @@ pub fn set_checks(directory: &Path, records: &Value) -> Result<Value, String> {
     ]))
 }
 
-/// Repair the first commandless provisional in the exact displayed draft, without a model.
+/// Repair the selected check in the exact displayed draft, without a model.
 /// Preserve the statement and typed words; stale inputs and non-drafts refuse before writes.
-pub fn repair_check(
+pub(crate) fn repair_check(
     directory: &Path,
     expected: u64,
     seed: &str,
-    words: &str,
-    judgment: bool,
+    edit: (&super::checks::DraftCheck, super::checks::CheckMethod, &str),
     actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<(), String> {
     crate::think_record::Actor::authorize(actor)?;
+    let (target, method, words) = edit;
     super::require(
         !words.trim().is_empty() && !words.contains('\0'),
         "Type the check command or how-to-judge words first.",
@@ -496,7 +496,7 @@ pub fn repair_check(
     super::require(ledger["status"].is("active"), "ended session is read-only")?;
     let path = directory.join(super::seed::FILE);
     super::require(
-        std::fs::read_to_string(&path).map_err(|e| e.to_string())? == seed,
+        super::super::read_seed_text(&path).map_err(|e| e.to_string())? == seed,
         "The draft changed. Read it again before changing a check.",
     )?;
     super::require(
@@ -506,21 +506,11 @@ pub fn repair_check(
     let records = super::checks::require_seed_checks(directory, &ledger, false)?;
     let mut items = records.items().to_vec();
     let record = items
-        .iter_mut()
-        .find(|r| r["kind"].is("provisional") && !r.has("cmd"))
-        .ok_or("No provisional check needs a command or judgment.")?;
-    if judgment {
-        *record = super::value::object(&[
-            ("statement", record["statement"].clone()),
-            ("kind", "judge".into()),
-            ("source", record["source"].clone()),
-            ("how_to_judge", words.into()),
-        ]);
-    } else {
-        record.set("cmd", words.into());
-    }
+        .get_mut(target.index)
+        .ok_or("The selected check is no longer in the draft.")?;
+    target.edit(record, method, words)?;
     let repaired = Value::Array(items);
-    super::checks::validate_checks(&repaired)?;
+    super::checks::validate_goal_checks(ledger["goal"].string().unwrap_or(""), &repaired)?;
     let old = super::checks::checks_block(&records)?;
     let new = super::checks::checks_block(&repaired)?;
     super::require(

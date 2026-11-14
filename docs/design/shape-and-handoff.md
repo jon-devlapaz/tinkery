@@ -384,7 +384,7 @@ The screen starts with the confirmed goal's first line in ink:
 | --- | --- |
 | Current question | Show a muted label, jade question, `What I found:` for only the first supported finding (or legacy question receipt), and italic `Suggestion:`. So far holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
 | No question or seed | If the saved record explicitly lacks a success criterion: `The saved goal leaves Done when open.` Otherwise: `Shape hasn't asked its next question yet.` |
-| Draft seed | Draft replaces goal under muted `Seed draft rN`; see [screen](#the-screen) |
+| Draft seed | Draft replaces goal under muted `Tink Contract rN`; see [screen](#the-screen) |
 | Confirmed seed verified by `status`, active or completed | `Seed ready` and revision, then `Next: Approve copies the command that starts the build.`; completed adds a muted note that nothing can change |
 | Unverifiable confirmation | Tinkery's reason, e.g. changed seed |
 | Practice, stopped, unrecognised | Name that state plainly. |
@@ -448,10 +448,10 @@ creating an SDLC run stays outside Shape.
 - Running steps keep label, question and typed words muted, with one status
   (`Saving your answer.`, then `Answer saved. Looking in NAME for the next question.`),
   elapsed seconds and `esc stop`. F1 says a step is running.
-- Draft display replaces file `status:` and `revision:` lines with `Seed draft rN` and
-  shows `#` headings bold. Acceptance checks drop the Markdown escapes Tinkery wrote
-  for them, so they read as their records say. All other lines remain as written;
-  display never edits `seed-contract.md`.
+- Shape opens **Tink Contract rN** with proposed pass/fail checks. Each card shows its
+  verification method, expected result and any proposed failure case from the review of
+  those exact draft bytes. The remaining draft and supporting evidence follow.
+  This display order changes neither `seed-contract.md` nor `tinkery seed` commands.
 
 ### Answering and confirming
 
@@ -666,14 +666,15 @@ Shape uses Think's
   unconfirmed records, never a verified handoff.
 - Agent actions require `--operator agent` and [are recorded as the agent's](think.md#confirmation-attribution-185);
   seed confirmation never claims a human keypress.
-- A commandless provisional check blocks confirmation for both operators. The refusal names the
-  check; F1 offers **Supply a check command** or **Make it a human judgment** without a model call.
-  The first repair keeps the command exactly as typed; the second keeps the statement and stores
-  the operator's exact how-to-judge words as an attested `judge` item. Each repairs the first such
-  check in ledger order; read the changed draft before confirming. The judgment form, the
-  draft and the ready seed say a person signs each judged check off after seeing the built
-  result and agent evidence can't (#790); that sign-off is SDLC's human mark, never Shape's.
-  Proposals with a command confirm as before. This rule belongs to the ledger (architecture diagnostics 3 and 6).
+- Draft and redraft cards flag a missing command or manual steps before confirmation.
+  The ledger uses the same rule to refuse confirmation. F1 **Edit check N** opens
+  that check with its current method text. F2 saves the exact words without a model
+  call. The same check stays editable, even if others still need work.
+  A provisional without a command also offers **Make check N a judgment**.
+  A proposal with a command can still need a test before it can run.
+  Read the changed draft before confirming. The editor, draft and ready seed say a person
+  signs off on judgments after seeing the built result. Shape records no such sign-off (#790).
+  The ledger owns readiness and checks the selected record before saving (diagnostics 3 and 6).
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
   As in Think, only the exact word `confirm` confirms (#614): anything else may be a correction,
   so F2 says `Type confirm, or F1 Revise the draft. Nothing was confirmed.`, keeping the words.

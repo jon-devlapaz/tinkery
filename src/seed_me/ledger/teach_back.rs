@@ -186,41 +186,64 @@ pub(super) fn skip(
     )
 }
 
+/// The drafting review for these exact draft bytes, if recorded.
+pub(crate) fn completion_review(
+    ledger: &Value,
+    revision: &str,
+    seed: &str,
+) -> Option<Result<CompletionReview, &'static str>> {
+    let checked = identity(revision, seed, "Review");
+    let receipt = receipts(ledger)
+        .iter()
+        .rev()
+        .find(|r| r["checked"].is(&checked) && r["artifact"].is("tinkery:review/completed"))?;
+    Some(
+        serde_json::from_str(receipt["observed"].string().unwrap_or(""))
+            .map_err(|_| "Drafting step guess: saved review could not be read. Retry the step."),
+    )
+}
+
 /// Display the drafting step's last review for these exact bytes, always labelled as guesses.
 /// Stored words stay unchanged; no line claims that a proposed check ran.
 pub fn completion_report(ledger: &Value, revision: &str, seed: &str) -> Vec<String> {
-    let checked = identity(revision, seed, "Review");
-    let Some(receipt) = receipts(ledger)
-        .iter()
-        .rev()
-        .find(|r| r["checked"].is(&checked) && r["artifact"].is("tinkery:review/completed"))
-    else {
+    let Some(review) = completion_review(ledger, revision, seed) else {
         return Vec::new();
     };
-    let Ok(review) =
-        serde_json::from_str::<CompletionReview>(receipt["observed"].string().unwrap_or(""))
-    else {
-        return vec!["Drafting step guess: saved review could not be read. Retry the step.".into()];
-    };
-    let mut lines = Vec::new();
-    for decided in review.decided {
-        lines.push(format!("Drafting step guess — decided: {decided}"));
+    match review {
+        Ok(review) => review.report_lines(),
+        Err(notice) => vec![notice.into()],
     }
-    if review.done.is_empty() {
-        lines.push("Drafting step guess: Nothing observed done.".into());
-    } else {
-        for done in review.done {
-            lines.push(format!("Drafting step guess — observed done: {done}"));
+}
+
+impl CompletionReview {
+    /// The complete legacy report, including the proposed failure cases.
+    pub(crate) fn report_lines(&self) -> Vec<String> {
+        let mut lines = self.supporting_lines();
+        if !self.failure_cases.is_empty() {
+            lines.push("Drafting step guess:".into());
         }
+        for failure in &self.failure_cases {
+            lines.push(format!("Must fail: {}", failure.case));
+            lines.push(format!("  Check: {}", failure.statement));
+        }
+        lines
     }
-    if !review.failure_cases.is_empty() {
-        lines.push("Drafting step guess:".into());
+
+    /// Drafting guesses about decisions and observed work, separate from proposed fail cases.
+    pub(crate) fn supporting_lines(&self) -> Vec<String> {
+        let mut lines = Vec::new();
+        for decided in &self.decided {
+            lines.push(format!("Drafting step guess — decided: {decided}"));
+        }
+        if self.done.is_empty() {
+            lines.push("Drafting step guess: Nothing observed done.".into());
+        } else {
+            for done in &self.done {
+                lines.push(format!("Drafting step guess — observed done: {done}"));
+            }
+        }
+        lines
     }
-    for failure in review.failure_cases {
-        lines.push(format!("Must fail: {}", failure.case));
-        lines.push(format!("  Check: {}", failure.statement));
-    }
-    lines
 }
 
 /// Display the last completed comparison for these exact draft bytes, without judging its words.

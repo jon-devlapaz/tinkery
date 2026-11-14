@@ -21,7 +21,8 @@ fn done(stage: Shaped) -> Shape {
         confirmation: vec![],
         teach_back: vec![],
         deferred: None,
-        commandless_check: None,
+        checks: vec![],
+        review: None,
         signoff: None,
         open: vec![],
         decided: vec![
@@ -328,7 +329,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
                 revision: Some("r2".into()),
                 text: None,
             },
-            "Seed draft r2 is waiting for you to confirm it.",
+            "Tink Contract r2 is waiting for you to confirm it.",
         ),
         (
             Shaped::Ready {
@@ -893,7 +894,7 @@ fn a_draft_shows_acceptance_checks_as_written_and_other_lines_unchanged() {
     .with_agent(Some(agent(1)));
     let text = screen(&mut shape, 100, 30, true);
     assert!(
-        text.contains("  Acceptance criteria\n\n  Visiting `/foo` returns 404\n  check: `grep -c '\\*' TEST-file`\n"),
+        text.contains("  Pass/fail checks (proposed)\n\n  Visiting `/foo` returns 404\n  check: `grep -c '\\*' TEST-file`\n"),
         "{text}"
     );
     assert!(
@@ -915,7 +916,9 @@ fn a_draft_shows_the_seed_and_f2_needs_the_operators_own_words() {
     assert!(text.contains("TEST seed body."), "{text}");
     assert!(!text.contains("Must not: Run agents."), "{text}");
     assert!(
-        text.contains("  Seed draft r2\n\n  Seed: TEST\n\n  You are confirming\n  TEST seed body."),
+        text.contains(
+            "  Tink Contract r2\n\n  Seed: TEST\n\n  You are confirming\n  TEST seed body."
+        ),
         "{text}"
     );
     for raw in ["status:", "revision:", "#"] {
@@ -1013,7 +1016,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         .as_array_mut()
         .unwrap()
         .push(serde_json::json!({
-            "statement":"I see the next question.","kind":"judge","source":"TEST confirmed goal"
+            "statement":"I see the next question.","kind":"judge","source":"TEST confirmed goal","how_to_judge":"Inspect the next question."
         }));
     assert!(
         answering::draft_seed(
@@ -1157,17 +1160,21 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     assert!(
         draft.contains("You are confirming the goal: create a software version of Stacker.\r\n")
     );
-    while crate::seed_me::shaping::read(&receipt.session)
+    while let Some(check) = crate::seed_me::shaping::read(&receipt.session)
         .unwrap()
-        .commandless_check
-        .is_some()
+        .checks
+        .into_iter()
+        .find(|check| check.gap().is_some())
     {
         crate::seed_me::ledger::repair_check(
             &receipt.session,
             version,
             &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
-            "TEST operator inspects this requirement.",
-            true,
+            (
+                &check,
+                CheckMethod::Manual,
+                "TEST operator inspects this requirement.",
+            ),
             None,
         )
         .unwrap();
@@ -1262,12 +1269,7 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
     .unwrap();
     let draft = shaping::read(&receipt.session).unwrap();
     assert_eq!(
-        draft
-            .confirmation
-            .iter()
-            .take(6)
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
+        draft.review_lines(false).take(6).collect::<Vec<_>>(),
         [
             "Drafting step guess: Nothing observed done.",
             "Drafting step guess:",
@@ -1562,7 +1564,8 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
             .as_array()
             .unwrap()
             .iter()
-            .map(|c| format!("Check: {}", c["statement"].as_str().unwrap())),
+            .enumerate()
+            .map(|(i, c)| format!("{}. {}", i + 1, c["statement"].as_str().unwrap())),
     );
     for (width, height) in [(100, 30), (80, 24)] {
         let mut view = done(draft.stage.clone()).with_agent(Some(agent.clone()));
@@ -2086,7 +2089,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
     };
     assert!(!receipt.session.join("seed-contract.md").exists());
     let words_json = serde_json::to_string(&words).unwrap();
-    let checks = r#"[{"statement":"I see the next question.","kind":"judge","source":"TEST confirmed goal"}]"#;
+    let checks = r#"[{"statement":"I see the next question.","kind":"judge","source":"TEST confirmed goal","how_to_judge":"Inspect the next question."}]"#;
     let program = temp.path().join("TEST-pi");
     fs::write(&program, format!(r##"#!/usr/bin/env python3
 import json, pathlib, sys
@@ -2723,7 +2726,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         &session,
         version,
         &prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt")),
-        &serde_json::json!([{"statement":"It ends.","kind":"judge","source":"TEST confirmed goal"}]),
+        &serde_json::json!([{"statement":"It ends.","kind":"judge","source":"TEST confirmed goal","how_to_judge":"Inspect the ended state."}]),
         &[],
         temp.path(),
         None,

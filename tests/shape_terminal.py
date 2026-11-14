@@ -67,7 +67,8 @@ def make(root, name, goal=GOAL, question=True):
 
 
 def seed(session, confirm=False, title='TEST seed'):
-    helper.set_checks(session, [{'statement': 'Keep records local.', 'kind': 'judge', 'source': 'TEST fixture'}])
+    helper.set_checks(session, [{'statement': 'Keep records local.', 'kind': 'judge', 'source': 'TEST fixture',
+                                 'how_to_judge': 'Keep records local.'}])
     body = (f'status: draft\n# Seed: {title}\nrevision: r1\n## You are confirming\nKeep records local.\n\n'
             '## Now  (the agent keeps these current)\nTEST draft.\n\n## Goal\nKeep records local.\n\n'
             + helper.decisions_block(helper.load(session))
@@ -197,7 +198,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 expected = {
                     'question': 'Where records live Keep records local or synced?',
                     'p051': P051_QUESTION,
-                    'drafted': 'Seed draft r1' if held else 'Confirming the seed is not approval to build.',
+                    'drafted': 'Tink Contract r1' if held else 'Confirming the seed is not approval to build.',
                     'ready': 'Seed ready: you confirmed r1, and it still matches.',
                     'stale': "Tinkery can't verify it: the seed changed after revision r1 was confirmed.",
                     'ended': 'This session has ended (stopped).',
@@ -232,7 +233,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                     assert 'your answer' not in flat() and 'your words' not in flat(), screen.text()
                     assert files(sessions) == before, 'A held Shape wrote'
                 if case == 'drafted':
-                    assert 'status: draft' not in screen.text() and 'Seed draft r1' in screen.text()
+                    assert 'status: draft' not in screen.text() and 'Tink Contract r1' in screen.text()
                 elif case != 'unreadable':
                     lines = GOAL.splitlines()
                     assert lines[0] in flat() and lines[1] not in flat(), screen.text()

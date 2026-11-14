@@ -15,7 +15,7 @@ def journey(width, height, changed):
         run = Run(root, width, height, budget=0, agent=True)
         try:
             run.open_shape()
-            run.wait('Seed draft r1')
+            run.wait('Tink Contract r1')
             run.read_until('End of seed', whole_line=True)
             words = 'confirm'
             run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', 'your words confirm')

@@ -151,7 +151,7 @@ def shape(root, env):
         send(b'no sample: TEST new game', 'no sample: TEST new game')
         send(b'\x1bOQ', 'Imagine this shipped and turned out wrong. What is the most likely reason?')
         send(b'TEST The sounds were missing.', 'TEST The sounds were missing.')
-        send(b'\x1bOQ', 'Seed draft r1')
+        send(b'\x1bOQ', 'Tink Contract r1')
         wait('pgup/dn read to end')
         send(b'confirm', 'your words confirm')
         # F2 confirms only a draft read to the end (#250).
@@ -159,11 +159,11 @@ def shape(root, env):
         os.write(master, b'\x1b[6~' * 40)
         wait('F2 confirm seed r1')
         # #739: the recorded r1 has two commandless provisionals; each needs a TEST command first.
-        for name in ('sounds', 'mechanics'):
-            send(b'\x1bOQ', 'Supply a check command, or Make it a human judgment')
+        for i, name in enumerate(('sounds', 'mechanics'), 2):
+            send(b'\x1bOQ', f'Cannot confirm: check {i}. Missing command.')
             send(b'\x1bOP', 'Right now')
-            wait('Supply a check command')
-            send(screen.pick('Supply a check command'), 'your check command')
+            wait(f'Edit check {i}')
+            send(screen.pick(f'Edit check {i}'), 'your check command')
             typed = f'python3 -m unittest tests.test_TEST_stacker_{name}'
             send(b'\x1b[200~' + typed.encode() + b'\x1b[201~', typed)
             send(b'\x1bOQ', 'Check saved. Read the changed draft, then confirm. No model ran.')
