@@ -84,7 +84,7 @@ pub fn new_goal(
 /// that `Action::Confirm` names, ready seed, or a plain other state). Read-only.
 pub fn show(session: &Path) -> Result<serde_json::Value, String> {
     let shaping = shaping::read(session)?;
-    let now = match shaping.stage {
+    let now = match &shaping.stage {
         Shaped::Question {
             id,
             title,
@@ -114,7 +114,7 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
             "stage": "draft", "revision": revision,
             "sha256": text.as_ref().map(|text| format!("{:x}", Sha256::digest(text.as_bytes()))),
             "text": text, "needs_check": shaping.checks.iter().find(|check| check.gap().is_some()).map(|check| check.statement()), "signoff": shaping.signoff,
-            "risks": shaping.confirmation,
+            "risks": shaping.review_lines(false).collect::<Vec<_>>(),
         }),
         Shaped::Ready { revision, ended } => {
             serde_json::json!({"stage": "ready", "revision": revision, "ended": ended})

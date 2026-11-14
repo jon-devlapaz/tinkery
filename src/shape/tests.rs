@@ -22,7 +22,7 @@ fn done(stage: Shaped) -> Shape {
         teach_back: vec![],
         deferred: None,
         checks: vec![],
-        failure_cases: vec![],
+        review: None,
         signoff: None,
         open: vec![],
         decided: vec![
@@ -1269,12 +1269,7 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
     .unwrap();
     let draft = shaping::read(&receipt.session).unwrap();
     assert_eq!(
-        draft
-            .confirmation
-            .iter()
-            .take(6)
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
+        draft.review_lines(false).take(6).collect::<Vec<_>>(),
         [
             "Drafting step guess: Nothing observed done.",
             "Drafting step guess:",

@@ -396,7 +396,7 @@ def full_journey(width, height):
             run.send(F2, 'Tink Contract r1')
             run.wait('Confirming the seed is not approval to build.')
             # The displayed card comes from Seed Me, not model-written criteria.
-            run.read_until('you judge: Inspect refusal output for private text.')
+            run.read_until('Manual steps: Inspect refusal output for private text.')
             # Inspect each page: the flag can be above the bottom viewport on either CI platform.
             run.read_until('citation not found: src/main.rs')
             run.wait('pgup/dn read to end')
@@ -1223,6 +1223,7 @@ def completion_review_display(width, height, done=False, replay_299=False):
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
             run.type('confirm')
             run.read_until('End of seed', whole_line=True)
+            assert 'Must fail:' not in run.flat(), run.screen.text()
             run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             print(f'Shape completion review display {"#299 exact replay" if replay_299 else "done" if done else "empty done"} passed at {width}x{height}: 1 stub call')

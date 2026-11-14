@@ -191,15 +191,16 @@ pub(crate) fn completion_review(
     ledger: &Value,
     revision: &str,
     seed: &str,
-) -> Option<Result<CompletionReview, serde_json::Error>> {
+) -> Option<Result<CompletionReview, &'static str>> {
     let checked = identity(revision, seed, "Review");
     let receipt = receipts(ledger)
         .iter()
         .rev()
         .find(|r| r["checked"].is(&checked) && r["artifact"].is("tinkery:review/completed"))?;
-    Some(serde_json::from_str(
-        receipt["observed"].string().unwrap_or(""),
-    ))
+    Some(
+        serde_json::from_str(receipt["observed"].string().unwrap_or(""))
+            .map_err(|_| "Drafting step guess: saved review could not be read. Retry the step."),
+    )
 }
 
 /// Display the drafting step's last review for these exact bytes, always labelled as guesses.
@@ -208,21 +209,26 @@ pub fn completion_report(ledger: &Value, revision: &str, seed: &str) -> Vec<Stri
     let Some(review) = completion_review(ledger, revision, seed) else {
         return Vec::new();
     };
-    let Ok(review) = review else {
-        return vec!["Drafting step guess: saved review could not be read. Retry the step.".into()];
-    };
-    let mut lines = review.supporting_lines();
-    if !review.failure_cases.is_empty() {
-        lines.push("Drafting step guess:".into());
+    match review {
+        Ok(review) => review.report_lines(),
+        Err(notice) => vec![notice.into()],
     }
-    for failure in review.failure_cases {
-        lines.push(format!("Must fail: {}", failure.case));
-        lines.push(format!("  Check: {}", failure.statement));
-    }
-    lines
 }
 
 impl CompletionReview {
+    /// The complete legacy report, including the proposed failure cases.
+    pub(crate) fn report_lines(&self) -> Vec<String> {
+        let mut lines = self.supporting_lines();
+        if !self.failure_cases.is_empty() {
+            lines.push("Drafting step guess:".into());
+        }
+        for failure in &self.failure_cases {
+            lines.push(format!("Must fail: {}", failure.case));
+            lines.push(format!("  Check: {}", failure.statement));
+        }
+        lines
+    }
+
     /// Drafting guesses about decisions and observed work, separate from proposed fail cases.
     pub(crate) fn supporting_lines(&self) -> Vec<String> {
         let mut lines = Vec::new();

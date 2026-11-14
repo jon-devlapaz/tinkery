@@ -25,7 +25,7 @@ pub struct Shaping {
     pub open: Vec<String>,
     /// Confirmation attribution and consumer requirements for a verified seed; not permission.
     pub confirmation_note: Option<String>,
-    /// Ledger-computed risks and byte-bound drafting guesses, displayed without recomputing them.
+    /// Ledger-computed risks, displayed without recomputing them.
     pub confirmation: Vec<String>,
     /// The ledger's latest completed teach-back for the exact draft, with display labels.
     pub teach_back: Vec<String>,
@@ -33,10 +33,33 @@ pub struct Shaping {
     pub deferred: Option<super::ledger::DeferredPrerequisite>,
     /// The exact draft checks, in the order shown.
     pub(crate) checks: Vec<super::ledger::DraftCheck>,
-    /// Proposed failure cases from the review of these exact draft bytes.
-    pub(crate) failure_cases: Vec<super::ledger::FailureCase>,
+    /// Drafting guesses bound to the exact draft, or a notice when the receipt was invalid.
+    pub(crate) review: Option<Result<super::ledger::CompletionReview, &'static str>>,
     /// The human sign-off the draft's or ready seed's judged checks require, if any.
     pub signoff: Option<String>,
+}
+
+impl Shaping {
+    /// The draft's proposed failure for this check if its statement still matches.
+    pub(crate) fn failure_case(&self, check: &super::ledger::DraftCheck) -> Option<&str> {
+        self.review
+            .as_ref()
+            .and_then(|review| review.as_ref().ok())
+            .and_then(|review| review.failure_cases.get(check.index))
+            .filter(|case| case.statement == check.statement())
+            .map(|case| case.case.as_str())
+    }
+
+    /// Drafting guesses followed by ledger risks. The screen may place cases beside their checks.
+    pub(crate) fn review_lines(&self, cases_in_cards: bool) -> impl Iterator<Item = String> + '_ {
+        let lines = match &self.review {
+            Some(Ok(review)) if cases_in_cards => review.supporting_lines(),
+            Some(Ok(review)) => review.report_lines(),
+            Some(Err(notice)) => vec![(*notice).into()],
+            None => vec![],
+        };
+        lines.into_iter().chain(self.confirmation.iter().cloned())
+    }
 }
 
 /// One settled decision: what was decided, the answer as recorded, and who settled it.
@@ -208,16 +231,7 @@ fn read_session(session: &Path) -> Result<(Shaping, Option<super::retry::Base>),
                 shaping.checks = super::ledger::draft_checks(&records).collect();
             }
             shaping.teach_back = super::ledger::teach_back_report(&saved, revision, seed);
-            let review = if !shaping.checks.is_empty()
-                && let Some(Ok(typed)) = super::ledger::completion_review(&saved, revision, seed)
-            {
-                let evidence = typed.supporting_lines();
-                shaping.failure_cases = typed.failure_cases;
-                evidence
-            } else {
-                super::ledger::completion_report(&saved, revision, seed)
-            };
-            shaping.confirmation.splice(0..0, review);
+            shaping.review = super::ledger::completion_review(&saved, revision, seed);
         }
     }
     Ok((shaping, retry))
@@ -283,7 +297,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         teach_back: Vec::new(),
         deferred: None,
         checks: vec![],
-        failure_cases: vec![],
+        review: None,
         signoff: None,
     };
     let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });

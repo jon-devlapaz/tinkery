@@ -1836,10 +1836,8 @@ fn render_open(
                         .lines
                         .extend(Text::styled(line.clone(), palette.ink).lines);
                 }
-                for line in &shaping.confirmation {
-                    reading
-                        .lines
-                        .extend(Text::styled(line.clone(), palette.ink).lines);
+                for line in shaping.review_lines(!shaping.checks.is_empty()) {
+                    reading.lines.extend(Text::styled(line, palette.ink).lines);
                 }
                 if let Some(signoff) = &shaping.signoff {
                     reading
@@ -2058,14 +2056,8 @@ fn seed_view(
                 if let Some(expected) = check.expected() {
                     lines.extend(Text::styled(format!("Pass: {expected}"), palette.ink).lines);
                 }
-                if let Some(failure) = shaping
-                    .failure_cases
-                    .get(check.index)
-                    .filter(|case| case.statement == check.statement())
-                {
-                    lines.extend(
-                        Text::styled(format!("Must fail: {}", failure.case), palette.ink).lines,
-                    );
+                if let Some(failure) = shaping.failure_case(check) {
+                    lines.extend(Text::styled(format!("Must fail: {failure}"), palette.ink).lines);
                 }
                 if let Some(prerequisite) = check.prerequisite() {
                     lines.extend(

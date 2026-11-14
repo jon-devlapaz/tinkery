@@ -88,6 +88,12 @@ def journey(agent):
         assert draft['stage'] == 'draft' and draft['revision'] == 'r1'
         seed = (Path(session) / 'seed-contract.md').read_text()
         assert draft['text'] == seed and draft['sha256'] == hashlib.sha256(seed.encode()).hexdigest()
+        shown = json.loads(run.ok('show', session, drafting=False))['now']
+        assert shown['risks'] == draft['risks']
+        cases = ['Drafting step guess:', 'Must fail: TEST wrong output must fail',
+                 '  Check: Refusals never show private text.']
+        start = shown['risks'].index(cases[0])
+        assert shown['risks'][start:start + len(cases)] == cases
         assert len(run.calls()) == 2
 
         # Confirming names the bytes that were read; anything else confirms nothing.
