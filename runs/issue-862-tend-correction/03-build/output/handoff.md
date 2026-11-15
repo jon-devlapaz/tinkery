@@ -2,7 +2,7 @@
 
 ## Situation
 
-The bounded correction implementation is ready for full verification. No provider calls or operator goals were used. Do not merge.
+The bounded correction implementation is implemented and fully checked; the final receipt is being refreshed after attestation. No provider calls or operator goals were used. Do not merge.
 
 ## Background
 
@@ -26,7 +26,7 @@ The legacy terminal case reconstructs #861's wire format with its actual committ
 
 The terminal case checks a correction changed after goal editing and again before pending publication. Neither stale goal can publish. Strict exploration cases reject v1 extra fields, v2 missing correction, an unknown version, and a missing pending correction. Complete variable input over 32 KiB refuses without another request.
 
-Final focused logs and rendered terminal screens are under this output directory. Full verification remains pending.
+Final focused logs and rendered terminal screens are under this output directory. The full configured check passed 1124 Rust tests, one ignored; 39 Node tests; all 85 Python files; formatting and Clippy. The first receipt awaited done-11 only. The final receipt is being refreshed after that evidence was attested.
 
 ## Reversion evidence
 
@@ -48,3 +48,7 @@ A maximum-length correction hid the input-limit refusal and Clear action. Critic
 `principle-build-the-lever` produced the repeatable correction terminal suite. `principle-prove-it-works` required durable file inspection and settled terminal screens. `writing-for-agents` kept the behavior contract in the existing handoff design. `unslop` kept product labels and documentation direct.
 
 Fake responses establish transfer mechanics, not relevance or usefulness. A human trial with different relevant goals and an unrelated case remains separately authorized work. Permission-based refusal requires a non-root process; the ordinary local user exercised it. No actual power-loss claim is made.
+
+## Reader limit
+
+Version dispatch parses JSON values before strict field validation. Unknown/required fields, version/tag mismatches, and duplicate origin entries refuse. Duplicate object keys follow JSON Value normalization rather than a new duplicate-key policy, consistent with the ledger parser. This is not tamper-proof storage.

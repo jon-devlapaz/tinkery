@@ -1,0 +1,7 @@
+{
+  "item": "done-10",
+  "result": "passed",
+  "evidence": "runs/issue-862-tend-correction/03-build/output/: Public PTY and shared saver tests cover the behavior. reversion-correction-input.log detects broken input identity/result reuse; normal journey checks exact request payload. reversion-correction-freshness.log detects stale pending publication.",
+  "candidate": "e9c3e2d43141364d1ed245e10656b1c60d6ce007e3f135f945601c8a203486dc",
+  "time_ns": 1794717251972757000
+}

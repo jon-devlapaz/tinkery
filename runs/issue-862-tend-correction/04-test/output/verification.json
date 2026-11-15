@@ -1,0 +1,41 @@
+{
+  "result": "awaiting-attestation",
+  "candidate": {
+    "head": "4ac17c86959c4bb6cac2668d32faa6167da2f047",
+    "tree": "e9c3e2d43141364d1ed245e10656b1c60d6ce007e3f135f945601c8a203486dc"
+  },
+  "inputs": "e6260160492e0a223a44bbb75d6d4fc963c8adaa21abafac68286e444b4bc3a5",
+  "policy": "e893f76c10a5f08ff1fae20602123ca351c5f439b6e0583a2284c03066ba9bc6",
+  "test_lock": null,
+  "checklist": "5497177162b7dcaab4460e7d688da57fd5a590ffe66f39d58b9dbfc6fe552ac9",
+  "manual_marks": {
+    "done-1": "305b9764b1e8d6b8658afc7a99e407d4371fd27e8d97848a290ec600cc137ab0",
+    "done-2": "b997941d3f27ae363a623ea112bde42aca6c8d8394e7da6335f582eefc964eae",
+    "done-3": "e5ebaf4b60316345f4131268da0392c5caaba4ec24aaa6f7cfbb9deea62f0d03",
+    "done-4": "970c7d43f0c07eaf30d667277d8945ad6320dfeba4a4a49739824191b00de3cc",
+    "done-5": "a0647b5ecebfb8342f60503678bb91cf07666b08602c3a57491b44a3f529a175",
+    "done-6": "795acc47300610a41db9095717cd256d45ea15c81acabc108102f51b1b30e0a7",
+    "done-7": "ad14d7394b398cd404a47d8b4f3f300f0a2ab4848e923d7b58afded7c45101af",
+    "done-8": "14a8a0bd325e9ab135f6f81766c3640e03349ea4dcd731dc61917886e4266141",
+    "done-9": "d2fc8bd674da9e4a7c1c7caea427d38d229bfbce9320b521a45307d9cf1ec50e",
+    "done-10": "8643e2c7a7836e8715fd08039e78279bc63302aa7aa6a244a3515ddfbd9c2966"
+  },
+  "pending_attestations": [
+    "done-11"
+  ],
+  "error": "Checklist incomplete: done-11 (mark them with: sdlc.py mark issue-862-tend-correction <id> passed --evidence \"...\")",
+  "checklist_items": {
+    "done-1": "attested",
+    "done-2": "attested",
+    "done-3": "attested",
+    "done-4": "attested",
+    "done-5": "attested",
+    "done-6": "attested",
+    "done-7": "attested",
+    "done-8": "attested",
+    "done-9": "attested",
+    "done-10": "attested",
+    "done-11": "pending"
+  },
+  "log": "4b610bd05993f672d3fb803427ca4c0f13f89d0408772e5bd7d12f7128584c08"
+}

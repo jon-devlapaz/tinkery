@@ -1,0 +1,7 @@
+{
+  "item": "done-4",
+  "result": "passed",
+  "evidence": "runs/issue-862-tend-correction/03-build/output/: focused-correction-terminal.log: Save/Replace/Clear update inputs; unchanged result reopening sends no request; stale Replace/Clear refuse.",
+  "candidate": "e9c3e2d43141364d1ed245e10656b1c60d6ce007e3f135f945601c8a203486dc",
+  "time_ns": 1794717251238547000
+}
