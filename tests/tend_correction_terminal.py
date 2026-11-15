@@ -36,8 +36,17 @@ def settle(term):
 
 def edit(term, words, expected='F2 save correction only'):
     flow.send(term,b'f',expected)
-    os.write(term.master,b'\x01\x0b')
-    os.write(term.master,b'\x1b[200~'+words.encode()+b'\x1b[201~')
+    # Let clear keys drain before a large paste. On Linux, mixing them can leave
+    # paste bytes unread after Crossterm returns keys from its first read chunk.
+    frame=term.screen.frames
+    assert os.write(term.master,b'\x01\x0b')==2
+    for code in flow.wait_output(term.master,term.process,term.screen.feed,time.monotonic()+15):
+        if term.screen.ready(frame): break
+        if code is not None: break
+    assert term.screen.ready(frame),f'Clear keys did not finish a frame:\n{term.screen.text()}'
+    paste=b'\x1b[200~'+words.encode()+b'\x1b[201~'
+    assert os.write(term.master,paste)==len(paste)
+    flow.wait(term,words.rstrip('\n').split('\n')[-1][:32])
 
 
 def save_correction(term, words=WORDS):

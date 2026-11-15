@@ -88,3 +88,13 @@ The full configured SDLC verification passed on 89b6509. It passed 1124 Rust tes
 The supervisor inspected the 80×24 capture and scrolled screens and found the repository, proposal, source context, and retained draft readable. Independent review of the repaired candidate remains the supervisor's next step. No push, PR, merge, or real model request occurred in this worker.
 
 The supervisor reproduced a CI-only test dependency in a depth-one clone: the old prompt Git object was unavailable. The legacy test now records its verified SHA256 with the #861 source commit. Legacy recovery passed with the fixed identity. CI fetch policy is unchanged.
+
+## Linux CI input diagnosis
+
+PR #863 CI failed at the oversized correction test on 135fd43. The screen had an empty editor and no refusal. A clean export reproduced that exact failure on Linux/aarch64 with the cached Rust 1.95 Debian image, Python 3.11, two CPUs, TEST roots, and fake responses. Locked dependencies missing from the Mac cache were fetched into a disposable TEST cache. Host tools and caches were unchanged.
+
+Temporary tracing showed a new completed frame for each editor opening. All 2061 paste bytes were written. The app received Ctrl-A and Ctrl-K, but neither the 2049-byte paste nor F2. A controlled combined write of 2066 bytes left exactly 1042 bytes unread at the terminal. Crossterm returned key events from its first 1024-byte read before draining the remaining input. A separate case waited for the clear-key frame, observed the full paste, and then received the same oversized refusal. See `linux-input-original.log`, `linux-input-traced.log`, `linux-input-events.log`, and `linux-input-cause.log`. Temporary product tracing was removed.
+
+The correction test helper now waits for a completed clear-key frame before pasting. It checks write lengths and waits for pasted words before Save or cancellation. The 2049-byte refusal, unchanged storage, retained draft, and no-extra-request assertions remain intact. The repaired Linux focused cases passed, including the 32 KiB input refusal. This changes test synchronization only. The queued clear-plus-large-paste event limitation remains outside this feature's scope. No product or dependency source changed.
+
+The full correction suite passed on Linux as the existing unprivileged `nobody` user. This includes failed-write retention and retry, with no permission case skipped. See `linux-correction-suite.log`. The first ordinary-user container setup used a numeric UID absent from its password database, so the TEST launch guard refused before launch. Using the image's existing user resolved setup. The earlier root run passed its other cases but skipped permission refusal.
