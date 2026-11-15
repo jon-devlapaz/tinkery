@@ -86,9 +86,9 @@ def recipient(terminal, harness, model):
     """Read the current destination beside the separately labeled later settings."""
     pick(terminal, 'Model and runs')
     shown = terminal.screen.text()
-    for text in (f'F2 sends to {harness}: {model}.', 'For later launches', 's save', 'esc close'):
+    for text in (f'Enter sends to {harness}: {model}.', 'For later launches', 's save', 'esc close'):
         assert text in shown, (text, shown)
-    terminal.send(ESC, 'F2 send')
+    terminal.send(ESC, 'enter clarify goal')
 
 
 def zero_override(root, home, colour, started):
@@ -140,9 +140,9 @@ def saved_errors(no_color=False):
                         if budget is None:
                             assert 'This launch: practice; no model requests.' in words, shown
                             assert 'practice' in header(terminal)
-                            assert 'F2 sends' not in shown
+                            assert 'Enter sends' not in shown
                         else:
-                            assert 'F2 sends to Pi: test/active.' in words, shown
+                            assert 'Enter sends to Pi: test/active.' in words, shown
                             assert 'practice' not in words, shown
                             assert f'{budget} run' in header(terminal), header(terminal)
                         assert calls(root) == [] and not (root / 'TEST-lists.jsonl').exists()

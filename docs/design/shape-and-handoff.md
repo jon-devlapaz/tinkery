@@ -26,8 +26,9 @@ claims readiness; other ended sessions are named as ended.
 ## Tend: garden and detail
 
 In this repository's garden, `t` opens fresh Think. Before the first send, Think names
-the repository and offers `F3 Save thought and open Tend`. It saves exact input bytes
-without a model call or goal confirmation. `F2` still sends. Submitted visits, voice,
+the repository in its header and its key bar offers `^S keep thought` beside
+`enter clarify goal`. Ctrl+S (or F3) saves exact input bytes without a model call or goal
+confirmation. Enter still sends. After a send, Ctrl+S says why nothing was kept. Submitted visits, voice,
 help, leave prompts, model work and goal review cannot save a thought.
 A failed or uncertain save keeps the input. A durable save or verified duplicate opens Tend.
 The garden names the save result and selects the saved thought, including after a duplicate.
@@ -579,19 +580,20 @@ creating an SDLC run stays outside Shape.
 
 Configured drafting enables these actions; see [Model setup](menu.md#model-setup).
 Shape uses Think's
-[one key map](think.md#help): F2 runs the action in the key bar, F1 numbers the rest.
+[one key map](think.md#help): Enter (or F2) runs the action in the key bar, Ctrl+J adds a
+line, F1 numbers the rest. The session list keeps Enter to open a session.
 
 | Stage | Words | Key/action |
 | --- | --- | --- |
-| Flagged node | `your reason` | `F2 keep with reason`: keep the answer unchanged and revalidate, no model call |
-| Flagged operator-answered decision | `replacement answer` after F1 **Revise** | `F2 save revision and look`: replace it, reopen settled dependents, then look |
-| Current question | `your answer` | `F2 save + look`: save then one step |
-| Current question | Reason, then revisit condition after F1 **Defer** | `F2 next field`, then `F2 save deferral`: publish deferred, then one step |
+| Flagged node | `your reason` | `enter keep with reason`: keep the answer unchanged and revalidate, no model call |
+| Flagged operator-answered decision | `replacement answer` after F1 **Revise** | `enter save revision and look`: replace it, reopen settled dependents, then look |
+| Current question | `your answer` | `enter save + look`: save then one step |
+| Current question | Reason, then revisit condition after F1 **Defer** | `enter next field`, then `enter save deferral`: publish deferred, then one step |
 | Current question | None required | F1 **Delegate**: accept the grounded suggestion, then one step |
-| No question or seed | None | `F2 look into the next question`: one step |
-| Draft replacing goal | `your words` | `F2 confirm seed rN`: confirm displayed revision when the words are exactly `confirm` |
-| Draft replacing goal | `your change` after F1 **Revise the draft** | `F2 save + redraft`: save the change as your settled decision, then one step |
-| Draft replacing goal | `your teach-back` after F1 **Teach back** | `F2 save + compare`: capture words and compare with the draft, one call; Esc restores confirmation words |
+| No question or seed | None | `enter look into the next question`: one step |
+| Draft replacing goal | `your words` | `enter confirm seed rN`: confirm displayed revision when the words are exactly `confirm` |
+| Draft replacing goal | `your change` after F1 **Revise the draft** | `enter save + redraft`: save the change as your settled decision, then one step |
+| Draft replacing goal | `your teach-back` after F1 **Teach back** | `enter save + compare`: capture words and compare with the draft, one call; Esc restores confirmation words |
 
 - **Before confirmation:** the ledger computes the risk summary above confirming, including
   reversals detected from earlier settled answers, delegated and assumed choices,
@@ -599,7 +601,7 @@ Shape uses Think's
   Shape displays these words without its own checks or formatter.
 - **Teach-back:** on a draft, F1's **Teach back** opens optional words about what will and won't be built,
   prefilled with any confirmation words already typed, editable in a separate box.
-  F2 saves them verbatim, then compares in one call behind F2's shared budget,
+  Enter saves them verbatim, then compares in one call behind Enter's shared budget,
   with no tools or repository access;
   opening, typing, help and cancelling do not save or call. Confirmation words remain
   untouched. The latest completed comparison for these draft bytes appears as guesses
@@ -612,13 +614,13 @@ Shape uses Think's
   F1 offers teach-back only on a draft.
 - **Revise the draft (#614):** on a draft, F1's **Revise the draft** opens `your change`,
   prefilled with the confirmation words unless they are `confirm`, so a correction typed where
-  `confirm` goes is never lost. F2 saves the words verbatim as a settled `change-to-rN` decision
-  with the operator's authority, never a confirmation, then takes one drafting step behind F2's
+  `confirm` goes is never lost. Enter saves the words verbatim as a settled `change-to-rN` decision
+  with the operator's authority, never a confirmation, then takes one drafting step behind Enter's
   budget gate; the redraft lists the change under Decisions. Empty words or words that leave the
   change open are refused, saving nothing. Esc keeps the confirmation words untouched.
-- **Defer:** F1's **Defer** opens the reason; F2 advances to the revisit condition; Tab switches
+- **Defer:** F1's **Defer** opens the reason; Enter advances to the revisit condition; Tab switches
   between them. The form shows the question's gate: the operator alone decides it can wait.
-  F2 on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
+  Enter on the condition saves both fields verbatim as `deferred`, never confirmed or settled.
   An answer, revision, revisit or delegated suggestion that is empty or only says the
   decision is open ("not decided.", "TBD") is refused, saving nothing and keeping the typed
   words, and points here (#594).
@@ -626,7 +628,7 @@ Shape uses Think's
   blocker in F1, selected by the ledger in its existing order. Its own prerequisites and
   predicate must be ready; the goal and flagged sessions never qualify. The form shows the
   original question, exact deferral reason and revisit condition. Opening, typing and Esc
-  save nothing. F2 saves the exact answer with existing authorization, locking and stale-state
+  save nothing. Enter saves the exact answer with existing authorization, locking and stale-state
   checks, without a model call. Existing history preserves the prior deferral unchanged;
   dependent questions stay unanswered and follow ordinary ready ordering. No picker or
   automatic repair is provided. This keeps dependency selection and transitions in the
@@ -639,16 +641,16 @@ Shape uses Think's
 - **Revise:** only flagged decisions answered by the operator (including delegated answers)
   offer F1 **Revise**. Flagged findings (facts and inferences) and the confirmed goal offer only
   keep-with-reason; Revise is not shown. There is no settled-answer picker: So far remains read-only.
-  F2 saves exact replacement words with user authority; the ledger reopens every settled
+  Enter saves exact replacement words with user authority; the ledger reopens every settled
   dependent with a reason naming the changed answer. Shape asks ready dependents one at a time
-  before a new model question. Saving a revision uses F2's budget gate and next-step path:
+  before a new model question. Saving a revision uses Enter's budget gate and next-step path:
   an already-recorded dependent is asked without a model call; otherwise one step investigates
   or replaces the older draft.
 - Esc cancels a form without changing the original answer editor. Ledger refusals keep the
   question and both typed fields, show the first reason line and allow correction and retry.
   Required fields, delegated evidence, revision eligibility and cascading reopen belong only to
   the ledger; Shape adds no parallel rules. F1 lists only the actions allowed now.
-- F2 saves exact answer bytes with `user` authority. Typing, paste, scrolling and
+- Enter saves exact answer bytes with `user` authority. Typing, paste, scrolling and
   help write nothing; held action keys never repeat. Letters, capitals and `?` remain words.
 - The chosen harness runs one explicitly selected model with read-only tools (Pi's `read`,
   `grep`, `find`, `ls`; Claude Code's `Read`, `Grep`, `Glob` under `dontAsk`), no commands, in the [shown folder](#grounding-in-the-repository). Input includes
@@ -678,7 +680,7 @@ Shape uses Think's
   The step finds the blast radius and the ways to meet the goal before choosing to ask or draft.
 - The launch allowance (saved calls or `--shape-budget CALLS`) defaults to zero; each step counts one before the model starts.
   With a current question and one run remaining, show `Drafting runs left this launch: 1 of M.`
-  beside the answer editor before F2 spends it, using Think's shared budget wording.
+  beside the answer editor before Enter spends it, using Think's shared budget wording.
   Budget policy stays behind Agent; Shape owns presentation (architecture diagnostics 3 and 6).
   Exhaustion refuses answer, defer, delegate, revision and teach-back before saving anything and explains how to allow calls.
 - Tinkery, never the model, publishes answers and questions with the displayed version
@@ -740,7 +742,7 @@ Shape uses Think's
   settled choices, observed done (or `Nothing observed done.`), and each failure
   case as `Must fail: <case>` followed by an indented `Check: <statement>` line.
   Both strings stay verbatim; the label above them marks them as drafting guesses.
-  Only the review for these exact draft bytes is shown. No check is run and F2's
+  Only the review for these exact draft bytes is shown. No check is run and Enter's
   existing call budget is unchanged.
 - The separate final `checks` field carries every confirmed `Done when` line with
   its qualifiers as records in the bundled contract, not model-formatted
@@ -797,7 +799,7 @@ Shape uses Think's
   seed confirmation never claims a human keypress.
 - Draft and redraft cards flag a missing command or manual steps before confirmation.
   The ledger uses the same rule to refuse confirmation. F1 **Edit check N** opens
-  that check with its current method text. F2 saves the exact words without a model
+  that check with its current method text. Enter saves the exact words without a model
   call. The same check stays editable, even if others still need work.
   A provisional without a command also offers **Make check N a judgment**.
   A proposal with a command can still need a test before it can run.
@@ -806,13 +808,13 @@ Shape uses Think's
   The ledger owns readiness and checks the selected record before saving (diagnostics 3 and 6).
 - Confirmation uses Tinkery's ledger with the displayed revision and typed words as its source.
   As in Think, only the exact word `confirm` confirms (#614): anything else may be a correction,
-  so F2 says `Type confirm, or F1 Revise the draft. Nothing was confirmed.`, keeping the words.
+  so Enter says `Type confirm, or F1 Revise the draft. Nothing was confirmed.`, keeping the words.
   The receipt and its `Confirmed by:` line record the word. Existing receipts keep the words
   they recorded; reads never rewrite them.
   Under its writer lock, the ledger rechecks the exact displayed draft bytes and ledger version
   before recording anything. A change keeps the typed words, refreshes the reading and requires
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
-  draft revision's last line has been on screen during this Shape visit, F2 says
+  draft revision's last line has been on screen during this Shape visit, Enter says
   `PgDn or Down to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
   `End of seed` marker after the last section clears that in the same frame. The saved seed is unchanged.
   Confirmation words are one line, so Up and Down scroll the draft while they are typed, for
@@ -824,22 +826,22 @@ Shape uses Think's
   resize and rereads, including teach-back. A new revision or changed bytes require reading again.
   Changing the words clears a refusal about them.
   A refusal retains the words and neither writes nor calls. The empty `your words` field shows
-  the muted hint `type confirm, then F2` once the seed is read; typing hides it. Enter says
-  `F2 confirms the seed; Enter does not add a line.` without changing the words.
+  the muted hint `type confirm, then Enter` once the seed is read; typing hides it. Ctrl+J
+  says `Enter confirms the seed; ^J adds no line here.` without changing the words.
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. A model failure, refusal or stop also
   says `Drafting runs left this launch: N of M.`, Think's wording, so a retry is chosen knowing
   its cost (#435). Budget exhaustion points to
-  F1's Model and runs row, which adds runs for this launch; a model error or stop offers F2 retry, or F1's teach-back again
+  F1's Model and runs row, which adds runs for this launch; a model error or stop offers Enter retry, or F1's teach-back again
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
   Review refusals name the mismatched check or case/check counts; a reply that also splits a
   Done when line hears both faults in one refusal. A check that keeps a Done when line whole but
   changes only its letter case is saved in the goal's own words; other wording still refuses.
-  A missing check source explains what can establish it without inventing evidence. F2 retries explicitly,
+  A missing check source explains what can establish it without inventing evidence. Enter retries explicitly,
   retaining saved answers; nothing retries automatically. During the same opened visit,
-  the next explicit F2 retry receives the last reply-decoding, review or acceptance-check
+  the next explicit Enter retry receives the last reply-decoding, review or acceptance-check
   rejection, or ledger rule the reply's proposal broke (such as a reused node id), as
   `previous_refusal`, separate from the goal, answers and findings. Only the
   first diagnostic line is kept, at most 2,048 UTF-8 bytes, with truncation disclosed.
@@ -889,7 +891,7 @@ itself, in that order.
   drafting as a settled decision; the model is not told to treat it specially, so no prompt changed.
 - With no current question and no `probe-pre-mortem` node, a step records `Probe: pre-mortem`
   (`Imagine this shipped and turned out wrong. What is the most likely reason?`) as the current
-  question, without a model call or budget. The operator answers it with F2 like any question,
+  question, without a model call or budget. The operator answers it with Enter like any question,
   in their own words, or types `skip`, as the screen says. Asked after findings were already recorded, it carries
   `NOT independent: asked after findings were shown.`
 - The step investigates counter-example and outside-view probes as typed inference or unknown
@@ -922,7 +924,7 @@ which Tend's readiness needs. It needs no model or budget.
 - F1's **End this session** on an active Seed ready completes it; **Stop this session** on a question,
   waiting or draft stops it, keeping open questions recorded and typed words unsaved.
 - Choosing it asks and says what ending costs; Approve still offers a completed seed;
-  F2 then ends, Esc says `Nothing was ended.` Other keys and a held F2 do nothing while asked.
+  Enter then ends, Esc says `Nothing was ended.` Other keys and a held Enter do nothing while asked.
 - Tinkery ends through its ledger with a stated reason, the shared writer lock and atomic save.
   Completion needs the verified seed, not a viewer or `--no-viewer`. Tinkery refuses an unverified
   seed or a conflicting ended status; an identical ending is a no-op. Shape shows the ledger's
@@ -973,11 +975,11 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 
 ### Grounding in the repository
 
-- Before F2 is offered, the session read finds the folder: recorded Think repo,
+- Before Enter is offered, the session read finds the folder: recorded Think repo,
   else the repository enclosing `--sdlc-root` when one is named (#467), else launch repo,
   else launch folder. Show `The step reads files in NAME. F1 picks
   another folder.` above words; F1 has the path. F1's **Choose the folder** opens `Folder:` with the current
-  path. Enter inserts newline; F2 accepts an existing absolute folder or `~/…`.
+  path. Ctrl+J inserts newline; Enter accepts an existing absolute folder or `~/…`.
   Try exact bytes first, including breaks and trailing whitespace; only if absent,
   try trimming surrounding whitespace. Esc keeps the previous choice; missing folders are refused. Selection lasts only this Shape visit, writes nowhere; step receipts name it.
 - Each `found` becomes a settled `fact` on `evidence` authority, with a new `id`,

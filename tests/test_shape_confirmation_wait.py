@@ -25,7 +25,7 @@ class ConfirmationWaitTests(unittest.TestCase):
 
         def wait_for_echo(run, text, *args, **kwargs):
             if text == 'your words confirm' and run.process.pid in paused:
-                self.assertIn('type confirm, then F2', run.flat())
+                self.assertIn('type confirm, then Enter', run.flat())
                 self.assertNotIn('your words confirm', run.flat())
                 os.kill(run.process.pid, signal.SIGCONT)
                 paused.remove(run.process.pid)

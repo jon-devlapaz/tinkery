@@ -476,7 +476,7 @@ fn observations_without_a_goal_offer_no_missing_field_interview_or_review() {
     }
     let help = layout::help_text(&a);
     assert!(
-        help.contains("No goal yet.\nYou can add words, then F2 sends."),
+        help.contains("No goal yet.\nYou can add words, then Enter sends."),
         "{help}"
     );
     assert!(!help.contains("F3 reviews"));
@@ -613,7 +613,7 @@ fn a_cancelled_first_reading_offers_f2_retry_not_more_typing() {
     );
     let help = layout::help_text(&a);
     assert!(
-        help.contains("Your words haven't been read yet.\nF2 tries again."),
+        help.contains("Your words haven't been read yet.\nEnter tries again."),
         "{help}"
     );
     assert!(!help.contains("Type it") && !help.contains("F3 reviews"));

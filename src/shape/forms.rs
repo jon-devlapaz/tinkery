@@ -93,10 +93,10 @@ impl Form {
         match &self.fields {
             Fields::Defer {
                 condition: false, ..
-            } => "F2 next field",
-            Fields::Defer { .. } => "F2 save deferral",
-            Fields::Revise(_) => "F2 save revision and look",
-            Fields::Revisit { .. } => "F2 answer deferred prerequisite",
+            } => "enter next field",
+            Fields::Defer { .. } => "enter save deferral",
+            Fields::Revise(_) => "enter save revision and look",
+            Fields::Revisit { .. } => "enter answer deferred prerequisite",
         }
     }
 
@@ -104,15 +104,15 @@ impl Form {
         match &self.fields {
             Fields::Defer { gate, reason, condition, .. } => {
                 let reason = if *condition { format!("\nReason: {}", reason.text()) } else { String::new() };
-                format!("Defer this question. You decide it can wait.\nGate: {gate}{reason}\nTab changes fields; F2 advances or saves. Esc cancels.")
+                format!("Defer this question. You decide it can wait.\nGate: {gate}{reason}\nTab changes fields; Enter advances or saves. Esc cancels.")
             }
             Fields::Revisit { target, .. } => format!(
                 concat!("Answer deferred prerequisite: {}\n{}\nDeferred because: {}\nRevisit when: {}\n",
-                    "You decide whether to answer now. F2 saves only this answer; ",
+                    "You decide whether to answer now. Enter saves only this answer; ",
                     "dependent questions still need answers. No model runs. Esc cancels."),
                 target.title, target.question, target.reason, target.revisit),
             Fields::Revise(_) => concat!(
-                "Replace this answer. F2 saves the revision and looks into the next. ",
+                "Replace this answer. Enter saves the revision and looks into the next. ",
                 "Recorded dependents come first, without a model call; otherwise one step runs. Esc cancels."
             ).into(),
         }

@@ -31,7 +31,7 @@ def journey(w,h):
   def send(data,text):
    before=screen.frames;os.write(master,data);wait(text,before)
   try:
-   wait("What's on your mind?");send(b'\x1bOP','Type, then F2 sends it.')
+   wait("What's on your mind?");send(b'\x1bOP','Type, then Enter sends it.')
    assert '┌ Right now ' in screen.text() and 'Close help' in screen.text(),screen.text()
    send(b'h','How it works');send(b'\x1b[6~'*30,'Last result')
    assert '┌ How it works ' in screen.text() and 'Close help' in screen.text() and 'Scroll' in screen.text(),screen.text()

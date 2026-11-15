@@ -404,7 +404,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
                 send(b'\x1b', 'Guess · Next:')
                 assert len(calls()) == before
                 send(b't', "Tinkery's guess · edit freely")
-                assert 'F2 sends' in screen.text()
+                assert 'Enter sends' in screen.text()
                 assert not (base / 'TEST-sessions').exists()
                 assert len(calls()) == before
                 if next_case == 'correct':

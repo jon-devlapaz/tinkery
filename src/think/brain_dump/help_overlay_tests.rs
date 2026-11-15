@@ -380,7 +380,7 @@ fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
         assert_eq!(buffer[title].fg, palette.jade.fg.unwrap_or(Color::Reset));
         assert!(buffer[title].modifier.contains(Modifier::BOLD));
         assert!(!buffer[title].modifier.contains(Modifier::DIM));
-        let sends = find_on_screen(buffer, "F2          sends");
+        let sends = find_on_screen(buffer, "Enter       sends");
         assert_eq!(buffer[sends].fg, palette.ink.fg.unwrap_or(Color::Reset));
         assert!(buffer[sends].modifier.contains(Modifier::BOLD));
         let verb = find_on_screen(buffer, "sends");
@@ -422,7 +422,7 @@ fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
         assert!(buffer[every].modifier.contains(Modifier::BOLD));
         assert_eq!(
             layout::help_text(&empty).lines().nth(1),
-            Some("Type, then F2 sends it.")
+            Some("Type, then Enter sends it.")
         );
     }
 }

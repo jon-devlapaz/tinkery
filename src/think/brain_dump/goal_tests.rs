@@ -148,7 +148,7 @@ fn goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affi
         key(&mut a, KeyCode::F(2));
         assert!(
             !a.handoff.saving(),
-            "Opening review/Enter/F2 affirmed implicitly"
+            "Opening review/Enter/Enter affirmed implicitly"
         );
         a.paste("confirm\n");
         assert!(a.handoff.review().unwrap().input.is_empty());

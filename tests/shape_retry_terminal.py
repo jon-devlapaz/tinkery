@@ -50,7 +50,7 @@ def reject(run, session, bounded=False):
     words = 'TEST keep this exact answer café\r\n  '
     os.write(run.master, b'\x1b[200~' + words.encode() + b'\x1b[201~')
     run.wait('café')
-    run.send(F2, 'Next: F2 looks into the next question.')
+    run.send(F2, 'Next: Enter looks into the next question.')
     if not bounded:
         run.wait('keep this complete Done when line unchanged in one check statement:')
     state = helper.load(session)
@@ -84,7 +84,7 @@ def retry_journey(width, height, case):
                 run.wait(f'Drafting runs left this launch: {budget - 1} of {budget}.')
             # Looking at recovery information, then closing it, neither writes nor calls.
             run.send(F1, 'Drafting runs left this launch:')
-            run.send(F1, 'Next: F2 looks into the next question.')
+            run.send(F1, 'Next: Enter looks into the next question.')
             assert len(run.calls()) == 1 and files(session) == saved
 
             if case == 'budget':
@@ -95,7 +95,7 @@ def retry_journey(width, height, case):
             if case == 'folder':
                 other = root / 'TEST-other-folder'
                 other.mkdir()
-                run.choose('Choose the folder', 'Next: F2 uses this folder;')
+                run.choose('Choose the folder', 'Next: Enter uses this folder;')
                 run.type('/TEST-other-folder')
                 run.send(F2, 'The step reads files in TEST-other-folder.')
                 assert len(run.calls()) == 1 and files(session) == saved
@@ -111,7 +111,7 @@ def retry_journey(width, height, case):
                                       'Tink Contract r1')
                 drafted = outcome == 'Tink Contract r1'
                 if not drafted:
-                    run.wait('Next: F2 looks into the next question.')
+                    run.wait('Next: Enter looks into the next question.')
                     assert len(run.calls()) == 1
             if case in ('session', 'visit'):
                 run.menu()
@@ -125,7 +125,7 @@ def retry_journey(width, height, case):
                     run.send(b'\r', 'esc back')
                 else:
                     run.open_shape()
-                run.wait('F2 look into the next question')
+                run.wait('enter look into the next question')
                 assert len(run.calls()) == 1
             if case in ('provider failure', 'cancel'):
                 os.write(run.master, F2)
@@ -146,13 +146,13 @@ def retry_journey(width, height, case):
                     run.send(b'\x1b', 'Stopped before the next step finished.')
                 else:
                     run.wait('Looking into the next question failed: Pi exited')
-                run.wait('Next: F2 looks into the next question.')
+                run.wait('Next: Enter looks into the next question.')
                 assert 'previous_refusal' in run.calls()[1]['input']
                 assert files(session) == saved
             if case == 'storage failure':
                 (session / 'seed-checks.json').mkdir()
                 run.send(F2, 'Tinkery refused: could not save check records:')
-                run.wait('Next: F2 looks into the next question.')
+                run.wait('Next: Enter looks into the next question.')
                 assert 'previous_refusal' in run.calls()[1]['input']
                 (session / 'seed-checks.json').rmdir()
                 assert files(session) == saved
@@ -207,7 +207,7 @@ def inference_journey(width, height):
             run.wait('Keep records local or synced?')
             os.write(run.master, b'\x1b[200~TEST local only\x1b[201~')
             run.wait('TEST local only')
-            run.send(F2, 'Next: F2 looks into the next question.')
+            run.send(F2, 'Next: Enter looks into the next question.')
             run.wait("The model's reply was refused, so nothing from it was saved: an inference must "
                      'state its limits: what it does not establish.')
             assert 'inference-counter-1' not in run.flat(), run.screen.text()

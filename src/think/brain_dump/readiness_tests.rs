@@ -99,7 +99,7 @@ fn review_row_tracks_public_edit_reading_held_reply_and_retry_transitions() {
             app.review_goal();
             assert_eq!(
                 app.notice(),
-                "Send (F2) or clear your unsent words, then review."
+                "Send (Enter) or clear your unsent words, then review."
             );
             key(&mut app, KeyCode::Esc);
             app.handle_key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
@@ -133,7 +133,7 @@ fn review_row_tracks_public_edit_reading_held_reply_and_retry_transitions() {
             app.review_goal();
             assert_eq!(
                 app.notice(),
-                "A reply is waiting; F2 applies it, then review."
+                "A reply is waiting; Enter applies it, then review."
             );
             key(&mut app, KeyCode::Esc);
             key(&mut app, KeyCode::F(2));
@@ -158,7 +158,7 @@ fn review_row_tracks_public_edit_reading_held_reply_and_retry_transitions() {
             app.review_goal();
             assert_eq!(
                 app.notice(),
-                "The reading is behind your words; F2 retries, then review."
+                "The reading is behind your words; Enter retries, then review."
             );
             key(&mut app, KeyCode::Esc);
             host.fail.store(false, Ordering::SeqCst);

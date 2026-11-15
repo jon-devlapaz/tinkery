@@ -272,10 +272,10 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
         text.contains("Next: reopen this goal with Shape set up; F1 shows how."),
         "{text}"
     );
-    assert!(!text.contains("F2 keep"), "{text}");
+    assert!(!text.contains("enter keep"), "{text}");
     let mut writable = done(stage).with_agent(Some(agent(0)));
     let text = screen(&mut writable, 80, 24, true);
-    assert!(text.contains("F2 keep with reason"), "{text}");
+    assert!(text.contains("enter keep with reason"), "{text}");
     writable.key(key(KeyCode::F(2)));
     assert!(screen(&mut writable, 80, 24, true).contains(WORD_REFUSALS[2]));
     assert!(writable.open.as_ref().unwrap().writing.is_none());
@@ -668,7 +668,7 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     assert_eq!(text.matches("Next:").count(), 1, "{text}");
     assert_eq!(
         text.lines().last().unwrap().trim(),
-        "F2 save + look   F1 more   esc back"
+        "enter save + look   F1 more   esc back"
     );
 }
 
@@ -696,7 +696,10 @@ fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
         "{text}"
     );
     assert!(
-        text.lines().last().unwrap().contains("F2 save + redraft"),
+        text.lines()
+            .last()
+            .unwrap()
+            .contains("enter save + redraft"),
         "{text}"
     );
     shape.key(key(KeyCode::Esc));
@@ -706,7 +709,7 @@ fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
     shape.key(key(KeyCode::F(2)));
     assert!(
         shape.open.as_ref().unwrap().running.is_some(),
-        "F2 did not save the change and redraft"
+        "enter did not save the change and redraft"
     );
     // The word that confirms is never carried in as a change.
     let mut shape = reading(
@@ -770,12 +773,12 @@ fn no_next_line_repeats_the_one_action_the_key_bar_names() {
         text: Some("status: draft\n# Seed: TEST\nrevision: r2\n".into()),
     };
     for (stage, keys) in [
-        (question(), "F2 save + look   F1 more   esc back"),
+        (question(), "enter save + look   F1 more   esc back"),
         (
             Shaped::Waiting,
-            "F2 look into the next question   F1 more   esc back",
+            "enter look into the next question   F1 more   esc back",
         ),
-        (seed, "F2 confirm seed r2   F1 more   esc back"),
+        (seed, "enter confirm seed r2   F1 more   esc back"),
     ] {
         for (width, height) in [(100, 30), (80, 24)] {
             let mut shape = reading(done(stage.clone()).with_agent(Some(agent(1))), dir.path());
@@ -850,7 +853,7 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
         "{text}"
     );
     let bar = text.lines().last().unwrap().trim();
-    let keys = "pgup/dn read   F2 save + look   F1 more   esc back";
+    let keys = "pgup/dn read   enter save + look   F1 more   esc back";
     assert!(bar == keys || bar == keys.replace("   ", "  "), "{text}");
     // Scrolling moves only the reading; the answer stays where it is.
     for _ in 0..30 {
@@ -925,7 +928,7 @@ fn a_draft_shows_the_seed_and_f2_needs_the_operators_own_words() {
         assert!(!text.contains(raw), "{raw} shown:\n{text}");
     }
     assert!(
-        text.contains("  your words\n  type confirm, then F2\n\n  Confirming the seed is not approval to build."),
+        text.contains("  your words\n  type confirm, then Enter\n\n  Confirming the seed is not approval to build."),
         "{text}"
     );
     shape.key(key(KeyCode::F(2)));
@@ -1587,7 +1590,7 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
         }
         assert!(
             seen.iter().all(|s| *s),
-            "Review missing above F2 at {width}x{height}: {seen:?}"
+            "Review missing above Enter at {width}x{height}: {seen:?}"
         );
     }
     let Shaped::Drafted {
@@ -2359,13 +2362,13 @@ fn the_folder_a_step_reads_shows_before_f2_and_f1_picks_another() {
             "{text}"
         );
         assert!(
-            text.contains("Next: F2 uses this folder; Esc keeps TEST-first."),
+            text.contains("Next: Enter uses this folder; Esc keeps TEST-first."),
             "{text}"
         );
         assert_eq!(text.matches("Next:").count(), 1, "{text}");
         assert_eq!(
             text.lines().last().unwrap().trim(),
-            "enter newline   F2 use folder   esc cancel"
+            "^J newline   enter use folder   esc cancel"
         );
         // Esc keeps the folder shown; the typed answer is untouched.
         shape.key(key(KeyCode::Char('x')));
@@ -2516,22 +2519,32 @@ fn a_pasted_cr_breaks_the_row_on_screen_and_the_words_stay_as_pasted() {
 }
 
 #[test]
-fn enter_at_seed_confirmation_guides_without_editing_or_starting_a_step() {
-    for words in ["", "TEST I confirm r1.", "TEST pasted\r\nwords"] {
+fn a_newline_key_at_seed_confirmation_guides_without_editing_or_starting_a_step() {
+    for (words, newline) in [
+        ("", KeyEvent::new(KeyCode::Char('j'), KeyModifiers::CONTROL)),
+        (
+            "TEST I confirm r1.",
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::SHIFT),
+        ),
+        (
+            "TEST pasted\r\nwords",
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT),
+        ),
+    ] {
         let mut shape = done(Shaped::Drafted {
             revision: Some("r1".into()),
             text: Some("TEST seed".into()),
         })
         .with_agent(Some(agent(0)));
         shape.paste(words);
-        shape.key(key(KeyCode::Enter));
+        shape.key(newline);
         let open = shape.open.as_ref().unwrap();
         assert_eq!(open.typed.text(), words);
         assert!(open.running.is_none());
         assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
         assert!(
             screen(&mut shape, 80, 24, true)
-                .contains("F2 confirms the seed; Enter does not add a line.")
+                .contains("Enter confirms the seed; ^J adds no line here.")
         );
     }
 }
@@ -2576,6 +2589,27 @@ fn only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed() {
 }
 
 #[test]
+fn enter_runs_the_key_bar_action_and_only_typed_confirm_confirms() {
+    for (words, starts) in [("TEST I confirm r1.", false), ("confirm", true)] {
+        let mut shape = done(Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some("TEST seed".into()),
+        })
+        .with_agent(Some(agent(0)));
+        let shown = screen(&mut shape, 80, 24, true);
+        assert!(
+            shown.lines().last().unwrap().contains("enter confirm seed"),
+            "{shown}"
+        );
+        shape.paste(words);
+        shape.key(key(KeyCode::Enter));
+        let open = shape.open.as_ref().unwrap();
+        assert_eq!(open.running.is_some(), starts, "{words:?}");
+        assert_eq!(open.typed.text(), words);
+    }
+}
+
+#[test]
 fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
     let dir = tempfile::tempdir().unwrap();
     for name in ["TEST folder\nnext", "TEST CR\rnext", "TEST CRLF\r\nnext\n "] {
@@ -2586,13 +2620,13 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         shape.key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
         shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
         shape.paste(folder.to_str().unwrap());
-        shape.key(key(KeyCode::Enter));
+        shape.key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::CONTROL));
         assert!(
             shape.open.as_ref().unwrap().choosing.is_some(),
-            "Enter applied the folder"
+            "Ctrl+J applied the folder"
         );
         shape.key(key(KeyCode::Backspace));
-        shape.key(key(KeyCode::F(2)));
+        shape.key(key(KeyCode::Enter));
         let open = shape.open.as_ref().unwrap();
         assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
         assert!(open.notice.is_none(), "the exact folder was refused");
@@ -3506,7 +3540,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             let bar = initial.lines().last().unwrap();
             assert!(bar.contains("pgup/dn read to end"), "{initial}");
             assert_eq!(initial.matches("pgup/dn read to end").count(), 1);
-            assert!(!initial.contains("F2 confirm"), "{initial}");
+            assert!(!initial.contains("enter confirm"), "{initial}");
             assert!(bar.contains("esc back"), "{initial}");
             assert!(!initial.contains("Next:"), "{initial}");
             // A refusal must not restore a premature confirmation instruction.
@@ -3518,7 +3552,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                     "{text}"
                 );
                 assert!(!text.contains("Next: type your own words"), "{text}");
-                assert!(!text.contains("type confirm, then F2"), "{text}");
+                assert!(!text.contains("type confirm, then Enter"), "{text}");
                 assert!(shape.open.as_ref().unwrap().running.is_none());
             }
             shape.paste("TEST exact words café  ");
@@ -3540,7 +3574,10 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             // The very first frame that reaches the end offers confirmation.
             assert!(text.contains("End of seed"), "{text}");
             assert!(
-                text.lines().last().unwrap().contains("F2 confirm seed r1"),
+                text.lines()
+                    .last()
+                    .unwrap()
+                    .contains("enter confirm seed r1"),
                 "{text}"
             );
             assert!(
@@ -3553,7 +3590,10 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             for (w, h) in [(80, 24), (100, 30)] {
                 let text = screen(&mut shape, w, h, no_color);
                 assert!(
-                    text.lines().last().unwrap().contains("F2 confirm seed r1"),
+                    text.lines()
+                        .last()
+                        .unwrap()
+                        .contains("enter confirm seed r1"),
                     "{text}"
                 );
                 assert!(!text.contains("read to end"), "{text}");
@@ -3573,9 +3613,12 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             let mut empty = done(long_draft()).with_agent(Some(agent(0)));
             empty.scroll = u16::MAX;
             let text = screen(&mut empty, width, height, no_color);
-            assert!(text.contains("type confirm, then F2"), "{text}");
+            assert!(text.contains("type confirm, then Enter"), "{text}");
             assert!(
-                text.lines().last().unwrap().contains("F2 confirm seed r1"),
+                text.lines()
+                    .last()
+                    .unwrap()
+                    .contains("enter confirm seed r1"),
                 "{text}"
             );
             empty.key(key(KeyCode::F(2)));
@@ -3607,7 +3650,10 @@ fn down_reads_a_draft_to_its_end_while_the_confirm_box_has_the_words() {
             "Down never reached the end:\n{text}"
         );
         assert!(
-            text.lines().last().unwrap().contains("F2 confirm seed r1"),
+            text.lines()
+                .last()
+                .unwrap()
+                .contains("enter confirm seed r1"),
             "{text}"
         );
         shape.key(key(KeyCode::Up));
@@ -3699,7 +3745,7 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
                     "{change}: {text}"
                 );
                 assert_eq!(
-                    bar.contains("F2 confirm seed r1"),
+                    bar.contains("enter confirm seed r1"),
                     !changed,
                     "{change}: {text}"
                 );
@@ -3780,7 +3826,10 @@ fn issue_314_captured_goal_names_missing_success_before_any_call() {
                 shown.contains("The saved goal leaves Done when open."),
                 "{shown}"
             );
-            assert!(shown.contains("F2 look into the next question"), "{shown}");
+            assert!(
+                shown.contains("enter look into the next question"),
+                "{shown}"
+            );
             assert_eq!(host.remaining(), 1);
             assert!(shape.open.as_ref().unwrap().running.is_none());
             assert_eq!(std::fs::read(session.join("ledger.json")).unwrap(), before);
@@ -3849,7 +3898,7 @@ print('TEST deliberately invalid reply')
         loop {
             shape.tick();
             let shown = screen(shape, 100, 30, true);
-            if shown.contains("F2 look into the next question") {
+            if shown.contains("enter look into the next question") {
                 break;
             }
             assert!(
@@ -3884,7 +3933,7 @@ print('TEST deliberately invalid reply')
     assert_eq!(
         calls.len(),
         2,
-        "Only the two explicit F2 keys may call the stub"
+        "Only the two explicit Enter keys may call the stub"
     );
     assert!(
         calls

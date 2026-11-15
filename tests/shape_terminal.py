@@ -205,8 +205,8 @@ def journey(width, height, case, no_color=False, operator='human'):
                     'unreadable': 'Tinkery refused to read this session:',
                 }[case]
                 send(b's', expected)
-                keys = {'question': 'F2 save + look   ' + SHAPE_KEYS,
-                        'p051': 'F2 save + look   ' + SHAPE_KEYS,
+                keys = {'question': 'enter save + look   ' + SHAPE_KEYS,
+                        'p051': 'enter save + look   ' + SHAPE_KEYS,
                         'drafted': 'pgup/dn read to end   ' + SHAPE_KEYS,
                         'unreadable': 'esc back'}.get(case, SHAPE_KEYS)
                 if held:
@@ -259,7 +259,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                     assert 'Also found:' not in flat(), screen.text()
                     for finding in P051_FINDINGS[1:]:
                         assert finding.split(':')[0] not in flat(), screen.text()
-                    assert 'your answer' in flat() and 'F2 save + look' in flat(), screen.text()
+                    assert 'your answer' in flat() and 'enter save + look' in flat(), screen.text()
                     send(b'Keep it skill-only.', 'Keep it skill-only.')
                     send(b'\x1bOP', 'So far')
                     send(screen.pick('So far'), 'Findings for this question')

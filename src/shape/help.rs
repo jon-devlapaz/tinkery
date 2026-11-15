@@ -56,20 +56,20 @@ impl Shape {
                 let now = match (agent, open.typing()) {
                     _ if open.running.is_some() => "A step is running. Esc stops it.",
                     _ if open.form.is_some() => {
-                        "Edit the form. Enter adds a line; Esc cancels without saving."
+                        "Edit the form. ^J adds a line; Esc cancels without saving."
                     }
                     _ if open.writing.is_some() => "Tinkery is saving a change.",
                     _ if open.objecting => {
                         "Press the number of the assumption you object to; it becomes an open question. Esc keeps them all."
                     }
                     _ if open.asking == Some(Ending::Completed) => {
-                        "F2 ends this session as completed, for good; Esc keeps it open."
+                        "enter ends this session as completed, for good; Esc keeps it open."
                     }
                     _ if open.asking.is_some() => {
-                        "F2 stops this session for good; Esc keeps it open."
+                        "enter stops this session for good; Esc keeps it open."
                     }
                     _ if open.choosing.is_some() => {
-                        "Type the folder the next step should read. Enter adds a line; F2 uses it; Esc keeps the one shown."
+                        "Type the folder the next step should read. ^J adds a line; Enter uses it; Esc keeps the one shown."
                     }
                     (
                         Some(_),
@@ -78,7 +78,7 @@ impl Shape {
                             ..
                         }),
                     ) => {
-                        "Say what will and won't be built in your own words. F2 saves and compares (one drafting run); Esc cancels. Mismatches are guesses and never block confirming."
+                        "Say what will and won't be built in your own words. Enter saves and compares (one drafting run); Esc cancels. Mismatches are guesses and never block confirming."
                     }
                     (
                         Some(_),
@@ -87,7 +87,7 @@ impl Shape {
                             ..
                         }),
                     ) => {
-                        "Say what should change in the draft. F2 saves your words as your decision and redrafts (one drafting run); Esc cancels. Nothing is confirmed."
+                        "Say what should change in the draft. Enter saves your words as your decision and redrafts (one drafting run); Esc cancels. Nothing is confirmed."
                     }
                     (
                         Some(_),
@@ -96,7 +96,7 @@ impl Shape {
                             ..
                         }),
                     ) => {
-                        "Type why you're keeping this answer. F2 keeps it unchanged with your reason; no model runs."
+                        "Type why you're keeping this answer. Enter keeps it unchanged with your reason; no model runs."
                     }
                     (
                         Some(_),
@@ -106,7 +106,7 @@ impl Shape {
                         }),
                     ) => {
                         concat!(
-                            "Type your answer. Enter adds a line. F2 saves it and looks into the next question. A model step uses one drafting run. ",
+                            "Type your answer. ^J adds a line. Enter saves it and looks into the next question. A model step uses one drafting run. ",
                             "PgUp/PgDn scroll the reading."
                         )
                     }
@@ -118,13 +118,13 @@ impl Shape {
                         }),
                     ) => {
                         concat!(
-                            "Read the seed, type confirm, then F2 confirms it. To change the draft instead, ",
+                            "Read the seed, type confirm, then Enter confirms it. To change the draft instead, ",
                             "F1 Revise the draft. It is not approval to build. ",
                             "Without a completed teach-back, confirming records: Skipped teach-back."
                         )
                     }
                     (Some(_), Some(_)) => {
-                        "Edit the form. Enter adds a line; Esc cancels without saving."
+                        "Edit the form. ^J adds a line; Esc cancels without saving."
                     }
                     _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
                 };
@@ -154,7 +154,7 @@ impl Shape {
             "Shape reads and calls no model. An agent answers Shape with --shape-pi; Esc goes back."
                 .to_owned()
         } else if agent.is_some() {
-            "Opening, scrolling and typing write nothing. F2 runs the one action the key bar names; F1 lists the rest by number. \
+            "Opening, scrolling and typing write nothing. Enter runs the one action the key bar names; F1 lists the rest by number. \
                  Saving an answer, a deferral or a delegation then looks into the next; only F2 on a drafted seed confirms it, with your words. \
                  Revision saves and looks, asking recorded dependents before a model call. \
                  Ending a session, from F1, asks once more, then ends it for good."

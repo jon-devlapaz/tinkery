@@ -252,6 +252,7 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
             if matches!(
                 key,
                 "F1" | "F2"
+                    | "Enter"
                     | "1"
                     | "2"
                     | "3"
@@ -280,10 +281,10 @@ fn style_body(text: &str, technical: bool, palette: Palette) -> Text<'static> {
                     Span::styled("! ", palette.rust),
                     Span::styled(part.to_owned(), palette.ink),
                 ]));
-            } else if let Some((before, after)) = part.split_once("F2") {
+            } else if let Some((before, after)) = part.split_once("Enter") {
                 lines.push(Line::from(vec![
                     Span::styled(before.to_owned(), palette.muted),
-                    Span::styled("F2", palette.ink.bold()),
+                    Span::styled("Enter", palette.ink.bold()),
                     Span::styled(after.to_owned(), palette.muted),
                 ]));
             } else {

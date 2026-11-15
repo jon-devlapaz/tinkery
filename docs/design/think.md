@@ -3,9 +3,10 @@
 ## Shipped experience
 
 The blank writing box accepts typing or paste without fields, kinds or cards.
-Only F2 interprets; Enter is a newline. Originals stay intact on the left.
-Below 80×24, the size warning holds F2 for typed and dictated drafts. Resizing back
-retains the words and requires a fresh F2 press before sending.
+Only Enter (or F2) interprets; Ctrl+J, Shift+Enter or Alt+Enter add a line, and pasted
+line breaks never send. Originals stay intact on the left.
+Below 80×24, the size warning holds sending for typed and dictated drafts. Resizing back
+retains the words and requires a fresh Enter before sending.
 One “I think you mean…” reading and at most one focused question sit on the right.
 Competing interpretations get a disambiguating question, not a second reading.
 Model-host construction and every model call require an explicit budget. The app
@@ -331,10 +332,12 @@ original or unsent answer text.
 ### Help
 
 Think and Shape share one key map ([#440](https://github.com/jon-devlapaz/tinkery/issues/440)):
-F2 runs the one action the key bar names, F1 lists every other action allowed now, and Esc
-goes back. F6 (or Ctrl+Alt+Z) speaks; editing keys stay. No other function key or Ctrl
-alias acts. A row appears only when its action is allowed, so nothing in the list refuses:
-review needs real mode with a sessions folder. Empty help says “Type, then F2 sends it.”
+Enter runs the one action the key bar names ([#876](https://github.com/jon-devlapaz/tinkery/issues/876));
+Ctrl+J adds a line. F1 lists every other action allowed now, and Esc goes back. F2 remains an
+alternative for Enter. F6 (or Ctrl+Alt+Z) speaks; editing keys stay. Ctrl+S (or F3) keeps a
+fresh input as a thought. No other function key or Ctrl alias acts. Goal review, its receipt,
+help and card extraction keep their own Enter. A row appears only when its action is allowed, so nothing in the list refuses:
+review needs real mode with a sessions folder. Empty help says “Type, then Enter sends it.”
 F1 opens bounded reading-side help without changing originals or drafts. Right now leads
 with the numbered rows (a digit runs its row once and closes help), then the state; `h`
 opens How it works and F1 closes. Labels fit one line of an 80-column panel; a short
@@ -398,7 +401,7 @@ sentinels: bytes survive sending and copying, never execute on display.
   Shaping failure preserves committed originals and the prior reading. Failed,
   unreadable or oversized review is best-effort: keep valid shaping and explain the
   skipped review in Why. Never automatically retry, chunk, summarize or send.
-- With nothing to send or retry, F2 says “Write something, then F2 sends it.” on the
+- With nothing to send or retry, F2 says “Write something, then Enter sends it.” on the
   initial or refining screen, without requesting or saving. The next input clears
   it; there is no permanent warning.
 - One `refuse` route explains ineffective keys and recovery under writing or in the

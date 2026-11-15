@@ -501,7 +501,7 @@ impl Taste {
             return format!(
                 "Right now\nq goes back to the menu · ? / Esc close help\n\
                  {verdict}\n\
-                 t edits the unsent draft in Think; only F2 sends.\n\
+                 t edits the unsent draft in Think; only Enter sends.\n\
                  e opens details after closing help; check words stay intact.\n\n{}",
                 pause.lines.join("\n")
             );

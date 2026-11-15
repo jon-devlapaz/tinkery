@@ -144,7 +144,7 @@ def draft_and_redraft():
         run = Run(root, 100, 30, budget=2, replies=[draft, changed], agent=True)
         try:
             run.open_shape()
-            run.wait('F2 look into the next question')
+            run.wait('enter look into the next question')
             run.send(F2, 'Tink Contract r1')
             run.wait('Manual steps: In guest chat A, type exactly Draft check: explain fractions.')
             run.read_until('the cleared text returns.')
@@ -190,7 +190,7 @@ def objective_browser_check():
         run = Run(root, 100, 30, budget=1, replies=[reply], agent=True)
         try:
             run.open_shape()
-            run.wait('F2 look into the next question')
+            run.wait('enter look into the next question')
             run.send(F2, 'Tink Contract r1')
             run.wait('Command: sh TEST-browser-check.sh')
             run.read_until('Draft check: explain fractions.')

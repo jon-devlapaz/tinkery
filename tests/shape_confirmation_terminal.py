@@ -1,4 +1,4 @@
-"""F2 confirms only the displayed draft and ledger: real PTYs, TEST roots, zero calls."""
+"""Enter confirms only the displayed draft and ledger: real PTYs, TEST roots, zero calls."""
 import json
 from pathlib import Path
 import tempfile

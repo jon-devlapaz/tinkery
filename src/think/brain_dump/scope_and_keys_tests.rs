@@ -320,7 +320,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
         let with_bar = snapshot(w, h, &mut a, false).unwrap();
         let rect = a.screen.source_area;
         let bar = with_bar.lines().last().unwrap();
-        assert_eq!(bar.trim(), "F2 send   F1 more   esc menu");
+        assert_eq!(bar.trim(), "enter send   ^J newline   F1 more   esc menu");
         for gone in ["switch", "originals", "why", "copy", "exit", "1 help"] {
             assert!(!bar.contains(gone), "{gone} in {bar}");
         }
@@ -361,7 +361,10 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
     let mut empty = BrainDump::default();
     assert!(empty.screen.key_bar);
     let bar = snapshot(100, 30, &mut empty, false).unwrap();
-    assert_eq!(bar.lines().last().unwrap().trim(), "F2 send   esc menu");
+    assert_eq!(
+        bar.lines().last().unwrap().trim(),
+        "enter clarify goal   ^J newline   esc menu"
+    );
 }
 #[test]
 fn failure_help_names_only_real_actions_and_exposes_reason_without_confirmation() {
@@ -689,9 +692,9 @@ fn overflow_help_uses_semantic_kind_after_notice_rewording_and_f1() {
             assert!(
                 help.contains("Shortening new words cannot") && help.contains("Ctrl-PgUp/PgDn")
             );
-            assert!(!help.contains("F2 sends once"));
+            assert!(!help.contains("enter sends once"));
         } else {
-            assert!(help.contains("replace it with fewer words, then F2 sends once"));
+            assert!(help.contains("replace it with fewer words, then Enter sends once"));
         }
     }
     let mut a = BrainDump::with_host(Arc::new(Counting::default()));
@@ -1002,7 +1005,11 @@ fn failed_waiting_reply_has_unknown_size_and_the_same_failure_as_submit() {
         assert!(a.shaping.ready.is_none());
         wait(&mut a);
         let requests = host.requests.lock().unwrap();
-        assert_eq!(requests.len(), starts + 1, "the same F2 still retries once");
+        assert_eq!(
+            requests.len(),
+            starts + 1,
+            "the same Enter still retries once"
+        );
         let sent = requests.last().unwrap();
         assert_eq!(serde_json::to_vec(sent).unwrap().len(), preview.bytes);
         assert_eq!(

@@ -35,11 +35,11 @@ def journey(w,h):
   def choose(label,text):send(b'\x1bOP',label);send(screen.pick(label),text)
   try:
    await_condition(lambda s:"What's on your mind?" in s)
-   send(b'\x1bOQ','Write something, then F2 sends it.')
+   send(b'\x1bOQ','Write something, then Enter sends it.')
    assert not (cwd/'calls.jsonl').exists(),'Empty send called the provider'
    assert not (cwd/'TEST-sessions').exists() and not (cwd/'TEST-records').exists()
    send(b'Books read this year.','Books read this year.')
-   assert 'Write something, then F2 sends it.' not in screen.text(),screen.text()
+   assert 'Write something, then Enter sends it.' not in screen.text(),screen.text()
    send(b'\x1bOQ','What would you want')
    choose('Review the goal','You are confirming');assert process.poll() is None
    send(b'\x1b','What would you want')

@@ -159,18 +159,18 @@ impl BrainDump {
             return Err("Still thinking; review once the reading is back.");
         }
         if !self.input.text.is_empty() {
-            return Err("Send (F2) or clear your unsent words, then review.");
+            return Err("Send (Enter) or clear your unsent words, then review.");
         }
         if self.shaping.ready.is_some() {
-            return Err("A reply is waiting; F2 applies it, then review.");
+            return Err("A reply is waiting; Enter applies it, then review.");
         }
         if !self.conversation.caught_up() {
-            return Err("The reading is behind your words; F2 retries, then review.");
+            return Err("The reading is behind your words; Enter retries, then review.");
         }
         let board = self
             .conversation
             .board()
-            .ok_or("No reading to review yet; F2 sends your words.")?;
+            .ok_or("No reading to review yet; Enter sends your words.")?;
         let goal = board
             .goal()
             .ok_or("No goal to review yet; parts remain open.")?;
@@ -398,7 +398,7 @@ impl BrainDump {
         false
     }
 }
-pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Palette) {
+pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, start: u16, palette: Palette) {
     let declaration = match app.goal_confirmation() {
         record::GoalConfirmation::Terminal { declaration, .. } => declaration.as_str(),
         record::GoalConfirmation::Agent { .. } => "declared: agent",
@@ -408,9 +408,9 @@ pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, palette: Pa
     frame.render_widget(
         Paragraph::new(format!("{declaration} (not verified)")).style(palette.muted),
         Rect::new(
-            11,
+            start,
             1,
-            crate::header_end(area, area.width.saturating_sub(5)).saturating_sub(11),
+            crate::header_end(area, area.width.saturating_sub(5)).saturating_sub(start),
             1,
         )
         .intersection(area),

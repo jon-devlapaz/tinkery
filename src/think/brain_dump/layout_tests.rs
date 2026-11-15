@@ -113,7 +113,7 @@ fn active_question_is_readable_without_review_and_survives_resize() {
                     );
                 }
                 let screen = snapshot(w, h, &mut a, mono).unwrap();
-                assert!(screen.contains("F2 send"));
+                assert!(screen.contains("enter send"));
                 assert_eq!(a.input.text, input);
                 assert_eq!(a.input.selected_text(), selected.as_deref());
                 assert_eq!(
@@ -187,9 +187,15 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
                 .lines()
                 .rev()
                 .skip(1)
-                .all(|line| !line.contains("F2"))
+                .all(|line| !line.contains("Enter"))
         );
-        assert!(screen.lines().last().unwrap().contains("F2 send"));
+        assert!(
+            screen
+                .lines()
+                .last()
+                .unwrap()
+                .contains("enter clarify goal")
+        );
         let mut a = board();
         let before = snapshot(w, h, &mut a, false).unwrap();
         let source_area = a.screen.source_area;
@@ -239,7 +245,7 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
             ] {
                 assert!(!s.contains(clutter), "{clutter}");
             }
-            assert!(s.lines().rev().skip(1).all(|line| !line.contains("F2")));
+            assert!(s.lines().rev().skip(1).all(|line| !line.contains("Enter")));
             assert_eq!(s.lines().nth(1).unwrap().matches('?').count(), 1);
         }
         key(&mut a, KeyCode::F(1));
@@ -713,7 +719,7 @@ fn a_practice_send_says_it_simulates_never_thinking() {
 
 #[test]
 fn empty_send_is_visible_without_a_request_and_typing_clears_it() {
-    const NOTICE: &str = "Write something, then F2 sends it.";
+    const NOTICE: &str = "Write something, then Enter sends it.";
     struct NoCalls;
     impl BoardHost for NoCalls {
         fn reshape(&self, _: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {

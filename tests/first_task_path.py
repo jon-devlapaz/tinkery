@@ -206,7 +206,7 @@ def main():
         assert '1  think' in snapshot, snapshot
         score.append('3 drafting')
 
-        # 6. A confirmed seed (Shape's journeys prove F2 confirms one), then Approve's command shape.
+        # 6. A confirmed seed (Shape's journeys prove Enter confirms one), then Approve's command shape.
         session = helper.create(root / 'TEST-sessions')
         old = helper.load(session)
         state = helper.editable(old)

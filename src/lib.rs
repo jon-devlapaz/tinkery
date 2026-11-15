@@ -42,6 +42,27 @@ pub mod watch;
 pub(crate) mod words;
 mod worker;
 
+/// The shared writing keys of Think and Shape (#876). Plain Enter becomes F2, the one action the
+/// key bar names. Ctrl+J, Shift+Enter or Alt+Enter become plain Enter, a new line. Pastes are
+/// separate events, so pasted line breaks never become an action here.
+pub(crate) fn writing_key(key: KeyEvent) -> KeyEvent {
+    let code = match key.code {
+        KeyCode::Enter if key.modifiers.is_empty() => KeyCode::F(2),
+        KeyCode::Enter
+            if key.modifiers == KeyModifiers::SHIFT || key.modifiers == KeyModifiers::ALT =>
+        {
+            KeyCode::Enter
+        }
+        KeyCode::Char('j' | 'J') if key.modifiers == KeyModifiers::CONTROL => KeyCode::Enter,
+        _ => return key,
+    };
+    KeyEvent {
+        code,
+        modifiers: KeyModifiers::NONE,
+        ..key
+    }
+}
+
 /// Fit a single-line title into terminal cells, keeping whole graphemes and marking omitted text.
 pub(crate) fn clipped(text: &str, width: usize) -> String {
     if text.width() <= width {
@@ -327,5 +348,36 @@ mod palette_tests {
             mono.rust.add_modifier,
             Modifier::BOLD | Modifier::UNDERLINED
         );
+    }
+}
+
+#[cfg(test)]
+mod writing_key_tests {
+    use super::*;
+
+    #[test]
+    fn plain_enter_acts_newline_chords_add_a_line_and_other_keys_pass_through() {
+        let key = |code, modifiers| KeyEvent::new(code, modifiers);
+        let f2 = key(KeyCode::F(2), KeyModifiers::NONE);
+        let newline = key(KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(writing_key(newline), f2);
+        for chord in [
+            key(KeyCode::Char('j'), KeyModifiers::CONTROL),
+            key(KeyCode::Enter, KeyModifiers::SHIFT),
+            key(KeyCode::Enter, KeyModifiers::ALT),
+        ] {
+            assert_eq!(writing_key(chord), newline, "{chord:?}");
+        }
+        let mut held = newline;
+        held.kind = KeyEventKind::Repeat;
+        assert_eq!(writing_key(held).kind, KeyEventKind::Repeat);
+        for kept in [
+            key(KeyCode::Enter, KeyModifiers::CONTROL),
+            key(KeyCode::Enter, KeyModifiers::SUPER),
+            key(KeyCode::Char('j'), KeyModifiers::NONE),
+            key(KeyCode::Char('s'), KeyModifiers::CONTROL),
+        ] {
+            assert_eq!(writing_key(kept), kept, "{kept:?}");
+        }
     }
 }

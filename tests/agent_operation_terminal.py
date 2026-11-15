@@ -122,7 +122,7 @@ def journey(width, height):
             assert any(e['observed'] == 'Refusals feel noisy.' for e in origin['evidence'])
             run.send(ESC, '3  shape')
             run.open_shape()
-            run.wait('F2 look into the next question')
+            run.wait('enter look into the next question')
             run.send(F2, 'Probe: real sample')
             run.type('no sample: TEST nothing real yet')
             run.send(F2, 'Probe: pre-mortem')

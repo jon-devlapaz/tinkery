@@ -371,7 +371,8 @@ impl BrainDump {
             return;
         }
         self.conversation.offer_draft(draft);
-        self.notice = "Tinkery's guess · edit freely; F2 sends your words. Nothing saved.".into();
+        self.notice =
+            "Tinkery's guess · edit freely; Enter sends your words. Nothing saved.".into();
     }
     /// What think asks of whoever opened it, read after each tick.
     pub fn exit(&self) -> &Exit {
@@ -729,7 +730,7 @@ impl BrainDump {
             self.refuse(if context_over {
                 "Earlier words are too long.\nWords kept. F1: copy elsewhere."
             } else {
-                "Too long to send. Words kept.\nCtrl-A/C copy; replace, F2."
+                "Too long to send. Words kept.\nCtrl-A/C copy; replace, Enter."
             });
             self.screen.refused = Some(if context_over {
                 Refusal::EarlierWordsTooLong
@@ -830,7 +831,7 @@ impl BrainDump {
             } else {
                 self.shaping.ready = Some((request, result));
                 self.notice =
-                    "Reply ready; no interruption while typing. F2 submits when ready.".into();
+                    "Reply ready; no interruption while typing. Enter submits when ready.".into();
             }
         }
     }
@@ -844,7 +845,7 @@ impl BrainDump {
             }
             Err(e) => {
                 self.notice = format!(
-                    "Reshape failed: {e} Original and previous board retained; F2 retries."
+                    "Reshape failed: {e} Original and previous board retained; Enter retries."
                 );
             }
         }
@@ -954,6 +955,9 @@ impl BrainDump {
 
     fn save_thought(&mut self) {
         if !self.thought_ready() {
+            if !self.conversation.sources().is_empty() && !self.screen.help {
+                self.refuse("Nothing kept. Keep thought works only before the first send.");
+            }
             return;
         }
         let result = match &self.handoff.thoughts {
@@ -980,6 +984,16 @@ impl BrainDump {
         if key.kind == KeyEventKind::Release {
             return;
         }
+        // Goal review, its receipt, help and card extraction give Enter their own meaning.
+        let key = if self.screen.help
+            || self.handoff.review().is_some()
+            || self.handoff.receipt().is_some()
+            || self.screen.board_focus && self.screen.show_extractions
+        {
+            key
+        } else {
+            crate::writing_key(key)
+        };
         if key.code == KeyCode::F(2) && self.below_minimum() {
             return;
         }
@@ -994,7 +1008,9 @@ impl BrainDump {
         {
             return;
         }
-        if key.code == KeyCode::F(3) {
+        if key.code == KeyCode::F(3)
+            || key.code == KeyCode::Char('s') && key.modifiers == KeyModifiers::CONTROL
+        {
             self.save_thought();
             return;
         }
@@ -1048,7 +1064,8 @@ impl BrainDump {
             } else if self.shaping.job.is_some() && !self.screen.leave_prompt {
                 self.shaping.job.take();
                 self.shaping.request = None;
-                self.notice = "Cancelled; original and previous board retained. F2 retries.".into();
+                self.notice =
+                    "Cancelled; original and previous board retained. Enter retries.".into();
             }
             return;
         }
@@ -1097,7 +1114,7 @@ impl BrainDump {
         {
             self.shaping.job.take();
             self.shaping.request = None;
-            self.notice = "Cancelled; original and previous board retained. F2 retries.".into();
+            self.notice = "Cancelled; original and previous board retained. Enter retries.".into();
             return;
         }
         if self.screen.original || self.screen.details {
@@ -1212,9 +1229,9 @@ impl BrainDump {
         self.add_more = !self.add_more;
         self.focus_writing();
         self.notice = if self.add_more {
-            "New dump, not an answer. F2 sends it; F1 goes back to answering."
+            "New dump, not an answer. Enter sends it; F1 goes back to answering."
         } else {
-            "Typing answers the focused question; F2 sends."
+            "Typing answers the focused question; Enter sends."
         }
         .into();
     }
@@ -1526,8 +1543,8 @@ impl BrainDump {
 pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     app.screen.reading_visible = false;
     layout::render(frame, app, palette);
-    layout::render_header(frame, palette);
-    goal_view::render_declaration(frame, app, palette);
+    let start = layout::render_header(frame, app, palette);
+    goal_view::render_declaration(frame, app, start, palette);
     layout::render_key_bar(frame, app, palette);
     voice_input::render_notice(frame, app, palette);
     help_view::render(frame, app, palette);
