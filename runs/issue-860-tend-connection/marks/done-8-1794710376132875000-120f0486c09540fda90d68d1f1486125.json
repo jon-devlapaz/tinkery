@@ -1,0 +1,7 @@
+{
+  "item": "done-8",
+  "result": "passed",
+  "evidence": "Restarted pending-save screen displays EDITED frozen words. Exact saved goal equals pending origin. Shape opens with no extra request. Bracketed paste and refused-edit retry preserve operator words.",
+  "candidate": "689ee3c817f273b66798f7bbbde5eb8f04547721b4751a6fed40b49b1cebfcd0",
+  "time_ns": 1794710376132875000
+}

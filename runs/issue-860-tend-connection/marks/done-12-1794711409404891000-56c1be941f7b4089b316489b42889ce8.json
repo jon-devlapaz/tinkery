@@ -1,0 +1,7 @@
+{
+  "item": "done-12",
+  "result": "passed",
+  "evidence": "Ten shared saver tests pass. Published-destination resume now retries source and destination parent syncs before success. Each actual directory-open permission refusal keeps success blocked despite inspectable destination; restored permissions reuse the same session and frozen goal without source-membership checks. See focused-resume-sync-saver.log and handoff limits.",
+  "candidate": "d7a38aa84facdcced4dbe413d0811ff9abada2e7b9cc45f79b07cabc7d5ca746",
+  "time_ns": 1794711409404891000
+}

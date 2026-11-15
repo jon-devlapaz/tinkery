@@ -1,0 +1,7 @@
+{
+  "item": "done-12",
+  "result": "passed",
+  "evidence": "Nine shared saver tests reconstruct durable receipt and staging/publication states. Real PTYs restart processes; final-update loss is a stated filesystem simulation. Full details and limits in 03-build/output/handoff.md.",
+  "candidate": "689ee3c817f273b66798f7bbbde5eb8f04547721b4751a6fed40b49b1cebfcd0",
+  "time_ns": 1794710376286069000
+}

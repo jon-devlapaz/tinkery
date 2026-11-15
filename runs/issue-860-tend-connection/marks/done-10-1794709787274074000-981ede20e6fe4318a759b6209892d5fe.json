@@ -1,0 +1,7 @@
+{
+  "item": "done-10",
+  "result": "passed",
+  "evidence": "Legacy Think tests passed in initial full verification; shared Tend history test has no turns and identifies Tend creation.",
+  "candidate": "0eae082814d58c13e4f2f06b2fa1614382b4e5d6529d1e2a39434630da989b62",
+  "time_ns": 1794709787274074000
+}

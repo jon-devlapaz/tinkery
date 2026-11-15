@@ -37,16 +37,30 @@ pub(crate) fn initialize_for(
         .file_name()
         .and_then(|v| v.to_str())
         .ok_or("The session has no usable identity.")?;
+    initialize_at(&path, id, timestamp, actor)?;
+    let _ = directory.keep();
+    Ok(path)
+}
+
+/// Initialize an owned private staging directory with its fixed future session identity.
+/// The caller creates and owns the directory; this helper never selects another destination.
+pub(crate) fn initialize_at(
+    path: &Path,
+    id: &str,
+    timestamp: &str,
+    actor: crate::think_record::Actor<'_>,
+) -> Result<(), String> {
+    if path.join("ledger.json").exists() {
+        return Err("The staging ledger already exists.".into());
+    }
     let value = Value::from(serde_json::json!({
         "schema_version":1,"session_id":id,"version":0,"revision":0,
         "created_at":timestamp,"updated_at":timestamp,"status":"active",
         "draft":{"goal":"","outcome":"","options":[]},"goal":null,"origin":null,
         "current_question":null,"frontier":[],"nodes":[],"assumed":[],"operator":actor.session_operator()
     }));
-    atomic_write(&path, &value.pretty()?)
-        .map_err(|_| "Cannot save the new session. Check its folder permissions.")?;
-    let _ = directory.keep();
-    Ok(path)
+    atomic_write(path, &value.pretty()?)
+        .map_err(|_| "Cannot save the new session. Check its folder permissions.".into())
 }
 
 /// What a refused publication established about the durable ledger.

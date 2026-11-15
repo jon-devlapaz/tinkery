@@ -320,8 +320,8 @@ enum Tone {
     Guess,
 }
 
-// Keep stored words unchanged. Escape terminal controls only in the display copy.
-fn display(text: &str) -> String {
+/// Keep stored words unchanged. Escape terminal controls only in the display copy.
+pub(super) fn display(text: &str) -> String {
     text.chars()
         .flat_map(|c| {
             if (c.is_control() && c != '\n') || is_direction_control(c) {

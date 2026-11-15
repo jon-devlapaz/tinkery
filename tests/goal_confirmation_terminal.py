@@ -193,7 +193,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     for line in ledger['goal'].splitlines(): assert ' '.join(line.split()) in tend_block,(line,screen.text())
     os.write(master,b'c');time.sleep(.1)
     assert not re.findall(rb'\x1b\]52;c;',bytes(raw))
-    send(b'\x1b','↑↓←→ move   enter open   l link   esc back')
+    send(b'\x1b','↑↓←→ move   enter open   '+('f connections   ' if in_repo else '')+'l link   esc back')
     assert 'Why:' not in screen.text() and 'Done when:' not in screen.text()
     send(b'\r','s shape   r history   esc back   F10 menu')
     assert 'Must not: build a dashboard.' in screen.text()

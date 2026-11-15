@@ -1,0 +1,7 @@
+{
+  "item": "done-14",
+  "result": "passed",
+  "evidence": "Seven guarded reversion probes now include removing each resumed-parent sync independently while preserving the existing-destination fast path. Both new probes fail the success-before-sync assertion. The historical duplicate-handoff probe proves recovery reuse only; duplicate prevention has separate fixed-identity/exclusive-publication tests. All sources restored.",
+  "candidate": "d7a38aa84facdcced4dbe413d0811ff9abada2e7b9cc45f79b07cabc7d5ca746",
+  "time_ns": 1794711409754258000
+}

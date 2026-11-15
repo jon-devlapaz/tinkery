@@ -1,0 +1,28 @@
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/codex/issue-860-tend-connection)
+warning: unused variable: `staging`
+   --> src/seed_me/connection_save.rs:153:18
+    |
+153 |             let (staging, _) = self.paths()?;
+    |                  ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_staging`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tinkery` (lib test) generated 1 warning (run `cargo fix --lib -p tinkery --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.13s
+     Running unittests src/lib.rs (target/debug/deps/tinkery-457973c1358b1e14)
+
+running 1 test
+
+thread 'seed_me::connection_save::tests::published_resume_retries_both_parent_syncs_before_reporting_success' (152014695) panicked at src/seed_me/connection_save.rs:409:13:
+resume reported success without syncing "/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-tend-save-Aonyca/.tinkery-tend-staging"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test seed_me::connection_save::tests::published_resume_retries_both_parent_syncs_before_reporting_success ... FAILED
+
+failures:
+
+failures:
+    seed_me::connection_save::tests::published_resume_retries_both_parent_syncs_before_reporting_success
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 947 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `--lib`

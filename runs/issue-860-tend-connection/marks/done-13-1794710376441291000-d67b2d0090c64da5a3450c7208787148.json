@@ -1,0 +1,7 @@
+{
+  "item": "done-13",
+  "result": "passed",
+  "evidence": "Nine shared saver tests reject concurrent writers, unrelated destination, frozen confirmation mismatch and symlink parent. Published directory is 0700 and receipt 0600. Privacy reversion fails as expected.",
+  "candidate": "689ee3c817f273b66798f7bbbde5eb8f04547721b4751a6fed40b49b1cebfcd0",
+  "time_ns": 1794710376441291000
+}

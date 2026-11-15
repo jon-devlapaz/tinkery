@@ -174,7 +174,8 @@ pub fn step(
         "This step needs drafting: put --shape-pi, --model and --shape-budget before seed. Nothing was changed.",
     )?;
     let goal = shaping.goal.as_deref().unwrap_or_default();
-    let folder = base.map_or_else(|| agent.folder(session, goal), |base| base.checkout);
+    let origin_folder = agent.folder(session, goal)?;
+    let folder = base.map_or(origin_folder, |base| base.checkout);
     let reads = format!("A model step reads only this folder: {}", folder.display());
     let work = match (action, shaping.stage) {
         (Action::Look, Shaped::Waiting) => Work::Look {

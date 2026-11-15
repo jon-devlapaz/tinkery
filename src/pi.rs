@@ -153,6 +153,8 @@ pub enum Request {
     DecisionReview,
     /// One step of the seed interview: investigate, then draft the next question or the seed.
     SeedStep,
+    /// One tool-free connection proposal across explicitly disclosed saved goals.
+    Connection,
 }
 
 /// One request a [`CallBudget`] saw: started (then `reply` or `failure`) or refused unstarted.

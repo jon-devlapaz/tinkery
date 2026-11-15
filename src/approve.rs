@@ -120,7 +120,21 @@ impl Reader {
                     .ok()
                     .and_then(|root| think_record::read_origins(&root, &selected).ok())
             });
-            let origins = origins.unwrap_or_else(|| vec![MadeIn::Unknown; sessions.len()]);
+            let origins = origins.unwrap_or_else(|| {
+                sessions
+                    .iter()
+                    .map(|session| {
+                        match crate::seed_me::connection::read(&session.path, &session.goal) {
+                            Ok(None) => MadeIn::Unknown,
+                            Ok(Some(_)) => MadeIn::Invalid(
+                                "The Tend origin could not be checked against Think records."
+                                    .into(),
+                            ),
+                            Err(reason) => MadeIn::Invalid(reason),
+                        }
+                    })
+                    .collect()
+            });
             let runs = match checkout {
                 Some(path) => sdlc::seeds(path, &cancelled),
                 None if root.is_some() => Err("The named checkout could not be resolved.".into()),
@@ -178,7 +192,7 @@ impl Reader {
                             continue;
                         }
                         let origin_note = root.as_deref().and_then(|root| {
-                            if seed.target.as_ref().is_some_and(|target| target.retry.is_some()) {
+                            if !matches!(origin, MadeIn::Invalid(_)) && seed.target.as_ref().is_some_and(|target| target.retry.is_some()) {
                                 None // The confirmed retry itself binds its checkout; it did not go through Think.
                             } else {
                                 origin_note(&mut seed, origin, repo.as_ref(), root)
@@ -646,6 +660,12 @@ fn origin_note(
             Some(OriginNote::Different(reason))
         }
         MadeIn::Repo(_) => None,
+        MadeIn::Invalid(reason) => {
+            seed.commands = None;
+            Some(OriginNote::Different(format!(
+                "Tend origin unavailable: {reason}. Restore its evidence before launch."
+            )))
+        }
         MadeIn::Unknown => Some(OriginNote::Unknown),
         MadeIn::NoRepo => Some(OriginNote::NoRepo),
     }

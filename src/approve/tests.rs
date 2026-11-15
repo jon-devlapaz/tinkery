@@ -257,6 +257,57 @@ fn origin_visit(case: &str, expected_note: Option<&str>, can_copy: bool) {
             fs::write(record, "TEST not JSON").unwrap();
         }
     }
+    if matches!(case, "invalid-tend" | "missing-tend") {
+        let path = session.join("ledger.json");
+        let before = crate::seed_me::ledger::decisions_block(
+            &crate::seed_me::ledger::load(&session).unwrap(),
+        )
+        .unwrap();
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        value["nodes"][0]["evidence"].as_array_mut().unwrap().push(serde_json::json!({
+            "artifact": crate::seed_me::connection::ARTIFACT, "checked":"TEST malformed origin", "at":"2026-11-14T00:00:00Z", "observed":"malformed"}));
+        if case == "missing-tend" {
+            value["nodes"][0]["authority_source"] =
+                "Tend: explicit save of displayed connection goal".into();
+            value["nodes"][0]["evidence"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|entry| entry["artifact"] != crate::seed_me::connection::ARTIFACT);
+        }
+        fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
+        let after = crate::seed_me::ledger::decisions_block(
+            &crate::seed_me::ledger::load(&session).unwrap(),
+        )
+        .unwrap();
+        let seed_path = session.join("seed-contract.md");
+        let seed = fs::read_to_string(&seed_path)
+            .unwrap()
+            .replace(&before, &after)
+            .replacen("status: confirmed for intake", "status: draft", 1)
+            .replacen("revision: r1", "revision: r2", 1);
+        let seed = seed
+            .lines()
+            .filter(|line| !line.starts_with("Confirmed by:"))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        fs::write(seed_path, seed).unwrap();
+        crate::seed_me::ledger::confirm_seed(
+            &session,
+            "r2",
+            "TEST confirmation after fixture evidence",
+            "2026-11-14T00:00:00Z",
+        )
+        .unwrap();
+    }
+    if matches!(case, "invalid-tend" | "missing-tend") {
+        assert!(
+            crate::seed_me::ready::read(&session, Some(&checkout))
+                .unwrap()
+                .is_some()
+        );
+    }
     let named = match case {
         "dot-dot" => {
             fs::create_dir(checkout.join("TEST-subdir")).unwrap();
@@ -278,7 +329,11 @@ fn origin_visit(case: &str, expected_note: Option<&str>, can_copy: bool) {
         if screen(&mut view, 100, 30, false).contains("Seed 1 of 1") {
             break;
         }
-        assert!(Instant::now() < deadline, "Approve did not finish");
+        assert!(
+            Instant::now() < deadline,
+            "Approve did not finish: {}",
+            screen(&mut view, 100, 30, false)
+        );
         std::thread::sleep(Duration::from_millis(1));
     }
     let shown = screen(&mut view, 100, 30, false);
@@ -371,4 +426,10 @@ fn acceptance_checks_read_as_written_without_markdown_escapes() {
         !shown.contains("\\`") && !shown.contains("&amp;"),
         "{shown}"
     );
+}
+
+#[test]
+fn invalid_tend_origin_disables_approve_commands() {
+    origin_visit("invalid-tend", Some("Tend"), false);
+    origin_visit("missing-tend", Some("Tend"), false);
 }

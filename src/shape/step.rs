@@ -187,6 +187,21 @@ impl Agent {
         self
     }
 
+    /// Share the configured transport and allowance through the menu. This starts no call.
+    pub(crate) fn drafting(
+        &self,
+    ) -> (
+        Call,
+        Arc<CallBudget>,
+        Option<crate::think_record::GoalConfirmation>,
+    ) {
+        (
+            self.call.clone(),
+            self.budget.clone(),
+            self.confirmation.clone(),
+        )
+    }
+
     /// Model calls this run may still make.
     pub fn remaining(&self) -> usize {
         self.budget.remaining()
@@ -205,7 +220,22 @@ impl Agent {
     /// The folder a step for `session` reads unless the operator picks another: where Think
     /// recorded `goal` was made, else the folder this agent was given, else where Tinkery started.
     /// Reads Think's records; blocks, so run it off the paint path.
-    pub(super) fn folder(&self, session: &Path, goal: &str) -> PathBuf {
+    pub(super) fn folder(&self, session: &Path, goal: &str) -> Result<PathBuf, String> {
+        let creation = crate::seed_me::connection::read(session, goal)?;
+        if creation.is_some() {
+            let root = self
+                .records
+                .as_deref()
+                .ok_or("The Tend origin cannot be checked without the records folder.")?;
+            return match think_record::read_origins(root, &[(session, goal)])
+                .map_err(|e| e.message)?
+                .remove(0)
+            {
+                MadeIn::Repo(path) if path.is_dir() => Ok(path),
+                MadeIn::Invalid(reason) => Err(reason),
+                _ => Err("The Tend repository is unavailable. Restore it before drafting.".into()),
+            };
+        }
         let made_in = self
             .records
             .as_deref()
@@ -214,10 +244,10 @@ impl Agent {
                 MadeIn::Repo(path) => Some(path),
                 _ => None,
             });
-        made_in
+        Ok(made_in
             .or_else(|| self.call.folder.clone())
             .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."))
+            .unwrap_or_else(|| PathBuf::from(".")))
     }
 }
 

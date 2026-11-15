@@ -1495,10 +1495,15 @@ impl Opened {
             std::thread::spawn(move || {
                 let (read, folder) = match shaping::read_with_base(&session) {
                     Ok((read, base)) => {
-                        let folder = base.map(|base| base.checkout).or_else(|| {
-                            Some(agent.as_ref()?.folder(&session, read.goal.as_deref()?))
-                        });
-                        (Ok(read), folder)
+                        let folder = agent
+                            .as_ref()
+                            .zip(read.goal.as_deref())
+                            .map(|(agent, goal)| agent.folder(&session, goal))
+                            .transpose();
+                        match folder {
+                            Ok(folder) => (Ok(read), base.map(|base| base.checkout).or(folder)),
+                            Err(why) => (Err(why), None),
+                        }
                     }
                     Err(why) => (Err(why), None),
                 };

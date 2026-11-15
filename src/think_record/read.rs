@@ -64,6 +64,8 @@ pub enum MadeIn {
     NoRepo,
     /// Recorded before Tinkery kept this (schema 2).
     Unknown,
+    /// Tend creation evidence exists but cannot safely attribute this goal. Never use a fallback.
+    Invalid(String),
 }
 
 /// Why no history can be attributed safely; this does not invalidate the saved goal.
@@ -130,6 +132,23 @@ struct SavedRecord {
 /// must be unique among readable live sessions before and after the read. A path-only record may use
 /// its final folder name as the ID only when that folder is missing. Nothing is rewritten.
 pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavailable> {
+    if let Some(origin) = seed_me::connection::read(session, goal)
+        .map_err(|e| Unavailable::new("Tend origin unavailable.", e))?
+    {
+        let made_in = read_origins(root, &[(session, goal)])?.remove(0);
+        if let MadeIn::Invalid(reason) = &made_in {
+            return Err(Unavailable::new("Tend origin unavailable.", reason.clone()));
+        }
+        return Ok(History {
+            turns: vec![],
+            goal: goal.into(),
+            made_in,
+            details: serde_json::to_string_pretty(&origin)
+                .map_err(|e| Unavailable::new("Tend origin unavailable.", e.to_string()))?,
+            sequence: "Created from a Tend connection".into(),
+            readings: vec![],
+        });
+    }
     let VerifiedRecord {
         selected,
         path,
@@ -158,6 +177,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             MadeIn::Repo(root) => root.display().to_string(),
             MadeIn::NoRepo => "none".into(),
             MadeIn::Unknown => "not recorded".into(),
+            MadeIn::Invalid(reason) => reason.clone(),
         },
         record.schema,
         record.tinkery,

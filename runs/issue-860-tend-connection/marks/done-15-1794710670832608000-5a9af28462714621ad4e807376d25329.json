@@ -1,0 +1,7 @@
+{
+  "item": "done-15",
+  "result": "passed",
+  "evidence": "Configured full-check completed on 6765119: 1120 Rust tests passed, 1 ignored; 39 Node tests passed; all 84 Python files passed, including connection and existing confirmation PTYs. 80x24 and 100x30 no-color journeys passed. Formatting and Clippy passed. The prior receipt awaited only this attestation.",
+  "candidate": "689ee3c817f273b66798f7bbbde5eb8f04547721b4751a6fed40b49b1cebfcd0",
+  "time_ns": 1794710670832608000
+}

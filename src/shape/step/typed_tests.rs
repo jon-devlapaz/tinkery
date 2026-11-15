@@ -501,7 +501,7 @@ fn verified_think_origin_selects_the_same_folder_or_existing_fallback() {
         Some(records),
     )
     .unwrap();
-    assert_eq!(agent.folder(&session, goal), repo);
+    assert_eq!(agent.folder(&session, goal).unwrap(), repo);
     for variant in ["no repo", "old schema", "wrong goal", "missing"] {
         let mut value: Value = serde_json::from_slice(&original).unwrap();
         match variant {
@@ -519,7 +519,7 @@ fn verified_think_origin_selects_the_same_folder_or_existing_fallback() {
         if variant != "missing" {
             std::fs::write(&record, serde_json::to_vec(&value).unwrap()).unwrap();
         }
-        assert_eq!(agent.folder(&session, goal), fallback, "{variant}");
+        assert_eq!(agent.folder(&session, goal).unwrap(), fallback, "{variant}");
         std::fs::write(&record, &original).unwrap();
     }
     assert_eq!(agent.remaining(), 0);
