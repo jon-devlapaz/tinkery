@@ -78,3 +78,5 @@ Both new reversion probes compiled successfully and failed the intended public a
 The first new capture assertion joined wrapped lines without spaces. It failed on correct displayed text. The assertion now normalizes screen whitespace. This was a test assertion defect, not an additional product defect.
 
 These repairs add no provider calls or storage format changes. The existing design contract documents context navigation and final-line preservation. Human usefulness remains unobserved. Final full verification must run on the repair commit.
+
+The first full repair verification failed the architecture source-line limit. One new format expression exceeded 200 characters. Splitting that expression resolves the observed cause without changing behavior. All seven architecture tests then passed. The failed full log remains in `review-repair-first-full-failure.log`.

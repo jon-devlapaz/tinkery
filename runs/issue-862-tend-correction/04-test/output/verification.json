@@ -1,38 +1,5 @@
 {
-  "result": "passed",
-  "candidate": {
-    "head": "d21409c3b0cfdd4445370ba463ce6f481a99d651",
-    "tree": "f2bd606d7224b0e8550ca103335f1a984ca5f80da3ed06687ef63e8b7bb3db88"
-  },
-  "inputs": "e6260160492e0a223a44bbb75d6d4fc963c8adaa21abafac68286e444b4bc3a5",
-  "policy": "e893f76c10a5f08ff1fae20602123ca351c5f439b6e0583a2284c03066ba9bc6",
-  "test_lock": null,
-  "checklist": "5497177162b7dcaab4460e7d688da57fd5a590ffe66f39d58b9dbfc6fe552ac9",
-  "manual_marks": {
-    "done-1": "305b9764b1e8d6b8658afc7a99e407d4371fd27e8d97848a290ec600cc137ab0",
-    "done-2": "9fd0f0e807592eaeddec0160f45b7cc1d124317a10d7b344c355681099e370ba",
-    "done-3": "bf606c13b9f5c331f83b2d176d2a81f2d60b67a7fee6efc0d5186665d21404fa",
-    "done-4": "970c7d43f0c07eaf30d667277d8945ad6320dfeba4a4a49739824191b00de3cc",
-    "done-5": "a0647b5ecebfb8342f60503678bb91cf07666b08602c3a57491b44a3f529a175",
-    "done-6": "795acc47300610a41db9095717cd256d45ea15c81acabc108102f51b1b30e0a7",
-    "done-7": "ad14d7394b398cd404a47d8b4f3f300f0a2ab4848e923d7b58afded7c45101af",
-    "done-8": "14a8a0bd325e9ab135f6f81766c3640e03349ea4dcd731dc61917886e4266141",
-    "done-9": "d2fc8bd674da9e4a7c1c7caea427d38d229bfbce9320b521a45307d9cf1ec50e",
-    "done-10": "f76c759c46002fa53f910857127e86a75017ebcfb5142d7f9047215b55fb94fd",
-    "done-11": "82a2aa7fabb8dd1ed5702fe915630b98401a71bf1a94fcd4b7fc4e421b44f7ab"
-  },
-  "checklist_items": {
-    "done-1": "attested",
-    "done-2": "attested",
-    "done-3": "attested",
-    "done-4": "attested",
-    "done-5": "attested",
-    "done-6": "attested",
-    "done-7": "attested",
-    "done-8": "attested",
-    "done-9": "attested",
-    "done-10": "attested",
-    "done-11": "attested"
-  },
-  "log": "a8c447a156417c4e1ddfbd072aa37fa67754e1a98d9130e9a640f5b6cf974dc7"
+  "result": "failed",
+  "error": "Check failed (1): ['python3', 'scripts/full-check.py'] (output: runs/issue-862-tend-correction/04-test/output/test-log.md)",
+  "inputs": "e6260160492e0a223a44bbb75d6d4fc963c8adaa21abafac68286e444b4bc3a5"
 }

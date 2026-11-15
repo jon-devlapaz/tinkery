@@ -328,7 +328,10 @@ impl Panel {
             if correction {
                 let mut context = format!("Repository: {}\n", self.context.repo.display());
                 if let Some(proposal) = self.record.as_ref().and_then(|r| r.proposal.as_ref()) {
-                    context.push_str(&format!("Reviewed proposal (Tinkery's guess): {}\nWhy: {}\nInspectable result: {}\nJudgment: {}\n", proposal.goal, proposal.relationship, proposal.outcome, proposal.question));
+                    context.push_str(&format!(
+                        "Reviewed proposal (Tinkery's guess): {}\nWhy: {}\nInspectable result: {}\nJudgment: {}\n",
+                        proposal.goal, proposal.relationship, proposal.outcome, proposal.question
+                    ));
                     for source in &proposal.sources {
                         context.push_str(&format!("Source {}: {}\n", source.id, source.quote));
                     }
