@@ -1,8 +1,8 @@
 {
   "result": "passed",
   "candidate": {
-    "head": "2d1afcacc62ec557c8627fc3d47ee41dc31f72da",
-    "tree": "7a0805306cedc2b6a2f0e08e95852ac4f9f20cafc8354b2de34e327e64de39d6"
+    "head": "c1728c65aec180336a7feab3740e5870a92f4908",
+    "tree": "503558a328daf08a4955889cf20deff8ce4d119b6bb7431d91480ee3f20f93aa"
   },
   "inputs": "e6260160492e0a223a44bbb75d6d4fc963c8adaa21abafac68286e444b4bc3a5",
   "policy": "e893f76c10a5f08ff1fae20602123ca351c5f439b6e0583a2284c03066ba9bc6",
@@ -34,5 +34,5 @@
     "done-10": "attested",
     "done-11": "attested"
   },
-  "log": "abf61a4933c1d829961bb6022e27be55bac56106cb466da299af7a8942efd440"
+  "log": "72216910a5bfe80f8ca55b4517f3fd94e38819153158eba4d97f13ad4704b786"
 }
