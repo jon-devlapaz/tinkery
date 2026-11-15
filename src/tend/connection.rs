@@ -23,6 +23,7 @@ use std::{
 
 const PROMPT: &str = include_str!("connection-prompt.txt");
 const LIMIT: usize = 32 * 1024;
+const RECORD_LIMIT: usize = 256 * 1024;
 
 /// Captured launch destinations and shared drafting allowance. No phase object crosses this boundary.
 #[derive(Clone)]
@@ -191,10 +192,10 @@ impl Context {
             return Err("The exploration is not a regular local file.".into());
         }
         let mut bytes = Vec::new();
-        file.take(256 * 1024 + 1)
+        file.take(RECORD_LIMIT as u64 + 1)
             .read_to_end(&mut bytes)
             .map_err(|e| e.to_string())?;
-        if bytes.len() > 256 * 1024 {
+        if bytes.len() > RECORD_LIMIT {
             return Err("The saved exploration is oversized.".into());
         }
         let record: Record = serde_json::from_slice(&bytes)
@@ -249,9 +250,12 @@ impl Context {
         Ok(file)
     }
     fn write(&self, record: &Record) -> Result<(), String> {
+        let bytes = serde_json::to_vec(record).map_err(|e| e.to_string())?;
+        if bytes.len() > RECORD_LIMIT {
+            return Err("These edited words exceed the saved exploration limit. Shorten them and retry; the previous result is intact.".into());
+        }
         let mut file = tempfile::NamedTempFile::new_in(&self.store).map_err(|e| e.to_string())?;
-        file.write_all(&serde_json::to_vec(record).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
+        file.write_all(&bytes).map_err(|e| e.to_string())?;
         file.as_file().sync_all().map_err(|e| e.to_string())?;
         file.persist(self.file()).map_err(|e| e.to_string())?;
         fs::File::open(&self.store)

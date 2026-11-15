@@ -1,0 +1,7 @@
+{
+  "item": "done-14",
+  "result": "passed",
+  "evidence": "Five guarded reversion probes cover consent, originals, attribution, duplicate handoff and private permissions. All restored. Fake-provider PTY and saver checks use TEST roots; final probe execution uses TEST HOME.",
+  "candidate": "689ee3c817f273b66798f7bbbde5eb8f04547721b4751a6fed40b49b1cebfcd0",
+  "time_ns": 1794710376590410000
+}

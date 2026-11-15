@@ -4,7 +4,7 @@
 
 Implemented the bounded Tend connection and explicit goal save. Independent review and PR delivery belong to the supervisor. Do not merge.
 
-Candidate starts at `0fe1caf`. A final evidence commit and successful verification receipt will be recorded below.
+Candidate commits are `0fe1caf` and `ac8343d`. The final review corrections and verification receipt will be recorded below.
 
 ## Background
 
@@ -23,7 +23,7 @@ The approved first slice discovers one connection between automatically chosen a
 
 The terminal test uses a fake provider and temporary TEST roots. It covers 80×24 and 100×30 with color disabled, automatic sources, one request, review/edit/save, exact words, unchanged sources, reopening, same-destination resume and a fresh pass after save. Additional cases cover invalid quotes, zero budget, unknown origin, no result, fewer than two goals, more than 20 goals, oversized inputs, incomplete reads, duplicate identities, request cancellation, persisted dismissal and six freshness changes. A separate journey leaves an authorized save, verifies completion, and rejects a receipt redirected to another root. Unrelated changes use actual `version` and `revision` fields.
 
-The shared saver tests reconstruct a persisted receipt, rebuild owned partial staging, reject unowned or symlinked paths, refuse concurrent writers, inspect publication before checking changed membership, and reject changed outcome or confirmation. Public Shape and Approve tests refuse malformed and removed Tend evidence. Approve first proves the seed is verified ready.
+The nine shared saver tests reconstruct a persisted receipt, rebuild owned partial staging, reject unowned or symlinked paths, refuse concurrent writers, inspect publication before checking changed membership, and reject changed outcome or confirmation. Public Shape and Approve tests refuse malformed and removed Tend evidence. Approve first proves the seed is verified ready.
 
 The terminal tests stop and relaunch real application processes. The post-publication/final-update-loss case deliberately removes only the exploration's final saved field before relaunch. This is a filesystem-state simulation, not an observed power loss. The partial-staging and receipt-only boundaries are reconstructed in Rust tests. Linux exclusive rename is implemented but local execution occurred on macOS; Linux execution remains for CI.
 
@@ -31,7 +31,7 @@ Real discovery usefulness is unobserved. The fake proposal reveals no new human 
 
 ## Reversion probes
 
-The four `reversion-*.log` files record expected test failures with one protection temporarily removed. Every source was restored. Final probes use `tests/test_launch.py` to supply a temporary TEST HOME, preserving only tool caches. Earlier probes inherited shell HOME for their targeted Rust tests, whose fixtures used temporary roots; the final guarded rerun replaces that evidence. The executable probe helper was removed from `runs`, since run evidence is excluded from the source fingerprint.
+The five `reversion-*.log` files record expected test failures with one protection temporarily removed. Every source was restored. Final probes use `tests/test_launch.py` to supply a temporary TEST HOME, preserving only tool caches. Earlier probes inherited shell HOME for their targeted Rust tests, whose fixtures used temporary roots; the final guarded rerun replaces that evidence. The executable probe helper was removed from `runs`, since run evidence is excluded from the source fingerprint.
 
 Exact mutations and commands for review:
 
@@ -42,9 +42,13 @@ Exact mutations and commands for review:
 
 Run each command through `test_launch.run(..., env=test_launch.environment())`. Restore the source before the next probe. A compile error does not count as a successful probe.
 
+5. Privacy: replace staging `.mode(0o700)` with `.mode(0o777)` and receipt `.mode(0o600)` with `.mode(0o666)`. Run `cargo +stable test --lib published_goal_and_receipt_remain_private -- --nocapture` through the TEST launch guard. The saved permissions assertion fails. Restore both modes.
+
 ## Failures resolved
 
 The first broad Rust run exposed stricter-schema probing of legacy ledgers. Marker-first validation restored legacy behavior. The first terminal save exposed the shared confirmation validator's Think-only action string. It now accepts the explicit Tend save action. Initial full verification then found old key-bar expectations. The connection key now appears only in the repository scope where it is available. The Approve regression fixture required a fresh decisions block, removal of its old confirmation line, and a matching draft revision before reconfirmation. The supervisor inspected the repeated fixture failure before its final correction.
+
+The supervisor found private-file modes missing in the first candidate. A fake-provider PTY reproduced directory 0755 and receipt 0644. Creation now requests 0700 and 0600, checked after publication and by reversion. The supervisor also found that pending review showed model wording instead of edited confirmation. It now shows the frozen goal. Bracketed paste reaches the editor. Oversized-save refusal retains the previous durable result and the edited draft, and a corrected retry preserves its words without another request.
 
 ## Skills
 

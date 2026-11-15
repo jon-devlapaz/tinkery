@@ -104,7 +104,7 @@ def journey(width,height):
         record['saved']=None;stored[0].write_text(json.dumps(record))
         term=launch(root,repo,width,height)
         try:
-            wait(term,'F2 resume saving')
+            assert 'EDITED' in wait(term,'F2 resume saving')
             send(term,F2,'tinkery › shape')
             assert len(requests(root))==1
             assert len(list((root/'sessions').iterdir()))==3
@@ -208,7 +208,8 @@ def freshness():
                     value=json.loads((root/'sessions'/'goal-0'/'ledger.json').read_text());value['session_id']='unknown'
                     (folder/'ledger.json').write_text(json.dumps(value))
                 send(term,b'p','F2 save exact words')
-                send(term,F2,'tinkery › shape' if change=='unrelated' else 'Find connections')
+                expected = {'goal':'source inputs changed', 'status':'at least two', 'identity':'unknown or invalid', 'repository':'at least two', 'membership':'unknown or invalid'}
+                send(term,F2,'tinkery › shape' if change=='unrelated' else expected[change])
                 if change!='unrelated':
                     time.sleep(.2)
                     assert len(list((root/'sessions').glob('session-tend-*')))==0
@@ -245,6 +246,33 @@ def leaving_an_authorized_save():
         finally: term.close()
 
 
+def oversized_edit_preserves_words():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-edit-refusal-') as directory:
+        root=Path(directory).resolve();repo=fixture(root)
+        term=launch(root,repo,100,30)
+        try:
+            wait(term,'F2 find one connection');send(term,F2,'p prepare this goal')
+            stored=next((root/'links').glob('connection-*.json'));before=stored.read_bytes()
+            send(term,b'p','F2 save exact words')
+            # Clear the proposed line, then use ordinary bracketed paste.
+            os.write(term.master,b'\x01\x0b')
+            data=b'\x1b[200~TEST retained edit\n'+b'x'*270000+b'\x1b[201~'
+            while data:
+                written=os.write(term.master,data);data=data[written:]
+            send(term,F2,'exceed the saved exploration limit')
+            assert stored.read_bytes()==before
+            assert not list((root/'sessions').glob('session-tend-*'))
+            assert not (root/'.tinkery-tend-staging').exists()
+            # The original editing cursor is still at the oversized second line.
+            # Ctrl+A then Ctrl+K removes that line, retaining the operator's first line.
+            os.write(term.master,b'\x01\x0b')
+            send(term,F2,'tinkery › shape')
+            record=json.loads(stored.read_text());goal=json.loads((Path(record['saved'])/'ledger.json').read_text())['goal']
+            assert goal=='TEST retained edit\n',repr(goal)
+            assert len(requests(root))==1
+        finally: term.close()
+
+
 if __name__=='__main__':
     subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=REPO,env=subprocess.environment(),check=True)
     for size in [(80,24),(100,30)]: journey(*size)
@@ -256,4 +284,5 @@ if __name__=='__main__':
     cancellation_and_dismissal()
     freshness()
     leaving_an_authorized_save()
+    oversized_edit_preserves_words()
     print('Tend connection: 2 restart/handoff journeys, 4 refusal/no-result cases, 5 input refusals, cancellation/dismissal, 6 freshness cases; no real provider calls.')

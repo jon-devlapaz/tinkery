@@ -433,9 +433,12 @@ impl Home {
         })
     }
 
-    /// Bracketed paste. Think, and Shape while it takes words, take text; elsewhere a paste
-    /// does nothing.
+    /// Paste literal words into the active editor. Pasting never submits, saves or launches.
     pub fn paste(&mut self, text: &str) {
+        if let Some(panel) = &mut self.connection {
+            panel.paste(text);
+            return;
+        }
         match &mut self.view {
             View::Think(dump) => dump.paste(text),
             View::Shape(shape, _) if !self.help => shape.paste(text),

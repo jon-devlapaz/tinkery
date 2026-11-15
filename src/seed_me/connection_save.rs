@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Read, Write},
+    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 
@@ -161,12 +162,13 @@ impl Pending {
             return Err("The staging parent must not be a symlink.".into());
         }
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        match fs::create_dir(&staging) {
+        match fs::DirBuilder::new().mode(0o700).create(&staging) {
             Ok(()) => {
                 let marker = staging.join("tend-handoff.json");
                 let mut file = fs::OpenOptions::new()
                     .write(true)
                     .create_new(true)
+                    .mode(0o600)
                     .open(marker)
                     .map_err(|e| e.to_string())?;
                 file.write_all(&serde_json::to_vec(self).map_err(|e| e.to_string())?)
@@ -339,6 +341,25 @@ mod tests {
         )
         .unwrap();
         (temp, pending)
+    }
+
+    #[test]
+    fn published_goal_and_receipt_remain_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_temp, pending) = setup();
+        let receipt = pending.resume(|| Ok(())).unwrap();
+        assert_eq!(
+            fs::metadata(&receipt.session).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(receipt.session.join("tend-handoff.json"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
     }
 
     #[test]

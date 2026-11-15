@@ -27,6 +27,7 @@ pub(crate) struct Panel {
     record: Option<Record>,
     notice: Option<String>,
     editor: Option<TextArea<'static>>,
+    saving_editor: Option<TextArea<'static>>,
     offset: u16,
     running: Option<mpsc::Receiver<Done>>,
     stop: Arc<AtomicBool>,
@@ -49,6 +50,7 @@ impl Panel {
             record: None,
             notice: None,
             editor: None,
+            saving_editor: None,
             offset: 0,
             running: None,
             stop: Arc::new(AtomicBool::new(false)),
@@ -97,6 +99,13 @@ impl Panel {
                             self.record = None;
                         }
                     }
+                    if self.notice.is_some()
+                        && self.record.as_ref().is_none_or(|r| r.pending.is_none())
+                    {
+                        self.editor = self.saving_editor.take();
+                    } else {
+                        self.saving_editor = None;
+                    }
                     self.receipt = done.receipt;
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
@@ -110,6 +119,13 @@ impl Panel {
             }
         }
         self.receipt.take()
+    }
+
+    /// Insert literal pasted text only into the active goal editor. Pasting never saves or requests.
+    pub(crate) fn paste(&mut self, text: &str) {
+        if let Some(editor) = &mut self.editor {
+            editor.insert_str(text);
+        }
     }
 
     /// Handle explicit review actions. True returns to Tend without starting anything.
@@ -133,7 +149,7 @@ impl Panel {
                 let Some(record) = self.record.clone() else {
                     return false;
                 };
-                self.editor = None;
+                self.saving_editor = self.editor.take();
                 self.saving = true;
                 self.start(move |context| {
                     context
@@ -220,13 +236,24 @@ impl Panel {
                 .style(palette.jade),
                 Rect { height: 1, ..body },
             );
+            let top = if let Some(notice) = &self.notice {
+                frame.render_widget(
+                    Paragraph::new(crate::tend::history::display(notice))
+                        .wrap(Wrap { trim: false })
+                        .style(palette.muted),
+                    Rect::new(body.x, body.y + 1, body.width, 3),
+                );
+                5
+            } else {
+                2
+            };
             frame.render_widget(
                 editor,
                 Rect::new(
                     body.x,
-                    body.y + 2,
+                    body.y + top,
                     body.width,
-                    body.height.saturating_sub(2),
+                    body.height.saturating_sub(top),
                 ),
             );
             frame.render_widget(
@@ -266,7 +293,11 @@ impl Panel {
             }
         }
         if let Some(record) = &self.record {
-            if record.pending.is_some() {
+            if let Some(pending) = &record.pending {
+                lines.push(Line::from(Span::raw(format!(
+                    "Confirmed goal:\n{}",
+                    pending.origin.goal
+                ))));
                 lines.push(Line::from(if record.saved.is_some() {
                     "Goal saved. Opening it starts no drafting."
                 } else {

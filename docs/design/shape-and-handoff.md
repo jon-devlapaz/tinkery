@@ -243,7 +243,10 @@ One structured reply contains a proposal or no useful connection. Every cited go
 must be in the input, with an exact nonempty quote. At least two distinct goals must
 support a proposal. The review shows originals, the guessed relationship, proposed
 goal, inspectable result, judgment question and assumptions. `p` opens an editable
-goal. Only `F2 save exact words and open Shape` confirms it. Opening Shape starts no
+goal. Only `F2 save exact words and open Shape` confirms it. Pending and completed saves
+show the exact confirmed words. If saving fails before a receipt exists, the editor
+keeps the edited words for correction. An exploration above 256 KiB is refused before
+replacing the previous result or creating staging. Opening Shape starts no
 request and grants no seed or implementation permission.
 
 The latest exploration and dismissal are saved per repository under `--link-root`.
@@ -256,7 +259,8 @@ explicit save begins, Esc returns while that save finishes.
 
 Before staging a goal, Tend persists a pending receipt with frozen words, source
 evidence, outcome, actor, destination root and one random session identity. The
-shared saver writes a private sibling staging directory, verifies it, and publishes
+shared saver creates a 0700 sibling staging directory and a 0600 receipt, verifies
+them, and publishes
 with an atomic no-replace directory rename on macOS and Linux. Resume first checks
 the fixed destination, so the newly saved goal cannot invalidate its own recovery.
 Owned partial staging can be rebuilt or cancelled. Conflicting paths, symlinks and
