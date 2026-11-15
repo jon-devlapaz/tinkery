@@ -2,7 +2,7 @@
 
 ## Situation
 
-The bounded correction implementation is implemented and fully checked; the final receipt is being refreshed after attestation. No provider calls or operator goals were used. Do not merge.
+The bounded correction implementation is complete. Final SDLC verification passes on d21409c. No provider calls or operator goals were used. Do not merge.
 
 ## Background
 
@@ -26,7 +26,7 @@ The legacy terminal case reconstructs #861's wire format with its actual committ
 
 The terminal case checks a correction changed after goal editing and again before pending publication. Neither stale goal can publish. Strict exploration cases reject v1 extra fields, v2 missing correction, an unknown version, and a missing pending correction. Complete variable input over 32 KiB refuses without another request.
 
-Final focused logs and rendered terminal screens are under this output directory. The full configured check passed 1124 Rust tests, one ignored; 39 Node tests; all 85 Python files; formatting and Clippy. The first receipt awaited done-11 only. The final receipt is being refreshed after that evidence was attested.
+Final focused logs and rendered terminal screens are under this output directory. The full configured check passed 1124 Rust tests, one ignored; 39 Node tests; all 85 Python files; formatting and Clippy. The first receipt awaited done-11 only. The final receipt now passes on corrected commit d21409c with all 11 attestations.
 
 ## Reversion evidence
 
@@ -60,3 +60,9 @@ Inspection found that panel refresh read the edit snapshot separately from reque
 The public test shows A, externally writes B, and verifies that F2 refuses without a call. Reopening shows B, and the next captured request contains exactly B. It does not pause between internal reads or use test-only access. Both reversion probes were refreshed after this change.
 
 The second verification run on a01a524 was interrupted with SIGINT to make this correction. Its interrupted receipt is not passing evidence. The earlier complete check passed, and final verification must run again on the corrected commit.
+
+## Final verification
+
+The full configured SDLC verification passed on d21409c. It reports 1124 Rust tests passed and one ignored, 39 Node tests passed, all 85 Python test files passed, formatting passed, and Clippy passed with warnings denied. The receipt is current. Both required reversion probes failed as expected before restored-source checks.
+
+Independent review and PR publication belong to the supervisor. No push, PR, merge, real provider request, real audio, or operator-goal access occurred in this worker.
