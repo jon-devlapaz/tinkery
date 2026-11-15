@@ -1,0 +1,46 @@
+[
+  {
+    "case": "80x24-normal",
+    "result": "passed",
+    "exact_utf8_bytes": 101,
+    "thought_files": 1,
+    "provider_attempts": 0,
+    "goals_unchanged": true,
+    "injected_directory_sync_failures": 0,
+    "restart_reopen": true,
+    "unchanged_copy_duplicate": true
+  },
+  {
+    "case": "80x24-sync-failure",
+    "result": "passed",
+    "exact_utf8_bytes": 101,
+    "thought_files": 1,
+    "provider_attempts": 0,
+    "goals_unchanged": true,
+    "injected_directory_sync_failures": 2,
+    "restart_reopen": true,
+    "unchanged_copy_duplicate": true
+  },
+  {
+    "case": "100x30-normal",
+    "result": "passed",
+    "exact_utf8_bytes": 101,
+    "thought_files": 1,
+    "provider_attempts": 0,
+    "goals_unchanged": true,
+    "injected_directory_sync_failures": 0,
+    "restart_reopen": true,
+    "unchanged_copy_duplicate": true
+  },
+  {
+    "case": "100x30-sync-failure",
+    "result": "passed",
+    "exact_utf8_bytes": 101,
+    "thought_files": 1,
+    "provider_attempts": 0,
+    "goals_unchanged": true,
+    "injected_directory_sync_failures": 2,
+    "restart_reopen": true,
+    "unchanged_copy_duplicate": true
+  }
+]

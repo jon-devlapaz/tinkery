@@ -386,7 +386,7 @@ impl Tend {
             ""
         };
         let thoughts = if !self.detail && !self.is_linking() && self.connection_scope() {
-            "\nt new thought · v read thoughts\ng in the thought reader opens Think, unsent."
+            "\nt think · v read thoughts\ng in the thought reader opens Think, unsent."
         } else {
             ""
         };

@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/jondev/scratch/tinkery-869-TEST-voice-fix/one.py", line 217, in <module>
+    journey(80,24,True)
+    ~~~~~~~^^^^^^^^^^^^
+  File "/Users/jondev/scratch/tinkery-869-TEST-voice-fix/one.py", line 124, in journey
+    raise AssertionError(f'Voice process {pid} was not reaped')
+AssertionError: Voice process 15848 was not reaped

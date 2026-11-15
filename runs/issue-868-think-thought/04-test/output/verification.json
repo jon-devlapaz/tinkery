@@ -1,0 +1,41 @@
+{
+  "result": "awaiting-attestation",
+  "candidate": {
+    "head": "cb44a4a1175fb1ee5b8fec46961006060f42f063",
+    "tree": "6f5bc928fb853797869995504b7eec4ce3d96d48d3da8ee59ee3aa822ed0e314"
+  },
+  "inputs": "35cfbcc5b160e9137a51b5b6eb27130a0577319b4b13ca8d94a6f5c2e017785d",
+  "policy": "e893f76c10a5f08ff1fae20602123ca351c5f439b6e0583a2284c03066ba9bc6",
+  "test_lock": null,
+  "checklist": "aed147eb218022f2847603018e69f5582689b267e46a9ccc666e09f687a94389",
+  "manual_marks": {
+    "done-2": "cd66c11f31edb26b05738a1431dea34a63d33c31db4e547c2add27a9435ed6e7",
+    "done-3": "9a1c068793dedef758f49a40638b7201e2650e691ee3e56656b7e1a80c246475",
+    "done-4": "eb07bc3a9f55bb6a352c0f0bc6ed66f11849c1ecff96efdc33ee3be020ae2656",
+    "done-6": "1a2b8847e496240ae948843fed76658cb086556eb1f50cbc2c0bcdf1ceba9654",
+    "done-8": "dc3c4f6b268f265a2a7f2417d09041847fe6d5657b640a1ecf0cb8541f09cc25",
+    "done-9": "acc27fc2bad5d32c3560f4c412559e7ff2963d26f8507c396ae1ebfd9954ac3a"
+  },
+  "pending_attestations": [
+    "done-1",
+    "done-5",
+    "done-7",
+    "done-10",
+    "done-11"
+  ],
+  "error": "Checklist incomplete: done-1, done-5, done-7, done-10, done-11 (mark them with: sdlc.py mark issue-868-think-thought <id> passed --evidence \"...\")",
+  "checklist_items": {
+    "done-1": "pending",
+    "done-2": "attested",
+    "done-3": "attested",
+    "done-4": "attested",
+    "done-5": "pending",
+    "done-6": "attested",
+    "done-7": "pending",
+    "done-8": "attested",
+    "done-9": "attested",
+    "done-10": "pending",
+    "done-11": "pending"
+  },
+  "log": "1d255f8e717ea05dd82adcfc2f77d8d4a8e1f50a6e59107240bcf7b76ea3fdf8"
+}

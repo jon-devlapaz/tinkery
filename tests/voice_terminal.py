@@ -47,10 +47,12 @@ HOST = next(ast.literal_eval(n.value) for n in ast.parse((ROOT / 'tests/brain_du
             if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'HOST' for t in n.targets))
 
 
-def journey(width, height, no_color):
+def journey(width, height, no_color, stalled_close=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-voice-pty-') as directory:
         cwd = Path(directory)
-        for name, source in [('node', NODE), ('pi', HOST)]:
+        # A helper can stall after EOF; bounded shutdown must still reap it.
+        node = NODE.replace('finally:\n', 'finally:\n threading.Event().wait()\n') if stalled_close else NODE
+        for name, source in [('node', node), ('pi', HOST)]:
             p = cwd / name
             p.write_text(source)
             p.chmod(0o755)
@@ -64,7 +66,7 @@ def journey(width, height, no_color):
             env['NO_COLOR'] = '1'
         else:
             env.pop('NO_COLOR', None)
-        process = subprocess.Popen([str(ROOT / 'target/debug/tinkery'), '--shape-pi', '--shape-budget', '64', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model',
+        process = subprocess.Popen([str(ROOT / 'target/debug/tinkery'), '--operator', 'agent', '--shape-pi', '--shape-budget', '64', '--record-root', str(cwd / 'TEST-records'), '--model', 'test/model',
                                     '--pi-command', str(cwd / 'pi')],
                                    stdin=slave, stdout=slave, stderr=slave, cwd=cwd, env=subprocess.environment(env))
 
@@ -147,7 +149,7 @@ def journey(width, height, no_color):
             # Esc cancels the take first; Esc again asks before leaving and closes the helper.
             send(b'\x1b', VOICE_KEY + ' speak')
             send(b'\x1b', 'Back to menu and lose this draft? y / n')
-            wait(lambda: (cwd / 'node-closed.txt').exists(), 'helper stdin EOF')
+            # Shutdown can kill a slow helper before its EOF handler writes a marker.
             for pid in (cwd / 'node-pids.txt').read_text().splitlines():
                 try:
                     os.kill(int(pid), 0)
@@ -155,6 +157,8 @@ def journey(width, height, no_color):
                     pass
                 else:
                     raise AssertionError(f'Voice process {pid} was not reaped')
+            if stalled_close:
+                assert not (cwd / 'node-closed.txt').exists(), 'Stalled helper unexpectedly finished'
             send(b'n')
             send(b'\x1b[17~')
             text(VOICE_KEY + ' speak')
@@ -167,8 +171,8 @@ def journey(width, height, no_color):
             original[3] &= ~getattr(termios, 'PENDIN', 0)
             after[3] &= ~getattr(termios, 'PENDIN', 0)
             assert after == original
-            assert {p.name for p in cwd.iterdir()} == {'node', 'pi', 'python3', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-closed.txt', 'node-ready.txt'}
-            print(json.dumps(dict(width=width, height=height, no_color=no_color, journey='current cursor/stop/F2/cancel/alias/F1 during take/review/EOF/reap', pi_calls=0, microphone=False, node_runtime=False)))
+            assert {p.name for p in cwd.iterdir()} - {'node-closed.txt'} == {'node', 'pi', 'python3', 'voice-calls.jsonl', 'requests.jsonl', 'node-pids.txt', 'node-ready.txt'}
+            print(json.dumps(dict(width=width, height=height, no_color=no_color, journey='current cursor/stop/F2/cancel/alias/F1 during take/review/shutdown/reap', stalled_close=stalled_close, pi_calls=0, microphone=False, node_runtime=False)))
         finally:
             if process.poll() is None:
                 process.kill()
@@ -195,7 +199,7 @@ def retry_after_missing_node():
         screen = Screen(100, 30)
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': str(cwd / 'node'), 'PATH': str(cwd),
                'SHELL': '/bin/false', 'TINKERY_VOICE_FAKE_PCM': '', 'TINKERY_VOICE_SMOKE_WAV': ''}
-        process = subprocess.Popen([str(ROOT / 'target/debug/tinkery')], stdin=slave, stdout=slave,
+        process = subprocess.Popen([str(ROOT / 'target/debug/tinkery'), '--operator', 'agent'], stdin=slave, stdout=slave,
                                    stderr=slave, cwd=cwd, env=subprocess.environment(env))
 
         def text(needle, timeout=5):
@@ -246,7 +250,6 @@ def retry_after_missing_node():
             os.write(master, b'\x1b')
             process.wait(timeout=5)
             assert process.returncode == 0
-            appears('node-closed.txt')
             helpers_exited()
             print(json.dumps(dict(journey='missing Node found on reload', pi_calls=0, microphone=False)))
         finally:
@@ -262,4 +265,5 @@ def retry_after_missing_node():
 for no_color in [False, True]:
     for size in [(80, 24), (100, 30), (160, 40), (320, 40)]:
         journey(*size, no_color)
+journey(80, 24, True, stalled_close=True)
 retry_after_missing_node()

@@ -55,7 +55,8 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `measure/read.rs` | Bounded, cancellable `gh` reads scoped to the launch repo; no shell or retries. |
 | `measure/runs.rs`, `measure/runs/records.rs` | Closed-run postmortems: one explicit, cancellable read of tink-sdlc status, the run's labels, its steps' Pi launch logs and Git, then list and details. Unknown is never zero; no writes or providers. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection and detail, with navigation to Shape and saved Think history. |
-| `tend/thought.rs` | Repository-bound raw thoughts, explicit private atomic saving and the local read/editor view; no sessions, model sources or goal authority. |
+| `tend/thought.rs` | Read repository thoughts and copy them into unsent Think visits; no editing, persistence or goal authority. |
+| `thought.rs` | Shared repository-bound thought storage with exact-byte deduplication and durable-write outcomes; no phase imports or goal authority. |
 | `tend/connection.rs` | One bounded explicit request, latest exploration, source freshness and receipt coordination. |
 | `tend/connection/panel.rs` | Source and guidance review, explicit discovery, goal save and correction edits. |
 | `tend/connection/correction.rs` | One repository correction, bounded reads and stale-view-safe explicit replacement. |
@@ -76,7 +77,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `worker.rs`, `worker/orientation.rs` | Bounded intake, stage and worker actions through SDLC, including whether a failed start permits retry or requires inspection. Recent Pi launch logs inform the operator’s cap choice. Only the explicitly configured allowance can reach the worker. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words, draft reading and next step. Reads and steps stay off the paint path. |
 | `shape/forms.rs` | Unsaved deferral and replacement-answer fields, navigation and cancellation; no validation or publication policy. |
-| `words.rs` | Shared exact-word textarea for Shape and Tend thoughts: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
+| `words.rs` | Exact-word textarea for Shape: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
 | `shape/command.rs` | Shape without a screen: saving a goal's exact words, showing where a seed stands as JSON and taking one explicit step; it builds the same work the screen does and adds no ledger rule. |
 | `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or named seed prose fields; `seed_me` alone owns their layout and validation. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |

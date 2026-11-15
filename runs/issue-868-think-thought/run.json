@@ -1,0 +1,11 @@
+{
+  "profile": "light",
+  "kind": "feature",
+  "schema": 1,
+  "run_id": "b81b80db-38ba-471c-933e-426dd7a240e5",
+  "issue": {
+    "url": "https://github.com/jon-devlapaz/tinkery/issues/868",
+    "title": "Think: Save an unfinished thought without a model call",
+    "sha256": "a8d41f64c4c92be5a4ee3d7c306dc6951d71e7d7f9e02fe06b1b2a6de32e5e8a"
+  }
+}

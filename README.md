@@ -40,8 +40,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Questions offer a suggested answer when available: F1 can copy it for editing; F2 sends.
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
-  Shape without changing saved sessions. In this repository, `t` opens a raw thought editor.
-  `F2` saves exact words without confirming a goal or calling a model. `v` reads thoughts;
+  Shape without changing saved sessions. In this repository, `t` opens fresh Think.
+  Before sending, `F3` saves exact words and opens Tend without a model call or goal confirmation. `v` reads thoughts;
   `g` opens one in Think, unsent. The thought stays on record after goal confirmation.
   In this repository, press `f` to review an
   automatic connection between goals. An explicit `F2` uses one drafting request.
@@ -147,7 +147,7 @@ export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
 cargo +stable run --locked -- --home
 ```
 
-Think is practice: no model calls or saved goals. Tend saves thoughts only on `F2`
+Think is practice: no model calls or saved goals. Fresh menu Think saves thoughts only on `F3`
 and writes needs only when you explicitly link or unlink. F2 (or Cmd+Enter, Ctrl+Alt+S; see [Function keys](docs/terminal-setup.md#function-keys)) sends, Enter adds a line, F1 lists what else you can do, Esc returns to the menu.
 Add `--snapshot` for text output.
 
