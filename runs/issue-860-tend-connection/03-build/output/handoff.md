@@ -57,3 +57,13 @@ The supervisor found private-file modes missing in the first candidate. A fake-p
 ## Recommendation
 
 Review the bounded implementation and final verification below. Keep real-provider usefulness and acceptance separate from fake-provider mechanics. Open a PR after independent review; do not merge.
+
+## Final candidate and full check
+
+Code commits: `0fe1caf`, `ac8343d`, `6765119`.
+
+The configured full check on `6765119` passed 1120 Rust tests (one ignored), 39 Node tests, and all 84 Python test files. Formatting and Clippy passed. The factory receipt correctly remained awaiting-attestation until done-15 was marked. A final factory verification is running after that attestation; no code changed.
+
+Changed product files: `README.md`, `docs/design/architecture.md`, `docs/design/shape-and-handoff.md`; `src/approve.rs`, `src/approve/tests.rs`, `src/menu.rs`, `src/menu/menu_tests.rs`, `src/pi.rs`; `src/seed_me/connection.rs`, `src/seed_me/connection_save.rs`, `src/seed_me/ledger.rs`, `src/seed_me/ledger/storage.rs`, `src/seed_me/mod.rs`, `src/seed_me/save.rs`; `src/shape.rs`, `src/shape/command.rs`, `src/shape/step.rs`, `src/shape/step/typed_tests.rs`; `src/tend/connection.rs`, `src/tend/connection/panel.rs`, `src/tend/connection-prompt.txt`, `src/tend/discovery.rs`, `src/tend/history.rs`, `src/tend/mod.rs`; `src/think_record/confirmation.rs`, `src/think_record/read.rs`, `src/think_record/read/origins.rs`; `tests/goal_confirmation_terminal.py`, `tests/tend_connection_terminal.py`.
+
+Evidence is in this run's `03-build/output` and `04-test/output`. Generated stage rules remain in the worktree's AGENTS.md but are not part of the product commit. Transient run locks remain untracked. No PR or merge was performed by the worker.
