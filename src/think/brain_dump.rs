@@ -98,6 +98,8 @@ enum Refusal {
 /// selection. Nothing here is part of the conversation.
 struct Screen {
     key_bar: bool,
+    shift_enter: bool,
+    choice: bool,
     /// This frame contains reading content; overlays can suppress its acknowledgment.
     reading_visible: bool,
     /// Help (F1), the originals and why cover the right side.
@@ -138,6 +140,8 @@ impl Default for Screen {
     fn default() -> Self {
         Self {
             key_bar: true,
+            shift_enter: false,
+            choice: false,
             reading_visible: false,
             help: false,
             how: false,
@@ -857,6 +861,12 @@ impl BrainDump {
     fn review_below_minimum(&self) -> bool {
         self.handoff.review().is_some() && self.below_minimum()
     }
+    /// Names Shift+Enter only when the terminal reports enhanced keys. Never queries the terminal.
+    pub fn with_shift_enter(mut self, supported: bool) -> Self {
+        self.screen.shift_enter = supported;
+        self
+    }
+
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
         if self.review_below_minimum() {
@@ -867,7 +877,8 @@ impl BrainDump {
         if !self.screen.help {
             self.screen.refused = None;
         }
-        if self.screen.leave_prompt
+        if self.screen.choice
+            || self.screen.leave_prompt
             || self.screen.help
             || self.screen.details
             || self.screen.original
@@ -893,11 +904,12 @@ impl BrainDump {
         let real = self.real;
         let config = self.handoff.config.clone();
         let voice = self.voice.is_some();
+        let shift_enter = self.screen.shift_enter;
         let record_root = self.handoff.record_root.clone();
         let repo = self.handoff.repo.clone();
         let declaration = self.handoff.confirmation.fresh_declaration();
         Box::new(move || {
-            let mut dump = Self::with_mode(host.clone(), real);
+            let mut dump = Self::with_mode(host.clone(), real).with_shift_enter(shift_enter);
             dump.handoff.config = config.as_ref().map(seed_me::Config::fresh);
             dump.handoff.record_root = record_root.clone();
             dump.handoff.repo = repo.clone();
@@ -951,6 +963,14 @@ impl BrainDump {
             && !self.screen.leave_prompt
             && !self.below_minimum()
             && self.exit == Exit::Stay
+    }
+
+    fn writing_action(&mut self) {
+        if self.thought_ready() {
+            self.screen.choice = true;
+        } else {
+            self.submit();
+        }
     }
 
     fn save_thought(&mut self) {
@@ -1012,6 +1032,20 @@ impl BrainDump {
             || key.code == KeyCode::Char('s') && key.modifiers == KeyModifiers::CONTROL
         {
             self.save_thought();
+            return;
+        }
+        if self.screen.choice {
+            if key.kind == KeyEventKind::Press && key.modifiers.is_empty() {
+                match key.code {
+                    KeyCode::Char('1') if !self.below_minimum() => {
+                        self.screen.choice = false;
+                        self.submit();
+                    }
+                    KeyCode::Char('2') if !self.below_minimum() => self.save_thought(),
+                    KeyCode::Esc => self.screen.choice = false,
+                    _ => {}
+                }
+            }
             return;
         }
         if key.code == KeyCode::Esc
@@ -1149,7 +1183,7 @@ impl BrainDump {
             KeyCode::Esc if key.kind == KeyEventKind::Press && key.modifiers.is_empty() => {
                 self.request_leave();
             }
-            KeyCode::F(2) => self.submit(),
+            KeyCode::F(2) => self.writing_action(),
             KeyCode::Tab | KeyCode::BackTab
                 if !key
                     .modifiers
@@ -1384,6 +1418,9 @@ impl BrainDump {
     /// One mouse event in a terminal of size `area`. Ignored while asking whether to leave, or
     /// when the terminal has been resized since the last paint.
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
+        if self.screen.choice {
+            return;
+        }
         self.shaping.encoded_bytes = None;
         if self.screen.leave_prompt {
             return;

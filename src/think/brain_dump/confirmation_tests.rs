@@ -28,6 +28,7 @@ fn first_review_frame_names_the_current_read_requirement() {
                 snapshot(width, height, &mut app, mono).unwrap();
                 app.paste("These exact TEST words stay mine.");
                 app.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE));
+                app.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
                 let deadline = Instant::now() + Duration::from_secs(5);
                 while app.running() && Instant::now() < deadline {
                     app.tick();

@@ -50,13 +50,13 @@ def journey(w,h,home):
   try:
    if home:send(b'1',"What's on your mind?")
    else:drain(lambda s:"What's on your mind?" in s)
-   send(b'ALPHA','ALPHA');send(b'\x1bOQ','May refusals show private text?')
+   send(b'ALPHA','ALPHA');send(b'\x1bOQ','1  Clarify into a goal');send(b'1','May refusals show private text?')
    send(b'omit','omit');send(b'\x1bOQ',"Ready for your review")
    confirm()
    alpha_file=next(records.iterdir());alpha_bytes=alpha_file.read_bytes();alpha=json.loads(alpha_bytes)
    assert sum(c['check']=='structure-spans-history' for c in alpha['checks'])==2,alpha['checks']
    send(b'\x1b','1  think');send(b'1',"What's on your mind?")
-   send(b'BRAVO','BRAVO');send(b'\x1bOQ','May refusals show private text?')
+   send(b'BRAVO','BRAVO');send(b'\x1bOQ','1  Clarify into a goal');send(b'1','May refusals show private text?')
    review()
    assert right().count('May refusals show private text?')==1,right()
    assert right().count('Open decision: Private text')==0,right()

@@ -68,6 +68,7 @@ fn submitting_a_visit_removes_thought_capture_authority() {
     app.paste("I want a small page to keep my project notes because I forget them.");
     snapshot(100, 30, &mut app, true).unwrap();
     key(&mut app, KeyCode::F(2));
+    key(&mut app, KeyCode::Char('1'));
     key(&mut app, KeyCode::F(3));
     for _ in 0..100 {
         app.tick();
@@ -81,7 +82,7 @@ fn submitting_a_visit_removes_thought_capture_authority() {
 }
 
 #[test]
-fn fresh_input_names_both_actions_and_ctrl_s_keeps_exact_words_without_sending() {
+fn fresh_input_names_choose_and_ctrl_s_keeps_exact_words_without_sending() {
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-thought-")
         .tempdir()
@@ -93,10 +94,7 @@ fn fresh_input_names_both_actions_and_ctrl_s_keeps_exact_words_without_sending()
     for (w, h) in [(80, 24), (100, 30)] {
         let screen = snapshot(w, h, &mut app, true).unwrap();
         let bar = screen.lines().last().unwrap().trim();
-        assert_eq!(
-            bar, "enter clarify goal   ^S keep thought   ^J newline   esc menu",
-            "{screen}"
-        );
+        assert_eq!(bar, "enter choose   ^J newline   esc menu", "{screen}");
         assert!(
             screen
                 .lines()
@@ -131,7 +129,7 @@ fn fresh_input_names_both_actions_and_ctrl_s_keeps_exact_words_without_sending()
 }
 
 #[test]
-fn enter_sends_like_f2_and_ctrl_s_after_a_send_says_why_nothing_was_kept() {
+fn choice_sends_and_ctrl_s_after_a_send_says_why_nothing_was_kept() {
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-thought-")
         .tempdir()
@@ -143,7 +141,8 @@ fn enter_sends_like_f2_and_ctrl_s_after_a_send_says_why_nothing_was_kept() {
     app.paste("I want a small page to keep my project notes because I forget them.");
     snapshot(100, 30, &mut app, true).unwrap();
     key(&mut app, KeyCode::Enter);
-    assert_eq!(app.conversation.sources().len(), 1, "Enter did not send");
+    key(&mut app, KeyCode::Char('1'));
+    assert_eq!(app.conversation.sources().len(), 1, "Choice did not send");
     for _ in 0..100 {
         app.tick();
         std::thread::sleep(std::time::Duration::from_millis(2));
@@ -156,4 +155,171 @@ fn enter_sends_like_f2_and_ctrl_s_after_a_send_says_why_nothing_was_kept() {
     );
     assert!(!store.exists());
     assert_eq!(*app.exit(), Exit::Stay);
+}
+
+#[test]
+fn hidden_key_bar_keeps_the_choice_exit_visible() {
+    let mut app = BrainDump::default().with_key_bar(false);
+    snapshot(80, 24, &mut app, true).unwrap();
+    app.paste("TEST words");
+    key(&mut app, KeyCode::Enter);
+    let choice = snapshot(80, 24, &mut app, true).unwrap();
+    assert!(
+        choice.lines().last().unwrap().contains("esc back"),
+        "{choice}"
+    );
+    key(&mut app, KeyCode::Esc);
+    assert!(
+        snapshot(80, 24, &mut app, true)
+            .unwrap()
+            .lines()
+            .last()
+            .unwrap()
+            .trim()
+            .is_empty()
+    );
+}
+
+#[test]
+fn fresh_enter_and_choice_enter_never_send_without_a_digit() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[derive(Default)]
+    struct Host(AtomicUsize);
+    impl BoardHost for Host {
+        fn reshape(&self, r: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Guess::decode(
+                r#"{"parts":{"who":"I","outcome":"keep TEST notes","why":"remember","done_when":"find notes"}}"#,
+                &r,
+                &mut vec![],
+            )
+        }
+    }
+    for (w, h) in [(80, 24), (100, 30)] {
+        for supported in [false, true] {
+            let root = tempfile::Builder::new()
+                .prefix("tinkery-TEST-choice-")
+                .tempdir()
+                .unwrap();
+            std::fs::create_dir(root.path().join(".git")).unwrap();
+            let store = root.path().join("thoughts");
+            let host = Arc::new(Host::default());
+            let mut app = BrainDump::with_host(host.clone())
+                .with_shift_enter(supported)
+                .with_thoughts(Ok(store.clone()), crate::repo::Repo::enclosing(root.path()));
+            let initial = snapshot(w, h, &mut app, true).unwrap();
+            assert!(
+                initial.lines().last().unwrap().contains(if supported {
+                    "shift+enter newline"
+                } else {
+                    "^J newline"
+                }),
+                "{initial}"
+            );
+            let words = "  TEST café 👩‍💻\r\nKeep\tthese.  ";
+            app.paste(words);
+            app.handle_key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::CONTROL));
+            app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::SHIFT));
+            let exact = format!("{words}\n\n");
+            key(&mut app, KeyCode::Enter);
+            let choice = snapshot(w, h, &mut app, true).unwrap();
+            assert!(
+                choice.contains("1  Clarify into a goal · a model reads your words"),
+                "{choice}"
+            );
+            assert!(
+                choice.contains("2  Save as a thought · nothing reads them"),
+                "{choice}"
+            );
+            assert!(!app.running(), "Fresh Enter started a request");
+            assert!(app.conversation().sources().is_empty());
+            for event in [
+                KeyEvent::from(KeyCode::Enter),
+                KeyEvent::from(KeyCode::Enter),
+                KeyEvent::new_with_kind(KeyCode::Enter, KeyModifiers::NONE, KeyEventKind::Repeat),
+                KeyEvent::new_with_kind(
+                    KeyCode::Char('1'),
+                    KeyModifiers::NONE,
+                    KeyEventKind::Repeat,
+                ),
+                KeyEvent::new(KeyCode::Char('1'), KeyModifiers::ALT),
+                KeyEvent::from(KeyCode::F(2)),
+                KeyEvent::from(KeyCode::F(1)),
+                KeyEvent::from(KeyCode::Char('x')),
+            ] {
+                app.handle_key(event);
+            }
+            app.paste("1\n2\r\n");
+            super::tests::settle(&mut app);
+            assert_eq!(
+                host.0.load(Ordering::SeqCst),
+                0,
+                "Enter inside the choice started a model call"
+            );
+            assert!(
+                snapshot(w, h, &mut app, true)
+                    .unwrap()
+                    .contains("1  Clarify into a goal")
+            );
+            key(&mut app, KeyCode::Esc);
+            assert!(
+                !snapshot(w, h, &mut app, true)
+                    .unwrap()
+                    .contains("1  Clarify into a goal")
+            );
+            app.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+            app.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
+            assert_eq!(app.take_copy_request().as_deref(), Some(exact.as_str()));
+            assert_eq!(host.0.load(Ordering::SeqCst), 0);
+            key(&mut app, KeyCode::Enter);
+            key(&mut app, KeyCode::Char('2'));
+            assert_eq!(host.0.load(Ordering::SeqCst), 0);
+            assert_eq!(
+                app.exit(),
+                &Exit::Garden {
+                    words: exact.clone(),
+                    duplicate: false
+                }
+            );
+            let saved: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(
+                    std::fs::read_dir(store)
+                        .unwrap()
+                        .next()
+                        .unwrap()
+                        .unwrap()
+                        .path(),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(saved["words"], exact);
+
+            let mut app = BrainDump::with_host(host.clone());
+            snapshot(w, h, &mut app, true).unwrap();
+            app.paste(words);
+            key(&mut app, KeyCode::Enter);
+            let screen = snapshot(w, h, &mut app, true).unwrap();
+            assert!(
+                screen.contains("Unavailable: Open --home to save a thought in Tend."),
+                "{screen}"
+            );
+            key(&mut app, KeyCode::Char('2'));
+            assert_eq!(app.exit(), &Exit::Stay);
+            assert_eq!(host.0.load(Ordering::SeqCst), 0);
+            key(&mut app, KeyCode::Char('1'));
+            super::tests::settle(&mut app);
+            assert_eq!(host.0.load(Ordering::SeqCst), 1);
+            assert_eq!(app.conversation().sources()[0].text, words);
+            app.paste("TEST answer");
+            key(&mut app, KeyCode::Enter);
+            super::tests::settle(&mut app);
+            assert_eq!(host.0.load(Ordering::SeqCst), 2);
+            assert!(
+                !snapshot(w, h, &mut app, true)
+                    .unwrap()
+                    .contains("1  Clarify into a goal")
+            );
+        }
+    }
 }

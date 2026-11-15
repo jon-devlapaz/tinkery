@@ -56,6 +56,7 @@ fn escape_from_original_preserves_words_and_guards_discard_without_calls_or_save
             snapshot(width, height, &mut app, false).unwrap();
             app.paste(ORIGINAL);
             key(&mut app, KeyCode::F(2));
+            key(&mut app, KeyCode::Char('1'));
             let deadline = Instant::now() + Duration::from_secs(3);
             while app.running() && Instant::now() < deadline {
                 app.tick();

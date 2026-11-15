@@ -31,7 +31,7 @@ def journey(w,h):
   def send(data,text):
    before=screen.frames;os.write(master,data);wait(text,before)
   try:
-   wait("What's on your mind?");send(b'\x1bOP','Type, then Enter sends it.')
+   wait("What's on your mind?");send(b'\x1bOP','Type, then Enter opens a choice.')
    assert '┌ Right now ' in screen.text() and 'Close help' in screen.text(),screen.text()
    send(b'h','How it works');send(b'\x1b[6~'*30,'Last result')
    assert '┌ How it works ' in screen.text() and 'Close help' in screen.text() and 'Scroll' in screen.text(),screen.text()
@@ -40,7 +40,7 @@ def journey(w,h):
    send(b'\x1b[200~'+dump.encode()+b'\x1b[201~','LAST-ORIGINAL-LINE')
    send(b'\x1b','Back to menu and lose this draft? y / n');assert process.poll() is None
    os.write(master,b'n');await_condition(lambda s:'lose this draft?' not in s);wait('LAST-ORIGINAL-LINE')
-   send(b'\x1bOQ','Which complexity');send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'You are confirming')
+   send(b'\x1bOQ','1  Clarify into a goal');send(b'1','Which complexity');send(b'\x1bOP','Review the goal');send(screen.pick('Review the goal'),'You are confirming')
    # Source starts at its beginning; review never paints over the top header.
    assert ''.join(screen.cells[4][2:20])=='i am worried that ',screen.text()
    os.write(master,b'\x1b[<65;4;6M'*30);wait('LAST-ORIGINAL-LINE')

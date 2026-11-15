@@ -406,6 +406,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             declared,
         );
     }
+    let shift_enter =
+        !snapshot && crossterm::terminal::supports_keyboard_enhancement().unwrap_or(false);
     if home_menu {
         let make_dump: Box<dyn Fn() -> BrainDump> = if let Some(host) = host.clone() {
             let root = sessions_root.clone().ok();
@@ -432,6 +434,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 dump
             })
         };
+        let make_dump: Box<dyn Fn() -> BrainDump> =
+            Box::new(move || make_dump().with_shift_enter(shift_enter));
         let make_dump: Box<dyn Fn() -> BrainDump> = if snapshot {
             make_dump
         } else {
@@ -495,7 +499,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     app = match app {
         Intake::Brain(dump) => Intake::Brain(Box::new(
-            (*dump).with_voice(Box::new(tinkery::voice::ProcessHost::new())),
+            (*dump)
+                .with_shift_enter(shift_enter)
+                .with_voice(Box::new(tinkery::voice::ProcessHost::new())),
         )),
         other => other,
     };

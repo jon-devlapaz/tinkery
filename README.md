@@ -41,7 +41,9 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
   Shape without changing saved sessions. In this repository, `t` opens fresh Think.
-  Before sending, `Ctrl+S` keeps exact words as a thought and opens Tend without a model call or goal confirmation. `v` reads thoughts;
+  Before the first send, Enter opens a choice: `1 Clarify into a goal` (a model reads your words)
+  or `2 Save as a thought` (nothing reads them). Saving keeps exact words and opens Tend.
+  Esc returns to writing unchanged. Enter and paste never pick. Ctrl+S still saves directly. `v` reads thoughts;
   `g` opens one in Think, unsent. The thought stays on record after goal confirmation.
   In this repository, press `f` to review an
   automatic connection between goals. An explicit `F2` uses one drafting request.
@@ -114,7 +116,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `e` shows checks, owed gates, the whole goal, IDs and evidence. For PR results,
   `o` opens the PR and `a`/`c` copy external review handoffs. Once a person accepts
   the result elsewhere, `l` reports that decision for this view and
-  reveals one italic next-dump guess; `t` opens it for editing in Think. Only Enter sends.
+  reveals one italic next-dump guess; `t` opens it for editing in Think. Enter opens the fresh-input choice before sending.
   No unmet conditions means observe the accepted behavior, not invent another feature.
   See [Taste](docs/design/taste.md).
 - **Measure:** `r` explicitly reads this repo's PRs updated in the last 30 days from
@@ -147,8 +149,10 @@ export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
 cargo +stable run --locked -- --home
 ```
 
-Think is practice: no model calls or saved goals. Fresh menu Think saves thoughts only on `Ctrl+S`
-and writes needs only when you explicitly link or unlink. Enter sends, Ctrl+J adds a line (see [Keys](docs/terminal-setup.md#keys)), F1 lists what else you can do, Esc returns to the menu.
+Think is practice: no model calls or saved goals. In fresh Think, Enter opens the goal-or-thought choice.
+After the first send, Enter sends directly. Shift+Enter adds a line when supported, otherwise use Ctrl+J
+(see [Keys](docs/terminal-setup.md#keys)). F1 lists more actions. Esc returns to the menu.
+Tend writes needs only when you explicitly link or unlink.
 Add `--snapshot` for text output.
 
 Real drafting needs a model and an explicitly authorized call allowance; provider

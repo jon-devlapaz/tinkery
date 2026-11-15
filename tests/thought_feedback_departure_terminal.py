@@ -13,7 +13,7 @@ def departure(size):
         term = thought.launch(root, repo, size, provider=True, budget=0)
         try:
             for outcome in ['Thought saved.', 'Thought already saved.']:
-                thought.flow.send(term, b't', 'keep thought')
+                thought.flow.send(term, b't', 'enter choose')
                 thought.paste(term, 'TEST notice lifetime')
                 thought.flow.send(term, b'\x1bOR', outcome)
                 thought.flow.send(term, b'\r', 's shape')
@@ -36,7 +36,7 @@ def failed_refresh(size):
         original = {p: p.read_bytes() for p in (root/'sessions').rglob('*') if p.is_file()}
         term = thought.launch(root, repo, size, provider=True, budget=0)
         try:
-            thought.flow.send(term, b't', 'keep thought')
+            thought.flow.send(term, b't', 'enter choose')
             thought.paste(term, 'TEST refresh failure')
             thought.flow.send(term, b'\x1bOR', 'Thought saved.')
             path = thought.saved(root)[0]

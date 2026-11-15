@@ -3,8 +3,17 @@
 ## Shipped experience
 
 The blank writing box accepts typing or paste without fields, kinds or cards.
-Only Enter (or F2) interprets; Ctrl+J, Shift+Enter or Alt+Enter add a line, and pasted
-line breaks never send. Originals stay intact on the left.
+Before the first send, Enter (or F2) opens a choice above the key bar:
+`1  Clarify into a goal · a model reads your words` and
+`2  Save as a thought · nothing reads them`.
+Only a fresh, unmodified digit picks. Enter, repeated keys and paste never pick.
+Esc returns to writing with exact words unchanged. Without thought storage, option 2
+says it is unavailable and names the reason. Ctrl+S and F3 still save directly.
+After the first send, Enter sends directly. Goal review keeps plain-Enter confirmation.
+Ctrl+J, Shift+Enter or Alt+Enter add a line, and pasted line breaks never send.
+The key bar names `enter choose` before sending and no longer names Ctrl+S.
+It names `shift+enter newline` when startup detects keyboard enhancement, otherwise
+`^J newline`. Snapshot mode does not query the terminal. Originals stay intact on the left.
 Below 80×24, the size warning holds sending for typed and dictated drafts. Resizing back
 retains the words and requires a fresh Enter before sending.
 One “I think you mean…” reading and at most one focused question sit on the right.
@@ -336,9 +345,9 @@ Think and Shape share one key map ([#440](https://github.com/jon-devlapaz/tinker
 Enter runs the one action the key bar names ([#876](https://github.com/jon-devlapaz/tinkery/issues/876));
 Ctrl+J adds a line. F1 lists every other action allowed now, and Esc goes back. F2 remains an
 alternative for Enter. F6 (or Ctrl+Alt+Z) speaks; editing keys stay. Ctrl+S (or F3) keeps a
-fresh input as a thought. No other function key or Ctrl alias acts. Goal review, its receipt,
+fresh input as a thought without opening the choice. No other function key or Ctrl alias acts. Goal review, its receipt,
 help and card extraction keep their own Enter. A row appears only when its action is allowed, so nothing in the list refuses:
-review needs real mode with a sessions folder. Empty help says “Type, then Enter sends it.”
+review needs real mode with a sessions folder. Empty help says “Type, then Enter opens a choice.”
 F1 opens bounded reading-side help without changing originals or drafts. Right now leads
 with the numbered rows (a digit runs its row once and closes help), then the state; `h`
 opens How it works and F1 closes. Labels fit one line of an 80-column panel; a short

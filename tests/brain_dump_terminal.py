@@ -59,7 +59,7 @@ def journey(width,height):
    await_text("What's on your mind?");assert 'I think this is about' not in screen.text();assert not requests()
    text='Typed evidence should appear promptly without waiting for a provider call.'
    start=time.monotonic();send(text.encode(),'call.');burst=time.monotonic()-start;assert burst<1.0,(width,burst)
-   assert not requests();send(b'\x1b[13;9u','Which evidence gets confused?');assert len(requests())==1
+   assert not requests();send(b'\x1b[13;9u','1  Clarify into a goal');send(b'1','Which evidence gets confused?');assert len(requests())==1
    assert requests()[0]['sources'][0]['text']==text
    assert not requests()[0]['fragments'];await_text('Typed evidence');await_text('keep review evidence');assert 'Ctrl-O originals' not in screen.text()
    choose('Why: attempts','Success criteria');assert len(requests())==1

@@ -404,7 +404,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
                 send(b'\x1b', 'Guess · Next:')
                 assert len(calls()) == before
                 send(b't', "Tinkery's guess · edit freely")
-                assert 'Enter sends' in screen.text()
+                assert 'Enter chooses' in screen.text()
                 assert not (base / 'TEST-sessions').exists()
                 assert len(calls()) == before
                 if next_case == 'correct':
@@ -413,7 +413,8 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
                 elif next_case in ['nothing unmet', 'absent ci']:
                     os.write(master, b'\x1b[1;5H')  # Ctrl-Home reveals beginning of long draft
                     wait(lambda: 'Observe “TEST café”' in screen.text())
-                os.write(master, b'\x1bOQ')  # F2: practice host, zero provider calls
+                send(b'\x1bOQ', '1  Clarify into a goal')
+                os.write(master, b'1')
                 wait(lambda: 'Simulated' in screen.text())
                 if next_case == 'correct':
                     assert 'TEST operator correction' in screen.text()

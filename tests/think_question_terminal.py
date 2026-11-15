@@ -78,7 +78,7 @@ def journey(width, height, long_question=False, suggestion=False, mono=False):
 
         try:
             wait(lambda s: "What's on your mind?" in s)
-            os.write(master, b'\x1b[200~' + WORDS.encode() + b'\x1b[201~\x1bOQ')
+            os.write(master, b'\x1b[200~' + WORDS.encode() + b'\x1b[201~\x1bOQ1')
             wait(lambda s: "One thing I'm not sure about" in s)
             if long_question and height <= 30:
                 assert 'PgUp/PgDn scroll question' in screen.text(), screen.text()

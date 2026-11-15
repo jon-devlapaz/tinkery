@@ -41,7 +41,8 @@ def journey(width, height, mono, case):
             os.write(run.master, b'\x1b[200~' + WORDS.encode() + b'\x1b[201~')
             expected = ('Who: not named. Review' if case in ('quiet', 'quiet-note') else
                         QUESTION if case in ('question', 'skipped') else 'Still missing: Who.')
-            run.send(F2, expected)
+            run.send(F2, '1  Clarify into a goal')
+            run.send(b'1', expected)
             if case == 'skipped':
                 run.choose('Skip this question', 'Still missing: Who.')
             if case == 'quiet':

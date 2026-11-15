@@ -129,6 +129,13 @@ pub(super) fn amend_board(a: &mut BrainDump, edit: impl FnOnce(&mut Guess)) {
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+    if code == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 /// Runs the F1 row whose words contain `label`, as the operator does: F1, then its digit.
 /// Panics, showing help, when no such row is offered right now.

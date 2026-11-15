@@ -35,12 +35,12 @@ def journey(w,h):
   def choose(label,text):send(b'\x1bOP',label);send(screen.pick(label),text)
   try:
    await_condition(lambda s:"What's on your mind?" in s)
-   send(b'\x1bOQ','Write something, then Enter sends it.')
+   send(b'\x1bOQ','1  Clarify into a goal');send(b'1','Write something, then Enter sends it.')
    assert not (cwd/'calls.jsonl').exists(),'Empty send called the provider'
    assert not (cwd/'TEST-sessions').exists() and not (cwd/'TEST-records').exists()
    send(b'Books read this year.','Books read this year.')
    assert 'Write something, then Enter sends it.' not in screen.text(),screen.text()
-   send(b'\x1bOQ','What would you want')
+   send(b'\x1bOQ','1  Clarify into a goal');send(b'1','What would you want')
    choose('Review the goal','You are confirming');assert process.poll() is None
    send(b'\x1b','What would you want')
    os.write(master,b'\x1b[17~');time.sleep(.2);assert 'board controls' not in screen.text()
@@ -91,7 +91,7 @@ def exit_during_shaping(w,h):
   try:
    await_condition(lambda:"What's on your mind?" in screen.text())
    os.write(master,b'Slow books read this year.');await_condition(lambda:'Slow books' in screen.text())
-   os.write(master,b'\x1bOQ');await_condition(pid.exists)
+   os.write(master,b'\x1bOQ');await_condition(lambda:'1  Clarify into a goal' in screen.text());os.write(master,b'1');await_condition(pid.exists)
    # Esc cancels the call first, then asks before leaving.
    os.write(master,b'\x1b');await_condition(lambda:'Thinking' not in screen.text())
    time.sleep(.3)

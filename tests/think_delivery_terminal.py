@@ -83,7 +83,8 @@ def journey(width, height, no_color):
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")
             paste(fixture['words'])
-            run.send(F2, READY)
+            run.send(F2, '1  Clarify into a goal')
+            run.send(b'1', READY)
             assert "Nothing I'm unsure about" not in run.flat()
             assert run.flat().count(READY) == 1
             paper, first_goal = copy_board()

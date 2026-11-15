@@ -78,7 +78,8 @@ def journey(width, height):
             send(b'1', "What's on your mind?")
             assert 'Keep my words.' not in screen.text(), 'New visit retained discarded words'
             send(b'\x1b[200~' + ORIGINAL.encode() + b'\x1b[201~', 'Keep these exact words.')
-            send(b'\x1bOQ', 'which part matters')
+            send(b'\x1bOQ', '1  Clarify into a goal')
+            send(b'1', 'which part matters')
             send(b'\x1b[200~' + DRAFT.encode() + b'\x1b[201~', 'Still local.')
             os.write(master, b'\t\x01')
             copy(ORIGINAL)

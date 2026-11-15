@@ -113,7 +113,8 @@ def journey(width, height, no_color, stalled_close=False):
             send(b'\x1b[17~', 'typed kept spoken words')
             text(VOICE_KEY + ' speak')
             assert not rows('requests.jsonl')
-            send(b'\x1bOQ', 'Which evidence gets confused?')
+            send(b'\x1bOQ', '1  Clarify into a goal')
+            send(b'1', 'Which evidence gets confused?')
             assert rows('requests.jsonl')[0]['sources'][0]['text'] == 'typed kept spoken words'
             # CSI-u Ctrl+Alt+Z: never Ctrl+Z undo or a character insertion.
             send(b'\x1b[122;7u', 'ghost words')

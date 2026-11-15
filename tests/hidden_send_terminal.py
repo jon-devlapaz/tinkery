@@ -53,7 +53,8 @@ def journey(width, height, voice):
             resize_with_input(terminal, 100, 30)
             terminal.wait(lambda screen: 'Keep these exact words.' in screen)
             assert calls('TEST-calls.jsonl') == [], 'restoring the screen sent without a new key'
-            terminal.send(F2, 'Which TEST reason?')
+            terminal.send(F2, '1  Clarify into a goal')
+            terminal.send(b'1', 'Which TEST reason?')
             requests = calls('TEST-calls.jsonl')
             assert len(requests) == 2, requests  # One send runs shaping and its decision review.
             assert requests[0]['sources'][0]['text'] == DRAFT + ('spoken words' if voice else '')

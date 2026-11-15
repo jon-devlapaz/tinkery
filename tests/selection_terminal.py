@@ -128,7 +128,8 @@ def journey(width, height):
             await_text('copy exactly.')
             os.write(master, b'\x01'); pump(0.1); copy(TEXT)
             assert not starts(), 'selection replacement sent'
-            os.write(master, b'\x1bOQ'); await_text('Which words matter?')
+            os.write(master, b'\x1bOQ'); await_text('1  Clarify into a goal')
+            os.write(master, b'1'); await_text('Which words matter?')
             assert len(requests()) == 1
             request = json.loads(requests()[0])
             assert request['sources'][0]['text'].encode() == TEXT.encode()

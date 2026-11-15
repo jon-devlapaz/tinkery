@@ -88,7 +88,7 @@ def recipient(terminal, harness, model):
     shown = terminal.screen.text()
     for text in (f'Enter sends to {harness}: {model}.', 'For later launches', 's save', 'esc close'):
         assert text in shown, (text, shown)
-    terminal.send(ESC, 'enter clarify goal')
+    terminal.send(ESC, 'enter choose')
 
 
 def zero_override(root, home, colour, started):
@@ -99,7 +99,8 @@ def zero_override(root, home, colour, started):
         terminal.wait(lambda screen: "What's on your mind?" in screen)
         assert 'practice' in header(terminal), header(terminal)
         terminal.send(b'TEST zero-budget words', 'TEST zero-budget words')
-        terminal.send(F2, 'Simulated sensemaking')
+        terminal.send(F2, '1  Clarify into a goal')
+        terminal.send(b'1', 'Simulated sensemaking')
         assert 'TEST zero-budget words' in terminal.screen.text()
     assert started() == starts, 'explicit zero started a provider'
     assert saved.read_bytes() == before, 'explicit zero changed the saved setup'
@@ -202,7 +203,8 @@ def journey(no_color):
             assert '5 runs left' in header(terminal), header(terminal)
             assert calls(root) == []
             terminal.send(b'TEST saved words', 'TEST saved words')
-            terminal.send(F2, 'Which TEST reason?')
+            terminal.send(F2, '1  Clarify into a goal')
+            terminal.send(b'1', 'Which TEST reason?')
             assert calls(root) and all(c == dict(model='test/saved', thinking='medium') for c in calls(root)), calls(root)
             terminal.wait(lambda _: f'{5 - len(calls(root))} runs left' in header(terminal))
 
@@ -216,7 +218,8 @@ def journey(no_color):
                     recipient(terminal, 'Pi', 'test/flag')
                     assert len(calls(root)) == start, 'opening the panel started a request'
                     terminal.send(b'TEST flag words', 'TEST flag words')
-                    terminal.send(F2, 'Which TEST reason?')
+                    terminal.send(F2, '1  Clarify into a goal')
+                    terminal.send(b'1', 'Which TEST reason?')
                     assert [c['model'] for c in calls(root)[start:]] == ['test/flag'], calls(root)
                     # The thinking flag was not given, so the saved level applies.
                     assert calls(root)[-1]['thinking'] == 'medium'
@@ -227,7 +230,8 @@ def journey(no_color):
         with Launch(root, home, ['--shape-pi', '--model', 'test/flag', '--shape-budget', '0', *colour]) as terminal:
             terminal.wait(lambda _: '0 runs left' in header(terminal))
             terminal.send(b'TEST topped up words', 'TEST topped up words')
-            os.write(terminal.master, F2)
+            terminal.send(F2, '1  Clarify into a goal')
+            os.write(terminal.master, b'1')
             terminal.wait(lambda screen: 'Add runs to keep going.' in ' '.join(screen.split()))
             assert len(calls(root)) == start
             assert 'TEST topped up words' in terminal.screen.text()
@@ -300,7 +304,8 @@ def claude_code(root, colour):
     with Launch(root, home, colour) as terminal:
         terminal.wait(lambda _: '5 runs left' in header(terminal))
         terminal.send(b'TEST claude words', 'TEST claude words')
-        terminal.send(F2, 'Which TEST claude reason?')
+        terminal.send(F2, '1  Clarify into a goal')
+        terminal.send(b'1', 'Which TEST claude reason?')
     assert started(), 'Claude Code never started'
     for call in started():
         assert (call['model'], call['thinking'], call['tools'], call['files']) == ('claude-opus-5-5', 'medium', '', []), call
@@ -317,7 +322,8 @@ def claude_code(root, colour):
                 recipient(terminal, 'Claude Code', 'claude-haiku-5-5')
                 assert len(started()) == start, 'opening the panel started a request'
                 terminal.send(b'TEST flag words', 'TEST flag words')
-                terminal.send(F2, 'Which TEST claude reason?')
+                terminal.send(F2, '1  Clarify into a goal')
+                terminal.send(b'1', 'Which TEST claude reason?')
             assert [(c['model'], c['thinking']) for c in started()[start:]] == [('claude-haiku-5-5', 'max')], started()
     assert saved.read_text() == before
     for args, refusal in [(['--thinking', 'minimal'], 'with Claude Code'),

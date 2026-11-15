@@ -57,10 +57,14 @@ Ctrl-L. Leave out credentials and private data.
 ## Keys
 
 Think and Shape share one key map: **Enter** runs the action the key bar names, and
-**Ctrl+J** adds a new line. Shift+Enter and Alt+Enter also add a line in terminals that
-report them (kitty keyboard protocol). Pasted line breaks never run an action. F1 lists every
+**Shift+Enter** adds a new line in terminals that report it (kitty keyboard protocol).
+Think's key bar shows that key when supported, otherwise **Ctrl+J**. Ctrl+J always works.
+Alt+Enter also adds a line when reported. Pasted line breaks never run an action. F1 lists every
 other action allowed now with a number (press the number to run it), and Esc goes back.
-In a fresh Think input, **Ctrl+S** keeps the exact words as a thought; nothing reads them.
+In a fresh Think input, Enter opens two choices: **1 Clarify into a goal** (a model reads
+your words) or **2 Save as a thought** (nothing reads them). Esc returns to writing unchanged.
+Enter, repeated keys and paste never pick. Without `--home`, saving a thought is unavailable.
+After the first send, Enter sends directly. **Ctrl+S** still saves a fresh thought directly.
 
 F2, Cmd+Enter (in terminals that report it) and Ctrl+Alt+S still run the key bar's action,
 and F3 still keeps a thought. Other screens still name F2 on their key bars. On a Mac keyboard

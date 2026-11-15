@@ -3,6 +3,13 @@ use super::tests::amend_board;
 use super::*;
 fn key(a: &mut BrainDump, k: KeyCode) {
     a.handle_key(KeyEvent::new(k, KeyModifiers::NONE));
+    if k == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 fn ctrl_c(a: &mut BrainDump) {
     a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
@@ -15,7 +22,7 @@ fn help_leads_with_numbered_actions_then_context() {
     let mut a = BrainDump::default();
     assert_eq!(
         layout::help_text(&a),
-        "Right now\nType, then Enter sends it.\n\nF1 close"
+        "Right now\nType, then Enter opens a choice.\n\nF1 close"
     );
     a = board();
     a.screen.help = true;
