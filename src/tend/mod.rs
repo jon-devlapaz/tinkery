@@ -391,7 +391,9 @@ impl Tend {
             ""
         };
         format!(
-            "Right now\n{}{}{scope}{thoughts}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
+            "Right now\n{}{}{scope}{thoughts}\nEsc back · F10 menu\n\n\
+             F1 close · h how it works · PgUp/PgDn scroll{needs}\n\n\
+             Nothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
             } else if self.linking.is_some() {
