@@ -206,6 +206,94 @@ def malformed_and_legacy():
         print('legacy prompt pending recovery, malformed correction saved-goal opening/Clear and symlink refusal: one fake call')
 
 
+def exact_trailing_newline():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-correction-exact-end-') as directory:
+        root=Path(directory).resolve();repo=flow.fixture(root)
+        term=discover(root,repo)
+        try:
+            words='Exact guidance.\n'
+            save_correction(term,words)
+            assert json.loads(correction(root).read_text())['correction']['text']==words
+            flow.send(term,b'f','F2 save correction only')
+            flow.send(term,flow.F2,'F2 find one connection')
+            assert json.loads(correction(root).read_text())['correction']['text']==words, 'Untouched replacement changed the exact correction'
+            assert len(flow.requests(root))==1
+        finally: term.close()
+        print('one final newline survives untouched replacement without a call')
+
+
+def capture_context_and_exact_replacement(size):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-correction-capture-') as directory:
+        root=Path(directory).resolve();repo=flow.fixture(root)
+        term=discover(root,repo,size)
+        try:
+            flow.send(term,b'f','F2 save correction only')
+            screen=term.screen.text()
+            assert 'Reviewed proposal' in screen,screen
+            compact=''.join(line.strip() for line in screen.splitlines())
+            assert 'TEST connect support gaps to documentation.' in ' '.join(screen.split()),screen
+            assert str(repo) in compact,screen
+            capture(term,f'{size[0]}x{size[1]}-capture-context')
+            words='Exact guidance.\n\n'
+            os.write(term.master,b'\x1b[200~'+words.encode()+b'\x1b[201~')
+            flow.send(term,b'\t','tab edit')
+            # Scroll the complete proposal without changing or abandoning the draft.
+            flow.send(term,b'\x1b[F','Assumption or conflict')
+            capture(term,f'{size[0]}x{size[1]}-capture-context-scrolled')
+            assert not list((root/'links').glob('*.correction.json'))
+            assert len(flow.requests(root))==1
+            flow.send(term,b'\t','tab context')
+            assert 'Exact guidance.' in term.screen.text()
+            flow.send(term,flow.F2,'F2 find one connection')
+            assert json.loads(correction(root).read_text())['correction']['text']==words
+            flow.send(term,b'f','F2 save correction only')
+            capture(term,f'{size[0]}x{size[1]}-replacement-with-final-blanks')
+            flow.send(term,flow.F2,'F2 find one connection')
+            assert json.loads(correction(root).read_text())['correction']['text']==words
+            assert len(flow.requests(root))==1
+        finally: term.close()
+        term=flow.launch(root,repo,*size,budget=0)
+        try:
+            flow.wait(term,'F2 find one connection')
+            flow.send(term,b'f','F2 save correction only')
+            flow.send(term,flow.F2,'F2 find one connection')
+            assert json.loads(correction(root).read_text())['correction']['text']==words
+            assert len(flow.requests(root))==1
+        finally: term.close()
+        print(f'{size[0]}x{size[1]}: capture shows repo/proposal; context scrolling retains draft; two final newlines survive untouched replacement/restart')
+
+
+def long_repository_capture():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-correction-long-repo-') as directory:
+        root=Path(directory).resolve()
+        for i in range(12): root=root/('repository-segment-'+str(i)+'-'+('x'*40))
+        root.mkdir(parents=True);repo=flow.fixture(root)
+        term=discover(root,repo,(80,24))
+        try:
+            flow.send(term,b'f','F2 save correction only')
+            os.write(term.master,b'\x1b[200~TEST draft survives full repository review\x1b[201~')
+            flow.send(term,b'\t','tab edit')
+            observed=[]
+            for step in range(20):
+                observed.append(term.screen.text())
+                if step in (0,5,10,15): capture(term,f'80x24-long-repository-context-{step}')
+                os.write(term.master,b'\x1b[B');settle(term)
+            # Each long path segment and the final repo are inspectable by scrolling.
+            compact=''.join(line.strip() for frame in observed for line in frame.splitlines())
+            for part in repo.parts:
+                assert part in compact,(part,observed)
+            assert 'Reviewed proposal' in compact
+            capture(term,'80x24-long-repository-context')
+            flow.send(term,b'\t','tab context')
+            assert 'TEST draft survives full repository review' in term.screen.text()
+            assert not list((root/'links').glob('*.correction.json'))
+            flow.send(term,flow.F2,'F2 find one connection')
+            assert json.loads(correction(root).read_text())['correction']['text']=='TEST draft survives full repository review'
+            assert len(flow.requests(root))==1
+        finally: term.close()
+        print('long repository remains scrollable during capture; navigation retains draft and makes no call')
+
+
 def disclosure_matches_request():
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-correction-disclosure-') as directory:
         root=Path(directory).resolve();repo=flow.fixture(root)
@@ -332,7 +420,11 @@ def input_limit_and_format_refusals():
 
 if __name__=='__main__':
     subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=flow.REPO,env=subprocess.environment(),check=True)
-    for size in [(80,24),(100,30)]: journey(size)
+    for size in [(80,24),(100,30)]:
+        journey(size)
+        capture_context_and_exact_replacement(size)
+    exact_trailing_newline()
+    long_repository_capture()
     edits_and_conflicts()
     malformed_and_legacy()
     disclosure_matches_request()

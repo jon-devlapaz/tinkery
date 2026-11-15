@@ -66,3 +66,15 @@ The second verification run on a01a524 was interrupted with SIGINT to make this 
 The full configured SDLC verification passed on d21409c. It reports 1124 Rust tests passed and one ignored, 39 Node tests passed, all 85 Python test files passed, formatting passed, and Clippy passed with warnings denied. The receipt is current. Both required reversion probes failed as expected before restored-source checks.
 
 Independent review and PR publication belong to the supervisor. No push, PR, merge, real provider request, real audio, or operator-goal access occurred in this worker.
+
+## Independent review repairs
+
+Round 1 found two Important defects in the correction editor. Reopening used `str::lines`, which discarded final blank lines. Loading with `split('\n')` now preserves the original text. Public tests save one and two final newlines, replace without editing, and inspect exact durable text after restart. No extra request occurs.
+
+The capture view omitted the proposal and clipped the repository. It now wraps the full repository and proposal context above the existing editor. Tab changes focus to read-only context scrolling and back without discarding the draft. Public terminal tests at 80×24 and 100×30 inspect the proposal, repository, supporting quotes, focus hints, and footer. A longer repository test scrolls every path component and the proposal into view before saving.
+
+Both new reversion probes compiled successfully and failed the intended public assertion. `reversion-exact-correction-end.log` restores `words.lines()` and detects changed exact text. `reversion-capture-context.log` restores the reviewed panel and detects the missing proposal. Restored-source focused checks follow in `review-repair-focused.log`. Captures are saved under `screens/`.
+
+The first new capture assertion joined wrapped lines without spaces. It failed on correct displayed text. The assertion now normalizes screen whitespace. This was a test assertion defect, not an additional product defect.
+
+These repairs add no provider calls or storage format changes. The existing design contract documents context navigation and final-line preservation. Human usefulness remains unobserved. Final full verification must run on the repair commit.

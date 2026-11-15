@@ -279,6 +279,9 @@ Think records and legacy unknown-origin behavior retain their earlier rules.
 
 While reviewing a proposal, `f` opens one correction field. State what must change
 and when it matters. `F2` saves exact words only; Esc keeps stored guidance unchanged.
+The capture view keeps the reviewed proposal and wrapped repository above the editor.
+Tab switches between writing and read-only context; arrows or Page Up/Down scroll
+that context without losing the draft. Reopening preserves final blank lines exactly.
 The same action replaces existing guidance. `x` opens a separate Clear confirmation.
 Saving, replacing, clearing, and navigating make no model calls and confirm no goal.
 One current correction per canonical repository survives later explorations and no-result replies.

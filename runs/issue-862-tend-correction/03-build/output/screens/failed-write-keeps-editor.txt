@@ -1,11 +1,19 @@
                                                                                                     
   tinkery › tend                                                             9 runs left         ?  
                                                                                                     
-  Save correction in /private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correct  
-  What must change, and when does it matter?                                                        
+  Save correction                                                                                   
   Permission denied (os error 13) at path                                                           
-  "/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correction-write-fy25goic  
-  /links/.tmpOCj33d"                                                                                
+  "/private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correction-write-30p17heh  
+  /links/.tmpE9LQZC"                                                                                
+  Repository:                                                                                       
+  /private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correction-write-30p17heh/  
+  repo                                                                                              
+  Reviewed proposal (Tinkery's guess): TEST connect support gaps to documentation.                  
+  Why: TEST support gaps can guide documentation.                                                   
+  Inspectable result: TEST one linked support example.                                              
+  Judgment: TEST was an answer easier to find?                                                      
+  Source goal-0: TEST find repeated support requests                                                
+  What must change, and when does it matter? · tab reviews context                                  
   TEST retained after write failure                                                                 
                                                                                                     
                                                                                                     
@@ -18,13 +26,5 @@
                                                                                                     
                                                                                                     
                                                                                                     
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-  F2 save correction only   esc keep stored correction                                              
+  F2 save correction only   tab context   esc keep stored correction                                
                                                                                                     

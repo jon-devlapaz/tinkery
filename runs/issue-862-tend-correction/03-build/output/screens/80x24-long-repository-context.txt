@@ -1,0 +1,24 @@
+                                                                                
+  tinkery › tend                                         9 runs left         ?  
+                                                                                
+  Save correction                                                               
+  Why: TEST support gaps can guide documentation.                               
+  Inspectable result: TEST one linked support example.                          
+  Judgment: TEST was an answer easier to find?                                  
+  Source goal-0: TEST find repeated support requests                            
+  Keep their original words.                                                    
+  Source goal-1: TEST make documentation easier to find                         
+  Measure missed answers.                                                       
+  Assumption or conflict: TEST both goals concern the same users.               
+  Review context · ↑↓ / PgUp PgDn scroll · tab returns to writing               
+  TEST draft survives full repository review                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  F2 save correction only   tab edit   ↑↓ scroll   esc cancel                   
+                                                                                

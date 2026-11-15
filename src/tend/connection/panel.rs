@@ -38,6 +38,8 @@ pub(crate) struct Panel {
     notice: Option<String>,
     editor: Option<(TextArea<'static>, EditKind)>,
     saving_editor: Option<(TextArea<'static>, EditKind)>,
+    editor_context: bool,
+    editor_offset: u16,
     correction: Result<correction::Snapshot, String>,
     offset: u16,
     running: Option<mpsc::Receiver<Done>>,
@@ -63,6 +65,8 @@ impl Panel {
             editor: None,
             correction: Err("Reading correction…".into()),
             saving_editor: None,
+            editor_context: false,
+            editor_offset: 0,
             offset: 0,
             running: None,
             stop: Arc::new(AtomicBool::new(false)),
@@ -145,9 +149,10 @@ impl Panel {
         self.receipt.take()
     }
 
-    /// Insert literal pasted text only into the active goal editor. Pasting never saves or requests.
+    /// Insert literal pasted text only while writing. Pasting never saves or requests.
     pub(crate) fn paste(&mut self, text: &str) {
         if let Some((editor, kind)) = &mut self.editor
+            && !self.editor_context
             && !matches!(kind, EditKind::Correction { clear: true, .. })
         {
             editor.insert_str(text);
@@ -170,6 +175,22 @@ impl Panel {
             return false;
         }
         if let Some((editor, kind)) = &mut self.editor {
+            if matches!(kind, EditKind::Correction { .. }) && key.code == KeyCode::Tab {
+                self.editor_context = !self.editor_context;
+                return false;
+            }
+            if self.editor_context && key.code != KeyCode::F(2) {
+                match key.code {
+                    KeyCode::Down => self.editor_offset = self.editor_offset.saturating_add(1),
+                    KeyCode::Up => self.editor_offset = self.editor_offset.saturating_sub(1),
+                    KeyCode::PageDown => self.editor_offset = self.editor_offset.saturating_add(5),
+                    KeyCode::PageUp => self.editor_offset = self.editor_offset.saturating_sub(5),
+                    KeyCode::Home => self.editor_offset = 0,
+                    KeyCode::End => self.editor_offset = u16::MAX,
+                    _ => {}
+                }
+                return false;
+            }
             if key.code == KeyCode::F(2) {
                 let words = editor.lines().join("\n");
                 let kind = kind.clone();
@@ -209,8 +230,10 @@ impl Panel {
                             .is_some_and(|r| r.pending.is_some() && r.saved.is_none())
                     {
                         let words = current.ok().flatten().map_or(String::new(), |c| c.text);
+                        self.editor_context = false;
+                        self.editor_offset = 0;
                         self.editor = Some((
-                            TextArea::from(words.lines()),
+                            TextArea::from(words.split('\n')),
                             EditKind::Correction {
                                 shown: shown.clone(),
                                 clear,
@@ -226,6 +249,8 @@ impl Panel {
                     && self.input.as_ref().ok() == Some(&record.input)
                     && let Some(proposal) = &record.proposal
                 {
+                    self.editor_context = false;
+                    self.editor_offset = 0;
                     self.editor = Some((TextArea::from(proposal.goal.lines()), EditKind::Goal));
                 }
             }
@@ -280,36 +305,69 @@ impl Panel {
             ..area
         };
         if let Some((editor, kind)) = &self.editor {
+            let correction = matches!(kind, EditKind::Correction { .. });
+            let heading = match kind {
+                EditKind::Goal => format!("Confirm this goal in {}", self.context.repo.display()),
+                EditKind::Correction { clear: false, .. } => "Save correction".into(),
+                EditKind::Correction { clear: true, .. } => "Clear correction".into(),
+            };
             frame.render_widget(
-                Paragraph::new(format!(
-                    "{} in {}",
-                    match kind {
-                        EditKind::Goal => "Confirm this goal",
-                        EditKind::Correction { clear: false, .. } => "Save correction",
-                        EditKind::Correction { clear: true, .. } => "Clear correction",
-                    },
-                    self.context.repo.display()
-                ))
-                .style(palette.jade),
+                Paragraph::new(heading).style(palette.jade),
                 Rect { height: 1, ..body },
             );
-            if matches!(kind, EditKind::Correction { clear: false, .. }) {
-                frame.render_widget(
-                    Paragraph::new("What must change, and when does it matter?"),
-                    Rect::new(body.x, body.y + 1, body.width, 1),
-                );
-            }
-            let top = if let Some(notice) = &self.notice {
+            let mut top = 1;
+            if let Some(notice) = &self.notice {
                 frame.render_widget(
                     Paragraph::new(crate::tend::history::display(notice))
                         .wrap(Wrap { trim: false })
                         .style(palette.muted),
-                    Rect::new(body.x, body.y + 2, body.width, 3),
+                    Rect::new(body.x, body.y + top, body.width, 3),
                 );
-                5
+                top += 3;
+            }
+            if correction {
+                let mut context = format!("Repository: {}\n", self.context.repo.display());
+                if let Some(proposal) = self.record.as_ref().and_then(|r| r.proposal.as_ref()) {
+                    context.push_str(&format!("Reviewed proposal (Tinkery's guess): {}\nWhy: {}\nInspectable result: {}\nJudgment: {}\n", proposal.goal, proposal.relationship, proposal.outcome, proposal.question));
+                    for source in &proposal.sources {
+                        context.push_str(&format!("Source {}: {}\n", source.id, source.quote));
+                    }
+                    for assumption in &proposal.assumptions {
+                        context.push_str(&format!("Assumption or conflict: {assumption}\n"));
+                    }
+                } else {
+                    context.push_str(
+                        "No current proposal. The saved correction can be replaced or cleared.\n",
+                    );
+                }
+                let context = Paragraph::new(crate::tend::history::display(&context))
+                    .wrap(Wrap { trim: false });
+                let height = body.height.saturating_sub(top + 4).min(8);
+                self.editor_offset = self.editor_offset.min(
+                    context
+                        .line_count(body.width)
+                        .saturating_sub(height as usize) as u16,
+                );
+                frame.render_widget(
+                    context.scroll((self.editor_offset, 0)),
+                    Rect::new(body.x, body.y + top, body.width, height),
+                );
+                top += height;
+                let hint = if self.editor_context {
+                    "Review context · ↑↓ / PgUp PgDn scroll · tab returns to writing"
+                } else if matches!(kind, EditKind::Correction { clear: true, .. }) {
+                    "Stored correction · tab reviews context"
+                } else {
+                    "What must change, and when does it matter? · tab reviews context"
+                };
+                frame.render_widget(
+                    Paragraph::new(hint).style(palette.muted),
+                    Rect::new(body.x, body.y + top, body.width, 1),
+                );
+                top += 1;
             } else {
-                2
-            };
+                top += 1;
+            }
             frame.render_widget(
                 editor,
                 Rect::new(
@@ -319,19 +377,22 @@ impl Panel {
                     body.height.saturating_sub(top),
                 ),
             );
-            frame.render_widget(
-                Paragraph::new(match kind {
-                    EditKind::Goal => "F2 save exact words and open Shape   esc keep proposal",
-                    EditKind::Correction { clear: false, .. } => {
-                        "F2 save correction only   esc keep stored correction"
-                    }
-                    EditKind::Correction { clear: true, .. } => {
-                        "F2 clear correction only   esc keep stored correction"
-                    }
-                })
-                .style(palette.muted),
-                footer,
-            );
+            let keys = match kind {
+                EditKind::Goal => "F2 save exact words and open Shape   esc keep proposal",
+                EditKind::Correction { clear: false, .. } if self.editor_context => {
+                    "F2 save correction only   tab edit   ↑↓ scroll   esc cancel"
+                }
+                EditKind::Correction { clear: false, .. } => {
+                    "F2 save correction only   tab context   esc keep stored correction"
+                }
+                EditKind::Correction { clear: true, .. } if self.editor_context => {
+                    "F2 clear correction only   tab edit   ↑↓ scroll   esc cancel"
+                }
+                EditKind::Correction { clear: true, .. } => {
+                    "F2 clear correction only   tab context   esc keep stored correction"
+                }
+            };
+            frame.render_widget(Paragraph::new(keys).style(palette.muted), footer);
             return;
         }
         let mut lines = vec![
